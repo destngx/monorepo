@@ -16,7 +16,8 @@
         "tsConfig": "apps/monorepo/tsconfig.app.json",
         "assets": ["apps/monorepo/src/assets"],
         "isolatedConfig": true,
-        "webpackConfig": "apps/monorepo/webpack.config.js"
+        "webpackConfig": "apps/monorepo/webpack.config.js",
+        "generatePackageJson": true,
       },
       "configurations": {
         "development": {},
