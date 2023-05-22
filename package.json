@@ -33,7 +33,7 @@
     "@nx/workspace": "16.2.1",
     "@testing-library/react": "14.0.0",
     "@types/jest": "^29.4.0",
-    "@types/node": "18.14.2",
+    "@types/node": "18.16.14",
     "@types/react": "18.0.28",
     "@types/react-dom": "18.0.11",
     "@typescript-eslint/eslint-plugin": "^5.58.0",
