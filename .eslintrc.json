@@ -1,11 +1,54 @@
 {
   "root": true,
-  "ignorePatterns": ["**/*"],
   "plugins": ["@nx"],
+  "extends": ["eslint:recommended", "google"],
   "overrides": [
     {
       "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
+      "parserOptions": {
+        "project": ["./tsconfig.*?.json"]
+      },
       "rules": {
+        "no-console": "error",
+        "spaced-comment": ["error", "always", { "exceptions": ["/"] }],
+        "object-curly-spacing": "off",
+        "indent": [
+          "error",
+          2,
+          {
+            "ignoredNodes": ["PropertyDefinition"]
+          }
+        ],
+        "@typescript-eslint/naming-convention": [
+          "error",
+          {
+            "selector": "variable",
+            "modifiers": ["destructured"],
+            "format": null
+          },
+          {
+            "selector": "interface",
+            "format": ["PascalCase"],
+            "custom": {
+              "regex": "^I[A-Z]",
+              "match": false
+            }
+          },
+          {
+            "selector": "variable",
+            "types": ["boolean"],
+            "format": ["PascalCase"],
+            "prefix": ["is", "should", "has", "can", "did", "will"]
+          },
+          {
+            "selector": "memberLike",
+            "modifiers": ["private"],
+            "format": ["camelCase"],
+            "leadingUnderscore": "require"
+          }
+        ],
+        "new-cap": "off",
+        "require-jsdoc": "off",
         "@nx/enforce-module-boundaries": [
           "error",
           {

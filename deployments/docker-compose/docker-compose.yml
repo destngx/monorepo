@@ -1,0 +1,43 @@
+version: '3.8'
+services:
+  db:
+    image: mysql:8.0
+    container_name: db-write
+    cap_add:
+      - SYS_NICE
+    restart: always
+    environment:
+      - MYSQL_DATABASE=apps
+      - MYSQL_ROOT_PASSWORD=mauFJcuf5dhRMQrjj
+    ports:
+      - '3306:3306'
+    volumes:
+      - db:/var/lib/mysql
+      - $PWD/deployments/docker-compose/mysql:/docker-entrypoint-initdb.d/
+  db-read:
+    image: mysql:8.0
+    container_name: db-read
+    cap_add:
+      - SYS_NICE
+    restart: always
+    environment:
+      - MYSQL_DATABASE=apps
+      - MYSQL_ROOT_PASSWORD=mauFJcuf5dhRMQrjj
+    ports:
+      - '3307:3306'
+    volumes:
+      - db-read:/var/lib/mysql
+      - $PWD/deployments/docker-compose/mysql:/docker-entrypoint-initdb.d/
+  adminer:
+    depends_on:
+      - db
+      - db-read
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      MYSQL_ROOT_PASSWORD: mauFJcuf5dhRMQrjj
+volumes:
+  db:
+  db-read:

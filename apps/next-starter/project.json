@@ -10,7 +10,7 @@
       "defaultConfiguration": "production",
       "options": {
         "root": "apps/next-starter",
-        "outputPath": "apps/next-starter/dist"
+        "outputPath": "apps/next-starter/.next"
       },
       "configurations": {
         "development": {

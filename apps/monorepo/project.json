@@ -14,10 +14,10 @@
         "outputPath": "dist/apps/monorepo",
         "main": "apps/monorepo/src/main.ts",
         "tsConfig": "apps/monorepo/tsconfig.app.json",
-        "assets": ["apps/monorepo/src/assets"],
+        "assets": ["apps/monorepo/src/domain/assets"],
         "isolatedConfig": true,
         "webpackConfig": "apps/monorepo/webpack.config.js",
-        "generatePackageJson": true,
+        "generatePackageJson": true
       },
       "configurations": {
         "development": {},

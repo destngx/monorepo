@@ -1,20 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base",
-    ":separateMultipleMajorRelease",
-    ":autoMergePatch",
-    ":autoMergeMinor"
-  ],
+  "extends": ["config:base", ":separateMultipleMajorRelease", ":autoMergePatch", ":autoMergeMinor"],
   "labels": ["dependencies"],
   "dependencyDashboard": true,
   "commitMessagePrefix": "chore(deps): ",
   "commitBodyTable": true,
   "rebaseWhen": "behind-base-branch",
   "timezone": "Asia/Bangkok",
-  "schedule": [
-    "every weekend"
-  ],
+  "schedule": ["every weekend"],
   "major": {
     "dependencyDashboardApproval": true
   },

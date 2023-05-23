@@ -10,7 +10,7 @@
         "cypressConfig": "apps/next-starter-e2e/cypress.config.ts",
         "devServerTarget": "next-starter:serve:development",
         "testingType": "e2e",
-        "generatePackageJson": true,
+        "generatePackageJson": true
       },
       "configurations": {
         "production": {
@@ -20,18 +20,12 @@
     },
     "lint": {
       "executor": "@nx/linter:eslint",
-      "outputs": [
-        "{options.outputFile}"
-      ],
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": [
-          "apps/next-starter-e2e/**/*.{js,ts}"
-        ]
+        "lintFilePatterns": ["apps/next-starter-e2e/**/*.{js,ts}"]
       }
     }
   },
   "tags": [],
-  "implicitDependencies": [
-    "next-starter"
-  ]
+  "implicitDependencies": ["next-starter"]
 }

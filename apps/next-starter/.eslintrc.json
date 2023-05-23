@@ -1,19 +1,14 @@
 {
-  "extends": [
-    "plugin:@nx/react-typescript",
-    "next",
-    "next/core-web-vitals",
-    "../../.eslintrc.json"
-  ],
-  "ignorePatterns": ["!**/*", ".next/**/*"],
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "ignorePatterns": [".next/**/*"],
   "overrides": [
     {
       "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
       "rules": {
-        "@next/next/no-html-link-for-pages": [
-          "error",
-          "apps/next-starter/pages"
-        ]
+        "@next/next/no-html-link-for-pages": ["error", "apps/next-starter/app"]
       }
     },
     {
@@ -25,10 +20,74 @@
       "rules": {}
     }
   ],
-  "rules": {
-    "@next/next/no-html-link-for-pages": "off"
+  "extends": [
+    "next/core-web-vitals",
+    "eslint:recommended",
+    "plugin:import/recommended",
+    "plugin:import/typescript",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:jsx-a11y/recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:storybook/recommended"
+  ],
+  "settings": {
+    "react": {
+      "version": "detect"
+    },
+    "import/resolver": {
+      "typescript": {
+        "alwaysTryTypes": true
+      }
+    }
   },
-  "env": {
-    "jest": true
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaFeatures": {
+      "jsx": true
+    },
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "plugins": ["import", "simple-import-sort", "react", "@typescript-eslint", "jsx-a11y", "prettier"],
+  "rules": {
+    "max-lines": ["warn", 300],
+    "import/no-unresolved": "error",
+    "react/react-in-jsx-scope": "off",
+    "react/display-name": "off",
+    "react/jsx-curly-brace-presence": ["error", "never"],
+    "react-hooks/exhaustive-deps": "off",
+    "import/no-named-as-default": "off",
+    "@next/next/no-html-link-for-pages": "off",
+    "simple-import-sort/imports": [
+      "error",
+      {
+        "groups": [
+          // Packages `react` related packages come first.
+          ["^react", "^@?\\w"], // Internal packages.
+          ["^(@|components)(/.*|$)"], // Side effect imports.
+          ["^\\u0000"], // Parent imports. Put `..` last.
+          ["^\\.\\.(?!/?$)", "^\\.\\./?$"], // Other relative imports. Put same-folder imports and `.` last.
+          ["^\\./(?=.*/)(?!/?$)", "^\\.(?!/?$)", "^\\./?$"], // Style imports.
+          ["^.+\\.?(css)$"]
+        ]
+      }
+    ], // Any unused variables that start with _ will not count as error.
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "prettier/prettier": [
+      "error",
+      {},
+      {
+        "usePrettierrc": true
+      }
+    ]
   }
 }
