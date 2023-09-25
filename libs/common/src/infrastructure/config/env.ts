@@ -14,7 +14,7 @@ export class Configuration {
   readonly DATABASE_READ_PORT = Number(3306);
 
   @IsString()
-  readonly DATABASE_READ_NAME = '';
+  readonly DATABASE_READ_NAME = 'monorepo';
 
   @IsString()
   readonly DATABASE_READ_USER = 'root';
@@ -35,7 +35,7 @@ export class Configuration {
   readonly DATABASE_WRITE_PORT = Number(3306);
 
   @IsString()
-  readonly DATABASE_WRITE_NAME = '';
+  readonly DATABASE_WRITE_NAME = 'monorepo';
 
   @IsString()
   readonly DATABASE_WRITE_USER = 'root';
@@ -46,7 +46,8 @@ export class Configuration {
   @IsBoolean()
   readonly DATABASE_WRITE_SYNC = true;
 
-  constructor() {
+  constructor(isExtended?: boolean) {
+    if (isExtended) return;
     const error = validateSync(this);
     if (!error.length) return;
     this._logger.error(`Config validation error: ${JSON.stringify(error)}`);

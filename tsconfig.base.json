@@ -16,7 +16,9 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@nx-pnpm-monorepo/common": ["libs/common/src/index.ts"]
+      "@nx-pnpm-monorepo/common": ["libs/common/src/index.ts"],
+      "@/components": ["libs/component/src/index.ts"],
+      "@/components/server": ["libs/component/src/server.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

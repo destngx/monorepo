@@ -9,8 +9,8 @@ async function bootstrap() {
   const globalPrefix = 'api';
   app.setGlobalPrefix(globalPrefix);
   const port = AppConfig.PORT;
+  Logger.log(`🚀 Application is starting on: http://localhost:${port}/${globalPrefix}`);
   await app.listen(port);
-  Logger.log(`🚀 Application is running on: http://localhost:${port}/${globalPrefix}`);
 }
-
-bootstrap();
+// eslint-disable-next-line
+bootstrap().then(r => Logger.log(`🚀 Application is running ${r}`));

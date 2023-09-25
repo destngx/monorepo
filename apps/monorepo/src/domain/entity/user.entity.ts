@@ -1,8 +1,7 @@
-import { BaseEntity } from '@nx-pnpm-monorepo/common';
 import { Entity, Column, PrimaryColumn } from 'typeorm';
 
-@Entity()
-export class UserEntity extends BaseEntity {
+@Entity('users')
+export class UserEntity {
   @PrimaryColumn({ type: 'binary', length: 16 })
   id: Buffer;
 

@@ -1,7 +1,10 @@
-import { CreateDateColumn, DeleteDateColumn, Entity, UpdateDateColumn, VersionColumn } from 'typeorm';
+import { CreateDateColumn, DeleteDateColumn, Entity, PrimaryColumn, UpdateDateColumn, VersionColumn } from 'typeorm';
 
-@Entity()
+@Entity('base')
 export class BaseEntity {
+  @PrimaryColumn()
+  ids: string;
+
   @CreateDateColumn()
   createdAt: Date;
 
