@@ -1,0 +1,16 @@
+{
+  "name": "cloudinary-photos-app-types",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/cloudinary-photos-app/types/src",
+  "projectType": "library",
+  "targets": {
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["libs/cloudinary-photos-app/types/**/*.ts"]
+      }
+    }
+  },
+  "tags": []
+}

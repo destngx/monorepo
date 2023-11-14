@@ -8,7 +8,6 @@ export class AppController {
 
   @Get()
   getData() {
-    console.log('eh');
     throw Error('Not implemented');
     return this._appService.getData();
   }

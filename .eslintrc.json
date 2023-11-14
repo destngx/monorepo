@@ -1,44 +1,24 @@
 {
   "root": true,
-  "plugins": [
-    "@nx",
-    "@typescript-eslint"
-  ],
+  "plugins": ["@nx", "@typescript-eslint"],
   "parser": "@typescript-eslint/parser",
-  "extends": [
-    "eslint:recommended",
-    "google",
-    "plugin:@typescript-eslint/recommended-type-checked"
-  ],
+  "extends": ["eslint:recommended", "google", "plugin:@typescript-eslint/recommended-type-checked"],
   "overrides": [
     {
-      "files": [
-        "*.ts",
-        "*.tsx",
-        "*.js",
-        "*.jsx"
-      ],
+      "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
       "rules": {
-        "max-len": [
-          "warn",
-          120
-        ],
+        "max-len": ["warn", 120],
         "no-console": [
           "error",
           {
-            "allow": [
-              "warn",
-              "error"
-            ]
+            "allow": ["warn", "error"]
           }
         ],
         "spaced-comment": [
           "error",
           "always",
           {
-            "exceptions": [
-              "/"
-            ]
+            "exceptions": ["/"]
           }
         ],
         "object-curly-spacing": "off",
@@ -46,25 +26,19 @@
           "error",
           2,
           {
-            "ignoredNodes": [
-              "PropertyDefinition"
-            ]
+            "ignoredNodes": ["PropertyDefinition"]
           }
         ],
         "@typescript-eslint/naming-convention": [
           "error",
           {
             "selector": "variable",
-            "modifiers": [
-              "destructured"
-            ],
+            "modifiers": ["destructured"],
             "format": null
           },
           {
             "selector": "interface",
-            "format": [
-              "PascalCase"
-            ],
+            "format": ["PascalCase"],
             "custom": {
               "regex": "^I[A-Z]",
               "match": false
@@ -72,29 +46,14 @@
           },
           {
             "selector": "variable",
-            "types": [
-              "boolean"
-            ],
-            "format": [
-              "PascalCase"
-            ],
-            "prefix": [
-              "is",
-              "should",
-              "has",
-              "can",
-              "did",
-              "will"
-            ]
+            "types": ["boolean"],
+            "format": ["PascalCase"],
+            "prefix": ["is", "should", "has", "can", "did", "will"]
           },
           {
             "selector": "memberLike",
-            "modifiers": [
-              "private"
-            ],
-            "format": [
-              "camelCase"
-            ],
+            "modifiers": ["private"],
+            "format": ["camelCase"],
             "leadingUnderscore": "require"
           }
         ],
@@ -110,48 +69,33 @@
             "depConstraints": [
               {
                 "sourceTag": "*",
-                "onlyDependOnLibsWithTags": [
-                  "*"
-                ]
+                "onlyDependOnLibsWithTags": ["*"]
               }
             ]
           }
-        ]
+        ],
+        "no-unused-vars": "warn"
       }
     },
     {
-      "files": [
-        "*.ts",
-        "*.tsx"
-      ],
-      "extends": [
-        "plugin:@nx/typescript"
-      ],
+      "files": ["*.ts", "*.tsx"],
+      "extends": ["plugin:@nx/typescript"],
       "rules": {
         "@typescript-eslint/no-unsafe-argument": "error",
-        "@typescript-eslint/no-unsafe-assignment": "error",
-        "@typescript-eslint/no-unsafe-call": "error",
-        "@typescript-eslint/no-unsafe-member-access": "error",
-        "@typescript-eslint/no-unsafe-return": "error"
+        "@typescript-eslint/no-unsafe-assignment": "warn",
+        "@typescript-eslint/no-unsafe-call": "warn",
+        "@typescript-eslint/no-unsafe-member-access": "warn",
+        "@typescript-eslint/no-unsafe-return": "error",
+        "@typescript-eslint/no-unused-vars": "warn"
       }
     },
     {
-      "files": [
-        "*.js",
-        "*.jsx"
-      ],
-      "extends": [
-        "plugin:@nx/javascript"
-      ],
+      "files": ["*.js", "*.jsx"],
+      "extends": ["plugin:@nx/javascript"],
       "rules": {}
     },
     {
-      "files": [
-        "*.spec.ts",
-        "*.spec.tsx",
-        "*.spec.js",
-        "*.spec.jsx"
-      ],
+      "files": ["*.spec.ts", "*.spec.tsx", "*.spec.js", "*.spec.jsx"],
       "env": {
         "jest": true
       },
@@ -159,8 +103,7 @@
     }
   ],
   "parserOptions": {
-    "project": [
-      "./tsconfig.base.json"
-    ]
+    "project": "./tsconfig.base.json",
+    "tsconfigRootDir": "./tsconfig.base.json"
   }
 }

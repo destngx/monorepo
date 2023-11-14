@@ -44,6 +44,7 @@
     "typeorm": "^0.3.16"
   },
   "devDependencies": {
+    "@babel/preset-react": "^7.14.5",
     "@commitlint/cli": "^17.6.5",
     "@commitlint/config-nx-scopes": "^17.6.4",
     "@nestjs/schematics": "^9.2.0",

@@ -16,9 +16,21 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@nx-pnpm-monorepo/common": ["libs/common/src/index.ts"],
-      "@/components": ["libs/component/src/index.ts"],
-      "@/components/server": ["libs/component/src/server.ts"]
+      "@nx-pnpm-monorepo/cloudinary-photos-app/components/icons": [
+        "libs/cloudinary-photos-app/components/icons/src/index.ts"
+      ],
+      "@nx-pnpm-monorepo/cloudinary-photos-app/components/icons/server": [
+        "libs/cloudinary-photos-app/components/icons/src/server.ts"
+      ],
+      "@nx-pnpm-monorepo/cloudinary-photos-app/components/ui": [
+        "libs/cloudinary-photos-app/components/ui/src/index.ts"
+      ],
+      "@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server": [
+        "libs/cloudinary-photos-app/components/ui/src/server.ts"
+      ],
+      "@nx-pnpm-monorepo/cloudinary-photos-app/types": ["libs/cloudinary-photos-app/types/src/index.ts"],
+      "@nx-pnpm-monorepo/cloudinary-photos-app/utils": ["libs/cloudinary-photos-app/utils/src/index.ts"],
+      "@nx-pnpm-monorepo/common": ["libs/common/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]
