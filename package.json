@@ -58,7 +58,7 @@
     "@nx/next": "^16.3.1",
     "@nx/node": "16.2.1",
     "@nx/react": "16.3.1",
-    "@nx/webpack": "16.2.1",
+    "@nx/webpack": "17.1.2",
     "@nx/workspace": "16.2.1",
     "@radix-ui/react-avatar": "^1.0.3",
     "@radix-ui/react-dialog": "^1.0.4",
