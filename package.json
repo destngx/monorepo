@@ -48,7 +48,7 @@
     "@commitlint/cli": "^17.6.5",
     "@commitlint/config-nx-scopes": "^17.6.4",
     "@nestjs/schematics": "^9.2.0",
-    "@nestjs/testing": "^9.4.2",
+    "@nestjs/testing": "^10.0.0",
     "@nx/cypress": "16.2.1",
     "@nx/eslint-plugin": "16.2.1",
     "@nx/jest": "16.2.1",
