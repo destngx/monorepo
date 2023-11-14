@@ -15,15 +15,35 @@
     {
       "matchPackagePatterns": ["^eslint"],
       "groupName": "eslint and its plugins",
-      "groupSlug": "eslint"
+      "groupSlug": "eslint",
+      "enabled": false
     },
     {
-      "matchPackageNames": ["node"],
+      "matchPackageNames": ["node", "pnpm", "@typescript-eslint/eslint-plugin", "@typescript-eslint/parser", "esbuild"],
       "enabled": false
     },
     {
       "matchDepTypes": ["peerDependencies"],
       "enabled": false
+    },
+    {
+      "matchPackagePatterns": ["*"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "automergeType": "branch",
+      "groupName": "all major dependencies",
+      "groupSlug": "all-majors",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "matchPackagePatterns": ["*"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true,
+      "automergeType": "branch",
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch",
+      "minimumReleaseAge": "3 days"
     }
-  ]
+  ],
+  "platformAutomerge": true
 }
