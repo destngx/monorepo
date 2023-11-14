@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base", ":autoMergePatch", ":autoMergeMinor"],
+  "extends": [],
   "labels": ["dependencies"],
   "dependencyDashboard": true,
   "commitMessagePrefix": "chore(deps): ",
