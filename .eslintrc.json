@@ -1,16 +1,26 @@
 {
   "root": true,
-  "plugins": ["@nx"],
-  "extends": ["eslint:recommended", "google"],
+  "plugins": ["@nx", "@typescript-eslint"],
+  "parser": "@typescript-eslint/parser",
+  "extends": ["eslint:recommended", "google", "plugin:@typescript-eslint/recommended-type-checked"],
   "overrides": [
     {
       "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
-      "parserOptions": {
-        "project": ["./tsconfig.*?.json"]
-      },
       "rules": {
-        "no-console": ["error", { "allow": ["warn", "error"] }],
-        "spaced-comment": ["error", "always", { "exceptions": ["/"] }],
+        "max-len": ["warn", 120],
+        "no-console": [
+          "error",
+          {
+            "allow": ["warn", "error"]
+          }
+        ],
+        "spaced-comment": [
+          "error",
+          "always",
+          {
+            "exceptions": ["/"]
+          }
+        ],
         "object-curly-spacing": "off",
         "indent": [
           "error",
@@ -53,6 +63,8 @@
           "error",
           {
             "enforceBuildableLibDependency": true,
+            "allowCircularSelfDependency": true,
+            "banTransitiveDependencies": true,
             "allow": [],
             "depConstraints": [
               {
@@ -61,13 +73,21 @@
               }
             ]
           }
-        ]
+        ],
+        "no-unused-vars": "warn"
       }
     },
     {
       "files": ["*.ts", "*.tsx"],
       "extends": ["plugin:@nx/typescript"],
-      "rules": {}
+      "rules": {
+        "@typescript-eslint/no-unsafe-argument": "error",
+        "@typescript-eslint/no-unsafe-assignment": "warn",
+        "@typescript-eslint/no-unsafe-call": "warn",
+        "@typescript-eslint/no-unsafe-member-access": "warn",
+        "@typescript-eslint/no-unsafe-return": "error",
+        "@typescript-eslint/no-unused-vars": "warn"
+      }
     },
     {
       "files": ["*.js", "*.jsx"],
@@ -81,5 +101,9 @@
       },
       "rules": {}
     }
-  ]
+  ],
+  "parserOptions": {
+    "project": "./tsconfig.base.json",
+    "tsconfigRootDir": "./tsconfig.base.json"
+  }
 }

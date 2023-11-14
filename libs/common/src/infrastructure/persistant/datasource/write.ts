@@ -1,6 +1,7 @@
 import { Global, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Configuration } from '../../config/env';
+import { BaseEntity } from '../../../index';
 
 const Config = new Configuration();
 interface WriteConnection {
@@ -17,7 +18,7 @@ export let writeConnection = {} as WriteConnection;
 class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly _dataSource = new DataSource({
     type: 'mysql',
-    entities: [],
+    entities: [BaseEntity],
     charset: 'utf8mb4_unicode_ci',
     logging: Config.DATABASE_WRITE_LOGGING,
     host: Config.DATABASE_WRITE_HOST,
@@ -45,4 +46,4 @@ class DatabaseService implements OnModuleInit, OnModuleDestroy {
   providers: [DatabaseService],
   exports: [],
 })
-export class WriteDatabaseModule {}
+export class WriteDatabaseModule { }

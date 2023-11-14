@@ -1,6 +1,7 @@
 import { Global, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { DataSource, EntityTarget, ObjectLiteral, QueryRunner, Repository, SelectQueryBuilder } from 'typeorm';
 import { Configuration } from '../../config/env';
+import { BaseEntity } from '../../../index';
 
 const Config = new Configuration();
 interface ReadConnection {
@@ -18,7 +19,7 @@ export let readConnection = {} as ReadConnection;
 class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly _dataSource = new DataSource({
     type: 'mysql',
-    entities: [],
+    entities: [BaseEntity],
     charset: 'utf8mb4_unicode_ci',
     logging: Config.DATABASE_READ_LOGGING,
     host: Config.DATABASE_READ_HOST,

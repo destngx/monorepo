@@ -6,7 +6,7 @@ class AppConfiguration extends Configuration {
   readonly PORT = Number(3000);
 
   constructor() {
-    super();
+    super(true);
     const error = validateSync(this);
     if (!error.length) return;
     console.error(`Config validation error: ${JSON.stringify(error)}`);
