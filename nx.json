@@ -5,6 +5,7 @@
       "runner": "@vercel/remote-nx",
       "options": {
         "cacheableOperations": ["build", "test", "lint", "e2e"],
+        "cacheDirectory": "/tmp/nx-cache",
         "token": "Nsk2VEvzgWCW46LbNoDks2UC"
       }
     }
