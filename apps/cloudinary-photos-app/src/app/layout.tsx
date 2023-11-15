@@ -8,6 +8,7 @@ import cloudinary from 'cloudinary';
 import { Folder } from './albums/page';
 import Image from 'next/image';
 import { Button } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -107,6 +108,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <div className="w-full px-4 pt-8">{children}</div>
         </div>
+        <Analytics />
       </body>
     </html>
   );

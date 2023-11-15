@@ -20,6 +20,9 @@ dependencies:
   '@swc/helpers':
     specifier: ~0.5.0
     version: 0.5.1
+  '@vercel/analytics':
+    specifier: ^1.1.1
+    version: 1.1.1
   axios:
     specifier: ^1.4.0
     version: 1.4.0
@@ -5511,6 +5514,12 @@ packages:
       '@typescript-eslint/types': 6.7.0
       eslint-visitor-keys: 3.4.3
     dev: true
+
+  /@vercel/analytics@1.1.1:
+    resolution: {integrity: sha512-+NqgNmSabg3IFfxYhrWCfB/H+RCUOCR5ExRudNG2+pcRehq628DJB5e1u1xqwpLtn4pAYii4D98w7kofORAGQA==}
+    dependencies:
+      server-only: 0.0.1
+    dev: false
 
   /@vercel/remote-nx@1.1.1(@nx/workspace@17.1.2):
     resolution: {integrity: sha512-7Wtw89FRIqgZo1YV1aLZVv6fv/BSUueYWStTZ/KktymAtm+ekfhAB19OxazcgFLLZQsu0Dgov2BApVDd6B7IBw==}
@@ -13636,6 +13645,10 @@ packages:
       send: 0.18.0
     transitivePeerDependencies:
       - supports-color
+
+  /server-only@0.0.1:
+    resolution: {integrity: sha512-qepMx2JxAa5jjfzxG79yPPq+8BuFToHd1hm7kI+Z4zAq1ftQiP7HcxMhDDItrbtwVeLg/cY2JnKnrcFkmiswNA==}
+    dev: false
 
   /setprototypeof@1.1.0:
     resolution: {integrity: sha512-BvE/TwpZX4FXExxOxZyRGQQv651MSwmWKZGqvmPcRIjDqWub67kTKuIMx43cZZrS/cBBzwBcNDWoFxt2XEFIpQ==}
