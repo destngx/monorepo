@@ -4,16 +4,6 @@
   "sourceRoot": "libs/cloudinary-photos-app/utils/src",
   "projectType": "library",
   "targets": {
-    "build": {
-      "executor": "@nx/js:tsc",
-      "outputs": ["{options.outputPath}"],
-      "options": {
-        "outputPath": "dist/libs/cloudinary-photos-app/utils",
-        "main": "libs/cloudinary-photos-app/utils/src/index.ts",
-        "tsConfig": "libs/cloudinary-photos-app/utils/tsconfig.lib.json",
-        "assets": ["libs/cloudinary-photos-app/utils/*.md"]
-      }
-    },
     "lint": {
       "executor": "@nx/linter:eslint",
       "outputs": ["{options.outputFile}"],
