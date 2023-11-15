@@ -11,7 +11,7 @@
       "defaultConfiguration": "production",
       "options": {
         "root": "apps/cloudinary-photos-app",
-        "outputPath": "apps/cloudinary-photos-app/.next"
+        "outputPath": "apps/cloudinary-photos-app/dist"
       },
       "configurations": {
         "development": {
