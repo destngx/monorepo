@@ -66,7 +66,6 @@ export function AddToAlbumDialog({ image, onClose }: { image: SearchResult; onCl
           </Button>
         </DialogFooter>
       </DialogContent>
-      ;
     </Dialog>
   );
 }

@@ -12,7 +12,9 @@ const nextConfig = {
     // See: https://github.com/gregberge/svgr
     svgr: false,
   },
-  experimental: {},
+  experimental: {
+    // swcPlugins: [['@swc-jotai/react-refresh', {}]],
+  },
 };
 
 const plugins = [

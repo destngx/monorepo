@@ -1,0 +1,36 @@
+{
+  "name": "cloudinary-photos-app-global-store",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/cloudinary-photos-app/global-store/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/cloudinary-photos-app/global-store",
+        "main": "libs/cloudinary-photos-app/global-store/src/index.ts",
+        "tsConfig": "libs/cloudinary-photos-app/global-store/tsconfig.lib.json",
+        "assets": ["libs/cloudinary-photos-app/global-store/*.md"]
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/cloudinary-photos-app/global-store/**/*.ts",
+          "libs/cloudinary-photos-app/global-store/package.json"
+        ]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "libs/cloudinary-photos-app/global-store/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}

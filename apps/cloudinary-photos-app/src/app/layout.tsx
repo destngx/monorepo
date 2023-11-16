@@ -9,6 +9,7 @@ import { Folder } from './albums/page';
 import Image from 'next/image';
 import { Button } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
 import { Analytics } from '@vercel/analytics/react';
+import { AuthLayout } from '@cloudinary-photos-app/components/layout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -90,25 +91,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className={inter.className}>
-        <div className="border-b">
-          <div className="flex h-16 items-center px-4 container mx-auto">
-            <Image src="/album.png" width="50" height="50" alt="icon of this photo album app" />
-            DestNgX Photos
-            <div className="ml-auto flex items-center space-x-4">
-              <Avatar>
-                <AvatarImage src="" alt="@destnguyxn" />
-                <AvatarFallback>CN</AvatarFallback>
-              </Avatar>
+        <AuthLayout>
+          <div className="border-b">
+            <div className="flex h-16 items-center px-4 container mx-auto">
+              <Image src="/album.png" width="50" height="50" alt="icon of this photo album app" />
+              DestNgX Photos
+              <div className="ml-auto flex items-center space-x-4">
+                <Avatar>
+                  <AvatarImage src="" alt="@destnguyxn" />
+                  <AvatarFallback>CN</AvatarFallback>
+                </Avatar>
+              </div>
             </div>
           </div>
-        </div>
+          <div className="flex">
+            <SideMenu />
 
-        <div className="flex">
-          <SideMenu />
-
-          <div className="w-full px-4 pt-8">{children}</div>
-        </div>
-        <Analytics />
+            <div className="w-full px-4 pt-8">{children}</div>
+          </div>
+          <Analytics />
+        </AuthLayout>
       </body>
     </html>
   );

@@ -16,6 +16,9 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
+      "@cloudinary-photos-app/components/layout": ["libs/cloudinary-photos-app/components/layout/src/index.ts"],
+      "@cloudinary-photos-app/components/layout/server": ["libs/cloudinary-photos-app/components/layout/src/server.ts"],
+      "@cloudinary-photos-app/global-store": ["libs/cloudinary-photos-app/global-store/src/index.ts"],
       "@nx-pnpm-monorepo/cloudinary-photos-app/components/icons": [
         "libs/cloudinary-photos-app/components/icons/src/index.ts"
       ],

@@ -26,10 +26,6 @@ export default function EditPage({
         </div>
 
         <div className="flex gap-4">
-          {/* <Button variant="ghost" onClick={() => setTransformation(undefined)}>
-            Clear All
-          </Button>
-
           <div className="flex flex-col gap-4">
             <Button
               onClick={() => {
@@ -41,13 +37,7 @@ export default function EditPage({
             </Button>
             <Label>Prompt</Label>
             <Input value={pendingPrompt} onChange={(e) => setPendingPrompt(e.currentTarget.value)} />
-          </div>*/}
-
-          {/* <Button onClick={() => setTransformation('blur')}>Apply Blur</Button>
-          <Button onClick={() => setTransformation('grayscale')}>Convert to Gray</Button>
-          <Button onClick={() => setTransformation('pixelate')}>Pixelate</Button>*/}
-
-          <Button onClick={() => setTransformation('bg-remove')}>Remove Background</Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-12">
@@ -64,22 +54,6 @@ export default function EditPage({
                 prompt,
               }}
             />
-          )}
-
-          {/* {transformation === 'blur' && (
-            <CldImage src={publicId} width="1200" height="1400" blur="800" alt="some image" />
-          )}
-
-          {transformation === 'grayscale' && (
-            <CldImage src={publicId} width="1200" height="1400" grayscale alt="some image" />
-          )}
-
-          {transformation === 'pixelate' && (
-            <CldImage src={publicId} width="1200" height="1400" pixelate alt="some image" />
-          )}*/}
-
-          {transformation === 'bg-remove' && (
-            <CldImage src={publicId} width="1200" height="700" removeBackground alt="some image" />
           )}
         </div>
       </div>
