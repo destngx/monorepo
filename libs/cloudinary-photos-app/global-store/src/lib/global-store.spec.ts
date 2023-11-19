@@ -1,7 +1,7 @@
-import { isAuthenticated } from './global-store';
+import { isAuthenticatedAtom } from './global-store';
 
 describe('libsCloudinaryPhotosAppGlobalStore', () => {
   it('should work', () => {
-    expect(isAuthenticated).toBeDefined();
+    expect(isAuthenticatedAtom).toBeDefined();
   });
 });

@@ -16,7 +16,7 @@ export function ImageMenu({ image }: { image: SearchResult }) {
   const [isOpened, setIsOpened] = useState(false);
 
   return (
-    <div className="absolute top-2 right-2">
+    <div className={'absolute top-2 right-2 border-0'}>
       <DropdownMenu open={isOpened} onOpenChange={setIsOpened}>
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" className="w-8 h-8 p-0">
@@ -25,13 +25,13 @@ export function ImageMenu({ image }: { image: SearchResult }) {
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-40">
           <DropdownMenuItem asChild>
-            <AddToAlbumDialog image={image} onClose={() => setIsOpened(false)} />
+            <AddToAlbumDialog image={image} onClose={() => setIsOpened} />
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Button className="cursor-pointer flex justify-start pl-4" asChild variant="ghost">
-              <Link href={`/edit?publicId=${encodeURIComponent(image.public_id)}`}>
+              <Link href={`/detail?publicId=${encodeURIComponent(image.public_id)}`}>
                 <Pencil className="mr-2 w-4 h-4" />
-                Edit
+                Detail
               </Link>
             </Button>
           </DropdownMenuItem>

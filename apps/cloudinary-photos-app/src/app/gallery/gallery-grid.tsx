@@ -15,6 +15,7 @@ export default function GalleryGrid({ images }: { images: SearchResult[] }) {
             width="400"
             height="300"
             alt="an image of something"
+            onClick={() => (location.href = `/detail?publicId=${encodeURIComponent(imageData.public_id)}`)}
           />
         );
       }}

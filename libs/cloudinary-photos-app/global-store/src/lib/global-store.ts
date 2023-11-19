@@ -1,7 +1,12 @@
 import { atom } from 'jotai';
 
 // Create your atoms and derivatives
-const isAuthenticatedAtom = atom(false);
-const cloudinaryProject = atom('');
+import { atomWithStorage, createJSONStorage } from 'jotai/utils';
 
-export { isAuthenticatedAtom, cloudinaryProject };
+const sessionAtomStorage = createJSONStorage(() => sessionStorage);
+const isAuthenticatedAtom = atomWithStorage('isAuthenticated', null, sessionAtomStorage);
+const cloudinaryProject = atom<string>('');
+
+const errorNotificationAtom = atom<string>('');
+
+export { isAuthenticatedAtom, cloudinaryProject, errorNotificationAtom };

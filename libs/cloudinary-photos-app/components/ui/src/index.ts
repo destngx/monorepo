@@ -11,3 +11,4 @@ export * from './lib/dropdown-menu';
 export * from './lib/force-refresh';
 export * from './lib/cloudinary-image';
 export * from './lib/image-grid';
+export * from './lib/loader';

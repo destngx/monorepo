@@ -1,5 +1,5 @@
 import { FolderPlus } from 'lucide-react';
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { addImageToAlbum } from '../server/actions';
 import {
   Button,
@@ -13,9 +13,10 @@ import {
   Input,
   Label,
 } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+
 import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
 
-export function AddToAlbumDialog({ image, onClose }: { image: SearchResult; onClose: () => void }) {
+export const AddToAlbumDialog = forwardRef(({ image, onClose }: { image: SearchResult; onClose: () => void }) => {
   const [albumName, setAlbumName] = useState('');
   const [isOpened, setIsOpened] = useState(false);
 
@@ -29,7 +30,7 @@ export function AddToAlbumDialog({ image, onClose }: { image: SearchResult; onCl
         }
       }}
     >
-      <DialogTrigger>
+      <DialogTrigger asChild>
         <Button variant="ghost">
           <FolderPlus className="mr-2 h-4 w-4" />
           <span>Add to Album</span>
@@ -37,7 +38,7 @@ export function AddToAlbumDialog({ image, onClose }: { image: SearchResult; onCl
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add to Album</DialogTitle>
+          <DialogTitle>Add Image to Album</DialogTitle>
           <DialogDescription>Type an album you want to move this image into</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -62,10 +63,10 @@ export function AddToAlbumDialog({ image, onClose }: { image: SearchResult; onCl
             }}
             type="submit"
           >
-            Add to Album
+            Add
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-}
+});

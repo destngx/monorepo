@@ -1,9 +1,10 @@
 'use client';
-import styles from './layout.module.css';
 import { useAtom } from 'jotai';
-import { isAuthenticatedAtom } from '@cloudinary-photos-app/global-store';
-import { useState } from 'react';
+import { errorNotificationAtom, isAuthenticatedAtom } from '@cloudinary-photos-app/global-store';
+import React, { useEffect, useState } from 'react';
 import checkSecret from './checkSecret';
+import { convertSmartDefaultsIntoNamedParams } from 'nx/src/utils/params';
+import { Loader } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
 
 /* eslint-disable-next-line */
 export interface LayoutProps {
@@ -12,32 +13,93 @@ export interface LayoutProps {
 
 export function AuthLayout(props: LayoutProps) {
   const [isAuthenticated, setIsAuthenticated] = useAtom(isAuthenticatedAtom);
+  const [errorNotification, setErrorNotification] = useAtom(errorNotificationAtom);
   const [input, setInput] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isInitialize, setIsInitialize] = useState<boolean>(true);
 
-  const handleCheck = async () => {
-    const isCorrectPassword = await checkSecret(input);
-    setIsAuthenticated(isCorrectPassword);
+  useEffect(() => {
+    if (isAuthenticated !== null) {
+      setIsInitialize(false);
+    }
+    setIsInitialize(false);
+  }, [isAuthenticated]);
+  useEffect(() => {
+    if ((errorNotification as string).length) {
+      setTimeout(() => {
+        setErrorNotification('');
+      }, 3000);
+    }
+  }, [errorNotification, setErrorNotification]);
+
+  const handleCheck = () => {
+    const sessionAuthenticated = sessionStorage.getItem('isAuthenticated');
+    let isCorrectPassword = false;
+    void (async () => {
+      if (sessionAuthenticated !== 'true') {
+        setIsLoading(true);
+        isCorrectPassword = await checkSecret(input);
+        setIsLoading(false);
+        if (!isCorrectPassword) {
+          setErrorNotification('Wrong password');
+          return;
+        }
+      }
+      sessionStorage.setItem('isAuthenticated', 'true');
+      setIsAuthenticated(true);
+    })();
   };
 
-  if (!isAuthenticated)
+  if (isInitialize) {
     return (
-      <div className={styles['container']}>
-        <h1>No authenticate</h1>
-        <div className="p-8 justify-center items-center h-screen flex ">
+      <div className="h-screen flex flex-col justify-center items-start flex-wrap content-around">
+        <Loader />
+      </div>
+    );
+  } else if (!isAuthenticated)
+    return (
+      <div className="h-screen flex flex-col justify-center items-start">
+        <h1 className="pl-8 pt-8 text-xl leading-4 font-semibold text-red-500">No authenticate</h1>
+        <div className="p-8 pt-4 justify-center items-center flex ">
           <input
-            className="bg-gray-200 shadow-inner rounded-l p-2 flex-1 text-black"
+            className="bg-gray-200 shadow-inner rounded-l p-2 flex-1 text-black active:border-0"
             id="password"
             aria-label="secret"
-            placeholder="Enter your secret password to access"
+            placeholder="Enter your password"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                void handleCheck();
+              }
+            }}
           />
           <button
-            className="bg-blue-600 hover:bg-blue-700 duration-300 text-white shadow p-2 rounded-r"
+            className={
+              'inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-r-md text-white bg-indigo-500 hover:bg-indigo-400 transition ease-in-out duration-150'
+            }
             onClick={handleCheck}
           >
+            {isLoading && (
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+            )}
             Check
           </button>
+        </div>
+        <div className="border-red-950 text-red-500 animate-accordion-down duration-300 transition">
+          {errorNotification}
         </div>
       </div>
     );

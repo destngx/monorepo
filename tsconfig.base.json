@@ -32,8 +32,7 @@
         "libs/cloudinary-photos-app/components/ui/src/server.ts"
       ],
       "@nx-pnpm-monorepo/cloudinary-photos-app/types": ["libs/cloudinary-photos-app/types/src/index.ts"],
-      "@nx-pnpm-monorepo/cloudinary-photos-app/utils": ["libs/cloudinary-photos-app/utils/src/index.ts"],
-      "@nx-pnpm-monorepo/common": ["libs/common/src/index.ts"]
+      "@nx-pnpm-monorepo/cloudinary-photos-app/utils": ["libs/cloudinary-photos-app/utils/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]
