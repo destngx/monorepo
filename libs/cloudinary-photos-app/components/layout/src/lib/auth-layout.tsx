@@ -34,7 +34,7 @@ export function AuthLayout(props: LayoutProps) {
         isCorrectPassword = await checkSecret(input);
         setIsChecking(false);
         if (!isCorrectPassword) {
-          setErrorNotification('Wrong password');
+          setErrorNotification("You don't have a valid authenticate");
           return;
         }
       }

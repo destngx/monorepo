@@ -14,14 +14,17 @@ type Session = {
 };
 
 export default async function checkSecret(password: string) {
-  const requestSession = cookies().get('session')?.value ?? '';
+  const requestSession = cookies().get('session')?.value;
   const client = new MongoClient(process.env.MONGODB_URI || '', {});
   try {
     await client.connect();
     const database = client.db('cloud-photos-app'); // Choose a name for your database
 
     const sessionCollection = database.collection('session');
-    const session = await sessionCollection.findOne<Session>({ _id: new ObjectId(requestSession) });
+    let session = undefined;
+    if (requestSession) {
+      session = await sessionCollection.findOne<Session>({ _id: new ObjectId(requestSession) });
+    }
 
     if (session) {
       if (Date.now() - session.date.getTime() <= ONE_DAY_IN_MILISECONDS) {
