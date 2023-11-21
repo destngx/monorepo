@@ -1,7 +1,6 @@
 import cloudinary from 'cloudinary';
 import { AlbumCard } from './album-card';
-
-export type Folder = { name: string; path: string };
+import { Folder } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
 
 export default async function AlbumsPage() {
   const { folders } = (await cloudinary.v2.api.root_folders()) as {
@@ -16,7 +15,7 @@ export default async function AlbumsPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          {folders.map(folder => (
+          {folders.map((folder) => (
             <AlbumCard key={folder.path} folder={folder} />
           ))}
         </div>

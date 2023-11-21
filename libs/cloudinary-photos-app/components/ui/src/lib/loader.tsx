@@ -3,8 +3,8 @@ export const Loader = () => {
 
   return (
     <div className="flex">
-      <div className={`${circleCommonClasses} mr-1 animate-bounce delay-100`}></div>
-      <div className={`${circleCommonClasses} mr-1 animate-bounce delay-200`}></div>
+      <div className={`${circleCommonClasses} mr-1 animate-bounce delay-75`}></div>
+      <div className={`${circleCommonClasses} mr-1 animate-bounce delay-150`}></div>
       <div className={`${circleCommonClasses} animate-bounce`}></div>
     </div>
   );

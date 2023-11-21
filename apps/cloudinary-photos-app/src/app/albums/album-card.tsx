@@ -9,8 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
-import { Folder } from './page';
 import Link from 'next/link';
+import { Folder } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
 
 export function AlbumCard({ folder }: { folder: Folder }) {
   return (

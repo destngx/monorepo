@@ -3,10 +3,7 @@ import { useAtom } from 'jotai';
 import { errorNotificationAtom, isAuthenticatedAtom } from '@cloudinary-photos-app/global-store';
 import React, { useEffect, useState } from 'react';
 import checkSecret from './checkSecret';
-import { convertSmartDefaultsIntoNamedParams } from 'nx/src/utils/params';
-import { Loader } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
 
-/* eslint-disable-next-line */
 export interface LayoutProps {
   children: React.ReactNode;
 }
@@ -15,17 +12,13 @@ export function AuthLayout(props: LayoutProps) {
   const [isAuthenticated, setIsAuthenticated] = useAtom(isAuthenticatedAtom);
   const [errorNotification, setErrorNotification] = useAtom(errorNotificationAtom);
   const [input, setInput] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isInitialize, setIsInitialize] = useState<boolean>(true);
+  const [isChecking, setIsChecking] = useState<boolean>(true);
 
   useEffect(() => {
-    if (isAuthenticated !== null) {
-      setIsInitialize(false);
-    }
-    setIsInitialize(false);
-  }, [isAuthenticated]);
+    handleCheck();
+  }, []);
   useEffect(() => {
-    if ((errorNotification as string).length) {
+    if (errorNotification.length) {
       setTimeout(() => {
         setErrorNotification('');
       }, 3000);
@@ -37,31 +30,26 @@ export function AuthLayout(props: LayoutProps) {
     let isCorrectPassword = false;
     void (async () => {
       if (sessionAuthenticated !== 'true') {
-        setIsLoading(true);
+        setIsChecking(true);
         isCorrectPassword = await checkSecret(input);
-        setIsLoading(false);
+        setIsChecking(false);
         if (!isCorrectPassword) {
           setErrorNotification('Wrong password');
           return;
         }
       }
-      sessionStorage.setItem('isAuthenticated', 'true');
-      setIsAuthenticated(true);
+      setIsAuthenticated(isCorrectPassword);
     })();
   };
-
-  if (isInitialize) {
-    return (
-      <div className="h-screen flex flex-col justify-center items-start flex-wrap content-around">
-        <Loader />
-      </div>
-    );
-  } else if (!isAuthenticated)
+  if (!isAuthenticated)
     return (
       <div className="h-screen flex flex-col justify-center items-start">
-        <h1 className="pl-8 pt-8 text-xl leading-4 font-semibold text-red-500">No authenticate</h1>
+        <h1 className="pl-8 pt-8 text-xl leading-4 font-semibold text-red-500">
+          {isChecking ? 'Checking' : 'No'} authenticate
+        </h1>
         <div className="p-8 pt-4 justify-center items-center flex ">
           <input
+            disabled={isChecking}
             className="bg-gray-200 shadow-inner rounded-l p-2 flex-1 text-black active:border-0"
             id="password"
             aria-label="secret"
@@ -80,7 +68,7 @@ export function AuthLayout(props: LayoutProps) {
             }
             onClick={handleCheck}
           >
-            {isLoading && (
+            {isChecking && (
               <svg
                 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
                 xmlns="http://www.w3.org/2000/svg"
@@ -103,7 +91,7 @@ export function AuthLayout(props: LayoutProps) {
         </div>
       </div>
     );
-  else return <>{props.children}</>;
+  else return <div>{props.children}</div>;
 }
 
 export default AuthLayout;

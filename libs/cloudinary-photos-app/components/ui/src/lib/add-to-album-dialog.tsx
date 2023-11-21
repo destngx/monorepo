@@ -16,7 +16,7 @@ import {
 
 import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
 
-export const AddToAlbumDialog = forwardRef(({ image, onClose }: { image: SearchResult; onClose: () => void }) => {
+export const AddToAlbumDialog = forwardRef(({ image, onClose }: { image: SearchResult; onClose: () => void }, ref) => {
   const [albumName, setAlbumName] = useState('');
   const [isOpened, setIsOpened] = useState(false);
 

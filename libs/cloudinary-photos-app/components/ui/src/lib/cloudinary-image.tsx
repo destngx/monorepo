@@ -20,7 +20,11 @@ export function CloudinaryImage(
   const [isFavorited, setIsFavorited] = useState(imagedata.tags.includes('favorite'));
 
   return (
-    <div className={'relative cursor-pointer rounded-md transition duration-300 hover:border-blue-400 border-2'}>
+    <div
+      className={
+        'relative min-h-[200px] cursor-pointer rounded-md transition duration-300 hover:border-blue-400 border-2'
+      }
+    >
       <CldImage className={'rounded-sm'} {...props} src={imagedata.public_id} />
       {isFavorited ? (
         <FullHeart
