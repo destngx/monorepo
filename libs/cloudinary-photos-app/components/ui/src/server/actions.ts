@@ -1,7 +1,8 @@
 'use server';
 import cloudinary from 'cloudinary';
 import { Folder, SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
-import { ExifParserFactory } from 'ts-exif-parser';
+import * as ExifReader from 'exifreader';
+import { MongoClient } from 'mongodb';
 
 export async function addImageToAlbum(image: SearchResult, album: string) {
   await cloudinary.v2.api.create_folder(album);
@@ -31,10 +32,38 @@ export async function getFolders() {
   return folders;
 }
 
-export async function getBufferFromUrl(url: string) {
+export async function getBufferFromUrl(url: string): Promise<void> {
   const response = await fetch(url);
   const buffer = await response.arrayBuffer();
-  const parser = ExifParserFactory.create(buffer);
-  const Data = ExifParserFactory.create(buffer).parse();
-  // console.log(url, Data);
+  const tags = ExifReader.load(buffer, { includeUnknown: true, expanded: true });
+  const cloudinaryImageName = url.split('/').pop();
+  const cloudinaryImageId = cloudinaryImageName?.split('.').slice(0, -1).join('.');
+
+  const client = new MongoClient(process.env.MONGODB_URI || '', {});
+  try {
+    await client.connect();
+    const database = client.db('cloud-photos-app'); // Choose a name for your database
+
+    const imageDetailCollection = database.collection('image-detail');
+    await imageDetailCollection.insertOne({ cloudinaryImageId: cloudinaryImageId, tags: tags });
+  } catch (error) {
+    console.error(error);
+  } finally {
+    await client.close();
+  }
+}
+
+export async function getImageDetail(publicId: string) {
+  const client = new MongoClient(process.env.MONGODB_URI || '', {});
+  try {
+    await client.connect();
+    const database = client.db('cloud-photos-app');
+
+    const imageDetailCollection = database.collection('image-detail');
+    return await imageDetailCollection.findOne({ cloudinaryImageId: publicId });
+  } catch (e) {
+    console.error(e);
+  } finally {
+    await client.close();
+  }
 }

@@ -1,9 +1,11 @@
 'use client';
 
 import { Button, Input, Label } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CldImage } from 'next-cloudinary';
-import { getBufferFromUrl } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server';
+import { getBufferFromUrl, getImageDetail } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server';
+import { allExpanded, darkStyles, JsonView } from 'react-json-view-lite';
+import 'react-json-view-lite/dist/index.css';
 
 export default function EditPage({
   searchParams: { publicId },
@@ -18,7 +20,13 @@ export default function EditPage({
 
   const [pendingPrompt, setPendingPrompt] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [imageDetail, setImageDetail] = useState<unknown>();
 
+  useEffect(() => {
+    void (async () => {
+      setImageDetail(await getImageDetail(publicId));
+    })();
+  }, []);
   return (
     <section>
       <div className="flex flex-col gap-8">
@@ -62,6 +70,7 @@ export default function EditPage({
               }}
             />
           )}
+          <JsonView data={imageDetail ?? {}} shouldExpandNode={allExpanded} style={darkStyles} />
         </div>
       </div>
     </section>

@@ -4,6 +4,7 @@ import { MenuHamburger } from '@nx-pnpm-monorepo/cloudinary-photos-app/component
 import { ReactNode, useState } from 'react';
 import Image from 'next/image';
 import { SideMenu } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server';
+import Link from 'next/link';
 
 export function MainLayout({ children }: { children: ReactNode }) {
   const [isOpenedMenu, setIsOpenedMenu] = useState(true);
@@ -14,8 +15,10 @@ export function MainLayout({ children }: { children: ReactNode }) {
           <Button className={'block'} onClick={() => setIsOpenedMenu(!isOpenedMenu)}>
             <MenuHamburger />
           </Button>
-          <Image src="/album.png" width="50" height="50" alt="icon of this photo album app" />
-          DestNgX Photos
+          <Link className={'flex my-auto align-middle items-center'} href={'/'}>
+            <Image src="/album.png" width="50" height="50" alt="icon of this photo album app" />
+            <span className="ml-2 text-2xl font-bold">DestNgX Photos</span>
+          </Link>
           <div className="ml-auto flex items-center space-x-4">
             <Avatar>
               <AvatarImage src="" alt="@destnguyxn" />
