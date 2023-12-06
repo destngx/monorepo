@@ -1,8 +1,9 @@
+'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { loadGLTFModel } from './lib/model';
-import { DogSpinner, DogContainer } from './robot-model-loader';
+import { ElementSpinner, ElementContainer } from './robot-model-loader';
 
 function easeOutCirc(x: number) {
   return Math.sqrt(1 - Math.pow(x - 1, 4));
@@ -43,7 +44,7 @@ const RobotModel = () => {
       });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(scW, scH);
-      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
       container.appendChild(renderer.domElement);
       setRenderer(renderer);
 
@@ -107,7 +108,7 @@ const RobotModel = () => {
     };
   }, [renderer, handleWindowResize]);
 
-  return <DogContainer ref={refContainer}>{isLoading && <DogSpinner />}</DogContainer>;
+  return <ElementContainer ref={refContainer}>{isLoading && <ElementSpinner />}</ElementContainer>;
 };
 
 export default RobotModel;

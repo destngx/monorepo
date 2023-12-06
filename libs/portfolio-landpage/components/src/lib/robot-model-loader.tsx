@@ -1,7 +1,10 @@
+'use client';
+
 import { forwardRef, LegacyRef, ReactNode } from 'react';
 import { Box, Spinner } from '@chakra-ui/react';
+import dynamic from 'next/dynamic';
 
-export const DogSpinner = () => (
+export const ElementSpinner = () => (
   <Spinner
     size="xl"
     position="absolute"
@@ -12,7 +15,7 @@ export const DogSpinner = () => (
   />
 );
 
-export const DogContainer = forwardRef(({ children }: { children: ReactNode }, ref: LegacyRef<HTMLDivElement>) => (
+export const ElementContainer = forwardRef(({ children }: { children: ReactNode }, ref: LegacyRef<HTMLDivElement>) => (
   <Box
     _hover={{ cursor: '-webkit-grab' }}
     ref={ref}
@@ -28,12 +31,16 @@ export const DogContainer = forwardRef(({ children }: { children: ReactNode }, r
   </Box>
 ));
 
-const Loader = () => {
+const RobotModelLoader = () => {
   return (
-    <DogContainer>
-      <DogSpinner />
-    </DogContainer>
+    <ElementContainer>
+      <ElementSpinner />
+    </ElementContainer>
   );
 };
 
-export default Loader;
+const LazyRobotModel = dynamic(() => import('./robot-model'), {
+  ssr: false,
+  loading: () => <RobotModelLoader />,
+});
+export { RobotModelLoader, LazyRobotModel };

@@ -1,3 +1,4 @@
+'use client';
 import { ChakraProvider, createCookieStorageManager, localStorageManager } from '@chakra-ui/react';
 import { theme } from './lib/theme';
 import { NextRequest } from 'next/server';
@@ -14,7 +15,7 @@ export function Chakra({ cookies, children }: { cookies: string; children: React
   );
 }
 
-export function getServerSideProps({ req }: { req: NextRequest }) {
+export function getServerSideProps({ req }: { req: NextRequest & { headers: { cookie?: string } } }) {
   return {
     props: {
       cookies: req.headers.cookie ?? '',

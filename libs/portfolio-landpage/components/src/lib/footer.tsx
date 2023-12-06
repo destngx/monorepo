@@ -1,11 +1,11 @@
-import { Box } from '@chakra-ui/react';
+'use client';
 
 const Footer = () => {
   return (
-    <Box alignItems="center" opacity={0.4} fontSize="sm">
+    <div className={'items-center opacity-40 text-sm bg-red-400'}>
       &copy; {new Date().getFullYear()} Nguyen Pham Quang Dinh :"{'>'}
-    </Box>
+    </div>
   );
 };
 
-export default Footer;
+export { Footer };
