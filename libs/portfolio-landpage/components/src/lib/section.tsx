@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
+'use client';
 
 import { isValidMotionProp, motion } from 'framer-motion';
 import { chakra } from '@chakra-ui/react';

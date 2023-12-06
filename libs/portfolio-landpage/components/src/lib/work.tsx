@@ -1,16 +1,13 @@
+'use client';
 import NextLink from 'next/link';
-import { Heading, Box, Image, Link, Badge } from '@chakra-ui/react';
-import { ChevronRightIcon } from '@chakra-ui/icons';
+import { Heading, Box, Image, Badge } from '@chakra-ui/react';
 
 export const Title = ({ children }: { children: React.ReactNode }) => (
   <Box>
-    {/* <NextLink href="/works">*/}
-    {/*  <p>Works</p>*/}
-    {/* </NextLink>*/}
-    <span>
-      {' '}
-      <ChevronRightIcon />{' '}
-    </span>
+    <NextLink href="/works">
+      <p>Page</p>
+    </NextLink>
+    <span> {/* <ChevronRightIcon />{' '}*/}</span>
     <Heading display="inline-block" as="h3" fontSize={20} mb={4}>
       {children}
     </Heading>

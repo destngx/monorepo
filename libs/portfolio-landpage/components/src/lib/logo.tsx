@@ -1,7 +1,8 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { Text, useColorModeValue } from '@chakra-ui/react';
+'use client';
+
+import NextLink from 'next/link';
 import styled from '@emotion/styled';
+import NextImage from 'next/image';
 
 const LogoBox = styled.span`
   font-weight: bold;
@@ -22,25 +23,16 @@ const LogoBox = styled.span`
 `;
 
 const Logo = () => {
-  const footPrintImg = `/images/footprint${useColorModeValue('', '-dark')}.png`;
+  const footPrintImg = `/images/footprint${''}.png`;
 
   return (
-    <Link href="/" scroll={false}>
-      {/* <a>*/}
-      {/*  <LogoBox>*/}
-      {/*    <Image src={footPrintImg} width={20} height={20} alt="logo" />*/}
-      {/*    <Text*/}
-      {/*      color={useColorModeValue('gray.800', 'whiteAlpha.900')}*/}
-      {/*      fontFamily='M PLUS Rounded 1c", sans-serif'*/}
-      {/*      fontWeight="bold"*/}
-      {/*      ml={3}*/}
-      {/*    >*/}
-      {/*      Dest Nguyen*/}
-      {/*    </Text>*/}
-      {/*  </LogoBox>*/}
-      {/* </a>*/}
-    </Link>
+    <NextLink href="/" scroll={false}>
+      <LogoBox>
+        <NextImage src={footPrintImg} width={20} height={20} alt="logo" />
+        <div className={'ml-3 font-bold font-m-plus-rounded-1c'}>Dest Nguyen</div>
+      </LogoBox>
+    </NextLink>
   );
 };
 
-export default Logo;
+export { Logo };

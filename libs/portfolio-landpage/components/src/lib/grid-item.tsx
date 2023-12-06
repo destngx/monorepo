@@ -1,3 +1,5 @@
+'use client';
+
 import NextLink from 'next/link';
 import Image, { StaticImageData } from 'next/image';
 import { Box, Text, LinkBox, LinkOverlay } from '@chakra-ui/react';

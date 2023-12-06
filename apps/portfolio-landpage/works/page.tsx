@@ -3,11 +3,11 @@ import { WorkGridItem, Section, ArticleLayout as Layout } from '@portfolio-landp
 
 import thumbEHealicords from '../public/images/works/ehealicords_thumbnail.png';
 
-const Works = () => (
-  <Layout title="Works">
+const Page = () => (
+  <Layout title="Page">
     <Container>
       <Heading as="h3" fontSize={20} mb={4}>
-        Works
+        Page
       </Heading>
 
       <SimpleGrid columns={[1, 1, 2]} gap={6}>
@@ -79,5 +79,5 @@ const Works = () => (
   </Layout>
 );
 
-export default Works;
+export default Page;
 export { getServerSideProps } from '@portfolio-landpage/components';
