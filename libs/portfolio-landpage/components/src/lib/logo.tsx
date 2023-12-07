@@ -4,7 +4,7 @@ import NextLink from 'next/link';
 import styled from '@emotion/styled';
 import NextImage from 'next/image';
 
-const LogoBox = styled.span`
+const LogoBox = styled.div`
   font-weight: bold;
   font-size: 18px;
   display: inline-flex;
@@ -27,7 +27,7 @@ const Logo = () => {
 
   return (
     <NextLink href="/" scroll={false}>
-      <LogoBox>
+      <LogoBox className={'cursor-pointer flex-col justify-around'}>
         <NextImage src={footPrintImg} width={20} height={20} alt="logo" />
         <div className={'ml-3 font-bold font-m-plus-rounded-1c'}>Dest Nguyen</div>
       </LogoBox>
