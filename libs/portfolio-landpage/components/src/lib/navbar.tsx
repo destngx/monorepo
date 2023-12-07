@@ -11,8 +11,8 @@ const Navbar = (props: ComponentProps<'div'>) => {
   // const { path } = props;
 
   return (
-    <div className={'sticky top-0 h-20 w-full z-1 backdrop-blur p-4 bg-slate-900 text-yellow-100'}>
-      <div className={'container flex p-2 flex-wrap align-middle items-center justify-between'}>
+    <div className={'sticky top-0 h-screen w-20 z-1 backdrop-blur p-4 bg-slate-900 text-yellow-100'}>
+      <div className={'container flex flex-col p-2 flex-wrap justify-around'}>
         <Logo />
         <div className={'flex align-middle items-center flex-grow'}>
           <NextLink href={'/page'}>Page</NextLink>

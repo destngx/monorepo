@@ -14,10 +14,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={inter.className + ' overflow-y-scroll'}>
+      <body className={inter.className + ' flex'}>
         <Navbar />
-        <div className="min-h-screen my-8 mx-60">{children}</div>
-        <Footer />
+        <div className=" h-screen w-full bg-black pl-0 p-20">
+          {children}
+          <Footer />
+        </div>
       </body>
       <Analytics />
     </html>

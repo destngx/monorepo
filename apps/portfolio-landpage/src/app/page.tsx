@@ -11,7 +11,7 @@ if (typeof window !== 'undefined') {
 
 const Home = () => {
   return (
-    <div className={'bg-pink-400'}>
+    <div className={' border-pink-200 border-2 h-full'}>
       {/* <AnimatePresence
         mode={'wait'}
         initial={true}
@@ -25,7 +25,7 @@ const Home = () => {
       <div className={'bg-slate-400 rounded-sm h-10'}>
         Hello I&apos;m a full-stack developer based in Viet Nam! Nguyen Pham Quang Dinh
       </div>
-      <p>Digital Craftman ( Artist / Developer / Designer )</p>
+      <p>Digital Craftsman ( Artist / Developer / Designer )</p>
       <NextImage src="/images/me.jpg" alt="Profile image" width={'100'} height="100" />
       <Section delay={0.1}>
         Work
