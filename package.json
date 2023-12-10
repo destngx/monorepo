@@ -71,7 +71,7 @@
     "@testing-library/react": "14.1.2",
     "@theunderscorer/nx-semantic-release": "^2.7.1",
     "@types/jest": "^29.5.2",
-    "@types/node": "20.10.3",
+    "@types/node": "20.10.4",
     "@types/react": "18.2.42",
     "@types/react-dom": "18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.9.0",
