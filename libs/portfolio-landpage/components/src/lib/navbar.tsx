@@ -1,39 +1,17 @@
 'use client';
 
-import { Logo } from './logo';
-import NextLink from 'next/link';
 import ThemeToggleButton from './theme-toggle-button';
 import { SCToggleButton } from './soundcloud-button';
 import React, { ComponentProps } from 'react';
-import { IoLogoGithub } from 'react-icons/io5';
 
 const Navbar = (props: ComponentProps<'div'>) => {
   // const { path } = props;
 
   return (
-    <div className={'sticky top-0 h-screen w-20 z-1 backdrop-blur p-4 bg-slate-900 text-yellow-100'}>
-      <div className={'container flex flex-col p-2 flex-wrap justify-around'}>
-        <Logo />
-        <div className={'flex align-middle items-center flex-grow'}>
-          <NextLink href={'/page'}>Page</NextLink>
-          <NextLink href={'/post'}>Post</NextLink>
-          <NextLink href={'/source'}>
-            <IoLogoGithub />
-            Source
-          </NextLink>
-        </div>
-        <ThemeToggleButton />
+    <div className="fixed bottom-6 h-fit w-12 backdrop-blur bg-white/20 rounded p-1 m-1 ">
+      <div className={'container py-4 h-full flex gap-2 flex-col justify-between items-center align-middle'}>
         <SCToggleButton />
-        <NextLink href="/" passHref>
-          About
-        </NextLink>
-        <NextLink href="/works" passHref>
-          Works
-        </NextLink>
-        <NextLink href="/posts" passHref>
-          Posts
-        </NextLink>
-        View Source
+        <ThemeToggleButton />
       </div>
     </div>
   );
