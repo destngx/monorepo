@@ -1,32 +1,26 @@
 ## Stack
 
 - [Next.js](https://nextjs.org/) - A React framework with hybrid static & server rendering, and route pre-fetching, etc.
-- [Chakra UI](https://chakra-ui.com/) - A simple, modular and accessible component library for React
-- [Three.js](https://threejs.org/) - 3D library for JavaScript
+- [Tailwind CSS](https://tailwindcss.com/) - Rapidly build modern websites without ever leaving your HTML.
+- [Three.js / React Three Fiber / React Three Drei](https://threejs.org/) - 3D library for JavaScript
 - [Framer Motion](https://www.framer.com/motion/) - An animation library for React
 
-## Project structure
+## Roadmap
 
-```
-$PROJECT_ROOT
-│   # Page files
-├── pages
-│   # React component files
-├── components
-│   # Non-react modules
-├── lib
-│   # Static files for images and 3d model file
-└── public
-```
-
-## Work in Progress
-
-- Animated 3D Robot Model
+- [x] Animated 3D Plane Model
+- [ ] Transition Effect
+- [ ] Adaptive Pointer
 
 ## License
 
 MIT License.
 
-- Forking from [my homepage](https://www.craftz.dog/)
+---
+
+### Inspired from
+
+- [craftdog homepage](https://www.craftz.dog/)
+- [keita_yamada homepage](https://p5aholic.me/info/)
+- [sarah_guo homepage](https://sarahguo.com/)
 
 ---
