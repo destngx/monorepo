@@ -1,0 +1,88 @@
+body {
+  margin: 1rem;
+  padding: 0;
+  min-height: 90vh;
+  background-image: linear-gradient(80deg, rgb(245, 124, 172), rgb(19, 140, 114));
+  overflow: hidden;
+  @media screen and (max-width: 768px) {
+    overflow: scroll;
+  }
+}
+#up {
+  position: absolute;
+  height: 800px;
+  width: 800px;
+  border-radius: 50%;
+  background-image: linear-gradient(80deg, rgb(5, 124, 172), rgb(143, 247, 202, 0.5));
+  filter: blur(80px);
+  animation: down 20s infinite;
+}
+#down {
+  position: absolute;
+  right: 0;
+  height: 500px;
+  width: 500px;
+  border-radius: 50%;
+  background-image: linear-gradient(80deg, rgba(245, 07, 82, 0.8), rgba(199, 210, 114));
+  filter: blur(80px);
+  animation: up 15s infinite;
+}
+#left {
+  position: absolute;
+  height: 500px;
+  width: 500px;
+  border-radius: 50%;
+  background-image: linear-gradient(80deg, rgb(5, 124, 172), rgba(183, 253, 52, 0.8));
+  filter: blur(80px);
+  animation: left 15s 1s infinite;
+}
+#right {
+  position: absolute;
+  height: 500px;
+  width: 500px;
+  border-radius: 50%;
+  background-image: linear-gradient(80deg, rgba(26, 248, 18, 0.6), rgba(199, 10, 114, 0.5));
+  filter: blur(80px);
+  animation: right 20s 0.5s infinite;
+}
+
+@keyframes down {
+  0%,
+  100% {
+    top: -100px;
+  }
+  70% {
+    top: 700px;
+  }
+}
+@keyframes up {
+  0%,
+  100% {
+    bottom: -100px;
+  }
+  70% {
+    bottom: 700px;
+  }
+}
+@keyframes left {
+  0%,
+  100% {
+    left: -100px;
+  }
+  70% {
+    left: 1300px;
+  }
+}
+@keyframes right {
+  0%,
+  100% {
+    right: -100px;
+  }
+  70% {
+    right: 1300px;
+  }
+}
+
+#background {
+  z-index: -100;
+}
