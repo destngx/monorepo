@@ -11,7 +11,7 @@ const BoxMesh = (props: JSX.IntrinsicElements['mesh']) => {
   return (
     <mesh {...props}>
       <tetrahedronGeometry args={[1, 1]} />
-      <meshToonMaterial wireframe={Math.random() < 0.7} color="cyan" />
+      <meshToonMaterial wireframe={true} color="#3d7aed" />
     </mesh>
   );
 };
@@ -54,7 +54,7 @@ const ThreeModel = () => {
       <Suspense>
         <Canvas
           className={
-            'bg-[linear-gradient(to_right,#808088_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:14px_24px]'
+            'hover:bg-[linear-gradient(to_right,#808088_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:14px_24px]'
           }
           shadows
           camera={{ position: [90, 1, 5] }}
@@ -62,13 +62,13 @@ const ThreeModel = () => {
           <OrbitControls autoRotate={true} enableZoom={false} />
           <PlaneMeshComponent />
           <BoxMesh scale={[10, 10, 10]} position={[-25, 35, 0]} />
-          <BoxMesh rotation={[1, Math.PI / 2, 0]} scale={[10, 10, 10]} position={[25, 35, 0]} />
-          <BoxMesh rotation={[0, Math.PI / 3, 0]} scale={[10, 10, 10]} position={[25, -25, 0]} />
+          <BoxMesh rotation={[1, Math.PI / 2, 0]} scale={[10, 10, 10]} position={[25, 35, 29]} />
+          <BoxMesh rotation={[0, Math.PI / 3, 0]} scale={[10, 10, 10]} position={[25, -25, 19]} />
           <BoxMesh rotation={[0, Math.PI / 2, 1]} scale={[10, 10, 10]} position={[-25, -25, 0]} />
-          <BoxMesh rotation={[0, Math.PI / 2, -1]} scale={[10, 10, 10]} position={[-45, 0, 0]} />
-          <BoxMesh rotation={[-2, Math.PI / 2, 1]} scale={[10, 10, 10]} position={[45, 0, 0]} />
-          <BoxMesh rotation={[-2, Math.PI / 2, 1]} scale={[10, 10, 10]} position={[0, 35, 0]} />
-          <BoxMesh rotation={[-2, Math.PI / 2, 1]} scale={[10, 10, 10]} position={[0, -35, 0]} />
+          <BoxMesh rotation={[0, Math.PI / 2, -1]} scale={[10, 10, 10]} position={[-45, 0, -19]} />
+          <BoxMesh rotation={[-2, Math.PI / 2, 1]} scale={[10, 10, 10]} position={[45, 15, 19]} />
+          <BoxMesh rotation={[-2, Math.PI / 2, 1]} scale={[10, 10, 10]} position={[0, 35, -29]} />
+          <BoxMesh rotation={[-2, Math.PI / 2, 1]} scale={[10, 10, 10]} position={[0, -35, -19]} />
           <pointLight color={'white'} position={[10, 10, 10]} intensity={1} />
           <ambientLight color={'white'} intensity={0.8} />
         </Canvas>

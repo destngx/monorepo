@@ -3,6 +3,7 @@ import { BioSection, BioYear, GlobalContext, Navbar, Paragraph, ThreeModel } fro
 import NextLink from 'next/link';
 import { IoLogoGithub, IoLogoYoutube } from 'react-icons/io5';
 import React, { useContext } from 'react';
+import { motion } from 'framer-motion';
 
 if (typeof window !== 'undefined') {
   window.history.scrollRestoration = 'manual';
@@ -15,15 +16,17 @@ const projectList = [
   { projectName: 'ProjectName', url: '', year: 2023 },
 ];
 const Home = () => {
-  const { isShowSoundCloudPlayer } = useContext(GlobalContext);
   return (
     <div className={' flex '}>
       <Navbar />
       <div className={'m-2 grow grid grid-cols-1 md:grid-cols-2 gap-6'}>
         <div className={'mt-60 m-2 p-1 flex-col flex gap-6'}>
-          <div className="w-full font-thin backdrop-blur text-gray-50 bg-black/10 p-2 rounded shadow">
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            className="w-full font-thin backdrop-blur text-gray-50 bg-black/10 p-2 rounded shadow"
+          >
             Hi! I&apos;m Nguyen Pham Quang Dinh, a full-stack developer based in Ho Chi Minh, Viet Nam
-          </div>
+          </motion.div>
           <div className={'py-2'}>
             <BioSection>
               <BioYear>1999</BioYear>
@@ -94,19 +97,6 @@ const Home = () => {
             );
           })}
         </div>
-      </div>
-
-      <div
-        className={`border-yellow-500 border-[1px] absolute rounded overflow-hidden shadow bottom-6 mb-4 left-16 transition-all duration-300 ease-in-out ${
-          isShowSoundCloudPlayer ? '' : 'hidden'
-        }`}
-      >
-        <iframe
-          width="100%"
-          height="100%"
-          allow="autoplay"
-          src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/playlists/1000012141&color=%23ff5500&auto_play=true&hide_related=false&show_comments=false&show_user=true&show_reposts=false&show_teaser=true&visual=true"
-        />
       </div>
     </div>
   );

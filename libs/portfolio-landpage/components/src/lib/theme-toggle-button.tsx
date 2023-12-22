@@ -8,6 +8,7 @@ const ThemeToggleButton = () => {
   return (
     <AnimatePresence mode={'wait'} initial={false}>
       <motion.div
+        className={'fixed bottom-6 left-2 '}
         style={{ display: 'inline-block' }}
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
