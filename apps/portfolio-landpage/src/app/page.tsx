@@ -19,9 +19,9 @@ const Home = () => {
   return (
     <div className={' flex '}>
       <Navbar />
-      <div className={'m-2 grow grid grid-cols-1 md:grid-cols-2 gap-4'}>
-        <div className={'mt-60 flex-col flex gap-6'}>
-          <div className={'w-full font-thin backdrop-blur bg-black/10 text-gray-50 p-2 rounded shadow'}>
+      <div className={'m-2 grow grid grid-cols-1 md:grid-cols-2 gap-6'}>
+        <div className={'mt-60 m-2 p-1 flex-col flex gap-6'}>
+          <div className="w-full font-thin backdrop-blur text-gray-50 bg-black/10 p-2 rounded shadow">
             Hi! I&apos;m Nguyen Pham Quang Dinh, a full-stack developer based in Ho Chi Minh, Viet Nam
           </div>
           <div className={'py-2'}>

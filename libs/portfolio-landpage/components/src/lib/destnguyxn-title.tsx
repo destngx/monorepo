@@ -5,14 +5,14 @@ export const DestnguyxnTitle = ({ isAnimated, className }: { isAnimated: boolean
     <div
       className={
         (!isAnimated ? 'bg-white/10 backdrop-blur-sm hover:backdrop-blur-xl' : '') +
-        'select-none z-10 m-2 content-around w-fit fixed ' +
+        ' select-none z-10 m-2 content-around w-fit fixed ' +
         className
       }
     >
       <p
         className={
           (isAnimated ? 'animate-pulse ' : '') +
-          'backdrop-blur bg-amber-800/50 font-extrabold text-gray-900 text-6xl md:text-8xl text dark:text-white'
+          ' backdrop-blur bg-amber-800/50 font-extrabold text-gray-900 text-6xl md:text-8xl text dark:text-white'
         }
       >
         DEST

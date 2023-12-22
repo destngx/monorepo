@@ -1,8 +1,8 @@
 body {
   margin: 1rem;
   padding: 0;
-  min-height: 90vh;
-  background-image: linear-gradient(80deg, rgb(245, 124, 172), rgb(19, 140, 114));
+  min-height: 100vh;
+  background-image: linear-gradient(80deg, rgb(19, 140, 114), rgb(245, 124, 172));
   overflow: hidden;
   @media screen and (max-width: 768px) {
     overflow: scroll;
@@ -10,6 +10,7 @@ body {
 }
 #up {
   position: absolute;
+  bottom: -50px;
   height: 800px;
   width: 800px;
   border-radius: 50%;
@@ -19,16 +20,17 @@ body {
 }
 #down {
   position: absolute;
-  right: 0;
+  top: 0;
   height: 500px;
   width: 500px;
   border-radius: 50%;
   background-image: linear-gradient(80deg, rgba(245, 07, 82, 0.8), rgba(199, 210, 114));
   filter: blur(80px);
-  animation: up 15s infinite;
+  animation: down 15s infinite;
 }
 #left {
   position: absolute;
+  top: 50px;
   height: 500px;
   width: 500px;
   border-radius: 50%;
@@ -38,10 +40,11 @@ body {
 }
 #right {
   position: absolute;
+  left: 0;
   height: 500px;
   width: 500px;
   border-radius: 50%;
-  background-image: linear-gradient(80deg, rgba(26, 248, 18, 0.6), rgba(199, 10, 114, 0.5));
+  background-image: linear-gradient(80deg, rgba(226, 248, 18, 0.6), rgba(199, 10, 114, 0.5));
   filter: blur(80px);
   animation: right 20s 0.5s infinite;
 }
@@ -76,13 +79,18 @@ body {
 @keyframes right {
   0%,
   100% {
+    bottom: -10px;
     right: -100px;
   }
   70% {
     right: 1300px;
+    bottom: -100px;
   }
 }
 
 #background {
   z-index: -100;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
