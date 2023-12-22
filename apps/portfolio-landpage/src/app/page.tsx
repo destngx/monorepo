@@ -1,8 +1,8 @@
 'use client';
-import { BioSection, BioYear, GlobalContext, Navbar, Paragraph, ThreeModel } from '@portfolio-landpage/components';
+import { BioSection, BioYear, Navbar, Paragraph, ThreeModel } from '@portfolio-landpage/components';
 import NextLink from 'next/link';
 import { IoLogoGithub, IoLogoYoutube } from 'react-icons/io5';
-import React, { useContext } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 
 if (typeof window !== 'undefined') {

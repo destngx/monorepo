@@ -1,6 +1,5 @@
 'use client';
 
-import ThemeToggleButton from './theme-toggle-button';
 import { SCToggleButton } from './soundcloud-button';
 import React, { ComponentProps, useContext } from 'react';
 import { motion } from 'framer-motion';
