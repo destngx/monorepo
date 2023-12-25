@@ -2,6 +2,7 @@
 import { BioSection, BioYear, Navbar, Paragraph, ThreeModel } from '@portfolio-landpage/components';
 import NextLink from 'next/link';
 import { IoLogoGithub, IoLogoYoutube } from 'react-icons/io5';
+import { FaCameraRetro, FaSpotify } from 'react-icons/fa';
 import React from 'react';
 import { motion } from 'framer-motion';
 
@@ -34,49 +35,53 @@ const Home = () => {
             </BioSection>
             <BioSection>
               <BioYear>2022</BioYear>
-              Completed the Master&apos;s Program in the Graduate School of Information Science of Ho Chi Minh
-              University of Science
+              Graduated with a Bachelor’s degree in Software Engineering from the Faculty of Information Technology at
+              the University of Science, Ho Chi Minh City National University.
             </BioSection>
             <BioSection>
               <BioYear>2023</BioYear>
-              Working at a top company of Korea
+              Working at a top game company from Korea.
             </BioSection>
             <BioSection>
               <BioYear>2024</BioYear>
               Concurrently being a freelancer and learning new things
             </BioSection>
           </div>
-          <Paragraph>
-            I ♥ Art, Drawing, Music{' '}
-            <NextLink
-              href="https://open.spotify.com/user/22uqfqyasviijy57kq2fnxv3a?si=591a37358eb34a77"
-              target="_blank"
-              className={'font-bold'}
-            >
-              (here my spotify)
-            </NextLink>
-            , Playing Guitar,{' '}
-            <NextLink href="https://www.eyeem.com/u/destnguyxn" target="_blank">
-              Photography
-            </NextLink>
-            , Machine Learning
-          </Paragraph>
+          <Paragraph>I ♥ Art, Drawing, Music , Playing Guitar, Photography, AI, and Machine Learning</Paragraph>
           <div>
             Find me on the web
-            <div className={'flex flex-col gap-1'}>
+            <div className={'flex flex-col'}>
               <NextLink
-                className={'flex flex-row font-bold gap-2 align-middle items-center'}
+                href="https://open.spotify.com/user/22uqfqyasviijy57kq2fnxv3a?si=591a37358eb34a77"
+                target="_blank"
+                className={'w-fit flex flex-row font-bold gap-2 align-middle items-center'}
+              >
+                <FaSpotify />
+                Spotify ↗
+              </NextLink>
+              <NextLink
+                className={'w-fit flex flex-row font-bold gap-2 align-middle items-center'}
                 href={'https://github.com/destnguyxn'}
+                target="_blank"
               >
                 <IoLogoGithub />
                 Github ↗
               </NextLink>
               <NextLink
-                className={'flex flex-row font-bold gap-2 align-middle items-center'}
+                className={'w-fit flex flex-row font-bold gap-2 align-middle items-center'}
                 href={'https://www.youtube.com/'}
+                target="_blank"
               >
                 <IoLogoYoutube />
                 Youtube ↗
+              </NextLink>
+              <NextLink
+                className={'w-fit flex flex-row font-bold gap-2 align-middle items-center'}
+                href="https://www.eyeem.com/u/destnguyxn"
+                target="_blank"
+              >
+                <FaCameraRetro />
+                Eyeem ↗
               </NextLink>
             </div>
           </div>
