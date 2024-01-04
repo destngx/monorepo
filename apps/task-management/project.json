@@ -1,0 +1,53 @@
+{
+  "name": "task-management",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/task-management/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/webpack:webpack",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "target": "node",
+        "compiler": "tsc",
+        "outputPath": "dist/apps/task-management",
+        "main": "apps/task-management/src/main.ts",
+        "tsConfig": "apps/task-management/tsconfig.app.json",
+        "assets": ["apps/task-management/src/assets"],
+        "webpackConfig": "apps/task-management/webpack.config.js"
+      },
+      "configurations": {
+        "development": {},
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "task-management:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "task-management:build:development"
+        },
+        "production": {
+          "buildTarget": "task-management:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"]
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/task-management/jest.config.ts"
+      }
+    }
+  },
+  "tags": []
+}
