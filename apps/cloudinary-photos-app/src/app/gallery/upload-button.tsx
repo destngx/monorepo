@@ -1,7 +1,6 @@
 'use client';
 
 import { CldUploadButton } from 'next-cloudinary';
-import { UploadResult } from '../page';
 import { Button } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
 import { useRouter } from 'next/navigation';
 
@@ -11,7 +10,7 @@ export default function UploadButton() {
   return (
     <Button asChild>
       <CldUploadButton
-        onUpload={(result: UploadResult) => {
+        onUpload={() => {
           setTimeout(() => {
             router.refresh();
           }, 2000);
