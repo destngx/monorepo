@@ -1,6 +1,6 @@
 'use client';
 
-import { CldImage, CldUploadButton, CldUploadWidgetResults } from 'next-cloudinary';
+import { CldImage, CldUploadButton, CloudinaryUploadWidgetResults } from 'next-cloudinary';
 import { useState } from 'react';
 import { getBufferFromUrl } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server';
 
@@ -16,7 +16,7 @@ export default function Home() {
       <div>
         <CldUploadButton
           className="bg-pink-400 p-4 rounded hover:bg-purple-400 hover:cursor-pointer transition"
-          onUpload={(results: CldUploadWidgetResults) => {
+          onUploadAdded={(results: CloudinaryUploadWidgetResults) => {
             const data = results.info;
             if (typeof data === 'string') {
               return;
