@@ -1,5 +1,5 @@
 {
-  "name": "@nx-pnpm-monorepo/source",
+  "name": "@destnguyxn-monorepo",
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
@@ -10,11 +10,7 @@
     "test:all": "nx run-many -t test",
     "serve:all": "nx run-many -t serve",
     "build:all": "nx run-many -t build",
-    "dev:fe": "nx serve frontend",
-    "dev:api": "nx serve monorepo",
     "prepare": "husky install",
-    "storybook": "nx storybook frontend",
-    "build-storybook": "storybook build",
     "cz": "git-cz",
     "cypress": " nx e2e frontend-e2e --configuration=production",
     "compose:up": "podman-compose -f deployments/docker-compose/docker-compose.yml up -d",
@@ -127,8 +123,6 @@
     "nx": "18.0.8",
     "postcss": "8.4.35",
     "prettier": "^3.0.0",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
     "sass": "1.71.1",
     "react-refresh": "^0.14.0",
     "tailwind-merge": "^2.0.0",
@@ -141,5 +135,10 @@
   },
   "volta": {
     "node": "20.9.0"
-  }
+  },
+  "trustedDependencies": [
+    "@nestjs/core",
+    "core-js-pure",
+    "es5-ext"
+  ]
 }

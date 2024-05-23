@@ -28,6 +28,7 @@
     "**/*.ts",
     "**/*.tsx",
     "../../apps/cloudinary-photos-app/.next/.next/types/**/*.ts",
-    "../../apps/cloudinary-photos-app/dist/.next/types/**/*.ts"
+    "../../apps/cloudinary-photos-app/dist/.next/types/**/*.ts",
+    ".next/types/**/*.ts"
   ]
 }
