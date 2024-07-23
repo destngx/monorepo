@@ -24,7 +24,7 @@ jobs:
           node-version: 20
           cache: 'pnpm'
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --ignore-scripts
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
