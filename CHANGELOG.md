@@ -1,3 +1,39 @@
+# 1.0.0 (2024-07-23)
+
+
+### Bug Fixes
+
+- change deprecated onUpload to OnUploadAdded
+- disable old code
+- missing dependencies
+- remove redundant props
+- render error
+- temp fix for session null
+- three model and some
+- typo
+- update build path photo app
+- update play soundcloud button and fix style of find me link
+- update props when update lib version
+- update renovate config
+
+
+### Features
+
+- add deployments script for docker, add segregation read and write datasource, add husky, prettier, eslint, lint-staged, commitlint
+- add files
+- add nextjs app and Dockerfile for nextjs app
+- add portfolio landpage
+- add Vercel analytics
+- aurora morph gradient bg, layout, Threejs model
+- cloudinary-photo-app, spit code into lib by type
+- implement isAuthorized, isInitialize, loading, styling
+- implement mongo
+- portfolio page layout
+- portfolio re design layout
+- session token
+- some framer motion style
+- view image detail exif
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
