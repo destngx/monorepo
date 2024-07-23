@@ -10,7 +10,7 @@
       <img alt="Windows" src="https://img.shields.io/badge/Windows-%23.svg?style=flat-square&logo=windows&color=0078D6&logoColor=white" />
     </a>
     <a href="https://github.com/destngx/monorepo/releases/latest">
-      <img alt="Latest release" src="https://img.shields.io/github/v/release/jdhao/monorepo" />
+      <img alt="Latest release" src="https://img.shields.io/github/v/release/destngx/monorepo" />
     </a>
     <a href="https://github.com/neovim/neovim/releases/tag/stable">
       <img src="https://img.shields.io/badge/Neovim-0.10.0-blueviolet.svg?style=flat-square&logo=Neovim&logoColor=green" alt="Neovim minimum version"/>
@@ -21,8 +21,8 @@
     <a href="https://github.com/destngx/monorepo/graphs/commit-activity">
       <img src="https://img.shields.io/github/commit-activity/m/destngx/monorepo?style=flat-square" />
     </a>
-    <a href="https://github.com/destngx/monorepo/releases/tag/v0.9.5">
-      <img src="https://img.shields.io/github/commits-since/destngx/monorepo/v0.9.5?style=flat-square" />
+    <a href="https://github.com/destngx/monorepo/releases/tag/v1.0.0">
+      <img src="https://img.shields.io/github/commits-since/destngx/monorepo/v1.0.0?style=flat-square" />
     </a>
     <a href="https://github.com/destngx/monorepo/graphs/contributors">
       <img src="https://img.shields.io/github/contributors/destngx/monorepo?style=flat-square" />
