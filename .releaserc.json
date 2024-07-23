@@ -1,0 +1,56 @@
+{
+  "branches": ["main"],
+  "repositoryUrl": "https://github.com/destngx/monorepo.git",
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          {
+            "type": "feat",
+            "release": "minor"
+          },
+          {
+            "type": "fix",
+            "release": "patch"
+          },
+          {
+            "type": "BREAKING CHANGE",
+            "release": "major"
+          }
+        ],
+        "parserOpts": {
+          "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES", "BREAKING"]
+        },
+        "writerOpts": {
+          "commitsSort": ["subject", "scope"]
+        }
+      }
+    ],
+    [
+      "semantic-release-jira-notes",
+      {
+        "jiraHost": "jira.com",
+        "ticketPrefixes": ["MONO"],
+        "writerOpts": {
+          "commitsSort": ["subject", "scope"],
+          "commitPartial": "-{{#if scope}} **{{scope}}:**\n {{~/if}} {{#if subject}}\n {{~subject}}\n {{~else}}\n {{~header}}\n {{~/if}}\n\n"
+        }
+      }
+    ],
+    [
+      "semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    "semantic-release/npm",
+    [
+      "semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md", "package.json"]
+      }
+    ]
+  ]
+}
