@@ -1,6 +1,6 @@
 {
   "branches": ["main"],
-  "repositoryUrl": "https://github.com/destngx/monorepo.git",
+  "repositoryUrl": "https://github.com/destngx/monorepo",
   "plugins": [
     [
       "@semantic-release/commit-analyzer",
