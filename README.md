@@ -12,9 +12,6 @@
     <a href="https://github.com/destngx/monorepo/releases/latest">
       <img alt="Latest release" src="https://img.shields.io/github/v/release/destngx/monorepo" />
     </a>
-    <a href="https://github.com/neovim/neovim/releases/tag/stable">
-      <img src="https://img.shields.io/badge/Neovim-0.10.0-blueviolet.svg?style=flat-square&logo=Neovim&logoColor=green" alt="Neovim minimum version"/>
-    </a>
     <a href="https://github.com/destngx/monorepo/search?l=vim-script">
       <img src="https://img.shields.io/github/languages/top/destngx/monorepo" alt="Top languages"/>
     </a>
@@ -22,7 +19,7 @@
       <img src="https://img.shields.io/github/commit-activity/m/destngx/monorepo?style=flat-square" />
     </a>
     <a href="https://github.com/destngx/monorepo/releases/tag/v1.0.0">
-      <img src="https://img.shields.io/github/commits-since/destngx/monorepo/v1.0.0?style=flat-square" />
+      <img src="https://img.shields.io/github/commits-since-tags/destngx/monorepo/v1.0.0?style=flat-square" />
     </a>
     <a href="https://github.com/destngx/monorepo/graphs/contributors">
       <img src="https://img.shields.io/github/contributors/destngx/monorepo?style=flat-square" />
@@ -38,19 +35,7 @@
 
 # [Monorepo](https://monorepo.tools/) with [Next.js](https://nextjs.org) and [Nx](https://nx.dev)
 
-## Development server
+# Current Features
 
-Run `nx serve monorepo` for a dev server. Navigate to http://localhost:4200/. The app will automatically reload if you change any of the source files.
-Run `nx serve next-starter` for a dev server. Navigate to http://localhost:3000/. The app will automatically reload if you change any of the source files.
-
-## Understand this workspace
-
-Run `nx graph` to see a diagram of the dependencies of the projects.
-
-## Remote caching
-
-Run `npx nx connect-to-nx-cloud` to enable [remote caching](https://nx.app) and make CI faster.
-
-## Further help
-
-Visit the [Nx Documentation](https://nx.dev) to learn more.
+- Portfolio Landing Page
+- Cloud Image Personal Gallery
