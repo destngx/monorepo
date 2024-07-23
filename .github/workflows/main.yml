@@ -9,5 +9,20 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Semantic Release Action
-        uses: codfish/semantic-release-action@v1
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "lts/*"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: pnpx semantic-release
