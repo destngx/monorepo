@@ -9,29 +9,29 @@
     <a>
       <img alt="Windows" src="https://img.shields.io/badge/Windows-%23.svg?style=flat-square&logo=windows&color=0078D6&logoColor=white" />
     </a>
-    <a href="https://github.com/destngx/nvim-config/releases/latest">
-      <img alt="Latest release" src="https://img.shields.io/github/v/release/jdhao/nvim-config" />
+    <a href="https://github.com/destngx/monorepo/releases/latest">
+      <img alt="Latest release" src="https://img.shields.io/github/v/release/jdhao/monorepo" />
     </a>
     <a href="https://github.com/neovim/neovim/releases/tag/stable">
       <img src="https://img.shields.io/badge/Neovim-0.10.0-blueviolet.svg?style=flat-square&logo=Neovim&logoColor=green" alt="Neovim minimum version"/>
     </a>
-    <a href="https://github.com/destngx/nvim-config/search?l=vim-script">
-      <img src="https://img.shields.io/github/languages/top/destngx/nvim-config" alt="Top languages"/>
+    <a href="https://github.com/destngx/monorepo/search?l=vim-script">
+      <img src="https://img.shields.io/github/languages/top/destngx/monorepo" alt="Top languages"/>
     </a>
-    <a href="https://github.com/destngx/nvim-config/graphs/commit-activity">
-      <img src="https://img.shields.io/github/commit-activity/m/destngx/nvim-config?style=flat-square" />
+    <a href="https://github.com/destngx/monorepo/graphs/commit-activity">
+      <img src="https://img.shields.io/github/commit-activity/m/destngx/monorepo?style=flat-square" />
     </a>
-    <a href="https://github.com/destngx/nvim-config/releases/tag/v0.9.5">
-      <img src="https://img.shields.io/github/commits-since/destngx/nvim-config/v0.9.5?style=flat-square" />
+    <a href="https://github.com/destngx/monorepo/releases/tag/v0.9.5">
+      <img src="https://img.shields.io/github/commits-since/destngx/monorepo/v0.9.5?style=flat-square" />
     </a>
-    <a href="https://github.com/destngx/nvim-config/graphs/contributors">
-      <img src="https://img.shields.io/github/contributors/destngx/nvim-config?style=flat-square" />
+    <a href="https://github.com/destngx/monorepo/graphs/contributors">
+      <img src="https://img.shields.io/github/contributors/destngx/monorepo?style=flat-square" />
     </a>
     <a>
-      <img src="https://img.shields.io/github/repo-size/destngx/nvim-config?style=flat-square" />
+      <img src="https://img.shields.io/github/repo-size/destngx/monorepo?style=flat-square" />
     </a>
-    <a href="https://github.com/destngx/nvim-config/blob/master/LICENSE">
-      <img src="https://img.shields.io/github/license/destngx/nvim-config?style=flat-square&logo=GNU&label=License" alt="License"/>
+    <a href="https://github.com/destngx/monorepo/blob/master/LICENSE">
+      <img src="https://img.shields.io/github/license/destngx/monorepo?style=flat-square&logo=GNU&label=License" alt="License"/>
     </a>
 </p>
 </div>
