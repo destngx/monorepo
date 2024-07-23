@@ -19,7 +19,7 @@
       <img src="https://img.shields.io/github/commit-activity/m/destngx/monorepo?style=flat-square" />
     </a>
     <a href="https://github.com/destngx/monorepo/releases/tag/v1.0.0">
-      <img src="https://img.shields.io/github/commits-since-tags/destngx/monorepo/v1.0.0?style=flat-square" />
+      <img src="https://img.shields.io/github/commits-since/destngx/monorepo/v1.0.0?style=flat-square" />
     </a>
     <a href="https://github.com/destngx/monorepo/graphs/contributors">
       <img src="https://img.shields.io/github/contributors/destngx/monorepo?style=flat-square" />
