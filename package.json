@@ -125,7 +125,7 @@
     "jest-environment-jsdom": "^29.5.0",
     "jest-environment-node": "^29.5.0",
     "lint-staged": "^15.0.0",
-    "lucide-react": "^0.411.0",
+    "lucide-react": "^0.414.0",
     "next-cloudinary": "^6.0.0",
     "nx": "18.3.5",
     "postcss": "8.4.39",
@@ -139,7 +139,7 @@
     "tailwindcss-animate": "^1.0.6",
     "ts-jest": "^29.1.0",
     "ts-node": "10.9.2",
-    "typescript": "5.5.3",
+    "typescript": "5.5.4",
     "url-loader": "^4.1.1"
   },
   "volta": {
