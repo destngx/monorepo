@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/destngx/monorepo/compare/v1.0.0...v1.0.1) (2024-07-25)
+
+
+### Bug Fixes
+
+- reduce waiting time in first screen
+
 # 1.0.0 (2024-07-23)
 
 
