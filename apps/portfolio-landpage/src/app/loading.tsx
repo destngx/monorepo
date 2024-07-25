@@ -29,7 +29,7 @@ const Loading = ({ children }: { children: React.ReactNode }) => {
             <div
               className={
                 (isLoading && loadModelProgress !== 100 ? 'opacity-0' : 'opacity-100') +
-                ' ease-in-out transition-all delay-[5000ms] duration-3000'
+                ' ease-in-out transition-all delay-[3000ms] duration-2000'
               }
             >
               {children}
