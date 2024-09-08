@@ -13,8 +13,8 @@
     "prepare": "husky install",
     "cz": "git-cz",
     "cypress": " nx e2e frontend-e2e --configuration=production",
-    "compose:up": "podman-compose -f deployments/docker-compose/docker-compose.yml up -d",
-    "compose:down": "podman-compose -f deployments/docker-compose/docker-compose.yml down",
+    "compose:up": "docker-compose -f deployments/docker-compose/docker-compose.yml up -d",
+    "compose:down": "docker-compose -f deployments/docker-compose/docker-compose.yml down",
     "typeorm": "typeorm-ts-node-commonjs",
     "release": "semantic-release"
   },
