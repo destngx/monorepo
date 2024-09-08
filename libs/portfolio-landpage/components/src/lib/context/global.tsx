@@ -3,9 +3,13 @@ import { createContext, useState } from 'react';
 
 const initialState = {
   isShowSoundCloudPlayer: false,
-  setIsShowSoundCloudPlayer: (value: boolean) => {},
+  setIsShowSoundCloudPlayer: (value: boolean) => {
+    return false;
+  },
   loadModelProgress: 0,
-  setLoadModelProgress: (value: number) => {},
+  setLoadModelProgress: (value: number) => {
+    return 0;
+  },
 };
 const GlobalContext = createContext(initialState);
 
