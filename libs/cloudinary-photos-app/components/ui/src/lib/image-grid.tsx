@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
 
 const MAX_COLUMNS = 4;
 

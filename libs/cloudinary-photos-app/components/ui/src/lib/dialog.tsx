@@ -4,7 +4,7 @@ import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 
-import { cn } from '@nx-pnpm-monorepo/cloudinary-photos-app/utils';
+import { cn } from '@mono/cloudinary-photos-app/utils';
 
 const Dialog = DialogPrimitive.Root;
 

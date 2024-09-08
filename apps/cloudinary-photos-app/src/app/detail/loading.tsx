@@ -1,4 +1,4 @@
-import { Loader } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { Loader } from '@mono/cloudinary-photos-app/components/ui';
 import React from 'react';
 
 const Loading = () => {

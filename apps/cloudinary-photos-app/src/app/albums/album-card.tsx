@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { Button } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { Button } from '@mono/cloudinary-photos-app/components/ui';
 import {
   Card,
   CardContent,
@@ -8,9 +8,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+} from '@mono/cloudinary-photos-app/components/ui';
 import Link from 'next/link';
-import { Folder } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { Folder } from '@mono/cloudinary-photos-app/types';
 
 export function AlbumCard({ folder }: { folder: Folder }) {
   return (

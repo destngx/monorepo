@@ -1,7 +1,7 @@
 import cloudinary from 'cloudinary';
 import FavoritesList from './favorites-list';
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
-import { ForceRefresh } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
+import { ForceRefresh } from '@mono/cloudinary-photos-app/components/ui';
 
 export default async function FavoritesPage() {
   const results = (await cloudinary.v2.search

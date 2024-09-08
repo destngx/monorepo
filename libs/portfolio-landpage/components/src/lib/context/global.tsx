@@ -28,4 +28,4 @@ const GlobalContextWrapper = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-export { GlobalContext, GlobalContextWrapper };
+export { GlobalContext, GlobalContextWrapper, GlobalConsumer };

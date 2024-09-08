@@ -4,7 +4,7 @@ import * as React from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { Check, ChevronRight, Circle } from 'lucide-react';
 
-import { cn } from '@nx-pnpm-monorepo/cloudinary-photos-app/utils';
+import { cn } from '@mono/cloudinary-photos-app/utils';
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 

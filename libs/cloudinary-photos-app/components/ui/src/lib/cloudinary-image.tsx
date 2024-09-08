@@ -3,8 +3,8 @@
 import { CldImage, CldImageProps } from 'next-cloudinary';
 import { useState, useTransition } from 'react';
 import { ImageMenu } from './image-menu';
-import { FullHeart, Heart } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/icons';
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { FullHeart, Heart } from '@mono/cloudinary-photos-app/components/icons';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
 import { setAsFavoriteAction } from '../server/actions';
 
 export function CloudinaryImage(

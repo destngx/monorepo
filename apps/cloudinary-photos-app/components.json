@@ -11,6 +11,6 @@
   },
   "aliases": {
     "components": "@/components",
-    "utils": "@nx-pnpm-monorepo/cloudinary-photos-app/utils"
+    "utils": "@mono/cloudinary-photos-app/utils"
   }
 }

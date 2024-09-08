@@ -1,7 +1,7 @@
 import cloudinary from 'cloudinary';
 import AlbumGrid from './album-grid';
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
-import { ForceRefresh } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
+import { ForceRefresh } from '@mono/cloudinary-photos-app/components/ui';
 
 export default async function GalleryPage({
   params: { albumName },

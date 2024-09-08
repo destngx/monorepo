@@ -1,6 +1,6 @@
-import { Button } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { Button } from '@mono/cloudinary-photos-app/components/ui';
 import Link from 'next/link';
-import { Heart } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/icons';
+import { Heart } from '@mono/cloudinary-photos-app/components/icons';
 
 export function SideMenu() {
   // const { folders } = (await cloudinary.v2.api.root_folders()) as {

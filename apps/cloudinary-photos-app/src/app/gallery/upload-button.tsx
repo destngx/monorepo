@@ -1,7 +1,7 @@
 'use client';
 
 import { CldUploadButton } from 'next-cloudinary';
-import { Button } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { Button } from '@mono/cloudinary-photos-app/components/ui';
 import { useRouter } from 'next/navigation';
 
 export default function UploadButton() {

@@ -12,9 +12,9 @@ import {
   DialogTrigger,
   Input,
   Label,
-} from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+} from '@mono/cloudinary-photos-app/components/ui';
 
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
 
 export const AddToAlbumDialog = forwardRef(({ image, onClose }: { image: SearchResult; onClose: () => void }, ref) => {
   const [albumName, setAlbumName] = useState('');

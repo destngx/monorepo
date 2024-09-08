@@ -1,9 +1,9 @@
 'use client';
-import { Avatar, AvatarFallback, AvatarImage, Button } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
-import { MenuHamburger } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/icons';
+import { Avatar, AvatarFallback, AvatarImage, Button } from '@mono/cloudinary-photos-app/components/ui';
+import { MenuHamburger } from '@mono/cloudinary-photos-app/components/icons';
 import { ReactNode, useState } from 'react';
 import Image from 'next/image';
-import { SideMenu } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server';
+import { SideMenu } from '@mono/cloudinary-photos-app/components/ui/server';
 import Link from 'next/link';
 
 export function MainLayout({ children }: { children: ReactNode }) {

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Button, Input, Label } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { Button, Input, Label } from '@mono/cloudinary-photos-app/components/ui';
 
 export function SearchForm({ initialSearch }: { initialSearch: string }) {
   const [tagName, setTagName] = useState(initialSearch ?? '');

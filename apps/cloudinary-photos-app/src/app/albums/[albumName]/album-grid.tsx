@@ -1,7 +1,7 @@
 'use client';
 
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
-import { CloudinaryImage, ImageGrid } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
+import { CloudinaryImage, ImageGrid } from '@mono/cloudinary-photos-app/components/ui';
 
 export default function AlbumGrid({ images }: { images: SearchResult[] }) {
   return (

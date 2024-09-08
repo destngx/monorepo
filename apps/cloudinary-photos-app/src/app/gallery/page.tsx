@@ -2,7 +2,7 @@ import UploadButton from './upload-button';
 import cloudinary from 'cloudinary';
 import GalleryGrid from './gallery-grid';
 import { SearchForm } from './search-form';
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
 
 export default async function GalleryPage({
   searchParams: { search = '' },

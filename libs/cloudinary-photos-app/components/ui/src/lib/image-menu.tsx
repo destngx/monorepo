@@ -7,10 +7,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
-import { Menu } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/icons';
+} from '@mono/cloudinary-photos-app/components/ui';
+import { Menu } from '@mono/cloudinary-photos-app/components/icons';
 import { AddToAlbumDialog } from './add-to-album-dialog';
-import { SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { SearchResult } from '@mono/cloudinary-photos-app/types';
 
 export function ImageMenu({ image }: { image: SearchResult }) {
   const [isOpened, setIsOpened] = useState(false);

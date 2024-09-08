@@ -1,6 +1,6 @@
 'use server';
 import cloudinary from 'cloudinary';
-import { Folder, SearchResult } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { Folder, SearchResult } from '@mono/cloudinary-photos-app/types';
 import * as ExifReader from 'exifreader';
 import { MongoClient } from 'mongodb';
 

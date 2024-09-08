@@ -2,7 +2,7 @@
 
 import { CldImage, CldUploadButton, CloudinaryUploadWidgetResults } from 'next-cloudinary';
 import { useState } from 'react';
-import { getBufferFromUrl } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server';
+import { getBufferFromUrl } from '@mono/cloudinary-photos-app/components/ui/server';
 
 export type UploadResult = {
   info: { public_id: string };

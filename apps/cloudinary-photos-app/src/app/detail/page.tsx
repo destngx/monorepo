@@ -1,9 +1,9 @@
 'use client';
 
-import { Button, Input, Label } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui';
+import { Button, Input, Label } from '@mono/cloudinary-photos-app/components/ui';
 import { useEffect, useState } from 'react';
 import { CldImage } from 'next-cloudinary';
-import { getBufferFromUrl, getImageDetail } from '@nx-pnpm-monorepo/cloudinary-photos-app/components/ui/server';
+import { getBufferFromUrl, getImageDetail } from '@mono/cloudinary-photos-app/components/ui/server';
 import { allExpanded, darkStyles, JsonView } from 'react-json-view-lite';
 import 'react-json-view-lite/dist/index.css';
 

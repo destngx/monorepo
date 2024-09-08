@@ -1,6 +1,6 @@
 import cloudinary from 'cloudinary';
 import { AlbumCard } from './album-card';
-import { Folder } from '@nx-pnpm-monorepo/cloudinary-photos-app/types';
+import { Folder } from '@mono/cloudinary-photos-app/types';
 
 export default async function AlbumsPage() {
   const { folders } = (await cloudinary.v2.api.root_folders()) as {

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import * as LabelPrimitive from '@radix-ui/react-label';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@nx-pnpm-monorepo/cloudinary-photos-app/utils';
+import { cn } from '@mono/cloudinary-photos-app/utils';
 
 const labelVariants = cva('text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70');
 
