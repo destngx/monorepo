@@ -41,6 +41,8 @@ export function AuthLayout(props: LayoutProps) {
       setIsAuthenticated(isCorrectPassword);
     })();
   };
+
+  return <div>{props.children}</div>;
   if (!isAuthenticated)
     return (
       <div className="h-screen flex flex-col justify-center items-start">
@@ -91,7 +93,8 @@ export function AuthLayout(props: LayoutProps) {
         </div>
       </div>
     );
-  else return <div>{props.children}</div>;
+  else
+    return <div>{props.children}</div>;
 }
 
 export default AuthLayout;
