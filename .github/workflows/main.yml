@@ -13,11 +13,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Install Dependencies
+      - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: bun install
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
