@@ -58,7 +58,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "semver": "^7.5.1",
-    "three": "^0.169.0",
+    "three": "^0.170.0",
     "ts-exif-parser": "^0.2.2",
     "tslib": "^2.5.2"
   },
@@ -100,7 +100,7 @@
     "@testing-library/react": "16.0.1",
     "@theunderscorer/nx-semantic-release": "^2.7.1",
     "@types/jest": "^29.5.2",
-    "@types/node": "20.17.3",
+    "@types/node": "20.17.4",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@typescript-eslint/eslint-plugin": "^6.9.0",
