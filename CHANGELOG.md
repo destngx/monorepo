@@ -1,3 +1,9 @@
+## [1.0.3](https://github.com/destngx/monorepo/compare/v1.0.2...v1.0.3) (2024-11-13)
+
+### Bug Fixes
+
+- chakra ui divider to separator
+
 ## [1.0.2](https://github.com/destngx/monorepo/compare/v1.0.1...v1.0.2) (2024-11-13)
 
 ### Bug Fixes
