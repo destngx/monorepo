@@ -33,5 +33,5 @@
       "@task-management/queue": ["libs/task-management/queue/src/index.ts"]
     }
   },
-  "exclude": ["node_modules", "tmp"]
+  "exclude": ["node_modules", "tmp", ".next", "dist", "out-tsc", "build", "coverage", "storybook-static"]
 }
