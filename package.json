@@ -10,7 +10,7 @@
     "test:all": "nx run-many -t test",
     "serve:all": "nx run-many -t serve",
     "build:all": "nx run-many -t build",
-    "prepare": "husky install",
+    "prepare": "husky",
     "cz": "git-cz",
     "cypress": " nx e2e frontend-e2e --configuration=production",
     "compose:up": "docker-compose -f deployments/docker-compose/docker-compose.yml up -d",
