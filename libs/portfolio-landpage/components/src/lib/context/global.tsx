@@ -1,24 +1,33 @@
 'use client';
-import { createContext, useState } from 'react';
+import { createContext, Dispatch, SetStateAction, useState } from 'react';
 
-const initialState = {
+interface GlobalContextProps {
+  isShowSoundCloudPlayer: boolean;
+  setIsShowSoundCloudPlayer: Dispatch<SetStateAction<boolean>>;
+  loadModelProgress: number;
+  setLoadModelProgress: Dispatch<SetStateAction<number>>;
+}
+
+const initialState: GlobalContextProps = {
   isShowSoundCloudPlayer: false,
-  setIsShowSoundCloudPlayer: (value: boolean) => {
-    return false;
+  setIsShowSoundCloudPlayer: () => {
+    throw new Error('setLoadModelProgress function must be overridden');
   },
   loadModelProgress: 0,
-  setLoadModelProgress: (value: number) => {
-    return 0;
+  setLoadModelProgress: () => {
+    throw new Error('setLoadModelProgress function must be overridden');
   },
 };
+
 const GlobalContext = createContext(initialState);
 
 const GlobalProvider = GlobalContext.Provider;
 const GlobalConsumer = GlobalContext.Consumer;
 
 const GlobalContextWrapper = ({ children }: { children: React.ReactNode }) => {
-  const [isShowSoundCloudPlayer, setIsShowSoundCloudPlayer] = useState(false);
-  const [loadModelProgress, setLoadModelProgress] = useState(0);
+  const [isShowSoundCloudPlayer, setIsShowSoundCloudPlayer] = useState<boolean>(false);
+  const [loadModelProgress, setLoadModelProgress] = useState<number>(0);
+
   return (
     <GlobalProvider
       value={{ isShowSoundCloudPlayer, setIsShowSoundCloudPlayer, loadModelProgress, setLoadModelProgress }}
