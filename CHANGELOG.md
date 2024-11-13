@@ -1,12 +1,16 @@
-## [1.0.1](https://github.com/destngx/monorepo/compare/v1.0.0...v1.0.1) (2024-07-25)
+## [1.0.2](https://github.com/destngx/monorepo/compare/v1.0.1...v1.0.2) (2024-11-13)
 
+### Bug Fixes
+
+- global context set state type
+
+## [1.0.1](https://github.com/destngx/monorepo/compare/v1.0.0...v1.0.1) (2024-07-25)
 
 ### Bug Fixes
 
 - reduce waiting time in first screen
 
 # 1.0.0 (2024-07-23)
-
 
 ### Bug Fixes
 
@@ -22,7 +26,6 @@
 - update play soundcloud button and fix style of find me link
 - update props when update lib version
 - update renovate config
-
 
 ### Features
 
