@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   db:
-    image: mysql:9.2
+    image: mysql:9.3
     container_name: db-write
     cap_add:
       - SYS_NICE
@@ -15,7 +15,7 @@ services:
       - db:/var/lib/mysql
       - $PWD/deployments/docker-compose/mysql:/docker-entrypoint-initdb.d/
   db-read:
-    image: mysql:9.2
+    image: mysql:9.3
     container_name: db-read
     cap_add:
       - SYS_NICE
