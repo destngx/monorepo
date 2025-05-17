@@ -1,3 +1,9 @@
+## [1.0.5](https://github.com/destngx/monorepo/compare/v1.0.4...v1.0.5) (2025-05-17)
+
+### Bug Fixes
+
+- **cloud-photos-app:** change method promise next cookies, fix type
+
 ## [1.0.4](https://github.com/destngx/monorepo/compare/v1.0.3...v1.0.4) (2025-05-11)
 
 ### Bug Fixes
