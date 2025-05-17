@@ -5,11 +5,7 @@ import { ForceRefresh } from '@mono/cloudinary-photos-app/components/ui';
 
 export default async function GalleryPage({
   params: { albumName },
-}: {
-  params: {
-    albumName: string;
-  };
-}) {
+}: any) {
   const results = (await cloudinary.v2.search
     .expression(`resource_type:image AND folder=${albumName}`)
     .sort_by('created_at', 'desc')

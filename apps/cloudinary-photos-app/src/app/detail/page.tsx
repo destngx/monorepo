@@ -9,11 +9,7 @@ import 'react-json-view-lite/dist/index.css';
 
 export default function EditPage({
   searchParams: { publicId },
-}: {
-  searchParams: {
-    publicId: string;
-  };
-}) {
+}: any) {
   const [transformation, setTransformation] = useState<
     undefined | 'generative-fill' | 'blur' | 'grayscale' | 'pixelate' | 'bg-remove'
   >();

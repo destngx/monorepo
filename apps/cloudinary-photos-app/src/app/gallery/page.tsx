@@ -6,11 +6,7 @@ import { SearchResult } from '@mono/cloudinary-photos-app/types';
 
 export default async function GalleryPage({
   searchParams: { search = '' },
-}: {
-  searchParams: {
-    search: string;
-  };
-}) {
+}: any) {
   const results = (await cloudinary.v2.search
     .expression(`resource_type:image${search != '' ? ` AND tags=${search}` : ''}`)
     .sort_by('created_at', 'desc')

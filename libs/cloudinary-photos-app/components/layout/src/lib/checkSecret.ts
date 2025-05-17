@@ -14,7 +14,8 @@ type Session = {
 };
 
 export default async function checkSecret(password: string) {
-  const requestSession = cookies().get('session')?.value;
+  const cookieStore = await cookies();
+  const requestSession = cookieStore.get('session')?.value;
   const client = new MongoClient(process.env.MONGODB_URI || '', {});
   try {
     await client.connect();
@@ -43,7 +44,7 @@ export default async function checkSecret(password: string) {
           _id: sessionToken,
           date: new Date(),
         });
-        cookies().set('session', sessionToken.toString());
+        cookieStore.set('session', sessionToken.toString());
         return true;
       } else {
         return false;
