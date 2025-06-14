@@ -128,7 +128,7 @@
     "lucide-react": "^0.514.0",
     "next-cloudinary": "^6.0.0",
     "nx": "20.8.2",
-    "postcss": "8.5.4",
+    "postcss": "8.5.5",
     "prettier": "^3.0.0",
     "react-refresh": "^0.17.0",
     "sass": "1.89.2",
