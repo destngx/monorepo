@@ -125,7 +125,7 @@
     "jest-environment-jsdom": "^29.5.0",
     "jest-environment-node": "^29.5.0",
     "lint-staged": "^15.0.0",
-    "lucide-react": "^0.516.0",
+    "lucide-react": "^0.517.0",
     "next-cloudinary": "^6.0.0",
     "nx": "20.8.2",
     "postcss": "8.5.6",
