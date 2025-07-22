@@ -1,0 +1,152 @@
+.portfolio-container {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #222;
+  background: #f8f9fa;
+  margin: 0;
+  padding: 0;
+}
+
+.header {
+  background: #222;
+  color: #fff;
+  padding: 1rem 0;
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.nav {
+  margin-top: 0.5rem;
+}
+
+.nav a {
+  color: #fff;
+  margin: 0 1rem;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.hero {
+  background: #e9ecef;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.cta-btn {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.skills {
+  padding: 2rem 1rem;
+}
+
+.skills-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+}
+
+.projects {
+  background: #fff;
+  padding: 2rem 1rem;
+}
+
+.projects-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.project-card {
+  background: #f1f3f5;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.blog {
+  padding: 2rem 1rem;
+}
+
+.blog-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.blog-card {
+  background: #f1f3f5;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.certifications {
+  background: #e9ecef;
+  padding: 2rem 1rem;
+}
+
+.certifications ul {
+  list-style: none;
+  padding: 0;
+}
+
+.contact {
+  padding: 2rem 1rem;
+}
+
+.contact-info {
+  margin-bottom: 1rem;
+}
+
+.contact-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.contact-form input,
+.contact-form textarea {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.contact-form button {
+  padding: 0.75rem 1.5rem;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.footer {
+  background: #222;
+  color: #fff;
+  text-align: center;
+  padding: 1rem 0;
+  margin-top: 2rem;
+}
+
+@media (max-width: 600px) {
+  .header-content,
+  .skills-list,
+  .projects-list,
+  .blog-list {
+    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+}
