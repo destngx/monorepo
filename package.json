@@ -58,7 +58,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "semver": "^7.5.1",
-    "three": "^0.179.0",
+    "three": "^0.180.0",
     "ts-exif-parser": "^0.2.2",
     "tslib": "^2.5.2"
   },
