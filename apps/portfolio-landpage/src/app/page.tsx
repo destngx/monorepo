@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import './page.css';
 
 if (typeof window !== 'undefined') {
@@ -33,7 +32,6 @@ import {
   Swords,
   BookOpen,
   MapPin,
-  Phone,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -41,13 +39,6 @@ export default function Home() {
   // Navigation state
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Contact form state
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    message: '',
-  });
 
   useEffect(() => {
     const handleScroll = () => {
@@ -634,17 +625,25 @@ export default function Home() {
           <div className="container mx-auto max-w-5xl">
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-12 text-center text-balance">Get In Touch</h2>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 gap-8">
               <div className="glass rounded-2xl p-8 space-y-8">
                 <div>
                   <h3 className="text-2xl font-semibold mb-6">Let's work together</h3>
                   <p className="text-muted-foreground leading-relaxed text-pretty">
                     I'm always interested in hearing about new DevOps opportunities and cloud infrastructure projects.
-                    Whether you have a question or just want to connect, feel free to reach out!
                   </p>
                 </div>
 
                 <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="glass-subtle rounded-xl p-3">
+                      <MapPin className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium mb-1">Location</p>
+                      <p className="text-muted-foreground">Ho Chi Minh City, Vietnam</p>
+                    </div>
+                  </div>
                   <div className="flex items-start gap-4">
                     <div className="glass-subtle rounded-xl p-3">
                       <Mail className="h-5 w-5 text-primary" />
@@ -659,87 +658,7 @@ export default function Home() {
                       </a>
                     </div>
                   </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="glass-subtle rounded-xl p-3">
-                      <Phone className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium mb-1">Phone</p>
-                      <a
-                        href="tel:+84366217657"
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        +84 366 217 657
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="glass-subtle rounded-xl p-3">
-                      <MapPin className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium mb-1">Location</p>
-                      <p className="text-muted-foreground">Ho Chi Minh City, Vietnam</p>
-                    </div>
-                  </div>
                 </div>
-              </div>
-
-              <div className="glass rounded-2xl p-8">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium mb-2">
-                      Name
-                    </label>
-                    <input
-                      id="name"
-                      type="text"
-                      placeholder="Your name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full glass-subtle border border-border/50 rounded-lg px-4 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium mb-2">
-                      Email
-                    </label>
-                    <input
-                      id="email"
-                      type="email"
-                      placeholder="your.email@example.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full glass-subtle border border-border/50 rounded-lg px-4 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="message" className="block text-sm font-medium mb-2">
-                      Message
-                    </label>
-                    <textarea
-                      id="message"
-                      placeholder="Tell me about your project..."
-                      value={formData.message}
-                      onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      className="w-full glass-subtle border border-border/50 rounded-lg px-4 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-32 resize-none"
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full inline-flex items-center justify-center rounded-lg bg-accent hover:bg-accent/90 text-white px-6 py-3 text-base font-medium transition-colors"
-                  >
-                    Send Message
-                  </button>
-                </form>
               </div>
             </div>
 
