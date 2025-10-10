@@ -1,7 +1,6 @@
 'use client';
 
 import NextLink from 'next/link';
-import Image, { StaticImageData } from 'next/image';
 import { Box, Text, LinkBox, LinkOverlay } from '@chakra-ui/react';
 import { Global } from '@emotion/react';
 
@@ -9,12 +8,24 @@ interface GridItemProps {
   children: React.ReactNode;
   href: string;
   title: string;
-  thumbnail: StaticImageData;
+  thumbnail: any;
 }
 export const GridItem: React.FC<GridItemProps> = ({ children, href, title, thumbnail }) => (
   <Box w="100%" textAlign="center">
     <LinkBox cursor="pointer">
-      <Image src={thumbnail} alt={title} className="grid-item-thumbnail" placeholder="blur" loading="lazy" />
+      <Box
+        className="grid-item-thumbnail"
+        bg="gray.100"
+        p={8}
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        minH="200px"
+      >
+        <Text fontSize="xl" fontWeight="bold" color="gray.400">
+          {title}
+        </Text>
+      </Box>
       <LinkOverlay href={href} target="_blank">
         <Text mt={2}>{title}</Text>
       </LinkOverlay>

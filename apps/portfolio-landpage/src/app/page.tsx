@@ -33,7 +33,6 @@ import {
   BookOpen,
   MapPin,
 } from 'lucide-react';
-import Image from 'next/image';
 
 export default function Home() {
   // Navigation state
@@ -325,17 +324,8 @@ export default function Home() {
         <section className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
           <div className="container mx-auto max-w-6xl">
             <div className="glass rounded-3xl p-8 sm:p-12 lg:p-16">
-              <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
-                <div className="flex-shrink-0">
-                  <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl blur-xl" />
-                    <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-primary/10 shadow-2xl">
-                      <Image src="/images/me.jpg" alt="Quang Dinh Nguyen Pham" fill className="object-cover" priority />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex-1 text-center lg:text-left">
+              <div className="flex flex-col items-center gap-8">
+                <div className="flex-1 text-center">
                   <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-4 text-balance">
                     <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                       Quang Dinh Nguyen Pham
@@ -351,7 +341,7 @@ export default function Home() {
                     solutions. Passionate about building scalable systems and automating workflows.
                   </p>
 
-                  <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 mb-8">
+                  <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
                     <a
                       href="#contact"
                       className="inline-flex items-center justify-center rounded-lg bg-accent hover:bg-accent/90 text-white px-6 py-3 text-base font-medium transition-colors"
@@ -367,7 +357,7 @@ export default function Home() {
                     </a>
                   </div>
 
-                  <div className="flex items-center justify-center lg:justify-start gap-6">
+                  <div className="flex items-center justify-center gap-6">
                     <a
                       href="https://github.com/destnguyxn"
                       target="_blank"
@@ -527,22 +517,7 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {projects.map((project, index) => (
-                <div
-                  key={index}
-                  className="glass rounded-2xl overflow-hidden hover:glass-strong transition-all duration-300 group"
-                >
-                  <div className="relative h-48 sm:h-56 overflow-hidden">
-                    <Image
-                      src={project.image || '/placeholder.svg'}
-                      alt={project.title}
-                      fill
-                      sizes="(min-width: 1024px) 50vw, 100vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      priority={index < 2}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-                  </div>
-
+                <div key={index} className="glass rounded-2xl hover:glass-strong transition-all duration-300 group">
                   <div className="p-6">
                     <h3 className="text-xl sm:text-2xl font-semibold mb-3">{project.title}</h3>
 
