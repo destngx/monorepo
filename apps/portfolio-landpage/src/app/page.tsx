@@ -358,7 +358,7 @@ export default function Home() {
 
                 <div className="flex items-center justify-center gap-6">
                   <a
-                    href="https://github.com/destnguyxn"
+                    href="https://github.com/destngx"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground transition-colors"
@@ -367,7 +367,7 @@ export default function Home() {
                     <span className="sr-only">GitHub</span>
                   </a>
                   <a
-                    href="https://linkedin.com"
+                    href="https://www.linkedin.com/in/erudi-lumos/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground transition-colors"
@@ -527,27 +527,6 @@ export default function Home() {
                           {tech}
                         </span>
                       ))}
-                    </div>
-
-                    <div className="flex gap-3">
-                      <a
-                        href={project.liveUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center rounded-lg glass hover:glass-strong bg-transparent border border-border/50 px-4 py-2 text-sm font-medium transition-colors"
-                      >
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Live Demo
-                      </a>
-                      <a
-                        href={project.githubUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center rounded-lg glass hover:glass-strong bg-transparent border border-border/50 px-4 py-2 text-sm font-medium transition-colors"
-                      >
-                        <Github className="mr-2 h-4 w-4" />
-                        Code
-                      </a>
                     </div>
                   </div>
                 </div>
