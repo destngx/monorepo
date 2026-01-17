@@ -32,7 +32,7 @@
     "@nestjs/config": "^3.1.1",
     "@nestjs/core": "^10.0.2",
     "@nestjs/platform-express": "^10.0.2",
-    "@nestjs/platform-fastify": "^10.3.0",
+    "@nestjs/platform-fastify": "^11.1.11",
     "@react-three/drei": "^9.92.5",
     "@react-three/fiber": "^8.15.12",
     "@swc/helpers": "~0.5.2",
