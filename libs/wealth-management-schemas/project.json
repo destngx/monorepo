@@ -1,0 +1,14 @@
+{
+  "name": "wealth-management-schemas",
+  "sourceRoot": "libs/wealth-management-schemas/src",
+  "projectType": "library",
+  "targets": {
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "options": {
+        "lintFilePatterns": ["libs/wealth-management-schemas/**/*.{ts,tsx}"]
+      }
+    }
+  },
+  "tags": ["lib:shared", "scope:wealth-management"]
+}

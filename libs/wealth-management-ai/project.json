@@ -1,0 +1,14 @@
+{
+  "name": "wealth-management-ai",
+  "sourceRoot": "libs/wealth-management-ai/src",
+  "projectType": "library",
+  "targets": {
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "options": {
+        "lintFilePatterns": ["libs/wealth-management-ai/**/*.{ts,tsx}"]
+      }
+    }
+  },
+  "tags": ["lib:shared", "scope:wealth-management"]
+}
