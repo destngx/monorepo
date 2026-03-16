@@ -4,9 +4,11 @@
 // Utility functions
 export * from './utils/api-error-handler';
 export * from './utils/cashback';
+export * from './utils/cn';
 export * from './utils/currency';
 export * from './utils/date';
 export * from './utils/validation';
+export * from './utils/cache';
 
 // Constants
 export * from './constants/categories';
