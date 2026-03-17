@@ -6,11 +6,19 @@
   "targets": {
     "lint": {
       "executor": "@nx/linter:eslint",
-      "outputs": ["{options.outputFile}"],
+      "outputs": [
+        "{options.outputFile}"
+      ],
       "options": {
-        "lintFilePatterns": ["libs/cloudinary-photos-app/types/**/*.ts"]
+        "lintFilePatterns": [
+          "libs/cloudinary-photos-app/types/**/*.ts"
+        ]
       }
     }
   },
-  "tags": []
+  "tags": [
+    "type:lib",
+    "scope:domain",
+    "scope:cloudinary-photos-app"
+  ]
 }

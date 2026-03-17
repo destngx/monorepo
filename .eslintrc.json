@@ -59,21 +59,6 @@
         ],
         "new-cap": "off",
         "require-jsdoc": "off",
-        "@nx/enforce-module-boundaries": [
-          "error",
-          {
-            "enforceBuildableLibDependency": true,
-            "allowCircularSelfDependency": true,
-            "banTransitiveDependencies": true,
-            "allow": [],
-            "depConstraints": [
-              {
-                "sourceTag": "*",
-                "onlyDependOnLibsWithTags": ["*"]
-              }
-            ]
-          }
-        ],
         "no-unused-vars": "warn"
       }
     },

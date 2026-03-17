@@ -3,18 +3,30 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/wealth-management/src",
   "projectType": "library",
-  "tags": ["scope:wealth-management", "type:lib"],
+  "tags": [
+    "scope:wealth-management",
+    "type:lib",
+    "scope:shared",
+    "scope:wealth-management"
+  ],
   "targets": {
     "lint": {
       "executor": "@nx/linter:eslint",
-      "outputs": ["{options.outputFile}"],
+      "outputs": [
+        "{options.outputFile}"
+      ],
       "options": {
-        "lintFilePatterns": ["libs/wealth-management/**/*.ts", "libs/wealth-management/**/*.tsx"]
+        "lintFilePatterns": [
+          "libs/wealth-management/**/*.ts",
+          "libs/wealth-management/**/*.tsx"
+        ]
       }
     },
     "test": {
       "executor": "@nx/jest:jest",
-      "outputs": ["{workspaceRoot}/coverage/libs/wealth-management"],
+      "outputs": [
+        "{workspaceRoot}/coverage/libs/wealth-management"
+      ],
       "options": {
         "jestConfig": "libs/wealth-management/jest.config.ts",
         "passWithNoTests": true

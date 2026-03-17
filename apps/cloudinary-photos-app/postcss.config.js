@@ -1,10 +1,7 @@
-const { join } = require('path');
+/* Tailwind CSS v4+ PostCSS configuration */
 
 module.exports = {
   plugins: {
-    tailwindcss: {
-      config: join(__dirname, 'tailwind.config.js'),
-    },
-    autoprefixer: {},
+    '@tailwindcss/postcss': {},
   },
 };

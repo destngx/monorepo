@@ -1,0 +1,1 @@
+export { AlbumsPage } from './index';
