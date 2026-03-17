@@ -1,0 +1,97 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "baseUrl": "../../",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./apps/wealth-management/src/*"
+      ],
+      "@wealth-management/types": [
+        "libs/wealth-management/src/types/index.ts"
+      ],
+      "@wealth-management/types/*": [
+        "libs/wealth-management/src/types/*"
+      ],
+      "@wealth-management/schemas": [
+        "libs/wealth-management/src/schemas/index.ts"
+      ],
+      "@wealth-management/schemas/*": [
+        "libs/wealth-management/src/schemas/*"
+      ],
+      "@wealth-management/ui": [
+        "libs/wealth-management/src/ui/index.ts"
+      ],
+      "@wealth-management/ui/*": [
+        "libs/wealth-management/src/ui/*"
+      ],
+      "@wealth-management/utils": [
+        "libs/wealth-management/src/utils/index.ts"
+      ],
+      "@wealth-management/utils/*": [
+        "libs/wealth-management/src/utils/*"
+      ],
+      "@wealth-management/ai": [
+        "libs/wealth-management/src/ai/index.ts"
+      ],
+      "@wealth-management/ai/*": [
+        "libs/wealth-management/src/ai/*"
+      ],
+      "@wealth-management/ai/server": [
+        "libs/wealth-management/src/ai/server.ts"
+      ],
+      "@wealth-management/services": [
+        "libs/wealth-management/src/services/index.ts"
+      ],
+      "@wealth-management/services/*": [
+        "libs/wealth-management/src/services/*"
+      ],
+      "@wealth-management/services/server": [
+        "libs/wealth-management/src/services/server.ts"
+      ],
+      "@wealth-management/hooks": [
+        "libs/wealth-management/src/hooks/index.ts"
+      ],
+      "@wealth-management/hooks/*": [
+        "libs/wealth-management/src/hooks/*"
+      ],
+      "@wealth-management/features": [
+        "libs/wealth-management/src/features/index.ts"
+      ],
+      "@wealth-management/features/*": [
+        "libs/wealth-management/src/features/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

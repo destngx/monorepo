@@ -1,0 +1,57 @@
+{
+  "name": "wealth-management",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/wealth-management-app/src",
+  "projectType": "application",
+  "tags": ["scope:wealth-management", "type:app"],
+  "targets": {
+    "build": {
+      "executor": "@nx/next:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "root": "apps/wealth-management-app",
+        "outputPath": "dist/apps/wealth-management-app"
+      },
+      "configurations": {
+        "development": {
+          "outputPath": "apps/wealth-management-app/.next"
+        },
+        "production": {}
+      }
+    },
+    "serve": {
+      "executor": "@nx/next:server",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "wealth-management:build",
+        "dev": true
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "wealth-management:build:development",
+          "dev": true
+        },
+        "production": {
+          "buildTarget": "wealth-management:build:production",
+          "dev": false
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/linter:eslint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/wealth-management/**/*.{ts,tsx,js,jsx}"]
+      }
+    },
+    "test": {
+      "executor": "@nx/vitest:test",
+      "outputs": ["{workspaceRoot}/coverage/apps/wealth-management"],
+      "options": {
+        "passWithNoTests": true,
+        "reportsDirectory": "../../coverage/apps/wealth-management"
+      }
+    }
+  }
+}
