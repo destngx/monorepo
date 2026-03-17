@@ -1,7 +1,7 @@
 {
   "name": "wealth-management",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "apps/wealth-management-app/src",
+  "sourceRoot": "apps/wealth-management/src",
   "projectType": "application",
   "tags": ["scope:wealth-management", "type:app"],
   "targets": {
@@ -11,11 +11,11 @@
       "defaultConfiguration": "production",
       "options": {
         "root": "apps/wealth-management-app",
-        "outputPath": "dist/apps/wealth-management-app"
+        "outputPath": "dist/apps/wealth-management"
       },
       "configurations": {
         "development": {
-          "outputPath": "apps/wealth-management-app/.next"
+          "outputPath": "apps/wealth-management/.next"
         },
         "production": {}
       }
