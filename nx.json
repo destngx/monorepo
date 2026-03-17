@@ -1,15 +1,5 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  "tasksRunnerOptions": {
-    "default": {
-      "runner": "@vercel/remote-nx",
-      "options": {
-        "cacheableOperations": ["build", "test", "lint", "e2e"],
-        "cacheDirectory": "/tmp/nx-cache",
-        "token": "Nsk2VEvzgWCW46LbNoDks2UC"
-      }
-    }
-  },
   "targetDefaults": {
     "build": {
       "dependsOn": ["^build"],

@@ -1,9 +1,13 @@
 {
   "name": "cloudinary-photos-app",
-  "version": "0.1.0",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "version": "0.1.0",
   "sourceRoot": "apps/cloudinary-photos-app",
   "projectType": "application",
+  "semantic-release": {
+    "executor": "@theunderscorer/nx-semantic-release:semantic-release"
+  },
+  "tags": [],
   "targets": {
     "build": {
       "executor": "@nx/next:build",
@@ -65,9 +69,5 @@
         "lintFilePatterns": ["apps/cloudinary-photos-app/**/*.{ts,tsx,js,jsx}"]
       }
     }
-  },
-  "tags": [],
-  "semantic-release": {
-    "executor": "@theunderscorer/nx-semantic-release:semantic-release"
   }
 }
