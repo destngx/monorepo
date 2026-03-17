@@ -4,12 +4,12 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { ThemeProvider } from "@/components/theme-provider";
-import { AIChatWidget } from "@/components/chat/ai-chat-widget";
+import { AIChatWidget } from "@/features/chat/ui/ai-chat-widget";
 
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 import { MaskProvider } from "@/components/mask-provider";
-import { AIContextProvider } from "@/components/chat/ai-context-provider";
+import { AIContextProvider } from "@/features/chat/ui/ai-context-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 

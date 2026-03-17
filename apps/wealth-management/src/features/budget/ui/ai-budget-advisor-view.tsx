@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { Badge } from "@/components/ui/badge";
 
-interface AdvisorData {
+export interface AdvisorData {
   briefing: string;
   suggestions: Array<{ category: string; suggestedLimit: number; rationale: string; currentAverage: number }>;
   forecast: {
@@ -16,6 +16,8 @@ interface AdvisorData {
   };
   alerts: Array<{ type: 'overspend' | 'spike' | 'bill' | 'opportunity' | 'goal'; title: string; message: string; urgency: 'critical' | 'warning' | 'info' }>;
   goalImpact: string;
+  detailedBrief?: string;
+  summaryInsights?: { forecastedSavings: number; unusualVelocity: string };
 }
 
 export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
@@ -84,7 +86,7 @@ export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
                   contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '12px' }}
                   itemStyle={{ color: '#fff' }}
                   labelStyle={{ color: '#71717a' }}
-                  formatter={(v: any) => [formatVND(v || 0), 'Projected Balance']}
+                  formatter={(v: unknown) => [formatVND(Number(v || 0)), 'Projected Balance']}
                 />
                 <Area type="monotone" dataKey="balance" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorBalance)" />
               </AreaChart>

@@ -20,7 +20,7 @@ export async function getCached<T>(key: string): Promise<T | null> {
   }
 }
 
-export async function setCache(key: string, data: any, ttlSeconds: number = 300) {
+export async function setCache(key: string, data: any, ttlSeconds = 300) {
   const expiresAt = Date.now() + ttlSeconds * 1000;
   cache.set(key, {
     data: JSON.stringify(data),

@@ -7,7 +7,7 @@ import { Goal } from "../model/types";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus, SlidersHorizontal, TrendingUp } from "lucide-react";
-import { useAIContext } from "@/components/chat/ai-context-provider";
+import { useAIContext } from "@/features/chat/ui/ai-context-provider";
 
 // Mock data for initial implementation
 const MOCK_GOALS: Goal[] = [
@@ -63,15 +63,15 @@ const MOCK_GOALS: Goal[] = [
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const { setPageData, addInsight } = useAIContext();
 
   useEffect(() => {
     fetch('/api/goals')
-      .then(res => res.json())
+      .then(res => res.json() as Promise<Goal[]>)
       .then(data => {
         setGoals(data);
-        setLoading(false);
+        setIsLoading(false);
         
         // Report goals context to AI
         setPageData({ 
@@ -94,13 +94,13 @@ export default function GoalsPage() {
           });
         }
       })
-      .catch(error => {
+      .catch((error: unknown) => {
         console.error("Failed to fetch goals:", error);
-        setLoading(false);
+        setIsLoading(false);
       });
   }, [setPageData, addInsight]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center p-20">
         <p className="text-muted-foreground animate-pulse">Scanning targets...</p>

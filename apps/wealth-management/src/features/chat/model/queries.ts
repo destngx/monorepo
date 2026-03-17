@@ -11,11 +11,12 @@ const STORAGE_KEY = "wealthos-chat-history";
  * Generate a unique message ID
  */
 export function generateMessageId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
 /**
  * Load chat history from localStorage
+ * @returns Array of saved chat messages
  */
 export function loadChatHistory(): ChatMessage[] {
   if (typeof window === "undefined") return [];
@@ -28,7 +29,7 @@ export function loadChatHistory(): ChatMessage[] {
         return parsed;
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Failed to load chat history:", error);
   }
   
@@ -37,17 +38,22 @@ export function loadChatHistory(): ChatMessage[] {
 
 /**
  * Get active model label
+ * @param modelId - The AI model ID
+ * @returns Human-readable label for the model
  */
 export function getActiveModelLabel(modelId: string): string {
-  return AI_MODELS[modelId as keyof typeof AI_MODELS]?.label || modelId;
+  return AI_MODELS[modelId]?.label || modelId;
 }
 
 /**
  * Fetch chat suggestions based on context
+ * @param modelId - The AI model ID
+ * @param context - Optional context for suggestions
+ * @returns Array of suggestions
  */
 export async function fetchSuggestions(
   modelId: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): Promise<SuggestionItem[]> {
   try {
     const response = await fetch("/api/chat/suggestions", {
@@ -65,9 +71,9 @@ export async function fetchSuggestions(
       throw new Error(`API error: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as { suggestions: SuggestionItem[] };
     return data.suggestions || [];
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Failed to fetch suggestions:", error);
     // Return fallback suggestions
     return [

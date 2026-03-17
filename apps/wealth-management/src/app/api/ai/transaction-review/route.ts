@@ -5,7 +5,8 @@ import { buildSystemPrompt } from "@wealth-management/ai/server";
 
 export async function POST(req: Request) {
   try {
-    const { transactions } = await req.json();
+    const body = await req.json() as { transactions: unknown[] };
+    const { transactions } = body;
 
     const model = getLanguageModel('github-gpt-4o');
 
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ review: text });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('AI Transaction Review Error:', error);
     return NextResponse.json({ error: 'Failed to generate review' }, { status: 500 });
   }

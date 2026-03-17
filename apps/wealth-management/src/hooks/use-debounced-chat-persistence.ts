@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export function useDebouncedChatPersistence(messages: any[], status: string, storageKey: string = 'wealthos-chat-history') {
+export function useDebouncedChatPersistence(messages: any[], status: string, storageKey = 'wealthos-chat-history') {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {

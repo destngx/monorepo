@@ -14,13 +14,12 @@ export async function clearAllCache() {
     revalidatePath('/', 'layout');
 
     return { success: true };
-  } catch (error) {
-    console.error("Failed to clear cache:", error);
+  } catch (error: unknown) {
     return { success: false, error: "Failed to clear cache" };
   }
 }
 
-export async function getCredentialStatuses() {
+export function getCredentialStatuses() {
   return {
     github: !!process.env.GITHUB_TOKEN,
     openai: !!process.env.OPENAI_API_KEY,

@@ -1,14 +1,15 @@
-import { generateText } from "ai";
+import { generateText, LanguageModel } from "ai";
 import { getLanguageModel } from "@wealth-management/ai/providers";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const { modelId, context } = await req.json();
+    const body = await req.json() as { modelId?: string; context?: unknown };
+    const { modelId, context } = body;
 
     // Choose a smart default if no modelId provided
-    let selectedModel = modelId;
+    let selectedModel: string | undefined = modelId;
     if (!selectedModel || selectedModel === "gpt-4o-mini") {
       selectedModel = process.env.GITHUB_TOKEN
         ? "github-gpt-4o"
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
     const model = getLanguageModel(selectedModel);
 
     const result = await generateText({
-      model: model as any,
+      model: model as LanguageModel,
       system: `You are a Wealth Management AI assistant.
       Your task is to generate 3-5 suggested questions a user might want to ask based on their current page context and any active insights.
       Focus on being proactive, analytical, and helpful.
@@ -45,13 +46,14 @@ export async function POST(req: Request) {
       jsonString = jsonString.split('```')[1].split('```')[0].trim();
     }
 
-    const parsed = JSON.parse(jsonString);
+    const parsed = JSON.parse(jsonString) as unknown;
     
     return new Response(JSON.stringify(parsed), {
       headers: { "Content-Type": "application/json" },
     });
-  } catch (err: any) {
-    console.error("[Suggestions API Error]:", err.message || err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[Suggestions API Error]:", message);
     // Fallback if AI fails completely
     const fallback = {
       suggestions: [

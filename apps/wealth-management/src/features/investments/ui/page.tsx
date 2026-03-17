@@ -22,7 +22,7 @@ import { MarketPulseDashboard } from "@/components/dashboard/market-pulse-dashbo
 import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { renderMessageContent, hasContent } from "@/components/chat/chat-interface";
+import { renderMessageContent, hasContent } from "@/features/chat/ui/chat-interface";
 import { AIDataInsight } from "@/components/dashboard/ai-data-insight";
 
 interface Account { 
@@ -34,7 +34,7 @@ interface Account {
 
 interface AssetData { 
   headers: string[]; 
-  holdings: any[] 
+  holdings: Record<string, unknown>[] 
 }
 
 interface AssetResponse { 
@@ -52,7 +52,7 @@ export default function InvestmentsPage() {
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const [isFetchingPrices, setIsFetchingPrices] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [inputContext, setInputContext] = useState<any>(null);
+  const [inputContext, setInputContext] = useState<unknown>(null);
   const [input, setInput] = useState("");
   const { messages, setMessages, sendMessage, status } = useChat({
     api: '/api/chat',
@@ -63,7 +63,7 @@ export default function InvestmentsPage() {
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isChatBusy) return;
-    sendMessage({ text: input });
+    void sendMessage({ text: input });
     setInput("");
   };
 
@@ -116,10 +116,10 @@ export default function InvestmentsPage() {
 
         if (symbolsToFetch.length > 0) {
           setIsFetchingPrices(true);
-          fetch('/api/investments/prices', {
+          void fetch('/api/investments/prices', {
             method: 'POST',
             body: JSON.stringify({ symbols: symbolsToFetch })
-          }).then(res => res.json()).then(data => {
+          }).then(res => res.json() as Promise<{ prices: Record<string, number> }>).then(data => {
             if (data.prices) setPrices(data.prices);
           }).finally(() => setIsFetchingPrices(false));
         }
@@ -137,7 +137,7 @@ export default function InvestmentsPage() {
         const initialCrypto = cryptoAccounts.reduce((sum: number, a: Account) => sum + (a.balance || 0), 0);
 
         // Helper to sum up values from asset tables
-        const sumAssetValue = (data: AssetData, isCrypto: boolean = false, currentPrices: Record<string, number> = {}) => {
+        const sumAssetValue = (data: AssetData, isCrypto = false, currentPrices: Record<string, number> = {}) => {
           if (!data || !data.holdings) return 0;
           return data.holdings.reduce((sum, row) => {
             // Priority 1: Direct VND total column
@@ -212,7 +212,7 @@ export default function InvestmentsPage() {
       (a.currency !== 'VND' && a.type.toLowerCase() !== 'investment')
     );
     
-    const sumAssetValue = (data: AssetData, isCrypto: boolean = false, currentPrices: Record<string, number> = {}) => {
+    const sumAssetValue = (data: AssetData, isCrypto = false, currentPrices: Record<string, number> = {}) => {
       if (!data || !data.holdings) return 0;
       return data.holdings.reduce((sum, row) => {
         const totalKey = Object.keys(row).find(k => {
@@ -350,8 +350,8 @@ export default function InvestmentsPage() {
           }
         }
       }
-    } catch (err: any) {
-      if (err.name !== 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'AbortError') {
         setError(err.message || 'Failed to generate investment analysis');
         console.error('Analysis error:', err);
       }
@@ -478,7 +478,7 @@ export default function InvestmentsPage() {
                     <td key={j} className="py-3 px-4 whitespace-nowrap">
                       {(() => {
                         const h = header.toLowerCase();
-                        const val = row[header];
+                        const val = row[header] as string | number | undefined;
                         
                         // Handle the virtual column or sensitive numeric columns
                         const isVirtualVnd = header === 'Est. VND Value';
@@ -529,7 +529,7 @@ export default function InvestmentsPage() {
                           const isVndCell = h.includes('vnd') || isVirtualVnd;
                           const content = (
                             <MaskedBalance
-                              value={displayVal}
+                              value={displayVal as string | number | undefined}
                               unit={!isVndCell && typeof unit === 'string' && unit !== displayVal ? unit : undefined}
                               currency={isVndCell ? 'VND' : h.includes('usd') ? 'USD' : 'none'}
                             />
@@ -712,7 +712,7 @@ export default function InvestmentsPage() {
                   </div>
                 )}
                 
-                {inputContext && (
+                {!!inputContext && (
                   <div className="mb-6 p-4 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-300">
                     <h3 className="text-zinc-400 font-bold mb-3 flex items-center gap-2">
                        <Database className="h-4 w-4 text-emerald-500" /> AI Input Data Context
@@ -720,7 +720,7 @@ export default function InvestmentsPage() {
                     <details className="cursor-pointer group">
                       <summary className="text-indigo-400 group-hover:text-indigo-300 font-medium select-none">Show Raw AI Input Context (JSON & Search Data)</summary>
                       <pre className="mt-3 p-3 bg-zinc-950 rounded overflow-x-auto text-[10px] text-zinc-500 whitespace-pre-wrap border border-zinc-800/50">
-                        {JSON.stringify(inputContext, null, 2)}
+                        {inputContext ? JSON.stringify(inputContext, null, 2) : ''}
                       </pre>
                     </details>
                   </div>

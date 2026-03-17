@@ -63,13 +63,13 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
       setStep('fetching');
       
       // Fetch current exchange rate for Binance conversions
-      fetch('/api/exchange-rate')
-        .then(res => res.json())
+      void fetch('/api/exchange-rate')
+        .then(res => res.json() as Promise<{ rate?: number }>)
         .then(data => setExchangeRate(data.rate || 25400))
-        .catch(() => {});
+        .catch(() => { /* ignore */ });
 
       const res = await fetch('/api/notifications');
-      const data = await res.json();
+      const data = await res.json() as EmailNotification[];
       
       if (data.length === 0) {
         setStep('review');
@@ -86,30 +86,34 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
         body: JSON.stringify({ notifications: data })
       });
       
-      const parsedTransactions = await aiRes.json();
+      const parsedTransactions = await aiRes.json() as ProposedTransaction[] | { error: string };
       
       if (aiRes.ok && Array.isArray(parsedTransactions)) {
         setProposedTransactions(parsedTransactions);
-        setApprovedIndices(new Set(parsedTransactions.map((_: any, i: number) => i)));
+        setApprovedIndices(new Set(parsedTransactions.map((_, i) => i)));
         
         const initialStatus: Record<number, 'pending'> = {};
-        parsedTransactions.forEach((_: any, i: number) => { initialStatus[i] = 'pending'; });
+        parsedTransactions.forEach((_, i) => { initialStatus[i] = 'pending'; });
         setItemStatus(initialStatus);
         setStep('review');
       } else {
-        const errorMessage = parsedTransactions.error || 'Failed to parse notifications. Please try again.';
+        const errorMessage = (parsedTransactions as { error?: string }).error || 'Failed to parse notifications. Please try again.';
         setError(errorMessage);
         setStep('review');
       }
-    } catch (error: any) {
-      setError(error.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(String(err));
+      }
       setStep('review');
     }
   };
 
   useEffect(() => {
     if (open) {
-      startProcessing();
+      void startProcessing();
     } else {
       reset();
     }
@@ -181,8 +185,12 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
 
       onComplete();
       setTimeout(() => onOpenChange(false), 1000);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError(String(err));
+      }
       setStep('review');
     }
   };

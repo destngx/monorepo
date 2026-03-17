@@ -1,9 +1,7 @@
 'use client';
-import { IoLogoSoundcloud } from 'react-icons/io5';
 import { useContext } from 'react';
 import { GlobalContext } from './context/global';
 import { motion } from 'framer-motion';
-import { Music } from 'lucide-react';
 import { FaCompactDisc } from 'react-icons/fa';
 import { IconContext } from 'react-icons/lib';
 

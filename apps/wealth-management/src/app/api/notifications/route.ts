@@ -6,21 +6,21 @@ export async function GET() {
   try {
     const notifications = await getPendingNotifications();
     return NextResponse.json(notifications);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Notifications');
   }
 }
 
 export async function PATCH(req: Request) {
   try {
-    const { rowNumbers } = await req.json();
+    const { rowNumbers } = await req.json() as { rowNumbers: number[] };
     if (!Array.isArray(rowNumbers)) {
       return NextResponse.json({ error: 'rowNumbers must be an array' }, { status: 400 });
     }
 
     await Promise.all(rowNumbers.map(n => markNotificationDone(n)));
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Notifications');
   }
 }

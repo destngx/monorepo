@@ -9,7 +9,8 @@ import { useDebouncedChatPersistence } from "@/hooks/use-debounced-chat-persiste
 import { AIFab } from "./ai-fab";
 import { AIDrawer } from "./ai-drawer";
 import { AIInsightCard } from "./ai-insight-card";
-import { useAIContext } from "./ai-context-provider";
+import { useAIContext, AIInsight } from "./ai-context-provider";
+import { ChatMessage } from "../model/types";
 
 
 
@@ -61,7 +62,7 @@ export function AIChatWidget() {
           }
         })
       });
-      const data = await response.json();
+      const data = (await response.json()) as { suggestions: Array<{ label: string; prompt: string }> };
       if (data.suggestions) {
         setAiSuggestions(data.suggestions);
       }
@@ -75,9 +76,9 @@ export function AIChatWidget() {
   // Trigger fetch when opening OR context changes significantly
   useEffect(() => {
     if (open && messages.length === 0) {
-      fetchSuggestions();
+      void fetchSuggestions();
     }
-  }, [open, pathname, insights.length, fetchSuggestions]);
+  }, [open, pathname, insights.length, fetchSuggestions, messages.length]);
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -141,14 +142,14 @@ export function AIChatWidget() {
 
   const handlePromptClick = (prompt: string) => {
     setShowInsightCard(false);
-    sendMessage({ text: prompt });
+    void sendMessage({ text: prompt });
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isBusy) return;
     setShowInsightCard(false);
-    sendMessage({ text: input });
+    void sendMessage({ text: input });
     setInput("");
   };
 
@@ -164,7 +165,7 @@ export function AIChatWidget() {
       <AIDrawer
         isOpen={open}
         onClose={() => setOpen(false)}
-        messages={messages}
+        messages={messages as unknown as ChatMessage[]}
         input={input}
         onInputChange={setInput}
         onSubmit={handleFormSubmit}

@@ -124,7 +124,7 @@ const VN_TICKERS = [
  */
 export async function getMarketPulseData(
   timeframe: '1h' | '4h' | '1d' | '1w' = '1h',
-  forceRefresh: boolean = false,
+  forceRefresh = false,
 ): Promise<MarketPulseResponse> {
   const cacheKey = `${CACHE_PREFIX}full-data:${timeframe}`;
 
@@ -488,7 +488,7 @@ async function fetchAssetData(
   symbol: string,
   name: string,
   market: 'US' | 'VN',
-  timeframe: string = '1h',
+  timeframe = '1h',
 ): Promise<MarketAsset | null> {
   try {
     // Map timeframe to Yahoo interval and range

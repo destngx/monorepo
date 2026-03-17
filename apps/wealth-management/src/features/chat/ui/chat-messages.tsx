@@ -6,15 +6,10 @@ import remarkGfm from "remark-gfm";
 import { Bot, User, CheckCircle, Zap } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt?: Date;
-}
+import { ChatMessage } from "../model/types";
 
 interface ChatMessagesProps {
-  messages: Message[];
+  messages: ChatMessage[];
   isLoading?: boolean;
 }
 

@@ -61,7 +61,7 @@ export function SnapshotCardsRow({ accounts, transactions, loans }: SnapshotCard
                   {stat.isPercent ? (
                     `${stat.value.toFixed(1)}%`
                   ) : (
-                    <MaskedBalance amount={stat.value as number} />
+                    <MaskedBalance amount={stat.value} />
                   )}
                 </p>
               </div>

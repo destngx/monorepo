@@ -3,9 +3,17 @@ import { getLanguageModel } from "@wealth-management/ai/providers";
 import { generateText } from 'ai';
 import { buildSystemPrompt } from "@wealth-management/ai/server";
 
+import { Account } from '@wealth-management/types';
+
 export async function POST(req: Request) {
   try {
-    const { accounts, totalAssets, totalLiabilities, totalNetWorth } = await req.json();
+    const body = await req.json() as { 
+      accounts: Account[]; 
+      totalAssets: number; 
+      totalLiabilities: number; 
+      totalNetWorth: number; 
+    };
+    const { accounts, totalAssets, totalLiabilities, totalNetWorth } = body;
 
     const model = getLanguageModel('github-gpt-4o');
 
@@ -19,7 +27,7 @@ export async function POST(req: Request) {
       - Net Worth: ${totalNetWorth} VND
       
       Account Details:
-      ${JSON.stringify(accounts.map((a: any) => ({
+      ${JSON.stringify(accounts.map((a: Account) => ({
       name: a.name,
       balance: a.balance,
       type: a.type,
@@ -44,7 +52,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ review: text });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('AI Account Review Error:', error);
     return NextResponse.json({ error: 'Failed to generate account review' }, { status: 500 });
   }

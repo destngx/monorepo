@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { getLanguageModel } from "@wealth-management/ai/providers";
 import { generateText } from 'ai';
 import { buildSystemPrompt } from "@wealth-management/ai/server";
+import { Transaction } from '@wealth-management/types';
 
 export async function POST(req: Request) {
   try {
-    const { transactions, cardStats, targetMonth } = await req.json();
+    const body = await req.json() as {
+      transactions: Transaction[];
+      cardStats: unknown;
+      targetMonth: string;
+    };
+    const { transactions, cardStats, targetMonth } = body;
 
     // targetMonth is "MM/YYYY" or "current"
     const isPastMonth = targetMonth && targetMonth !== 'current';
@@ -15,7 +21,7 @@ export async function POST(req: Request) {
     let filteredTransactions = transactions;
     if (isPastMonth) {
       const [m, y] = targetMonth.split('/');
-      filteredTransactions = transactions.filter((t: any) => {
+      filteredTransactions = transactions.filter((t: Transaction) => {
         const d = new Date(t.date);
         return d.getMonth() + 1 === parseInt(m) && d.getFullYear() === parseInt(y);
       });
@@ -23,7 +29,7 @@ export async function POST(req: Request) {
 
     const recentTransactions = filteredTransactions
       .slice(-100)
-      .map((t: any) => ({
+      .map((t: Transaction) => ({
         payee: t.payee,
         category: t.category,
         amount: t.payment,
@@ -90,8 +96,9 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ summary: text });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('AI Summary API Error:', error);
-    return NextResponse.json({ error: 'Failed to generate summary' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to generate summary';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

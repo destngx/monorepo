@@ -2,12 +2,19 @@ import { NextResponse } from 'next/server';
 import { getLanguageModel } from "@wealth-management/ai/providers";
 import { generateText } from 'ai';
 import { buildSystemPrompt } from "@wealth-management/ai/server";
+import { Loan } from '@wealth-management/types';
+
+interface EnrichedLoan extends Loan {
+  type?: string;
+  category?: string;
+}
 
 export async function POST(req: Request) {
   try {
-    const { loans } = await req.json();
+    const body = await req.json() as { loans: Loan[] };
+    const { loans } = body;
 
-    const totalDebt = loans.reduce((sum: number, loan: any) => sum + (loan.yearlyRemaining || 0), 0);
+    const totalDebt = loans.reduce((sum: number, loan: Loan) => sum + (loan.yearlyRemaining || 0), 0);
 
     const model = getLanguageModel('github-gpt-4o');
 
@@ -16,7 +23,7 @@ export async function POST(req: Request) {
       Analyze the user's debt situation based on their loan information.
       
       Detailed Loans:
-      ${JSON.stringify(loans.map((l: any) => ({
+      ${JSON.stringify(loans.map((l: EnrichedLoan) => ({
       name: l.name,
       remaining: l.yearlyRemaining,
       isLending: l.type === 'Lending',
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ review: text });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('AI Loan Review Error:', error);
     return NextResponse.json({ error: 'Failed to generate loan review' }, { status: 500 });
   }

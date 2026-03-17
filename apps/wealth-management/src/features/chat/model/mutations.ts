@@ -8,6 +8,8 @@ const STORAGE_KEY = "wealthos-chat-history";
 
 /**
  * Save chat history to localStorage
+ * @param messages - Array of chat messages to save
+ * @returns Whether the save was successful
  */
 export function saveChatHistory(messages: ChatMessage[]): boolean {
   if (typeof window === "undefined") return false;
@@ -25,6 +27,7 @@ export function saveChatHistory(messages: ChatMessage[]): boolean {
 
 /**
  * Clear chat history
+ * @returns Whether the clear was successful
  */
 export function clearChatHistory(): boolean {
   if (typeof window === "undefined") return false;
@@ -40,6 +43,10 @@ export function clearChatHistory(): boolean {
 
 /**
  * Send chat message to API
+ * @param messages - Array of chat messages to send
+ * @param modelId - The AI model ID to use
+ * @param signal - Optional abort signal
+ * @returns Stream of response bytes
  */
 export async function sendChatMessage(
   messages: ChatMessage[],

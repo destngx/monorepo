@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
@@ -15,35 +15,34 @@ interface Props {
 }
 
 export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, totalNetWorth }: Props) {
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [review, setReview] = useState<string | null>(null);
   const hasGeneratedRef = useRef(false);
 
-  const generateReview = async () => {
-    setLoading(true);
+  const generateReview = useCallback(async () => {
+    setIsLoading(true);
     try {
       const response = await fetch("/api/ai/account-review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accounts, totalAssets, totalLiabilities, totalNetWorth }),
       });
-      const data = await response.json();
+      const data = await response.json() as { review: string };
       setReview(data.review);
-    } catch (e) {
-      console.error(e);
+    } catch (e: unknown) {
+      console.error("Failed to generate account review", e);
       setReview("Failed to generate AI review. Please try again later.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, [accounts, totalAssets, totalLiabilities, totalNetWorth]);
 
   useEffect(() => {
     if (!hasGeneratedRef.current && accounts.length > 0) {
       hasGeneratedRef.current = true;
-      generateReview();
+      void generateReview();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accounts.length]);
+  }, [accounts.length, generateReview]);
 
   return (
     <Card className="border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-950/10 shadow-sm overflow-hidden border-dashed">
@@ -57,7 +56,7 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center gap-3 py-8 text-xs text-muted-foreground animate-pulse">
             <Sparkles className="h-5 w-5 text-indigo-400 animate-bounce" />
             <span>Thinking...</span>
@@ -78,7 +77,7 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
                 variant="ghost" 
                 size="sm" 
                 onClick={generateReview} 
-                disabled={loading} 
+                disabled={isLoading} 
                 className="text-[10px] h-7 px-3 gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100/50 transition-all font-semibold"
               >
                 <Sparkles className="h-3 w-3" />

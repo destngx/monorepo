@@ -29,7 +29,7 @@ export default function SettingsPage() {
   }, [mounted, settings.provider, settings.modelId]);
 
   const filteredModels = useMemo(() => {
-    let entries = Object.entries(AI_MODELS);
+    const entries = Object.entries(AI_MODELS);
     
     // Priority sorting: put github models first if provider is 'all' or 'github'
     entries.sort((a, b) => {

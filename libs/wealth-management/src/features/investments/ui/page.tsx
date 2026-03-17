@@ -137,7 +137,7 @@ export default function InvestmentsPage() {
         const initialCrypto = cryptoAccounts.reduce((sum: number, a: Account) => sum + (a.balance || 0), 0);
 
         // Helper to sum up values from asset tables
-        const sumAssetValue = (data: AssetData, isCrypto: boolean = false, currentPrices: Record<string, number> = {}) => {
+        const sumAssetValue = (data: AssetData, isCrypto = false, currentPrices: Record<string, number> = {}) => {
           if (!data || !data.holdings) return 0;
           return data.holdings.reduce((sum, row) => {
             // Priority 1: Direct VND total column
@@ -212,7 +212,7 @@ export default function InvestmentsPage() {
       (a.currency !== 'VND' && a.type.toLowerCase() !== 'investment')
     );
     
-    const sumAssetValue = (data: AssetData, isCrypto: boolean = false, currentPrices: Record<string, number> = {}) => {
+    const sumAssetValue = (data: AssetData, isCrypto = false, currentPrices: Record<string, number> = {}) => {
       if (!data || !data.holdings) return 0;
       return data.holdings.reduce((sum, row) => {
         const totalKey = Object.keys(row).find(k => {

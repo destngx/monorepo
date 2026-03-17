@@ -4,9 +4,12 @@ import { SearchResult } from '@mono/cloudinary-photos-app/types';
 import { ForceRefresh } from '@mono/cloudinary-photos-app/components/ui';
 
 export default async function GalleryPage({
-  params: { albumName },
-}: any) {
-  const results = (await cloudinary.v2.search
+  params,
+}: {
+  params: Promise<{ albumName: string }>;
+}) {
+  const { albumName } = await params;
+  const results = (await (cloudinary as any).v2.search
     .expression(`resource_type:image AND folder=${albumName}`)
     .sort_by('created_at', 'desc')
     .with_field('tags')

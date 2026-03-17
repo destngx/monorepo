@@ -9,12 +9,12 @@ describe('Sheet Mappers', () => {
       const account = mapAccount(row);
 
       expect(account).not.toBeNull();
-      expect(account!.name).toBe('Vietcombank');
-      expect(account!.clearedBalance).toBe(1000000);
-      expect(account!.balance).toBe(1500000);
-      expect(account!.type).toBe('active use');
-      expect(account!.currency).toBe('VND');
-      expect(account!.note).toBe('My main account');
+      expect(account.name).toBe('Vietcombank');
+      expect(account.clearedBalance).toBe(1000000);
+      expect(account.balance).toBe(1500000);
+      expect(account.type).toBe('active use');
+      expect(account.currency).toBe('VND');
+      expect(account.note).toBe('My main account');
     });
 
     it('all accounts are VND since sheet formulas convert', () => {
@@ -22,8 +22,8 @@ describe('Sheet Mappers', () => {
       const account = mapAccount(row);
 
       expect(account).not.toBeNull();
-      expect(account!.currency).toBe('VND');
-      expect(account!.balance).toBe(60000);
+      expect(account.currency).toBe('VND');
+      expect(account.balance).toBe(60000);
     });
 
     it('handles empty strings and missing indices gracefully', () => {
@@ -31,11 +31,11 @@ describe('Sheet Mappers', () => {
       const account = mapAccount(row);
 
       expect(account).not.toBeNull();
-      expect(account!.name).toBe('Cash');
-      expect(account!.dueDate).toBeNull();
-      expect(account!.goalAmount).toBeNull();
-      expect(account!.clearedBalance).toBe(0);
-      expect(account!.balance).toBe(0);
+      expect(account.name).toBe('Cash');
+      expect(account.dueDate).toBeNull();
+      expect(account.goalAmount).toBeNull();
+      expect(account.clearedBalance).toBe(0);
+      expect(account.balance).toBe(0);
     });
 
     it('filters out HELP header rows', () => {
@@ -73,21 +73,21 @@ describe('Sheet Mappers', () => {
       const tx = mapTransaction(row, 5);
 
       expect(tx).not.toBeNull();
-      expect(tx!.id).toBe('row-5');
-      expect(tx!.accountName).toBe('Vietcombank');
-      expect(tx!.payee).toBe('Grocery');
-      expect(tx!.payment).toBe(150000);
-      expect(tx!.deposit).toBeNull();
-      expect(tx!.cleared).toBe(true);
+      expect(tx.id).toBe('row-5');
+      expect(tx.accountName).toBe('Vietcombank');
+      expect(tx.payee).toBe('Grocery');
+      expect(tx.payment).toBe(150000);
+      expect(tx.deposit).toBeNull();
+      expect(tx.cleared).toBe(true);
     });
 
     it('handles various cleared statuses correctly', () => {
-      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', 'y', '1000', '', '', '', ''], 1)!.cleared).toBe(true);
-      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', 'Yes', '1000', '', '', '', ''], 1)!.cleared).toBe(
+      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', 'y', '1000', '', '', '', ''], 1).cleared).toBe(true);
+      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', 'Yes', '1000', '', '', '', ''], 1).cleared).toBe(
         true,
       );
-      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', '✓', '1000', '', '', '', ''], 1)!.cleared).toBe(true);
-      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', 'n', '1000', '', '', '', ''], 1)!.cleared).toBe(false);
+      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', '✓', '1000', '', '', '', ''], 1).cleared).toBe(true);
+      expect(mapTransaction(['Cash', '', '', 'P', '', '', 'Cat', 'n', '1000', '', '', '', ''], 1).cleared).toBe(false);
     });
 
     it('filters out HELP and header rows', () => {
@@ -98,7 +98,7 @@ describe('Sheet Mappers', () => {
     it('falls back to Uncategorized for missing category', () => {
       const tx = mapTransaction(['Cash', '45658', '', 'Store', '', '', '', '', '10000', '', '', '', ''], 1);
       expect(tx).not.toBeNull();
-      expect(tx!.category).toBe('Uncategorized');
+      expect(tx.category).toBe('Uncategorized');
     });
   });
 
@@ -108,10 +108,10 @@ describe('Sheet Mappers', () => {
       const budget = mapBudgetItem(row);
 
       expect(budget).not.toBeNull();
-      expect(budget!.category).toBe('Vacation');
-      expect(budget!.monthlyLimit).toBe(5000000);
-      expect(budget!.yearlyLimit).toBe(60000000);
-      expect(budget!.monthlySpent).toBe(1000000);
+      expect(budget.category).toBe('Vacation');
+      expect(budget.monthlyLimit).toBe(5000000);
+      expect(budget.yearlyLimit).toBe(60000000);
+      expect(budget.monthlySpent).toBe(1000000);
     });
 
     it('filters out HELP and section headers', () => {
@@ -124,14 +124,14 @@ describe('Sheet Mappers', () => {
       const row = ['Snacks', '350000', '4200000', '100000', '1200000', '250000', '3000000'];
       const budget = mapBudgetItem(row);
       expect(budget).not.toBeNull();
-      expect(budget!.category).toBe('Snacks');
+      expect(budget.category).toBe('Snacks');
     });
 
     it('applies zeroes for blanks', () => {
       const budget = mapBudgetItem(['Savings', '', '', '', '', '', '']);
       expect(budget).not.toBeNull();
-      expect(budget!.monthlyLimit).toBe(0);
-      expect(budget!.yearlyRemaining).toBe(0);
+      expect(budget.monthlyLimit).toBe(0);
+      expect(budget.yearlyRemaining).toBe(0);
     });
   });
 });

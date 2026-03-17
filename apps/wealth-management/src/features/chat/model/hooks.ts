@@ -155,8 +155,11 @@ export function useChatStream() {
 
 /**
  * Hook to manage chat suggestions
+ * @param modelId - The AI model ID
+ * @param context - Optional context for suggestions
+ * @returns Object with suggestions and loading state
  */
-export function useChatSuggestions(modelId: string, context?: Record<string, any>) {
+export function useChatSuggestions(modelId: string, context?: Record<string, unknown>) {
   const [suggestions, setSuggestions] = useState<
     Array<{ label: string; prompt: string }>
   >([]);
@@ -164,7 +167,7 @@ export function useChatSuggestions(modelId: string, context?: Record<string, any
 
   useEffect(() => {
     setIsLoading(true);
-    fetchSuggestions(modelId, context)
+    void fetchSuggestions(modelId, context)
       .then(setSuggestions)
       .finally(() => setIsLoading(false));
   }, [modelId, context]);

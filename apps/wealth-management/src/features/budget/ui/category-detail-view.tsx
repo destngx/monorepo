@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Transaction } from "@wealth-management/types";
 import { formatVND } from "@wealth-management/utils";
 import { MaskedBalance } from "@/components/ui/masked-balance";
-import { Sparkles, ArrowLeft, TrendingUp, History, PieChart as PieChartIcon } from "lucide-react";
+import { Sparkles, ArrowLeft, TrendingUp, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CategoryBadge } from "@/components/ui/category-badge";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
 import { format } from "date-fns";
 
 interface CategoryDetailViewProps {
@@ -130,7 +130,7 @@ export function CategoryDetailView({
                     />
                     <Tooltip 
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                      formatter={(v: any) => [formatVND(v || 0), 'Spent']}
+                      formatter={(v: unknown) => [formatVND(Number(v || 0)), 'Spent']}
                     />
                     <Bar dataKey="amount" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   </BarChart>

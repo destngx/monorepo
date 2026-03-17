@@ -8,14 +8,14 @@ export interface AIInsight {
   title: string;
   content: string;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   suggestedQuestions?: string[];
 }
 
 interface AIContextType {
-  pageData: Record<string, any>;
+  pageData: Record<string, unknown>;
   insights: AIInsight[];
-  setPageData: (data: Record<string, any>) => void;
+  setPageData: (data: Record<string, unknown>) => void;
   addInsight: (insight: Omit<AIInsight, "id" | "timestamp">) => void;
   clearInsights: () => void;
   removeInsight: (id: string) => void;
@@ -24,10 +24,10 @@ interface AIContextType {
 const AIContext = createContext<AIContextType | undefined>(undefined);
 
 export function AIContextProvider({ children }: { children: React.ReactNode }) {
-  const [pageData, setPageDataState] = useState<Record<string, any>>({});
+  const [pageData, setPageDataState] = useState<Record<string, unknown>>({});
   const [insights, setInsights] = useState<AIInsight[]>([]);
 
-  const setPageData = useCallback((data: Record<string, any>) => {
+  const setPageData = useCallback((data: Record<string, unknown>) => {
     setPageDataState(prev => ({ ...prev, ...data }));
   }, []);
 

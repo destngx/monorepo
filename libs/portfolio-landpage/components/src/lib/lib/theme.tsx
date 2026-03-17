@@ -3,7 +3,7 @@ import { mode } from '@chakra-ui/theme-tools';
 import React from 'react';
 
 const styles = {
-  global: (props: React.CSSProperties) => ({
+  global: (props: any) => ({
     body: {
       bg: mode('#f0e7db', '#202023')(props),
     },
@@ -25,7 +25,7 @@ const components = {
     },
   },
   Link: {
-    baseStyle: (props: React.CSSProperties) => ({
+    baseStyle: (props: any) => ({
       color: mode('#3d7aed', '#ff63c3')(props),
       textUnderlineOffset: 3,
     }),

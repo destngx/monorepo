@@ -16,7 +16,7 @@
       ],
       "defaultConfiguration": "production",
       "options": {
-        "root": "apps/wealth-management-app",
+        "root": "apps/wealth-management",
         "outputPath": "dist/apps/wealth-management"
       },
       "configurations": {
@@ -45,7 +45,7 @@
       }
     },
     "lint": {
-      "executor": "@nx/linter:eslint",
+      "executor": "@nx/eslint:lint",
       "outputs": [
         "{options.outputFile}"
       ],
@@ -63,6 +63,24 @@
       "options": {
         "passWithNoTests": true,
         "reportsDirectory": "../../coverage/apps/wealth-management"
+      }
+    },
+    "setup-ai": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/wealth-management/scripts/setup-ai.ts"
+      }
+    },
+    "setup-oauth": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/wealth-management/scripts/setup-oauth.ts"
+      }
+    },
+    "verify-auth": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun apps/wealth-management/scripts/verify-auth.ts"
       }
     }
   }

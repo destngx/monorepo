@@ -1,7 +1,7 @@
 // Client-safe re-exports for AI logic
 export { AI_MODELS, type AIModelId } from '@wealth-management/types/chat';
 export { buildBudgetAdvisorPrompt } from './prompts/budget/advisor';
-export { buildChartInsightPrompt } from './prompts/dashboard/insight';
+export { buildChartInsightPrompt, type ChartInsightData } from './prompts/dashboard/insight';
 export { buildFinancialHealthPrompt } from './prompts/finance/health';
 export {
   buildThinkTankPrompt,

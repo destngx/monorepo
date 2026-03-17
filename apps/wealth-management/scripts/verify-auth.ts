@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { google } from 'googleapis';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
@@ -50,9 +51,10 @@ async function verifyAuth() {
     } else {
       throw new Error('No token returned');
     }
-  } catch (error: any) {
-    console.error('\n❌ Authentication failed:', error.message);
-    if (error.message?.includes('invalid_grant')) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('\n❌ Authentication failed:', message);
+    if (message.includes('invalid_grant')) {
       console.error('\n💡 REASON: Your refresh token has expired or been revoked.');
       console.log('   - If your GCP project is in "Testing" mode, this happens every 7 days.');
       console.log('   - Run `pnpm run auth:setup` to get a new token.');
@@ -61,4 +63,4 @@ async function verifyAuth() {
   }
 }
 
-verifyAuth();
+void verifyAuth();

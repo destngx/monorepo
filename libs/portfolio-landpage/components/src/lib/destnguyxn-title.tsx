@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const DestnguyxnTitle = ({ isAnimated, className }: { isAnimated: boolean; className?: string }) => {
+export const DestnguyxnTitle = ({ isAnimated, className }: { isAnimated: boolean; className?: string }): React.JSX.Element => {
   return (
     <div
       className={

@@ -7,7 +7,7 @@ import { Transaction } from "@wealth-management/types";
 import { addMonths, format, subMonths } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 
-import { AIBudgetAdvisorView } from "../ui/ai-budget-advisor-view";
+import { AIBudgetAdvisorView, AdvisorData } from "../ui/ai-budget-advisor-view";
 import { BudgetOverviewView } from "../ui/budget-overview-view";
 import { CategoryDetailView } from "../ui/category-detail-view";
 import { useAISettings } from "@/hooks/use-ai-settings";
@@ -19,34 +19,34 @@ type ViewTier = 'overview' | 'detail' | 'advisor';
 export default function BudgetPage() {
   const [budgetBase, setBudgetBase] = useState<BudgetItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [viewDate, setViewDate] = useState(new Date());
   const [tier, setTier] = useState<ViewTier>('overview');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   // AI Advisor State
-  const [advisorData, setAdvisorData] = useState<any>(null);
-  const [fetchingAdvisor, setFetchingAdvisor] = useState(false);
+  const [advisorData, setAdvisorData] = useState<AdvisorData | null>(null);
+  const [isFetchingAdvisor, setIsFetchingAdvisor] = useState(false);
   const { settings, mounted } = useAISettings();
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/budget').then(r => r.json()),
-      fetch('/api/transactions').then(r => r.json())
+    void Promise.all([
+      fetch('/api/budget').then(r => r.json() as Promise<BudgetItem[]>),
+      fetch('/api/transactions').then(r => r.json() as Promise<Transaction[]>)
     ]).then(([budgetData, txData]) => {
-      setBudgetBase(budgetData);
-      setTransactions(txData);
-      setLoading(false);
-    }).catch(e => {
-      console.error(e);
-      setLoading(false);
+      setBudgetBase(Array.isArray(budgetData) ? budgetData : []);
+      setTransactions(Array.isArray(txData) ? txData : []);
+      setIsLoading(false);
+    }).catch((e: unknown) => {
+      console.error("Failed to fetch budget/transaction data", e);
+      setIsLoading(false);
     });
   }, []);
 
   // Fetch AI Advisory
   const fetchAdvisor = async () => {
     if (!mounted) return;
-    setFetchingAdvisor(true);
+    setIsFetchingAdvisor(true);
     try {
       const res = await fetch('/api/ai/budget-advisor', {
         method: 'POST',
@@ -59,13 +59,13 @@ export default function BudgetPage() {
         })
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as AdvisorData;
         setAdvisorData(data);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Advisor Fetch Error:", err);
     } finally {
-      setFetchingAdvisor(false);
+      setIsFetchingAdvisor(false);
     }
   };
 
@@ -82,6 +82,10 @@ export default function BudgetPage() {
 
   // Dynamically calculate the budget vs actuals 
   const budget = useMemo(() => {
+    if (!budgetBase || !Array.isArray(budgetBase)) {
+      return [];
+    }
+    
     const activeYear = viewDate.getFullYear();
     const activeMonth = viewDate.getMonth();
     const monthKey = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}`;
@@ -93,7 +97,7 @@ export default function BudgetPage() {
         return txDate.getMonth() === activeMonth && txDate.getFullYear() === activeYear;
       });
 
-      const monthlySpent = Math.max(0, monthTxns.reduce((sum, t) => sum + (t.payment || 0) - (t.deposit || 0), 0));
+      const monthlySpent = Math.max(0, monthTxns.reduce((sum: number, t) => sum + (t.payment || 0) - (t.deposit || 0), 0));
       const exactMonthlyLimit = b.monthlyLimits?.[monthKey] ?? b.monthlyLimit;
 
       return {
@@ -105,7 +109,7 @@ export default function BudgetPage() {
     });
   }, [budgetBase, transactions, viewDate]);
 
-  if (loading) return <Loading fullScreen message="Thinking..." />;
+  if (isLoading) return <Loading fullScreen message="Thinking..." />;
 
   const activeBudgets = budget.filter(b => b.monthlyLimit > 0 || b.monthlySpent > 0);
   const currentCategoryData = selectedCategory ? budget.find(b => b.category === selectedCategory) : null;
@@ -176,7 +180,7 @@ export default function BudgetPage() {
           briefing={advisorData?.briefing}
           detailedBrief={advisorData?.detailedBrief}
           insights={advisorData?.summaryInsights}
-          isLoadingAdvisor={fetchingAdvisor}
+          isLoadingAdvisor={isFetchingAdvisor}
         />
       )}
 
@@ -195,7 +199,7 @@ export default function BudgetPage() {
       )}
 
       {tier === 'advisor' && (
-        <AIBudgetAdvisorView data={advisorData} />
+        <AIBudgetAdvisorView data={advisorData || undefined} />
       )}
     </div>
   );

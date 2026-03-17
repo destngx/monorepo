@@ -1,29 +1,29 @@
-"use client";
+'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Bot, Sparkles } from "lucide-react";
-import { ChatMessages } from "./chat-messages";
-import { ChatInput } from "./chat-input";
-import { useAISettings } from "@/hooks/use-ai-settings";
-import { AI_MODELS } from "@wealth-management/ai";
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Bot, Sparkles } from 'lucide-react';
+import { ChatMessages } from './chat-messages';
+import { ChatInput } from './chat-input';
+import { useAISettings } from '@/hooks/use-ai-settings';
+import { AI_MODELS } from '@wealth-management/ai';
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   createdAt?: Date;
 }
 
-const STORAGE_KEY = "wealthos-chat-history";
+const STORAGE_KEY = 'wealthos-chat-history';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-export function ChatContainer() {
+export function ChatContainer(): React.ReactNode {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const { settings } = useAISettings();
 
@@ -38,28 +38,28 @@ export function ChatContainer() {
         }
       }
     } catch (error) {
-      console.error("Failed to load chat history:", error);
+      console.error('Failed to load chat history:', error);
     }
-    setMounted(true);
+    setIsMounted(true);
   }, []);
 
   // Save messages to localStorage whenever they change
   useEffect(() => {
-    if (mounted && messages.length > 0) {
+    if (isMounted && messages.length > 0) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
       } catch (error) {
-        console.error("Failed to save chat history:", error);
+        console.error('Failed to save chat history:', error);
       }
     }
-  }, [messages, mounted]);
+  }, [messages, isMounted]);
 
   const handleSendMessage = useCallback(
     async (text: string) => {
       // Add user message
       const userMessage: Message = {
         id: generateId(),
-        role: "user",
+        role: 'user',
         content: text,
         createdAt: new Date(),
       };
@@ -72,14 +72,12 @@ export function ChatContainer() {
 
       try {
         // Prepare messages for API
-        const apiMessages = messages
-          .concat(userMessage)
-          .map(({ id, ...msg }) => msg);
+        const apiMessages = messages.concat(userMessage).map(({ id, ...msg }) => msg);
 
-        const response = await fetch("/api/chat", {
-          method: "POST",
+        const response = await fetch('/api/chat', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             messages: apiMessages,
@@ -95,29 +93,30 @@ export function ChatContainer() {
         // Handle streaming response using standard AI SDK Data Stream format
         const reader = response.body?.getReader();
         if (!reader) {
-          throw new Error("No response body");
+          throw new Error('No response body');
         }
 
-        let fullContent = "";
+        let fullContent = '';
         const assistantMessage: Message = {
           id: generateId(),
-          role: "assistant",
-          content: "",
+          role: 'assistant',
+          content: '',
           createdAt: new Date(),
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
 
         const decoder = new TextDecoder();
-        let buffer = "";
+        let buffer = '';
 
+        // eslint-disable-next-line no-constant-condition
         while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+          const { done: isDone, value } = await reader.read();
+          if (isDone) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
             if (!line.trim()) continue;
@@ -138,7 +137,7 @@ export function ChatContainer() {
                 setMessages((prev) => {
                   const updated = [...prev];
                   const lastMessage = updated[updated.length - 1];
-                  if (lastMessage && lastMessage.role === "assistant") {
+                  if (lastMessage && lastMessage.role === 'assistant') {
                     updated[updated.length - 1] = {
                       ...lastMessage,
                       content: fullContent,
@@ -153,18 +152,20 @@ export function ChatContainer() {
           }
         }
       } catch (error: any) {
-        if (error.name === "AbortError") {
-          console.log("Request cancelled");
+        if (error.name === 'AbortError') {
+          /* eslint-disable-next-line no-console */
+          console.log('Request cancelled');
           return;
         }
 
-        console.error("Failed to get response:", error);
+        /* eslint-disable-next-line no-console */
+        console.error('Failed to get response:', error);
 
         // Add error message
         const errorMessage: Message = {
           id: generateId(),
-          role: "assistant",
-          content: `Sorry, I encountered an error: ${error.message || "Unknown error"}. Please try again.`,
+          role: 'assistant',
+          content: `Sorry, I encountered an error: ${error.message || 'Unknown error'}. Please try again.`,
           createdAt: new Date(),
         };
 
@@ -174,15 +175,14 @@ export function ChatContainer() {
         abortControllerRef.current = null;
       }
     },
-    [messages, settings.modelId]
+    [messages, settings.modelId],
   );
 
-  if (!mounted) {
+  if (!isMounted) {
     return null; // Prevent hydration mismatch
   }
 
-  const activeModelLabel =
-    AI_MODELS[settings.modelId]?.label || settings.modelId;
+  const activeModelLabel = AI_MODELS[settings.modelId]?.label || settings.modelId;
 
   return (
     <div className="flex flex-col h-full rounded-xl border bg-card shadow-lg overflow-hidden">
@@ -207,11 +207,7 @@ export function ChatContainer() {
 
       {/* Input */}
       <div className="flex-shrink-0 p-6 border-t bg-card">
-        <ChatInput
-          onSubmit={handleSendMessage}
-          isLoading={isLoading}
-          placeholder="Ask about your finances..."
-        />
+        <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} placeholder="Ask about your finances..." />
       </div>
     </div>
   );

@@ -18,12 +18,11 @@ export function ChatInput({
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!input.trim() || isLoading) return;
+  const processSubmit = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isLoading) return;
 
-      const message = input.trim();
+      const message = text.trim();
       setInput("");
 
       // Reset textarea height
@@ -33,29 +32,35 @@ export function ChatInput({
 
       try {
         await onSubmit(message);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Failed to send message:", error);
         // Optionally restore input on error
         setInput(message);
       }
     },
-    [input, isLoading, onSubmit]
+    [isLoading, onSubmit]
   );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void processSubmit(input);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e as any);
+      void processSubmit(input);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    const { value, scrollHeight } = e.target;
+    setInput(value);
 
     // Auto-resize textarea
     const textarea = e.target;
     textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    textarea.style.height = `${Math.min(scrollHeight, 200)}px`;
   };
 
   return (

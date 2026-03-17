@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const { composePlugins, withNx } = require('@nx/webpack');
 
 // Nx plugins for webpack.

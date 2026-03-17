@@ -6,17 +6,20 @@ import { getBudget } from "@wealth-management/services/server";
 import { getAccounts } from "@wealth-management/services/server";
 import { handleApiError } from "@wealth-management/utils/server";
 
+interface ParseNotificationInput {
+  id: string;
+  content: string;
+}
+
 export async function POST(req: Request) {
   try {
-    const { notifications } = await req.json();
+    const { notifications } = await req.json() as { notifications: ParseNotificationInput[] };
     if (!notifications || !Array.isArray(notifications)) {
       return NextResponse.json({ error: 'Notifications array is required' }, { status: 400 });
     }
 
-    const [budget, accounts] = await Promise.all([
-      getBudget(),
-      getAccounts()
-    ]);
+    const budget = (await getBudget()) as { category: string }[];
+    const accounts = (await getAccounts()) as { name: string }[];
 
     const categories = budget.map(b => b.category).join(', ');
     const accountNames = accounts.map(a => a.name).join(', ');
@@ -44,7 +47,7 @@ export async function POST(req: Request) {
       CRITICAL CONTEXT: If you parse a notification for a Binance account (or involving Binance) occurring between the 1st and 6th of the month, classify and treat it as the user's regular wages/salary (e.g. category 'Salary' or similar income category).
       
       Notifications:
-      ${notifications.map((n: any) => `ID: ${n.id}\nContent: ${n.content}`).join('\n---\n')}
+      ${notifications.map((n: ParseNotificationInput) => `ID: ${n.id}\nContent: ${n.content}`).join('\n---\n')}
       
       CRITICAL: Return ONLY a valid JSON array. Do not include any markdown formatting, backticks, or explanatory text.
     `;
@@ -70,13 +73,13 @@ export async function POST(req: Request) {
     const jsonString = cleanText.substring(startBracket, endBracket + 1);
 
     try {
-      const parsed = JSON.parse(jsonString);
+      const parsed = JSON.parse(jsonString) as unknown;
       return NextResponse.json(parsed);
     } catch {
       console.error('JSON Parse Error. AI Output:', text);
       throw new Error('AI returned malformed JSON. Please try again.');
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'AI Parse Notifications');
   }
 }

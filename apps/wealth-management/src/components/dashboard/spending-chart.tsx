@@ -23,7 +23,7 @@ export function SpendingChart({ transactions }: { transactions: Transaction[] })
   const chartData = useMemo(() => {
     const now = new Date();
     let start: Date;
-    let end: Date = endOfMonth(now);
+    const end: Date = endOfMonth(now);
 
     if (range === "ytd") {
       start = startOfYear(now);

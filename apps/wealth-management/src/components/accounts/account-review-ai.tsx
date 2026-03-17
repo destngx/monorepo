@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
-import { Account } from "@wealth-management/types";
-import ReactMarkdown from "react-markdown";
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
+import { Account } from '@wealth-management/types';
+import ReactMarkdown from 'react-markdown';
 
 interface Props {
   accounts: Account[];
@@ -15,34 +15,33 @@ interface Props {
 }
 
 export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, totalNetWorth }: Props) {
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [review, setReview] = useState<string | null>(null);
   const hasGeneratedRef = useRef(false);
 
   const generateReview = async () => {
-    setLoading(true);
+    setIsLoading(true);
     try {
-      const response = await fetch("/api/ai/account-review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/ai/account-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accounts, totalAssets, totalLiabilities, totalNetWorth }),
       });
       const data = await response.json();
       setReview(data.review);
     } catch (e) {
       console.error(e);
-      setReview("Failed to generate AI review. Please try again later.");
+      setReview('Failed to generate AI review. Please try again later.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     if (!hasGeneratedRef.current && accounts.length > 0) {
       hasGeneratedRef.current = true;
-      generateReview();
+      void generateReview();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts.length]);
 
   return (
@@ -50,14 +49,18 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
       <CardHeader className="pb-2 pt-3 px-4 border-b border-indigo-100/50 dark:border-indigo-900/30">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-             <Sparkles className="h-4 w-4 text-indigo-500" />
-             <CardTitle className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Lộc Phát Tài&apos;s Wealth Review</CardTitle>
+            <Sparkles className="h-4 w-4 text-indigo-500" />
+            <CardTitle className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">
+              Lộc Phát Tài&apos;s Wealth Review
+            </CardTitle>
           </div>
-          <span className="text-[10px] font-bold text-indigo-600/60 dark:text-indigo-400/60 uppercase tracking-widest">AI Advisory</span>
+          <span className="text-[10px] font-bold text-indigo-600/60 dark:text-indigo-400/60 uppercase tracking-widest">
+            AI Advisory
+          </span>
         </div>
       </CardHeader>
       <CardContent className="p-4">
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center gap-3 py-8 text-xs text-muted-foreground animate-pulse">
             <Sparkles className="h-5 w-5 text-indigo-400 animate-bounce" />
             <span>Thinking...</span>
@@ -74,11 +77,11 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
               <ReactMarkdown>{review}</ReactMarkdown>
             </div>
             <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-indigo-100/30 dark:border-indigo-900/20">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={generateReview} 
-                disabled={loading} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateReview}
+                disabled={isLoading}
                 className="text-[10px] h-7 px-3 gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100/50 transition-all font-semibold"
               >
                 <Sparkles className="h-3 w-3" />

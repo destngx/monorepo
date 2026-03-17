@@ -14,20 +14,25 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
-const question = (query: string): Promise<string> =>
-  new Promise((resolve) => rl.question(query, resolve));
+const question = (query: string): Promise<string> => new Promise((resolve) => rl.question(query, resolve));
 
 async function main() {
+  /* eslint-disable-next-line no-console */
   console.log('--- Google OAuth Setup CLI ---');
+  /* eslint-disable-next-line no-console */
   console.log('\n> [!] IMPORTANT: If your Google Cloud project is in "Testing" mode,');
+  /* eslint-disable-next-line no-console */
   console.log('> tokens expire every 7 days. To get a permanent token, go to:');
+  /* eslint-disable-next-line no-console */
   console.log('> https://console.cloud.google.com/apis/credentials/consent');
+  /* eslint-disable-next-line no-console */
   console.log('> and set the publishing status to "In Production".\n');
 
   let clientId = process.env.GOOGLE_CLIENT_ID;
   let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
+    /* eslint-disable-next-line no-console */
     console.log('Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in .env.local.');
     clientId = await question('Enter your Google Client ID: ');
     clientSecret = await question('Enter your Google Client Secret: ');
@@ -36,11 +41,7 @@ async function main() {
   // Use localhost as the redirect URI
   const redirectUri = 'http://127.0.0.1:3000';
 
-  const oAuth2Client = new google.auth.OAuth2(
-    clientId,
-    clientSecret,
-    redirectUri
-  );
+  const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: 'offline', // IMPORTANT to get a refresh token
@@ -48,9 +49,15 @@ async function main() {
     scope: ['https://www.googleapis.com/auth/spreadsheets'],
   });
 
+  /* eslint-disable-next-line no-console */
   console.log('\n1. Please visit the following URL to authorize this application:');
+  /* eslint-disable-next-line no-console */
   console.log('\n', authUrl, '\n');
-  console.log(`2. After authorizing, you will be redirected to a URL that starts with ${redirectUri} and looks like it's broken.`);
+  /* eslint-disable-next-line no-console */
+  console.log(
+    `2. After authorizing, you will be redirected to a URL that starts with ${redirectUri} and looks like it's broken.`,
+  );
+  /* eslint-disable-next-line no-console */
   console.log('3. Copy that entire redirected URL and paste it below:\n');
 
   const redirectedUrl = await question('Redirected URL: ');
@@ -63,11 +70,15 @@ async function main() {
       throw new Error('Could not find the "code" parameter in the URL provided.');
     }
 
+    /* eslint-disable-next-line no-console */
     console.log('\nExchanging code for tokens...');
     const { tokens } = await oAuth2Client.getToken(code);
 
     if (!tokens.refresh_token) {
-      console.warn('⚠️ WARNING: No refresh token returned. You might need to revoke access connected to this client and try again.');
+      /* eslint-disable-next-line no-console */
+      console.warn(
+        '⚠️ WARNING: No refresh token returned. You might need to revoke access connected to this client and try again.',
+      );
     }
 
     // Prepare .env contents
@@ -86,8 +97,8 @@ async function main() {
       }
     };
 
-    updateEnvVar('GOOGLE_CLIENT_ID', clientId!);
-    updateEnvVar('GOOGLE_CLIENT_SECRET', clientSecret!);
+    updateEnvVar('GOOGLE_CLIENT_ID', clientId);
+    updateEnvVar('GOOGLE_CLIENT_SECRET', clientSecret);
 
     if (tokens.refresh_token) {
       updateEnvVar('GOOGLE_REFRESH_TOKEN', tokens.refresh_token);
@@ -95,21 +106,27 @@ async function main() {
 
     // Write back
     fs.writeFileSync(envPath, envContents.trim() + '\n');
+    /* eslint-disable-next-line no-console */
     console.log('\n✅ Successfully obtained OAuth tokens!');
+    /* eslint-disable-next-line no-console */
     console.log('✅ Updated .env.local with GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN.');
 
+    /* eslint-disable-next-line no-console */
     console.log('\nNote: You also need an existing Google Sheet ID.');
     if (!process.env.GOOGLE_SHEETS_ID) {
+      /* eslint-disable-next-line no-console */
       console.log('Please set GOOGLE_SHEETS_ID in your .env.local as well.');
     } else {
+      /* eslint-disable-next-line no-console */
       console.log(`GOOGLE_SHEETS_ID is currently set to: ${process.env.GOOGLE_SHEETS_ID}`);
     }
-
   } catch (err: any) {
+    /* eslint-disable-next-line no-console */
     console.error('\n❌ Error authenticating:', err.message);
   } finally {
     rl.close();
   }
 }
 
-main();
+/* eslint-disable-next-line no-console */
+void main();

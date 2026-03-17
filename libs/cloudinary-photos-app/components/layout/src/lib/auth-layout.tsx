@@ -8,24 +8,13 @@ export interface LayoutProps {
   children: React.ReactNode;
 }
 
-export function AuthLayout(props: LayoutProps) {
+export function AuthLayout(props: LayoutProps): React.JSX.Element {
   const [isAuthenticated, setIsAuthenticated] = useAtom(isAuthenticatedAtom);
   const [errorNotification, setErrorNotification] = useAtom(errorNotificationAtom);
   const [input, setInput] = useState<string>('');
   const [isChecking, setIsChecking] = useState<boolean>(true);
 
-  useEffect(() => {
-    handleCheck();
-  }, []);
-  useEffect(() => {
-    if (errorNotification.length) {
-      setTimeout(() => {
-        setErrorNotification('');
-      }, 3000);
-    }
-  }, [errorNotification, setErrorNotification]);
-
-  const handleCheck = () => {
+  const handleCheck = React.useCallback(() => {
     const sessionAuthenticated = sessionStorage.getItem('isAuthenticated');
     let isCorrectPassword = false;
     void (async () => {
@@ -40,9 +29,20 @@ export function AuthLayout(props: LayoutProps) {
       }
       setIsAuthenticated(isCorrectPassword);
     })();
-  };
+  }, [input, setIsAuthenticated, setErrorNotification]);
 
-  return <div>{props.children}</div>;
+  useEffect(() => {
+    handleCheck();
+  }, [handleCheck]);
+
+  useEffect(() => {
+    if (errorNotification.length) {
+      setTimeout(() => {
+        setErrorNotification('');
+      }, 3000);
+    }
+  }, [errorNotification, setErrorNotification]);
+
   if (!isAuthenticated)
     return (
       <div className="h-screen flex flex-col justify-center items-start">
@@ -57,8 +57,8 @@ export function AuthLayout(props: LayoutProps) {
             aria-label="secret"
             placeholder="Enter your password"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
               if (e.key === 'Enter') {
                 void handleCheck();
               }

@@ -39,7 +39,7 @@ export function loadChatHistory(): ChatMessage[] {
  * Get active model label
  */
 export function getActiveModelLabel(modelId: string): string {
-  return AI_MODELS[modelId as keyof typeof AI_MODELS]?.label || modelId;
+  return AI_MODELS[modelId]?.label || modelId;
 }
 
 /**

@@ -5,7 +5,7 @@ import React, { ComponentProps, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { GlobalContext } from './context/global';
 
-const Navbar = (props: ComponentProps<'div'>) => {
+const Navbar = (props: ComponentProps<'div'>): React.JSX.Element => {
   // const { path } = props;
   const { isShowSoundCloudPlayer } = useContext(GlobalContext);
 

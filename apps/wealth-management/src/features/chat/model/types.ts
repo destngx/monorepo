@@ -4,9 +4,19 @@
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
-  content: string;
+  role: "user" | "assistant" | "system" | "data";
+  content?: string;
   createdAt?: Date;
+  parts?: Array<{
+    type: string;
+    text?: string;
+    [key: string]: unknown;
+  }>;
+  toolInvocations?: Array<{
+    state: string;
+    toolName: string;
+    [key: string]: unknown;
+  }>;
 }
 
 export interface ChatResponse {
@@ -28,5 +38,5 @@ export interface AIInsight {
   title: string;
   content: string;
   createdAt: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

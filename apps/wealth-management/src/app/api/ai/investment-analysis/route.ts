@@ -16,19 +16,24 @@ import {
   formatSearchContext
 } from "@wealth-management/ai/server";
 
+interface ActionCommands {
+  executable_commands: unknown[];
+}
+
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const encoder = new TextEncoder();
+  const body = await req.json() as { accounts: unknown[]; prices?: Record<string, number> };
+  const { accounts, prices } = body;
 
   const stream = new ReadableStream({
     async start(controller) {
-      const sendEvent = (data: any) => {
+      const sendEvent = (data: { type: string; message?: unknown; context?: unknown; error?: string; details?: string }) => {
         controller.enqueue(encoder.encode(JSON.stringify(data) + '\n'));
       };
 
       try {
-        const { accounts, prices } = await req.json();
 
         if (!accounts || !Array.isArray(accounts) || accounts.length === 0) {
           sendEvent({ type: 'error', error: 'Invalid accounts data' });
@@ -36,7 +41,8 @@ export async function POST(req: Request) {
           return;
         }
 
-        console.log('[Orchestrator] Starting investment analysis pipeline');
+
+        // 1. Extract Data Context
 
         // 1. Extract Data Context
         const data = await extractInvestmentData(accounts);
@@ -60,7 +66,6 @@ export async function POST(req: Request) {
         const searchContext = formatSearchContext(uniqueResults);
 
         // --- Phase 1: Think Tank Expert Debate ---
-        console.log('[Orchestrator] Executing Think Tank Phase...');
         const thinkTankInstruction = buildThinkTankPrompt(data, searchContext, marketPulse);
         
         let thinkTankText = '';
@@ -70,7 +75,6 @@ export async function POST(req: Request) {
             prompt: 'Analyze the market intelligence provided in the system context. Generate the Phase 1 and Phase 2 Think Tank Expert Debate.',
           });
         } catch {
-          console.warn('[Orchestrator] Think Tank phase failed, using fallback.');
           thinkTankText = await AIOrchestrator.run({
             systemPromptInstruction: buildFallbackThinkTankPrompt(data),
             prompt: 'Generate the Phase 1 and 2 Think Tank analysis now.',
@@ -88,7 +92,6 @@ export async function POST(req: Request) {
         });
 
         // --- Phase 2: Synthesis ---
-        console.log('[Orchestrator] Executing Synthesis Phase...');
         const synthesisInstruction = buildSynthesisPrompt(data, thinkTankText);
         
         let synthesisText = '';
@@ -98,7 +101,6 @@ export async function POST(req: Request) {
             prompt: 'Review the expert debate and synthesize the findings. Generate the Phase 3 Chairman Synthesis.',
           });
         } catch {
-          console.warn('[Orchestrator] Synthesis phase failed, using fallback.');
           synthesisText = await AIOrchestrator.run({
             systemPromptInstruction: buildFallbackSynthesisPrompt(data, thinkTankText),
             prompt: 'Generate the Chairman Synthesis now.',
@@ -116,24 +118,22 @@ export async function POST(req: Request) {
         });
 
         // --- Phase 3: Action Execution ---
-        console.log('[Orchestrator] Executing Action Phase...');
         const actionInstruction = buildActionPrompt(data, synthesisText);
         
-        let parsedActions = { executable_commands: [] };
+        let parsedActions: ActionCommands = { executable_commands: [] };
         try {
-          parsedActions = await AIOrchestrator.runJson<any>({
+          parsedActions = await AIOrchestrator.runJson<ActionCommands>({
             systemPromptInstruction: actionInstruction,
             prompt: 'Based on the synthesis, generate the 10 actionable commands in the requested JSON format.',
           });
         } catch {
-          console.warn('[Orchestrator] Action phase failed, using fallback.');
           try {
-            parsedActions = await AIOrchestrator.runJson<any>({
+            parsedActions = await AIOrchestrator.runJson<ActionCommands>({
               systemPromptInstruction: buildFallbackActionPrompt(synthesisText),
               prompt: 'Generate the Action commands now.',
             });
           } catch {
-             console.error('[Orchestrator] Fatal: Action fallback failed.');
+             // Action fallback failed.
           }
         }
 
@@ -158,9 +158,9 @@ export async function POST(req: Request) {
         });
 
         controller.close();
-      } catch (error: any) {
-        console.error('[Investment Analysis API Error]:', error);
-        sendEvent({ type: 'error', error: 'Internal system error during analysis', details: error.message });
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        sendEvent({ type: 'error', error: 'Internal system error during analysis', details: message });
         controller.close();
       }
     }

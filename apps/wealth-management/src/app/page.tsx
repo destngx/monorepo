@@ -11,6 +11,12 @@ import { AccountsSummary } from '@/components/dashboard/accounts-summary';
 import { SpendingChart } from '@/components/dashboard/spending-chart';
 import { BudgetOverview } from '@/components/dashboard/budget-overview';
 import { getCategories } from "@wealth-management/services/server";
+import { Account, BudgetItem, Transaction, Loan } from "@wealth-management/types";
+
+interface CategoryWithType {
+  name: string;
+  type: 'income' | 'expense' | 'non-budget';
+}
 
 // Setting this limits caching behavior at the page level
 export const revalidate = 0; 
@@ -18,12 +24,12 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   // Use Promise.all to fetch everything in parallel
   const [accounts, budget, rawTransactions, loans, , categories] = await Promise.all([
-    getAccounts().catch(() => []),
-    getBudget().catch(() => []), 
-    getTransactions().catch(() => []),
-    getLoans().catch(() => []),
+    getAccounts().catch(() => []) as Promise<Account[]>,
+    getBudget().catch(() => []) as Promise<BudgetItem[]>, 
+    getTransactions().catch(() => []) as Promise<Transaction[]>,
+    getLoans().catch(() => []) as Promise<Loan[]>,
     getExchangeRate().catch(() => 25400),
-    getCategories().catch(() => [])
+    getCategories().catch(() => []) as Promise<CategoryWithType[]>
   ]);
 
   // Enrich transactions with categoryType for filtering in charts/stats

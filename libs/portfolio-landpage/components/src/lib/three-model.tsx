@@ -48,7 +48,7 @@ const ThreeModel = () => {
   const { setLoadModelProgress } = useContext(GlobalContext);
   useEffect(() => {
     setLoadModelProgress(progress);
-  }, [progress]);
+  }, [progress, setLoadModelProgress]);
   return (
     <div className={'flex h-40 md:h-[504px]'}>
       <Suspense>

@@ -8,7 +8,7 @@ export function ForceRefresh() {
 
   useEffect(() => {
     router.refresh();
-  }, []);
+  }, [router]);
 
-  return <></>;
+  return null;
 }

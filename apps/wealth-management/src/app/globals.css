@@ -1,7 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -118,30 +116,35 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: var(--ring);
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
   }
-}@layer base {
+}
+
+@layer base {
   :root {
     --emerald-300: 167 64% 75%;
     --emerald-500: 160 84% 39%;
     --emerald-600: 161 94% 30%;
-    
+
     --blue-300: 213 94% 68%;
     --blue-500: 217 91% 60%;
     --blue-600: 221 83% 53%;
   }
 
   .dark {
-    --emerald-300: 165 48% 30%; /* Darker potential for UNIQ in dark mode */
-    --emerald-500: 160 84% 39%; /* Bright actual for UNIQ */
-    --emerald-600: 167 64% 75%; /* Light line for UNIQ */
-    
-    --blue-300: 215 50% 30%; /* Darker potential for Platinum */
-    --blue-500: 217 91% 60%; /* Bright actual */
-    --blue-600: 213 94% 68%; /* Light line */
+    --emerald-300: 165 48% 30%;
+    --emerald-500: 160 84% 39%;
+    --emerald-600: 167 64% 75%;
+
+    --blue-300: 215 50% 30%;
+    --blue-500: 217 91% 60%;
+    --blue-600: 213 94% 68%;
   }
 }
 
@@ -149,6 +152,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -162,13 +166,12 @@
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
 }
-/* Hide scrollbar for Chrome, Safari, Edge, and Opera */
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide scrollbar for IE, Edge, and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;     /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

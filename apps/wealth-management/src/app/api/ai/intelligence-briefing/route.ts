@@ -1,27 +1,37 @@
 import { NextResponse } from 'next/server';
-import { getLanguageModel } from "@wealth-management/ai/providers";
+import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
-import { buildSystemPrompt } from "@wealth-management/ai/server";
+import { buildSystemPrompt } from '@wealth-management/ai/server';
 
 export async function POST(req: Request) {
   try {
-    const { accounts, transactions, budget, loans, modelId } = await req.json();
+    const body = await req.json();
+    const { accounts, transactions, budget, loans, modelId } = body as {
+      accounts?: Array<{ balance: number }>;
+      transactions?: Array<{ date: string; deposit?: number; payment?: number }>;
+      budget?: unknown[];
+      loans?: Array<{ yearlyRemaining?: number }>;
+      modelId?: string;
+    };
 
     // Data Aggregation for AI
-    const totalLoanDebt = loans?.reduce((s: number, l: any) => s + (l.yearlyRemaining || 0), 0) || 0;
-    const totalAssets = accounts?.filter((a: any) => a.balance >= 0).reduce((s: number, a: any) => s + a.balance, 0) || 0;
-    const totalLiabilities = (accounts?.filter((a: any) => a.balance < 0).reduce((s: number, a: any) => s + Math.abs(a.balance), 0) || 0) + totalLoanDebt;
+    const totalLoanDebt = loans?.reduce((s: number, l) => s + (l.yearlyRemaining || 0), 0) || 0;
+    const totalAssets = accounts?.filter((a) => a.balance >= 0).reduce((s: number, a) => s + a.balance, 0) || 0;
+    const totalLiabilities =
+      (accounts?.filter((a) => a.balance < 0).reduce((s: number, a) => s + Math.abs(a.balance), 0) || 0) +
+      totalLoanDebt;
     const netWorth = totalAssets - totalLiabilities;
 
     // Calculate Cash Flow (Current Month)
     const now = new Date();
-    const currentMonthTxns = transactions?.filter((t: any) => {
-      const d = new Date(t.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }) || [];
+    const currentMonthTxns =
+      transactions?.filter((t) => {
+        const d = new Date(t.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }) || [];
 
-    const income = currentMonthTxns.reduce((s: number, t: any) => s + (t.deposit || 0), 0);
-    const expense = currentMonthTxns.reduce((s: number, t: any) => s + (t.payment || 0), 0);
+    const income = currentMonthTxns.reduce((s: number, t) => s + (t.deposit || 0), 0);
+    const expense = currentMonthTxns.reduce((s: number, t) => s + (t.payment || 0), 0);
     const cashFlow = income - expense;
     const savingsRate = income > 0 ? (cashFlow / income) * 100 : 0;
 
@@ -78,17 +88,18 @@ export async function POST(req: Request) {
     const { text } = await generateText({
       model,
       system: systemPrompt,
-      prompt: "Generate the intelligence briefing and alerts based on the financial data provided. Ensure all JSON numbers are raw integers without separators.",
+      prompt:
+        'Generate the intelligence briefing and alerts based on the financial data provided. Ensure all JSON numbers are raw integers without separators.',
     });
 
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Invalid AI response");
+    if (!match) throw new Error('Invalid AI response');
 
     // Robulst cleaning: Replace numbers formatted with dots (e.g. 1.234.567) into pure numbers (1234567)
     // This targets values following a colon in the JSON string
-    const cleanedJson = match[0].replace(/:\s*(\d[\d\.]+\d)/g, (m, p1) => {
+    const cleanedJson = match[0].replace(/:\s*(\d[\d.]+\d)/g, (m, p1) => {
       // If the number has multiple dots, it's definitely a formatted number (e.g. 2.916.834)
-      // If it has one dot, it might be a decimal, but in this specific domain/VND, 
+      // If it has one dot, it might be a decimal, but in this specific domain/VND,
       // most large numbers with dots are thousands separators.
       // For VND, we usually don't have decimals. Let's be aggressive for now.
       return `: ${p1.replace(/\./g, '')}`;
@@ -99,9 +110,12 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('Intelligence Briefing Error:', error);
-    return NextResponse.json({
-      briefing: "Your financial dashboard is ready. Review your assets and liabilities to stay on track.",
-      alerts: []
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        briefing: 'Your financial dashboard is ready. Review your assets and liabilities to stay on track.',
+        alerts: [],
+      },
+      { status: 500 },
+    );
   }
 }

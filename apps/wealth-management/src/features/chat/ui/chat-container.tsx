@@ -25,18 +25,19 @@ export function ChatContainer() {
         await streamMessage([...messages, assistantMsg], settings.modelId, (content) => {
           updateLastMessage(content);
         });
-      } catch (error: any) {
-        if (error.name === "AbortError") {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === "AbortError") {
           console.log("Request cancelled");
           return;
         }
 
         console.error("Failed to get response:", error);
 
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
         // Add error message
         addMessage(
           "assistant",
-          `Sorry, I encountered an error: ${error.message || "Unknown error"}. Please try again.`
+          `Sorry, I encountered an error: ${errorMessage}. Please try again.`
         );
       }
     },

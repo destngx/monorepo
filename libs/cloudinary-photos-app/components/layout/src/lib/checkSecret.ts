@@ -28,10 +28,11 @@ export default async function checkSecret(password: string) {
     }
 
     if (session) {
-      if (Date.now() - session.date.getTime() <= ONE_DAY_IN_MILISECONDS) {
+      const s = session as Session;
+      if (Date.now() - s.date.getTime() <= ONE_DAY_IN_MILISECONDS) {
         return true;
       }
-      await sessionCollection.deleteOne({ _id: session._id });
+      await sessionCollection.deleteOne({ _id: s._id });
       return false;
     }
     const systemSecretCollection = database.collection('system-secret');

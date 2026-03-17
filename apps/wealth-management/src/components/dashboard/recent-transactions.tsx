@@ -32,7 +32,7 @@ export function RecentTransactions({ transactions }: { transactions: Transaction
                     </div>
                   </div>
                   <div className={`font-semibold text-sm ${isPayment ? '' : 'text-green-600'}`}>
-                    {isPayment ? <><span className="mr-0.5">-</span><MaskedBalance amount={txn.payment!} /></> : <><span className="mr-0.5">+</span><MaskedBalance amount={txn.deposit!} /></>}
+                    {isPayment ? <><span className="mr-0.5">-</span><MaskedBalance amount={txn.payment} /></> : <><span className="mr-0.5">+</span><MaskedBalance amount={txn.deposit} /></>}
                   </div>
                 </div>
               );

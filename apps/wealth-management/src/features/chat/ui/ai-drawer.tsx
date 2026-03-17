@@ -28,10 +28,12 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@wealth-management/utils";
 
+import { ChatMessage, SuggestionItem } from "../model/types";
+
 interface AIDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  messages: any[];
+  messages: ChatMessage[];
   input: string;
   onInputChange: (val: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -41,7 +43,7 @@ interface AIDrawerProps {
   isBusy: boolean;
   isBusySuggestions?: boolean;
   activeContext?: string;
-  suggestedPrompts: Array<{ label: string; prompt: string }>;
+  suggestedPrompts: SuggestionItem[];
   children?: React.ReactNode; // For Insight Cards
 }
 
@@ -78,31 +80,31 @@ export function AIDrawer({
     return <LayoutDashboard className="h-3 w-3" />;
   };
 
-  const getTextContent = (message: any): string => {
-    if (Array.isArray(message.parts)) {
+  const getTextContent = (message: ChatMessage): string => {
+    if (message.parts && Array.isArray(message.parts)) {
       return message.parts
-        .filter((p: any) => p.type === "text" && !!p.text)
-        .map((p: any) => p.text)
+        .filter((p) => p.type === "text" && !!p.text)
+        .map((p) => p.text as string)
         .join("");
     }
     if (message.content && typeof message.content === 'string') return message.content;
     return "";
   };
 
-  const renderMessageContent = (message: any) => {
+  const renderMessageContent = (message: ChatMessage) => {
     const parts = message.parts || [];
     const toolInvocations = message.toolInvocations || [];
     const content = getTextContent(message);
 
     return (
       <div className="space-y-3">
-        {content && !parts.some((p: any) => p.type === 'text') && (
+        {content && !parts.some((p) => p.type === 'text') && (
           <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:first:mt-0">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         )}
         
-        {parts.map((part: any, idx: number) => {
+        {parts.map((part, idx: number) => {
           if (part.type === 'text' && part.text) {
             return (
               <div key={`text-${idx}`} className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:first:mt-0 border-t border-border/10 pt-2 first:pt-0 first:border-0">
@@ -123,7 +125,7 @@ export function AIDrawer({
           return null;
         })}
 
-        {toolInvocations.map((tool: any, idx: number) => (
+        {toolInvocations.map((tool, idx: number) => (
           <div key={`legacy-tool-${idx}`} className="flex items-center gap-1.5 text-[10px] bg-muted/50 px-2 py-1.5 rounded border border-border/50 font-medium">
             {tool.state === 'result' ? <CheckCircle className="h-3 w-3 text-emerald-500" /> : <Zap className="h-3 w-3 text-amber-500 animate-pulse" />}
             {tool.state === 'result' ? `Finished: ${tool.toolName}` : `Running: ${tool.toolName}...`}

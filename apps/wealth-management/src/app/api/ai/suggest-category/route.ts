@@ -6,7 +6,7 @@ import { buildSystemPrompt } from "@wealth-management/ai/server";
 
 export async function POST(req: Request) {
   try {
-    const { payee, categories } = await req.json();
+    const { payee, categories } = await req.json() as { payee: string; categories: string[] };
 
     if (!payee || !categories || !Array.isArray(categories)) {
       return NextResponse.json({ error: 'Missing payee or categories' }, { status: 400 });

@@ -14,7 +14,7 @@ export async function readSheet(range: string): Promise<string[][]> {
 
   // Cast all values to strings for uniform parsing downstream
   const rows = response.data.values || [];
-  return rows.map((row) => row.map((cell) => (cell === null || cell === undefined ? '' : String(cell)))) as string[][];
+  return rows.map((row) => row.map((cell) => (cell === null || cell === undefined ? '' : String(cell))));
 }
 
 export async function appendRow(range: string, values: any[]): Promise<boolean> {

@@ -1,4 +1,4 @@
-import { Transaction } from '../types/transactions';
+import { Transaction, BankSummary, Account, BankAccountSummary, CardStat, CardHistory } from '../types';
 
 export interface CardCashbackRule {
   tag: string;
@@ -64,7 +64,7 @@ export function calculateTransactionCashback(transaction: Transaction): { amount
   return { amount: 0, ruleName: 'None' };
 }
 
-export function getCreditCardSummary(transactions: Transaction[], accounts?: any[]) {
+export function getCreditCardSummary(transactions: Transaction[], accounts?: Account[]): BankSummary[] {
   const knownCards = [
     {
       name: 'Sacombank Visa UNIQ Platinum',
@@ -190,15 +190,15 @@ export function getCreditCardSummary(transactions: Transaction[], accounts?: any
   });
 
   // Then, group by bank and account
-  const banks: any[] = [];
-  cardResults.forEach((card) => {
+  const banks: BankSummary[] = [];
+  cardResults.forEach((card: CardStat) => {
     let bank = banks.find((b) => b.name === card.bank);
     if (!bank) {
       bank = { name: card.bank, accounts: [] };
       banks.push(bank);
     }
 
-    let account = bank.accounts.find((a: any) => a.name === card.accountKey);
+    let account = bank.accounts.find((a: BankAccountSummary) => a.name === card.accountKey);
     if (!account) {
       account = {
         name: card.accountKey,
@@ -210,6 +210,7 @@ export function getCreditCardSummary(transactions: Transaction[], accounts?: any
         totalRefund: 0,
         totalFees: 0,
         totalEarn: 0,
+        estimatedCashback: 0,
         cards: [],
       };
       bank.accounts.push(account);
@@ -224,6 +225,9 @@ export function getCreditCardSummary(transactions: Transaction[], accounts?: any
 
     account.cards.push({
       name: card.name,
+      bank: card.bank,
+      tagKeyword: card.tagKeyword,
+      defaultLimit: card.defaultLimit,
       spentThisMonth: card.spentThisMonth,
       estimatedCashback: card.estimatedCashback,
       lifetimeCashback: card.lifetimeCashback,
@@ -233,13 +237,15 @@ export function getCreditCardSummary(transactions: Transaction[], accounts?: any
       history: card.history,
       expiry: card.expiry,
       accountKey: card.accountKey,
+      limit: card.limit,
+      totalUsage: card.totalUsage,
     });
   });
 
   return banks;
 }
 
-function getMonthlyHistory(transactions: Transaction[]) {
+function getMonthlyHistory(transactions: Transaction[]): CardHistory[] {
   const months: Record<string, { spent: number; calculatedCashback: number; actualRefund: number }> = {};
 
   transactions.forEach((t) => {

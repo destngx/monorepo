@@ -12,29 +12,29 @@ interface TransactionReviewAIProps {
 
 export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) {
   const [review, setReview] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchReview = async () => {
     if (transactions.length === 0) return;
-    setLoading(true);
+    setIsLoading(true);
     try {
       const res = await fetch('/api/ai/transaction-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transactions })
       });
-      const data = await res.json();
+      const data = await res.json() as { review?: string };
       setReview(data.review || "Unable to generate review at this time.");
     } catch (err) {
       console.error("Transaction Review AI Error:", err);
       setReview("Error loading weekly insights.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReview();
+    void fetchReview();
   }, [transactions.length]);
 
   return (
@@ -57,16 +57,16 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={fetchReview} 
-          disabled={loading}
+          onClick={() => void fetchReview()} 
+          disabled={isLoading}
           className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-100/50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-900/20"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 
       <div className="relative min-h-[60px]">
-        {loading ? (
+        {isLoading ? (
           <div className="flex flex-col items-center justify-center py-6 space-y-3 font-medium">
             <Sparkles className="h-5 w-5 text-amber-400 animate-pulse" />
             <p className="text-xs text-amber-600/70 dark:text-amber-400/70">

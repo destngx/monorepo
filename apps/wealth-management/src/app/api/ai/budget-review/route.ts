@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getLanguageModel } from "@wealth-management/ai/providers";
 import { generateText } from 'ai';
-
 import { buildSystemPrompt } from "@wealth-management/ai/server";
+import { BudgetItem, Transaction } from '@wealth-management/types';
 
 export async function POST(req: Request) {
   try {
-    const { budget, transactions, totalSpent, totalLimit, view, date } = await req.json();
+    const body = await req.json() as {
+      budget: BudgetItem[];
+      transactions: Transaction[];
+      totalSpent: number;
+      totalLimit: number;
+      view: string;
+      date: string;
+    };
+    const { budget, transactions, totalSpent, totalLimit, view, date } = body;
 
     const recentTransactions = transactions
       .slice(-30)
-      .map((t: any) => ({
+      .map((t: Transaction) => ({
         category: t.category,
         amount: t.payment || 0,
         deposit: t.deposit || 0,
@@ -19,8 +27,8 @@ export async function POST(req: Request) {
       }));
 
     const activeBudgets = budget
-      .filter((b: any) => b.monthlySpent > 0 || (b.monthlyLimit && b.monthlyLimit > 0))
-      .map((b: any) => ({
+      .filter((b: BudgetItem) => b.monthlySpent > 0 || (b.monthlyLimit && b.monthlyLimit > 0))
+      .map((b: BudgetItem) => ({
         category: b.category,
         spent: b.monthlySpent,
         limit: b.monthlyLimit,
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ review: text });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('AI Budget Review Error:', error);
     return NextResponse.json({ error: 'Failed to generate review' }, { status: 500 });
   }

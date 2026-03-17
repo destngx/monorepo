@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { AIOrchestrator } from '@wealth-management/ai/core';
-import { buildChartInsightPrompt } from '@wealth-management/ai/server';
+import { buildChartInsightPrompt, ChartInsightData } from '@wealth-management/ai';
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const data = await req.json();
+    const data = (await req.json()) as ChartInsightData;
 
     if (!data.chartType || !data.chartData) {
       return NextResponse.json({ error: 'Missing chartType or chartData' }, { status: 400 });
@@ -19,10 +19,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ insight });
-  } catch (error: any) {
-    console.error('[Chart Insight API Error]:', error.message || error);
+  } catch (error: unknown) {
+    console.error('[Chart Insight API Error]:', error);
+    const message = error instanceof Error ? error.message : 'Failed to generate chart insight';
     return NextResponse.json(
-      { error: error.message || 'Failed to generate chart insight' },
+      { error: message },
       { status: 500 }
     );
   }

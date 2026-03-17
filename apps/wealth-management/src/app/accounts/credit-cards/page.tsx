@@ -8,19 +8,22 @@ import { CreditCardSummaryAI } from '@/components/credit-cards/credit-card-summa
 import { EfficiencyChart } from '@/components/credit-cards/efficiency-chart';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@wealth-management/ui";
 import { AIDataInsight } from "@/components/dashboard/ai-data-insight";
+import { Transaction, Account, BankSummary, BankAccountSummary, CardStat, CardHistory } from "@wealth-management/types";
 
 export const revalidate = 0;
 
 export default async function CreditCardPage() {
-  const [transactions, accounts] = await Promise.all([
+  const [transactions, accounts]: [Transaction[], Account[]] = await Promise.all([
     getTransactions().catch(() => []),
     getAccounts().catch(() => [])
   ]);
 
-  const banks = getCreditCardSummary(transactions, accounts);
+  const banks: BankSummary[] = getCreditCardSummary(transactions, accounts);
   
   // Create a flattened list of all card stats for AI and other components if needed
-  const allCardStats = banks.flatMap(bank => bank.accounts.flatMap((acc: any) => acc.cards));
+  const allCardStats: CardStat[] = banks.flatMap((bank: BankSummary) => 
+    bank.accounts.flatMap((acc: BankAccountSummary) => acc.cards)
+  );
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
@@ -50,7 +53,7 @@ export default async function CreditCardPage() {
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-1 gap-8">
-            {banks.map((bank) => (
+            {banks.map((bank: BankSummary) => (
               <div key={bank.name} className="space-y-6">
                 <div className="flex items-center gap-3 border-b pb-2">
                   <Landmark className="h-6 w-6 text-primary" />
@@ -58,7 +61,7 @@ export default async function CreditCardPage() {
                 </div>
                 
                 <div className="grid grid-cols-1  gap-6">
-                  {bank.accounts.map((account: any) => (
+                  {bank.accounts.map((account: BankAccountSummary) => (
                     <Card key={account.name} className="relative overflow-hidden border-primary/10 shadow-lg bg-card/50 backdrop-blur-sm">
                       <div className="absolute top-0 right-0 w-48 h-48 -mr-24 -mt-24 rounded-full opacity-5 bg-primary" />
                       
@@ -121,7 +124,7 @@ export default async function CreditCardPage() {
                         {/* Individual Card Profiles within this Account */}
                         <div className="grid grid-cols-1 gap-4">
                           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Card Profiles</p>
-                          {account.cards.map((card: any) => (
+                          {account.cards.map((card: CardStat) => (
                             <div key={card.name} className={`p-4 rounded-xl border-l-4 shadow-sm transition-all hover:translate-x-1 duration-200 ${card.name.includes('UNIQ') ? 'border-emerald-500 bg-emerald-500/5' : 'border-blue-500 bg-blue-500/5'}`}>
                               <div className="flex justify-between items-center mb-4">
                                 <h4 className="font-bold text-sm flex items-center gap-2">
@@ -129,7 +132,7 @@ export default async function CreditCardPage() {
                                   {card.name.replace('Sacombank Visa ', '')}
                                 </h4>
                                 <div className="text-right">
-                                  <p className="text-xs font-medium text-emerald-600"><MaskedBalance amount={card.estimatedCashback} /> est. cashback</p>
+                                  <div className="text-xs font-medium text-emerald-600"><MaskedBalance amount={card.estimatedCashback} /> est. cashback</div>
                                   {card.expiry && <p className="text-[9px] text-muted-foreground mt-0.5 font-mono">Expires: {card.expiry}</p>}
                                 </div>
                               </div>
@@ -193,8 +196,8 @@ export default async function CreditCardPage() {
                           </tr>
                        </thead>
                        <tbody className="divide-y divide-border">
-                          {allCardStats.map(card => (
-                             card.history.map((h: any, i: number) => (
+                          {allCardStats.map((card: CardStat) => (
+                             card.history.map((h: CardHistory, i: number) => (
                                 <tr key={`${card.name}-${h.month}`} className="bg-background hover:bg-muted/30 transition-colors">
                                    <td className="px-6 py-4 font-medium">
                                       {i === 0 && <span className="block text-xs font-bold text-primary mb-1 uppercase tracking-tighter">{card.name}</span>}

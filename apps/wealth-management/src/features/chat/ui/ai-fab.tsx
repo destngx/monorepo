@@ -13,7 +13,7 @@ interface AIFabProps {
 }
 
 export function AIFab({ onClick, isLoading, hasInsight, isOpen }: AIFabProps) {
-  const { isScrollingDown, isAtTop } = useScrollState();
+  const { isScrollingDown } = useScrollState();
   const [isMinimized, setIsMinimized] = useState(false);
 
   // Re-expand on scroll stop or scroll up

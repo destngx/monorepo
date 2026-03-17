@@ -4,10 +4,9 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
+import { useForm, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { TransactionSchema, TransactionInput } from "@wealth-management/schemas";
-import { BudgetItem } from "@wealth-management/types";
+import { TransactionInputSchema, TransactionInput } from "@wealth-management/schemas";
 import { Account } from "@wealth-management/types";
 import { X, Sparkles, Search } from "lucide-react";
 import { cn } from "@wealth-management/utils";
@@ -27,48 +26,18 @@ export function TransactionForm({
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: TransactionInput) => Promise<void>;
 }) {
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [budgetCategories, setBudgetCategories] = useState<CategoryChip[]>([]);
   const [categorySearch, setCategorySearch] = useState("");
   const [isSuggesting, setIsSuggesting] = useState(false);
-  const [showCategoryList, setShowCategoryList] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      fetch('/api/accounts')
-        .then(r => r.json())
-        .then(data => {
-          setAccounts(data);
-          // Always try to set Golden Pocket if it's in the list
-          if (data.some((a: Account) => a.name === "Golden Pocket")) {
-            setValue("accountName", "Golden Pocket");
-          }
-        })
-        .catch(console.error);
-
-      fetch('/api/tags')
-        .then(r => r.json())
-        .then(data => Array.isArray(data) ? setAvailableTags(data) : null)
-        .catch(console.error);
-
-      fetch('/api/categories')
-        .then(r => r.json())
-        .then((data: CategoryChip[]) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setBudgetCategories(data);
-          }
-        })
-        .catch(console.error);
-    }
-  }, [open]);
-
+  const [shouldShowCategoryList, setShouldShowCategoryList] = useState(false);
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<TransactionInput>({
-    resolver: zodResolver(TransactionSchema as any),
+    resolver: zodResolver(TransactionInputSchema) as unknown as Resolver<TransactionInput>,
     defaultValues: {
       accountName: "Golden Pocket",
-      date: new Date().toISOString().split('T')[0] as any,
+      date: new Date(),
       payee: "",
       category: "",
       payment: null,
@@ -77,6 +46,35 @@ export function TransactionForm({
       tags: [],
     }
   });
+
+  useEffect(() => {
+    if (open) {
+      void fetch('/api/accounts')
+        .then(r => r.json() as Promise<Account[]>)
+        .then(data => {
+          setAccounts(data);
+          // Always try to set Golden Pocket if it's in the list
+          if (data.some((a) => a.name === "Golden Pocket")) {
+            setValue("accountName", "Golden Pocket");
+          }
+        })
+        .catch(console.error);
+
+      void fetch('/api/tags')
+        .then(r => r.json() as Promise<string[]>)
+        .then(data => Array.isArray(data) ? setAvailableTags(data) : null)
+        .catch(console.error);
+
+      void fetch('/api/categories')
+        .then(r => r.json() as Promise<CategoryChip[]>)
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setBudgetCategories(data);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [open, setValue]);
 
   const payee = watch("payee");
   const currentCategory = watch("category");
@@ -92,7 +90,7 @@ export function TransactionForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payee: targetPayee, categories: budgetCategories.map(c => c.name) })
       });
-      const data = await res.json();
+      const data = await res.json() as { category?: string };
       if (data.category) {
         setValue("category", data.category);
       }
@@ -108,11 +106,11 @@ export function TransactionForm({
     if (!payee || payee.length < 3 || currentCategory) return;
 
     const timer = setTimeout(() => {
-      handleSuggestCategory(payee);
+      void handleSuggestCategory(payee);
     }, 1000); // 1s debounce
 
     return () => clearTimeout(timer);
-  }, [payee, budgetCategories]);
+  }, [payee, budgetCategories, currentCategory]);
 
   const selectedTags = watch("tags") ?? [];
 
@@ -131,7 +129,7 @@ export function TransactionForm({
   };
 
   const onFormSubmit = async (data: TransactionInput) => {
-    setLoading(true);
+    setIsLoading(true);
     try {
       await onSubmit(data);
       reset();
@@ -139,7 +137,7 @@ export function TransactionForm({
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -149,7 +147,7 @@ export function TransactionForm({
         <DialogHeader>
           <DialogTitle>Add Transaction</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4 pt-4">
+        <form onSubmit={(e) => { void handleSubmit(onFormSubmit)(e); }} className="space-y-4 pt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-sm font-medium">Account</label>
@@ -166,7 +164,11 @@ export function TransactionForm({
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Date</label>
-              <Input type="date" {...register("date", { valueAsDate: true })} />
+              <Input 
+                type="date" 
+                {...register("date", { valueAsDate: true })} 
+                defaultValue={new Date().toISOString().split('T')[0]}
+              />
               {errors.date && <span className="text-xs text-red-500">{errors.date.message}</span>}
             </div>
           </div>
@@ -204,11 +206,11 @@ export function TransactionForm({
                   type="text"
                   placeholder="Search categories..."
                   value={categorySearch}
-                  onFocus={() => setShowCategoryList(true)}
-                  onBlur={() => setTimeout(() => setShowCategoryList(false), 200)}
-                  onChange={(e) => {
+                  onFocus={() => setShouldShowCategoryList(true)}
+                  onBlur={() => setTimeout(() => setShouldShowCategoryList(false), 200)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                     setCategorySearch(e.target.value);
-                    setShowCategoryList(true);
+                    setShouldShowCategoryList(true);
                   }}
                   className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
@@ -233,7 +235,7 @@ export function TransactionForm({
                 </div>
               )}
 
-              {showCategoryList && (
+              {shouldShowCategoryList && (
                 <div className="absolute top-full left-0 z-50 mt-1 w-full border rounded-md max-h-[250px] overflow-y-auto bg-popover shadow-lg divide-y divide-border animate-in fade-in zoom-in-95 duration-100">
                   {budgetCategories
                     .filter(cat => !categorySearch || cat.name.toLowerCase().includes(categorySearch.toLowerCase()))
@@ -246,7 +248,7 @@ export function TransactionForm({
                           onClick={() => {
                             setValue("category", cat.name);
                             setCategorySearch("");
-                            setShowCategoryList(false);
+                            setShouldShowCategoryList(false);
                           }}
                           className={cn(
                             "w-full text-left px-3 py-2.5 transition-colors hover:bg-accent flex items-center justify-between group",
@@ -337,11 +339,11 @@ export function TransactionForm({
           </div>
 
           <div className="pt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Thinking..." : "Save Transaction"}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Thinking..." : "Save Transaction"}
             </Button>
           </div>
         </form>

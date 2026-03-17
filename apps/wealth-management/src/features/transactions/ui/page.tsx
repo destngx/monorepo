@@ -10,7 +10,7 @@ import { NotificationProcessor } from "@/components/transactions/notification-pr
 import { TransactionInput } from "@wealth-management/schemas";
 import { Transaction } from "../model/types";
 import { Loading } from "@/components/ui/loading";
-import { format, subDays, isAfter } from "date-fns";
+import { subDays, isAfter } from "date-fns";
 import { TransactionReviewAI } from "@/components/transactions/transaction-review-ai";
 import { AIDataInsight } from "@/components/dashboard/ai-data-insight";
 import { Sparkles } from "lucide-react";
@@ -32,37 +32,37 @@ function filterTransactions(txns: Transaction[], q: string): Transaction[] {
 }
 
 export default function TransactionsPage() {
-  const [formOpen, setFormOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [pendingNotifCount, setPendingNotifCount] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [loading, setLoading] = useState(true);
-  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [shouldShowScrollTop, setShouldShowScrollTop] = useState(false);
   const [authError, setAuthError] = useState<'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR' | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
   const fetchTransactions = async () => {
-    setLoading(true);
+    setIsLoading(true);
     setAuthError(null);
     try {
       const res = await fetch('/api/transactions');
       if (res.ok) {
-        const data: Transaction[] = await res.json();
+        const data = await res.json() as Transaction[];
         // Sort newest-first at the source so pagination stays chronologically correct
         data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setAllTransactions(data);
         setVisibleCount(PAGE_SIZE);
       } else if (res.status === 401) {
-        const errorData = await res.json();
+        const errorData = await res.json() as { code?: 'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR' };
         setAuthError(errorData.code || 'API_ERROR');
       }
     } catch (e) {
       console.error(e);
       setAuthError('API_ERROR');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -70,7 +70,7 @@ export default function TransactionsPage() {
     try {
       const res = await fetch('/api/notifications');
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as unknown[];
         setPendingNotifCount(data.length);
       }
     } catch (e) {
@@ -79,8 +79,8 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => { 
-    fetchTransactions(); 
-    fetchPendingCount();
+    void fetchTransactions(); 
+    void fetchPendingCount();
   }, []);
 
   // Reset pagination when search changes
@@ -91,7 +91,7 @@ export default function TransactionsPage() {
 
   // Show scroll-to-top when scrolled past 400px
   useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 400);
+    const onScroll = () => setShouldShowScrollTop(window.scrollY > 400);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -114,8 +114,8 @@ export default function TransactionsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    setFormOpen(false);
-    fetchTransactions();
+    setIsFormOpen(false);
+    void fetchTransactions();
   };
 
   return (
@@ -133,7 +133,7 @@ export default function TransactionsPage() {
           />
         </div>
           <p className="text-muted-foreground text-sm">
-            {loading
+            {isLoading
               ? "Thinking…"
               : search
               ? `${filtered.length} result${filtered.length !== 1 ? "s" : ""} for "${search}" · showing ${visibleTransactions.length}`
@@ -144,7 +144,7 @@ export default function TransactionsPage() {
           <div className="relative">
             <Button 
               variant="outline" 
-              onClick={() => setNotifOpen(true)} 
+              onClick={() => setIsNotifOpen(true)} 
               className="gap-2 cursor-pointer border-indigo-200 bg-indigo-50/30 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
             >
               <Sparkles className="h-4 w-4" />
@@ -156,7 +156,7 @@ export default function TransactionsPage() {
               </span>
             )}
           </div>
-          <Button onClick={() => setFormOpen(true)} className="gap-2 cursor-pointer shadow-sm">
+          <Button onClick={() => setIsFormOpen(true)} className="gap-2 cursor-pointer shadow-sm">
             <Plus className="h-4 w-4" />
             Add Transaction
           </Button>
@@ -169,7 +169,7 @@ export default function TransactionsPage() {
       )}
 
       {/* AI Transaction Review for Last 7 Days */}
-      {!loading && allTransactions.length > 0 && !authError && (
+      {!isLoading && allTransactions.length > 0 && !authError && (
         <TransactionReviewAI 
           transactions={allTransactions.filter(t => isAfter(new Date(t.date), subDays(new Date(), 7)))} 
         />
@@ -178,7 +178,7 @@ export default function TransactionsPage() {
       <div className="rounded-xl border bg-card text-card-foreground shadow p-4 sm:p-6">
         <TransactionFilters search={search} onSearch={handleSearch} />
 
-        {loading ? (
+        {isLoading ? (
           <Loading message="Thinking..." />
         ) : (
           <>
@@ -207,14 +207,14 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      <TransactionForm open={formOpen} onOpenChange={setFormOpen} onSubmit={handleCreate} />
+      <TransactionForm open={isFormOpen} onOpenChange={setIsFormOpen} onSubmit={handleCreate} />
       <NotificationProcessor 
-        open={notifOpen} 
-        onOpenChange={setNotifOpen} 
+        open={isNotifOpen} 
+        onOpenChange={setIsNotifOpen} 
         onComplete={fetchTransactions} 
       />
 
-      {showScrollTop && (
+      {shouldShowScrollTop && (
         <button
           onClick={scrollToTop}
           className="fixed bottom-6 right-6 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-all hover:scale-110 hover:shadow-xl cursor-pointer"

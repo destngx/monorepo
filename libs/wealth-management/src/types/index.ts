@@ -24,3 +24,5 @@ export * from './settings';
 
 // Common types (Category, Notification)
 export * from './common';
+// Cashback types
+export * from './cashback';

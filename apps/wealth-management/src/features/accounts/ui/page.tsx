@@ -53,20 +53,20 @@ const TYPE_ORDER = ['active use', 'long holding', 'rarely use', 'negative active
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['active use', 'negative active use']));
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/accounts').then(r => r.json()),
-      fetch('/api/transactions').then(r => r.json())
+    void Promise.all([
+      fetch('/api/accounts').then(r => r.json() as Promise<Account[]>),
+      fetch('/api/transactions').then(r => r.json() as Promise<Transaction[]>)
     ]).then(([accData, txnData]) => {
       setAccounts(accData);
       setTransactions(txnData);
-      setLoading(false);
-    }).catch(e => {
-      console.error(e);
-      setLoading(false);
+      setIsLoading(false);
+    }).catch((e: unknown) => {
+      console.error("Failed to fetch account/transaction data", e);
+      setIsLoading(false);
     });
   }, []);
 
@@ -92,8 +92,8 @@ export default function AccountsPage() {
       if (!sortedTypes.includes(t)) sortedTypes.push(t);
     });
 
-    const totalAssets = accounts.filter(a => a.balance > 0).reduce((sum, a) => sum + a.balance, 0);
-    const totalLiabilities = Math.abs(accounts.filter(a => a.balance < 0).reduce((sum, a) => sum + a.balance, 0));
+    const totalAssets = accounts.filter(a => a.balance > 0).reduce((sum: number, a) => sum + a.balance, 0);
+    const totalLiabilities = Math.abs(accounts.filter(a => a.balance < 0).reduce((sum: number, a) => sum + a.balance, 0));
     const totalNetWorth = totalAssets - totalLiabilities;
 
     return { grouped, sortedTypes, totalAssets, totalLiabilities, totalNetWorth };
@@ -105,7 +105,7 @@ export default function AccountsPage() {
       {/* Header Section */}
       {/* The header title and description were removed as per instruction */}
 
-      {loading ? (
+      {isLoading ? (
         <Loading fullScreen message="Thinking..." />
       ) : accounts.length === 0 ? (
         <div className="col-span-full py-20 flex flex-col items-center justify-center text-muted-foreground border border-dashed rounded-xl bg-card/30">

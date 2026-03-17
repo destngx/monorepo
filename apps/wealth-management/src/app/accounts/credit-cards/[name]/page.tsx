@@ -20,26 +20,26 @@ export default function CreditCardSubPage() {
   
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/accounts').then(r => r.json()),
-      fetch('/api/transactions').then(r => r.json())
+      fetch('/api/accounts').then(r => r.json() as Promise<Account[]>),
+      fetch('/api/transactions').then(r => r.json() as Promise<Transaction[]>)
     ]).then(([accData, txnData]) => {
       setAccounts(accData);
       setTransactions(txnData);
-      setLoading(false);
+      setIsLoading(false);
     }).catch(e => {
       console.error(e);
-      setLoading(false);
+      setIsLoading(false);
     });
   }, []);
 
   const card = useMemo(() => accounts.find(a => a.name === cardName), [accounts, cardName]);
   const cardTxns = useMemo(() => transactions.filter(t => t.accountName === cardName), [transactions, cardName]);
 
-  if (loading) return <Loading fullScreen message="Accessing vault..." />;
+  if (isLoading) return <Loading fullScreen message="Accessing vault..." />;
   if (!card) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <Landmark className="h-12 w-12 text-muted-foreground/20" />
