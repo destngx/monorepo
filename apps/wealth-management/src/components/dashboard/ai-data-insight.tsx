@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Sparkles, X, Loader2, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Popover as PopoverPrimitive, Portal as PortalPrimitive } from "radix-ui";
+import { useState, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Sparkles, X, Loader2, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Popover as PopoverPrimitive, Portal as PortalPrimitive } from 'radix-ui';
 
 interface AIDataInsightProps {
   type: string;
@@ -46,7 +46,7 @@ export function AIDataInsight({ type, description, data, market, timeframe }: AI
     }
   }, [type, description, data, market, timeframe, insight]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setInsight(null);
     setLoading(true);
     setError(null);
@@ -67,20 +67,23 @@ export function AIDataInsight({ type, description, data, market, timeframe }: AI
     } finally {
       setLoading(false);
     }
-  };
+  }, [type, description, data, market, timeframe]);
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={(val) => {
-      setOpen(val);
-      if (val) fetchInsight();
-    }}>
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(val) => {
+        setOpen(val);
+        if (val) void fetchInsight();
+      }}
+    >
       <PopoverPrimitive.Trigger asChild>
         <Button
           variant="ghost"
           size="sm"
           className={`h-7 w-7 p-0 rounded-full transition-all duration-300 ${
-            open 
-              ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/30' 
+            open
+              ? 'bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/30'
               : 'hover:bg-violet-500/10 text-zinc-400 hover:text-violet-400'
           }`}
           title="AI Chart Analysis"
@@ -97,9 +100,9 @@ export function AIDataInsight({ type, description, data, market, timeframe }: AI
       </PopoverPrimitive.Trigger>
 
       <PortalPrimitive.Root>
-        <PopoverPrimitive.Content 
-          side="top" 
-          align="end" 
+        <PopoverPrimitive.Content
+          side="top"
+          align="end"
           sideOffset={8}
           className="z-[9999] w-[340px] max-w-[90vw] animate-in fade-in zoom-in-95 duration-200"
         >
@@ -111,9 +114,7 @@ export function AIDataInsight({ type, description, data, market, timeframe }: AI
                 <span className="text-[10px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">
                   AI Insight
                 </span>
-                <span className="text-[9px] text-zinc-400 font-mono truncate max-w-[120px]">
-                  · {type}
-                </span>
+                <span className="text-[9px] text-zinc-400 font-mono truncate max-w-[120px]">· {type}</span>
               </div>
               <div className="flex items-center gap-1">
                 {insight && (
@@ -161,9 +162,7 @@ export function AIDataInsight({ type, description, data, market, timeframe }: AI
 
               {insight && (
                 <div className="prose prose-xs dark:prose-invert max-w-none text-[11px] leading-relaxed prose-p:my-1 prose-headings:my-1.5 prose-headings:text-[12px] prose-strong:text-violet-600 dark:prose-strong:text-violet-400 prose-ul:my-1 prose-li:my-0">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {insight}
-                  </ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{insight}</ReactMarkdown>
                 </div>
               )}
             </div>

@@ -19,7 +19,7 @@ function updateEnvVar(key: string, value: string) {
   fs.writeFileSync(envPath, envContent.trim() + '\n');
 }
 
-async function githubDeviceFlow(isEnterprise: boolean) {
+async function githubDeviceFlow(_isEnterprise: boolean) {
   /* eslint-disable-next-line no-console */
   console.log('\n──────────────────────────────────────────────────');
   /* eslint-disable-next-line no-console */

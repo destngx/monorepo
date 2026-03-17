@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, memo, useRef } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { useChat } from '@ai-sdk/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -10,19 +10,6 @@ import { Send, Bot, User, Sparkles, Zap, CheckCircle } from 'lucide-react';
 import { useAISettings } from '@/hooks/use-ai-settings';
 import { AI_MODELS } from '@wealth-management/ai';
 import { useDebouncedChatPersistence } from '@/hooks/use-debounced-chat-persistence';
-
-function getTextContent(message: any): string {
-  if (Array.isArray(message.parts)) {
-    return (message.parts as Array<{ type: string; text?: string }>)
-      .filter((p) => p.type === 'text' && !!p.text)
-      .map((p) => p.text ?? '')
-      .join('');
-  }
-  if (message.content && typeof message.content === 'string') {
-    return message.content as string;
-  }
-  return '';
-}
 
 export function hasContent(message: any): boolean {
   if (Array.isArray(message.parts) && message.parts.length > 0) return true;

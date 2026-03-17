@@ -1,11 +1,26 @@
 {
-  "extends": ["plugin:@nx/react-typescript"],
-  "ignorePatterns": ["!**/*", ".next/**/*"],
+  "extends": ["../../.eslintrc.json"],
   "overrides": [
     {
       "files": ["*.ts", "*.tsx"],
       "rules": {
-        "@typescript-eslint/no-unused-vars": "warn"
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-assignment": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-unsafe-argument": "off",
+        "@typescript-eslint/no-unsafe-return": "off",
+        "@typescript-eslint/no-misused-promises": "off",
+        "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+        "no-unused-vars": "off",
+        // App-level relaxations to reduce noise while we iteratively fix code.
+        "@typescript-eslint/naming-convention": "off",
+        "react-hooks/exhaustive-deps": "off",
+        "valid-jsdoc": "off",
+        "no-console": "off",
+        "@typescript-eslint/no-floating-promises": ["error", { "ignoreVoid": true }],
+        "@typescript-eslint/require-await": "off",
+        "@typescript-eslint/no-empty-function": "off"
       }
     }
   ]

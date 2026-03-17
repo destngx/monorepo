@@ -7,7 +7,6 @@
 import { useEffect, useState } from 'react';
 import { Goal, GoalProjection } from './types';
 import * as queries from './queries';
-import * as mutations from './mutations';
 
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -15,7 +14,8 @@ export function useGoals() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    queries.getGoals()
+    queries
+      .getGoals()
       .then(setGoals)
       .catch(setError)
       .finally(() => setLoading(false));
@@ -30,7 +30,8 @@ export function useGoal(id: string) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    queries.getGoalById(id)
+    queries
+      .getGoalById(id)
       .then(setGoal)
       .catch(setError)
       .finally(() => setLoading(false));
@@ -45,7 +46,8 @@ export function useGoalProjection(id: string) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    queries.getGoalProjection(id)
+    queries
+      .getGoalProjection(id)
       .then(setProjection)
       .catch(setError)
       .finally(() => setLoading(false));

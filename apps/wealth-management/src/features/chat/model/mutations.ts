@@ -2,41 +2,41 @@
  * Chat domain mutations - write operations
  */
 
-import { ChatMessage } from "./types";
+import { ChatMessage } from './types';
 
-const STORAGE_KEY = "wealthos-chat-history";
+const STORAGE_KEY = 'wealthos-chat-history';
 
 /**
  * Save chat history to localStorage
  * @param messages - Array of chat messages to save
- * @returns Whether the save was successful
+ * @return Whether the save was successful
  */
 export function saveChatHistory(messages: ChatMessage[]): boolean {
-  if (typeof window === "undefined") return false;
-  
+  if (typeof window === 'undefined') return false;
+
   try {
     if (messages.length > 0) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     }
     return true;
   } catch (error) {
-    console.error("Failed to save chat history:", error);
+    console.error('Failed to save chat history:', error);
     return false;
   }
 }
 
 /**
  * Clear chat history
- * @returns Whether the clear was successful
+ * @return Whether the clear was successful
  */
 export function clearChatHistory(): boolean {
-  if (typeof window === "undefined") return false;
-  
+  if (typeof window === 'undefined') return false;
+
   try {
     localStorage.removeItem(STORAGE_KEY);
     return true;
   } catch (error) {
-    console.error("Failed to clear chat history:", error);
+    console.error('Failed to clear chat history:', error);
     return false;
   }
 }
@@ -46,19 +46,19 @@ export function clearChatHistory(): boolean {
  * @param messages - Array of chat messages to send
  * @param modelId - The AI model ID to use
  * @param signal - Optional abort signal
- * @returns Stream of response bytes
+ * @return Stream of response bytes
  */
 export async function sendChatMessage(
   messages: ChatMessage[],
   modelId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<ReadableStream<Uint8Array>> {
-  const apiMessages = messages.map(({ id, ...msg }) => msg);
+  const apiMessages = messages.map(({ id: _id, ...msg }) => msg);
 
-  const response = await fetch("/api/chat", {
-    method: "POST",
+  const response = await fetch('/api/chat', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       messages: apiMessages,
@@ -72,7 +72,7 @@ export async function sendChatMessage(
   }
 
   if (!response.body) {
-    throw new Error("No response body");
+    throw new Error('No response body');
   }
 
   return response.body;

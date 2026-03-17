@@ -26,7 +26,7 @@ export function useAssets() {
       }
     };
 
-    fetchAssets();
+    void fetchAssets();
   }, []);
 
   return { assets, loading, error };
@@ -50,7 +50,7 @@ export function useAssetPrices() {
       }
     };
 
-    fetchPrices();
+    void fetchPrices();
   }, []);
 
   return { prices, loading, error };

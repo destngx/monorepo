@@ -26,7 +26,7 @@ export function useAccounts() {
       }
     };
 
-    fetchAccounts();
+    void fetchAccounts();
   }, []);
 
   return { accounts, loading, error };
@@ -47,7 +47,7 @@ export function useAccountById(name: string | null) {
       try {
         setLoading(true);
         const accounts = await getAccounts();
-        const found = accounts.find(a => a.name === name);
+        const found = accounts.find((a) => a.name === name);
         setAccount(found || null);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Unknown error'));
@@ -56,7 +56,7 @@ export function useAccountById(name: string | null) {
       }
     };
 
-    fetchAccount();
+    void fetchAccount();
   }, [name]);
 
   return { account, loading, error };

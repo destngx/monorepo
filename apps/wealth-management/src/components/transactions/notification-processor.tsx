@@ -1,25 +1,20 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Check, AlertCircle, X, Sparkles } from "lucide-react";
-import { MaskedBalance } from "@/components/ui/masked-balance";
-import { CategoryBadge } from "@/components/ui/category-badge";
-import { EmailNotification } from "@wealth-management/types";
+import { useState, useEffect } from 'react';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Check, AlertCircle, X, Sparkles } from 'lucide-react';
+import { MaskedBalance } from '@/components/ui/masked-balance';
+import { CategoryBadge } from '@/components/ui/category-badge';
+import { EmailNotification } from '@wealth-management/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ProposedTransaction {
   notificationId: string;
@@ -61,39 +56,41 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
   const startProcessing = async () => {
     try {
       setStep('fetching');
-      
+
       // Fetch current exchange rate for Binance conversions
-      fetch('/api/exchange-rate')
-        .then(res => res.json())
-        .then(data => setExchangeRate(data.rate || 25400))
+      void fetch('/api/exchange-rate')
+        .then((res) => res.json())
+        .then((data) => setExchangeRate(data.rate || 25400))
         .catch(() => {});
 
       const res = await fetch('/api/notifications');
       const data = await res.json();
-      
+
       if (data.length === 0) {
         setStep('review');
         setNotifications([]);
         return;
       }
-      
+
       setNotifications(data);
       setStep('parsing');
-      
+
       const aiRes = await fetch('/api/ai/parse-notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notifications: data })
+        body: JSON.stringify({ notifications: data }),
       });
-      
+
       const parsedTransactions = await aiRes.json();
-      
+
       if (aiRes.ok && Array.isArray(parsedTransactions)) {
         setProposedTransactions(parsedTransactions);
         setApprovedIndices(new Set(parsedTransactions.map((_: any, i: number) => i)));
-        
+
         const initialStatus: Record<number, 'pending'> = {};
-        parsedTransactions.forEach((_: any, i: number) => { initialStatus[i] = 'pending'; });
+        parsedTransactions.forEach((_: any, i: number) => {
+          initialStatus[i] = 'pending';
+        });
         setItemStatus(initialStatus);
         setStep('review');
       } else {
@@ -109,7 +106,7 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
 
   useEffect(() => {
     if (open) {
-      startProcessing();
+      void startProcessing();
     } else {
       reset();
     }
@@ -137,24 +134,24 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
     try {
       // 1. Mark ALL fetched notifications as done in sheets
       const allRowNumbers = notifications
-        .map(n => n.rowNumber)
+        .map((n) => n.rowNumber)
         .filter((row): row is number => typeof row === 'number');
 
       if (allRowNumbers.length > 0) {
         await fetch('/api/notifications', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rowNumbers: allRowNumbers })
+          body: JSON.stringify({ rowNumbers: allRowNumbers }),
         });
       }
 
       // 2. Add only APPROVED transactions
       const indicesToSave = Array.from(approvedIndices).sort((a, b) => a - b);
-      
+
       for (const index of indicesToSave) {
         const t = proposedTransactions[index];
-        setItemStatus(prev => ({ ...prev, [index]: 'saving' }));
-        
+        setItemStatus((prev) => ({ ...prev, [index]: 'saving' }));
+
         try {
           await fetch('/api/transactions', {
             method: 'POST',
@@ -168,13 +165,13 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
               payment: t.type === 'payment' ? t.amount : null,
               deposit: t.type === 'deposit' ? t.amount : null,
               tags: [],
-              cleared: false
-            })
+              cleared: false,
+            }),
           });
-          
-          setItemStatus(prev => ({ ...prev, [index]: 'done' }));
+
+          setItemStatus((prev) => ({ ...prev, [index]: 'done' }));
         } catch (err) {
-          setItemStatus(prev => ({ ...prev, [index]: 'error' }));
+          setItemStatus((prev) => ({ ...prev, [index]: 'error' }));
           // Continue with others even if one fails
         }
       }
@@ -206,9 +203,7 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
               <div className="relative">
                 <Sparkles className="h-10 w-10 text-indigo-500 animate-pulse text-primary animate-bounce" />
               </div>
-              <p className="text-sm font-medium">
-                Thinking...
-              </p>
+              <p className="text-sm font-medium">Thinking...</p>
             </div>
           ) : error ? (
             <div className="h-[400px] flex flex-col items-center justify-center gap-4 text-center p-8 bg-destructive/5 rounded-2xl border border-destructive/20">
@@ -217,7 +212,11 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
                 <p className="font-semibold text-destructive">Processing Error</p>
                 <p className="text-sm text-destructive/80 max-w-sm">{error}</p>
               </div>
-              <Button variant="outline" onClick={startProcessing} className="mt-2 border-destructive/20 text-destructive hover:bg-destructive/5">
+              <Button
+                variant="outline"
+                onClick={startProcessing}
+                className="mt-2 border-destructive/20 text-destructive hover:bg-destructive/5"
+              >
                 Try Again
               </Button>
             </div>
@@ -238,34 +237,48 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
                   <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm border-b">
                     <tr>
                       <th className="w-12 p-4 text-center">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
-                          checked={approvedIndices.size === proposedTransactions.length && proposedTransactions.length > 0}
+                          checked={
+                            approvedIndices.size === proposedTransactions.length && proposedTransactions.length > 0
+                          }
                           onChange={toggleAll}
                           disabled={step === 'saving'}
                         />
                       </th>
-                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Details</th>
-                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Category</th>
-                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Memo</th>
-                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Tag</th>
-                      <th className="text-right p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Amount</th>
-                      <th className="text-center p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">Status</th>
+                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Details
+                      </th>
+                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Category
+                      </th>
+                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Memo
+                      </th>
+                      <th className="text-left p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Tag
+                      </th>
+                      <th className="text-right p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Amount
+                      </th>
+                      <th className="text-center p-4 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {proposedTransactions.map((tx, i) => (
-                      <tr 
-                        key={i} 
+                      <tr
+                        key={i}
                         className={`group border-b last:border-0 transition-all cursor-pointer hover:bg-muted/30 ${
-                          !approvedIndices.has(i) && step !== 'saving' ? "bg-muted/10" : ""
+                          !approvedIndices.has(i) && step !== 'saving' ? 'bg-muted/10' : ''
                         }`}
                         onClick={() => toggleApproval(i)}
                       >
                         <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 cursor-pointer"
                             checked={approvedIndices.has(i)}
                             onChange={() => toggleApproval(i)}
@@ -274,10 +287,16 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
                         </td>
                         <td className="p-4">
                           <div className="flex flex-col">
-                            <span className="font-bold text-[10px] text-indigo-600 mb-0.5 uppercase tracking-wide">{tx.accountName}</span>
+                            <span className="font-bold text-[10px] text-indigo-600 mb-0.5 uppercase tracking-wide">
+                              {tx.accountName}
+                            </span>
                             <span className="font-semibold text-sm leading-tight mb-1">{tx.payee}</span>
                             <span className="text-[10px] text-muted-foreground font-medium">
-                              {new Date(tx.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                              {new Date(tx.date).toLocaleDateString(undefined, {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                              })}
                             </span>
                           </div>
                         </td>
@@ -291,18 +310,27 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
                           <span className="text-[10px] text-muted-foreground/50 italic">None</span>
                         </td>
                         <td className="p-4 text-right">
-                          <div className={`font-black text-base tabular-nums whitespace-nowrap ${tx.type === 'deposit' ? 'text-emerald-600' : 'text-foreground'}`}>
+                          <div
+                            className={`font-black text-base tabular-nums whitespace-nowrap ${tx.type === 'deposit' ? 'text-emerald-600' : 'text-foreground'}`}
+                          >
                             {tx.accountName.toLowerCase().includes('binance') ? (
                               <TooltipProvider delayDuration={0}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className="cursor-help underline decoration-dashed decoration-muted-foreground/50 underline-offset-4">
-                                      {tx.type === 'deposit' ? '+' : '-'}<MaskedBalance amount={tx.amount * exchangeRate} />
+                                      {tx.type === 'deposit' ? '+' : '-'}
+                                      <MaskedBalance amount={tx.amount * exchangeRate} />
                                     </span>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs text-xs font-mono break-all font-medium py-2">
-                                    <div className="text-[10px] text-muted-foreground mb-1 font-sans font-semibold uppercase tracking-wider">Formula Preview</div>
-                                    ={tx.amount} * IF(INDIRECT("A" & ROW())="{tx.accountName}"; GOOGLEFINANCE("CURRENCY:USDVND"); 1)
+                                  <TooltipContent
+                                    side="top"
+                                    className="max-w-xs text-xs font-mono break-all font-medium py-2"
+                                  >
+                                    <div className="text-[10px] text-muted-foreground mb-1 font-sans font-semibold uppercase tracking-wider">
+                                      Formula Preview
+                                    </div>
+                                    ={tx.amount} * IF(INDIRECT("A" & ROW())="{tx.accountName}";
+                                    GOOGLEFINANCE("CURRENCY:USDVND"); 1)
                                     <div className="mt-2 text-[10px] text-muted-foreground font-sans">
                                       Current USD/VND Rate: <MaskedBalance amount={exchangeRate} />
                                     </div>
@@ -310,7 +338,10 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
                                 </Tooltip>
                               </TooltipProvider>
                             ) : (
-                               <>{tx.type === 'deposit' ? '+' : '-'}<MaskedBalance amount={tx.amount} /></>
+                              <>
+                                {tx.type === 'deposit' ? '+' : '-'}
+                                <MaskedBalance amount={tx.amount} />
+                              </>
                             )}
                           </div>
                         </td>
@@ -335,7 +366,9 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
                               </div>
                             )}
                             {itemStatus[i] === 'pending' && (
-                              <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest group-hover:text-primary transition-colors">Pending</span>
+                              <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest group-hover:text-primary transition-colors">
+                                Pending
+                              </span>
                             )}
                           </div>
                         </td>
@@ -354,14 +387,21 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
               <p className="text-xs font-semibold">
                 {approvedIndices.size} of {proposedTransactions.length} items
               </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Selected for import</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                Selected for import
+              </p>
             </div>
             <div className="flex gap-3">
-              <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={step === 'saving'} className="text-xs">
+              <Button
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+                disabled={step === 'saving'}
+                className="text-xs"
+              >
                 Cancel
               </Button>
-              <Button 
-                disabled={approvedIndices.size === 0 || step === 'saving'} 
+              <Button
+                disabled={approvedIndices.size === 0 || step === 'saving'}
                 onClick={handleSave}
                 className="gap-2 shadow-lg shadow-primary/25 min-w-[160px] relative overflow-hidden h-10 transition-all active:scale-95"
               >

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles } from "lucide-react";
+import { Card, CardContent } from '@/components/ui/card';
+import { Sparkles } from 'lucide-react';
 
 interface AISummaryProps {
   totalGoals: number;
@@ -9,7 +9,7 @@ interface AISummaryProps {
   criticalGoal?: string;
 }
 
-export function AIGoalsSummary({ totalGoals, onTrackCount, criticalGoal }: AISummaryProps) {
+export function AIGoalsSummary({ onTrackCount, criticalGoal }: Omit<AISummaryProps, 'totalGoals'>) {
   return (
     <Card className="overflow-hidden border-none bg-linear-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-sm">
       <CardContent className="p-6">
@@ -18,14 +18,17 @@ export function AIGoalsSummary({ totalGoals, onTrackCount, criticalGoal }: AISum
             <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-semibold text-lg flex items-center gap-2">
-              AI Insight
-            </h3>
+            <h3 className="font-semibold text-lg flex items-center gap-2">AI Insight</h3>
             <p className="text-muted-foreground leading-relaxed">
               You&apos;re on track for <span className="text-emerald-500 font-medium">{onTrackCount} of them</span>.
               {criticalGoal && (
                 <>
-                  {" "}Your <span className="text-rose-500 font-medium underline underline-offset-4 decoration-rose-500/30">{criticalGoal}</span> goal needs attention — at the current savings rate, you&apos;ll miss the deadline by 4 months.
+                  {' '}
+                  Your{' '}
+                  <span className="text-rose-500 font-medium underline underline-offset-4 decoration-rose-500/30">
+                    {criticalGoal}
+                  </span>{' '}
+                  goal needs attention — at the current savings rate, you&apos;ll miss the deadline by 4 months.
                 </>
               )}
             </p>

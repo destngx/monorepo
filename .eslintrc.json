@@ -1,6 +1,6 @@
 {
   "root": true,
-  "plugins": ["@nx", "@typescript-eslint"],
+  "plugins": ["@nx", "@typescript-eslint", "react-hooks"],
   "parser": "@typescript-eslint/parser",
   "extends": ["eslint:recommended", "google", "plugin:@typescript-eslint/recommended-type-checked"],
   "overrides": [

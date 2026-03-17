@@ -1,4 +1,13 @@
-export type AccountType = 'active use' | 'rarely use' | 'long holding' | 'deprecated' | 'negative active use' | 'bank' | 'crypto' | 'cash' | 'investment';
+export type AccountType =
+  | 'active use'
+  | 'rarely use'
+  | 'long holding'
+  | 'deprecated'
+  | 'negative active use'
+  | 'bank'
+  | 'crypto'
+  | 'cash'
+  | 'investment';
 export type Currency = 'VND' | 'USD' | 'USDT';
 
 export interface Account {
@@ -17,9 +26,9 @@ export interface Account {
 const CRYPTO_ACCOUNTS = ['binance'];
 const USD_ACCOUNTS: string[] = [];
 
-export function inferCurrency(name: string, type: string): Currency {
+export function inferCurrency(name: string, _type: string): Currency {
   const lower = name.toLowerCase();
-  if (CRYPTO_ACCOUNTS.some(c => lower.includes(c))) return 'USDT';
-  if (USD_ACCOUNTS.some(c => lower.includes(c))) return 'USD';
+  if (CRYPTO_ACCOUNTS.some((c) => lower.includes(c))) return 'USDT';
+  if (USD_ACCOUNTS.some((c) => lower.includes(c))) return 'USD';
   return 'VND';
 }

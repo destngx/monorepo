@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, Calendar } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import { Button } from "@/components/ui/button";
-import { Transaction } from "@wealth-management/types";
+import { useState, useEffect } from 'react';
+import { Sparkles, RefreshCw, Calendar } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { Button } from '@/components/ui/button';
+import { Transaction } from '@wealth-management/types';
 
 interface TransactionReviewAIProps {
   transactions: Transaction[];
 }
 
 export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) {
-  const [review, setReview] = useState<string>("");
+  const [review, setReview] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const fetchReview = async () => {
@@ -21,20 +21,20 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
       const res = await fetch('/api/ai/transaction-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions })
+        body: JSON.stringify({ transactions }),
       });
       const data = await res.json();
-      setReview(data.review || "Unable to generate review at this time.");
+      setReview(data.review || 'Unable to generate review at this time.');
     } catch (err) {
-      console.error("Transaction Review AI Error:", err);
-      setReview("Error loading weekly insights.");
+      console.error('Transaction Review AI Error:', err);
+      setReview('Error loading weekly insights.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReview();
+    void fetchReview();
   }, [transactions.length]);
 
   return (
@@ -46,18 +46,18 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
           </div>
           <div>
             <h3 className="text-sm font-bold text-amber-900 dark:text-amber-100 uppercase tracking-tight flex items-center gap-1.5">
-              Lộc Phát Tài Insights 
-              <span className="text-[10px] font-medium bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded-full lowercase">weekly</span>
+              Lộc Phát Tài Insights
+              <span className="text-[10px] font-medium bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded-full lowercase">
+                weekly
+              </span>
             </h3>
-            <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 font-medium">
-              Last 7 Days Analysis
-            </p>
+            <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 font-medium">Last 7 Days Analysis</p>
           </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={fetchReview} 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={fetchReview}
           disabled={loading}
           className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-100/50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-900/20"
         >
@@ -69,15 +69,11 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-6 space-y-3 font-medium">
             <Sparkles className="h-5 w-5 text-amber-400 animate-pulse" />
-            <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
-              Thinking...
-            </p>
+            <p className="text-xs text-amber-600/70 dark:text-amber-400/70">Thinking...</p>
           </div>
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none text-amber-900/80 dark:text-amber-100/80 text-sm leading-relaxed italic pr-4">
-            <ReactMarkdown>
-              {review || "Analyzing your recent transaction history..."}
-            </ReactMarkdown>
+            <ReactMarkdown>{review || 'Analyzing your recent transaction history...'}</ReactMarkdown>
           </div>
         )}
       </div>

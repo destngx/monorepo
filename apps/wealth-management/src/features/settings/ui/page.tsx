@@ -1,19 +1,16 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Brain, Check, Github, Search, Filter } from "lucide-react";
-import { useAISettings, AIProvider } from "@/hooks/use-ai-settings";
-import { AI_MODELS } from "@wealth-management/ai";
-import { useState, useEffect, useMemo } from "react";
-import { getCredentialStatuses } from "@/app/actions/cache";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Save, Brain, Check, Github, Search, Filter } from 'lucide-react';
+import { useAISettings, AIProvider } from '@/hooks/use-ai-settings';
+import { AI_MODELS } from '@wealth-management/ai';
+import { useState, useEffect, useMemo } from 'react';
+import { getCredentialStatuses } from '@/app/actions/cache';
 
 export default function SettingsPage() {
-  const router = useRouter();
   const { settings, updateSettings, mounted } = useAISettings();
   const [selectedProvider, setSelectedProvider] = useState<AIProvider>(settings.provider);
   const [selectedModel, setSelectedModel] = useState(settings.modelId);
@@ -30,7 +27,7 @@ export default function SettingsPage() {
 
   const filteredModels = useMemo(() => {
     const entries = Object.entries(AI_MODELS);
-    
+
     // Priority sorting: put github models first if provider is 'all' or 'github'
     entries.sort((a, b) => {
       if (a[1].provider === 'github' && b[1].provider !== 'github') return -1;
@@ -39,7 +36,7 @@ export default function SettingsPage() {
     });
 
     if (selectedProvider === 'all') return entries;
-    return entries.filter(([id, config]) => config.provider === selectedProvider);
+    return entries.filter(([_id, config]) => config.provider === selectedProvider);
   }, [selectedProvider]);
 
   // If selected model is not in the filtered list, we should change it or at least show warning
@@ -48,9 +45,9 @@ export default function SettingsPage() {
   }, [filteredModels, selectedModel]);
 
   const handleSave = () => {
-    updateSettings({ 
+    updateSettings({
       provider: selectedProvider,
-      modelId: selectedModel 
+      modelId: selectedModel,
     });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
@@ -92,7 +89,7 @@ export default function SettingsPage() {
                     <SelectItem value="github">
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2">
-                          <Github className="h-3 w-3" /> 
+                          <Github className="h-3 w-3" />
                           <span className="font-medium">GitHub Copilot</span>
                         </div>
                         <span className="text-[9px] text-muted-foreground ml-5">GPT-4o, GPT-o1, Grok</span>
@@ -122,7 +119,9 @@ export default function SettingsPage() {
                       <SelectItem key={id} value={id} className="py-2.5">
                         <div className="flex flex-col gap-0.5">
                           <span className="font-medium text-xs">{config.label}</span>
-                          <span className="text-[9px] text-muted-foreground truncate max-w-[200px]">{config.description}</span>
+                          <span className="text-[9px] text-muted-foreground truncate max-w-[200px]">
+                            {config.description}
+                          </span>
                         </div>
                       </SelectItem>
                     ))}
@@ -140,32 +139,50 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
-            
+
             <div className="bg-muted/40 p-4 rounded-xl border border-dashed text-xs space-y-2">
-              <p className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider">Credential Status</p>
+              <p className="font-semibold text-muted-foreground uppercase text-[10px] tracking-wider">
+                Credential Status
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">GitHub Copilot Token:</span>
-                  {credentials.github ? <span className="text-emerald-500 font-medium">✓ Configured</span> : <span className="text-rose-400 font-medium">✗ Missing</span>}
+                  {credentials.github ? (
+                    <span className="text-emerald-500 font-medium">✓ Configured</span>
+                  ) : (
+                    <span className="text-rose-400 font-medium">✗ Missing</span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">OpenAI API Key:</span>
-                  {credentials.openai ? <span className="text-emerald-500 font-medium">✓ Configured</span> : <span className="text-rose-400 font-medium">✗ Missing</span>}
+                  {credentials.openai ? (
+                    <span className="text-emerald-500 font-medium">✓ Configured</span>
+                  ) : (
+                    <span className="text-rose-400 font-medium">✗ Missing</span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Anthropic Key:</span>
-                  {credentials.anthropic ? <span className="text-emerald-500 font-medium">✓ Configured</span> : <span className="text-rose-400 font-medium">✗ Missing</span>}
+                  {credentials.anthropic ? (
+                    <span className="text-emerald-500 font-medium">✓ Configured</span>
+                  ) : (
+                    <span className="text-rose-400 font-medium">✗ Missing</span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Google (Gemini) Key:</span>
-                  {credentials.google ? <span className="text-emerald-500 font-medium">✓ Configured</span> : <span className="text-rose-400 font-medium">✗ Missing</span>}
+                  {credentials.google ? (
+                    <span className="text-emerald-500 font-medium">✓ Configured</span>
+                  ) : (
+                    <span className="text-rose-400 font-medium">✗ Missing</span>
+                  )}
                 </div>
               </div>
             </div>
           </CardContent>
           <CardFooter className="border-t bg-muted/20 px-6 py-4 flex justify-end">
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               className="gap-2 px-8"
               disabled={!hasChanges || (!isModelAvailable && selectedProvider !== 'all')}
             >
@@ -206,12 +223,11 @@ export default function SettingsPage() {
               <div>
                 <h4 className="font-bold text-xs text-emerald-800">Connection Active</h4>
                 <p className="text-[10px] text-emerald-700/70 mt-0.5 leading-relaxed">
-                  WealthOS is successfully communicating with your spreadsheet. Transactions and accounts are synced every 15 minutes.
+                  WealthOS is successfully communicating with your spreadsheet. Transactions and accounts are synced
+                  every 15 minutes.
                 </p>
               </div>
             </div>
-            
-
           </CardContent>
         </Card>
       </div>

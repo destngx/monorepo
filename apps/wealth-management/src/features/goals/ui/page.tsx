@@ -1,65 +1,13 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo } from "react";
-import { AIGoalsSummary } from "./ai-summary-card";
-import { GoalCard } from "./goal-card";
-import { Goal } from "../model/types";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { Plus, SlidersHorizontal, TrendingUp } from "lucide-react";
-import { useAIContext } from "@/features/chat/ui/ai-context-provider";
-
-// Mock data for initial implementation
-const MOCK_GOALS: Goal[] = [
-  {
-    id: "1",
-    name: "Emergency Fund",
-    type: "SAVINGS_TARGET",
-    emoji: "🏦",
-    targetAmount: 100000000,
-    currentAmount: 45000000,
-    deadline: "Dec 2026",
-    status: "ON_TRACK",
-    linkedAccountId: "acc_1",
-    contributionType: "AI_MANAGED",
-    streakCount: 12,
-    milestones: [
-      { percentage: 25, label: "Started", achievedAt: "2025-01-01" },
-      { percentage: 50, label: "Halfway" }
-    ],
-    history: []
-  },
-  {
-    id: "2",
-    name: "New MacBook Pro",
-    type: "PURCHASE_GOAL",
-    emoji: "💻",
-    targetAmount: 65000000,
-    currentAmount: 20000000,
-    deadline: "Aug 2026",
-    status: "AT_RISK",
-    linkedAccountId: "acc_2",
-    contributionType: "MANUAL",
-    streakCount: 4,
-    milestones: [],
-    history: []
-  },
-  {
-    id: "3",
-    name: "Europe 2027",
-    type: "SAVINGS_TARGET",
-    emoji: "✈️",
-    targetAmount: 150000000,
-    currentAmount: 85000000,
-    deadline: "Jun 2027",
-    status: "ON_TRACK",
-    linkedAccountId: "acc_1",
-    contributionType: "AUTOMATIC",
-    streakCount: 8,
-    milestones: [],
-    history: []
-  }
-];
+import { useState, useEffect } from 'react';
+import { AIGoalsSummary } from './ai-summary-card';
+import { GoalCard } from './goal-card';
+import { Goal } from '../model/types';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Plus, SlidersHorizontal } from 'lucide-react';
+import { useAIContext } from '@/features/chat/ui/ai-context-provider';
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -68,34 +16,35 @@ export default function GoalsPage() {
 
   useEffect(() => {
     fetch('/api/goals')
-      .then(res => res.json() as Promise<Goal[]>)
-      .then(data => {
+      .then((res) => res.json() as Promise<Goal[]>)
+      .then((data) => {
         setGoals(data);
         setIsLoading(false);
-        
+
         // Report goals context to AI
-        setPageData({ 
+        setPageData({
           goals: data,
           totalTarget: data.reduce((acc: number, g: Goal) => acc + g.targetAmount, 0),
-          totalSaved: data.reduce((acc: number, g: Goal) => acc + g.currentAmount, 0)
+          totalSaved: data.reduce((acc: number, g: Goal) => acc + g.currentAmount, 0),
         });
 
         // Add a demo insight
-        if (data.some((g: Goal) => g.status === "AT_RISK")) {
+        if (data.some((g: Goal) => g.status === 'AT_RISK')) {
           addInsight({
-            type: "alert",
-            title: "Goal at Risk",
-            content: "Your MacBook Pro goal is currently at risk due to a slow-down in contributions. If you continue at this pace, you'll reach it 3 months later than planned.",
+            type: 'alert',
+            title: 'Goal at Risk',
+            content:
+              "Your MacBook Pro goal is currently at risk due to a slow-down in contributions. If you continue at this pace, you'll reach it 3 months later than planned.",
             suggestedQuestions: [
-               "How can I fix my MacBook goal?",
-               "Show me my goal timeline",
-               "Can I still reach it by August?"
-            ]
+              'How can I fix my MacBook goal?',
+              'Show me my goal timeline',
+              'Can I still reach it by August?',
+            ],
           });
         }
       })
       .catch((error: unknown) => {
-        console.error("Failed to fetch goals:", error);
+        console.error('Failed to fetch goals:', error);
         setIsLoading(false);
       });
   }, [setPageData, addInsight]);
@@ -131,10 +80,10 @@ export default function GoalsPage() {
         </div>
       </div>
 
-      <AIGoalsSummary 
-        totalGoals={goals.length} 
-        onTrackCount={goals.filter(g => g.status === "ON_TRACK").length}
-        criticalGoal={goals.find(g => g.status === "AT_RISK" || g.status === "OFF_TRACK")?.name}
+      <AIGoalsSummary
+        totalGoals={goals.length}
+        onTrackCount={goals.filter((g) => g.status === 'ON_TRACK').length}
+        criticalGoal={goals.find((g) => g.status === 'AT_RISK' || g.status === 'OFF_TRACK')?.name}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

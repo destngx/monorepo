@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import React from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Bot, User, CheckCircle, Zap } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Bot, User, Zap } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   createdAt?: Date;
 }
@@ -23,7 +23,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
 
   // Auto-scroll to bottom when messages change
   React.useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
   if (messages.length === 0) {
@@ -50,37 +50,26 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
     <ScrollArea className="flex-1 p-6">
       <div className="space-y-6 max-w-3xl mx-auto">
         {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex gap-4 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}
-          >
+          <div key={message.id} className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
             {/* Avatar */}
             <div
               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm ${
-                message.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted border"
+                message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted border'
               }`}
             >
-              {message.role === "user" ? (
-                <User className="h-4 w-4" />
-              ) : (
-                <Bot className="h-4 w-4" />
-              )}
+              {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
             </div>
 
             {/* Message */}
             <div
               className={`flex flex-col gap-2 rounded-lg px-4 py-3 max-w-[70%] ${
-                message.role === "user"
-                  ? "bg-primary text-primary-foreground rounded-tr-none"
-                  : "bg-muted border rounded-tl-none"
+                message.role === 'user'
+                  ? 'bg-primary text-primary-foreground rounded-tr-none'
+                  : 'bg-muted border rounded-tl-none'
               }`}
             >
               <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:first:mt-0 prose-headings:my-2 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-code:text-xs">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {message.content}
-                </ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
               </div>
             </div>
           </div>

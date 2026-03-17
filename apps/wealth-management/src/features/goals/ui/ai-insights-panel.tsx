@@ -1,10 +1,9 @@
-"use client";
+'use client';
 
-import { Card, CardContent } from "@/components/ui/card";
-import { GoalProjection } from "../model/types";
-import { TrendingUp, Clock, Target, Rocket } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { formatVND } from "@wealth-management/utils";
+import { Card, CardContent } from '@/components/ui/card';
+import { GoalProjection } from '../model/types';
+import { TrendingUp, Clock, Rocket } from 'lucide-react';
+import { formatVND } from '@wealth-management/utils';
 
 interface AIInsightsProps {
   projection: GoalProjection;
@@ -22,7 +21,12 @@ export function AIGoalInsights({ projection }: AIInsightsProps) {
             <div className="space-y-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Forecast</p>
               <p className="text-sm leading-snug">
-                At your current pace of <span className="font-bold text-indigo-500">{formatVND(projection.currentPace.monthlyContribution)}</span>/month, you'll reach your goal in <span className="font-bold">{projection.currentPace.completionDate}</span>.
+                At your current pace of{' '}
+                <span className="font-bold text-indigo-500">
+                  {formatVND(projection.currentPace.monthlyContribution)}
+                </span>
+                /month, you'll reach your goal in{' '}
+                <span className="font-bold">{projection.currentPace.completionDate}</span>.
               </p>
             </div>
           </CardContent>
@@ -36,7 +40,11 @@ export function AIGoalInsights({ projection }: AIInsightsProps) {
             <div className="space-y-1">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recommendation</p>
               <p className="text-sm leading-snug">
-                To hit your target deadline, you need to save <span className="font-bold text-emerald-500">{formatVND(projection.requiredPace.monthlyContribution)}</span>/month.
+                To hit your target deadline, you need to save{' '}
+                <span className="font-bold text-emerald-500">
+                  {formatVND(projection.requiredPace.monthlyContribution)}
+                </span>
+                /month.
               </p>
             </div>
           </CardContent>

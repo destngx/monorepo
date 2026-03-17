@@ -26,7 +26,7 @@ export function useTransactions() {
       }
     };
 
-    fetchTransactions();
+    void fetchTransactions();
   }, []);
 
   return { transactions, loading, error };
@@ -47,7 +47,7 @@ export function useTransactionsByAccount(accountName: string | null) {
       try {
         setLoading(true);
         const allTransactions = await getTransactions();
-        const filtered = allTransactions.filter(t => t.accountName === accountName);
+        const filtered = allTransactions.filter((t) => t.accountName === accountName);
         setTransactions(filtered);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Unknown error'));
@@ -56,7 +56,7 @@ export function useTransactionsByAccount(accountName: string | null) {
       }
     };
 
-    fetchTransactions();
+    void fetchTransactions();
   }, [accountName]);
 
   return { transactions, loading, error };

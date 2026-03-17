@@ -72,7 +72,7 @@ export function ChatContainer(): React.ReactNode {
 
       try {
         // Prepare messages for API
-        const apiMessages = messages.concat(userMessage).map(({ id, ...msg }) => msg);
+        const apiMessages = messages.concat(userMessage).map(({ id: _id, ...msg }) => msg);
 
         const response = await fetch('/api/chat', {
           method: 'POST',

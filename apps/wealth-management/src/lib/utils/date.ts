@@ -36,7 +36,7 @@ export function parseDate(dateStr: string): Date {
     'M/d/yy',
     'dd/MM/yy',
     'd/M/yy',
-    'yyyy-MM-dd'
+    'yyyy-MM-dd',
   ];
 
   for (const fmt of formats) {
@@ -66,7 +66,7 @@ export function parseDate(dateStr: string): Date {
 }
 
 export function formatDateForSheets(date: Date): string {
-  console.log("date", date);
-  console.log("formatDate", format(date, 'MM/dd/yyyy'))
+  // Intentionally return the formatted value for sheets. Remove debug logs that
+  // were causing lint failures (no-console).
   return format(date, 'dd/MM/yyyy');
 }

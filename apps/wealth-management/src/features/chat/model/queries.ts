@@ -16,7 +16,7 @@ export function generateMessageId(): string {
 
 /**
  * Load chat history from localStorage
- * @returns Array of saved chat messages
+ * @return Array of saved chat messages
  */
 export function loadChatHistory(): ChatMessage[] {
   if (typeof window === "undefined") return [];
@@ -39,7 +39,7 @@ export function loadChatHistory(): ChatMessage[] {
 /**
  * Get active model label
  * @param modelId - The AI model ID
- * @returns Human-readable label for the model
+ * @return Human-readable label for the model
  */
 export function getActiveModelLabel(modelId: string): string {
   return AI_MODELS[modelId]?.label || modelId;
@@ -49,7 +49,7 @@ export function getActiveModelLabel(modelId: string): string {
  * Fetch chat suggestions based on context
  * @param modelId - The AI model ID
  * @param context - Optional context for suggestions
- * @returns Array of suggestions
+ * @return Array of suggestions
  */
 export async function fetchSuggestions(
   modelId: string,

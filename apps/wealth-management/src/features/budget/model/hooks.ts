@@ -26,7 +26,7 @@ export function useBudgetItems() {
       }
     };
 
-    fetchItems();
+    void fetchItems();
   }, []);
 
   return { items, loading, error };

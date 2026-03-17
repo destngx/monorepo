@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Sparkles, RefreshCw } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from 'react';
+import { Sparkles, RefreshCw } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { Button } from '@/components/ui/button';
 
 interface BudgetReviewAIProps {
   budget: any[];
@@ -15,7 +15,7 @@ interface BudgetReviewAIProps {
 }
 
 export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, view, date }: BudgetReviewAIProps) {
-  const [review, setReview] = useState<string>("");
+  const [review, setReview] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   const fetchReview = async () => {
@@ -30,21 +30,21 @@ export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, v
           totalSpent,
           totalLimit,
           view,
-          date
-        })
+          date,
+        }),
       });
       const data = await res.json();
-      setReview(data.review || "Unable to generate review at this time.");
+      setReview(data.review || 'Unable to generate review at this time.');
     } catch (err) {
-      console.error("Budget Review AI Error:", err);
-      setReview("Error loading financial review.");
+      console.error('Budget Review AI Error:', err);
+      setReview('Error loading financial review.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchReview();
+    void fetchReview();
   }, [view, date]);
 
   return (
@@ -63,10 +63,10 @@ export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, v
             </p>
           </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={fetchReview} 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={fetchReview}
           disabled={loading}
           className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-100/50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/30"
         >
@@ -81,14 +81,12 @@ export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, v
               <Sparkles className="h-6 w-6 text-indigo-400 animate-pulse" />
               <div className="absolute inset-0 bg-indigo-400/20 blur-xl animate-pulse rounded-full" />
             </div>
-            <p className="text-xs font-medium text-indigo-600/70 dark:text-indigo-400/70 animate-pulse">
-              Thinking...
-            </p>
+            <p className="text-xs font-medium text-indigo-600/70 dark:text-indigo-400/70 animate-pulse">Thinking...</p>
           </div>
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none text-indigo-900/80 dark:text-indigo-100/80 text-sm leading-relaxed italic pr-4">
             <ReactMarkdown>
-              {review || "Analyzing your spending patterns to provide actionable insights..."}
+              {review || 'Analyzing your spending patterns to provide actionable insights...'}
             </ReactMarkdown>
           </div>
         )}
