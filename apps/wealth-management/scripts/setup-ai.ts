@@ -2,7 +2,7 @@ import prompts from 'prompts';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const envPath = path.join(process.cwd(), '.env.local');
+const envPath = path.join(process.cwd(), 'apps/wealth-management/.env.local');
 
 // Helper to update env vars
 function updateEnvVar(key: string, value: string) {

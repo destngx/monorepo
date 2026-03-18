@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from 'react';
 
-const SETTINGS_KEY = "wealthos-ai-settings";
-const SYNC_EVENT = "wealthos-ai-settings-sync";
+const SETTINGS_KEY = 'wealthos-ai-settings';
+const SYNC_EVENT = 'wealthos-ai-settings-sync';
 
 export type AIProvider = 'all' | 'openai' | 'github' | 'google' | 'anthropic';
 
@@ -13,8 +13,8 @@ interface AISettings {
 }
 
 const DEFAULT_SETTINGS: AISettings = {
-  provider: "all",
-  modelId: "gpt-4o-mini",
+  provider: 'github',
+  modelId: 'github-gpt-4o',
 };
 
 export function useAISettings() {
@@ -22,13 +22,13 @@ export function useAISettings() {
   const [mounted, setMounted] = useState(false);
 
   const loadSettings = useCallback(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     const saved = localStorage.getItem(SETTINGS_KEY);
     if (saved) {
       try {
         setSettings(JSON.parse(saved));
       } catch (e) {
-        console.error("Failed to parse AI settings", e);
+        console.error('Failed to parse AI settings', e);
       }
     }
   }, []);
@@ -45,11 +45,11 @@ export function useAISettings() {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === SETTINGS_KEY) loadSettings();
     };
-    window.addEventListener("storage", handleStorage);
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       window.removeEventListener(SYNC_EVENT, handleSync);
-      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [loadSettings]);
 
