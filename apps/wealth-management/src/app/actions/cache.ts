@@ -1,7 +1,7 @@
-"use server";
+'use server';
 
-import { invalidateCache } from "@wealth-management/utils";
-import { revalidatePath } from "next/cache";
+import { invalidateCache } from '@wealth-management/utils';
+import { revalidatePath } from 'next/cache';
 
 export async function clearAllCache() {
   try {
@@ -15,11 +15,11 @@ export async function clearAllCache() {
 
     return { success: true };
   } catch (error: unknown) {
-    return { success: false, error: "Failed to clear cache" };
+    return { success: false, error: 'Failed to clear cache' };
   }
 }
 
-export function getCredentialStatuses() {
+export async function getCredentialStatuses() {
   return {
     github: !!process.env.GITHUB_TOKEN,
     openai: !!process.env.OPENAI_API_KEY,

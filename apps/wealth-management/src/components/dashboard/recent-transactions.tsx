@@ -1,8 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Transaction } from "@wealth-management/types";
-import { MaskedBalance } from "@/components/ui/masked-balance";
-import { formatDate } from "@wealth-management/utils";
-import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Transaction } from '@wealth-management/types';
+import { MaskedBalance } from '@/components/ui/masked-balance';
+import { formatDate } from '@wealth-management/utils';
+import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 
 export function RecentTransactions({ transactions }: { transactions: Transaction[] }) {
   // Sort transactions by date descending
@@ -23,16 +23,30 @@ export function RecentTransactions({ transactions }: { transactions: Transaction
               return (
                 <div key={idx} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${isPayment ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
+                    <div
+                      className={`p-2 rounded-full ${isPayment ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}
+                    >
                       {isPayment ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownLeft className="h-4 w-4" />}
                     </div>
                     <div>
                       <p className="text-sm font-medium">{txn.payee || 'Unknown Payee'}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{txn.category} • {formatDate(txn.date)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {txn.category} • {formatDate(txn.date)}
+                      </p>
                     </div>
                   </div>
                   <div className={`font-semibold text-sm ${isPayment ? '' : 'text-green-600'}`}>
-                    {isPayment ? <><span className="mr-0.5">-</span><MaskedBalance amount={txn.payment} /></> : <><span className="mr-0.5">+</span><MaskedBalance amount={txn.deposit} /></>}
+                    {isPayment ? (
+                      <>
+                        <span className="mr-0.5">-</span>
+                        <MaskedBalance amount={txn.payment ?? 0} />
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-0.5">+</span>
+                        <MaskedBalance amount={txn.deposit ?? 0} />
+                      </>
+                    )}
                   </div>
                 </div>
               );

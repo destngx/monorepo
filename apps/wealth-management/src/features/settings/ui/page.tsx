@@ -21,7 +21,10 @@ export default function SettingsPage() {
     if (mounted) {
       setSelectedProvider(settings.provider);
       setSelectedModel(settings.modelId);
-      getCredentialStatuses().then(setCredentials);
+      void (async () => {
+        const statuses = await getCredentialStatuses();
+        setCredentials(statuses);
+      })();
     }
   }, [mounted, settings.provider, settings.modelId]);
 

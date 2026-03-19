@@ -1,13 +1,8 @@
-export type AccountType =
-  | 'active use'
-  | 'rarely use'
-  | 'long holding'
-  | 'deprecated'
-  | 'negative active use'
-  | 'bank'
-  | 'crypto'
-  | 'cash'
-  | 'investment';
+// Re-export AccountType from config for backward compatibility
+export type { AccountType } from '../../../config/accounts/types';
+export { ACCOUNT_TYPES, type AccountTypeMetadata } from '../../../config/accounts/types';
+export { inferCurrency, CRYPTO_ACCOUNTS, USD_ACCOUNTS } from '../../../config/accounts/rules';
+
 export type Currency = 'VND' | 'USD' | 'USDT';
 
 export interface Account {
@@ -17,18 +12,7 @@ export interface Account {
   goalProgress: number | null;
   clearedBalance: number;
   balance: number;
-  type: AccountType;
+  type: string;
   currency: Currency;
   note: string | null;
-}
-
-// Known crypto/USD accounts — used to infer currency when the sheet doesn't have a currency column
-const CRYPTO_ACCOUNTS = ['binance'];
-const USD_ACCOUNTS: string[] = [];
-
-export function inferCurrency(name: string, type: string): Currency {
-  const lower = name.toLowerCase();
-  if (CRYPTO_ACCOUNTS.some((c) => lower.includes(c))) return 'USDT';
-  if (USD_ACCOUNTS.some((c) => lower.includes(c))) return 'USD';
-  return 'VND';
 }

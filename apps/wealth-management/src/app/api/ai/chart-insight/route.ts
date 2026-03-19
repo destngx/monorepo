@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { AIOrchestrator } from '@wealth-management/ai/core';
-import { buildChartInsightPrompt, ChartInsightData } from '@wealth-management/ai';
+import { AIOrchestrator, buildChartInsightPrompt, type ChartInsightData } from '@wealth-management/ai/server';
 
 export const maxDuration = 30;
 
@@ -22,9 +21,6 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     console.error('[Chart Insight API Error]:', error);
     const message = error instanceof Error ? error.message : 'Failed to generate chart insight';
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

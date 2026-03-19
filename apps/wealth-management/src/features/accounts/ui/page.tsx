@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { MaskedBalance } from '@/components/ui/masked-balance';
 import { Account } from '../model/types';
 import { Transaction } from '@wealth-management/types';
+import { ACCOUNT_TYPES } from '@wealth-management/features/accounts/model/types';
+import { type AccountType } from '../model/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -21,48 +23,79 @@ import {
   ChevronDown,
   ChevronRight,
   Flag,
+  Bitcoin,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
 import { Loading } from '@/components/ui/loading';
 import { AccountReviewAI } from './account-review-ai';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
 import { AccountTrendSparkline } from './account-trend-sparkline';
 
-// Display config for account types
-const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; colorTitle: string; bgSoft: string }> = {
+function getIconForAccountType(iconName: string): React.ReactNode {
+  const iconMap: Record<string, React.ReactNode> = {
+    wallet: <Wallet className="h-4 w-4" />,
+    inbox: <Coins className="h-4 w-4" />,
+    'piggy-bank': <Landmark className="h-4 w-4" />,
+    archive: <Archive className="h-4 w-4" />,
+    'trending-down': <TrendingUp className="h-4 w-4" />,
+    bank: <Landmark className="h-4 w-4" />,
+    bitcoin: <Bitcoin className="h-4 w-4" />,
+    'dollar-sign': <DollarSign className="h-4 w-4" />,
+    'trending-up': <BarChart3 className="h-4 w-4" />,
+  };
+  return iconMap[iconName] || <Wallet className="h-4 w-4" />;
+}
+
+const TYPE_CONFIG: Record<AccountType, { label: string; colorTitle: string; bgSoft: string }> = {
   'active use': {
     label: 'Everyday Banking',
-    icon: <Wallet className="h-4 w-4" />,
     colorTitle: 'text-emerald-600 dark:text-emerald-500',
     bgSoft: 'bg-emerald-500/10',
   },
   'rarely use': {
     label: 'Savings & Reserves',
-    icon: <Landmark className="h-4 w-4" />,
     colorTitle: 'text-blue-600 dark:text-blue-500',
     bgSoft: 'bg-blue-500/10',
   },
   'long holding': {
     label: 'Investments',
-    icon: <BarChart3 className="h-4 w-4" />,
     colorTitle: 'text-indigo-600 dark:text-indigo-500',
     bgSoft: 'bg-indigo-500/10',
   },
   'negative active use': {
     label: 'Credit Cards & Loans',
-    icon: <CreditCard className="h-4 w-4" />,
     colorTitle: 'text-slate-800 dark:text-slate-200',
     bgSoft: 'bg-slate-500/10',
   },
   deprecated: {
     label: 'Archived Accounts',
-    icon: <Archive className="h-4 w-4" />,
     colorTitle: 'text-gray-500',
     bgSoft: 'bg-gray-500/10',
   },
+  bank: {
+    label: 'Bank Accounts',
+    colorTitle: 'text-indigo-600 dark:text-indigo-500',
+    bgSoft: 'bg-indigo-500/10',
+  },
+  crypto: {
+    label: 'Crypto',
+    colorTitle: 'text-yellow-600 dark:text-yellow-500',
+    bgSoft: 'bg-yellow-500/10',
+  },
+  cash: {
+    label: 'Cash',
+    colorTitle: 'text-green-600 dark:text-green-500',
+    bgSoft: 'bg-green-500/10',
+  },
+  investment: {
+    label: 'Investment',
+    colorTitle: 'text-purple-600 dark:text-purple-500',
+    bgSoft: 'bg-purple-500/10',
+  },
 };
 
-// Order that groups appear
-const TYPE_ORDER = ['active use', 'long holding', 'rarely use', 'negative active use', 'deprecated'];
+const TYPE_ORDER: AccountType[] = ['active use', 'long holding', 'rarely use', 'negative active use', 'deprecated'];
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -105,7 +138,7 @@ export default function AccountsPage() {
 
     const sortedTypes = TYPE_ORDER.filter((t) => grouped[t]?.length > 0);
     Object.keys(grouped).forEach((t) => {
-      if (!sortedTypes.includes(t)) sortedTypes.push(t);
+      if (!sortedTypes.includes(t as AccountType)) sortedTypes.push(t as AccountType);
     });
 
     const totalAssets = accounts.filter((a) => a.balance > 0).reduce((sum: number, a) => sum + a.balance, 0);
@@ -297,7 +330,9 @@ export default function AccountsPage() {
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </div>
-                      <div className={`p-1.5 rounded-md ${config.bgSoft} ${config.colorTitle}`}>{config.icon}</div>
+                      <div className={`p-1.5 rounded-md ${config.bgSoft} ${config.colorTitle}`}>
+                        {getIconForAccountType(ACCOUNT_TYPES[type].icon)}
+                      </div>
                       <h3 className="text-sm font-semibold uppercase tracking-wider">{config.label}</h3>
                       <AIDataInsight
                         type={`${config.label} Group`}

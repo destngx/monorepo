@@ -13,3 +13,4 @@ export { useAccounts, useAccountById, getAccounts, getAccountById } from './mode
 
 // Types
 export type { Account, AccountType, Currency } from './model';
+export { inferCurrency } from './model';
