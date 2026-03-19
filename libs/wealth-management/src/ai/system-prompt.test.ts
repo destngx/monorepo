@@ -4,6 +4,12 @@ import * as AccountsAPI from '@wealth-management/services';
 import * as BudgetAPI from '@wealth-management/services';
 import { vi } from 'vitest';
 
+vi.mock('../services/sheets/content', () => ({
+  getPromptContent: vi.fn().mockResolvedValue('You are a personal wealth management advisor.'),
+  getKnowledgeContent: vi.fn().mockResolvedValue('Knowledge content'),
+  prefetchAllContent: vi.fn().mockResolvedValue({ prompts: 1, knowledge: 1 }),
+}));
+
 vi.mock('../sheets/accounts', () => ({
   getAccounts: vi.fn(),
 }));

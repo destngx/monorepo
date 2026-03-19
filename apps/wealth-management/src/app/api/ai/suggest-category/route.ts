@@ -14,7 +14,8 @@ export async function POST(req: Request) {
 
     const model = getLanguageModel('github-gpt-4o');
 
-    const taskInstruction = replacePlaceholders(loadTaskPrompt('suggest-category'), {
+    const taskTemplate = await loadTaskPrompt('suggest-category');
+    const taskInstruction = replacePlaceholders(taskTemplate, {
       payee,
       categories: categories.join(', '),
     });

@@ -1,31 +1,29 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { getPromptContent } from '../../services/sheets/content';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export function loadPrompt(domain: string, name: string): string {
-  try {
-    const filePath = path.join(__dirname, 'assets', domain, `${name}.md`);
-    return fs.readFileSync(filePath, 'utf-8').trim();
-  } catch (error) {
-    console.error(`Failed to load prompt: ${domain}/${name}`, error);
+/**
+ * Loads a prompt from the Google Sheets "Prompts" tab.
+ * Relies on the cached content map (populated by prefetchAllContent at startup).
+ */
+export async function loadPrompt(domain: string, name: string): Promise<string> {
+  const content = await getPromptContent(domain, name);
+  if (!content) {
+    console.error(`Prompt not found in sheet: ${domain}/${name}`);
     return '';
   }
+  return content.trim();
 }
 
 /**
- * Loads a prompt from the tasks directory
+ * Loads a prompt from the tasks domain
  */
-export function loadTaskPrompt(name: string): string {
+export async function loadTaskPrompt(name: string): Promise<string> {
   return loadPrompt('tasks', name);
 }
 
 /**
- * Loads a prompt from the system directory
+ * Loads a prompt from the system domain
  */
-export function loadSystemPromptAsset(name: string): string {
+export async function loadSystemPromptAsset(name: string): Promise<string> {
   return loadPrompt('system', name);
 }
 

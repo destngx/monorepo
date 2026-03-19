@@ -1,15 +1,21 @@
-import { LOC_PHAT_TAI_IDENTITY } from './prompts';
+import { getIdentityPrompt } from './prompts';
 import { getAccounts, getBudget, getExchangeRate } from '@wealth-management/services/server';
 import { formatVND, convertUSDTtoVND } from '@wealth-management/utils';
-
-export { LOC_PHAT_TAI_IDENTITY };
+import type { Account } from '@wealth-management/types/accounts';
+import type { BudgetItem } from '@wealth-management/types/budget';
 
 export async function buildSystemPrompt(taskInstruction?: string): Promise<string> {
-  const [accounts, budget, rateResult] = await Promise.all([
-    getAccounts().catch(() => []),
-    getBudget().catch(() => []),
+  const results = await Promise.all([
+    getIdentityPrompt(),
+    getAccounts().catch((): Account[] => []),
+    getBudget().catch((): BudgetItem[] => []),
     getExchangeRate().catch(() => 25000),
   ]);
+
+  const identity = results[0];
+  const accounts = results[1];
+  const budget = results[2];
+  const rateResult = results[3];
 
   const rate = typeof rateResult === 'number' ? rateResult : 25000;
   const currentDate = new Date().toLocaleDateString('vi-VN');
@@ -30,7 +36,7 @@ export async function buildSystemPrompt(taskInstruction?: string): Promise<strin
       .map((b) => `${b.category}: ${formatVND(b.monthlySpent || 0)} / ${formatVND(b.monthlyLimit)}`)
       .join(', ') || 'No budget info set.';
 
-  let prompt = `${LOC_PHAT_TAI_IDENTITY}
+  let prompt = `${identity}
 
 ---
 

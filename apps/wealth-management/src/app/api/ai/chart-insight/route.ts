@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing chartType or chartData' }, { status: 400 });
     }
 
-    const taskInstruction = buildChartInsightPrompt(data);
+    const taskInstruction = await buildChartInsightPrompt(data);
     const insight = await AIOrchestrator.run({
       systemPromptInstruction: taskInstruction,
       prompt: `Analyze the ${data.chartType} data for ${data.market || 'the current view'} and provide your expert insight.`,

@@ -8,8 +8,8 @@ export interface HealthData {
   months: any[];
 }
 
-export function buildFinancialHealthPrompt(data: HealthData): string {
-  const template = loadPrompt('finance', 'health');
+export async function buildFinancialHealthPrompt(data: HealthData): Promise<string> {
+  const template = await loadPrompt('finance', 'health');
   return replacePlaceholders(template, {
     netWorth: data.netWorth,
     totalAssets: data.totalAssets,

@@ -8,8 +8,8 @@ export interface ChartInsightData {
   timeframe?: string;
 }
 
-export function buildChartInsightPrompt(data: ChartInsightData): string {
-  const template = loadPrompt('dashboard', 'insight');
+export async function buildChartInsightPrompt(data: ChartInsightData): Promise<string> {
+  const template = await loadPrompt('dashboard', 'insight');
   return replacePlaceholders(template, {
     chartType: data.chartType,
     market: data.market || 'General',

@@ -38,12 +38,12 @@ function formatCorrelationMatrix(assets: string[], matrix: number[][]): string {
   return output;
 }
 
-export function buildThinkTankPrompt(
+export async function buildThinkTankPrompt(
   data: DataContext,
   searchContext: string,
   marketPulse: MarketPulseResponse,
-): string {
-  const template = loadPrompt('market', 'think-tank');
+): Promise<string> {
+  const template = await loadPrompt('market', 'think-tank');
   return replacePlaceholders(template, {
     totalVND: data.totalVND,
     totalCrypto: data.totalCrypto || 'None',
@@ -78,8 +78,8 @@ export function buildThinkTankPrompt(
   });
 }
 
-export function buildSynthesisPrompt(data: DataContext, expertDebateContext: string): string {
-  const template = loadPrompt('market', 'synthesis');
+export async function buildSynthesisPrompt(data: DataContext, expertDebateContext: string): Promise<string> {
+  const template = await loadPrompt('market', 'synthesis');
   return replacePlaceholders(template, {
     totalVND: data.totalVND,
     totalCrypto: data.totalCrypto || 'None',
@@ -93,8 +93,8 @@ export function buildSynthesisPrompt(data: DataContext, expertDebateContext: str
   });
 }
 
-export function buildActionPrompt(data: DataContext, synthesisContext: string): string {
-  const template = loadPrompt('market', 'action');
+export async function buildActionPrompt(data: DataContext, synthesisContext: string): Promise<string> {
+  const template = await loadPrompt('market', 'action');
   return replacePlaceholders(template, {
     accountsSummary: JSON.stringify(data.accountsSummary),
     cryptoHoldings: JSON.stringify(data.cryptoHoldings),
@@ -103,24 +103,24 @@ export function buildActionPrompt(data: DataContext, synthesisContext: string): 
   });
 }
 
-export function buildFallbackThinkTankPrompt(data: DataContext): string {
-  const template = loadPrompt('market', 'fallback-think-tank');
+export async function buildFallbackThinkTankPrompt(data: DataContext): Promise<string> {
+  const template = await loadPrompt('market', 'fallback-think-tank');
   return replacePlaceholders(template, {
     totalVND: data.totalVND,
     totalCrypto: data.totalCrypto || 'None',
   });
 }
 
-export function buildFallbackSynthesisPrompt(data: DataContext, debate: string): string {
-  const template = loadPrompt('market', 'fallback-synthesis');
+export async function buildFallbackSynthesisPrompt(data: DataContext, debate: string): Promise<string> {
+  const template = await loadPrompt('market', 'fallback-synthesis');
   return replacePlaceholders(template, {
     accountsSummary: JSON.stringify(data.accountsSummary),
     debate,
   });
 }
 
-export function buildFallbackActionPrompt(synthesis: string): string {
-  const template = loadPrompt('market', 'fallback-action');
+export async function buildFallbackActionPrompt(synthesis: string): Promise<string> {
+  const template = await loadPrompt('market', 'fallback-action');
   return replacePlaceholders(template, {
     synthesis,
   });

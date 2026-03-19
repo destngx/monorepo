@@ -7,8 +7,8 @@ export interface BudgetAdvisorData {
   recentTxns: any[];
 }
 
-export function buildBudgetAdvisorPrompt(data: BudgetAdvisorData): string {
-  const template = loadPrompt('budget', 'advisor');
+export async function buildBudgetAdvisorPrompt(data: BudgetAdvisorData): Promise<string> {
+  const template = await loadPrompt('budget', 'advisor');
   return replacePlaceholders(template, {
     date: data.date,
     budget: data.budget,
