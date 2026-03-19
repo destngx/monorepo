@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AIOrchestrator } from '@wealth-management/ai/core';
-import { buildFinancialHealthPrompt } from '@wealth-management/ai/server';
+import { buildFinancialHealthPrompt, loadActionPrompt } from '@wealth-management/ai/server';
 import { Account, Loan } from '@wealth-management/types';
 
 export async function POST(req: Request) {
@@ -30,9 +30,11 @@ export async function POST(req: Request) {
       months,
     });
 
+    const actionPrompt = await loadActionPrompt('financial-health');
+
     const result = await AIOrchestrator.runJson<Record<string, unknown>>({
       systemPromptInstruction: taskInstruction,
-      prompt: 'Perform a financial health analysis and return the results as JSON.',
+      prompt: actionPrompt,
     });
 
     return NextResponse.json(result);

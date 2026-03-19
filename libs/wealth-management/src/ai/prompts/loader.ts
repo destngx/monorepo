@@ -28,6 +28,13 @@ export async function loadSystemPromptAsset(name: string): Promise<string> {
 }
 
 /**
+ * Loads a prompt from the actions domain (used for short task-specific prompts in API routes)
+ */
+export async function loadActionPrompt(name: string): Promise<string> {
+  return loadPrompt('actions', name);
+}
+
+/**
  * Utility to replace {{key}} placeholders in a string
  */
 export function replacePlaceholders(template: string, data: Record<string, any>): string {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
-import { buildSystemPrompt } from '@wealth-management/ai/server';
+import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
 
 export async function POST(req: Request) {
   try {
@@ -37,59 +37,26 @@ export async function POST(req: Request) {
 
     const model = getLanguageModel(modelId || 'gpt-4o-mini');
 
-    const taskInstruction = `
-      Your task is to analyze the user's financial state and provide a "Daily Briefing" and a set of "Alerts & Nudges" to help them make better financial decisions.
-
-      FINANCIAL SNAPSHOT:
-      - Net Worth: ${netWorth} VND
-      - Total Assets: ${totalAssets} VND
-      - Total Liabilities: ${totalLiabilities} VND
-      - Monthly Cash Flow: ${cashFlow} VND
-      - Savings Rate: ${savingsRate.toFixed(1)}%
-      
-      RECENT DATA CONTEXT:
-      - Accounts: ${JSON.stringify(accounts?.slice(0, 5))}... (and others)
-      - Transactions: ${JSON.stringify(transactions?.slice(0, 10))}
-      - Budget: ${JSON.stringify(budget?.slice(0, 5))}
-      - Loans: ${JSON.stringify(loans)}
-
-      REQUIREMENTS MUST RETURN:
-      1. Briefing: A 2-3 sentence executive summary and Liquidity Signal. Be precise. Do not mention any numbers.
-      2. Alerts & Nudges: Generate 2-4 items. Rank them by urgency ("critical", "warning", or "info"). What's my biggest financial risk right now?"
-      3. Advanced Patterns:
-         - **forecast**: Predict end-of-month budget status for primary categories.
-         - **anomalies**: Identify spikes, duplicate charges, or unusual merchants.
-         - **portfolioScore**: A score (0-100) with a 1-sentence breakdown (diversification, risk, liquidity).
-         - **whatIf**: A single impactful "If... then..." scenario.
-         - **benchmarking**: Compare savings rate or spending vs a hypothetical peer group in their income bracket.
-         - **investments**: Tactical wealth-building advice (e.g., rebalancing, rotational strategies, opportunistic buys, or yield optimization based on the current market conditions).
-
-      CRITICAL: All numbers in the JSON must be RAW NUMERIC values (e.g., 1250000), NOT formatted strings (e.g., "1.250.000" or 1.250.000). Do not use thousands separators.
-
-      FORMAT: Return ONLY a STRICT JSON object:
-      {
-        "briefing": "string",
-        "alerts": [
-          { "type": "critical" | "warning" | "info", "title": "string", "message": "string" }
-        ],
-        "patterns": {
-          "forecast": { "message": "string", "amount": number, "status": "on-track" | "at-risk" },
-          "anomalies": [{ "date": "string", "title": "string", "amount": number, "reason": "string" }],
-          "portfolioScore": { "score": number, "breakdown": "string" },
-          "whatIf": { "scenario": "string", "impact": "string" },
-          "benchmarking": { "message": "string", "percentile": number },
-          "investments": { "title": "string", "tactic": "string", "opportunity": "string" }
-        }
-      }
-    `;
+    const taskTemplate = await loadTaskPrompt('intelligence-briefing');
+    const taskInstruction = replacePlaceholders(taskTemplate, {
+      netWorth,
+      totalAssets,
+      totalLiabilities,
+      cashFlow,
+      savingsRate: savingsRate.toFixed(1),
+      accountsJson: JSON.stringify(accounts?.slice(0, 5)),
+      transactionsJson: JSON.stringify(transactions?.slice(0, 10)),
+      budgetJson: JSON.stringify(budget?.slice(0, 5)),
+      loansJson: JSON.stringify(loans),
+    });
 
     const systemPrompt = await buildSystemPrompt(taskInstruction);
+    const actionPrompt = await loadActionPrompt('intelligence-briefing');
 
     const { text } = await generateText({
       model,
       system: systemPrompt,
-      prompt:
-        'Generate the intelligence briefing and alerts based on the financial data provided. Ensure all JSON numbers are raw integers without separators.',
+      prompt: actionPrompt,
     });
 
     const match = text.match(/\{[\s\S]*\}/);

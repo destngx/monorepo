@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AIOrchestrator } from '@wealth-management/ai/core';
-import { buildBudgetAdvisorPrompt } from '@wealth-management/ai/server';
+import { buildBudgetAdvisorPrompt, loadActionPrompt } from '@wealth-management/ai/server';
 import { BudgetItem, Transaction, Goal } from '@wealth-management/types';
 
 export async function POST(req: Request) {
@@ -24,11 +24,12 @@ export async function POST(req: Request) {
       recentTxns,
     });
 
+    const actionPrompt = await loadActionPrompt('budget-advisor');
+
     const result = await AIOrchestrator.runJson<Record<string, unknown>>({
       modelId: modelId,
       systemPromptInstruction: taskInstruction,
-      prompt:
-        'Analyze the budget and transactions to generate the advisor JSON. Ensure the 30-day forecast is realistic based on recurring patterns.',
+      prompt: actionPrompt,
     });
 
     return NextResponse.json(result);

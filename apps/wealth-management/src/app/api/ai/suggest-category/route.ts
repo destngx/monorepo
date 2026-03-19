@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
 
-import { buildSystemPrompt, loadTaskPrompt, replacePlaceholders } from '@wealth-management/ai/server';
+import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
 
 export async function POST(req: Request) {
   try {
@@ -21,11 +21,13 @@ export async function POST(req: Request) {
     });
 
     const systemPrompt = await buildSystemPrompt(taskInstruction);
+    const actionTemplate = await loadActionPrompt('suggest-category');
+    const actionPrompt = replacePlaceholders(actionTemplate, { payee });
 
     const { text } = await generateText({
       model,
       system: systemPrompt,
-      prompt: `Suggest a category for payee: "${payee}"`,
+      prompt: actionPrompt,
     });
 
     // Clean up the response just in case the AI adds extra whitespace or quotes

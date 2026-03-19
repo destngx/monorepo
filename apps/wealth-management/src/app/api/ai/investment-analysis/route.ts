@@ -10,6 +10,7 @@ import {
   buildFallbackSynthesisPrompt,
   buildFallbackActionPrompt,
   formatSearchContext,
+  loadActionPrompt,
 } from '@wealth-management/ai/server';
 
 interface ActionCommands {
@@ -72,13 +73,12 @@ export async function POST(req: Request) {
         try {
           thinkTankText = await AIOrchestrator.run({
             systemPromptInstruction: thinkTankInstruction,
-            prompt:
-              'Analyze the market intelligence provided in the system context. Generate the Phase 1 and Phase 2 Think Tank Expert Debate.',
+            prompt: await loadActionPrompt('investment-think-tank'),
           });
         } catch {
           thinkTankText = await AIOrchestrator.run({
             systemPromptInstruction: await buildFallbackThinkTankPrompt(data),
-            prompt: 'Generate the Phase 1 and 2 Think Tank analysis now.',
+            prompt: await loadActionPrompt('investment-think-tank-fallback'),
           });
         }
 
@@ -99,12 +99,12 @@ export async function POST(req: Request) {
         try {
           synthesisText = await AIOrchestrator.run({
             systemPromptInstruction: synthesisInstruction,
-            prompt: 'Review the expert debate and synthesize the findings. Generate the Phase 3 Chairman Synthesis.',
+            prompt: await loadActionPrompt('investment-synthesis'),
           });
         } catch {
           synthesisText = await AIOrchestrator.run({
             systemPromptInstruction: await buildFallbackSynthesisPrompt(data, thinkTankText),
-            prompt: 'Generate the Chairman Synthesis now.',
+            prompt: await loadActionPrompt('investment-synthesis-fallback'),
           });
         }
 
@@ -125,13 +125,13 @@ export async function POST(req: Request) {
         try {
           parsedActions = await AIOrchestrator.runJson<ActionCommands>({
             systemPromptInstruction: actionInstruction,
-            prompt: 'Based on the synthesis, generate the 10 actionable commands in the requested JSON format.',
+            prompt: await loadActionPrompt('investment-action'),
           });
         } catch {
           try {
             parsedActions = await AIOrchestrator.runJson<ActionCommands>({
               systemPromptInstruction: await buildFallbackActionPrompt(synthesisText),
-              prompt: 'Generate the Action commands now.',
+              prompt: await loadActionPrompt('investment-action-fallback'),
             });
           } catch {
             // Action fallback failed.

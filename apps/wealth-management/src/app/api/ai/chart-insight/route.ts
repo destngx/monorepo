@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server';
-import { AIOrchestrator, buildChartInsightPrompt, type ChartInsightData } from '@wealth-management/ai/server';
+import { AIOrchestrator } from '@wealth-management/ai/core';
+import { buildChartInsightPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const data = (await req.json()) as ChartInsightData;
-
-    if (!data.chartType || !data.chartData) {
-      return NextResponse.json({ error: 'Missing chartType or chartData' }, { status: 400 });
-    }
+    const data = await req.json();
 
     const taskInstruction = await buildChartInsightPrompt(data);
+    const actionTemplate = await loadActionPrompt('chart-insight');
+    const actionPrompt = replacePlaceholders(actionTemplate, {
+      chartType: data.chartType,
+      market: data.market || 'the current view',
+    });
+
     const insight = await AIOrchestrator.run({
       systemPromptInstruction: taskInstruction,
-      prompt: `Analyze the ${data.chartType} data for ${data.market || 'the current view'} and provide your expert insight.`,
+      prompt: actionPrompt,
     });
 
     return NextResponse.json({ insight });
