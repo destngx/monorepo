@@ -7,7 +7,7 @@ This document outlines the architectural patterns used in this Nx monorepo and e
 This monorepo combines **Clean Architecture**, **Feature-Sliced Design (FSD)**, and **Vertical Slice Architecture (VSA)** principles:
 
 - **Next.js Apps**: Use Feature-Sliced Design (FSD)
-- **NestJS App**: Use Clean Architecture  
+- **NestJS App**: Use Clean Architecture
 - **Shared Libs**: Follow Clean Architecture principles with workspace-level boundaries
 
 ---
@@ -32,6 +32,7 @@ apps/{app-name}/
 ```
 
 #### FSD Import Rule (Golden Rule)
+
 ```
 app/ → pages/ → features/ → widgets/ → entities/ → shared/
 ↑ can import from anything to the right (lower priority)
@@ -41,6 +42,7 @@ app/ → pages/ → features/ → widgets/ → entities/ → shared/
 #### FSD Examples
 
 **cloudinary-photos-app:**
+
 ```
 src/
 ├── pages/albums/          # Album list & detail page compositions
@@ -54,6 +56,7 @@ src/
 ```
 
 **portfolio-landpage:**
+
 ```
 src/
 ├── pages/home/            # Home page composition
@@ -64,6 +67,7 @@ src/
 ```
 
 **wealth-management:**
+
 ```
 src/
 ├── pages/                 # Page compositions for each route
@@ -110,6 +114,7 @@ apps/task-management/
 ```
 
 #### Clean Architecture Dependency Rule
+
 ```
 Domain → Application → Infrastructure → Presentation
  ↑         ↑              ↑                ↑
@@ -124,11 +129,13 @@ only on    on Domain      on App + Domain  on All Layers
 ## Shared Libraries (libs/)
 
 Shared code ONLY goes to `libs/` when:
+
 1. ✅ Used by 2+ applications, OR
-2. ✅ Cross-domain (auth, logging, shared UI), OR  
+2. ✅ Cross-domain (auth, logging, shared UI), OR
 3. ✅ Stable with documented public API
 
 Shared code STAYS app-local (`src/shared/`) when:
+
 - ❌ Used by only one app
 - ❌ Frequently changing with app evolution
 - ❌ App-specific utilities or hooks
@@ -146,7 +153,7 @@ libs/
 │   │   └── icons/                  # Icon library
 │   └── global-store/               # Global state (if needed)
 │
-├── portfolio-landpage/             # App-scoped libs  
+├── portfolio-landpage/             # App-scoped libs
 │   └── components/                 # Portfolio UI components
 │
 ├── wealth-management/              # Shared wealth features
@@ -165,6 +172,7 @@ libs/
 ### Publishing & Boundaries
 
 Each library in `libs/` must have:
+
 1. **Public API**: `index.ts` or `src/index.ts` exporting only intended API
 2. **Documentation**: README explaining purpose and usage
 3. **Version**: Update when breaking changes occur
@@ -174,14 +182,14 @@ Each library in `libs/` must have:
 
 ## App-Specific Vs. Shared: Decision Matrix
 
-| Code Type | Single App | Multi-App | Decision |
-|-----------|-----------|-----------|----------|
-| **UI Components** | `src/widgets/` or `src/shared/` | `libs/{app}/components/` | lib if 2+ apps; otherwise app-local |
-| **Domain Entities** | `src/entities/` | `libs/domain-{feature}/` | lib if shared logic; otherwise separate |
-| **Utilities** | `src/shared/utils/` | `libs/shared/utils/` | lib only if truly cross-app |
-| **Constants** | `src/shared/constants/` | `libs/shared/config/` | lib only if stable |
-| **Hooks** | `src/shared/hooks/` | `libs/shared/hooks/` | lib only if reused |
-| **API Clients** | `src/shared/api/` | `libs/infrastructure/` | lib for external API integrations |
+| Code Type           | Single App                      | Multi-App                | Decision                                |
+| ------------------- | ------------------------------- | ------------------------ | --------------------------------------- |
+| **UI Components**   | `src/widgets/` or `src/shared/` | `libs/{app}/components/` | lib if 2+ apps; otherwise app-local     |
+| **Domain Entities** | `src/entities/`                 | `libs/domain-{feature}/` | lib if shared logic; otherwise separate |
+| **Utilities**       | `src/shared/utils/`             | `libs/shared/utils/`     | lib only if truly cross-app             |
+| **Constants**       | `src/shared/constants/`         | `libs/shared/config/`    | lib only if stable                      |
+| **Hooks**           | `src/shared/hooks/`             | `libs/shared/hooks/`     | lib only if reused                      |
+| **API Clients**     | `src/shared/api/`               | `libs/infrastructure/`   | lib for external API integrations       |
 
 **Rule of thumb**: Every line of code in `libs/` should answer "Why am I here?" with a clear, documented reason.
 
@@ -222,7 +230,7 @@ export async function AlbumsPage() {
   const albums = await getAlbums();
   return (
     <div>
-      {albums.map(album => (
+      {albums.map((album) => (
         <AlbumCard key={album.id} album={album} />
       ))}
     </div>
@@ -242,7 +250,7 @@ export async function searchByTag(tag: string) {
 
 // apps/{app}/src/features/upload/upload-handler.tsx
 // Client-side upload interaction
-'use client';
+('use client');
 export function UploadHandler() {
   // Event handlers, state for upload flow
 }
@@ -368,8 +376,12 @@ export class TaskRepository implements ITaskRepository {
     return model ? this.modelToTask(model) : null;
   }
 
-  private taskToModel(task: Task): TaskModel { /* ... */ }
-  private modelToTask(model: TaskModel): Task { /* ... */ }
+  private taskToModel(task: Task): TaskModel {
+    /* ... */
+  }
+  private modelToTask(model: TaskModel): Task {
+    /* ... */
+  }
 }
 ```
 
@@ -427,6 +439,7 @@ import { useDebounce } from '@mono/wealth-management/hooks';
 ```
 
 tsconfig.json path aliases:
+
 ```json
 {
   "compilerOptions": {
@@ -466,6 +479,7 @@ When code earns its place in `libs/`:
 5. **Tag for boundaries**: Add `tags: ["scope:domain", "scope:ui"]` to `project.json`
 
 Example: Moving shared UI components
+
 ```bash
 # Before: Components scattered in each app
 libs/
@@ -507,4 +521,3 @@ libs/
 - [Nx Module Boundaries](https://nx.dev/features/module-boundary-rules)
 - [Next.js App Router](https://nextjs.org/docs/app)
 - [NestJS Documentation](https://docs.nestjs.com/)
-

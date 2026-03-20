@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Sparkles } from 'lucide-react';
 import { Account } from '@wealth-management/types';
 import ReactMarkdown from 'react-markdown';
+import { AIInsightRenderer } from '@wealth-management/ui';
+import type { StructuredInsight } from '@wealth-management/ai/server';
 
 interface Props {
   accounts: Account[];
@@ -16,7 +18,7 @@ interface Props {
 
 export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, totalNetWorth }: Props) {
   const [isLoading, setIsLoading] = useState(false);
-  const [review, setReview] = useState<string | null>(null);
+  const [review, setReview] = useState<StructuredInsight | string | null>(null);
   const hasGeneratedRef = useRef(false);
 
   const generateReview = async () => {
@@ -43,6 +45,8 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
       void generateReview();
     }
   }, [accounts.length]);
+
+  const isStructured = typeof review === 'object' && review !== null && 'sections' in review;
 
   return (
     <Card className="border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-950/10 shadow-sm overflow-hidden border-dashed">
@@ -71,10 +75,26 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
               Analyzing your wealth structure and allocation...
             </p>
           </div>
+        ) : isStructured ? (
+          <div className="w-full">
+            <AIInsightRenderer insight={review} />
+            <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-indigo-100/30 dark:border-indigo-900/20">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateReview}
+                disabled={isLoading}
+                className="text-[10px] h-7 px-3 gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100/50 transition-all font-semibold"
+              >
+                <Sparkles className="h-3 w-3" />
+                Refresh Analysis
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="w-full">
             <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed text-slate-700 dark:text-slate-300 italic">
-              <ReactMarkdown>{review}</ReactMarkdown>
+              <ReactMarkdown>{review as string}</ReactMarkdown>
             </div>
             <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-indigo-100/30 dark:border-indigo-900/20">
               <Button

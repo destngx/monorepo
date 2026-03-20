@@ -5,13 +5,15 @@ import { Sparkles, RefreshCw, Calendar } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { Transaction } from '@wealth-management/types';
+import { AIInsightRenderer } from '@wealth-management/ui';
+import type { StructuredInsight } from '@wealth-management/ai/server';
 
 interface TransactionReviewAIProps {
   transactions: Transaction[];
 }
 
 export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) {
-  const [review, setReview] = useState<string>('');
+  const [review, setReview] = useState<StructuredInsight | string>('');
   const [loading, setLoading] = useState(false);
 
   const fetchReview = async () => {
@@ -36,6 +38,8 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
   useEffect(() => {
     void fetchReview();
   }, [transactions.length]);
+
+  const isStructured = typeof review === 'object' && review !== null && 'sections' in review;
 
   return (
     <div className="bg-amber-50/50 dark:bg-amber-950/10 rounded-xl p-4 border border-amber-100/50 dark:border-amber-900/20 relative overflow-hidden group">
@@ -71,9 +75,11 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
             <Sparkles className="h-5 w-5 text-amber-400 animate-pulse" />
             <p className="text-xs text-amber-600/70 dark:text-amber-400/70">Thinking...</p>
           </div>
+        ) : isStructured ? (
+          <AIInsightRenderer insight={review} />
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none text-amber-900/80 dark:text-amber-100/80 text-sm leading-relaxed italic pr-4">
-            <ReactMarkdown>{review || 'Analyzing your recent transaction history...'}</ReactMarkdown>
+            <ReactMarkdown>{(review as string) || 'Analyzing your recent transaction history...'}</ReactMarkdown>
           </div>
         )}
       </div>

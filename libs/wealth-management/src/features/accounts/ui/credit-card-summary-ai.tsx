@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, BrainCircuit, Lightbulb, TrendingUp } from "lucide-react";
 import { Transaction } from "@wealth-management/types";
 import ReactMarkdown from "react-markdown";
+import { AIInsightRenderer } from "../../ui/ai-insight-renderer";
+import type { StructuredInsight } from "../../ai/core/types";
 
 import { 
   Tabs, TabsList, TabsTrigger 
@@ -21,7 +23,7 @@ interface Props {
 
 export function CreditCardSummaryAI({ transactions, cardStats }: Props) {
   const [loading, setLoading] = useState(false);
-  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  const [summaries, setSummaries] = useState<Record<string, StructuredInsight | string>>({});
   const [activeTab, setActiveTab] = useState("current");
   const [selectedPastMonth, setSelectedPastMonth] = useState<string>("");
   const hasGeneratedRef = useRef<Record<string, boolean>>({});
@@ -84,6 +86,7 @@ export function CreditCardSummaryAI({ transactions, cardStats }: Props) {
   }, [activeTab, selectedPastMonth]);
 
   const currentSummary = activeTab === "current" ? summaries["current"] : summaries[selectedPastMonth];
+  const isStructured = typeof currentSummary === 'object' && currentSummary !== null && 'sections' in currentSummary;
 
   return (
     <Card className="border-primary/20 bg-primary/5 shadow-lg overflow-hidden relative">
@@ -147,10 +150,42 @@ export function CreditCardSummaryAI({ transactions, cardStats }: Props) {
                 Analyze {activeTab === 'current' ? 'Current' : 'Selected'} Month
               </Button>
             </div>
+          ) : isStructured ? (
+            <div className="w-full">
+              <AIInsightRenderer insight={currentSummary as StructuredInsight} />
+              <div className="flex justify-end gap-2 pt-3 border-t border-indigo-100/50 dark:border-indigo-900/30 mt-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    const target = activeTab === "current" ? "current" : selectedPastMonth;
+                    setSummaries(prev => {
+                      const updated = { ...prev };
+                      delete updated[target];
+                      return updated;
+                    });
+                    delete hasGeneratedRef.current[target];
+                  }} 
+                  className="text-[10px] h-6 px-2"
+                >
+                  Clear
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => generateSummary(activeTab === "current" ? "current" : selectedPastMonth)} 
+                  disabled={loading} 
+                  className="text-[10px] h-6 px-2 gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100/50"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Re-analyze
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="w-full">
               <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed text-muted-foreground italic mb-4">
-                <ReactMarkdown>{currentSummary}</ReactMarkdown>
+                <ReactMarkdown>{currentSummary as string}</ReactMarkdown>
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t border-indigo-100/50 dark:border-indigo-900/30">
                 <Button 

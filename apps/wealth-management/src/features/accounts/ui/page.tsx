@@ -389,7 +389,7 @@ export default function AccountsPage() {
                                   )}
                                 </h4>
                                 {acc.note && !isCc && (
-                                  <p className="text-[13px] text-muted-foreground mt-0.5 max-w-sm truncate">
+                                  <p className="text-[13px] text-muted-foreground mt-0.5 max-w-sm">
                                     {acc.note}
                                   </p>
                                 )}

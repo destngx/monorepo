@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
 import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
+import {
+  extractAndParseJSON,
+  STRUCTURED_INSIGHT_FORMAT_INSTRUCTION,
+  type StructuredInsight,
+} from '@wealth-management/ai/server';
 import { Loan } from '@wealth-management/types';
 
 interface EnrichedLoan extends Loan {
@@ -32,7 +37,7 @@ export async function POST(req: Request) {
     });
 
     const systemPrompt = await buildSystemPrompt(taskInstruction);
-    const actionPrompt = await loadActionPrompt('loan-review');
+    const actionPrompt = (await loadActionPrompt('loan-review')) + '\n\n' + STRUCTURED_INSIGHT_FORMAT_INSTRUCTION;
 
     const { text } = await generateText({
       model,
@@ -40,7 +45,12 @@ export async function POST(req: Request) {
       prompt: actionPrompt,
     });
 
-    return NextResponse.json({ review: text });
+    try {
+      const structured = extractAndParseJSON<StructuredInsight>(text);
+      return NextResponse.json({ review: structured });
+    } catch {
+      return NextResponse.json({ review: text });
+    }
   } catch (error: unknown) {
     console.error('AI Loan Review Error:', error);
     return NextResponse.json({ error: 'Failed to generate loan review' }, { status: 500 });

@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Sparkles, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
+import { AIInsightRenderer } from '@wealth-management/ui';
+import type { StructuredInsight } from '@wealth-management/ai/server';
 
 interface BudgetReviewAIProps {
   budget: any[];
@@ -15,7 +17,7 @@ interface BudgetReviewAIProps {
 }
 
 export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, view, date }: BudgetReviewAIProps) {
-  const [review, setReview] = useState<string>('');
+  const [review, setReview] = useState<StructuredInsight | string>('');
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchReview = async () => {
@@ -46,6 +48,8 @@ export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, v
   useEffect(() => {
     void fetchReview();
   }, [view, date]);
+
+  const isStructured = typeof review === 'object' && review !== null && 'sections' in review;
 
   return (
     <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl p-4 border border-indigo-100/50 dark:border-indigo-900/30 relative overflow-hidden group">
@@ -83,10 +87,12 @@ export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, v
             </div>
             <p className="text-xs font-medium text-indigo-600/70 dark:text-indigo-400/70 animate-pulse">Thinking...</p>
           </div>
+        ) : isStructured ? (
+          <AIInsightRenderer insight={review} />
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none text-indigo-900/80 dark:text-indigo-100/80 text-sm leading-relaxed italic pr-4">
             <ReactMarkdown>
-              {review || 'Analyzing your spending patterns to provide actionable insights...'}
+              {(review as string) || 'Analyzing your spending patterns to provide actionable insights...'}
             </ReactMarkdown>
           </div>
         )}

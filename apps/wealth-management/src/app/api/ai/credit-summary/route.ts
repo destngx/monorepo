@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
 import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
+import {
+  extractAndParseJSON,
+  STRUCTURED_INSIGHT_FORMAT_INSTRUCTION,
+  type StructuredInsight,
+} from '@wealth-management/ai/server';
 import { Transaction } from '@wealth-management/types';
 
 export async function POST(req: Request) {
@@ -45,7 +50,7 @@ export async function POST(req: Request) {
     });
 
     const systemPrompt = await buildSystemPrompt(taskInstruction);
-    const actionPrompt = await loadActionPrompt('credit-summary');
+    const actionPrompt = (await loadActionPrompt('credit-summary')) + '\n\n' + STRUCTURED_INSIGHT_FORMAT_INSTRUCTION;
 
     const { text } = await generateText({
       model,
@@ -53,7 +58,12 @@ export async function POST(req: Request) {
       prompt: actionPrompt,
     });
 
-    return NextResponse.json({ summary: text });
+    try {
+      const structured = extractAndParseJSON<StructuredInsight>(text);
+      return NextResponse.json({ summary: structured });
+    } catch {
+      return NextResponse.json({ summary: text });
+    }
   } catch (error: unknown) {
     console.error('AI Summary API Error:', error);
     const message = error instanceof Error ? error.message : 'Failed to generate summary';

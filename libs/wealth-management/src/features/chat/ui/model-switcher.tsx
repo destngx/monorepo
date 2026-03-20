@@ -43,7 +43,7 @@ export function ModelSwitcher() {
           <SelectItem key={id} value={id} className="cursor-pointer py-2.5">
             <div className="flex flex-col gap-0.5 w-full">
               <span className="font-medium text-xs">{config.label}</span>
-              <p className="text-[10px] text-muted-foreground leading-tight italic pr-2 whitespace-normal line-clamp-2">
+              <p className="text-[10px] text-muted-foreground leading-tight italic pr-2 whitespace-normal">
                 {config.description}
               </p>
             </div>

@@ -5,13 +5,15 @@ import { Sparkles, RefreshCw, Calendar } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Transaction } from "../model/types";
+import { AIInsightRenderer } from "@wealth-management/ui";
+import type { StructuredInsight } from "@wealth-management/ai/server";
 
 interface TransactionReviewAIProps {
   transactions: Transaction[];
 }
 
 export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) {
-  const [review, setReview] = useState<string>("");
+  const [review, setReview] = useState<StructuredInsight | string>("");
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchReview = async () => {
@@ -23,7 +25,7 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transactions })
       });
-      const data = await res.json() as { review?: string };
+      const data = await res.json() as { review?: string | StructuredInsight };
       setReview(data.review || "Unable to generate review at this time.");
     } catch (err) {
       console.error("Transaction Review AI Error:", err);
@@ -36,6 +38,8 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
   useEffect(() => {
     void fetchReview();
   }, [transactions.length]);
+
+  const isStructured = typeof review === 'object' && review !== null && 'sections' in review;
 
   return (
     <div className="bg-amber-50/50 dark:bg-amber-950/10 rounded-xl p-4 border border-amber-100/50 dark:border-amber-900/20 relative overflow-hidden group">
@@ -73,10 +77,12 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
               Thinking...
             </p>
           </div>
+        ) : isStructured ? (
+          <AIInsightRenderer insight={review} />
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none text-amber-900/80 dark:text-amber-100/80 text-sm leading-relaxed italic pr-4">
             <ReactMarkdown>
-              {review || "Analyzing your recent transaction history..."}
+              {(review as string) || "Analyzing your recent transaction history..."}
             </ReactMarkdown>
           </div>
         )}

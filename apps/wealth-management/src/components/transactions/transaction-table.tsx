@@ -117,7 +117,7 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
               </td>
               <td className="px-4 py-3 min-w-[200px]">
                 <div className="font-medium text-foreground">{txn.payee}</div>
-                {txn.memo && <div className="text-xs text-muted-foreground truncate max-w-[300px]">{txn.memo}</div>}
+                {txn.memo && <div className="text-xs text-muted-foreground">{txn.memo}</div>}
               </td>
               <td className="px-4 py-3">
                 <CategoryBadge category={txn.category} type={txn.categoryType} />

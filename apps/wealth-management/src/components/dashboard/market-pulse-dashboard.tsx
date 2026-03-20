@@ -493,13 +493,26 @@ function IntelligenceBanner({
               </div>
               <div className="space-y-1">
                 <h3 className={`text-sm font-bold tracking-tight uppercase ${regimeColor}`}>{scenario.name}</h3>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed line-clamp-3">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   {scenario.summaryEn}
                 </p>
+                {scenario.actionEn && (
+                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 leading-relaxed mt-2 p-2 bg-indigo-50 dark:bg-indigo-950/30 rounded-md border border-indigo-100 dark:border-indigo-900/50">
+                    <span className="text-[9px] uppercase font-bold text-indigo-700 dark:text-indigo-500 block mb-1">Reaction Plan</span>
+                    {scenario.actionEn}
+                  </p>
+                )}
               </div>
-              <p className="text-[10px] text-zinc-400 dark:text-zinc-500 italic font-mono border-l pl-2 border-zinc-200 dark:border-zinc-800/50 line-clamp-2">
-                {scenario.summaryVi}
-              </p>
+              <div className="space-y-2 border-l pl-2 border-zinc-200 dark:border-zinc-800/50">
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 italic font-mono">
+                  {scenario.summaryVi}
+                </p>
+                {scenario.actionVi && (
+                  <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 italic font-mono p-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-md border border-indigo-100/50 dark:border-indigo-900/30">
+                    Hành động: {scenario.actionVi}
+                  </p>
+                )}
+              </div>
             </div>
           );
         })}

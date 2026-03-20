@@ -1,6 +1,7 @@
 import { getCached, setCache } from '@wealth-management/utils';
 import { generateText } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
+import { loadPrompt, replacePlaceholders } from '../../ai/prompts/loader';
 
 const CACHE_PREFIX = 'market-pulse:';
 const PRICE_CACHE_TTL = 300; // 5 minutes during trading
@@ -87,6 +88,8 @@ export interface MarketState {
     confidence: number;
     summaryEn: string;
     summaryVi: string;
+    actionEn?: string;
+    actionVi?: string;
   }[];
   correlationMatrix: number[][];
   assetList: string[]; // For matrix headers
@@ -254,79 +257,49 @@ export async function getMarketPulseData(
 async function generateAiMarketAnalysis(us: MarketState, vn: MarketState, timeframe: string) {
   const model = getLanguageModel('github-gpt-4o');
 
-  const prompt = `
-    You are a Nobel-level Economist and Quantitative Market Analyst. 
-    Analyze the following real-time market data for US and Vietnam markets and detect the current Regime/Scenario and Capital Flow signals.
+  const template = await loadPrompt('market', 'generate-ai-analysis');
+  if (!template) {
+    throw new Error(
+      'Missing prompt template: market/generate-ai-analysis. Please ensure it is present in Google Sheets.',
+    );
+  }
 
-    CRITICAL CONTEXT: The user is currently viewing the market data through the lens of a **${timeframe}** timeframe. 
-    Ensure your analysis, scenarios, and commentary explicitly reflect this ${timeframe} horizon (e.g., short-term momentum for 1h/4h vs. macro trend for 1w).
-
-    DASHBOARD GUIDELINES:
-    How to Read This Dashboard: Positive correlation means assets move together; negative means opposite. A broken correlation alert means current behavior deviates from historical patterns, often signaling a market regime shift.
-
-    US MARKET DATA (${timeframe} Horizon):
-    - Assets: ${us.assets.map((a) => `${a.name}: ${a.price} (${a.percentChange.toFixed(2)}% on ${timeframe})`).join(', ')}
-    - Technical Phase: ${us.technicals?.cycle.phase} (${us.technicals?.cycle.description})
-    - Key Support/Resistance: ${us.technicals?.supportResistance
-      .slice(0, 3)
-      .map((sr) => `${sr.symbol}: S:[${sr.support.join(',')}] R:[${sr.resistance.join(',')}]`)
-      .join(' | ')}
-    - Valuation (DCF): ${us.valuation?.dcf.map((v) => `${v.symbol}: FV $${v.fairValue.toFixed(2)} (${v.upside.toFixed(1)}% upside)`).join(', ')}
-    - Monte Carlo (P50): ${us.valuation?.monteCarlo.map((m) => `${m.symbol}: $${m.p50.toFixed(2)}`).join(', ')}
-    - Correlation Matrix (Assets: ${us.assetList.join(', ')}):
-      ${JSON.stringify(us.correlationMatrix)}
-
-    VN MARKET DATA (${timeframe} Horizon):
-    - Assets: ${vn.assets.map((a) => `${a.name}: ${a.price} (${a.percentChange.toFixed(2)}% on ${timeframe})`).join(', ')}
-    - Technical Phase: ${vn.technicals?.cycle.phase} (${vn.technicals?.cycle.description})
-    - Key Support/Resistance: ${vn.technicals?.supportResistance
-      .slice(0, 3)
-      .map((sr) => `${sr.symbol}: S:[${sr.support.join(',')}] R:[${sr.resistance.join(',')}]`)
-      .join(' | ')}
-    - Valuation (DCF): ${vn.valuation?.dcf.map((v) => `${v.symbol}: FV ${v.fairValue.toLocaleString()} (${v.upside.toFixed(1)}% upside)`).join(', ')}
-    - Sector Multiples: ${vn.valuation?.sectorComparison.map((s) => `${s.symbol} P/E: ${s.metrics.find((m) => m.label.includes('P/E'))?.asset}`).join(', ')}
-    - Correlation Matrix (Assets: ${vn.assetList.join(', ')}):
-      ${JSON.stringify(vn.correlationMatrix)}
-
-    TASK:
-    1. Identify the Market Scenario/Regime for EACH market separately (US and Vietnam).
-    2. Analyze Capital Flow for EACH market separately.
-    3. Analyze the Correlation Heatmatrix for EACH market (detect "broken correlations", clusters, or extreme risks).
-    4. Synthesize everything (Movers, Flows, Corrs, S/R, DCF) into the "Dominant Driver" narrative.
-    5. Provide concise, high-context bilingual (English & Vietnamese) summaries.
-
-    DOMINANT DRIVER LOGIC:
-    Your "summaryEn" and "summaryVi" within "usDrivers" and "vnDrivers" should be the ULTIMATE synthesis. Don't just list movers. Explain WHY they are moving in the context of the current regime, flows, and correlations.
-
-    OUTPUT FORMAT (JSON ONLY):
-    {
-      "usScenarios": [
-        {
-          "name": "Scenario Title (e.g. Bullish Breakout)",
-          "regime": "Risk-ON | Risk-OFF | Crisis | Stagflation | Goldilocks",
-          "confidence": 0-100,
-          "summaryEn": "Short descriptive summary",
-          "summaryVi": "Tóm tắt ngắn gọn"
-        },
-        ... (Exactly 3 scenarios ranging from optimistic to pessimistic)
-      ],
-      "vnScenarios": [ ... (Exactly 3 scenarios) ],
-      "usCapitalFlow": {
-        "signal": "RISK-ON | DEFENSIVE | MIXED",
-        "summaryEn": "Detailed Smart Money flow analysis (Tracking institutional moves vs retail positioning)",
-        "summaryVi": "Phân tích chi tiết dòng tiền thông minh (Theo dõi động thái tổ chức và định vị nhỏ lẻ)"
-      },
-      "vnCapitalFlow": { ... },
-      "usDrivers": {
-        "summaryEn": "Synthesized narrative",
-        "summaryVi": "Synthesized narrative",
-        "capitalFlowSignal": "RISK-ON | DEFENSIVE | MIXED",
-        "correlationSignalEn": "Extreme tech concentration detected",
-        "correlationSignalVi": "Phát hiện sự tập trung cực độ vào nhóm công nghệ"
-      },
-      "vnDrivers": { ... }
-    }
-  `;
+  const prompt = replacePlaceholders(template, {
+    timeframe,
+    usAssets: us.assets.map((a) => `${a.name}: ${a.price} (${a.percentChange.toFixed(2)}% on ${timeframe})`).join(', '),
+    usPhase: us.technicals?.cycle.phase || 'N/A',
+    usDescription: us.technicals?.cycle.description || 'N/A',
+    usSupportResistance:
+      us.technicals?.supportResistance
+        .slice(0, 3)
+        .map((sr) => `${sr.symbol}: S:[${sr.support.join(',')}] R:[${sr.resistance.join(',')}]`)
+        .join(' | ') || 'N/A',
+    usDcf:
+      us.valuation?.dcf
+        .map((v) => `${v.symbol}: FV $${v.fairValue.toFixed(2)} (${v.upside.toFixed(1)}% upside)`)
+        .join(', ') || 'N/A',
+    usMonteCarlo: us.valuation?.monteCarlo.map((m) => `${m.symbol}: $${m.p50.toFixed(2)}`).join(', ') || 'N/A',
+    usAssetList: us.assetList.join(', '),
+    usCorrelationMatrix: JSON.stringify(us.correlationMatrix),
+    vnAssets: vn.assets.map((a) => `${a.name}: ${a.price} (${a.percentChange.toFixed(2)}% on ${timeframe})`).join(', '),
+    vnPhase: vn.technicals?.cycle.phase || 'N/A',
+    vnDescription: vn.technicals?.cycle.description || 'N/A',
+    vnSupportResistance:
+      vn.technicals?.supportResistance
+        .slice(0, 3)
+        .map((sr) => `${sr.symbol}: S:[${sr.support.join(',')}] R:[${sr.resistance.join(',')}]`)
+        .join(' | ') || 'N/A',
+    vnDcf:
+      vn.valuation?.dcf
+        .map((v) => `${v.symbol}: FV ${v.fairValue.toLocaleString()} (${v.upside.toFixed(1)}% upside)`)
+        .join(', ') || 'N/A',
+    vnSectorMultiples:
+      vn.valuation?.sectorComparison
+        .map((s) => `${s.symbol} P/E: ${s.metrics.find((m) => m.label.includes('P/E'))?.asset}`)
+        .join(', ') || 'N/A',
+    vnAssetList: vn.assetList.join(', '),
+    vnCorrelationMatrix: JSON.stringify(vn.correlationMatrix),
+  });
 
   const { text } = await generateText({
     model,
@@ -620,6 +593,21 @@ function detectScenario(us: MarketState, vn: MarketState): NonNullable<MarketSta
   const sp500 = us.assets.find((a) => a.name === 'S&P500');
   const gold = us.assets.find((a) => a.name === 'Gold');
   const oil = us.assets.find((a) => a.name === 'WTI');
+  const vn30 = vn.assets.find((a) => a.name === 'VN30');
+
+  // BunnyQuant: Falling Knife Detection for VN30
+  if (vn30 && vn30.percentChange < -1.5) {
+    return {
+      name: 'Falling Knife Warning',
+      regime: 'Crisis',
+      confidence: 90,
+      summaryEn: 'Severe institutional dumping phase. RSI/Oversold indicators are failing. Do NOT average down.',
+      summaryVi:
+        'Cảnh báo Bắt Dao Rơi. Chu kỳ giảm mạnh, các chỉ báo như RSI hiện vô dụng. Tuyệt đối KHÔNG "cứ đỏ là mua" hay DCA.',
+      actionEn: 'Halt all buying immediately. Wait for bottom accumulation confirmation.',
+      actionVi: 'Dừng hoàn toàn việc mua vào. Đợi tín hiệu xác nhận tạo đáy tích lũy.',
+    };
+  }
 
   if (vix && vix.price > 30) {
     return {
@@ -628,6 +616,8 @@ function detectScenario(us: MarketState, vn: MarketState): NonNullable<MarketSta
       confidence: 85,
       summaryEn: 'High volatility detected. Extreme panic across markets.',
       summaryVi: 'Biến động mạnh. Các thị trường đang ở mức hoảng loạn cao.',
+      actionEn: 'Shift to cash and defensive assets. Hedge long positions.',
+      actionVi: 'Chuyển sang tiền mặt và tài sản phòng thủ. Hedging các vị thế mua.',
     };
   }
 
@@ -638,6 +628,8 @@ function detectScenario(us: MarketState, vn: MarketState): NonNullable<MarketSta
       confidence: 75,
       summaryEn: 'Scenario detected based on current correlations and price action.',
       summaryVi: 'Kịch bản được nhận diện dựa trên tương quan và biến động giá hiện tại.',
+      actionEn: 'Maintain long exposure to risk assets and strong momentum sectors.',
+      actionVi: 'Duy trì nắm giữ các tài sản rủi ro và các nhóm ngành có dòng tiền mạnh.',
     };
   }
 
@@ -648,6 +640,8 @@ function detectScenario(us: MarketState, vn: MarketState): NonNullable<MarketSta
       confidence: 65,
       summaryEn: 'Oil surging while equities fall suggests supply-side pressure.',
       summaryVi: 'Giá dầu tăng mạnh trong khi cổ phiếu giảm cho thấy áp lực từ nguồn cung.',
+      actionEn: 'Increase exposure to commodities/energy. Reduce cyclical stocks.',
+      actionVi: 'Tăng cường tỷ trọng hàng hóa/năng lượng. Giảm cổ phiếu chu kỳ.',
     };
   }
 
@@ -657,6 +651,8 @@ function detectScenario(us: MarketState, vn: MarketState): NonNullable<MarketSta
     confidence: 50,
     summaryEn: 'Market is in a transitional or uncertain phase.',
     summaryVi: 'Thị trường đang ở giai đoạn chuyển giao hoặc không chắc chắn.',
+    actionEn: 'Hold current positions. Wait for a clear directional breakout.',
+    actionVi: 'Giữ nguyên vị thế hiện tại. Chờ đợi xu hướng định hướng rõ ràng.',
   };
 }
 
