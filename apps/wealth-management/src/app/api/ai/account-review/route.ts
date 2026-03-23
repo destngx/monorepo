@@ -7,7 +7,7 @@ import {
   STRUCTURED_INSIGHT_FORMAT_INSTRUCTION,
   type StructuredInsight,
 } from '@wealth-management/ai/server';
-
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 import { Account } from '@wealth-management/types';
 
 export async function POST(req: Request) {
@@ -53,7 +53,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ review: text });
     }
   } catch (error: unknown) {
-    console.error('AI Account Review Error:', error);
-    return NextResponse.json({ error: 'Failed to generate account review' }, { status: 500 });
+    if (isAppError(error)) {
+      console.error('AI Account Review Error:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('AI Account Review Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }
