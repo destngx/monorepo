@@ -2,6 +2,7 @@ import { streamText } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { financialTools } from '@wealth-management/ai/server';
 import { buildSystemPrompt } from '@wealth-management/ai/server';
+import { ChatError, NetworkError, ValidationError, AppError } from '@wealth-management/utils/errors';
 
 // Allow responses up to 5 minutes for deep searches and reasoning
 export const maxDuration = 300;
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
     const { messages, modelId, context } = body;
 
     if (!messages || !Array.isArray(messages)) {
-      return new Response(JSON.stringify({ error: 'Missing or invalid messages array' }), { status: 400 });
+      throw new ValidationError('Missing or invalid messages array');
     }
 
     // Choose a smart default if no modelId provided
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
       !process.env.ANTHROPIC_API_KEY &&
       !process.env.GITHUB_TOKEN
     ) {
-      throw new Error('No AI provider API keys configured.');
+      throw new ChatError('No AI provider API keys configured');
     }
 
     // Map messages to CoreMessage format, preserving tool calls and results
@@ -116,9 +117,34 @@ export async function POST(req: Request) {
 
     return result.toUIMessageStreamResponse();
   } catch (err: unknown) {
-    const error = err as Error;
-    console.error('[Chat API Error]:', error.message || error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
+    if (err instanceof ValidationError) {
+      console.error('[Chat API Error]', err.toResponse());
+      return new Response(JSON.stringify({ error: err.userMessage }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (err instanceof ChatError) {
+      console.error('[Chat API Error]', err.toResponse());
+      return new Response(JSON.stringify({ error: err.userMessage }), {
+        status: err.statusCode,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (err instanceof AppError) {
+      console.error('[Chat API Error]', err.toResponse());
+      return new Response(JSON.stringify({ error: err.userMessage }), {
+        status: err.statusCode,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const error = err instanceof Error ? err : new Error('Internal Server Error');
+    const appError = new ChatError(error.message, {
+      originalError: error.message,
+    });
+    console.error('[Chat API Error]', appError.toResponse());
+    return new Response(JSON.stringify({ error: appError.userMessage }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

@@ -6,19 +6,23 @@
 
 import { useEffect, useState } from 'react';
 import { Goal, GoalProjection } from './types';
+import { AppError, isAppError, getErrorMessage } from '../../../utils/errors';
 import * as queries from './queries';
 import * as mutations from './mutations';
 
 export function useGoals() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
 
   useEffect(() => {
     queries
       .getGoals()
       .then(setGoals)
-      .catch(setError)
+      .catch((err: unknown) => {
+        const appError = isAppError(err) ? err : new AppError(getErrorMessage(err));
+        setError(appError);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -28,13 +32,16 @@ export function useGoals() {
 export function useGoal(id: string) {
   const [goal, setGoal] = useState<Goal | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
 
   useEffect(() => {
     queries
       .getGoalById(id)
       .then(setGoal)
-      .catch(setError)
+      .catch((err: unknown) => {
+        const appError = isAppError(err) ? err : new AppError(getErrorMessage(err));
+        setError(appError);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -44,13 +51,16 @@ export function useGoal(id: string) {
 export function useGoalProjection(id: string) {
   const [projection, setProjection] = useState<GoalProjection | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
 
   useEffect(() => {
     queries
       .getGoalProjection(id)
       .then(setProjection)
-      .catch(setError)
+      .catch((err: unknown) => {
+        const appError = isAppError(err) ? err : new AppError(getErrorMessage(err));
+        setError(appError);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 

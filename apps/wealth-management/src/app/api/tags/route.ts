@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getTransactions } from "@wealth-management/services/server";
-import { handleApiError } from "@wealth-management/utils/server";
+import { getTransactions } from '@wealth-management/services/server';
+import { AppError, isAppError } from '@wealth-management/utils/errors';
 
 export async function GET() {
   try {
@@ -14,6 +14,12 @@ export async function GET() {
     }
     return NextResponse.json(Array.from(tagSet).sort());
   } catch (error) {
-    return handleApiError(error, 'Tags');
+    if (isAppError(error)) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError({
+      message: error instanceof Error ? error.message : 'Failed to fetch tags',
+    });
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

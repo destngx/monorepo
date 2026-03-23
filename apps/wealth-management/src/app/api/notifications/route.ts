@@ -1,26 +1,38 @@
 import { NextResponse } from 'next/server';
-import { getPendingNotifications, markNotificationDone } from "@wealth-management/services/server";
-import { handleApiError } from "@wealth-management/utils/server";
+import { getPendingNotifications, markNotificationDone } from '@wealth-management/services/server';
+import { AppError, ValidationError, isAppError } from '@wealth-management/utils/errors';
 
 export async function GET() {
   try {
     const notifications = await getPendingNotifications();
     return NextResponse.json(notifications);
-  } catch (error: unknown) {
-    return handleApiError(error, 'Notifications');
+  } catch (error) {
+    if (isAppError(error)) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError({
+      message: error instanceof Error ? error.message : 'Failed to fetch notifications',
+    });
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }
 
 export async function PATCH(req: Request) {
   try {
-    const { rowNumbers } = await req.json() as { rowNumbers: number[] };
+    const { rowNumbers } = (await req.json()) as { rowNumbers: number[] };
     if (!Array.isArray(rowNumbers)) {
-      return NextResponse.json({ error: 'rowNumbers must be an array' }, { status: 400 });
+      throw new ValidationError('rowNumbers must be an array');
     }
 
-    await Promise.all(rowNumbers.map(n => markNotificationDone(n)));
+    await Promise.all(rowNumbers.map((n) => markNotificationDone(n)));
     return NextResponse.json({ success: true });
-  } catch (error: unknown) {
-    return handleApiError(error, 'Notifications');
+  } catch (error) {
+    if (isAppError(error)) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError({
+      message: error instanceof Error ? error.message : 'Failed to update notifications',
+    });
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

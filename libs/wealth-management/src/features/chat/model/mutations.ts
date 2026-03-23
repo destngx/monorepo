@@ -3,6 +3,7 @@
  */
 
 import { ChatMessage } from './types';
+import { ChatError, StorageError } from '../../../utils/errors';
 
 const STORAGE_KEY = 'wealthos-chat-history';
 
@@ -18,7 +19,11 @@ export function saveChatHistory(messages: ChatMessage[]): boolean {
     }
     return true;
   } catch (error) {
-    console.error('Failed to save chat history:', error);
+    const storageError = new StorageError('Failed to save chat history', {
+      context: { action: 'saveChatHistory', error },
+      userMessage: 'Unable to save chat history. Your conversation may not persist.',
+    });
+    console.error(storageError.message, storageError);
     return false;
   }
 }
@@ -33,7 +38,11 @@ export function clearChatHistory(): boolean {
     localStorage.removeItem(STORAGE_KEY);
     return true;
   } catch (error) {
-    console.error('Failed to clear chat history:', error);
+    const storageError = new StorageError('Failed to clear chat history', {
+      context: { action: 'clearChatHistory', error },
+      userMessage: 'Unable to clear chat history.',
+    });
+    console.error(storageError.message, storageError);
     return false;
   }
 }
@@ -61,11 +70,17 @@ export async function sendChatMessage(
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.statusText}`);
+    throw new ChatError(`Chat API error: ${response.statusText}`, {
+      context: { endpoint: '/api/chat', statusCode: response.status },
+      userMessage: 'Failed to send message. Please try again.',
+    });
   }
 
   if (!response.body) {
-    throw new Error('No response body');
+    throw new ChatError('No response body from chat API', {
+      context: { endpoint: '/api/chat' },
+      userMessage: 'Invalid response from server.',
+    });
   }
 
   return response.body;

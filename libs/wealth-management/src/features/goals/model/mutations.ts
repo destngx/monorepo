@@ -3,6 +3,7 @@
  */
 
 import { Goal } from './types';
+import { GoalError } from '../../../utils/errors';
 
 export async function createGoal(goal: Omit<Goal, 'id'>): Promise<Goal> {
   const response = await fetch('/api/goals', {
@@ -11,7 +12,10 @@ export async function createGoal(goal: Omit<Goal, 'id'>): Promise<Goal> {
     body: JSON.stringify(goal),
   });
   if (!response.ok) {
-    throw new Error('Failed to create goal');
+    throw new GoalError('Failed to create goal', {
+      context: { endpoint: '/api/goals', statusCode: response.status },
+      userMessage: 'Unable to create goal. Please try again.',
+    });
   }
   return response.json();
 }
@@ -23,7 +27,10 @@ export async function updateGoal(id: string, updates: Partial<Goal>): Promise<Go
     body: JSON.stringify(updates),
   });
   if (!response.ok) {
-    throw new Error('Failed to update goal');
+    throw new GoalError('Failed to update goal', {
+      context: { endpoint: `/api/goals/${id}`, statusCode: response.status },
+      userMessage: 'Unable to update goal. Please try again.',
+    });
   }
   return response.json();
 }

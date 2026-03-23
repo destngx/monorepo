@@ -2,6 +2,7 @@ import { getCached, setCache } from '@wealth-management/utils';
 import { generateText } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { loadPrompt, replacePlaceholders } from '../../ai/prompts/loader';
+import { NetworkError, getErrorMessage } from '../../utils/errors';
 
 const CACHE_PREFIX = 'market-pulse:';
 const PRICE_CACHE_TTL = 300; // 5 minutes during trading
@@ -176,7 +177,8 @@ export async function getMarketPulseData(
       }
     }
   } catch (e) {
-    console.error('[MarketDataService] Failed to fetch real VN Gold price:', e);
+    const message = getErrorMessage(e);
+    console.error('[MarketDataService] Failed to fetch real VN Gold price:', message);
   }
 
   // Fallback to synthetic if API fails
@@ -209,7 +211,8 @@ export async function getMarketPulseData(
 
   // Compute Scenarios (AI-driven with heuristic fallback)
   const aiAnalysis = await generateAiMarketAnalysis(usData, vnData, timeframe).catch((err) => {
-    console.error('[MarketDataService] AI Analysis failed:', err);
+    const message = getErrorMessage(err);
+    console.error('[MarketDataService] AI Analysis failed:', message);
     return null;
   });
 
@@ -311,7 +314,8 @@ async function generateAiMarketAnalysis(us: MarketState, vn: MarketState, timefr
     const cleanJson = text.replace(/```json|```/g, '').trim();
     return JSON.parse(cleanJson);
   } catch (e) {
-    console.error('Failed to parse AI market analysis JSON:', e);
+    const message = getErrorMessage(e);
+    console.error('Failed to parse AI market analysis JSON:', message);
     return null;
   }
 }
@@ -427,7 +431,8 @@ async function fetchVNIndicesFromCafeF(): Promise<any | null> {
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {
-    console.error('CafeF fetch failed:', e);
+    const message = getErrorMessage(e);
+    console.error('CafeF fetch failed:', message);
     return null;
   }
 }
@@ -450,6 +455,8 @@ async function fetchUSDVNDFromCurrencyAPI(): Promise<MarketAsset | null> {
       momentum: 'stable',
     };
   } catch (e) {
+    const message = getErrorMessage(e);
+    console.error('Currency API fetch failed:', message);
     return null;
   }
 }
@@ -555,7 +562,8 @@ async function fetchAssetData(
       closes,
     };
   } catch (error) {
-    console.error(`Error fetching asset data for ${symbol}:`, error);
+    const message = getErrorMessage(error);
+    console.error(`Error fetching asset data for ${symbol}:`, message);
     return null;
   }
 }

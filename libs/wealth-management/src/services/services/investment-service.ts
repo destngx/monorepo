@@ -4,6 +4,7 @@ import { getTransactions } from '../sheets/transactions';
 import { getBudget } from '../sheets/budget';
 import { getExchangeRate } from '../exchange-rate-service';
 import { type DataContext } from '../../ai/prompts/market/investment';
+import { getErrorMessage } from '../../utils/errors';
 
 /**
  * Investment Data Service: Extracts and prepares structured investment context.
@@ -19,12 +20,30 @@ export async function extractInvestmentData(accounts: any[]): Promise<DataContex
     .join(', ');
 
   const [cryptoSheetData, ifcSheetData, loans, transactions, budgetItems, p2pRate] = await Promise.all([
-    readSheet('Crypto!A1:Z100').catch(() => []),
-    readSheet('InvestmentFundCertificate!A1:Z100').catch(() => []),
-    getLoans().catch(() => []),
-    getTransactions().catch(() => []),
-    getBudget().catch(() => []),
-    getExchangeRate().catch(() => 25400),
+    readSheet('Crypto!A1:Z100').catch((err) => {
+      console.warn('[InvestmentService] Failed to fetch crypto sheet:', getErrorMessage(err));
+      return [];
+    }),
+    readSheet('InvestmentFundCertificate!A1:Z100').catch((err) => {
+      console.warn('[InvestmentService] Failed to fetch IFC sheet:', getErrorMessage(err));
+      return [];
+    }),
+    getLoans().catch((err) => {
+      console.warn('[InvestmentService] Failed to fetch loans:', getErrorMessage(err));
+      return [];
+    }),
+    getTransactions().catch((err) => {
+      console.warn('[InvestmentService] Failed to fetch transactions:', getErrorMessage(err));
+      return [];
+    }),
+    getBudget().catch((err) => {
+      console.warn('[InvestmentService] Failed to fetch budget:', getErrorMessage(err));
+      return [];
+    }),
+    getExchangeRate().catch((err) => {
+      console.warn('[InvestmentService] Failed to fetch exchange rate:', getErrorMessage(err));
+      return 25400;
+    }),
   ]);
 
   const parseForAI = (data: any[], keywords: string[]) => {

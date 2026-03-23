@@ -1,12 +1,13 @@
 import { google } from 'googleapis';
+import { AuthError, getErrorMessage } from '../../utils/errors';
 
-export class GoogleSheetsError extends Error {
+export class GoogleSheetsError extends AuthError {
   constructor(
     message: string,
     public code: 'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR',
     public originalError?: any,
   ) {
-    super(message);
+    super(message, { context: { code, originalError } });
     this.name = 'GoogleSheetsError';
   }
 }
@@ -38,6 +39,7 @@ export async function getSheetsClient() {
     // when the client tries to refresh the token.
     return sheets;
   } catch (error: any) {
+    const message = getErrorMessage(error);
     if (error.code === '400' || error.message?.includes('invalid_grant')) {
       throw new GoogleSheetsError(
         'Google Sheets session expired. Please run `pnpm run auth:setup`.',

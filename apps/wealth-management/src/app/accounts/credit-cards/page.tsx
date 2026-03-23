@@ -1,3 +1,10 @@
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
+export const generateStaticParams = async () => {
+  return [];
+};
+
 import { getTransactions } from "@wealth-management/services/server";
 import { getAccounts } from "@wealth-management/services/server";
 import { getCreditCardSummary, SACOMBANK_CASHBACK_RULES } from "@wealth-management/utils";

@@ -4,6 +4,7 @@
 
 import { ChatMessage, SuggestionItem } from './types';
 import { AI_MODELS } from '@wealth-management/ai';
+import { ChatError, StorageError } from '../../../utils/errors';
 
 const STORAGE_KEY = 'wealthos-chat-history';
 
@@ -29,7 +30,11 @@ export function loadChatHistory(): ChatMessage[] {
       }
     }
   } catch (error) {
-    console.error('Failed to load chat history:', error);
+    const storageError = new StorageError('Failed to load chat history', {
+      context: { action: 'loadChatHistory', error },
+      userMessage: 'Unable to load chat history.',
+    });
+    console.error(storageError.message, storageError);
   }
 
   return [];
@@ -59,13 +64,23 @@ export async function fetchSuggestions(modelId: string, context?: Record<string,
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
+      throw new ChatError(`Chat suggestions API error: ${response.statusText}`, {
+        context: { endpoint: '/api/chat/suggestions', statusCode: response.status },
+        userMessage: 'Failed to fetch suggestions.',
+      });
     }
 
     const data = await response.json();
     return data.suggestions || [];
   } catch (error) {
-    console.error('Failed to fetch suggestions:', error);
+    const chatError =
+      error instanceof ChatError
+        ? error
+        : new ChatError('Failed to fetch chat suggestions', {
+            context: { action: 'fetchSuggestions', error },
+            userMessage: 'Unable to fetch suggestions. Using defaults.',
+          });
+    console.error(chatError.message, chatError);
     // Return fallback suggestions
     return [
       {

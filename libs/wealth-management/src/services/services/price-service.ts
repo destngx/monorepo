@@ -2,6 +2,7 @@ import { getCached, setCache } from '@wealth-management/utils';
 import { executeSearch } from './search-service';
 import { generateText } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
+import { getErrorMessage } from '../../utils/errors';
 
 const CACHE_PREFIX = 'price:';
 const CACHE_TTL = 3600; // 1 hour
@@ -105,7 +106,8 @@ export async function getPrice(symbol: string, type: 'crypto' | 'fund' = 'crypto
       await setCache(key, { price }, CACHE_TTL);
     }
   } catch (error) {
-    console.error(`[PriceService] Failed to fetch price for ${symbol}:`, error);
+    const message = getErrorMessage(error);
+    console.error(`[PriceService] Failed to fetch price for ${symbol}:`, message);
   }
 
   return price;

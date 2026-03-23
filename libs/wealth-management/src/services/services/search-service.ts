@@ -1,3 +1,5 @@
+import { NetworkError, getErrorMessage } from '../../utils/errors';
+
 export interface SearchResult {
   title: string;
   url: string;
@@ -45,6 +47,7 @@ export async function executeSearch(query: string): Promise<SearchResponse> {
       })),
     };
   } catch (error: any) {
-    return { error: `Search execution failed: ${error.message}` };
+    const message = getErrorMessage(error);
+    return { error: `Search execution failed: ${message}` };
   }
 }
