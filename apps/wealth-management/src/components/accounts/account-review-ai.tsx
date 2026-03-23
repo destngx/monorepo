@@ -8,6 +8,7 @@ import { Account } from '@wealth-management/types';
 import ReactMarkdown from 'react-markdown';
 import { AIInsightRenderer } from '@wealth-management/ui';
 import type { StructuredInsight } from '@wealth-management/ai/server';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface Props {
   accounts: Account[];
@@ -31,9 +32,11 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
       });
       const data = await response.json();
       setReview(data.review);
-    } catch (e) {
-      console.error(e);
-      setReview('Failed to generate AI review. Please try again later.');
+    } catch (err) {
+      const message = getErrorMessage(err);
+      const errorMsg = isAppError(err) ? err.userMessage : 'Failed to generate AI review. Please try again later.';
+      setReview(errorMsg);
+      console.error('Account review error:', message);
     } finally {
       setIsLoading(false);
     }

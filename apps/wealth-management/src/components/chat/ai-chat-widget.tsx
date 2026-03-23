@@ -9,6 +9,7 @@ import { AIFab } from './ai-fab';
 import { AIDrawer } from './ai-drawer';
 import { AIInsightCard } from './ai-insight-card';
 import { useAIContext } from './ai-context-provider';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export function AIChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,7 +64,8 @@ export function AIChatWidget() {
         setAiSuggestions(data.suggestions);
       }
     } catch (err) {
-      console.error('Failed to fetch suggestions:', err);
+      const message = getErrorMessage(err);
+      console.error('Failed to fetch suggestions:', message);
     } finally {
       setIsBusySuggestions(false);
     }
@@ -82,8 +84,9 @@ export function AIChatWidget() {
     if (savedMessages) {
       try {
         setMessages(JSON.parse(savedMessages));
-      } catch (e) {
-        console.error('Failed to load chat history:', e);
+      } catch (err) {
+        const message = getErrorMessage(err);
+        console.error('Failed to load chat history:', message);
       }
     }
   }, [setMessages]);

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Transaction } from '@wealth-management/types';
 import { AIInsightRenderer } from '@wealth-management/ui';
 import type { StructuredInsight } from '@wealth-management/ai/server';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface TransactionReviewAIProps {
   transactions: Transaction[];
@@ -28,8 +29,10 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
       const data = await res.json();
       setReview(data.review || 'Unable to generate review at this time.');
     } catch (err) {
-      console.error('Transaction Review AI Error:', err);
-      setReview('Error loading weekly insights.');
+      const message = getErrorMessage(err);
+      const errorMsg = isAppError(err) ? err.userMessage : 'Error loading weekly insights.';
+      console.error('Transaction Review AI Error:', message);
+      setReview(errorMsg);
     } finally {
       setLoading(false);
     }

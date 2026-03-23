@@ -6,6 +6,7 @@ import { ChatMessages } from './chat-messages';
 import { ChatInput } from './chat-input';
 import { useAISettings } from '@/hooks/use-ai-settings';
 import { AI_MODELS } from '@wealth-management/ai';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface Message {
   id: string;
@@ -38,7 +39,8 @@ export function ChatContainer(): React.ReactNode {
         }
       }
     } catch (error) {
-      console.error('Failed to load chat history:', error);
+      const message = getErrorMessage(error);
+      console.error('Failed to load chat history:', message);
     }
     setIsMounted(true);
   }, []);
@@ -49,7 +51,8 @@ export function ChatContainer(): React.ReactNode {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
       } catch (error) {
-        console.error('Failed to save chat history:', error);
+        const message = getErrorMessage(error);
+        console.error('Failed to save chat history:', message);
       }
     }
   }, [messages, isMounted]);
@@ -158,8 +161,9 @@ export function ChatContainer(): React.ReactNode {
           return;
         }
 
+        const message = getErrorMessage(error);
         /* eslint-disable-next-line no-console */
-        console.error('Failed to get response:', error);
+        console.error('Failed to get response:', message);
 
         // Add error message
         const errorMessage: Message = {

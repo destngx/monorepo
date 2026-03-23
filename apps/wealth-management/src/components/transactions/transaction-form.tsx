@@ -11,6 +11,7 @@ import { Account } from '@wealth-management/types';
 import { X, Sparkles, Search } from 'lucide-react';
 import { cn } from '@wealth-management/utils';
 import { CategoryBadge } from '@/components/ui/category-badge';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface CategoryChip {
   name: string;
@@ -45,12 +46,18 @@ export function TransactionForm({
             setValue('accountName', 'Golden Pocket');
           }
         })
-        .catch(console.error);
+        .catch((err) => {
+          const message = getErrorMessage(err);
+          console.error('Failed to fetch accounts:', message);
+        });
 
       void fetch('/api/tags')
         .then((r) => r.json())
         .then((data) => (Array.isArray(data) ? setAvailableTags(data) : null))
-        .catch(console.error);
+        .catch((err) => {
+          const message = getErrorMessage(err);
+          console.error('Failed to fetch tags:', message);
+        });
 
       void fetch('/api/categories')
         .then((r) => r.json())
@@ -59,7 +66,10 @@ export function TransactionForm({
             setBudgetCategories(data);
           }
         })
-        .catch(console.error);
+        .catch((err) => {
+          const message = getErrorMessage(err);
+          console.error('Failed to fetch categories:', message);
+        });
     }
   }, [open]);
 
@@ -103,7 +113,9 @@ export function TransactionForm({
         setValue('category', data.category);
       }
     } catch (error) {
-      console.error('AI Suggestion Error:', error);
+      const message = getErrorMessage(error);
+      const errorMsg = isAppError(error) ? error.userMessage : message;
+      console.error('AI Suggestion Error:', errorMsg);
     } finally {
       setIsSuggesting(false);
     }
@@ -146,7 +158,9 @@ export function TransactionForm({
       reset();
       onOpenChange(false);
     } catch (e) {
-      console.error(e);
+      const message = getErrorMessage(e);
+      const errorMsg = isAppError(e) ? e.userMessage : message;
+      console.error('Form submission error:', errorMsg);
     } finally {
       setLoading(false);
     }

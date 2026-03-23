@@ -2,6 +2,7 @@
 
 import { invalidateCache } from '@wealth-management/utils';
 import { revalidatePath } from 'next/cache';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function clearAllCache() {
   try {
@@ -15,7 +16,15 @@ export async function clearAllCache() {
 
     return { success: true };
   } catch (error: unknown) {
-    return { success: false, error: 'Failed to clear cache' };
+    if (isAppError(error)) {
+      return { success: false, error: error.userMessage };
+    }
+    const message = getErrorMessage(error);
+    const appError = new AppError('Failed to clear cache', undefined, 500, undefined, {
+      context: { originalError: message },
+      userMessage: 'Cache clearing failed. Please try again.',
+    });
+    return { success: false, error: appError.userMessage };
   }
 }
 

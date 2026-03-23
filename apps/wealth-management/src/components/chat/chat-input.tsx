@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface ChatInputProps {
   onSubmit: (message: string) => Promise<void>;
@@ -34,7 +35,8 @@ export function ChatInput({
       try {
         await onSubmit(message);
       } catch (error) {
-        console.error('Failed to send message:', error);
+        const message = getErrorMessage(error);
+        console.error('Failed to send message:', message);
         // Optionally restore input on error
         setInput(message);
       }

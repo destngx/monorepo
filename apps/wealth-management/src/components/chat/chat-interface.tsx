@@ -10,6 +10,7 @@ import { Send, Bot, User, Sparkles, Zap, CheckCircle } from 'lucide-react';
 import { useAISettings } from '@/hooks/use-ai-settings';
 import { AI_MODELS } from '@wealth-management/ai';
 import { useDebouncedChatPersistence } from '@/hooks/use-debounced-chat-persistence';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export function hasContent(message: any): boolean {
   if (Array.isArray(message.parts) && message.parts.length > 0) return true;
@@ -161,8 +162,9 @@ export function ChatInterface({
       if (savedMessages) {
         try {
           setMessages(JSON.parse(savedMessages));
-        } catch (e) {
-          console.error('Failed to load chat history:', e);
+        } catch (err) {
+          const message = getErrorMessage(err);
+          console.error('Failed to load chat history:', message);
         }
       }
     }

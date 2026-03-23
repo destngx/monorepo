@@ -11,6 +11,7 @@ import type { StructuredInsight } from '@wealth-management/ai/server';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { isAppError, getErrorMessage, AppError } from '@wealth-management/utils/errors';
 
 interface Props {
   transactions: Transaction[];
@@ -64,9 +65,11 @@ export function CreditCardSummaryAI({ transactions, cardStats }: Props) {
       } else {
         throw new Error(data.error || 'Failed to generate summary');
       }
-    } catch (e) {
-      console.error(e);
-      setSummaries((prev) => ({ ...prev, [target]: 'Failed to generate AI summary. Please try again later.' }));
+    } catch (err) {
+      const message = getErrorMessage(err);
+      const errorMsg = isAppError(err) ? err.userMessage : 'Failed to generate AI summary. Please try again later.';
+      setSummaries((prev) => ({ ...prev, [target]: errorMsg }));
+      console.error('Summary generation error:', message);
     } finally {
       setLoading(false);
     }

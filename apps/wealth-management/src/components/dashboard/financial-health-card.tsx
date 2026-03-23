@@ -6,6 +6,7 @@ import { Account } from '@wealth-management/types';
 import { Transaction } from '@wealth-management/types';
 import { Loan } from '@wealth-management/types';
 import { HeartPulse, CheckCircle2, AlertCircle, TrendingUp, Sparkles } from 'lucide-react';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface Props {
   accounts: Account[];
@@ -72,7 +73,8 @@ export function FinancialHealthCard({ accounts, transactions, loans }: Props) {
           setSignals(data.signals || []);
         }
       } catch (err) {
-        console.error('AI Health Fetch Error:', err);
+        const message = getErrorMessage(err);
+        console.error('AI Health Fetch Error:', message);
       } finally {
         setLoading(false);
       }

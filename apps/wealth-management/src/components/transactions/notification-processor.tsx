@@ -15,6 +15,7 @@ import { MaskedBalance } from '@/components/ui/masked-balance';
 import { CategoryBadge } from '@/components/ui/category-badge';
 import { EmailNotification } from '@wealth-management/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface ProposedTransaction {
   notificationId: string;
@@ -99,7 +100,9 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
         setStep('review');
       }
     } catch (error: any) {
-      setError(error.message);
+      const message = getErrorMessage(error);
+      const errorMsg = isAppError(error) ? error.userMessage : message;
+      setError(errorMsg);
       setStep('review');
     }
   };
@@ -179,7 +182,9 @@ export function NotificationProcessor({ open, onOpenChange, onComplete }: Props)
       onComplete();
       setTimeout(() => onOpenChange(false), 1000);
     } catch (err: any) {
-      setError(err.message);
+      const message = getErrorMessage(err);
+      const errorMsg = isAppError(err) ? err.userMessage : message;
+      setError(errorMsg);
       setStep('review');
     }
   };

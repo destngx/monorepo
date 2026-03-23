@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Sparkles, X, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover as PopoverPrimitive, Portal as PortalPrimitive } from 'radix-ui';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface AIDataInsightProps {
   type: string;
@@ -40,7 +41,9 @@ export function AIDataInsight({ type, description, data, market, timeframe }: AI
       const result = await response.json();
       setInsight(result.insight || 'No insight generated.');
     } catch (err: any) {
-      setError(err.message || 'Analysis failed');
+      const message = getErrorMessage(err);
+      const errorMsg = isAppError(err) ? err.userMessage : message;
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -63,7 +66,9 @@ export function AIDataInsight({ type, description, data, market, timeframe }: AI
       const result = await response.json();
       setInsight(result.insight || 'No insight generated.');
     } catch (err: any) {
-      setError(err.message || 'Analysis failed');
+      const message = getErrorMessage(err);
+      const errorMsg = isAppError(err) ? err.userMessage : message;
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

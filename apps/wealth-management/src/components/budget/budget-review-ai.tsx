@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { AIInsightRenderer } from '@wealth-management/ui';
 import type { StructuredInsight } from '@wealth-management/ai/server';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface BudgetReviewAIProps {
   budget: any[];
@@ -38,8 +39,10 @@ export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, v
       const data = await res.json();
       setReview(data.review || 'Unable to generate review at this time.');
     } catch (err) {
-      console.error('Budget Review AI Error:', err);
-      setReview('Error loading financial review.');
+      const message = getErrorMessage(err);
+      const errorMsg = isAppError(err) ? err.userMessage : 'Error loading financial review.';
+      setReview(errorMsg);
+      console.error('Budget Review AI Error:', message);
     } finally {
       setIsLoading(false);
     }

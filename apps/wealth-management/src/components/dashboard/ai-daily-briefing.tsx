@@ -9,6 +9,7 @@ import { BudgetItem } from '@wealth-management/types';
 import { Loan } from '@wealth-management/types';
 import { AIInsightPatterns } from './ai-insight-patterns';
 import { useAISettings } from '@/hooks/use-ai-settings';
+import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface AIDailyBriefingProps {
   accounts: Account[];
@@ -50,7 +51,8 @@ export function AIDailyBriefing({ accounts, transactions, budget, loans }: AIDai
           setData(json);
         }
       } catch (err) {
-        console.error('Failed to fetch AI briefing', err);
+        const message = getErrorMessage(err);
+        console.error('Failed to fetch AI briefing', message);
       } finally {
         setLoading(false);
       }
