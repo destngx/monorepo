@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
 import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
-import { AppError, isAppError } from '@wealth-management/utils/errors';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST(req: Request) {
   try {
@@ -76,11 +76,19 @@ export async function POST(req: Request) {
     const result = JSON.parse(cleanedJson);
 
     return NextResponse.json(result);
-  } catch (error) {
-    const appError = isAppError(error)
-      ? error
-      : new AppError(error instanceof Error ? error.message : 'Failed to generate intelligence briefing');
-    console.error('Intelligence Briefing Error:', appError.toResponse());
+  } catch (error: unknown) {
+    if (isAppError(error)) {
+      console.error('[Intelligence Briefing API Error]', error.toResponse());
+      return NextResponse.json(
+        {
+          briefing: 'Your financial dashboard is ready. Review your assets and liabilities to stay on track.',
+          alerts: [],
+        },
+        { status: error.statusCode },
+      );
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('[Intelligence Briefing API Error]', appError.toResponse());
     return NextResponse.json(
       {
         briefing: 'Your financial dashboard is ready. Review your assets and liabilities to stay on track.',

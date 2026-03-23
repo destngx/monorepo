@@ -12,6 +12,7 @@ import {
   formatSearchContext,
   loadActionPrompt,
 } from '@wealth-management/ai/server';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface ActionCommands {
   executable_commands: unknown[];
@@ -160,8 +161,13 @@ export async function POST(req: Request) {
 
         controller.close();
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        sendEvent({ type: 'error', error: 'Internal system error during analysis', details: message });
+        if (isAppError(error)) {
+          const message = error.userMessage || error.message;
+          sendEvent({ type: 'error', error: 'Internal system error during analysis', details: message });
+        } else {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          sendEvent({ type: 'error', error: 'Internal system error during analysis', details: message });
+        }
         controller.close();
       }
     },

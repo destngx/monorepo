@@ -3,14 +3,14 @@ import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
 
 import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
-import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
+import { AppError, ValidationError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST(req: Request) {
   try {
     const { payee, categories } = (await req.json()) as { payee: string; categories: string[] };
 
     if (!payee || !categories || !Array.isArray(categories)) {
-      return NextResponse.json({ error: 'Missing payee or categories' }, { status: 400 });
+      throw new ValidationError('Missing payee or categories array');
     }
 
     const model = getLanguageModel('github-gpt-4o');
@@ -40,13 +40,13 @@ export async function POST(req: Request) {
       : categories.find((c) => c.toLowerCase() === suggestedCategory.toLowerCase()) || categories[0];
 
     return NextResponse.json({ category: finalCategory });
-  } catch (error) {
+  } catch (error: unknown) {
     if (isAppError(error)) {
-      console.error('AI Category Suggestion Error:', error.toResponse());
+      console.error('[AI Category Suggestion Error]:', error.toResponse());
       return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
     }
     const appError = new AppError(getErrorMessage(error));
-    console.error('AI Category Suggestion Error:', appError.toResponse());
+    console.error('[AI Category Suggestion Error]:', appError.toResponse());
     return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

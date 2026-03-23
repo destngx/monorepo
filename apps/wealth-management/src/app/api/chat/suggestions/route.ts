@@ -1,19 +1,18 @@
-import { generateText, LanguageModel } from "ai";
-import { getLanguageModel } from "@wealth-management/ai/providers";
+import { generateText, LanguageModel } from 'ai';
+import { getLanguageModel } from '@wealth-management/ai/providers';
+import { AppError, ValidationError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json() as { modelId?: string; context?: unknown };
+    const body = (await req.json()) as { modelId?: string; context?: unknown };
     const { modelId, context } = body;
 
     // Choose a smart default if no modelId provided
     let selectedModel: string | undefined = modelId;
-    if (!selectedModel || selectedModel === "gpt-4o-mini") {
-      selectedModel = process.env.GITHUB_TOKEN
-        ? "github-gpt-4o"
-        : "gpt-4o-mini";
+    if (!selectedModel || selectedModel === 'gpt-4o-mini') {
+      selectedModel = process.env.GITHUB_TOKEN ? 'github-gpt-4o' : 'gpt-4o-mini';
     }
 
     const model = getLanguageModel(selectedModel);
@@ -47,23 +46,30 @@ export async function POST(req: Request) {
     }
 
     const parsed = JSON.parse(jsonString) as unknown;
-    
+
     return new Response(JSON.stringify(parsed), {
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[Suggestions API Error]:", message);
+    if (isAppError(err)) {
+      console.error('[Suggestions API Error]:', err.toResponse());
+      return new Response(JSON.stringify({ error: err.userMessage }), {
+        status: err.statusCode,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const appError = new AppError(getErrorMessage(err));
+    console.error('[Suggestions API Error]:', appError.toResponse());
     // Fallback if AI fails completely
     const fallback = {
       suggestions: [
-        { label: "Financial Review", prompt: "Give me a full financial review for this month." },
-        { label: "Net Worth", prompt: "What is my current net worth breakdown?" },
-        { label: "Savings Tips", prompt: "How can I save more money this month?" }
-      ]
+        { label: 'Financial Review', prompt: 'Give me a full financial review for this month.' },
+        { label: 'Net Worth', prompt: 'What is my current net worth breakdown?' },
+        { label: 'Savings Tips', prompt: 'How can I save more money this month?' },
+      ],
     };
     return new Response(JSON.stringify(fallback), {
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }
