@@ -15,11 +15,11 @@ export function handleApiError(error: unknown, context?: string) {
 
   // Handle specialized Google Sheets errors
   if (error instanceof GoogleSheetsError) {
-    if (error.code === 'MISSING_CREDENTIALS' || error.code === 'OAUTH_EXPIRED') {
+    if (error.sheetsErrorCode === 'MISSING_CREDENTIALS' || error.sheetsErrorCode === 'OAUTH_EXPIRED') {
       return NextResponse.json(
         {
           error: error.message,
-          code: error.code,
+          code: error.sheetsErrorCode,
           instruction: 'Please run `pnpm run auth:setup` in your terminal to configure Google Sheets.',
         },
         { status: 401 },

@@ -4,10 +4,10 @@ import { AuthError, getErrorMessage } from '../../utils/errors';
 export class GoogleSheetsError extends AuthError {
   constructor(
     message: string,
-    public code: 'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR',
+    public sheetsErrorCode: 'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR',
     public originalError?: any,
   ) {
-    super(message, { context: { code, originalError } });
+    super(message, { context: { sheetsErrorCode, originalError } });
     this.name = 'GoogleSheetsError';
   }
 }

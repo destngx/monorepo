@@ -17,9 +17,7 @@ export async function GET() {
     if (isAppError(error)) {
       return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
     }
-    const appError = new AppError({
-      message: error instanceof Error ? error.message : 'Failed to fetch tags',
-    });
+    const appError = new AppError(error instanceof Error ? error.message : 'Failed to fetch tags');
     return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }
