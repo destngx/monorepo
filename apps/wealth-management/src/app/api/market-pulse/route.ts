@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMarketPulseData } from '@wealth-management/services/server';
+import { AppError, NetworkError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +11,13 @@ export async function GET(request: Request) {
     const data = await getMarketPulseData(timeframe, shouldForce);
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[MarketPulseAPI] Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch market pulse data' }, { status: 500 });
+    if (isAppError(error)) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new NetworkError(getErrorMessage(error), {
+      context: { source: 'market-pulse' },
+    });
+    console.error('[MarketPulseAPI] Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

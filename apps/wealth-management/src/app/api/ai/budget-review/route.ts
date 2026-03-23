@@ -8,6 +8,7 @@ import {
   STRUCTURED_INSIGHT_FORMAT_INSTRUCTION,
   type StructuredInsight,
 } from '@wealth-management/ai/server';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST(req: Request) {
   try {
@@ -66,11 +67,15 @@ export async function POST(req: Request) {
       const structured = extractAndParseJSON<StructuredInsight>(text);
       return NextResponse.json({ review: structured });
     } catch {
-      // Fallback: return raw text for backward compatibility
       return NextResponse.json({ review: text });
     }
   } catch (error: unknown) {
-    console.error('AI Budget Review Error:', error);
-    return NextResponse.json({ error: 'Failed to generate review' }, { status: 500 });
+    if (isAppError(error)) {
+      console.error('AI Budget Review Error:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('AI Budget Review Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

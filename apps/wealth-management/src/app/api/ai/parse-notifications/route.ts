@@ -4,7 +4,7 @@ import { openai } from '@ai-sdk/openai';
 import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
 import { getBudget } from '@wealth-management/services/server';
 import { getAccounts } from '@wealth-management/services/server';
-import { handleApiError } from '@wealth-management/utils/server';
+import { AppError, ValidationError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface ParseNotificationInput {
   id: string;
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   try {
     const { notifications } = (await req.json()) as { notifications: ParseNotificationInput[] };
     if (!notifications || !Array.isArray(notifications)) {
-      return NextResponse.json({ error: 'Notifications array is required' }, { status: 400 });
+      throw new ValidationError('Notifications array is required');
     }
 
     const budget = (await getBudget()) as { category: string }[];
@@ -43,13 +43,12 @@ export async function POST(req: Request) {
     });
 
     const cleanText = text.trim();
-    // More robust JSON extraction: find the first [ and last ]
     const startBracket = cleanText.indexOf('[');
     const endBracket = cleanText.lastIndexOf(']');
 
     if (startBracket === -1 || endBracket === -1) {
       console.error('AI non-json output:', cleanText);
-      throw new Error('AI failed to return a valid list. Please try again.');
+      throw new AppError('AI failed to return a valid list. Please try again.');
     }
 
     const jsonString = cleanText.substring(startBracket, endBracket + 1);
@@ -59,9 +58,15 @@ export async function POST(req: Request) {
       return NextResponse.json(parsed);
     } catch {
       console.error('JSON Parse Error. AI Output:', text);
-      throw new Error('AI returned malformed JSON. Please try again.');
+      throw new AppError('AI returned malformed JSON. Please try again.');
     }
   } catch (error: unknown) {
-    return handleApiError(error, 'AI Parse Notifications');
+    if (isAppError(error)) {
+      console.error('[API Error] AI Parse Notifications:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('[API Error] AI Parse Notifications:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

@@ -1,4 +1,4 @@
-import { NetworkError, getErrorMessage } from '../../utils/errors';
+import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
 
 export interface SearchResult {
   title: string;
@@ -46,8 +46,12 @@ export async function executeSearch(query: string): Promise<SearchResponse> {
         description: r.content,
       })),
     };
-  } catch (error: any) {
-    const message = getErrorMessage(error);
-    return { error: `Search execution failed: ${message}` };
+  } catch (error) {
+    const networkError = isAppError(error)
+      ? error
+      : new NetworkError('Search execution failed', {
+          context: { source: 'tavily', query },
+        });
+    return { error: `Search execution failed: ${networkError.message}` };
   }
 }

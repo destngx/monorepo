@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { AIOrchestrator } from '@wealth-management/ai/core';
 import { buildBudgetAdvisorPrompt, loadActionPrompt } from '@wealth-management/ai/server';
 import { BudgetItem, Transaction, Goal } from '@wealth-management/types';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST(req: Request) {
   try {
@@ -34,8 +35,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error('AI Budget Advisor Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to generate advisory';
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (isAppError(error)) {
+      console.error('AI Budget Advisor Error:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('AI Budget Advisor Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

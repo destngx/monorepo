@@ -1,5 +1,5 @@
 import { getCached, setCache } from '@wealth-management/utils';
-import { NetworkError, getErrorMessage } from '../../utils/errors';
+import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
 
 const CACHE_KEY = 'exchange-rate:usdt-vnd';
 const COINGECKO_API = 'https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=vnd';
@@ -24,8 +24,12 @@ export async function getExchangeRate(): Promise<number> {
     await setCache(CACHE_KEY, { rate }, 900); // 15 min cache
     return rate;
   } catch (error) {
-    const message = getErrorMessage(error);
-    console.warn('Failed to fetch live USDT/VND rate, using fallback:', message);
+    const networkError = isAppError(error)
+      ? error
+      : new NetworkError('Failed to fetch live USDT/VND rate', {
+          context: { source: 'coingecko', endpoint: COINGECKO_API },
+        });
+    console.warn('[ExchangeRateService]', networkError.message, '- using fallback');
     return 25400; // Static fallback
   }
 }

@@ -3,6 +3,7 @@ import { getLanguageModel } from '@wealth-management/ai/providers';
 import { generateText } from 'ai';
 
 import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST(req: Request) {
   try {
@@ -40,7 +41,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ category: finalCategory });
   } catch (error) {
-    console.error('AI Category Suggestion Error:', error);
-    return NextResponse.json({ error: 'Failed to suggest category' }, { status: 500 });
+    if (isAppError(error)) {
+      console.error('AI Category Suggestion Error:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('AI Category Suggestion Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

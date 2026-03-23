@@ -2,7 +2,7 @@ import { getCached, setCache } from '@wealth-management/utils';
 import { generateText } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { loadPrompt, replacePlaceholders } from '../../ai/prompts/loader';
-import { NetworkError, getErrorMessage } from '../../utils/errors';
+import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
 
 const CACHE_PREFIX = 'market-pulse:';
 const PRICE_CACHE_TTL = 300; // 5 minutes during trading
@@ -177,8 +177,12 @@ export async function getMarketPulseData(
       }
     }
   } catch (e) {
-    const message = getErrorMessage(e);
-    console.error('[MarketDataService] Failed to fetch real VN Gold price:', message);
+    const networkError = isAppError(e)
+      ? e
+      : new NetworkError('Failed to fetch real VN Gold price', {
+          context: { source: 'vang.today', endpoint: 'api/prices' },
+        });
+    console.error('[MarketDataService]', networkError.message);
   }
 
   // Fallback to synthetic if API fails
@@ -211,8 +215,12 @@ export async function getMarketPulseData(
 
   // Compute Scenarios (AI-driven with heuristic fallback)
   const aiAnalysis = await generateAiMarketAnalysis(usData, vnData, timeframe).catch((err) => {
-    const message = getErrorMessage(err);
-    console.error('[MarketDataService] AI Analysis failed:', message);
+    const networkError = isAppError(err)
+      ? err
+      : new NetworkError('AI market analysis failed', {
+          context: { timeframe, source: 'generateAiMarketAnalysis' },
+        });
+    console.error('[MarketDataService]', networkError.message);
     return null;
   });
 
@@ -315,7 +323,7 @@ async function generateAiMarketAnalysis(us: MarketState, vn: MarketState, timefr
     return JSON.parse(cleanJson);
   } catch (e) {
     const message = getErrorMessage(e);
-    console.error('Failed to parse AI market analysis JSON:', message);
+    console.error('[MarketDataService] Failed to parse AI market analysis JSON:', message);
     return null;
   }
 }
@@ -431,8 +439,12 @@ async function fetchVNIndicesFromCafeF(): Promise<any | null> {
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {
-    const message = getErrorMessage(e);
-    console.error('CafeF fetch failed:', message);
+    const networkError = isAppError(e)
+      ? e
+      : new NetworkError('CafeF VN indices fetch failed', {
+          context: { source: 'cafef.vn', endpoint: 'RealtimeChartHeader' },
+        });
+    console.error('[MarketDataService]', networkError.message);
     return null;
   }
 }
@@ -455,8 +467,12 @@ async function fetchUSDVNDFromCurrencyAPI(): Promise<MarketAsset | null> {
       momentum: 'stable',
     };
   } catch (e) {
-    const message = getErrorMessage(e);
-    console.error('Currency API fetch failed:', message);
+    const networkError = isAppError(e)
+      ? e
+      : new NetworkError('USD/VND currency rate fetch failed', {
+          context: { source: 'fawazahmed0/currency-api', endpoint: 'currencies/usd' },
+        });
+    console.error('[MarketDataService]', networkError.message);
     return null;
   }
 }
@@ -562,8 +578,12 @@ async function fetchAssetData(
       closes,
     };
   } catch (error) {
-    const message = getErrorMessage(error);
-    console.error(`Error fetching asset data for ${symbol}:`, message);
+    const networkError = isAppError(error)
+      ? error
+      : new NetworkError(`Failed to fetch asset data for ${symbol}`, {
+          context: { symbol, name, market, timeframe, source: 'yahoo-finance' },
+        });
+    console.error('[MarketDataService]', networkError.message);
     return null;
   }
 }

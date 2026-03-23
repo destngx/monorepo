@@ -8,6 +8,7 @@ import {
   type StructuredInsight,
 } from '@wealth-management/ai/server';
 import { Transaction } from '@wealth-management/types';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST(req: Request) {
   try {
@@ -65,8 +66,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ summary: text });
     }
   } catch (error: unknown) {
-    console.error('AI Summary API Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to generate summary';
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (isAppError(error)) {
+      console.error('AI Summary API Error:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('AI Summary API Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

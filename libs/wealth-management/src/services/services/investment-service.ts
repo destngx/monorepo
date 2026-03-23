@@ -4,7 +4,7 @@ import { getTransactions } from '../sheets/transactions';
 import { getBudget } from '../sheets/budget';
 import { getExchangeRate } from '../exchange-rate-service';
 import { type DataContext } from '../../ai/prompts/market/investment';
-import { getErrorMessage } from '../../utils/errors';
+import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
 
 /**
  * Investment Data Service: Extracts and prepares structured investment context.
@@ -21,27 +21,57 @@ export async function extractInvestmentData(accounts: any[]): Promise<DataContex
 
   const [cryptoSheetData, ifcSheetData, loans, transactions, budgetItems, p2pRate] = await Promise.all([
     readSheet('Crypto!A1:Z100').catch((err) => {
-      console.warn('[InvestmentService] Failed to fetch crypto sheet:', getErrorMessage(err));
+      const networkError = isAppError(err)
+        ? err
+        : new NetworkError('Failed to fetch crypto sheet', {
+            context: { sheet: 'Crypto', range: 'A1:Z100' },
+          });
+      console.warn('[InvestmentService]', networkError.message);
       return [];
     }),
     readSheet('InvestmentFundCertificate!A1:Z100').catch((err) => {
-      console.warn('[InvestmentService] Failed to fetch IFC sheet:', getErrorMessage(err));
+      const networkError = isAppError(err)
+        ? err
+        : new NetworkError('Failed to fetch IFC sheet', {
+            context: { sheet: 'InvestmentFundCertificate', range: 'A1:Z100' },
+          });
+      console.warn('[InvestmentService]', networkError.message);
       return [];
     }),
     getLoans().catch((err) => {
-      console.warn('[InvestmentService] Failed to fetch loans:', getErrorMessage(err));
+      const networkError = isAppError(err)
+        ? err
+        : new NetworkError('Failed to fetch loans', {
+            context: { source: 'getLoans' },
+          });
+      console.warn('[InvestmentService]', networkError.message);
       return [];
     }),
     getTransactions().catch((err) => {
-      console.warn('[InvestmentService] Failed to fetch transactions:', getErrorMessage(err));
+      const networkError = isAppError(err)
+        ? err
+        : new NetworkError('Failed to fetch transactions', {
+            context: { source: 'getTransactions' },
+          });
+      console.warn('[InvestmentService]', networkError.message);
       return [];
     }),
     getBudget().catch((err) => {
-      console.warn('[InvestmentService] Failed to fetch budget:', getErrorMessage(err));
+      const networkError = isAppError(err)
+        ? err
+        : new NetworkError('Failed to fetch budget', {
+            context: { source: 'getBudget' },
+          });
+      console.warn('[InvestmentService]', networkError.message);
       return [];
     }),
     getExchangeRate().catch((err) => {
-      console.warn('[InvestmentService] Failed to fetch exchange rate:', getErrorMessage(err));
+      const networkError = isAppError(err)
+        ? err
+        : new NetworkError('Failed to fetch exchange rate', {
+            context: { source: 'getExchangeRate' },
+          });
+      console.warn('[InvestmentService]', networkError.message);
       return 25400;
     }),
   ]);

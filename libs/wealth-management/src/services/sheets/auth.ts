@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { AuthError, getErrorMessage } from '../../utils/errors';
+import { AuthError, isAppError, getErrorMessage } from '../../utils/errors';
 
 export class GoogleSheetsError extends AuthError {
   constructor(

@@ -8,6 +8,7 @@ import {
   type StructuredInsight,
 } from '@wealth-management/ai/server';
 import { Loan } from '@wealth-management/types';
+import { AppError, LoanError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface EnrichedLoan extends Loan {
   type?: string;
@@ -52,7 +53,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ review: text });
     }
   } catch (error: unknown) {
-    console.error('AI Loan Review Error:', error);
-    return NextResponse.json({ error: 'Failed to generate loan review' }, { status: 500 });
+    if (isAppError(error)) {
+      console.error('AI Loan Review Error:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new LoanError(getErrorMessage(error), {
+      userMessage: 'Unable to generate loan review. Please try again.',
+    });
+    console.error('AI Loan Review Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

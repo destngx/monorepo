@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { AIOrchestrator } from '@wealth-management/ai/core';
 import { buildFinancialHealthPrompt, loadActionPrompt } from '@wealth-management/ai/server';
 import { Account, Loan } from '@wealth-management/types';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST(req: Request) {
   try {
@@ -39,8 +40,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error: unknown) {
-    console.error('AI Financial Health Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to generate financial health analysis';
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (isAppError(error)) {
+      console.error('AI Financial Health Error:', error.toResponse());
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('AI Financial Health Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }

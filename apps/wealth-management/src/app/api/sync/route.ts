@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { invalidateCache } from "@wealth-management/utils";
+import { invalidateCache } from '@wealth-management/utils';
+import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export async function POST() {
   try {
@@ -10,7 +11,11 @@ export async function POST() {
 
     return NextResponse.json({ success: true, message: 'Cache cleared successfully' });
   } catch (error) {
-    console.error("Sync API Error:", error);
-    return NextResponse.json({ error: 'Failed to clear cache' }, { status: 500 });
+    if (isAppError(error)) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.statusCode });
+    }
+    const appError = new AppError(getErrorMessage(error));
+    console.error('Sync API Error:', appError.toResponse());
+    return NextResponse.json({ error: appError.userMessage }, { status: appError.statusCode });
   }
 }
