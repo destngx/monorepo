@@ -1,25 +1,26 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo, memo, useRef } from "react";
-import { useChat } from "@ai-sdk/react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Bot, User, Sparkles, Zap, CheckCircle } from "lucide-react";
-import { useAISettings } from "@/hooks/use-ai-settings";
-import { AI_MODELS } from "@wealth-management/ai";
-import { useDebouncedChatPersistence } from "@/hooks/use-debounced-chat-persistence";
+import { useState, useEffect, useMemo, memo, useRef } from 'react';
+import { useChat } from '@ai-sdk/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Send, Bot, User, Sparkles, Zap, CheckCircle } from 'lucide-react';
+import { useAISettings } from '@/hooks/use-ai-settings';
+import { AI_MODELS } from '@wealth-management/ai';
+import { useDebouncedChatPersistence } from '@/hooks/use-debounced-chat-persistence';
+import { AppError, isAppError } from '../../../utils/errors';
 
 function getTextContent(message: any): string {
   if (Array.isArray(message.parts)) {
     return message.parts
-      .filter((p: any) => p.type === "text" && !!p.text)
+      .filter((p: any) => p.type === 'text' && !!p.text)
       .map((p: any) => p.text)
-      .join("");
+      .join('');
   }
   if (message.content && typeof message.content === 'string') return message.content;
-  return "";
+  return '';
 }
 
 export function hasContent(message: any): boolean {
@@ -33,9 +34,9 @@ export function hasContent(message: any): boolean {
 const MemoizedMessageContent = memo(({ message }: { message: any }) => {
   const parts = message.parts || [];
   const toolInvocations = message.toolInvocations || [];
-  
+
   if (parts.length === 0 && toolInvocations.length === 0 && !message.content) return null;
-  
+
   return (
     <div className="space-y-4">
       {/* 1. Legacy Content */}
@@ -49,26 +50,39 @@ const MemoizedMessageContent = memo(({ message }: { message: any }) => {
       {parts.map((part: any, idx: number) => {
         if (part.type === 'text' && part.text) {
           return (
-            <div key={`text-${idx}`} className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:first:mt-0 prose-headings:my-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0">
+            <div
+              key={`text-${idx}`}
+              className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:first:mt-0 prose-headings:my-2 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0"
+            >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>
             </div>
           );
         }
-        
+
         if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
           const toolName = part.type.split('-')[1];
-          if (part.state === 'input-streaming' || part.state === 'input-available' || part.state === 'approval-requested') {
-             return (
-               <div key={`tool-call-${idx}`} className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded px-3 py-2 text-xs">
-                 <p className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                   <Zap className="h-3 w-3" /> Calling: {toolName}
-                 </p>
-               </div>
-             );
+          if (
+            part.state === 'input-streaming' ||
+            part.state === 'input-available' ||
+            part.state === 'approval-requested'
+          ) {
+            return (
+              <div
+                key={`tool-call-${idx}`}
+                className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded px-3 py-2 text-xs"
+              >
+                <p className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                  <Zap className="h-3 w-3" /> Calling: {toolName}
+                </p>
+              </div>
+            );
           }
           if (part.state === 'output-available') {
             return (
-              <div key={`tool-result-${idx}`} className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded px-3 py-2 text-xs">
+              <div
+                key={`tool-result-${idx}`}
+                className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded px-3 py-2 text-xs"
+              >
                 <p className="font-semibold text-green-700 dark:text-green-300 flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" /> {toolName}
                 </p>
@@ -90,7 +104,10 @@ const MemoizedMessageContent = memo(({ message }: { message: any }) => {
       {toolInvocations.map((tool: any, idx: number) => {
         if (tool.state === 'call' || tool.state === 'partial-call') {
           return (
-            <div key={`legacy-tool-call-${idx}`} className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded px-3 py-2 text-xs">
+            <div
+              key={`legacy-tool-call-${idx}`}
+              className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded px-3 py-2 text-xs"
+            >
               <p className="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
                 <Zap className="h-3 w-3" /> Calling: {tool.toolName}
               </p>
@@ -99,7 +116,10 @@ const MemoizedMessageContent = memo(({ message }: { message: any }) => {
         }
         if (tool.state === 'result') {
           return (
-            <div key={`legacy-tool-result-${idx}`} className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded px-3 py-2 text-xs" >
+            <div
+              key={`legacy-tool-result-${idx}`}
+              className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded px-3 py-2 text-xs"
+            >
               <p className="font-semibold text-green-700 dark:text-green-300 flex items-center gap-1">
                 <CheckCircle className="h-3 w-3" /> {tool.toolName}
               </p>
@@ -119,7 +139,7 @@ const MemoizedMessageContent = memo(({ message }: { message: any }) => {
   );
 });
 
-MemoizedMessageContent.displayName = "MemoizedMessageContent";
+MemoizedMessageContent.displayName = 'MemoizedMessageContent';
 
 // Specialized component for the active streaming message to avoid re-rendering others
 export function renderMessageContent(message: any): React.ReactNode {
@@ -128,19 +148,19 @@ export function renderMessageContent(message: any): React.ReactNode {
 
 const StreamingMessage = renderMessageContent;
 
-export function ChatInterface({ 
-  initialSessionId, 
-  initialMessages = [] 
-}: { 
-  initialSessionId?: string,
-  initialMessages?: any[]
+export function ChatInterface({
+  initialSessionId,
+  initialMessages = [],
+}: {
+  initialSessionId?: string;
+  initialMessages?: any[];
 }) {
   const { settings, mounted } = useAISettings();
-  const activeModel = AI_MODELS[settings.modelId] || AI_MODELS["gpt-4o-mini"];
-  const [input, setInput] = useState("");
+  const activeModel = AI_MODELS[settings.modelId] || AI_MODELS['gpt-4o-mini'];
+  const [input, setInput] = useState('');
 
   const { messages, setMessages, sendMessage, status } = useChat({
-    api: "/api/chat",
+    api: '/api/chat',
     id: initialSessionId,
     initialMessages,
     body: { modelId: settings.modelId },
@@ -149,12 +169,17 @@ export function ChatInterface({
   // Load messages from localStorage on mount if no initial messages
   useEffect(() => {
     if (initialMessages.length === 0) {
-      const savedMessages = localStorage.getItem("wealthos-chat-history");
+      const savedMessages = localStorage.getItem('wealthos-chat-history');
       if (savedMessages) {
         try {
           setMessages(JSON.parse(savedMessages));
         } catch (e) {
-          console.error("Failed to load chat history:", e);
+          if (isAppError(e)) {
+            console.error('Failed to load chat history:', e.message);
+          } else {
+            const error = new AppError(e instanceof Error ? e.message : 'Failed to parse chat history');
+            console.error('Failed to load chat history:', error.message);
+          }
         }
       }
     }
@@ -163,14 +188,14 @@ export function ChatInterface({
   // Use the new debounced persistence hook instead of manual useEffect
   useDebouncedChatPersistence(messages, status);
 
-  const isBusy = status === "streaming" || status === "submitted";
+  const isBusy = status === 'streaming' || status === 'submitted';
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isBusy) return;
-    console.log("[Chat UI] Sending message:", input);
+    console.log('[Chat UI] Sending message:', input);
     sendMessage({ text: input });
-    setInput("");
+    setInput('');
   };
 
   return (
@@ -185,7 +210,7 @@ export function ChatInterface({
             <h3 className="text-sm font-semibold">WealthOS AI Advisor</h3>
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Sparkles className="h-2.5 w-2.5 text-amber-500" />
-              {mounted ? activeModel.label : "Thinking..."}
+              {mounted ? activeModel.label : 'Thinking...'}
             </p>
           </div>
         </div>
@@ -202,41 +227,35 @@ export function ChatInterface({
               <div>
                 <h4 className="font-semibold text-lg">How can I help you today?</h4>
                 <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                  Ask me about your net worth trends, budget performance, or specific transactions. I can analyze your financial data in real-time.
+                  Ask me about your net worth trends, budget performance, or specific transactions. I can analyze your
+                  financial data in real-time.
                 </p>
               </div>
             </div>
           ) : (
             messages.map((m, index) => {
               if (!hasContent(m)) return null;
-              
+
               const isLast = index === messages.length - 1;
-              const isStreaming = isLast && status === "streaming";
+              const isStreaming = isLast && status === 'streaming';
 
               return (
-                <div
-                  key={m.id}
-                  className={`flex gap-4 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}
-                >
+                <div key={m.id} className={`flex gap-4 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   <div
                     className={`flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-xl border shadow-sm ${
-                      m.role === "user" ? "bg-primary text-primary-foreground border-primary" : "bg-muted"
+                      m.role === 'user' ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted'
                     }`}
                   >
-                    {m.role === "user" ? <User className="h-4.5 w-4.5" /> : <Bot className="h-4.5 w-4.5" />}
+                    {m.role === 'user' ? <User className="h-4.5 w-4.5" /> : <Bot className="h-4.5 w-4.5" />}
                   </div>
                   <div
                     className={`flex flex-col gap-2 rounded-2xl px-5 py-3.5 text-sm max-w-[85%] leading-relaxed overflow-x-auto ${
-                      m.role === "user" 
-                        ? "bg-primary text-primary-foreground rounded-tr-none shadow-md" 
-                        : "bg-muted rounded-tl-none border shadow-sm"
+                      m.role === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-tr-none shadow-md'
+                        : 'bg-muted rounded-tl-none border shadow-sm'
                     }`}
                   >
-                    {isStreaming ? (
-                      <StreamingMessage message={m} />
-                    ) : (
-                      <MemoizedMessageContent message={m} />
-                    )}
+                    {isStreaming ? <StreamingMessage message={m} /> : <MemoizedMessageContent message={m} />}
                   </div>
                 </div>
               );
@@ -261,10 +280,7 @@ export function ChatInterface({
 
       {/* Input Form */}
       <div className="p-6 border-t bg-card">
-        <form
-          onSubmit={handleFormSubmit}
-          className="flex w-full items-end gap-3 max-w-3xl mx-auto"
-        >
+        <form onSubmit={handleFormSubmit} className="flex w-full items-end gap-3 max-w-3xl mx-auto">
           <div className="flex-1 relative">
             <textarea
               value={input}
@@ -286,10 +302,10 @@ export function ChatInterface({
               }}
             />
           </div>
-          <Button 
-            type="submit" 
-            size="icon" 
-            className="h-11 w-11 rounded-full shadow-lg transition-transform active:scale-95" 
+          <Button
+            type="submit"
+            size="icon"
+            className="h-11 w-11 rounded-full shadow-lg transition-transform active:scale-95"
             disabled={isBusy || !input.trim()}
           >
             <Send className="h-5 w-5" />

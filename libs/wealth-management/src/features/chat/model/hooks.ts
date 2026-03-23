@@ -6,6 +6,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { ChatMessage } from './types';
 import { loadChatHistory, generateMessageId, fetchSuggestions } from './queries';
 import { saveChatHistory, clearChatHistory, sendChatMessage } from './mutations';
+import { AppError, isAppError } from '../../../utils/errors';
 
 /**
  * Hook to manage chat messages state and persistence
@@ -114,7 +115,13 @@ export function useChatStream() {
                 onChunk(fullContent);
               }
             } catch (e) {
-              // Ignore non-JSON lines
+              if (isAppError(e)) {
+                console.error('Chat stream parse error:', e.message);
+              } else {
+                const error = new AppError(e instanceof Error ? e.message : 'Failed to parse chat stream');
+                console.error('Chat stream parse error:', error.message);
+              }
+              // Continue processing remaining lines
             }
           }
         }

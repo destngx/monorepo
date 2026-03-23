@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { AppError, isAppError } from '../utils/errors';
 
 const SETTINGS_KEY = 'wealthos-ai-settings';
 const SYNC_EVENT = 'wealthos-ai-settings-sync';
@@ -28,7 +29,12 @@ export function useAISettings() {
       try {
         setSettings(JSON.parse(saved));
       } catch (e) {
-        console.error('Failed to parse AI settings', e);
+        if (isAppError(e)) {
+          console.error('Failed to parse AI settings:', e.message);
+        } else {
+          const error = new AppError(e instanceof Error ? e.message : 'Failed to parse AI settings');
+          console.error('Failed to parse AI settings:', error.message);
+        }
       }
     }
   }, []);

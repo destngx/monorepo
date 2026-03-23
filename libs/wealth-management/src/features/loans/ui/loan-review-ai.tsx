@@ -1,13 +1,14 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Sparkles, ShieldAlert } from "lucide-react";
-import { Loan } from "../model/types";
-import ReactMarkdown from "react-markdown";
-import { AIInsightRenderer } from "../../ui/ai-insight-renderer";
-import type { StructuredInsight } from "../../ai/core/types";
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Sparkles, ShieldAlert } from 'lucide-react';
+import { Loan } from '../model/types';
+import ReactMarkdown from 'react-markdown';
+import { AIInsightRenderer } from '../../ui/ai-insight-renderer';
+import type { StructuredInsight } from '../../ai/core/types';
+import { AppError, isAppError } from '../../../utils/errors';
 
 interface Props {
   loans: Loan[];
@@ -21,16 +22,22 @@ export function LoanReviewAI({ loans }: Props) {
   const generateReview = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/ai/loan-review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/ai/loan-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ loans }),
       });
       const data = await response.json();
       setReview(data.review);
     } catch (e) {
-      console.error(e);
-      setReview("Failed to generate AI review. Please try again later.");
+      if (isAppError(e)) {
+        console.error('Failed to generate loan review:', e.message);
+        setReview('Failed to generate AI review. Please try again later.');
+      } else {
+        const error = new AppError(e instanceof Error ? e.message : 'Failed to generate loan review');
+        console.error('Failed to generate loan review:', error.message);
+        setReview('Failed to generate AI review. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,7 +48,7 @@ export function LoanReviewAI({ loans }: Props) {
       hasGeneratedRef.current = true;
       generateReview();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loans.length]);
 
   const isStructured = typeof review === 'object' && review !== null && 'sections' in review;
@@ -51,12 +58,16 @@ export function LoanReviewAI({ loans }: Props) {
       <CardHeader className="pb-2 pt-3 px-4 border-b border-orange-100/50 dark:border-orange-900/30">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-             <ShieldAlert className="h-4 w-4 text-orange-500" />
-             <CardTitle className="text-sm font-semibold text-orange-900 dark:text-orange-300">Lộc Phát Tài&apos;s Debt Strategy</CardTitle>
+            <ShieldAlert className="h-4 w-4 text-orange-500" />
+            <CardTitle className="text-sm font-semibold text-orange-900 dark:text-orange-300">
+              Lộc Phát Tài&apos;s Debt Strategy
+            </CardTitle>
           </div>
           <div className="flex items-center gap-1.5">
-             <Sparkles className="h-3 w-3 text-orange-400" />
-             <span className="text-[10px] font-bold text-orange-600/60 dark:text-orange-400/60 uppercase tracking-widest">AI Strategy</span>
+            <Sparkles className="h-3 w-3 text-orange-400" />
+            <span className="text-[10px] font-bold text-orange-600/60 dark:text-orange-400/60 uppercase tracking-widest">
+              AI Strategy
+            </span>
           </div>
         </div>
       </CardHeader>
@@ -76,11 +87,11 @@ export function LoanReviewAI({ loans }: Props) {
           <div className="w-full">
             <AIInsightRenderer insight={review as StructuredInsight} />
             <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-orange-100/30 dark:border-orange-900/20">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={generateReview} 
-                disabled={loading} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateReview}
+                disabled={loading}
                 className="text-[10px] h-7 px-3 gap-1.5 text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100/50 transition-all font-semibold"
               >
                 <Sparkles className="h-3 w-3" />
@@ -94,11 +105,11 @@ export function LoanReviewAI({ loans }: Props) {
               <ReactMarkdown>{review as string}</ReactMarkdown>
             </div>
             <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-orange-100/30 dark:border-orange-900/20">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={generateReview} 
-                disabled={loading} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateReview}
+                disabled={loading}
                 className="text-[10px] h-7 px-3 gap-1.5 text-orange-600 dark:text-orange-400 hover:text-orange-700 hover:bg-orange-100/50 transition-all font-semibold"
               >
                 <Sparkles className="h-3 w-3" />

@@ -1,10 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { AppError, isAppError } from '../utils/errors';
 
-export function useDebouncedChatPersistence(
-  messages: any[],
-  status: string,
-  storageKey = 'wealthos-chat-history',
-) {
+export function useDebouncedChatPersistence(messages: any[], status: string, storageKey = 'wealthos-chat-history') {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -31,7 +28,12 @@ export function useDebouncedChatPersistence(
       try {
         localStorage.setItem(storageKey, JSON.stringify(messages));
       } catch (e) {
-        console.error('Failed to save chat history:', e);
+        if (isAppError(e)) {
+          console.error('Failed to save chat history:', e.message);
+        } else {
+          const error = new AppError(e instanceof Error ? e.message : 'Failed to save chat history');
+          console.error('Failed to save chat history:', error.message);
+        }
       }
     }
 
