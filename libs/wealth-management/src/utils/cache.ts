@@ -1,5 +1,4 @@
-// Simple in-memory cache to replace SQLite-backed cache
-// This is per-instance and suitable for local development/single-user setup.
+import { StorageError, isAppError } from './errors';
 
 const cache = new Map<string, { data: string; expiresAt: number }>();
 
@@ -15,7 +14,13 @@ export async function getCached<T>(key: string): Promise<T | null> {
   try {
     return JSON.parse(entry.data) as T;
   } catch (e) {
-    console.error(`Failed to parse cache for key ${key}:`, e);
+    const storageError = isAppError(e)
+      ? e
+      : new StorageError(`Failed to parse cache for key ${key}`, {
+          context: { error: e, key },
+          userMessage: 'Cache read error.',
+        });
+    console.error(storageError.message, storageError);
     return null;
   }
 }

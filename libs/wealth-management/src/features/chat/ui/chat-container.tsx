@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Bot, Sparkles } from "lucide-react";
-import { ChatMessages } from "./chat-messages";
-import { ChatInput } from "./chat-input";
-import { useAISettings } from "@/hooks/use-ai-settings";
-import { useChatMessages, useChatStream, getActiveModelLabel } from "../model";
+import React from 'react';
+import { Bot, Sparkles } from 'lucide-react';
+import { ChatMessages } from './chat-messages';
+import { ChatInput } from './chat-input';
+import { useAISettings } from '@/hooks/use-ai-settings';
+import { useChatMessages, useChatStream, getActiveModelLabel } from '../model';
+import { ChatError, isAppError } from '../../../utils/errors';
 
 export function ChatContainer() {
   const { messages, mounted, addMessage, updateLastMessage } = useChatMessages();
@@ -15,32 +16,38 @@ export function ChatContainer() {
   const handleSendMessage = React.useCallback(
     async (text: string) => {
       // Add user message
-      addMessage("user", text);
+      addMessage('user', text);
 
       try {
         // Add assistant message placeholder
-        const assistantMsg = addMessage("assistant", "");
+        const assistantMsg = addMessage('assistant', '');
 
         // Stream the response
         await streamMessage([...messages, assistantMsg], settings.modelId, (content) => {
           updateLastMessage(content);
         });
       } catch (error: any) {
-        if (error.name === "AbortError") {
-          console.log("Request cancelled");
+        if (error.name === 'AbortError') {
+          console.log('Request cancelled');
           return;
         }
 
-        console.error("Failed to get response:", error);
+        const chatError = isAppError(error)
+          ? error
+          : new ChatError(`Failed to get response: ${error.message || 'Unknown error'}`, {
+              context: { error },
+              userMessage: 'Unable to get a response from AI. Please try again.',
+            });
 
-        // Add error message
+        console.error(chatError.message, chatError);
+
         addMessage(
-          "assistant",
-          `Sorry, I encountered an error: ${error.message || "Unknown error"}. Please try again.`
+          'assistant',
+          `Sorry, I encountered an error: ${chatError.userMessage || chatError.message}. Please try again.`,
         );
       }
     },
-    [messages, settings.modelId, addMessage, updateLastMessage, streamMessage]
+    [messages, settings.modelId, addMessage, updateLastMessage, streamMessage],
   );
 
   if (!mounted) {
@@ -72,11 +79,7 @@ export function ChatContainer() {
 
       {/* Input */}
       <div className="flex-shrink-0 p-6 border-t bg-card">
-        <ChatInput
-          onSubmit={handleSendMessage}
-          isLoading={isLoading}
-          placeholder="Ask about your finances..."
-        />
+        <ChatInput onSubmit={handleSendMessage} isLoading={isLoading} placeholder="Ask about your finances..." />
       </div>
     </div>
   );
