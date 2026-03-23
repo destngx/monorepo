@@ -7,11 +7,12 @@
 import { useState, useEffect } from 'react';
 import { BudgetItem } from './types';
 import { getBudgetItems } from './queries';
+import { AppError } from '../../../utils/errors';
 
 export function useBudgetItems() {
   const [items, setItems] = useState<BudgetItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -20,7 +21,12 @@ export function useBudgetItems() {
         const data = await getBudgetItems();
         setItems(data);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Unknown error'));
+        if (err instanceof AppError) {
+          setError(err);
+        } else {
+          const appError = new AppError(err instanceof Error ? err.message : 'Unknown error');
+          setError(appError);
+        }
       } finally {
         setLoading(false);
       }

@@ -7,11 +7,12 @@
 import { useState, useEffect } from 'react';
 import { Account } from './types';
 import { getAccounts } from './queries';
+import { AppError } from '../../../utils/errors';
 
 export function useAccounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -20,7 +21,12 @@ export function useAccounts() {
         const data = await getAccounts();
         setAccounts(data);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Unknown error'));
+        if (err instanceof AppError) {
+          setError(err);
+        } else {
+          const appError = new AppError(err instanceof Error ? err.message : 'Unknown error');
+          setError(appError);
+        }
       } finally {
         setLoading(false);
       }
@@ -35,7 +41,7 @@ export function useAccounts() {
 export function useAccountById(name: string | null) {
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(!!name);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<AppError | null>(null);
 
   useEffect(() => {
     if (!name) {
@@ -50,7 +56,12 @@ export function useAccountById(name: string | null) {
         const found = accounts.find((a) => a.name === name);
         setAccount(found || null);
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Unknown error'));
+        if (err instanceof AppError) {
+          setError(err);
+        } else {
+          const appError = new AppError(err instanceof Error ? err.message : 'Unknown error');
+          setError(appError);
+        }
       } finally {
         setLoading(false);
       }

@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getPrice } from '@wealth-management/services/server';
+import { handleApiError } from '../../../../utils/server';
+import { ValidationError } from '../../../../utils/errors';
 
 export async function POST(request: Request) {
   try {
     const { symbols } = await request.json();
 
     if (!symbols || !Array.isArray(symbols)) {
-      return NextResponse.json({ error: 'Invalid symbols list' }, { status: 400 });
+      throw new ValidationError('Invalid symbols list', {
+        userMessage: 'Please provide a valid list of symbols',
+      });
     }
 
     const pricePromises = symbols.map(async (item: any) => {
@@ -29,7 +33,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ prices: priceMap });
   } catch (error) {
-    console.error('[PricesAPI] Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch prices' }, { status: 500 });
+    return handleApiError(error, 'Investment Prices');
   }
 }
