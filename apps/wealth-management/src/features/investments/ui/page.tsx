@@ -679,16 +679,16 @@ export default function InvestmentsPage() {
         <TabsContent value="terminal" className="mt-0 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              <NewsAnalysisDashboard 
-                topic="Global Geopolitics" 
-                onAnalyzed={(data) => handleNewsAnalyzed('Geopolitics', data)} 
+                topic="Vietnam Market & Policy" 
+                onAnalyzed={(data) => handleNewsAnalyzed('Vietnam', data)} 
              />
              <NewsAnalysisDashboard 
                 topic="Interest Rates & Macro" 
                 onAnalyzed={(data) => handleNewsAnalyzed('Macro', data)} 
              />
              <NewsAnalysisDashboard 
-                topic="Vietnam Market & Policy" 
-                onAnalyzed={(data) => handleNewsAnalyzed('Vietnam', data)} 
+                topic="Global Geopolitics" 
+                onAnalyzed={(data) => handleNewsAnalyzed('Geopolitics', data)} 
              />
           </div>
 

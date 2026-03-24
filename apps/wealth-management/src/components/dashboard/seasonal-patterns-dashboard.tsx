@@ -35,7 +35,7 @@ import { Badge } from '@/components/ui/badge';
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function SeasonalPatternsDashboard() {
-  const [market, setMarket] = useState<'US' | 'VN'>('US');
+  const [market, setMarket] = useState<'US' | 'VN'>('VN');
   const [timeframe] = useState('1d'); // Seasonality is most accurate on Daily data
   const { data, isLoading, mutate } = useSWR(`/api/market-pulse?timeframe=${timeframe}`, fetcher);
 

@@ -15,7 +15,8 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  Info
+  Info,
+  Link
 } from 'lucide-react';
 import {
   GLASS_CARD,
@@ -38,7 +39,7 @@ const TIMEFRAMES = [
 
 export function MultiTimeframeDashboard() {
   const [selectedTFs, setSelectedTFs] = useState<string[]>(['1h', '4h', '1d']);
-  const [market, setMarket] = useState<'US' | 'VN'>('US');
+  const [market, setMarket] = useState<'US' | 'VN'>('VN');
 
   const { data: d1h, isLoading: loading1h } = useSWR(selectedTFs.includes('1h') ? `/api/market-pulse?timeframe=1h` : null, fetcher);
   const { data: d4h, isLoading: loading4h } = useSWR(selectedTFs.includes('4h') ? `/api/market-pulse?timeframe=4h` : null, fetcher);
@@ -219,7 +220,83 @@ export function MultiTimeframeDashboard() {
         </div>
       </Card>
 
-      {/* Comparison View Grid */}
+      {/* Global Timeframe Relationships Section */}
+      {getMarketData('1d') && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8">
+             <Card className={`${GLASS_CARD} border-zinc-200 dark:border-zinc-800/50`}>
+                <CardHeader className="py-4 px-5 border-b border-zinc-100 dark:border-zinc-800/30 bg-zinc-50/50 dark:bg-zinc-900/40">
+                  <CardTitle className="text-xs font-mono font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                    <Link className="w-4 h-4 text-indigo-500" /> Timeframe Relationships
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                   <div className="space-y-4">
+                      {getMarketData('1d')?.technicals?.timeframeRelationships?.map((rel: any, idx: number) => (
+                        <div key={idx} className={`${GLASS_CARD} p-4 flex items-center justify-between group hover:bg-zinc-800/30 transition-all border border-zinc-800/30`}>
+                          <div className="flex items-center gap-4">
+                            <div className="flex flex-col">
+                              <div className="text-xs font-bold font-mono tracking-tighter text-white">
+                                {rel.pair} <ArrowRight className="inline w-3 h-3 mx-1 text-zinc-600" />
+                              </div>
+                              <div className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">{rel.relationship}</div>
+                            </div>
+                            <div className="h-8 w-px bg-zinc-800/50 hidden md:block mx-4" />
+                            <div className="flex flex-col">
+                              <div className="text-xs font-medium text-zinc-400">{rel.advice}</div>
+                              <div className="text-[10px] text-zinc-600 italic font-mono">{rel.adviceVi}</div>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className={`text-[9px] font-mono border-zinc-800 ${rel.status === 'STRONG' || rel.status === 'ALIGNED' ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500'}`}>
+                            {rel.status}
+                          </Badge>
+                        </div>
+                      ))}
+                   </div>
+                </CardContent>
+             </Card>
+          </div>
+          <div className="lg:col-span-4">
+            <Card className={`${GLASS_CARD} h-full border-zinc-200 dark:border-zinc-800/50`}>
+              <CardHeader className="py-4 px-5 border-b border-zinc-100 dark:border-zinc-800/30 bg-zinc-50/50 dark:bg-zinc-900/40">
+                <CardTitle className="text-xs font-mono font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                  <Target className="w-4 h-4 text-emerald-500" /> Timing Confluence
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 flex items-center justify-center min-h-[150px]">
+                {(() => {
+                   const entryScore = getMarketData('1d')?.technicals?.entryTimingScore || { overall: 0, higherTfSupport: 6, lowerTfConfirm: 4 };
+                   return (
+                      <div className="grid grid-cols-1 gap-8 w-full">
+                        <div className="flex flex-col items-center justify-center p-5 border border-zinc-800/30 rounded-3xl bg-zinc-900/40 relative overflow-hidden group">
+                          <div className="text-[9px] font-bold text-zinc-500 uppercase mb-2">Entry Timing Score</div>
+                          <div className={`text-5xl font-black ${entryScore.overall >= 7 ? 'text-emerald-500' : entryScore.overall >= 4 ? 'text-amber-500' : 'text-rose-500'}`}>
+                            {entryScore.overall}/10
+                          </div>
+                          <div className={`text-[10px] font-black uppercase mt-2 tracking-[0.2em] ${entryScore.overall >= 7 ? 'text-emerald-500' : entryScore.overall >= 4 ? 'text-amber-500' : 'text-rose-500'}`}>
+                            {entryScore.overall >= 7 ? 'Precision' : entryScore.overall >= 4 ? 'Developing' : 'Avoid'}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1 p-3 rounded-2xl border border-zinc-800/10 bg-zinc-800/5">
+                            <div className="text-[9px] font-bold text-zinc-500 uppercase">Higher TF</div>
+                            <div className="text-xl font-black tabular-nums">/{entryScore.higherTfSupport || 6}</div>
+                            <div className="text-[8px] text-zinc-500 font-medium">Structure Alignment</div>
+                          </div>
+                          <div className="space-y-1 p-3 rounded-2xl border border-zinc-800/10 bg-zinc-800/5">
+                            <div className="text-[9px] font-bold text-zinc-500 uppercase">Lower TF</div>
+                            <div className="text-xl font-black tabular-nums">/{entryScore.lowerTfConfirm || 4}</div>
+                            <div className="text-[8px] text-zinc-500 font-medium">Momentum Trigger</div>
+                          </div>
+                        </div>
+                      </div>
+                   );
+                })()}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-8">
         {selectedTFs.map((tf) => {
           const data = getMarketData(tf);
@@ -241,10 +318,6 @@ export function MultiTimeframeDashboard() {
                     <TechnicalAnalysisView technicals={data.technicals} market={market} showSeasonality={false} />
                   </div>
                   <div className="space-y-6">
-                    <TimeframeRelationshipGrid
-                      relationships={data.technicals.timeframeRelationships}
-                      entryScore={data.technicals.entryTimingScore}
-                    />
                     <IntelligenceBanner
                       scenarios={data.scenarios}
                       capitalFlow={data.capitalFlow}
