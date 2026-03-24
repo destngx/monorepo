@@ -3,7 +3,7 @@ import { getBudget } from '@wealth-management/services/server';
 import { getTransactions } from '@wealth-management/services/server';
 import { getLoans } from '@wealth-management/services/server';
 import { getExchangeRate } from '@wealth-management/services/server';
-import { NetworkError } from '@wealth-management/utils/errors';
+import { getCategories } from '@wealth-management/services/server';
 
 import { NetWorthTrendCard } from '@/components/dashboard/net-worth-trend-card';
 import { AIDailyBriefing } from '@/components/dashboard/ai-daily-briefing';
@@ -11,7 +11,6 @@ import { SnapshotCardsRow } from '@/components/dashboard/snapshot-cards-row';
 import { AccountsSummary } from '@/components/dashboard/accounts-summary';
 import { SpendingChart } from '@/components/dashboard/spending-chart';
 import { BudgetOverview } from '@/components/dashboard/budget-overview';
-import { getCategories } from '@wealth-management/services/server';
 import { Account, BudgetItem, Transaction, Loan } from '@wealth-management/types';
 
 interface CategoryWithType {
@@ -23,33 +22,27 @@ interface CategoryWithType {
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  // Use Promise.all to fetch everything in parallel
   const [accounts, budget, rawTransactions, loans, , categories] = await Promise.all([
     getAccounts().catch((error) => {
-      throw new NetworkError('Failed to fetch accounts', {
-        context: { original: error instanceof Error ? error.message : String(error) },
-      });
+      console.error('Failed to fetch accounts:', error);
+      return [];
     }),
     getBudget().catch((error) => {
-      throw new NetworkError('Failed to fetch budget', {
-        context: { original: error instanceof Error ? error.message : String(error) },
-      });
+      console.error('Failed to fetch budget:', error);
+      return [];
     }),
     getTransactions().catch((error) => {
-      throw new NetworkError('Failed to fetch transactions', {
-        context: { original: error instanceof Error ? error.message : String(error) },
-      });
+      console.error('Failed to fetch transactions:', error);
+      return [];
     }),
     getLoans().catch((error) => {
-      throw new NetworkError('Failed to fetch loans', {
-        context: { original: error instanceof Error ? error.message : String(error) },
-      });
+      console.error('Failed to fetch loans:', error);
+      return [];
     }),
     getExchangeRate().catch(() => 25400),
     getCategories().catch((error) => {
-      throw new NetworkError('Failed to fetch categories', {
-        context: { original: error instanceof Error ? error.message : String(error) },
-      });
+      console.error('Failed to fetch categories:', error);
+      return [];
     }) as Promise<CategoryWithType[]>,
   ]);
 
