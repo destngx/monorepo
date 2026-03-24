@@ -15,28 +15,34 @@ export function ErrorNotificationDisplay() {
   if (!mounted) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md">
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          className={`flex items-start gap-3 p-4 rounded-lg shadow-lg border animate-in fade-in slide-in-from-top-2 duration-300 ${getSeverityStyles(notification.severity)}`}
-        >
-          {getIcon(notification.severity)}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium break-words">{notification.message}</p>
+    <>
+      <div className="fixed bottom-4 right-4 z-40 text-xs text-gray-500 pointer-events-none">
+        Notifications: {notifications.length}
+      </div>
+
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md">
+        {notifications.map((notification) => (
+          <div
+            key={notification.id}
+            className={`flex items-start gap-3 p-4 rounded-lg shadow-lg border animate-in fade-in slide-in-from-top-2 duration-300 ${getSeverityStyles(notification.severity)}`}
+          >
+            {getIcon(notification.severity)}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium break-words">{notification.message}</p>
+            </div>
+            {notification.dismissible && (
+              <button
+                onClick={() => removeError(notification.id)}
+                className="flex-shrink-0 mt-0.5 ml-2 hover:opacity-70 transition-opacity"
+                aria-label="Dismiss notification"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
-          {notification.dismissible && (
-            <button
-              onClick={() => removeError(notification.id)}
-              className="flex-shrink-0 mt-0.5 ml-2 hover:opacity-70 transition-opacity"
-              aria-label="Dismiss notification"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 
