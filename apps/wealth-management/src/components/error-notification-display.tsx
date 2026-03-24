@@ -15,34 +15,32 @@ export function ErrorNotificationDisplay() {
   if (!mounted) return null;
 
   return (
-    <>
-      <div className="fixed bottom-4 right-4 z-40 text-xs text-gray-500 pointer-events-none">
-        Notifications: {notifications.length}
-      </div>
-
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md">
-        {notifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`flex items-start gap-3 p-4 rounded-lg shadow-lg border animate-in fade-in slide-in-from-top-2 duration-300 ${getSeverityStyles(notification.severity)}`}
-          >
+    <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3 max-w-sm w-full">
+      {notifications.map((notification) => (
+        <div
+          key={notification.id}
+          className={`group pointer-events-auto flex items-start gap-4 p-4 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border backdrop-blur-md animate-in fade-in slide-in-from-right-8 duration-300 transition-all ${getSeverityStyles(notification.severity)}`}
+        >
+          <div className="flex-shrink-0 mt-0.5">
             {getIcon(notification.severity)}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium break-words">{notification.message}</p>
-            </div>
-            {notification.dismissible && (
-              <button
-                onClick={() => removeError(notification.id)}
-                className="flex-shrink-0 mt-0.5 ml-2 hover:opacity-70 transition-opacity"
-                aria-label="Dismiss notification"
-              >
-                <X size={16} />
-              </button>
-            )}
           </div>
-        ))}
-      </div>
-    </>
+          <div className="flex-1 min-w-0 pr-2">
+            <p className="text-[0.925rem] font-medium leading-relaxed tracking-tight break-words">
+              {notification.message}
+            </p>
+          </div>
+          {notification.dismissible && (
+            <button
+              onClick={() => removeError(notification.id)}
+              className="flex-shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5"
+              aria-label="Dismiss notification"
+            >
+              <X size={14} className="text-muted-foreground" />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

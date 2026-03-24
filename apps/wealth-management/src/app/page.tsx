@@ -11,7 +11,9 @@ import { SnapshotCardsRow } from '@/components/dashboard/snapshot-cards-row';
 import { AccountsSummary } from '@/components/dashboard/accounts-summary';
 import { SpendingChart } from '@/components/dashboard/spending-chart';
 import { BudgetOverview } from '@/components/dashboard/budget-overview';
+import { ServerErrorNotifier } from '@/components/server-error-notifier';
 import { Account, BudgetItem, Transaction, Loan } from '@wealth-management/types';
+import { getUserMessage } from '@wealth-management/utils/errors';
 
 interface CategoryWithType {
   name: string;
@@ -22,26 +24,33 @@ interface CategoryWithType {
 export const revalidate = 0;
 
 export default async function DashboardPage() {
+  const serverErrors: string[] = [];
+
   const [accounts, budget, rawTransactions, loans, , categories] = await Promise.all([
     getAccounts().catch((error) => {
       console.error('Failed to fetch accounts:', error);
+      serverErrors.push(`Accounts: ${getUserMessage(error)}`);
       return [];
     }),
     getBudget().catch((error) => {
       console.error('Failed to fetch budget:', error);
+      serverErrors.push(`Budget: ${getUserMessage(error)}`);
       return [];
     }),
     getTransactions().catch((error) => {
       console.error('Failed to fetch transactions:', error);
+      serverErrors.push(`Transactions: ${getUserMessage(error)}`);
       return [];
     }),
     getLoans().catch((error) => {
       console.error('Failed to fetch loans:', error);
+      serverErrors.push(`Loans: ${getUserMessage(error)}`);
       return [];
     }),
     getExchangeRate().catch(() => 25400),
     getCategories().catch((error) => {
       console.error('Failed to fetch categories:', error);
+      serverErrors.push(`Categories: ${getUserMessage(error)}`);
       return [];
     }) as Promise<CategoryWithType[]>,
   ]);
@@ -54,6 +63,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8 pb-12">
+      <ServerErrorNotifier errors={serverErrors} />
       <div className="space-y-8 max-w-7xl mx-auto w-full">
         {/* Top Intelligence Section */}
         <section className="space-y-6">

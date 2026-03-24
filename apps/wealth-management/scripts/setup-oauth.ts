@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv';
 import { URL } from 'url';
 
 // Load existing .env or .env.local
-const envPath = path.resolve(process.cwd(), '.env.local');
+const envPath = path.resolve(process.cwd(), 'apps/wealth-management/.env.local');
 dotenv.config({ path: envPath });
 
 const rl = readline.createInterface({

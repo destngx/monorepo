@@ -3,6 +3,7 @@ import { AppError } from './errors';
 export interface ApiErrorResponse {
   code?: string;
   message?: string;
+  error?: string;
   userMessage?: string;
   statusCode?: number;
 }
@@ -16,8 +17,19 @@ export async function handleApiError(response: Response): Promise<AppError> {
     errorData = {};
   }
 
-  const message = errorData.message || response.statusText || 'An error occurred';
-  const userMessage = errorData.userMessage || getDefaultUserMessage(response.status);
+  const message =
+    errorData.userMessage || errorData.message || errorData.error || response.statusText || 'An error occurred';
+  let userMessage = errorData.userMessage;
+
+  if (!userMessage) {
+    if (errorData.code === 'invalid_grant' || message.includes('invalid_grant')) {
+      userMessage =
+        'Google access session has expired or permissions were revoked. Please sign in again or re-connect your accounts.';
+    } else {
+      userMessage = getDefaultUserMessage(response.status);
+    }
+  }
+
   const statusCode = response.status;
 
   const error = new AppError(message, undefined, statusCode, undefined, {

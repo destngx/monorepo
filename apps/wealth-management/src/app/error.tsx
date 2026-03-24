@@ -4,11 +4,15 @@ import { useEffect } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useErrorNotifications } from '@wealth-management/hooks';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const { addError } = useErrorNotifications();
+
   useEffect(() => {
     console.error('Error caught by boundary:', error);
-  }, [error]);
+    addError(error.message || 'An unexpected error occurred', 'error');
+  }, [error, addError]);
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4">
