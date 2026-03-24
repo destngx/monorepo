@@ -29,22 +29,22 @@ export default async function DashboardPage() {
       throw new NetworkError('Failed to fetch accounts', {
         context: { original: error instanceof Error ? error.message : String(error) },
       });
-    }) as Promise<Account[]>,
+    }),
     getBudget().catch((error) => {
       throw new NetworkError('Failed to fetch budget', {
         context: { original: error instanceof Error ? error.message : String(error) },
       });
-    }) as Promise<BudgetItem[]>,
+    }),
     getTransactions().catch((error) => {
       throw new NetworkError('Failed to fetch transactions', {
         context: { original: error instanceof Error ? error.message : String(error) },
       });
-    }) as Promise<Transaction[]>,
+    }),
     getLoans().catch((error) => {
       throw new NetworkError('Failed to fetch loans', {
         context: { original: error instanceof Error ? error.message : String(error) },
       });
-    }) as Promise<Loan[]>,
+    }),
     getExchangeRate().catch(() => 25400),
     getCategories().catch((error) => {
       throw new NetworkError('Failed to fetch categories', {

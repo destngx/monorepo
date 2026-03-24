@@ -1,49 +1,65 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
-import { MaskedBalance } from "@/components/ui/masked-balance";
-import { Account } from "../model/types";
-import { Transaction } from "@wealth-management/types";
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Landmark, Wallet, Coins, Archive, CreditCard, BarChart3, ArrowUpRight, Clock, Target, Info, Zap, ChevronDown, ChevronRight, Flag } from "lucide-react";
-import { Loading } from "@/components/ui/loading";
-import { AccountReviewAI } from "./account-review-ai";
-import { AIDataInsight } from "@/components/dashboard/ai-data-insight";
-import { AccountTrendSparkline } from "./account-trend-sparkline";
+import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import { MaskedBalance } from '@/components/ui/masked-balance';
+import { Account } from '../model/types';
+import { Transaction } from '@wealth-management/types';
+import { useApiErrorHandler } from '../../../hooks/use-api-error-handler';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import {
+  Landmark,
+  Wallet,
+  Coins,
+  Archive,
+  CreditCard,
+  BarChart3,
+  ArrowUpRight,
+  Clock,
+  Target,
+  Info,
+  Zap,
+  ChevronDown,
+  ChevronRight,
+  Flag,
+} from 'lucide-react';
+import { Loading } from '@/components/ui/loading';
+import { AccountReviewAI } from './account-review-ai';
+import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
+import { AccountTrendSparkline } from './account-trend-sparkline';
 
 // Display config for account types
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; colorTitle: string; bgSoft: string }> = {
-  'active use': { 
-    label: 'Everyday Banking', 
-    icon: <Wallet className="h-4 w-4" />, 
+  'active use': {
+    label: 'Everyday Banking',
+    icon: <Wallet className="h-4 w-4" />,
     colorTitle: 'text-emerald-600 dark:text-emerald-500',
-    bgSoft: 'bg-emerald-500/10'
+    bgSoft: 'bg-emerald-500/10',
   },
-  'rarely use': { 
-    label: 'Savings & Reserves', 
-    icon: <Landmark className="h-4 w-4" />, 
+  'rarely use': {
+    label: 'Savings & Reserves',
+    icon: <Landmark className="h-4 w-4" />,
     colorTitle: 'text-blue-600 dark:text-blue-500',
-    bgSoft: 'bg-blue-500/10'
+    bgSoft: 'bg-blue-500/10',
   },
-  'long holding': { 
-    label: 'Investments', 
-    icon: <BarChart3 className="h-4 w-4" />, 
+  'long holding': {
+    label: 'Investments',
+    icon: <BarChart3 className="h-4 w-4" />,
     colorTitle: 'text-indigo-600 dark:text-indigo-500',
-    bgSoft: 'bg-indigo-500/10'
+    bgSoft: 'bg-indigo-500/10',
   },
-  'negative active use': { 
-    label: 'Credit Cards & Loans', 
-    icon: <CreditCard className="h-4 w-4" />, 
+  'negative active use': {
+    label: 'Credit Cards & Loans',
+    icon: <CreditCard className="h-4 w-4" />,
     colorTitle: 'text-slate-800 dark:text-slate-200',
-    bgSoft: 'bg-slate-500/10'
+    bgSoft: 'bg-slate-500/10',
   },
-  'deprecated': { 
-    label: 'Archived Accounts', 
-    icon: <Archive className="h-4 w-4" />, 
+  deprecated: {
+    label: 'Archived Accounts',
+    icon: <Archive className="h-4 w-4" />,
     colorTitle: 'text-gray-500',
-    bgSoft: 'bg-gray-500/10'
+    bgSoft: 'bg-gray-500/10',
   },
 };
 
@@ -55,23 +71,26 @@ export default function AccountsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['active use', 'negative active use']));
+  const { withErrorHandling } = useApiErrorHandler();
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/accounts').then(r => r.json()),
-      fetch('/api/transactions').then(r => r.json())
-    ]).then(([accData, txnData]) => {
-      setAccounts(accData);
-      setTransactions(txnData);
-      setLoading(false);
-    }).catch(e => {
-      console.error(e);
-      setLoading(false);
-    });
-  }, []);
+      withErrorHandling(() => fetch('/api/accounts').then((r) => r.json()), 'Failed to load accounts'),
+      withErrorHandling(() => fetch('/api/transactions').then((r) => r.json()), 'Failed to load transactions'),
+    ])
+      .then(([accData, txnData]) => {
+        if (accData) setAccounts(accData);
+        if (txnData) setTransactions(txnData);
+        setLoading(false);
+      })
+      .catch((e) => {
+        console.error(e);
+        setLoading(false);
+      });
+  }, [withErrorHandling]);
 
   const toggleSection = (type: string) => {
-    setExpandedSections(prev => {
+    setExpandedSections((prev) => {
       const next = new Set(prev);
       if (next.has(type)) next.delete(type);
       else next.add(type);
@@ -87,13 +106,13 @@ export default function AccountsPage() {
       return map;
     }, {});
 
-    const sortedTypes = TYPE_ORDER.filter(t => grouped[t]?.length > 0);
-    Object.keys(grouped).forEach(t => {
+    const sortedTypes = TYPE_ORDER.filter((t) => grouped[t]?.length > 0);
+    Object.keys(grouped).forEach((t) => {
       if (!sortedTypes.includes(t)) sortedTypes.push(t);
     });
 
-    const totalAssets = accounts.filter(a => a.balance > 0).reduce((sum, a) => sum + a.balance, 0);
-    const totalLiabilities = Math.abs(accounts.filter(a => a.balance < 0).reduce((sum, a) => sum + a.balance, 0));
+    const totalAssets = accounts.filter((a) => a.balance > 0).reduce((sum, a) => sum + a.balance, 0);
+    const totalLiabilities = Math.abs(accounts.filter((a) => a.balance < 0).reduce((sum, a) => sum + a.balance, 0));
     const totalNetWorth = totalAssets - totalLiabilities;
 
     return { grouped, sortedTypes, totalAssets, totalLiabilities, totalNetWorth };
@@ -101,7 +120,6 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-10">
-      
       {/* Header Section */}
       {/* The header title and description were removed as per instruction */}
 
@@ -129,10 +147,10 @@ export default function AccountsPage() {
                   <span className="text-base font-bold tracking-tight text-emerald-600 dark:text-emerald-500">
                     <MaskedBalance amount={totalAssets} />
                   </span>
-                  <AIDataInsight 
+                  <AIDataInsight
                     type="Total Assets"
                     description="Aggregate value of all accounts with positive balances, including cash, savings, and investments."
-                    data={accounts.filter(a => a.balance > 0)}
+                    data={accounts.filter((a) => a.balance > 0)}
                   />
                 </div>
               </CardContent>
@@ -149,10 +167,10 @@ export default function AccountsPage() {
                   <span className="text-base font-bold tracking-tight text-orange-500 dark:text-orange-400">
                     <MaskedBalance amount={totalLiabilities} />
                   </span>
-                  <AIDataInsight 
+                  <AIDataInsight
                     type="Total Liabilities"
                     description="Aggregate value of all accounts with negative balances, representing credit card debt and loans."
-                    data={accounts.filter(a => a.balance < 0)}
+                    data={accounts.filter((a) => a.balance < 0)}
                   />
                 </div>
               </CardContent>
@@ -169,7 +187,7 @@ export default function AccountsPage() {
                   <span className="text-base font-bold tracking-tight text-white">
                     <MaskedBalance amount={totalNetWorth} />
                   </span>
-                  <AIDataInsight 
+                  <AIDataInsight
                     type="Net Worth"
                     description="Total liquid wealth calculated as Total Assets minus Total Liabilities."
                     data={{ totalAssets, totalLiabilities, totalNetWorth }}
@@ -241,38 +259,48 @@ export default function AccountsPage() {
           </div>
 
           {/* AI Review Section */}
-          <AccountReviewAI 
-            accounts={accounts} 
-            totalAssets={totalAssets} 
-            totalLiabilities={totalLiabilities} 
-            totalNetWorth={totalNetWorth} 
+          <AccountReviewAI
+            accounts={accounts}
+            totalAssets={totalAssets}
+            totalLiabilities={totalLiabilities}
+            totalNetWorth={totalNetWorth}
           />
 
           {/* High Density Table Layout */}
           <div className="space-y-0 bg-card rounded-xl border shadow-sm overflow-hidden">
             {sortedTypes.map((type, index) => {
-              const config = TYPE_CONFIG[type] || { label: type, icon: <Coins className="h-4 w-4" />, colorTitle: 'text-gray-500', bgSoft: 'bg-muted' };
+              const config = TYPE_CONFIG[type] || {
+                label: type,
+                icon: <Coins className="h-4 w-4" />,
+                colorTitle: 'text-gray-500',
+                bgSoft: 'bg-muted',
+              };
               const typeAccounts = grouped[type];
               const subtotal = typeAccounts.reduce((s, a) => s + a.balance, 0);
               const isCredit = type === 'negative active use';
 
               return (
-                <div key={type} className={`animate-in fade-in duration-500 fill-mode-both ${index > 0 ? 'border-t' : ''}`} style={{ animationDelay: `${TYPE_ORDER.indexOf(type) * 100}ms` }}>
-                  
+                <div
+                  key={type}
+                  className={`animate-in fade-in duration-500 fill-mode-both ${index > 0 ? 'border-t' : ''}`}
+                  style={{ animationDelay: `${TYPE_ORDER.indexOf(type) * 100}ms` }}
+                >
                   {/* Category Header Row */}
-                  <div 
+                  <div
                     className="flex items-center justify-between px-6 py-4 bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
                     onClick={() => toggleSection(type)}
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-muted-foreground mr-1">
-                        {expandedSections.has(type) ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        {expandedSections.has(type) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
                       </div>
-                      <div className={`p-1.5 rounded-md ${config.bgSoft} ${config.colorTitle}`}>
-                        {config.icon}
-                      </div>
+                      <div className={`p-1.5 rounded-md ${config.bgSoft} ${config.colorTitle}`}>{config.icon}</div>
                       <h3 className="text-sm font-semibold uppercase tracking-wider">{config.label}</h3>
-                      <AIDataInsight 
+                      <AIDataInsight
                         type={`${config.label} Group`}
                         description={`Summary of accounts in the ${config.label} category, showing balances and goals.`}
                         data={typeAccounts}
@@ -292,11 +320,13 @@ export default function AccountsPage() {
                         const isCc = isCredit;
 
                         return (
-                          <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 hover:bg-muted/10 transition-colors gap-4 relative">
-                            
+                          <div
+                            key={idx}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between px-6 py-4 hover:bg-muted/10 transition-colors gap-4 relative"
+                          >
                             {/* Left: Name & Note */}
                             <div className="flex-1 min-w-[200px] flex items-center gap-4">
-                              <AccountTrendSparkline 
+                              <AccountTrendSparkline
                                 accountName={acc.name}
                                 currentBalance={acc.balance}
                                 transactions={transactions}
@@ -304,12 +334,19 @@ export default function AccountsPage() {
                               <div>
                                 <h4 className={`font-medium ${isCc ? 'text-foreground' : ''}`}>
                                   {isCc ? (
-                                    <Link href={`/accounts/credit-cards/${encodeURIComponent(acc.name)}`} className="hover:underline text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                    <Link
+                                      href={`/accounts/credit-cards/${encodeURIComponent(acc.name)}`}
+                                      className="hover:underline text-blue-600 dark:text-blue-400 flex items-center gap-1"
+                                    >
                                       {acc.name}
                                       <ChevronRight className="h-3 w-3" />
                                     </Link>
-                                  ) : acc.type === 'negative active use' || (acc.note && acc.note.toLowerCase().includes('loan')) ? (
-                                    <Link href={`/accounts/loans`} className="hover:underline text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                  ) : acc.type === 'negative active use' ||
+                                    (acc.note && acc.note.toLowerCase().includes('loan')) ? (
+                                    <Link
+                                      href={`/accounts/loans`}
+                                      className="hover:underline text-amber-600 dark:text-amber-400 flex items-center gap-1"
+                                    >
                                       {acc.name}
                                       <ChevronRight className="h-3 w-3" />
                                     </Link>
@@ -318,7 +355,9 @@ export default function AccountsPage() {
                                   )}
                                 </h4>
                                 {acc.note && !isCc && (
-                                  <p className="text-[13px] text-muted-foreground mt-0.5 max-w-sm truncate">{acc.note}</p>
+                                  <p className="text-[13px] text-muted-foreground mt-0.5 max-w-sm truncate">
+                                    {acc.note}
+                                  </p>
                                 )}
                                 {isCc && acc.name.includes('Sacombank') && (
                                   <div className="mt-1 space-y-0.5">
@@ -343,37 +382,49 @@ export default function AccountsPage() {
                               {isCc && acc.goalAmount !== null ? (
                                 <div className="space-y-1.5 w-full pt-1">
                                   <div className="flex justify-between text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                    <span>{Math.round(Math.abs(acc.balance) / acc.goalAmount * 100)}% Used</span>
-                                    <span>Limit: <MaskedBalance amount={acc.goalAmount} /></span>
+                                    <span>{Math.round((Math.abs(acc.balance) / acc.goalAmount) * 100)}% Used</span>
+                                    <span>
+                                      Limit: <MaskedBalance amount={acc.goalAmount} />
+                                    </span>
                                   </div>
                                   <Progress
-                                    value={Math.min(100, Math.abs(acc.balance) / acc.goalAmount * 100)}
+                                    value={Math.min(100, (Math.abs(acc.balance) / acc.goalAmount) * 100)}
                                     className="h-1.5"
-                                    indicatorColor={Math.abs(acc.balance) / acc.goalAmount > 0.8 ? "bg-orange-500" : "bg-slate-700 dark:bg-slate-300"}
+                                    indicatorColor={
+                                      Math.abs(acc.balance) / acc.goalAmount > 0.8
+                                        ? 'bg-orange-500'
+                                        : 'bg-slate-700 dark:bg-slate-300'
+                                    }
                                   />
                                   {acc.note && (
                                     <p className="text-[11px] text-emerald-600 dark:text-emerald-500 text-right mt-1 font-medium">
-                                      Avail: {/^\d+/.test(acc.note) ? <MaskedBalance amount={parseFloat(acc.note)} /> : acc.note}
+                                      Avail:{' '}
+                                      {/^\d+/.test(acc.note) ? (
+                                        <MaskedBalance amount={parseFloat(acc.note)} />
+                                      ) : (
+                                        acc.note
+                                      )}
                                     </p>
                                   )}
                                 </div>
                               ) : !isCc && acc.goalAmount !== null && acc.goalProgress !== null ? (
                                 <div className="space-y-1.5 w-full pt-1">
                                   <div className="flex justify-between text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                    <span>Goal: <MaskedBalance amount={acc.goalAmount} /></span>
+                                    <span>
+                                      Goal: <MaskedBalance amount={acc.goalAmount} />
+                                    </span>
                                     <span className={config.colorTitle}>{Math.round(acc.goalProgress)}%</span>
                                   </div>
-                                  <Progress 
-                                    value={Math.max(0, Math.min(100, acc.goalProgress))} 
-                                    className="h-1.5" 
-                                  />
+                                  <Progress value={Math.max(0, Math.min(100, acc.goalProgress))} className="h-1.5" />
                                 </div>
                               ) : null}
                             </div>
 
                             {/* Right: Balance */}
                             <div className="sm:w-32 sm:text-right flex-shrink-0">
-                              <div className={`text-[15px] font-bold tracking-tight ${acc.balance < 0 ? 'text-orange-500' : 'text-foreground'}`}>
+                              <div
+                                className={`text-[15px] font-bold tracking-tight ${acc.balance < 0 ? 'text-orange-500' : 'text-foreground'}`}
+                              >
                                 <MaskedBalance amount={Math.abs(acc.balance)} />
                               </div>
                               {!isCc && acc.clearedBalance !== acc.balance && (
@@ -382,7 +433,6 @@ export default function AccountsPage() {
                                 </p>
                               )}
                             </div>
-
                           </div>
                         );
                       })}
