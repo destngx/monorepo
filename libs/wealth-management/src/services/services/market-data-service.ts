@@ -548,7 +548,7 @@ async function fetchUSDVNDFromCurrencyAPI(): Promise<MarketAsset | null> {
 /**
  * Fetches single asset data from Yahoo Finance (Used for US market)
  */
-async function fetchAssetData(
+export async function fetchAssetData(
   symbol: string,
   name: string,
   market: 'US' | 'VN',
@@ -821,7 +821,7 @@ function generateRealCorrelationMatrix(assets: MarketAsset[]): number[][] {
   return matrix;
 }
 
-function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): Technicals {
+export function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): Technicals {
   const primaryAsset =
     assets.find((a) => a.name === 'S&P500' || a.name === 'VN-Index' || a.name === 'VN30') || assets[0];
   const closes = primaryAsset?.closes || [];
@@ -897,7 +897,7 @@ function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): Technic
   ];
 
   // Signal Generation (Expanded Actions)
-  let action: Technicals['signals']['action'] = 'HOLD/WATCH';
+  let action: 'SHORT' | 'LONG' | 'AVOID' | 'EXIT' | 'REDUCE' | 'TAKE PROFIT' | 'HOLD/WATCH' = 'HOLD/WATCH';
   let actionVi = 'NẮM GIỮ/QUAN SÁT';
   let confidence = 50;
   let reasons: string[] = [];
@@ -1132,7 +1132,7 @@ function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): Technic
   };
 }
 
-function generateValuation(assets: MarketAsset[], market: 'US' | 'VN'): Valuation {
+export function generateValuation(assets: MarketAsset[], market: 'US' | 'VN'): Valuation {
   // Filter for indices or major assets to perform valuation on
   const valuationAssets = assets.filter(
     (a) =>

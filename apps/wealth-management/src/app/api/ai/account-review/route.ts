@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     };
     const { accounts, totalAssets, totalLiabilities, totalNetWorth } = body;
 
-    const model = getLanguageModel('github-gpt-4o');
+    const model = getLanguageModel('github-gpt-4.1');
 
     const taskTemplate = await loadTaskPrompt('account-review');
     const taskInstruction = replacePlaceholders(taskTemplate, {

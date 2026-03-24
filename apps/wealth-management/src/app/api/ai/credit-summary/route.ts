@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       date: t.date,
     }));
 
-    const model = getLanguageModel('github-gpt-4o');
+    const model = getLanguageModel('github-gpt-4.1');
 
     const taskTemplate = await loadTaskPrompt('credit-summary');
     const taskInstruction = replacePlaceholders(taskTemplate, {

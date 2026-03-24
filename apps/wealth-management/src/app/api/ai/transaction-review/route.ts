@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as { transactions: unknown[] };
     const { transactions } = body;
 
-    const model = getLanguageModel('github-gpt-4o');
+    const model = getLanguageModel('github-gpt-4.1');
 
     const taskTemplate = await loadTaskPrompt('transaction-review');
     const taskInstruction = replacePlaceholders(taskTemplate, {

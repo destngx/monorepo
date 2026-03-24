@@ -26,6 +26,8 @@ import { MarketPulseDashboard } from '@/components/dashboard/market-pulse-dashbo
 import { MultiTimeframeDashboard } from '@/components/dashboard/multi-timeframe-dashboard';
 import { SeasonalPatternsDashboard } from '../../../components/dashboard/seasonal-patterns-dashboard';
 import { NewsAnalysisDashboard } from '@/components/dashboard/news-analysis-dashboard';
+import { TickerAnalysisDashboard } from '@/components/dashboard/ticker-analysis-dashboard';
+
 import { renderMessageContent, hasContent } from '@/features/chat/ui/chat-interface';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
 
@@ -692,6 +694,9 @@ export default function InvestmentsPage() {
           <TabsTrigger value="seasonality" className="gap-2 px-4">
             <Layers className="h-4 w-4" /> Seasonal Patterns
           </TabsTrigger>
+          <TabsTrigger value="ticker-analyze" className="gap-2 px-4 text-amber-500 hover:text-amber-400">
+            <Sparkles className="h-4 w-4" /> Ticker Analyze
+          </TabsTrigger>
           <TabsTrigger value="ledgers" className="gap-2 px-4">
             <Database className="h-4 w-4" /> Asset Ledgers
           </TabsTrigger>
@@ -708,6 +713,11 @@ export default function InvestmentsPage() {
         <TabsContent value="seasonality" className="mt-0">
           <SeasonalPatternsDashboard />
         </TabsContent>
+
+        <TabsContent value="ticker-analyze" className="mt-0">
+          <TickerAnalysisDashboard />
+        </TabsContent>
+
 
         <TabsContent value="terminal" className="mt-0 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

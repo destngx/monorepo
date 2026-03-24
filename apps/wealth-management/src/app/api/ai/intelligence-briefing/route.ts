@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const cashFlow = income - expense;
     const savingsRate = income > 0 ? (cashFlow / income) * 100 : 0;
 
-    const model = getLanguageModel(modelId || 'gpt-4o-mini');
+    const model = getLanguageModel(modelId || 'github-gpt-4.1');
 
     const taskTemplate = await loadTaskPrompt('intelligence-briefing');
     const taskInstruction = replacePlaceholders(taskTemplate, {

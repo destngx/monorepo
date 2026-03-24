@@ -474,7 +474,7 @@ export function IntelligenceBanner({
   timeframe,
 }: {
   scenarios?: any[];
-  capitalFlow?: any[];
+  capitalFlow?: any;
   market: string;
   timeframe: string;
 }) {

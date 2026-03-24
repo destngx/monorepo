@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       throw new ValidationError('Missing payee or categories array');
     }
 
-    const model = getLanguageModel('github-gpt-4o');
+    const model = getLanguageModel('github-gpt-4.1');
 
     const taskTemplate = await loadTaskPrompt('suggest-category');
     const taskInstruction = replacePlaceholders(taskTemplate, {

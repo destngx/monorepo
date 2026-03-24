@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     const totalDebt = loans.reduce((sum: number, loan: Loan) => sum + (loan.yearlyRemaining || 0), 0);
 
-    const model = getLanguageModel('github-gpt-4o');
+    const model = getLanguageModel('github-gpt-4.1');
 
     const taskTemplate = await loadTaskPrompt('loan-review');
     const taskInstruction = replacePlaceholders(taskTemplate, {

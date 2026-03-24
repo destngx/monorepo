@@ -39,7 +39,7 @@ export async function POST(req: Request) {
         remaining: b.monthlyRemaining,
       }));
 
-    const model = getLanguageModel('github-gpt-4o');
+    const model = getLanguageModel('github-gpt-4.1');
 
     const taskTemplate = await loadTaskPrompt('budget-review');
     const taskInstruction = replacePlaceholders(taskTemplate, {
