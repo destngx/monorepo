@@ -220,7 +220,7 @@ export function SeasonalPatternsDashboard() {
                         <Globe className="w-3 h-3" /> {market} REGIME
                       </div>
                       <div className="flex items-center gap-1.5 uppercase">
-                        <Calendar className="w-3 h-3" /> 252 Sessions Analyzed
+                        <Calendar className="w-3 h-3" /> {validSeasonality.length || 252} Sessions Analyzed
                       </div>
                    </div>
                 </div>

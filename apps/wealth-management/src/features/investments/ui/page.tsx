@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { MarketPulseDashboard } from '@/components/dashboard/market-pulse-dashboard';
 import { MultiTimeframeDashboard } from '@/components/dashboard/multi-timeframe-dashboard';
-import { SeasonalPatternsDashboard } from '@/components/dashboard/seasonal-patterns-dashboard';
+import { SeasonalPatternsDashboard } from '../../../components/dashboard/seasonal-patterns-dashboard';
 import { NewsAnalysisDashboard } from '@/components/dashboard/news-analysis-dashboard';
 import { renderMessageContent, hasContent } from '@/features/chat/ui/chat-interface';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
@@ -61,6 +61,10 @@ export default function InvestmentsPage() {
     body: { context: inputContext },
   } as any);
   const isChatBusy = status === 'streaming' || status === 'submitted';
+ 
+  const [totalVND, setTotalVND] = useState(0);
+  const [totalCrypto, setTotalCrypto] = useState(0);
+  const [totalIFC, setTotalIFC] = useState(0);
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,7 +171,51 @@ export default function InvestmentsPage() {
 
   // Effect to re-calculate when prices arrive
   useEffect(() => {
-    if (!assets || Object.keys(prices).length === 0) return;
+    if (!accounts.length) return;
+
+    // Calculate Account Total
+    const accTotal = accounts.reduce((sum, acc) => sum + (acc.balance * (acc.currency === 'VND' ? 1 : exchangeRate)), 0);
+    
+    // Calculate Asset Totals
+    let cryptoTotal = 0;
+    if (assets?.crypto?.holdings) {
+      assets.crypto.holdings.forEach((row: any) => {
+        const symbol = row['Token'] || row['Currency'] || row['Asset'] || row['Symbol'];
+        const amountKey = Object.keys(row).find(k => k.toLowerCase().includes('amount') || k.toLowerCase().includes('balance') || k.toLowerCase().includes('holding') || k.toLowerCase().includes('qty') || k.toLowerCase().includes('quantity'));
+        const priceKey = Object.keys(row).find(k => k.toLowerCase().includes('price') || k.toLowerCase().includes('rate') || k.toLowerCase().includes('cost'));
+        
+        const amount = amountKey ? parseFloat(String(row[amountKey]).replace(/,/g, '')) : 0;
+        let price = priceKey ? parseFloat(String(row[priceKey]).replace(/,/g, '')) : 0;
+        if (!price && symbol && prices[String(symbol)]) price = prices[String(symbol)];
+        
+        if (!isNaN(amount) && !isNaN(price)) {
+          let val = amount * price;
+          if (price < 100000) val *= exchangeRate; // Assume USD/USDT if low price
+          cryptoTotal += val;
+        }
+      });
+    }
+
+    let ifcTotal = 0;
+    if (assets?.funds?.holdings) {
+      assets.funds.holdings.forEach((row: any) => {
+        const symbol = row['Certificate'] || row['Index'] || row['Asset'] || row['Symbol'];
+        const amountKey = Object.keys(row).find(k => k.toLowerCase().includes('amount') || k.toLowerCase().includes('balance') || k.toLowerCase().includes('holding') || k.toLowerCase().includes('qty') || k.toLowerCase().includes('quantity'));
+        const priceKey = Object.keys(row).find(k => k.toLowerCase().includes('price') || k.toLowerCase().includes('rate') || k.toLowerCase().includes('cost'));
+        
+        const amount = amountKey ? parseFloat(String(row[amountKey]).replace(/,/g, '')) : 0;
+        let price = priceKey ? parseFloat(String(row[priceKey]).replace(/,/g, '')) : 0;
+        if (!price && symbol && prices[String(symbol)]) price = prices[String(symbol)];
+        
+        if (!isNaN(amount) && !isNaN(price)) {
+          ifcTotal += amount * price;
+        }
+      });
+    }
+
+    setTotalVND(accTotal);
+    setTotalCrypto(cryptoTotal);
+    setTotalIFC(ifcTotal);
   }, [prices, assets, accounts, exchangeRate]);
 
   const handleInitiateScan = async () => {
@@ -629,21 +677,6 @@ export default function InvestmentsPage() {
         </div>
       </div>
 
-      {/* <div className="flex flex-wrap items-center gap-6 px-1">
-        <div className="flex items-center gap-2">
-          <div className="bg-emerald-100/50 p-1.5 rounded text-emerald-600">
-            <Coins className="h-3 w-3" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-tight text-muted-foreground whitespace-nowrap">VND Exposure:</span>
-            <span className="font-bold text-xs text-emerald-700 dark:text-emerald-400">
-              {isLoadingAccounts ? "..." : <MaskedBalance amount={totalVND} />}
-            </span>
-          </div>
-        </div>
-        
-        
-      </div> */}
 
       <Tabs defaultValue="terminal" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 border">

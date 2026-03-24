@@ -168,7 +168,7 @@ export function MultiTimeframeDashboard() {
                           {(data.technicals?.cycle?.phase || 'N/A').toUpperCase()}
                         </Badge>
                         <div className="text-[10px] text-zinc-500 font-medium leading-tight max-w-[150px]">
-                          {data.technicals?.cycle?.description || 'Awaiting Analysis'}
+                          {data.technicals?.cycle?.descriptionVi || 'Awaiting Analysis'}
                         </div>
                       </div>
                     </td>
