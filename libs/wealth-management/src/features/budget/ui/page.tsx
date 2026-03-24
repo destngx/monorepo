@@ -32,8 +32,16 @@ export default function BudgetPage() {
 
   useEffect(() => {
     Promise.all([
-      withErrorHandling(() => fetch('/api/budget').then((r) => r.json()), 'Failed to load budget'),
-      withErrorHandling(() => fetch('/api/transactions').then((r) => r.json()), 'Failed to load transactions'),
+      withErrorHandling(async () => {
+        const res = await fetch('/api/budget');
+        if (!res.ok) throw new Error(`Failed to load budget: ${res.statusText}`);
+        return res.json();
+      }, 'Failed to load budget'),
+      withErrorHandling(async () => {
+        const res = await fetch('/api/transactions');
+        if (!res.ok) throw new Error(`Failed to load transactions: ${res.statusText}`);
+        return res.json();
+      }, 'Failed to load transactions'),
     ])
       .then(([budgetData, txData]) => {
         if (budgetData) setBudgetBase(budgetData);
@@ -50,20 +58,20 @@ export default function BudgetPage() {
     if (!mounted) return;
     setFetchingAdvisor(true);
     try {
-      const res = await withErrorHandling(
-        () =>
-          fetch('/api/ai/budget-advisor', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              budget: budgetBase,
-              transactions,
-              date: format(viewDate, 'yyyy-MM-dd'),
-              modelId: settings.modelId,
-            }),
+      const res = await withErrorHandling(async () => {
+        const response = await fetch('/api/ai/budget-advisor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            budget: budgetBase,
+            transactions,
+            date: format(viewDate, 'yyyy-MM-dd'),
+            modelId: settings.modelId,
           }),
-        'Failed to get budget advisor',
-      );
+        });
+        if (!response.ok) throw new Error(`Failed to get budget advisor: ${response.statusText}`);
+        return response;
+      }, 'Failed to get budget advisor');
       if (res && res.ok) {
         const data = await res.json();
         setAdvisorData(data);

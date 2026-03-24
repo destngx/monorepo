@@ -89,9 +89,21 @@ export default function InvestmentsPage() {
         setError(null);
 
         const [accRes, assetsRes, rateRes] = await Promise.all([
-          withErrorHandling(() => fetch('/api/accounts'), 'Failed to load accounts'),
-          withErrorHandling(() => fetch('/api/investments/assets'), 'Failed to load investments'),
-          withErrorHandling(() => fetch('/api/exchange-rate'), 'Failed to load exchange rate'),
+          withErrorHandling(async () => {
+            const res = await fetch('/api/accounts');
+            if (!res.ok) throw new Error(`Failed to load accounts: ${res.statusText}`);
+            return res;
+          }, 'Failed to load accounts'),
+          withErrorHandling(async () => {
+            const res = await fetch('/api/investments/assets');
+            if (!res.ok) throw new Error(`Failed to load investments: ${res.statusText}`);
+            return res;
+          }, 'Failed to load investments'),
+          withErrorHandling(async () => {
+            const res = await fetch('/api/exchange-rate');
+            if (!res.ok) throw new Error(`Failed to load exchange rate: ${res.statusText}`);
+            return res;
+          }, 'Failed to load exchange rate'),
         ]);
 
         if (!accRes || !assetsRes || !rateRes) {
@@ -343,18 +355,18 @@ export default function InvestmentsPage() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await withErrorHandling(
-        () =>
-          fetch('/api/ai/investment-analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accounts, prices }),
-            signal: abortControllerRef.current.signal,
-          }),
-        'Failed to start investment analysis',
-      );
+      const response = await withErrorHandling(async () => {
+        const res = await fetch('/api/ai/investment-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accounts, prices }),
+          signal: abortControllerRef.current.signal,
+        });
+        if (!res.ok) throw new Error(`Failed to start analysis: ${res.statusText}`);
+        return res;
+      }, 'Failed to start investment analysis');
 
-      if (!response || !response.ok) {
+      if (!response) {
         return;
       }
 

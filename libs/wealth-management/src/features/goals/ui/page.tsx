@@ -69,39 +69,45 @@ export default function GoalsPage() {
   const { withErrorHandling } = useApiErrorHandler();
 
   useEffect(() => {
-    withErrorHandling(
-      () =>
-        fetch('/api/goals')
-          .then((res) => res.json())
-          .then((data) => {
-            setGoals(data);
-            setLoading(false);
+    withErrorHandling(async () => {
+      const response = await fetch('/api/goals');
+      if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
+      return response.json() as Promise<Goal[]>;
+    }, 'Failed to load goals')
+      .then((data: Goal[] | null) => {
+        if (!data) {
+          setLoading(false);
+          return;
+        }
 
-            setPageData({
-              goals: data,
-              totalTarget: data.reduce((acc: number, g: Goal) => acc + g.targetAmount, 0),
-              totalSaved: data.reduce((acc: number, g: Goal) => acc + g.currentAmount, 0),
-            });
+        const goalsData = data as Goal[];
+        setGoals(goalsData);
+        setLoading(false);
 
-            if (data.some((g: Goal) => g.status === 'AT_RISK')) {
-              addInsight({
-                type: 'alert',
-                title: 'Goal at Risk',
-                content:
-                  "Your MacBook Pro goal is currently at risk due to a slow-down in contributions. If you continue at this pace, you'll reach it 3 months later than planned.",
-                suggestedQuestions: [
-                  'How can I fix my MacBook goal?',
-                  'Show me my goal timeline',
-                  'Can I still reach it by August?',
-                ],
-              });
-            }
-          }),
-      'Failed to load goals',
-    ).catch((error) => {
-      console.error('Failed to fetch goals:', error);
-      setLoading(false);
-    });
+        setPageData({
+          goals: goalsData,
+          totalTarget: goalsData.reduce((acc: number, g: Goal) => acc + g.targetAmount, 0),
+          totalSaved: goalsData.reduce((acc: number, g: Goal) => acc + g.currentAmount, 0),
+        });
+
+        if (goalsData.some((g: Goal) => g.status === 'AT_RISK')) {
+          addInsight({
+            type: 'alert',
+            title: 'Goal at Risk',
+            content:
+              "Your MacBook Pro goal is currently at risk due to a slow-down in contributions. If you continue at this pace, you'll reach it 3 months later than planned.",
+            suggestedQuestions: [
+              'How can I fix my MacBook goal?',
+              'Show me my goal timeline',
+              'Can I still reach it by August?',
+            ],
+          });
+        }
+      })
+      .catch((error: unknown) => {
+        console.error('Failed to fetch goals:', error);
+        setLoading(false);
+      });
   }, [setPageData, addInsight, withErrorHandling]);
 
   if (loading) {

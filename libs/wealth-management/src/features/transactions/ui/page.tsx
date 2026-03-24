@@ -50,15 +50,23 @@ export default function TransactionsPage() {
     setLoading(true);
     setAuthError(null);
     try {
-      const res = await withErrorHandling(() => fetch('/api/transactions'), 'Failed to load transactions');
-      if (res && res.ok) {
+      const res = await withErrorHandling(async () => {
+        const response = await fetch('/api/transactions');
+        if (!response.ok) {
+          if (response.status === 401) {
+            const errorData = await response.json();
+            setAuthError(errorData.code || 'API_ERROR');
+            return null;
+          }
+          throw new Error(`Failed to load transactions: ${response.statusText}`);
+        }
+        return response;
+      }, 'Failed to load transactions');
+      if (res) {
         const data: Transaction[] = await res.json();
         data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setAllTransactions(data);
         setVisibleCount(PAGE_SIZE);
-      } else if (res && res.status === 401) {
-        const errorData = await res.json();
-        setAuthError(errorData.code || 'API_ERROR');
       }
     } catch (e) {
       console.error(e);
@@ -70,8 +78,12 @@ export default function TransactionsPage() {
 
   const fetchPendingCount = async () => {
     try {
-      const res = await withErrorHandling(() => fetch('/api/notifications'), 'Failed to load notification count');
-      if (res && res.ok) {
+      const res = await withErrorHandling(async () => {
+        const response = await fetch('/api/notifications');
+        if (!response.ok) throw new Error(`Failed to load notification count: ${response.statusText}`);
+        return response;
+      }, 'Failed to load notification count');
+      if (res) {
         const data = await res.json();
         setPendingNotifCount(data.length);
       }

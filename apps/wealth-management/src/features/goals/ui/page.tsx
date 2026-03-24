@@ -8,28 +8,39 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus, SlidersHorizontal } from 'lucide-react';
 import { useAIContext } from '@/features/chat/ui/ai-context-provider';
+import { useApiErrorHandler } from '@wealth-management/hooks';
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { setPageData, addInsight } = useAIContext();
+  const { withErrorHandling } = useApiErrorHandler();
 
   useEffect(() => {
-    fetch('/api/goals')
-      .then((res) => res.json() as Promise<Goal[]>)
-      .then((data) => {
-        setGoals(data);
+    withErrorHandling(async () => {
+      const response = await fetch('/api/goals');
+      if (!response.ok) throw new Error(`Failed: ${response.statusText}`);
+      return response.json() as Promise<Goal[]>;
+    }, 'Failed to load goals')
+      .then((data: Goal[] | null) => {
+        if (!data) {
+          setIsLoading(false);
+          return;
+        }
+
+        const goalsData = data as Goal[];
+        setGoals(goalsData);
         setIsLoading(false);
 
         // Report goals context to AI
         setPageData({
-          goals: data,
-          totalTarget: data.reduce((acc: number, g: Goal) => acc + g.targetAmount, 0),
-          totalSaved: data.reduce((acc: number, g: Goal) => acc + g.currentAmount, 0),
+          goals: goalsData,
+          totalTarget: goalsData.reduce((acc: number, g: Goal) => acc + g.targetAmount, 0),
+          totalSaved: goalsData.reduce((acc: number, g: Goal) => acc + g.currentAmount, 0),
         });
 
         // Add a demo insight
-        if (data.some((g: Goal) => g.status === 'AT_RISK')) {
+        if (goalsData.some((g: Goal) => g.status === 'AT_RISK')) {
           addInsight({
             type: 'alert',
             title: 'Goal at Risk',
@@ -47,7 +58,7 @@ export default function GoalsPage() {
         console.error('Failed to fetch goals:', error);
         setIsLoading(false);
       });
-  }, [setPageData, addInsight]);
+  }, [setPageData, addInsight, withErrorHandling]);
 
   if (isLoading) {
     return (

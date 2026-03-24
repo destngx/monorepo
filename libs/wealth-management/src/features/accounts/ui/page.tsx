@@ -75,8 +75,16 @@ export default function AccountsPage() {
 
   useEffect(() => {
     Promise.all([
-      withErrorHandling(() => fetch('/api/accounts').then((r) => r.json()), 'Failed to load accounts'),
-      withErrorHandling(() => fetch('/api/transactions').then((r) => r.json()), 'Failed to load transactions'),
+      withErrorHandling(async () => {
+        const res = await fetch('/api/accounts');
+        if (!res.ok) throw new Error(`Failed to load accounts: ${res.statusText}`);
+        return res.json();
+      }, 'Failed to load accounts'),
+      withErrorHandling(async () => {
+        const res = await fetch('/api/transactions');
+        if (!res.ok) throw new Error(`Failed to load transactions: ${res.statusText}`);
+        return res.json();
+      }, 'Failed to load transactions'),
     ])
       .then(([accData, txnData]) => {
         if (accData) setAccounts(accData);
