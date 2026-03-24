@@ -3,6 +3,7 @@ import { generateText } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { loadPrompt, replacePlaceholders } from '../../ai/prompts/loader';
 import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
+import { calculateEMA, calculateSMA, calculateRSI, calculateSeasonality } from '../../utils/technical-analysis';
 
 const CACHE_PREFIX = 'market-pulse:';
 const PRICE_CACHE_TTL = 300; // 5 minutes during trading
@@ -19,14 +20,56 @@ export interface MarketAsset {
   direction: 'up' | 'down' | 'flat';
   momentum: 'fire' | 'stable' | 'sleep';
   closes?: number[]; // Added historical closes for real calculations
+  highs?: number[];
+  lows?: number[];
+  timestamps?: number[]; // Added historical timestamps for seasonality
 }
 
 export interface Technicals {
   cycle: {
-    phase: 'Accumulation' | 'Markup' | 'Distribution' | 'Decline';
+    phase: 'Accumulation' | 'Markup' | 'Distribution' | 'Mark-Down' | 'Decline';
     description: string;
     descriptionVi: string;
     strength: number; // 0-100
+    phases?: { label: string; value: number }[]; // For Donut chart
+  };
+  indicators: {
+    rsi?: number;
+    ema20?: number;
+    ema50?: number;
+    ema200?: number;
+    sma20?: number;
+    sma50?: number;
+    sma200?: number;
+  };
+  signals?: {
+    action: 'SHORT' | 'LONG' | 'AVOID' | 'EXIT' | 'REDUCE' | 'TAKE PROFIT' | 'HOLD/WATCH';
+    actionVi: string;
+    entry: number;
+    stopLoss: number;
+    takeProfit: number;
+    rr: number; // Risk:Reward ratio
+    confidence: number;
+    reasons: string[];
+    reasonsVi: string[];
+    optimalEntry?: {
+      price: number;
+      pullbackPercent: number;
+      pullbackAmount: number;
+    };
+  };
+  timeframeRelationships?: {
+    pair: string; // e.g., "1wk -> 1d"
+    status: 'STRONG' | 'WEAK' | 'CHOPIED' | 'ALIGNED';
+    relationship: string;
+    relationshipVi: string;
+    advice: string;
+    adviceVi: string;
+  }[];
+  entryTimingScore?: {
+    overall: number; // 0-10
+    higherTfSupport: number; // 0-6
+    lowerTfConfirm: number; // 0-4
   };
   supportResistance: {
     symbol: string;
@@ -37,8 +80,15 @@ export interface Technicals {
     bollingerMid: number;
   }[];
   seasonality: {
+    rank: number;
+    name: string;
     label: string;
-    value: number;
+    return: number;
+    winRate: number;
+    pf: number; // Profit Factor
+    stdDev: number;
+    score: number;
+    n: number;
     type: 'day' | 'week' | 'month';
   }[];
 }
@@ -527,7 +577,20 @@ async function fetchAssetData(
     const quotes = result.indicators.quote[0];
     if (!quotes || !quotes.close) return null;
 
-    const closes = quotes.close.filter((c: any) => c !== null);
+    const timestampsRaw = result.timestamp || [];
+    const closesRaw = quotes.close || [];
+    const highsRaw = quotes.high || [];
+    const lowsRaw = quotes.low || [];
+
+    // Filter both to exclude null closes
+    const validPairs = timestampsRaw
+      .map((t: number, i: number) => ({ t, c: closesRaw[i], h: highsRaw[i], l: lowsRaw[i] }))
+      .filter((p: any) => p.c !== null);
+
+    const closes = validPairs.map((p: any) => p.c);
+    const highs = validPairs.map((p: any) => p.h);
+    const lows = validPairs.map((p: any) => p.l);
+    const timestamps = validPairs.map((p: any) => p.t);
 
     if (closes.length < 2) return null;
 
@@ -576,6 +639,9 @@ async function fetchAssetData(
       direction,
       momentum,
       closes,
+      highs,
+      lows,
+      timestamps,
     };
   } catch (error) {
     const networkError = isAppError(error)
@@ -738,57 +804,162 @@ function generateRealCorrelationMatrix(assets: MarketAsset[]): number[][] {
 }
 
 function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): Technicals {
+  const primaryAsset =
+    assets.find((a) => a.name === 'S&P500' || a.name === 'VN-Index' || a.name === 'VN30') || assets[0];
+  const closes = primaryAsset?.closes || [];
   const avgChange = assets.reduce((sum, a) => sum + a.percentChange, 0) / (assets.length || 1);
 
-  // Cycle Phase Logic
-  const allCloses = assets.map((a) => a.closes || []);
+  // Indicators for the primary asset
+  const rsi = calculateRSI(closes);
+  const ema20 = calculateEMA(closes, 20);
+  const ema50 = calculateEMA(closes, 50);
+  const ema200 = calculateEMA(closes, 200);
+  const sma20 = calculateSMA(closes, 20);
+  const sma50 = calculateSMA(closes, 50);
+
+  // Real ATR Calculation
+  const highs = primaryAsset.highs || [];
+  const lows = primaryAsset.lows || [];
+  let atr = primaryAsset.price * 0.02; // Fallback
+
+  if (closes.length > 14 && highs.length > 14 && lows.length > 14) {
+    let trSum = 0;
+    for (let i = closes.length - 14; i < closes.length; i++) {
+      const h = highs[i] ?? closes[i];
+      const l = lows[i] ?? closes[i];
+      const pc = closes[i - 1] ?? closes[i];
+      const tr = Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+      trSum += tr;
+    }
+    atr = trSum / 14;
+  }
+
+  // Cycle Phase Logic (Wyckoff Heuristics)
   let phase: Technicals['cycle']['phase'] = 'Accumulation';
   let desc = '';
   let descVi = '';
 
-  // Real implementation: average trend over 20 periods
-  let avg20Period = 0;
-  let valid20s = 0;
-  for (const c of allCloses) {
-    if (c.length > 20) {
-      const p1 = c[c.length - 20];
-      const p2 = c[c.length - 1];
-      avg20Period += ((p2 - p1) / p1) * 100;
-      valid20s++;
-    }
-  }
-  if (valid20s > 0) avg20Period /= valid20s;
-  else avg20Period = avgChange * 5; // Fallback extrapolation
+  const currentPrice = primaryAsset.price;
+  const isAboveEma20 = ema20 ? currentPrice > ema20 : false;
+  const isAboveEma50 = ema50 ? currentPrice > ema50 : false;
+  const isAboveEma200 = ema200 ? currentPrice > ema200 : true; // Trend fallback
 
-  if (avg20Period > 2) {
+  if (isAboveEma20 && isAboveEma50 && isAboveEma200) {
     phase = 'Markup';
-    desc = 'Market is in a strong uptrend with expanding participation.';
-    descVi = 'Thị trường đang trong xu hướng tăng mạnh với sự tham gia mở rộng.';
-  } else if (avg20Period < -2) {
-    phase = 'Decline';
-    desc = 'Bearish momentum dominant. Capitulation likely seeking support.';
-    descVi = 'Đà giảm đang chiếm ưu thế. Sự đầu hàng có khả năng đang tìm kiếm hỗ trợ.';
-  } else if (avgChange > 0) {
+    desc = 'Expansion phase with strong institutional demand.';
+    descVi = 'Giai đoạn Tăng giá (Mark-up). Xu hướng tăng mạnh với hỗ trợ từ dòng tiền lớn.';
+  } else if (!isAboveEma20 && !isAboveEma50 && !isAboveEma200) {
+    phase = 'Mark-Down';
+    desc = 'Distribution complete. Aggressive sell-off phase in progress.';
+    descVi = 'Giai đoạn Giảm giá (Mark-down). Chu kỳ bán tháo mạnh mẽ sau khi phân phối.';
+  } else if (isAboveEma50 && rsi && rsi > 70) {
     phase = 'Distribution';
-    desc = 'Trend slowing down, smart money likely exiting positions.';
-    descVi = 'Xu hướng đang chậm lại, dòng tiền thông minh có khả năng đang thoát vị thế.';
+    desc = 'Supply starting to overwhelm demand. Smart money is exiting.';
+    descVi = 'Giai đoạn Phân phối. Nguồn cung bắt đầu áp đảo, dòng tiền lớn đang thoát hàng.';
+  } else if (!isAboveEma200 && rsi && rsi < 30) {
+    phase = 'Accumulation';
+    desc = 'Bottoming process. Institutional players absorbing supply.';
+    descVi = 'Giai đoạn Tích lũy. Giá đang tạo đáy, các tổ chức đang âm thầm gom hàng.';
+  } else if (isAboveEma50 && !isAboveEma20) {
+    phase = 'Decline';
+    desc = 'Momentum slowing down. Initial signs of trend reversal.';
+    descVi = 'Đà tăng đang chững lại. Các dấu hiệu đầu tiên của sự đảo chiều xu hướng.';
   } else {
     phase = 'Accumulation';
-    desc = 'Base building after a decline. Low volatility and consolidation.';
-    descVi = 'Giai đoạn tạo đáy sau một đợt giảm. Biến động thấp và đang tích lũy.';
+    desc = 'Consolidation phase. Market searching for new equilibrium.';
+    descVi = 'Giai đoạn đi ngang tích lũy. Thị trường đang tìm kiếm điểm cân bằng mới.';
   }
 
-  // S/R & Bollinger logic based on real historical variance
+  // Phases for Donut chart (Heuristic distribution)
+  const phases = [
+    { label: 'Accumulation', value: phase === 'Accumulation' ? 80 : 5 },
+    { label: 'Mark-Up', value: phase === 'Markup' ? 80 : 5 },
+    { label: 'Distribution', value: phase === 'Distribution' ? 80 : 5 },
+    { label: 'Mark-Down', value: phase === 'Mark-Down' ? 80 : 5 },
+  ];
+
+  // Signal Generation (Expanded Actions)
+  let action: Technicals['signals']['action'] = 'HOLD/WATCH';
+  let actionVi = 'NẮM GIỮ/QUAN SÁT';
+  let confidence = 50;
+  let reasons: string[] = [];
+  let reasonsVi: string[] = [];
+
+  if (phase === 'Markup') {
+    if (rsi && rsi < 65) {
+      action = 'LONG';
+      actionVi = 'LỆNH LONG';
+      confidence = 85;
+      reasons = ['Strong uptrend confirmed', 'Healthy RSI levels', 'Breakout momentum active'];
+      reasonsVi = ['Xác nhận xu hướng tăng mạnh', 'Chỉ báo RSI ổn định', 'Đà bùng nổ đang tiếp diễn'];
+    } else {
+      action = 'TAKE PROFIT';
+      actionVi = 'CHỐT LỜI';
+      confidence = 75;
+      reasons = ['Overextended Markup phase', 'RSI entering overbought territory', 'Protecting gains recommended'];
+      reasonsVi = ['Giai đoạn tăng giá quá đà', 'RSI đi vào vùng quá mua', 'Khuyến nghị chốt lời bảo vệ thành quả'];
+    }
+  } else if (phase === 'Mark-Down') {
+    if (rsi && rsi > 35) {
+      action = 'SHORT';
+      actionVi = 'LỆNH SHORT';
+      confidence = 80;
+      reasons = ['Aggressive Markdown phase', 'Trend resistance holding', 'Bearish volume expanding'];
+      reasonsVi = ['Giai đoạn Giảm giá mạnh', 'Kháng cự xu hướng được giữ vững', 'Khối lượng bán đang gia tăng'];
+    } else {
+      action = 'EXIT';
+      actionVi = 'THOÁT VỊ THẾ';
+      confidence = 90;
+      reasons = ['Extreme bearish momentum', 'Final washout phase', 'Oversold bounce likely - Exit shorts'];
+      reasonsVi = ['Đà giảm cực đại', 'Giai đoạn rũ bỏ cuối cùng', 'Dễ có nhịp hồi kỹ thuật - Ưu tiên thoát lệnh'];
+    }
+  } else if (phase === 'Distribution') {
+    if (rsi && rsi > 60) {
+      action = 'REDUCE';
+      actionVi = 'GIẢM TỶ TRỌNG';
+      confidence = 70;
+      reasons = ['Distribution signs detected', 'Momentum divergent from price', 'De-risking portfolio recommended'];
+      reasonsVi = ['Phát hiện dấu hiệu phân phối', 'Đà tăng phân kỳ với giá', 'Khuyến nghị hạ tỷ trọng danh mục'];
+    } else {
+      action = 'EXIT';
+      actionVi = 'TẤT TOÁN VỊ THẾ';
+      confidence = 65;
+      reasons = ['Trend integrity lost', 'Smart money exiting', 'High risk of cascading decline'];
+      reasonsVi = ['Mất xu hướng tăng', 'Dòng tiền lớn đã thoát', 'Rủi ro cao xảy ra nhịp giảm mạnh'];
+    }
+  } else if (phase === 'Accumulation') {
+    if (rsi && rsi < 30) {
+      action = 'LONG';
+      actionVi = 'MUA TÍCH LŨY';
+      confidence = 60;
+      reasons = ['Value area reached', 'Supply exhaustion signs', 'Institutional buying detected'];
+      reasonsVi = ['Đã chạm vùng giá trị', 'Dấu hiệu cạn kiệt nguồn cung', 'Phát hiện lực mua từ tổ chức'];
+    } else {
+      action = 'HOLD/WATCH';
+      actionVi = 'QUAN SÁT/CHỜ ĐỢI';
+      confidence = 55;
+      reasons = ['Sideways range active', 'Waiting for clear breakout', 'Volatility compression in progress'];
+      reasonsVi = ['Đang đi ngang tích lũy', 'Chờ đợi điểm bùng nổ xác nhận', 'Biến động đang bị nén chặt'];
+    }
+  }
+
+  // ATR-based SL/TP (Real Volatility)
+  const entry = currentPrice;
+  const stopLoss = action === 'LONG' || action === 'HOLD/WATCH' ? entry - atr * 1.5 : entry + atr * 1.5;
+  const takeProfit = action === 'LONG' || action === 'HOLD/WATCH' ? entry + atr * 3.5 : entry - atr * 3.5;
+  const rr = Math.abs((takeProfit - entry) / (entry - stopLoss));
+
+  // S/R logic
   const supportResistance = assets.slice(0, 5).map((a) => {
-    const closes = a.closes || [];
+    const aCloses = a.closes || [];
     let sma = a.price;
     let stdDev = a.price * 0.05;
 
     let localMins = [a.price * 0.95, a.price * 0.92, a.price * 0.88];
     let localMaxs = [a.price * 1.05, a.price * 1.08, a.price * 1.12];
 
-    if (closes.length > 0) {
-      const last20 = closes.slice(-20);
+    if (aCloses.length > 20) {
+      const last20 = aCloses.slice(-20);
       sma = last20.reduce((s, v) => s + v, 0) / last20.length;
       const variance = last20.reduce((s, v) => s + Math.pow(v - sma, 2), 0) / last20.length;
       stdDev = Math.sqrt(variance);
@@ -807,19 +978,69 @@ function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): Technic
     };
   });
 
-  // Seasonality (Mock patterns but preserved as short-term heuristic, real calculation requires precise timestamps)
-  const seasonality: Technicals['seasonality'] = [
-    { label: 'Mon', value: 0.12, type: 'day' },
-    { label: 'Tue', value: -0.05, type: 'day' },
-    { label: 'Wed', value: 0.25, type: 'day' },
-    { label: 'Thu', value: 0.15, type: 'day' },
-    { label: 'Fri', value: -0.1, type: 'day' },
+  // Seasonality calculation
+  const dates = (primaryAsset.timestamps || []).map((ts) => new Date(ts * 1000));
+  const dayStats = calculateSeasonality(closes, dates, 'day');
+  const weekStats = calculateSeasonality(closes, dates, 'week');
+  const monthStats = calculateSeasonality(closes, dates, 'month');
+
+  const combinedSeasonality = [
+    ...dayStats.map((s) => ({ ...s, type: 'day' as const })),
+    ...weekStats.map((s) => ({ ...s, type: 'week' as const })),
+    ...monthStats.map((s) => ({ ...s, type: 'month' as const })),
   ];
 
   return {
-    cycle: { phase, description: desc, descriptionVi: descVi, strength: 65 + Math.random() * 20 },
+    cycle: { phase, description: desc, descriptionVi: descVi, strength: 65 + Math.random() * 20, phases },
+    indicators: { rsi, ema20, ema50, ema200, sma20, sma50 },
+    signals: {
+      action,
+      actionVi,
+      entry,
+      stopLoss,
+      takeProfit,
+      rr: parseFloat(rr.toFixed(2)),
+      confidence,
+      reasons,
+      reasonsVi,
+      optimalEntry: {
+        price:
+          action === 'LONG'
+            ? ema20 && ema20 < entry
+              ? ema20
+              : entry * 0.985
+            : ema20 && ema20 > entry
+              ? ema20
+              : entry * 1.015,
+        pullbackPercent: Math.abs(((entry - (ema20 || entry)) / entry) * 100),
+        pullbackAmount: Math.abs(entry - (ema20 || entry)),
+      },
+    },
+    timeframeRelationships: [
+      {
+        pair: '1wk -> 1d',
+        status: isAboveEma50 && isAboveEma200 ? 'ALIGNED' : 'CHOPIED',
+        relationship: isAboveEma50 && isAboveEma200 ? 'Bullish Dominance' : 'Regime Transition',
+        relationshipVi: isAboveEma50 && isAboveEma200 ? 'Thế trận giá tăng' : 'Giai đoạn chuyển đổi',
+        advice: isAboveEma50 ? 'Buy dips on support' : 'Wait for bottom formation',
+        adviceVi: isAboveEma50 ? 'Mua tại vùng hỗ trợ' : 'Chờ đợi xác nhận tạo đáy',
+      },
+      {
+        pair: '1d -> 1h',
+        status: isAboveEma20 ? 'STRONG' : 'WEAK',
+        relationship: isAboveEma20 ? 'Momentum Push' : 'Short-term consolidation',
+        relationshipVi: isAboveEma20 ? 'Đà tăng mạnh' : 'Tích lũy ngắn hạn',
+        advice: isAboveEma20 ? 'Aggressive entry allowed' : 'Wait for EMA20 breakout',
+        adviceVi: isAboveEma20 ? 'Có thể vào lệnh quyết liệt' : 'Đợi giá vượt EMA20',
+      },
+    ],
+    entryTimingScore: {
+      overall: Math.min(10, Math.floor((rsi ? (rsi < 35 ? 8 : rsi > 75 ? 2 : 5) : 5) + (isAboveEma20 ? 2 : 0))),
+      higherTfSupport: isAboveEma50 ? 5 : 2,
+      lowerTfConfirm: isAboveEma20 ? 4 : 1,
+    },
     supportResistance,
-    seasonality,
+    seasonality: combinedSeasonality,
   };
 }
 

@@ -22,8 +22,12 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const encoder = new TextEncoder();
-  const body = (await req.json()) as { accounts: unknown[]; prices?: Record<string, number> };
-  const { accounts, prices } = body;
+  const body = (await req.json()) as {
+    accounts: unknown[];
+    prices?: Record<string, number>;
+    newsAnalysis?: Record<string, any>;
+  };
+  const { accounts, prices, newsAnalysis } = body;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -68,7 +72,7 @@ export async function POST(req: Request) {
         const searchContext = formatSearchContext(uniqueResults);
 
         // --- Phase 1: Think Tank Expert Debate ---
-        const thinkTankInstruction = await buildThinkTankPrompt(data, searchContext, marketPulse);
+        const thinkTankInstruction = await buildThinkTankPrompt(data, searchContext, marketPulse, newsAnalysis);
 
         let thinkTankText = '';
         try {
@@ -156,6 +160,7 @@ export async function POST(req: Request) {
             ...data,
             searchContext,
             marketPulse,
+            newsAnalysis,
           },
         });
 

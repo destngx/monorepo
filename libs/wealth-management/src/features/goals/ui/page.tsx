@@ -80,7 +80,7 @@ export default function GoalsPage() {
           return;
         }
 
-        const goalsData = data as Goal[];
+        const goalsData = data;
         setGoals(goalsData);
         setLoading(false);
 

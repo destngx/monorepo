@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { MaskedBalance } from '@/components/ui/masked-balance';
@@ -16,12 +16,16 @@ import {
   Send,
   User,
   Bot,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { MarketPulseDashboard } from '@/components/dashboard/market-pulse-dashboard';
+import { MultiTimeframeDashboard } from '@/components/dashboard/multi-timeframe-dashboard';
+import { SeasonalPatternsDashboard } from '@/components/dashboard/seasonal-patterns-dashboard';
+import { NewsAnalysisDashboard } from '@/components/dashboard/news-analysis-dashboard';
 import { renderMessageContent, hasContent } from '@/features/chat/ui/chat-interface';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
 
@@ -66,7 +70,15 @@ export default function InvestmentsPage() {
   };
 
   const [error, setError] = useState<string | null>(null);
+  const [newsAnalysis, setNewsAnalysis] = useState<Record<string, any>>({});
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleNewsAnalyzed = useCallback((topic: string, data: any) => {
+    setNewsAnalysis(prev => {
+      if (prev[topic] === data) return prev;
+      return { ...prev, [topic]: data };
+    });
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -174,7 +186,7 @@ export default function InvestmentsPage() {
       const response = await fetch('/api/ai/investment-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accounts, prices }),
+        body: JSON.stringify({ accounts, prices, newsAnalysis }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -641,6 +653,12 @@ export default function InvestmentsPage() {
           <TabsTrigger value="market-pulse" className="gap-2 px-4">
             <LayoutDashboard className="h-4 w-4" /> Market Pulse
           </TabsTrigger>
+          <TabsTrigger value="multi-tf" className="gap-2 px-4">
+            <TrendingUp className="h-4 w-4" /> Multi-TF Analysis
+          </TabsTrigger>
+          <TabsTrigger value="seasonality" className="gap-2 px-4">
+            <Layers className="h-4 w-4" /> Seasonal Patterns
+          </TabsTrigger>
           <TabsTrigger value="ledgers" className="gap-2 px-4">
             <Database className="h-4 w-4" /> Asset Ledgers
           </TabsTrigger>
@@ -650,7 +668,30 @@ export default function InvestmentsPage() {
           <MarketPulseDashboard />
         </TabsContent>
 
-        <TabsContent value="terminal" className="mt-0">
+        <TabsContent value="multi-tf" className="mt-0">
+          <MultiTimeframeDashboard />
+        </TabsContent>
+
+        <TabsContent value="seasonality" className="mt-0">
+          <SeasonalPatternsDashboard />
+        </TabsContent>
+
+        <TabsContent value="terminal" className="mt-0 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             <NewsAnalysisDashboard 
+                topic="Global Geopolitics" 
+                onAnalyzed={(data) => handleNewsAnalyzed('Geopolitics', data)} 
+             />
+             <NewsAnalysisDashboard 
+                topic="Interest Rates & Macro" 
+                onAnalyzed={(data) => handleNewsAnalyzed('Macro', data)} 
+             />
+             <NewsAnalysisDashboard 
+                topic="Vietnam Market & Policy" 
+                onAnalyzed={(data) => handleNewsAnalyzed('Vietnam', data)} 
+             />
+          </div>
+
           <Card className="shadow-xl border-border/50 overflow-hidden bg-zinc-950 dark:bg-zinc-950 text-zinc-50">
             <CardHeader className="border-b border-zinc-800 bg-zinc-900/50 flex flex-row items-center justify-between">
               <div>

@@ -4,6 +4,7 @@ export interface SearchResult {
   title: string;
   url: string;
   description: string;
+  source?: string;
 }
 
 export interface SearchResponse {
@@ -44,6 +45,7 @@ export async function executeSearch(query: string): Promise<SearchResponse> {
         title: r.title,
         url: r.url,
         description: r.content,
+        source: new URL(r.url).hostname.replace('www.', ''),
       })),
     };
   } catch (error) {

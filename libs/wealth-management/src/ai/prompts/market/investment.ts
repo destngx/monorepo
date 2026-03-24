@@ -42,6 +42,7 @@ export async function buildThinkTankPrompt(
   data: DataContext,
   searchContext: string,
   marketPulse: MarketPulseResponse,
+  newsAnalysis?: Record<string, any>,
 ): Promise<string> {
   const template = await loadPrompt('market', 'think-tank');
   return replacePlaceholders(template, {
@@ -56,6 +57,7 @@ export async function buildThinkTankPrompt(
     cryptoHoldings: JSON.stringify(data.cryptoHoldings),
     ifcHoldings: JSON.stringify(data.ifcHoldings),
     prices: JSON.stringify(data.prices),
+    newsAnalysis: newsAnalysis ? JSON.stringify(newsAnalysis, null, 2) : 'N/A: No pre-analyzed news available.',
     searchContext,
     usRegimeName: marketPulse.us.scenarios?.[0]?.name,
     usRegimeType: marketPulse.us.scenarios?.[0]?.regime,

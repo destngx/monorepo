@@ -4,6 +4,7 @@
 export * from './services/exchange-rate-service';
 export * from './services/investment-service';
 export * from './services/market-data-service';
+export * from './services/news-service';
 export * from './services/price-service';
 export * from './services/search-service';
 
