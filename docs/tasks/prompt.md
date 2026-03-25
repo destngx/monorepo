@@ -5,7 +5,7 @@
 **Design Philosophy**: Every reusable pattern in one place, zero duplication.
 
 - **Workspace**: Nx Monorepo (`apps/`, `libs/`).
-- **Runtime**: `bun` preferred for all commands (`bun install`, `bun nx ...`).
+- **Runtime**: `bun` preferred for all commands (`bun install`, `bun nx ...`). Use `uv` for python related command
 - **Internal Libraries**: Use `@wealth-management/*` aliases. Avoid relative paths between libraries.
 - **Imports**: Barrel-only imports where possible.
 - **UI Standards**: Use `shadcn/ui` and `Tailwind CSS`. Prioritize `shadcn/ui` for complex components and `Tailwind` for layout/spacing.

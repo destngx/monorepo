@@ -1,0 +1,32 @@
+{
+  "name": "vnstock-server",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/vnstock-server/src",
+  "projectType": "application",
+  "tags": ["type:app", "app:vnstock-server", "scope:backend", "lang:python"],
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv pip install -r requirements.txt",
+        "cwd": "apps/vnstock-server"
+      },
+      "inputs": ["{projectRoot}/requirements.txt"]
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".venv/bin/uvicorn src.main:app --reload --port 8000",
+        "cwd": "apps/vnstock-server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/pytest",
+        "cwd": "apps/vnstock-server"
+      },
+      "inputs": ["default", "{projectRoot}/tests/**/*"]
+    }
+  }
+}

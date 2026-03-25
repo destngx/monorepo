@@ -3,10 +3,9 @@ import { NetworkError, isAppError } from '../../utils/errors';
 
 export class VNStockAdapter implements DataSourceAdapter {
   name = 'VNStock';
-  private pythonServerUrl = process.env.VNSTOCK_SERVER_URL || 'http://localhost:3001';
+  private pythonServerUrl = process.env.VNSTOCK_SERVER_URL || 'http://localhost:8000';
 
   supports(symbol: string, market: 'US' | 'VN'): boolean {
-    // VNSTOCK only supports Vietnamese market
     return market === 'VN';
   }
 
@@ -14,7 +13,7 @@ export class VNStockAdapter implements DataSourceAdapter {
     if (!this.supports(symbol, market)) return null;
 
     try {
-      const res = await fetch(`${this.pythonServerUrl}/api/vnstock/quote?symbol=${encodeURIComponent(symbol)}`);
+      const res = await fetch(`${this.pythonServerUrl}/api/v1/stocks/quote?symbol=${encodeURIComponent(symbol)}`);
       if (!res.ok) return null;
 
       const data = await res.json();
@@ -48,16 +47,32 @@ export class VNStockAdapter implements DataSourceAdapter {
     if (!this.supports(symbol, market)) return null;
 
     try {
-      const res = await fetch(
-        `${this.pythonServerUrl}/api/vnstock/history?symbol=${encodeURIComponent(symbol)}&interval=${interval}&range=${range}`,
-      );
-      if (!res.ok) return null;
+      // Map interval and range to what FastAPI expects
+      // range format: "7d", "30d", "60d"
+      let resolution = interval.toUpperCase();
+      if (resolution === '1H') resolution = '1H'; // FastAPI supports 1H
 
-      const data = await res.json();
+      const res = await fetch(
+        `${this.pythonServerUrl}/api/v1/stocks/historical?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&range_shortcut=${range}`,
+      );
+
+      // Update: main.py needs to support range_shortcut or we calculate it here
+      // I'll calculate it here to be safer or updated main.py
+      const days = parseInt(range.replace(/[^\d]/g, '')) || 30;
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+      const startDate = start.toISOString().split('T')[0];
+
+      const fetchUrl = `${this.pythonServerUrl}/api/v1/stocks/historical?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&start_date=${startDate}`;
+
+      const realRes = await fetch(fetchUrl);
+      if (!realRes.ok) return null;
+
+      const data = await realRes.json();
       if (!data.success || !data.data) return null;
 
       return (data.data as any[]).map((candle: any) => ({
-        timestamp: Math.floor(new Date(candle.date).getTime() / 1000),
+        timestamp: Math.floor(new Date(candle.time || candle.date).getTime() / 1000),
         open: candle.open,
         high: candle.high,
         low: candle.low,

@@ -13,6 +13,10 @@
     },
     "e2e": {
       "inputs": ["default", "^production"]
+    },
+    "install": {
+      "inputs": ["{projectRoot}/requirements.txt"],
+      "cache": true
     }
   },
   "namedInputs": {
@@ -41,5 +45,6 @@
         "linter": "eslint"
       }
     }
-  }
+  },
+  "analytics": false
 }

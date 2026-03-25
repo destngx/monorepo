@@ -1,0 +1,3 @@
+{
+  "dependsOn": ["vnstock-server:serve"]
+}

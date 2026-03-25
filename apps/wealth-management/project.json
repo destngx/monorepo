@@ -3,17 +3,11 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/wealth-management/src",
   "projectType": "application",
-  "tags": [
-    "type:app",
-    "app:wealth-management",
-    "scope:frontend"
-  ],
+  "tags": ["type:app", "app:wealth-management", "scope:frontend"],
   "targets": {
     "build": {
       "executor": "@nx/next:build",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
         "root": "apps/wealth-management",
@@ -44,22 +38,23 @@
         }
       }
     },
+    "serve-all": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["nx serve vnstock-server", "sleep 5 && nx serve wealth-management"],
+        "parallel": true
+      }
+    },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "outputs": [
-        "{options.outputFile}"
-      ],
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": [
-          "apps/wealth-management/**/*.{ts,tsx,js,jsx}"
-        ]
+        "lintFilePatterns": ["apps/wealth-management/**/*.{ts,tsx,js,jsx}"]
       }
     },
     "test": {
       "executor": "@nx/vitest:test",
-      "outputs": [
-        "{workspaceRoot}/coverage/apps/wealth-management"
-      ],
+      "outputs": ["{workspaceRoot}/coverage/apps/wealth-management"],
       "options": {
         "passWithNoTests": true,
         "reportsDirectory": "../../coverage/apps/wealth-management"

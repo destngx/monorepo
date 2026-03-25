@@ -19,10 +19,10 @@ All Next.js applications follow FSD structure with 6 layers (from high to low pr
 
 ```
 apps/{app-name}/
-├── app/                 # Next.js routing shell (thin adapter only)
+├── app/                 # Next.js routing shell (thin adapter only) (JS/TS only)
 │   └── [route]/        # Delegates to src/pages/
-│
-└── src/
+├── src/                 # JS/TS Source code or Python application source
+└── requirements.txt     # (Python only) Dependencies
     ├── pages/          # Route-level page compositions
     ├── features/       # User interactions & feature-specific logic
     ├── widgets/        # Composite UI blocks (reusable across pages)
@@ -63,6 +63,16 @@ src/
 ├── widgets/               # Reusable UI blocks (Header, Hero, Portfolio)
 ├── entities/              # Portfolio item types
 └── shared/                # Utilities, styling constants
+```
+
+**vnstock-server (Python):**
+
+```
+apps/vnstock-server/
+├── src/                   # FastAPI application logic
+│   └── main.py            # Entrypoint wrapping vnstock library
+├── tests/                 # Pytest suite
+└── requirements.txt       # Python dependencies
 ```
 
 **wealth-management:**
