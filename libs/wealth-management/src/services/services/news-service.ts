@@ -31,6 +31,18 @@ export async function getAnalyzedNews(topic: string): Promise<NewsSentimentRepor
   const currentYear = new Date().getFullYear();
   // 1. Fetch news
   const searchResponse = await executeSearch(`${topic} latest market news financial impact ${currentYear}`);
+
+  if (searchResponse.error) {
+    return {
+      topic,
+      overallSentiment: 'NEUTRAL',
+      counts: { positive: 0, negative: 0, neutral: 0 },
+      articles: [],
+      timestamp: new Date().toISOString(),
+      error: searchResponse.error, // Added error propagation
+    } as any;
+  }
+
   const rawResults = searchResponse.results || [];
 
   if (rawResults.length === 0) {

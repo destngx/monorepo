@@ -79,7 +79,31 @@ export function NewsAnalysisDashboard({
     if (data && onAnalyzed) onAnalyzed(data);
   }, [data, onAnalyzed]);
 
-  if (error) return null;
+  if (error || (data as any)?.error) {
+    return (
+       <Card className={`${GLASS_CARD} border-rose-500/20 shadow-rose-500/10`}>
+          <CardContent className="pt-6 pb-6 text-center space-y-3">
+             <div className="p-3 rounded-full bg-rose-500/10 text-rose-500 w-fit mx-auto">
+                <Minus className="w-5 h-5" />
+             </div>
+             <div className="space-y-1">
+                <h4 className="text-sm font-bold text-zinc-200 uppercase tracking-tight">Analysis Unavailable</h4>
+                <p className="text-[10px] text-zinc-500 font-mono italic">
+                   {error?.message || (data as any)?.error || 'The news intelligence engine encountered an unexpected error.'}
+                </p>
+             </div>
+             <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => mutate()} 
+                className="mt-2 h-8 border-rose-500/30 text-rose-500 hover:bg-rose-500/5 text-[10px] uppercase font-bold tracking-widest"
+              >
+                Retry Analysis
+             </Button>
+          </CardContent>
+       </Card>
+    );
+  }
 
   const chartData = data?.counts ? [
     { name: 'Positive', count: data.counts.positive || 0, color: '#10b981' },
