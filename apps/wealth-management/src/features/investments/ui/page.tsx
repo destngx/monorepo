@@ -17,6 +17,7 @@ import {
   User,
   Bot,
   Layers,
+  Newspaper,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -682,11 +683,14 @@ export default function InvestmentsPage() {
       </div>
 
 
-      <Tabs defaultValue="terminal" className="space-y-6">
+      <Tabs defaultValue="think-tank" className="space-y-6">
         <TabsList className="bg-muted/50 p-1 border w-full justify-start overflow-x-auto overflow-y-hidden no-scrollbar">
 
-          <TabsTrigger value="terminal" className="gap-2 px-4">
-            <Terminal className="h-4 w-4" /> Think Tank Terminal
+          <TabsTrigger value="think-tank" className="gap-2 px-4">
+            <Terminal className="h-4 w-4" /> Think Tank
+          </TabsTrigger>
+          <TabsTrigger value="news-analyze" className="gap-2 px-4">
+            <Newspaper className="h-4 w-4" /> News Analyze
           </TabsTrigger>
           <TabsTrigger value="market-pulse" className="gap-2 px-4">
             <LayoutDashboard className="h-4 w-4" /> Market Pulse
@@ -729,7 +733,7 @@ export default function InvestmentsPage() {
         </TabsContent>
 
 
-        <TabsContent value="terminal" className="mt-0 space-y-6">
+        <TabsContent value="news-analyze" className="mt-0 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              <NewsAnalysisDashboard 
                 topic="Vietnam Market & Policy" 
@@ -744,6 +748,9 @@ export default function InvestmentsPage() {
                 onAnalyzed={(data) => handleNewsAnalyzed('Geopolitics', data)} 
              />
           </div>
+        </TabsContent>
+
+        <TabsContent value="think-tank" className="mt-0 space-y-6">
 
           <Card className="shadow-xl border-border/50 overflow-hidden bg-zinc-950 dark:bg-zinc-950 text-zinc-50">
             <CardHeader className="border-b border-zinc-800 bg-zinc-900/50 flex flex-row items-center justify-between">

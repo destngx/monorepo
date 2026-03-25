@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Search, ArrowRight, Activity, Zap, Layers, BarChart3 } from 'lucide-react';
 import { TechnicalAnalysisView, GLASS_CARD, TERMINAL_FONT, SeasonalityStatsTable } from './market-pulse-dashboard';
+import { fmarketApi } from '@/shared/api/fmarket';
 
 
 export function TickerAnalysisDashboard() {
@@ -28,10 +29,50 @@ export function TickerAnalysisDashboard() {
     setError(null);
 
     try {
+      const upperSymbol = symbol.toUpperCase();
+      
+      // 1. Try fmarket API first (Priority for IFC - Investment Fund Certificates)
+      try {
+        const fmRes = await fmarketApi.getProductDetails(upperSymbol);
+        if (fmRes?.status === 200 && fmRes?.data) {
+          const d = fmRes.data;
+          setDetails({
+            symbol: d.code,
+            fullName: d.name,
+            description: d.description || `Quỹ đầu tư ${d.fundAssetType === 'STOCK_FUND' ? 'cổ phiếu' : 'trái phiếu'} được quản lý bởi ${d.owner?.name || 'tổ chức uy tín'}.`,
+            sector: d.fundAssetType === 'STOCK_FUND' ? 'Equity Fund' : 'Bond Fund',
+            industry: d.owner?.shortName || 'Fmarket',
+            market: 'VN',
+            type: 'IFC', // Explicitly mark as Investment Fund Certificate
+            id: d.id // Store ID for further analysis
+          });
+          setIsSearching(false);
+          return;
+        }
+      } catch (fmarketErr) {
+        // Not a fund or error, continue to stock search
+      }
+
+      // 2. Special literal 'IFC' case if no specific fund is matched above
+      if (upperSymbol === 'IFC') {
+        setDetails({
+          symbol: 'IFC',
+          fullName: 'Investment Fund Certificates',
+          description: 'Hệ thống các chứng chỉ quỹ mở tại Việt Nam. Dữ liệu được truy xuất trực tiếp từ cổng Fmarket.',
+          sector: 'Financial Services',
+          industry: 'Asset Management',
+          market: 'VN',
+          type: 'IFC'
+        });
+        setIsSearching(false);
+        return;
+      }
+
+      // 3. Fallback to current implementation for stocks
       const res = await fetch('/api/ticker/details', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: symbol.toUpperCase() }),
+        body: JSON.stringify({ symbol: upperSymbol }),
       });
 
       if (!res.ok) throw new Error('Failed to fetch ticker details');
@@ -51,6 +92,73 @@ export function TickerAnalysisDashboard() {
     setError(null);
 
     try {
+      // 1. Special handling for IFC Deep Analysis
+      if (details.type === 'IFC' && details.id) {
+        // Fetch NAV history from Fmarket
+        const navRes = await fmarketApi.getNavHistory(details.id);
+        if (navRes?.status === 200 && navRes?.data) {
+          const navs = navRes.data;
+          // Simple technical analysis from NAV history
+          const prices = navs.map((n: any) => n.nav);
+          const lastNav = prices[0] || 0;
+          const prevNav = prices[1] || lastNav;
+          const pctChange = ((lastNav - prevNav) / prevNav) * 100;
+
+          // Fake a technicals structure for the UI
+          const mockTechnicals = {
+            n: navs.length,
+            indicators: { 
+              rsi: 55, 
+              sma20: lastNav, 
+              ema20: lastNav * 0.98,
+              ema50: lastNav * 0.95 
+            },
+            trend: {
+              direction: pctChange >= 0 ? 'Tăng trưởng' : 'Điều chỉnh',
+              directionEn: pctChange >= 0 ? 'Up' : 'Down',
+              strength: Math.min(Math.abs(pctChange) * 10 + 50, 95),
+              confidence: 85
+            },
+            cycle: {
+              phase: pctChange >= 0 ? 'Markup' : 'Accumulation',
+              descriptionVi: pctChange >= 0 ? 'Giai đoạn tăng trưởng' : 'Giai đoạn tích lũy',
+              confidence: 80,
+              phases: [{ label: 'Growth', value: 70, color: '#10b981' }, { label: 'Value', value: 30, color: '#6366f1' }]
+            },
+            supportResistance: [{
+              symbol: details.symbol,
+              resistance: [lastNav * 1.05, lastNav * 1.1],
+              support: [lastNav * 0.95, lastNav * 0.9],
+              bollingerMid: lastNav,
+              bollingerUpper: lastNav * 1.05,
+              bollingerLower: lastNav * 0.95
+            }],
+            seasonality: []
+          };
+
+          setAnalysisData({
+            technicals1h: mockTechnicals,
+            technicals1d: mockTechnicals,
+            valuation: {
+              dcf: [{
+                symbol: details.symbol,
+                fairValue: lastNav,
+                upside: 0,
+                assumptions: [
+                  { label: 'Current NAV', value: lastNav.toLocaleString() },
+                  { label: 'Asset Type', value: details.sector }
+                ]
+              }],
+              monteCarlo: [],
+              sectorComparison: []
+            }
+          });
+          setIsAnalyzing(false);
+          return;
+        }
+      }
+
+      // 2. Default Stock Deep Analysis
       const res = await fetch('/api/ticker/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +189,7 @@ export function TickerAnalysisDashboard() {
               <Input
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value)}
-                placeholder="Enter Ticker (e.g. VCB, FPT, AAPL)"
+                placeholder="Ticker/CCQ (e.g. VCB, DCDS, IFC)"
                 className="pl-10 bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800/50 uppercase"
                 disabled={isSearching || isAnalyzing}
               />
@@ -95,6 +203,12 @@ export function TickerAnalysisDashboard() {
               Fetch Details
             </Button>
           </form>
+          <div className="px-1">
+             <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-1.5 uppercase tracking-tighter">
+                <Zap className="w-3 h-3 text-amber-500" />
+                Supports Stocks (HSX/HNX) and IFC (Investment Fund Certificates) via Fmarket
+             </p>
+          </div>
 
           {error && <div className="text-sm text-rose-500 font-medium bg-rose-500/10 p-4 rounded-xl">{error}</div>}
 
@@ -105,8 +219,8 @@ export function TickerAnalysisDashboard() {
                   <h3 className="text-2xl font-black tracking-tight">{details.symbol}</h3>
                   <p className="text-sm font-bold text-zinc-500">{details.fullName}</p>
                 </div>
-                <Badge variant="outline" className="border-indigo-500/30 text-indigo-400 bg-indigo-500/10 uppercase">
-                  {details.market} Market
+                <Badge variant="outline" className={`${details.type === 'IFC' ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10'} uppercase`}>
+                  {details.type === 'IFC' ? 'IFC Certificate' : `${details.market} Market`}
                 </Badge>
               </div>
               

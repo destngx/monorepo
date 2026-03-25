@@ -38,7 +38,7 @@ const TIMEFRAMES = [
 ];
 
 export function MultiTimeframeDashboard() {
-  const [selectedTFs, setSelectedTFs] = useState<string[]>(['1h', '4h', '1d']);
+  const [selectedTFs, setSelectedTFs] = useState<string[]>(['1h', '4h', '1d', '1w']);
   const [market, setMarket] = useState<'US' | 'VN'>('VN');
 
   const { data: d1h, isLoading: loading1h } = useSWR(selectedTFs.includes('1h') ? `/api/market-pulse?timeframe=1h` : null, fetcher);
