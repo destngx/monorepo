@@ -81,8 +81,9 @@ export function SpendingChart({ transactions }: { transactions: Transaction[] })
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="h-80 w-full pl-2">
+      <CardContent className="h-80 w-full pl-2 min-w-0">
         <ResponsiveContainer width="100%" height="100%">
+
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
             <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} />

@@ -111,7 +111,7 @@ export function SeasonalPatternsDashboard() {
               <Badge variant="outline" className="text-[10px] font-mono border-zinc-800">1Y LOOKBACK</Badge>
             </div>
             
-            <div className="h-[300px] w-full">
+            <div className="h-[300px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={seasonality.filter((s: any) => s.type === 'day')}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />

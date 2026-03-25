@@ -27,8 +27,10 @@ import { MultiTimeframeDashboard } from '@/components/dashboard/multi-timeframe-
 import { SeasonalPatternsDashboard } from '../../../components/dashboard/seasonal-patterns-dashboard';
 import { NewsAnalysisDashboard } from '@/components/dashboard/news-analysis-dashboard';
 import { TickerAnalysisDashboard } from '@/components/dashboard/ticker-analysis-dashboard';
+import { FmarketDashboard } from './fmarket-dashboard';
 
 import { renderMessageContent, hasContent } from '@/features/chat/ui/chat-interface';
+
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
 
 interface Account {
@@ -681,7 +683,8 @@ export default function InvestmentsPage() {
 
 
       <Tabs defaultValue="terminal" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1 border">
+        <TabsList className="bg-muted/50 p-1 border w-full justify-start overflow-x-auto overflow-y-hidden no-scrollbar">
+
           <TabsTrigger value="terminal" className="gap-2 px-4">
             <Terminal className="h-4 w-4" /> Think Tank Terminal
           </TabsTrigger>
@@ -696,6 +699,9 @@ export default function InvestmentsPage() {
           </TabsTrigger>
           <TabsTrigger value="ticker-analyze" className="gap-2 px-4 text-amber-500 hover:text-amber-400">
             <Sparkles className="h-4 w-4" /> Ticker Analyze
+          </TabsTrigger>
+          <TabsTrigger value="fmarket" className="gap-2 px-4 text-indigo-500 hover:text-indigo-400">
+            <TrendingUp className="h-4 w-4" /> Fmarket Insights
           </TabsTrigger>
           <TabsTrigger value="ledgers" className="gap-2 px-4">
             <Database className="h-4 w-4" /> Asset Ledgers
@@ -716,6 +722,10 @@ export default function InvestmentsPage() {
 
         <TabsContent value="ticker-analyze" className="mt-0">
           <TickerAnalysisDashboard />
+        </TabsContent>
+
+        <TabsContent value="fmarket" className="mt-0">
+          <FmarketDashboard />
         </TabsContent>
 
 

@@ -219,7 +219,7 @@ export function MarketPulseDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-8">
-                  <div className="h-[280px] w-full">
+                  <div className="h-[280px] w-full min-w-0">
                     <MarketBarChart data={data?.us?.assets || []} />
                   </div>
                 </CardContent>
@@ -364,7 +364,7 @@ export function MarketPulseDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-8">
-                  <div className="h-[280px] w-full">
+                  <div className="h-[280px] w-full min-w-0">
                     <MarketBarChart data={data?.vn?.assets || []} />
                   </div>
                 </CardContent>
