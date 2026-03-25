@@ -4,6 +4,7 @@ import { getLanguageModel } from '@wealth-management/ai/providers';
 import { loadPrompt, replacePlaceholders } from '../../ai/prompts/loader';
 import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
 import { calculateEMA, calculateSMA, calculateRSI, calculateSeasonality } from '../../utils/technical-analysis';
+import { DataSourceAdapter, YahooFinanceAdapter, VNStockAdapter, CafeFAdapter, StockDataPoint } from '../data-sources';
 
 const CACHE_PREFIX = 'market-pulse:';
 const PRICE_CACHE_TTL = 300; // 5 minutes during trading
@@ -184,10 +185,23 @@ const US_TICKERS = [
 ];
 
 const VN_TICKERS = [
-  { symbol: '^VNINDEX.VN', name: 'VN-Index' },
+  // Indices
+  { symbol: '^VNINDEX', name: 'VN-Index' },
   { symbol: '^HNX', name: 'HNX' },
-  { symbol: 'E1VFVN30.VN', name: 'VN30' },
+  { symbol: 'VN30', name: 'VN30' },
   { symbol: '^UPCOM', name: 'UPCOM' },
+  // Major Vietnamese stocks (most liquid)
+  { symbol: 'VCB', name: 'Vietcombank' },
+  { symbol: 'VNM', name: 'Vinamilk' },
+  { symbol: 'IFC', name: 'Imexpharm' },
+  { symbol: 'ACB', name: 'ACB Bank' },
+  { symbol: 'TCB', name: 'Techcombank' },
+  { symbol: 'MBB', name: 'MB Bank' },
+  { symbol: 'FPT', name: 'FPT Software' },
+  { symbol: 'HPG', name: 'Hoa Phat' },
+  { symbol: 'SAB', name: 'Sabeco' },
+  { symbol: 'GAS', name: 'PV Gas' },
+  // Currency
   { symbol: 'VND=X', name: 'USD/VND' },
 ];
 
@@ -545,8 +559,37 @@ async function fetchUSDVNDFromCurrencyAPI(): Promise<MarketAsset | null> {
   }
 }
 
+// Initialize data source adapters
+const dataSourceAdapters = [
+  new CafeFAdapter(), // Indices only
+  new VNStockAdapter(), // Vietnamese stocks
+  new YahooFinanceAdapter(), // Fallback
+];
+
 /**
- * Fetches single asset data from Yahoo Finance (Used for US market)
+ * Maps timeframe to data source-specific intervals and ranges
+ */
+function getIntervalAndRange(
+  timeframe: string,
+  sourceType: 'vnstock' | 'yahoo' | 'cafef',
+): { interval: string; range: string } {
+  switch (timeframe) {
+    case '1h':
+      return { interval: '1h', range: '7d' };
+    case '4h':
+      return sourceType === 'vnstock' ? { interval: '4h', range: '14d' } : { interval: '1h', range: '14d' };
+    case '1d':
+      return { interval: '1d', range: '60d' };
+    case '1w':
+      return { interval: '1w', range: '90d' };
+    default:
+      return { interval: '1h', range: '7d' };
+  }
+}
+
+/**
+ * Fetches asset data using multi-source fallback chain
+ * Priority: CafeF (VN indices) → VNStock (VN stocks) → Yahoo Finance
  */
 export async function fetchAssetData(
   symbol: string,
@@ -555,117 +598,85 @@ export async function fetchAssetData(
   timeframe = '1h',
 ): Promise<MarketAsset | null> {
   try {
-    // Map timeframe to Yahoo interval and range
-    let interval = '1h';
-    let range = '7d';
+    // Try each adapter in sequence
+    for (const adapter of dataSourceAdapters) {
+      if (!adapter.supports(symbol, market)) continue;
 
-    switch (timeframe) {
-      case '1h':
-        interval = '1h';
-        range = '7d'; // Weekly context for 1h candles
-        break;
-      case '4h':
-        interval = '1h'; // Yahoo doesn't support 4h directly easily, we use 1h and aggregate later or just use daily range
-        range = '14d';
-        break;
-      case '1d':
-        interval = '1d';
-        range = '60d'; // 2 months context for daily
-        break;
-      case '1w':
-        interval = '1d';
-        range = '90d'; // 3 months context for daily to calculate 1-week rolling trend properly
-        break;
-      default:
-        interval = '1h';
-        range = '7d';
+      const sourceType = adapter.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const { interval, range } = getIntervalAndRange(timeframe, sourceType as 'vnstock' | 'yahoo' | 'cafef');
+
+      const dataPoints = await adapter.fetchHistorical(symbol, market, interval, range);
+      if (!dataPoints || dataPoints.length < 2) {
+        console.log(`[MarketDataService] ${adapter.name}: Insufficient data for ${symbol}, trying next source`);
+        continue;
+      }
+
+      // Convert data points to MarketAsset format
+      const closes = dataPoints.map((p) => p.close);
+      const highs = dataPoints.map((p) => p.high || p.close);
+      const lows = dataPoints.map((p) => p.low || p.close);
+      const timestamps = dataPoints.map((p) => p.timestamp);
+
+      const currentPrice = closes[closes.length - 1];
+
+      // Calculate changes based on timeframe context
+      let offset = 2; // For 1h and 1d, 1 candle ago
+      if (timeframe === '4h') offset = 5; // 4 hours ago
+      if (timeframe === '1w') offset = 6; // 1 rolling week ago
+
+      const prevPriceIdx = Math.max(0, closes.length - offset);
+      const prevPrice = closes[prevPriceIdx] || currentPrice;
+      const percentChange = prevPrice ? ((currentPrice - prevPrice) / prevPrice) * 100 : 0;
+
+      let oneDayAgoIdx = 0;
+      let oneWeekAgoIdx = 0;
+
+      if (interval === '1h') {
+        oneDayAgoIdx = Math.max(0, closes.length - 8); // approx 1 trading day (usually 7-8 h)
+        oneWeekAgoIdx = Math.max(0, closes.length - 40); // approx 1 trading week
+      } else if (interval === '1d') {
+        oneDayAgoIdx = Math.max(0, closes.length - 2); // 1 trading day ago
+        oneWeekAgoIdx = Math.max(0, closes.length - 6); // approx 1 trading week (5 days)
+      }
+
+      const dayChange = closes[oneDayAgoIdx] ? ((currentPrice - closes[oneDayAgoIdx]) / closes[oneDayAgoIdx]) * 100 : 0;
+      const weekChange = closes[oneWeekAgoIdx]
+        ? ((currentPrice - closes[oneWeekAgoIdx]) / closes[oneWeekAgoIdx]) * 100
+        : 0;
+
+      const direction = percentChange > 0.05 ? 'up' : percentChange < -0.05 ? 'down' : 'flat';
+
+      // Momentum logic
+      let momentum: 'fire' | 'stable' | 'sleep' = 'stable';
+      if (Math.abs(percentChange) > 2 || (direction === 'up' && dayChange > 5)) momentum = 'fire';
+      else if (Math.abs(percentChange) < 0.1) momentum = 'sleep';
+
+      console.log(`[MarketDataService] Successfully fetched ${symbol} from ${adapter.name}`);
+      return {
+        symbol: name,
+        name,
+        market,
+        price: currentPrice,
+        percentChange,
+        dayChange,
+        weekChange,
+        direction,
+        momentum,
+        closes,
+        highs,
+        lows,
+        timestamps,
+      };
     }
 
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    const result = data.chart.result?.[0];
-    if (!result) return null;
-
-    const meta = result.meta;
-    const price = meta.regularMarketPrice;
-
-    const quotes = result.indicators.quote[0];
-    if (!quotes || !quotes.close) return null;
-
-    const timestampsRaw = result.timestamp || [];
-    const closesRaw = quotes.close || [];
-    const highsRaw = quotes.high || [];
-    const lowsRaw = quotes.low || [];
-
-    // Filter both to exclude null closes
-    const validPairs = timestampsRaw
-      .map((t: number, i: number) => ({ t, c: closesRaw[i], h: highsRaw[i], l: lowsRaw[i] }))
-      .filter((p: any) => p.c !== null);
-
-    const closes = validPairs.map((p: any) => p.c);
-    const highs = validPairs.map((p: any) => p.h);
-    const lows = validPairs.map((p: any) => p.l);
-    const timestamps = validPairs.map((p: any) => p.t);
-
-    if (closes.length < 2) return null;
-
-    const currentPrice = closes[closes.length - 1];
-
-    // Calculate changes based on timeframe context
-    let offset = 2; // For 1h and 1d, 1 candle ago is closes.length - 2
-    if (timeframe === '4h') offset = 5; // 4 hours ago = closes.length - 5 (current + 4 prev)
-    if (timeframe === '1w') offset = 6; // 1 rolling week ago (5 trading days) = closes.length - 6
-
-    const prevPriceIdx = Math.max(0, closes.length - offset);
-    const prevPrice = closes[prevPriceIdx] || currentPrice;
-    const percentChange = prevPrice ? ((currentPrice - prevPrice) / prevPrice) * 100 : 0;
-
-    let oneDayAgoIdx = 0;
-    let oneWeekAgoIdx = 0;
-
-    if (interval === '1h') {
-      oneDayAgoIdx = Math.max(0, closes.length - 8); // approx 1 trading day (usually 7-8 h)
-      oneWeekAgoIdx = Math.max(0, closes.length - 40); // approx 1 trading week
-    } else if (interval === '1d') {
-      oneDayAgoIdx = Math.max(0, closes.length - 2); // 1 trading day ago
-      oneWeekAgoIdx = Math.max(0, closes.length - 6); // approx 1 trading week (5 days)
-    }
-
-    const dayChange = closes[oneDayAgoIdx] ? ((currentPrice - closes[oneDayAgoIdx]) / closes[oneDayAgoIdx]) * 100 : 0;
-    const weekChange = closes[oneWeekAgoIdx]
-      ? ((currentPrice - closes[oneWeekAgoIdx]) / closes[oneWeekAgoIdx]) * 100
-      : 0;
-
-    const direction = percentChange > 0.05 ? 'up' : percentChange < -0.05 ? 'down' : 'flat';
-
-    // Momentum logic
-    let momentum: 'fire' | 'stable' | 'sleep' = 'stable';
-    if (Math.abs(percentChange) > 2 || (direction === 'up' && dayChange > 5)) momentum = 'fire';
-    else if (Math.abs(percentChange) < 0.1) momentum = 'sleep';
-
-    return {
-      symbol: name,
-      name,
-      market,
-      price: currentPrice, // Use last close as the main price for timeframe consistency
-      percentChange,
-      dayChange,
-      weekChange,
-      direction,
-      momentum,
-      closes,
-      highs,
-      lows,
-      timestamps,
-    };
+    // All sources failed
+    console.warn(`[MarketDataService] All data sources failed for ${symbol}`);
+    return null;
   } catch (error) {
     const networkError = isAppError(error)
       ? error
       : new NetworkError(`Failed to fetch asset data for ${symbol}`, {
-          context: { symbol, name, market, timeframe, source: 'yahoo-finance' },
+          context: { symbol, name, market, timeframe },
         });
     console.error('[MarketDataService]', networkError.message);
     return null;
