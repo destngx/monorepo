@@ -7,7 +7,6 @@ This document outlines the architectural patterns used in this Nx monorepo and e
 This monorepo combines **Clean Architecture**, **Feature-Sliced Design (FSD)**, and **Vertical Slice Architecture (VSA)** principles:
 
 - **Next.js Apps**: Use Feature-Sliced Design (FSD)
-- **NestJS App**: Use Clean Architecture
 - **Shared Libs**: Follow Clean Architecture principles with workspace-level boundaries
 
 ---
@@ -86,44 +85,6 @@ src/
 └── shared/                # Utilities, hooks, config, constants
 ```
 
-### 2. Clean Architecture - NestJS Application
-
-The NestJS app follows Clean Architecture with concentric layers:
-
-```
-apps/task-management/
-└── src/
-    ├── domain/              # Layer 0: Core business entities (pure, no dependencies)
-    │   ├── entities/        # Task, User, Role entities
-    │   ├── interfaces/      # ITaskRepository, IUserService (contracts)
-    │   └── exceptions/      # BusinessRuleViolation, TaskNotFound
-    │
-    ├── application/         # Layer 1: Use cases (depends on domain only)
-    │   ├── use-cases/       # CreateTask, UpdateTask, GetTasks
-    │   ├── ports/           # Interface definitions for external services
-    │   └── dtos/            # Data transfer objects for API contracts
-    │
-    ├── infrastructure/      # Layer 2: External systems (depends on application + domain)
-    │   ├── repositories/    # TaskRepository, UserRepository (implements interfaces)
-    │   ├── services/        # EmailService, QueueService
-    │   ├── adapters/        # External integrations
-    │   └── database/        # Connection, migrations
-    │
-    └── main.ts              # Application entry point
-
-```
-
-#### Clean Architecture Dependency Rule
-
-```
-Domain → Application → Infrastructure → Presentation
- ↑         ↑              ↑                ↑
-depends    depends        depends          depends
-only on    on Domain      on App + Domain  on All Layers
-```
-
-**No outward dependencies**: Domain layer has ZERO external dependencies.
-
 ---
 
 ## Shared Libraries (libs/)
@@ -158,10 +119,6 @@ libs/
 │
 ├── wealth-management/              # Shared wealth features
 │   └── src/                        # Shared hooks, types, services
-│
-├── task-management/                # NestJS backend libs
-│   ├── config/                     # Configuration (base, redis)
-│   └── queue/                      # Queue/Bull configuration
 │
 └── [FUTURE] shared/                # Workspace-wide shared (when needed)
     ├── ui/                         # Design system (if multiple apps)
@@ -305,85 +262,6 @@ src/shared/
 ```
 
 ---
-
-## NestJS Clean Architecture (Detailed)
-
-### Domain Layer (Zero Dependencies)
-
-```typescript
-// apps/task-management/src/domain/entities/task.ts
-export class Task {
-  id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-
-  // Business logic ONLY
-  markComplete() {
-    if (this.status === TaskStatus.ARCHIVED) {
-      throw new CannotModifyArchivedTaskError();
-    }
-    this.status = TaskStatus.COMPLETED;
-  }
-}
-
-// apps/task-management/src/domain/interfaces/task-repository.ts
-// Interface definition (contract)
-export interface ITaskRepository {
-  save(task: Task): Promise<void>;
-  findById(id: string): Promise<Task | null>;
-}
-```
-
-### Application Layer (Use Cases)
-
-```typescript
-// apps/task-management/src/application/use-cases/create-task.ts
-import { ITaskRepository } from '@domain/interfaces';
-import { Task } from '@domain/entities';
-
-export class CreateTaskUseCase {
-  constructor(private readonly taskRepository: ITaskRepository) {}
-
-  async execute(input: CreateTaskInput): Promise<Task> {
-    const task = new Task(/* ... */);
-    await this.taskRepository.save(task);
-    return task;
-  }
-}
-```
-
-### Infrastructure Layer (Implementations)
-
-```typescript
-// apps/task-management/src/infrastructure/repositories/task.repository.ts
-import { Injectable } from '@nestjs/common';
-import { ITaskRepository } from '@application/ports';
-import { Task } from '@domain/entities';
-import { TaskModel } from './task.model';
-
-@Injectable()
-export class TaskRepository implements ITaskRepository {
-  constructor(private readonly db: Database) {}
-
-  async save(task: Task): Promise<void> {
-    const model = this.taskToModel(task);
-    await this.db.tasks.save(model);
-  }
-
-  async findById(id: string): Promise<Task | null> {
-    const model = await this.db.tasks.findById(id);
-    return model ? this.modelToTask(model) : null;
-  }
-
-  private taskToModel(task: Task): TaskModel {
-    /* ... */
-  }
-  private modelToTask(model: TaskModel): Task {
-    /* ... */
-  }
-}
-```
 
 ---
 

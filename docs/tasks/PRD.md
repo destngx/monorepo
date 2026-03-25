@@ -8,10 +8,10 @@
 
 ## Status Summary
 
-| Phase                    | Tasks | Done | Status          |
-| ------------------------ | ----- | ---- | --------------- |
-| Phase 1: Initialization  | 4     | 4    | [x] COMPLETE    |
-| Phase 2: Remove Task App | 4     | 0    | [/] IN PROGRESS |
+| Phase                    | Tasks | Done | Status      |
+| ------------------------ | ----- | ---- | ----------- |
+| Phase 1: Initialization  | 4     | 4    | COMPLETE    |
+| Phase 2: Remove Task App | 4     | 0    | IN PROGRESS |
 
 ## Implementation Plan
 

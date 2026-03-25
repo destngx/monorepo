@@ -14,20 +14,19 @@
 
 ## §1 — Core Loop
 
-FOLLOW THESE 12 STEPS EXACTLY EVERY ITERATION:
+FOLLOW THESE 11 STEPS EXACTLY EVERY ITERATION:
 
 1. Read `docs/tasks/prompt.md` (this file) to refresh rules.
 2. Read `docs/tasks/PRD.md` to identify the current phase and next task.
 3. Read `docs/tasks/friction-log.md` to avoid known pitfalls.
-4. Pick the NEXT incomplete task (first ❌ in PRD).
+4. Read the PRD and progress.md to decide what to do next.
 5. Identify the scope (files/libs affected).
 6. Research existing patterns in the target component.
 7. Execute the task (Code, Refactor).
 8. Run local verification (Type-check, Lint, Test).
 9. Adversarial Self-Review (See §1.1).
 10. Commit changes with a descriptive message.
-11. Append results to `docs/tasks/progress.txt`.
-12. Update `docs/tasks/PRD.md` (flip ❌ → ✅, update pointer).
+11. Append results to `docs/tasks/progress.md`.
 
 **Constraint**: Max 1 task per iteration.
 
