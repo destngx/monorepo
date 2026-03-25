@@ -5,6 +5,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 ## 🎯 Start Here
 
 ### For Quick Overview (15 min)
+
 1. **[REFACTORING-REVIEW.md](REFACTORING-REVIEW.md)** - Business-focused review of the plan
    - ✅ Confirms alignment with your product vision
    - ✅ Highlights: Budget, Accounts, Investments, AI as core
@@ -12,6 +13,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
    - ✅ Validates data abstraction for Sheets
 
 ### For Implementation (5 weeks)
+
 2. **[QUICK-START.md](QUICK-START.md)** - 10-minute overview
    - Key patterns (Repository, AI Service, Feature Isolation)
    - New directory structure
@@ -19,12 +21,13 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 
 3. **[IMPLEMENTATION-ROADMAP.md](IMPLEMENTATION-ROADMAP.md)** - Week-by-week guide
    - Week 1: Infrastructure + AI
-   - Week 2: Chat + Accounts  ← **PRIORITY** (your USP)
+   - Week 2: Chat + Accounts ← **PRIORITY** (your USP)
    - Week 3: Transactions + Budget
    - Week 4: Investments + Consolidation
    - Week 5: Cleanup + Testing
 
 ### For Architecture Understanding (90 min)
+
 4. **[REFACTORING-PLAN.md](REFACTORING-PLAN.md)** - Complete analysis
    - Current architecture issues
    - Target FSD structure
@@ -49,21 +52,25 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 ## 📖 By Role
 
 ### Product Managers
+
 - Start: REFACTORING-REVIEW.md (confirms your product fits perfectly)
 - Then: REFACTORING-PLAN.md "Benefits After Refactoring" section
 
 ### Frontend Developers
+
 1. QUICK-START.md (10 min)
 2. FSD-REFERENCE.md (30 min) - **Read this daily while coding**
 3. IMPLEMENTATION-ROADMAP.md Weeks 1-2 (30 min)
 
 ### Backend/Full-Stack Developers
+
 1. REFACTORING-REVIEW.md (20 min) - business alignment
 2. REFACTORING-PLAN.md entirely (45 min)
 3. FSD-REFERENCE.md (30 min)
 4. IMPLEMENTATION-ROADMAP.md (60 min)
 
 ### Team Leads/Architects
+
 1. REFACTORING-REVIEW.md (20 min)
 2. REFACTORING-PLAN.md (45 min)
 3. IMPLEMENTATION-ROADMAP.md (60 min)
@@ -73,14 +80,14 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 
 ## 🎯 Document Purposes
 
-| Document | Purpose | Length | Time |
-|----------|---------|--------|------|
-| **REFACTORING-REVIEW.md** | Business alignment + optimization | 466 lines | 20m |
-| **QUICK-START.md** | Quick overview | 392 lines | 10m |
-| **REFACTORING-PLAN.md** | Complete architecture analysis | 771 lines | 45m |
-| **FSD-REFERENCE.md** | Visual patterns & guide | 555 lines | 30m |
-| **IMPLEMENTATION-ROADMAP.md** | Week-by-week execution | 876 lines | 60m |
-| **README-REFACTORING.md** | Master index & navigation | 373 lines | 5m |
+| Document                      | Purpose                           | Length    | Time |
+| ----------------------------- | --------------------------------- | --------- | ---- |
+| **REFACTORING-REVIEW.md**     | Business alignment + optimization | 466 lines | 20m  |
+| **QUICK-START.md**            | Quick overview                    | 392 lines | 10m  |
+| **REFACTORING-PLAN.md**       | Complete architecture analysis    | 771 lines | 45m  |
+| **FSD-REFERENCE.md**          | Visual patterns & guide           | 555 lines | 30m  |
+| **IMPLEMENTATION-ROADMAP.md** | Week-by-week execution            | 876 lines | 60m  |
+| **README-REFACTORING.md**     | Master index & navigation         | 373 lines | 5m   |
 
 **Total**: ~3,400 lines of strategic planning
 
@@ -89,6 +96,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 ## ✅ Key Validations
 
 ### Business Alignment ✅
+
 - [x] Budget Management → Isolated in features/budget/
 - [x] Accounts Management → Grouped in features/accounts/
 - [x] Investments Management → Separate in features/investments/
@@ -96,6 +104,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 - [x] Google Sheets as source of truth → Repository pattern
 
 ### Architecture Validation ✅
+
 - [x] FSD + Vertical Slices structure
 - [x] Clean architecture layers
 - [x] SOLID principles
@@ -103,6 +112,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 - [x] Clear import rules (enforced via ESLint)
 
 ### Timeline ✅
+
 - [x] 5-week aggressive refactor (or incremental option available)
 - [x] Chat/AI prioritized in Week 2 (your USP)
 - [x] Features grouped logically
@@ -114,6 +124,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 ## 🚀 Implementation Phases
 
 ### Phase 1: Infrastructure (Week 1)
+
 - [x] Create folder structure
 - [x] Repository abstraction (Google Sheets → flexible persistence)
 - [x] Unified AI service (consolidate 13 scattered endpoints)
@@ -121,6 +132,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 - [x] ESLint rules (enforce architecture)
 
 ### Phase 2: Core Features (Weeks 2-4)
+
 - [x] Chat/AI Financial Advisor (PRIORITY in Week 2)
 - [x] Accounts (bank, crypto, loans, goals, net worth)
 - [x] Transactions (daily spending, feeds budgets)
@@ -128,6 +140,7 @@ All refactoring documentation for migrating to FSD + Vertical Slices + Clean Arc
 - [x] Investments (portfolio, separate concern)
 
 ### Phase 3: Cleanup (Week 5)
+
 - [x] Remove old /lib structure
 - [x] Update app routes
 - [x] Full system testing
@@ -157,7 +170,7 @@ App Routes
     ↓
 Features (self-contained)
     ├── Budget
-    ├── Accounts  
+    ├── Accounts
     ├── Investments
     ├── Transactions
     └── Chat/AI
@@ -182,6 +195,7 @@ Features (self-contained)
 ## ✨ Key Patterns You'll Build
 
 ### 1. Repository Pattern
+
 ```ts
 // Before: Components import directly from lib/sheets
 import { getAccounts } from '@/lib/sheets/accounts';
@@ -192,6 +206,7 @@ const accounts = await Repository.accounts.findAll();
 ```
 
 ### 2. Unified AI Service
+
 ```ts
 // Before: Different AI imports scattered
 import { generateBudgetAdvice } from '@/lib/ai/budget';
@@ -206,6 +221,7 @@ const advice = await AIService.analyze({
 ```
 
 ### 3. Feature Isolation
+
 ```ts
 // Correct imports
 import { useAccounts } from '@/features/accounts';
@@ -220,16 +236,19 @@ import { getBudgetData } from '@/features/budget/model/queries';
 ## 🧪 Testing Strategy
 
 ### Unit Tests (model layer)
+
 - Test business logic in isolation
 - Mock Repository
 - Test queries/mutations without UI
 
 ### Integration Tests (api layer)
+
 - Test API endpoints
 - Verify data flow through Repository
 - Test Sheets sync
 
 ### Component Tests (ui layer)
+
 - Test UI components
 - Use React Testing Library
 - Mock hooks
@@ -238,14 +257,14 @@ import { getBudgetData } from '@/features/budget/model/queries';
 
 ## 📊 Success Metrics
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Module Coupling | Isolated | High |
-| Circular Dependencies | 0 | Multiple |
-| Test Coverage | 70%+ | ~40% |
-| Type Errors | 0 | 0 ✓ |
-| Feature Add Time | 1-2 hours | 3-4 hours |
-| Build Time | <30s | ~20s ✓ |
+| Metric                | Target    | Current   |
+| --------------------- | --------- | --------- |
+| Module Coupling       | Isolated  | High      |
+| Circular Dependencies | 0         | Multiple  |
+| Test Coverage         | 70%+      | ~40%      |
+| Type Errors           | 0         | 0 ✓       |
+| Feature Add Time      | 1-2 hours | 3-4 hours |
+| Build Time            | <30s      | ~20s ✓    |
 
 ---
 
@@ -264,18 +283,23 @@ import { getBudgetData } from '@/features/budget/model/queries';
 ## 🆘 Need Help?
 
 ### Architecture Questions
+
 → See REFACTORING-PLAN.md Parts 1-2
 
 ### Pattern Questions
+
 → See FSD-REFERENCE.md "Import Pattern Examples"
 
 ### Where Does Code Go?
+
 → See FSD-REFERENCE.md "Decision Tree"
 
 ### Implementation Details
+
 → See IMPLEMENTATION-ROADMAP.md Week 1-5
 
 ### Troubleshooting
+
 → See FSD-REFERENCE.md "Troubleshooting Guide"
 
 ---
@@ -319,6 +343,7 @@ README-REFACTORING.md (Navigator)
 **Your product deserves an enterprise-grade architecture.**
 
 This refactoring will give you:
+
 - ✅ Clear, maintainable code
 - ✅ Scalable, testable features
 - ✅ Strong AI layer (your competitive advantage)

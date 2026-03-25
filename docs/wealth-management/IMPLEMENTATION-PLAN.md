@@ -203,7 +203,7 @@ git commit -m "chore: initial project scaffolding"
 - `src/lib/types/transaction.ts`
   ```typescript
   interface Transaction {
-    id: string;             // Row index as ID
+    id: string; // Row index as ID
     accountName: string;
     date: Date;
     referenceNumber: string | null;
@@ -212,8 +212,8 @@ git commit -m "chore: initial project scaffolding"
     memo: string | null;
     category: string;
     cleared: boolean;
-    payment: number | null;  // Debit
-    deposit: number | null;  // Credit
+    payment: number | null; // Debit
+    deposit: number | null; // Credit
     accountBalance: number;
     clearedBalance: number;
     runningBalance: number;
@@ -410,9 +410,12 @@ git commit -m "chore: initial project scaffolding"
   ```typescript
   function getAIProvider(provider: 'openai' | 'google' | 'anthropic') {
     switch (provider) {
-      case 'openai': return openai('gpt-4o');
-      case 'google': return google('gemini-2.0-flash');
-      case 'anthropic': return anthropic('claude-sonnet-4-20250514');
+      case 'openai':
+        return openai('gpt-4o');
+      case 'google':
+        return google('gemini-2.0-flash');
+      case 'anthropic':
+        return anthropic('claude-sonnet-4-20250514');
     }
   }
   ```
@@ -434,16 +437,16 @@ git commit -m "chore: initial project scaffolding"
 - `src/lib/ai/tools.ts`
 - Tool definitions for Vercel AI SDK:
 
-| Tool | Description | Parameters |
-|---|---|---|
-| `getAccountBalances` | Fetch all account balances | none |
-| `getTransactions` | Fetch transactions with filters | dateFrom, dateTo, account, category, limit |
-| `getBudgetStatus` | Get budget vs. actual for current month | month? |
-| `getSpendingByCategory` | Spending breakdown by category | dateFrom, dateTo |
-| `getExchangeRate` | Current USDT/VND rate | none |
-| `categorizeTransaction` | AI-categorize a transaction | payee, memo, amount |
-| `getMonthlyTrend` | Monthly income/expense totals | months (number of months) |
-| `searchTransactions` | Search transactions by text | query |
+| Tool                    | Description                             | Parameters                                 |
+| ----------------------- | --------------------------------------- | ------------------------------------------ |
+| `getAccountBalances`    | Fetch all account balances              | none                                       |
+| `getTransactions`       | Fetch transactions with filters         | dateFrom, dateTo, account, category, limit |
+| `getBudgetStatus`       | Get budget vs. actual for current month | month?                                     |
+| `getSpendingByCategory` | Spending breakdown by category          | dateFrom, dateTo                           |
+| `getExchangeRate`       | Current USDT/VND rate                   | none                                       |
+| `categorizeTransaction` | AI-categorize a transaction             | payee, memo, amount                        |
+| `getMonthlyTrend`       | Monthly income/expense totals           | months (number of months)                  |
+| `searchTransactions`    | Search transactions by text             | query                                      |
 
 ### 7.4 Chat API Route
 
@@ -555,17 +558,18 @@ git commit -m "chore: initial project scaffolding"
 ### 9.3 Investment Types
 
 - `src/lib/types/investment.ts`
+
 ```typescript
 interface Investment {
-  id: string;              // Row index
-  name: string;            // "Bitcoin", "SJC Gold 1 tael"
-  type: InvestmentType;    // crypto, stock, gold, savings_deposit, real_estate, business_equity, other
-  symbol: string;          // "BTC", "GOLD_SJC", "VN30", "" for real estate
-  quantity: number;        // 0.5 BTC, 2 taels gold, 1 apartment
-  purchasePrice: number;   // Cost basis per unit
+  id: string; // Row index
+  name: string; // "Bitcoin", "SJC Gold 1 tael"
+  type: InvestmentType; // crypto, stock, gold, savings_deposit, real_estate, business_equity, other
+  symbol: string; // "BTC", "GOLD_SJC", "VN30", "" for real estate
+  quantity: number; // 0.5 BTC, 2 taels gold, 1 apartment
+  purchasePrice: number; // Cost basis per unit
   purchaseDate: Date;
-  currency: Currency;      // VND, USD, USDT
-  account: string;         // "Binance", "VCBS", "Physical"
+  currency: Currency; // VND, USD, USDT
+  account: string; // "Binance", "VCBS", "Physical"
   notes: string | null;
   // Computed fields
   currentPrice?: number;
@@ -845,27 +849,26 @@ interface Investment {
 - Test fallback: OAuth → API key
 - Verify all wealth AI example conversations work
 
-**Deliverable:** OAuth authentication for AI providers, all wealth AI tools integrated into chat.
----
+## **Deliverable:** OAuth authentication for AI providers, all wealth AI tools integrated into chat.
 
 ## Summary Timeline
 
-| Sprint | Feature | Estimated Hours | Cumulative |
-|---|---|---|---|
-| 0 | Project Scaffolding | 2–3h | 2–3h |
-| 1 | Layout & Navigation | 3–4h | 5–7h |
-| 2 | Google Sheets Integration | 6–8h | 11–15h |
-| 3 | Types & Constants | 2–3h | 13–18h |
-| 4 | Dashboard | 6–8h | 19–26h |
-| 5 | Transactions Page | 6–8h | 25–34h |
-| 6 | Budget Page | 4–5h | 29–39h |
-| 7 | AI Integration | 8–10h | 37–49h |
-| 8 | Accounts & Polish | 4–5h | 41–54h |
-| 9 | Market Data & Investment Infrastructure | 4–5h | 45–59h |
-| 10 | Investment Portfolio & Allocation Pages | 6–8h | 51–67h |
-| 11 | Net Worth History & Projections | 4–5h | 55–72h |
-| 12 | Financial Goals & Health Score | 5–6h | 60–78h |
-| 13 | OAuth & Wealth AI Tools | 5–6h | **65–84h** |
+| Sprint | Feature                                 | Estimated Hours | Cumulative |
+| ------ | --------------------------------------- | --------------- | ---------- |
+| 0      | Project Scaffolding                     | 2–3h            | 2–3h       |
+| 1      | Layout & Navigation                     | 3–4h            | 5–7h       |
+| 2      | Google Sheets Integration               | 6–8h            | 11–15h     |
+| 3      | Types & Constants                       | 2–3h            | 13–18h     |
+| 4      | Dashboard                               | 6–8h            | 19–26h     |
+| 5      | Transactions Page                       | 6–8h            | 25–34h     |
+| 6      | Budget Page                             | 4–5h            | 29–39h     |
+| 7      | AI Integration                          | 8–10h           | 37–49h     |
+| 8      | Accounts & Polish                       | 4–5h            | 41–54h     |
+| 9      | Market Data & Investment Infrastructure | 4–5h            | 45–59h     |
+| 10     | Investment Portfolio & Allocation Pages | 6–8h            | 51–67h     |
+| 11     | Net Worth History & Projections         | 4–5h            | 55–72h     |
+| 12     | Financial Goals & Health Score          | 5–6h            | 60–78h     |
+| 13     | OAuth & Wealth AI Tools                 | 5–6h            | **65–84h** |
 
 ---
 

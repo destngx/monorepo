@@ -15,6 +15,7 @@ The refactoring plan aligns perfectly with these pillars. This document reviews 
 ## ✅ What's Correct About the Plan
 
 ### 1. Core Feature Domains Match
+
 The plan identifies 8 features, and your actual product focuses on:
 
 ```
@@ -53,6 +54,7 @@ Target (unified):
 ```
 
 **Why this matters for you**: Your USP is the **AI Financial Advisor**. Centralizing AI service ensures:
+
 - ✅ Consistent behavior across budget/transaction/investment analysis
 - ✅ Easy provider switching (you support 3 providers)
 - ✅ Streaming responses for chat interface
@@ -79,7 +81,8 @@ Target (abstracted):
     └── Adapter pattern: SheetsAdapter implements Repository
 ```
 
-**Why this matters for you**: 
+**Why this matters for you**:
+
 - ✅ If you add database (PostgreSQL) later, only adapter changes
 - ✅ Testing: Can mock Repository without touching Sheets
 - ✅ Performance: Can add caching layer transparently
@@ -113,6 +116,7 @@ Better Plan (for your product):
 ```
 
 **Why**: Your AI Financial Advisor is your **primary differentiator**. Consolidating AI early means:
+
 - ✅ Chat works perfectly before other features are migrated
 - ✅ All AI features have unified interface
 - ✅ Streaming works consistently everywhere
@@ -149,6 +153,7 @@ features/accounts/                  ← "Accounts & Liabilities"
 ```
 
 **Why grouping matters**:
+
 - ✅ Net worth calculation needs all three together
 - ✅ Account balance sync affects all three
 - ✅ Single source of truth for "money" in system
@@ -205,6 +210,7 @@ features/chat/
 ```
 
 **Key point**: Context builders prepare financial data for AI:
+
 - Get user's accounts, transactions, budgets
 - Format as context for AI prompt
 - Include account balances, spending trends, etc.
@@ -341,6 +347,7 @@ AIService.analyze({
 Since you're handling personal financial data:
 
 ### In Repository Layer
+
 ```ts
 // All data access goes through Repository
 // Can add encryption/decryption here transparently
@@ -350,6 +357,7 @@ Repository.accounts.findAll()
 ```
 
 ### In AI Service
+
 ```ts
 // Should NOT send raw data to AI unnecessarily
 // Aggregate/summarize instead
@@ -372,6 +380,7 @@ AIService.analyze({
 ## ✅ Validation: Does the Plan Support Your Product?
 
 ### Budget Management Feature
+
 ```
 ✓ Can isolate budget business logic in features/budget/model/
 ✓ AI can analyze spending via AIService
@@ -381,6 +390,7 @@ AIService.analyze({
 ```
 
 ### Accounts Management Feature
+
 ```
 ✓ Bank accounts, crypto, loans in single features/accounts/
 ✓ Net worth calculation in model/queries.ts
@@ -390,6 +400,7 @@ AIService.analyze({
 ```
 
 ### Investments Feature
+
 ```
 ✓ Separate from Accounts (correct separation)
 ✓ Portfolio analysis in features/investments/model/
@@ -399,6 +410,7 @@ AIService.analyze({
 ```
 
 ### AI Financial Advisor
+
 ```
 ✓ Unified entry point: shared/lib/ai/service.ts
 ✓ All features can use AIService
@@ -428,6 +440,7 @@ For your team:
 ## 📋 Checklist: Before Starting Refactoring
 
 ### Architecture Approved?
+
 - [ ] Reviewer: Does FSD match our product vision?
   - Answer: **YES** ✅
 - [ ] Reviewer: Are domain boundaries correct?
@@ -438,12 +451,14 @@ For your team:
   - Answer: **YES** ✅ (Repository pattern)
 
 ### Team Alignment?
+
 - [ ] Engineers understand FSD principles
 - [ ] Engineers understand your feature domains
 - [ ] Engineers can see path from current → target architecture
 - [ ] Engineers agree on ESLint rules
 
 ### Execution Ready?
+
 - [ ] Week 1-5 timeline approved (with Chat moved to Week 2)
 - [ ] Team capacity allocated
 - [ ] Git workflow decided
@@ -457,6 +472,7 @@ For your team:
 **The refactoring plan is well-suited to your product.**
 
 The only adjustments are **optimization** not **correction**:
+
 1. Move Chat consolidation to Week 2 (it's your USP)
 2. Group Accounts/Loans/CreditCards together (they're related)
 3. Emphasize unified AI service (it's critical to your value proposition)

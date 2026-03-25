@@ -9,11 +9,11 @@
 
 ## Prerequisites
 
-| Requirement | Version | Purpose |
-|---|---|---|
-| **Node.js** | ≥ 20.x | Runtime |
-| **pnpm** | ≥ 9.x | Package manager |
-| **Google Account** | — | Google Sheets API access |
+| Requirement        | Version | Purpose                  |
+| ------------------ | ------- | ------------------------ |
+| **Node.js**        | ≥ 20.x  | Runtime                  |
+| **pnpm**           | ≥ 9.x   | Package manager          |
+| **Google Account** | —       | Google Sheets API access |
 
 | **Google Sheet** | — | Must have Accounts, Transactions, Budget, and Investments tabs (see Tab Structure section) |
 | **AI API Key** | — | At least one: OpenAI, Google AI, or Anthropic |
@@ -86,6 +86,7 @@ Open the downloaded JSON file and extract these values:
 ### 2.7 Get Spreadsheet ID
 
 Your spreadsheet URL looks like:
+
 ```
 https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/edit
                                        └──────────────────────────────┘
@@ -142,8 +143,7 @@ The app can automatically fetch prices from free APIs. No API keys required for 
 - Works for US stocks (`AAPL`, `MSFT`)
 - Rate limited — app caches prices with 1-hour TTL
 
-**Note:** All market data APIs are free. No paid subscriptions required.
----
+## **Note:** All market data APIs are free. No paid subscriptions required.
 
 ## Step 3.6: OAuth Setup (Optional)
 
@@ -161,10 +161,12 @@ OAuth lets you connect your OpenAI or Google account directly instead of manuall
 2. Set callback URL: `http://localhost:3000/api/auth/callback` (dev) or your production URL
 3. Note your Client ID
 4. Add to `.env.local`:
+
 ```env
 OPENAI_OAUTH_CLIENT_ID=app_...
 OPENAI_OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/callback
 ```
+
 5. In the app: Settings → AI Provider → OpenAI → Click "Connect with OAuth"
 
 ### Google OAuth Setup (Recommended — replaces both API key and Service Account)
@@ -180,11 +182,13 @@ OPENAI_OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/callback
    - `https://www.googleapis.com/auth/spreadsheets` (Google Sheets)
    - `https://www.googleapis.com/auth/generativelanguage` (Gemini AI)
 9. Add to `.env.local`:
+
 ```env
 GOOGLE_OAUTH_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=GOCSPX-...
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/auth/callback
 ```
+
 10. In the app: Settings → Click "Connect with Google" → Authorize → Done
 
 **Note:** Google OAuth replaces the Service Account for Sheets access AND provides Gemini AI access. One login, two services.
@@ -287,6 +291,7 @@ pnpm dev
 ```
 
 Visit `http://localhost:3000/settings` and check:
+
 - ✅ Google Sheets: Connected
 - ✅ Spreadsheet ID: Valid
 - ✅ Accounts tab: Found (N accounts)
@@ -295,6 +300,7 @@ Visit `http://localhost:3000/settings` and check:
 - ✅ Investments tab: Found (N assets)
 
 If any show ❌:
+
 - **"Not connected"** → Check `GOOGLE_SHEETS_ID` and service account credentials
 - **"Tab not found"** → Check `SHEET_TAB_*` names match your actual tab names
 - **"Permission denied"** → Share the sheet with the service account email (Step 2.6)
@@ -304,6 +310,7 @@ If any show ❌:
 ## Step 7: Verify AI Connection
 
 On the Settings page:
+
 - ✅ OpenAI: Configured (if key provided)
 - ✅ Google AI: Configured (if key provided)
 - ✅ Anthropic: Configured (if key provided)
@@ -337,27 +344,27 @@ Your sheet should have these tabs with these exact headers in row 1:
 
 ### Tab: Accounts
 
-| Column A | Column B | Column C | Column D | Column E | Column F | Column G | Column H |
-|---|---|---|---|---|---|---|---|
-| ACCOUNTS | Date to pay | Goal | % | Cleared | Balance | Type | Note |
+| Column A | Column B    | Column C | Column D | Column E | Column F | Column G | Column H |
+| -------- | ----------- | -------- | -------- | -------- | -------- | -------- | -------- |
+| ACCOUNTS | Date to pay | Goal     | %        | Cleared  | Balance  | Type     | Note     |
 
 ### Tab: Transactions
 
-| Col A | Col B | Col C | Col D | Col E | Col F | Col G | Col H | Col I | Col J | Col K | Col L | Col M |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Account | Date | Num | Payee | Tag | Memo | Category | Clr | PAYMENT | DEPOSIT | Account Balance | Cleared Balance | BALANCE |
+| Col A   | Col B | Col C | Col D | Col E | Col F | Col G    | Col H | Col I   | Col J   | Col K           | Col L           | Col M   |
+| ------- | ----- | ----- | ----- | ----- | ----- | -------- | ----- | ------- | ------- | --------------- | --------------- | ------- |
+| Account | Date  | Num   | Payee | Tag   | Memo  | Category | Clr   | PAYMENT | DEPOSIT | Account Balance | Cleared Balance | BALANCE |
 
 ### Tab: Budget
 
-| Column A | Column B | Column C | Column D |
-|---|---|---|---|
-| Category | Monthly Limit | Yearly Limit | Notes |
+| Column A | Column B      | Column C     | Column D |
+| -------- | ------------- | ------------ | -------- |
+| Category | Monthly Limit | Yearly Limit | Notes    |
 
 ### Tab: Investments
 
-| Col A | Col B | Col C | Col D | Col E | Col F | Col G | Col H | Col I |
-|---|---|---|---|---|---|---|---|---|
-| Asset Name | Type | Symbol | Quantity | Purchase Price | Purchase Date | Currency | Account | Notes |
+| Col A      | Col B | Col C  | Col D    | Col E          | Col F         | Col G    | Col H   | Col I |
+| ---------- | ----- | ------ | -------- | -------------- | ------------- | -------- | ------- | ----- |
+| Asset Name | Type  | Symbol | Quantity | Purchase Price | Purchase Date | Currency | Account | Notes |
 
 The Investments tab is required for portfolio tracking. If you don't have one yet, create it with the headers above. You can start with zero rows — add investments through the app or directly in the sheet.
 
@@ -378,6 +385,7 @@ The Investments tab is required for portfolio tracking. If you don't have one ye
 ### "Error: invalid_grant"
 
 → The `GOOGLE_PRIVATE_KEY` is malformed. Make sure:
+
 - It's wrapped in double quotes in `.env.local`
 - Newlines are represented as `\n`
 - The full key is present (including BEGIN/END markers)
@@ -389,6 +397,7 @@ The Investments tab is required for portfolio tracking. If you don't have one ye
 ### "Error: Rate limit exceeded"
 
 → Too many Google Sheets API calls. The app has built-in caching (5-minute TTL). If you're hitting limits:
+
 - Increase `CACHE_TTL_SECONDS` in `.env.local`
 - Avoid rapid manual syncs
 
@@ -427,11 +436,11 @@ pnpm dev
 
 ## Project Scripts
 
-| Command | Description |
-|---|---|
-| `pnpm dev` | Start development server |
-| `pnpm build` | Production build |
-| `pnpm start` | Start production server |
-| `pnpm lint` | Run ESLint |
-| `pnpm prisma studio` | Open Prisma database viewer |
+| Command               | Description                    |
+| --------------------- | ------------------------------ |
+| `pnpm dev`            | Start development server       |
+| `pnpm build`          | Production build               |
+| `pnpm start`          | Start production server        |
+| `pnpm lint`           | Run ESLint                     |
+| `pnpm prisma studio`  | Open Prisma database viewer    |
 | `pnpm prisma db push` | Sync Prisma schema to database |

@@ -9,21 +9,25 @@ The **Credit Card Usage Dashboard** is a comprehensive financial optimization to
 ## Feature Highlights
 
 ### ✅ Dual-Card Management
+
 - **Sacombank Visa Platinum Cashback** — Optimized for online & overseas spending
 - **Sacombank Visa UNIQ Platinum** — Optimized for supermarkets & transport
 
 ### ✅ Intelligent Cashback Calculation
+
 - Automatic categorization of transactions by type
 - Real-time cashback estimation with official Sacombank rules
 - Cap tracking (600K VND per cycle, 7.2M VND per year, per card)
 
 ### ✅ Usage Analytics
+
 - Current month spending overview
 - Monthly history (utilization trends & cashback earned)
 - Top spending categories
 - Credit utilization percentage
 
 ### ✅ Optimization Tips
+
 - Smart alerts for low/high utilization
 - Recommended routing strategy
 - Cashback efficiency guide
@@ -34,13 +38,14 @@ The **Credit Card Usage Dashboard** is a comprehensive financial optimization to
 
 ### 1. Sacombank Visa Platinum Cashback
 
-| Category | Cashback Rate | Cap/Cycle | Cap/Year |
-|----------|---------------|-----------|----------|
-| **Online** (Shopee, Lazada, Tiki, etc.) | **5%** | 600K VND | 7.2M VND |
-| **Overseas** (International POS) | **3%** | Shared | Shared |
-| **Airline** (+ all other spending) | **0.5%** | Shared | Shared |
+| Category                                | Cashback Rate | Cap/Cycle | Cap/Year |
+| --------------------------------------- | ------------- | --------- | -------- |
+| **Online** (Shopee, Lazada, Tiki, etc.) | **5%**        | 600K VND  | 7.2M VND |
+| **Overseas** (International POS)        | **3%**        | Shared    | Shared   |
+| **Airline** (+ all other spending)      | **0.5%**      | Shared    | Shared   |
 
 **Key Conditions:**
+
 - Card must be active on cashback credit date
 - Consumer purchases only (no cash advances, fund transfers, or insurance payments)
 - Cashback credited: Day 10–15 of next month
@@ -53,18 +58,20 @@ The **Credit Card Usage Dashboard** is a comprehensive financial optimization to
 
 ### 2. Sacombank Visa UNIQ Platinum
 
-| Category | Cashback Rate | Cap/Cycle | Cap/Year |
-|----------|---------------|-----------|----------|
-| **Supermarket** (CoopMart, WinMart, BigC) | **20%** | 600K VND | 7.2M VND |
-| **Transport** (Grab, taxi, fuel) | **20%** | Shared with Supermarket | Shared |
-| **Other Spending** | **0.5%** | Shared | Shared |
+| Category                                  | Cashback Rate | Cap/Cycle               | Cap/Year |
+| ----------------------------------------- | ------------- | ----------------------- | -------- |
+| **Supermarket** (CoopMart, WinMart, BigC) | **20%**       | 600K VND                | 7.2M VND |
+| **Transport** (Grab, taxi, fuel)          | **20%**       | Shared with Supermarket | Shared   |
+| **Other Spending**                        | **0.5%**      | Shared                  | Shared   |
 
 **Special Rules:**
+
 - **First 30 days of activation**: Supermarket + Transport earn **50%** (not 20%)
 - Supermarket & Transport share the same 600K cap (combined)
 - After 30 days: Both drop to 20%
 
 **Key Conditions:**
+
 - Card must be active on cashback credit date
 - Consumer purchases only
 - Only qualifying merchants (by MCC) earn cashback
@@ -81,6 +88,7 @@ The **Credit Card Usage Dashboard** is a comprehensive financial optimization to
 ### 1. Summary Cards (Top Row)
 
 Four quick-stat cards showing:
+
 - **Total Limit**: 40M VND (combined)
 - **Used This Month**: Current spending + utilization %
 - **Est. Cashback**: Total estimated cashback earned (both cards)
@@ -93,23 +101,28 @@ Four quick-stat cards showing:
 Each card gets its own detailed panel showing:
 
 #### Card Header
+
 - Card name & icon
 - **Usage percentage** (prominently displayed)
 
 #### Usage Bar
+
 - Visual progress bar (green <50%, orange 50-80%, red >80%)
 - Current spending amount
 - Shows which card is being utilized more
 
 #### Limit & Available
+
 - Credit limit (20M each)
 - Available credit remaining
 
 #### Estimated Cashback Box
+
 - Green highlight box showing total estimated cashback for current month
 - Updated in real-time as transactions are processed
 
 #### Top 5 Spending Categories
+
 - Category name
 - Amount spent in category
 - Estimated cashback earned in that category
@@ -120,6 +133,7 @@ Each card gets its own detailed panel showing:
   ```
 
 #### Monthly Efficiency Table
+
 - Shows last 3 months of:
   - Month (e.g., "Feb '26")
   - Utilization % for that month
@@ -127,10 +141,12 @@ Each card gets its own detailed panel showing:
 - Identifies trending patterns
 
 #### Optimization Alerts
+
 - **Low Usage (<30%)**: "Consider using this card more for cashback optimization"
 - **High Usage (>80%)**: "Be cautious of credit limit"
 
 #### Transaction Count
+
 - Number of transactions this month
 
 ---
@@ -140,6 +156,7 @@ Each card gets its own detailed panel showing:
 Two-column guide showing:
 
 **Sacombank Visa Platinum Cashback**
+
 ```
 Online                  5% cashback
 Overseas                3% cashback
@@ -147,6 +164,7 @@ Airline (+ other)       0.5% cashback
 ```
 
 **Sacombank Visa UNIQ Platinum**
+
 ```
 Supermarket             20% cashback
 Transport               20% cashback
@@ -158,11 +176,13 @@ Other Spending          0.5% cashback
 ## Optimal Spending Strategy
 
 ### Route to UNIQ Platinum (20% cashback)
+
 - Supermarkets: CoopMart, WinMart, BigC
 - Transport: Grab, taxi, fuel stations, parking
 - **Why**: 20% is the highest rate available; maximize this first
 
 ### Route to Platinum Cashback (5% cashback)
+
 - Online shopping: Shopee, Lazada, Tiki
 - Food delivery: Grab Food, Baemin, Now
 - Subscriptions: Netflix, Spotify, Coursera
@@ -170,6 +190,7 @@ Other Spending          0.5% cashback
 - **Why**: 5% online is 25x better than 0.5% fallback
 
 ### Flexible Routing (when one card is near cap)
+
 - Either card can handle "Other Spending" at 0.5% when either reaches its 600K cap
 - Check the dashboard to see which card has remaining cap headroom
 
@@ -179,13 +200,14 @@ Other Spending          0.5% cashback
 
 With optimal usage, you can earn:
 
-| Scenario | Monthly | Annually |
-|----------|---------|----------|
-| **One card maxed** | 600K VND | 7.2M VND |
-| **Both cards maxed** | 1,200K VND | 14.4M VND |
+| Scenario                 | Monthly         | Annually     |
+| ------------------------ | --------------- | ------------ |
+| **One card maxed**       | 600K VND        | 7.2M VND     |
+| **Both cards maxed**     | 1,200K VND      | 14.4M VND    |
 | **Realistic dual usage** | 800K–1,000K VND | 9.6M–12M VND |
 
 **Realistic Scenario** (Your actual data):
+
 - 10M VND/month spending
 - Split 60/40 (online vs supermarket/transport)
 - Both cards heavily used
@@ -200,11 +222,13 @@ With optimal usage, you can earn:
 The component automatically maps your transaction categories to cashback rules:
 
 **For Platinum Cashback:**
+
 - Keywords like "shopee", "lazada", "tiki", "delivery", "netflix" → **Online (5%)**
 - Keywords like "airline", "flight" → **Airline (0.5%)**
 - Everything else → **Other (0.5%)**
 
 **For UNIQ Platinum:**
+
 - Keywords like "coop", "winmart", "bigc", "supermarket" → **Supermarket (20%)**
 - Keywords like "grab", "taxi", "fuel", "transit", "gas" → **Transport (20%)**
 - Everything else → **Other (0.5%)**
@@ -219,6 +243,7 @@ The component automatically maps your transaction categories to cashback rules:
 ### 3. Efficiency Calculation
 
 Monthly efficiency shows:
+
 - **Utilization %**: (Total spent / 20M limit) × 100
 - **Cashback earned**: Sum of all category cashbacks for the month
 
@@ -237,6 +262,7 @@ Monthly efficiency shows:
 ### Example Interpretation
 
 If you see:
+
 - **UNIQ Platinum**: 95% utilization, 600K estimated cashback
   - ✅ You've maxed out the supermarket/transport cap
   - 📊 Consider shifting non-qualifying spending to Platinum Cashback
@@ -274,6 +300,7 @@ If you see:
 ### Data Requirements
 
 For accurate cashback calculation, your transactions should include:
+
 - **Account Name**: "Credit Card Sacombank" or "Credit Card Sacombank UNIQ"
 - **Category**: Spend category (e.g., "Lunch", "Shopee", "Grab")
 - **Amount**: Transaction amount in VND
@@ -284,20 +311,24 @@ For accurate cashback calculation, your transactions should include:
 ## Using the Dashboard
 
 ### Daily Check-In
+
 - See how much you've spent and earned in cashback today
 - Monitor approach to 600K monthly cap
 
 ### Monthly Review
+
 - View all 3 months of spending/cashback history
 - Identify which card is earning more
 - Spot categories where you're earning high cashback
 
 ### Optimization Decisions
+
 - **Before major purchases**: Check which card has cap room remaining
 - **When choosing payment method**: Refer to the Optimization Guide
 - **When refunding**: Be aware cashback will be clawed back
 
 ### Data Export
+
 - Numbers displayed are for reference only
 - For official Sacombank records, check your statement
 
@@ -307,6 +338,7 @@ For accurate cashback calculation, your transactions should include:
 
 **Q: Why does my actual cashback differ from the dashboard estimate?**
 A: Possible reasons:
+
 - MCC rejection (merchant didn't qualify despite category match)
 - Refund clawback from previous month
 - Transaction settled later than displayed date

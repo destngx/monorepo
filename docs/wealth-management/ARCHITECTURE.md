@@ -9,18 +9,18 @@
 
 ## 1. Tech Stack
 
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Framework** | Next.js 15 (App Router) | Full-stack React, API routes, server components, streaming |
-| **Language** | TypeScript (strict mode) | Type safety across the entire codebase |
-| **Styling** | Tailwind CSS 4 + shadcn/ui | Rapid UI development, consistent design system |
-| **Charts** | Recharts | Lightweight, React-native charting for dashboards |
-| **AI** | Vercel AI SDK 4 | Provider-agnostic AI with streaming, tool-calling, structured output |
-| **Data Source** | Google Sheets API v4 | Bidirectional sync with existing financial spreadsheet |
-| **Caching**     | In-memory Cache     | High-performance TTL-based cache for sheet data |
-| **Storage**     | Google Sheets       | Central source of truth for all financial data |
-| **Market Data** | CoinGecko API + free sources | Crypto, gold, stock prices for portfolio valuation |
-| **Auth (AI)** | OAuth 2.0 + API Keys | Dual auth: OAuth for OpenAI/Google, API key for all |
+| Layer           | Technology                   | Rationale                                                            |
+| --------------- | ---------------------------- | -------------------------------------------------------------------- |
+| **Framework**   | Next.js 15 (App Router)      | Full-stack React, API routes, server components, streaming           |
+| **Language**    | TypeScript (strict mode)     | Type safety across the entire codebase                               |
+| **Styling**     | Tailwind CSS 4 + shadcn/ui   | Rapid UI development, consistent design system                       |
+| **Charts**      | Recharts                     | Lightweight, React-native charting for dashboards                    |
+| **AI**          | Vercel AI SDK 4              | Provider-agnostic AI with streaming, tool-calling, structured output |
+| **Data Source** | Google Sheets API v4         | Bidirectional sync with existing financial spreadsheet               |
+| **Caching**     | In-memory Cache              | High-performance TTL-based cache for sheet data                      |
+| **Storage**     | Google Sheets                | Central source of truth for all financial data                       |
+| **Market Data** | CoinGecko API + free sources | Crypto, gold, stock prices for portfolio valuation                   |
+| **Auth (AI)**   | OAuth 2.0 + API Keys         | Dual auth: OAuth for OpenAI/Google, API key for all                  |
 
 ---
 
@@ -555,17 +555,17 @@ model MarketPrice {
 
 ### 5.1 Server vs. Client Components
 
-| Component | Type | Reason |
-|---|---|---|
-| Dashboard page | Server | Initial data fetch, SEO |
-| Net worth card | Server | Static display of fetched data |
-| Spending chart | Client | Interactive chart (Recharts) |
-| Transaction table | Client | Sorting, filtering, pagination |
-| Transaction form | Client | Form state, validation |
-| Budget progress | Client | Interactive progress bars |
-| AI Chat | Client | Streaming, real-time updates |
-| Sidebar | Client | Active route state, collapse toggle |
-| Settings page | Client | Form state, API calls |
+| Component         | Type   | Reason                              |
+| ----------------- | ------ | ----------------------------------- |
+| Dashboard page    | Server | Initial data fetch, SEO             |
+| Net worth card    | Server | Static display of fetched data      |
+| Spending chart    | Client | Interactive chart (Recharts)        |
+| Transaction table | Client | Sorting, filtering, pagination      |
+| Transaction form  | Client | Form state, validation              |
+| Budget progress   | Client | Interactive progress bars           |
+| AI Chat           | Client | Streaming, real-time updates        |
+| Sidebar           | Client | Active route state, collapse toggle |
+| Settings page     | Client | Form state, API calls               |
 
 | Allocation chart | Client | Interactive pie chart (Recharts) |
 | Net worth history | Client | Interactive line chart (Recharts) |
@@ -583,7 +583,7 @@ async function DashboardPage() {
   const budget = await getBudgetSummary();     // Google Sheets → cache
   const recent = await getRecentTransactions(); // Google Sheets → cache
   const rate = await getExchangeRate();         // CoinGecko → cache
-  
+
   return (
     <>
       <NetWorthCard accounts={accounts} exchangeRate={rate} />
@@ -704,24 +704,26 @@ GET /api/transactions?
 5. Refresh tokens handled automatically
 ```
 
-
 ### 7.3 OAuth Authentication Flows
 
 **OpenAI OAuth:** Authorization Code + PKCE flow
-  - Auth URL: https://auth.openai.com/oauth/authorize
-  - Token URL: https://auth.openai.com/oauth/token
-  - Scopes: openid profile email offline_access
+
+- Auth URL: https://auth.openai.com/oauth/authorize
+- Token URL: https://auth.openai.com/oauth/token
+- Scopes: openid profile email offline_access
 
 **Google OAuth:** Standard Authorization Code flow
-  - Scopes: spreadsheets + generative-language (single login for both Sheets + Gemini)
-  - If user connects Google OAuth, it replaces the service account for Sheets access AND provides Gemini access
+
+- Scopes: spreadsheets + generative-language (single login for both Sheets + Gemini)
+- If user connects Google OAuth, it replaces the service account for Sheets access AND provides Gemini access
 
 **Anthropic:** API key only (OAuth banned Feb 2026)
 
 **Token Storage & Management:**
-  - Tokens stored encrypted in SQLite OAuthToken table
-  - Token refresh handled automatically before expiration
-  - Fallback: If OAuth token expired and refresh fails, fall back to API key
+
+- Tokens stored encrypted in SQLite OAuthToken table
+- Token refresh handled automatically before expiration
+- Fallback: If OAuth token expired and refresh fails, fall back to API key
 
 ### 7.4 Security Measures
 
@@ -759,13 +761,13 @@ class AuthError extends AppError { ... }         // Authentication failures
 
 ### 8.2 Error Strategy
 
-| Scenario | Handling |
-|---|---|
-| Google Sheets API down | Serve from SQLite cache, show "offline" indicator |
-| AI provider error | Fall back to next configured provider, or show "AI unavailable" |
-| Invalid transaction data | Return 400 with Zod validation errors |
-| Rate limit exceeded | Return 429, show cool-down timer in UI |
-| Network timeout | Retry with exponential backoff (max 3 attempts) |
+| Scenario                 | Handling                                                        |
+| ------------------------ | --------------------------------------------------------------- |
+| Google Sheets API down   | Serve from SQLite cache, show "offline" indicator               |
+| AI provider error        | Fall back to next configured provider, or show "AI unavailable" |
+| Invalid transaction data | Return 400 with Zod validation errors                           |
+| Rate limit exceeded      | Return 429, show cool-down timer in UI                          |
+| Network timeout          | Retry with exponential backoff (max 3 attempts)                 |
 
 ---
 
@@ -779,7 +781,6 @@ class AuthError extends AppError { ... }         // Authentication failures
 6. **Code Splitting** — Dynamic imports for chart library (heavy)
 7. **Image Optimization** — Next.js Image component for any assets
 
-
 ---
 
 ## 10. Navigation Structure
@@ -790,8 +791,8 @@ class AuthError extends AppError { ... }         // Authentication failures
 - Transactions (/transactions)
 - Accounts (/accounts)
 - Budget (/budget)
-- Investments (/investments)      # New
-- Goals (/goals)                  # New
-- Health (/health)                # New
+- Investments (/investments) # New
+- Goals (/goals) # New
+- Health (/health) # New
 - Chat (/chat)
 - Settings (/settings)

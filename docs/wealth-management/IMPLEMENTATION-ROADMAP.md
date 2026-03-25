@@ -1,6 +1,7 @@
 # FSD Implementation Roadmap - Week by Week
 
 ## Overview
+
 - **Total Duration**: 5 weeks (aggressive)
 - **Team Size**: Recommended 2-3 developers
 - **Risk Level**: Medium (extensive file reorganization)
@@ -11,11 +12,13 @@
 ## WEEK 1: Infrastructure Setup
 
 ### Goal
+
 Set up the new directory structure and abstraction layers. No feature migration yet.
 
 ### Tasks
 
 #### 1.1 Create Directory Structure
+
 ```bash
 mkdir -p src/shared/{ui,lib/{ai,persistence,validation,services,utils,types},hooks,constants,api}
 mkdir -p src/core/{auth,cache,config,middleware}
@@ -23,6 +26,7 @@ mkdir -p src/features/{accounts,transactions,budget,goals,loans,investments,chat
 ```
 
 #### 1.2 Persistence Layer (Repository Pattern)
+
 **File**: `src/shared/lib/persistence/repository.ts`
 
 ```ts
@@ -36,14 +40,13 @@ export abstract class Repository<T> {
 }
 
 // Factory
-export function createRepository<T>(
-  adapter: new () => RepositoryAdapter<T>
-): Repository<T> {
+export function createRepository<T>(adapter: new () => RepositoryAdapter<T>): Repository<T> {
   return new adapter();
 }
 ```
 
 **File**: `src/shared/lib/persistence/adapters/sheets-adapter.ts`
+
 ```ts
 import { Repository } from '../repository';
 import { getAccounts as sheetsGetAccounts } from '@/lib/sheets/accounts';
@@ -51,7 +54,7 @@ import { getAccounts as sheetsGetAccounts } from '@/lib/sheets/accounts';
 export class AccountSheetsAdapter extends Repository<Account> {
   async findById(id: string) {
     const accounts = await sheetsGetAccounts();
-    return accounts.find(a => a.name === id) || null;
+    return accounts.find((a) => a.name === id) || null;
   }
 
   async findAll() {
@@ -67,6 +70,7 @@ export class AccountSheetsAdapter extends Repository<Account> {
 ```
 
 **File**: `src/shared/lib/persistence/index.ts`
+
 ```ts
 import { AccountSheetsAdapter } from './adapters/sheets-adapter';
 import { TransactionSheetsAdapter } from './adapters/transaction-adapter';
@@ -86,6 +90,7 @@ export * from './repository';
 **Status**: ✅ TESTABLE - Can test Repository without touching actual sheets
 
 #### 1.3 Unified AI Service Layer
+
 **File**: `src/shared/lib/ai/service.ts`
 
 ```ts
@@ -124,6 +129,7 @@ export class AIService {
 **Status**: ✅ INTERFACE UNIFIED - All AI calls go through this service
 
 #### 1.4 Validation Schemas
+
 **File**: `src/shared/lib/validation/schemas.ts`
 
 ```ts
@@ -156,6 +162,7 @@ export const TransactionSchema = z.object({
 **Status**: ✅ CENTRALIZED - Single source of truth for validation
 
 #### 1.5 ESLint Configuration
+
 **File**: Update `eslint.config.mjs`
 
 ```js
@@ -194,6 +201,7 @@ export default [
 **Status**: ✅ GUARDED - ESLint prevents architecture violations
 
 #### 1.6 Create Feature Templates
+
 **File**: `src/features/accounts/index.ts` (as template)
 
 ```ts
@@ -213,7 +221,9 @@ export type { Account } from './model/types';
 **Status**: ✅ TEMPLATE - Clear pattern for other features
 
 #### 1.7 Set Up TypeScript Path Aliases (Already configured)
+
 Verify `tsconfig.json` has:
+
 ```json
 {
   "compilerOptions": {
@@ -230,6 +240,7 @@ Verify `tsconfig.json` has:
 **Status**: ✅ CONFIGURED
 
 ### Week 1 Deliverables
+
 - [x] `/src/shared/`, `/src/core/`, `/src/features/` structure created
 - [x] Repository abstraction implemented
 - [x] Unified AI service created
@@ -240,6 +251,7 @@ Verify `tsconfig.json` has:
 - [x] No code removed yet (old structure still intact)
 
 **Verification**:
+
 ```bash
 npm run build    # Should succeed
 npm run test     # Should pass (no changes to features yet)
@@ -251,9 +263,11 @@ npm run lint     # Should pass (new rules are warnings)
 ## WEEK 2: Core Feature Migration (Settings, Loans, Accounts)
 
 ### Goal
+
 Migrate 3 independent features to new structure. Establish migration pattern.
 
 ### Feature Priority
+
 1. **Settings** - No dependencies, simplest
 2. **Loans** - Minimal dependencies
 3. **Accounts** - Foundation for other features
@@ -263,6 +277,7 @@ Migrate 3 independent features to new structure. Establish migration pattern.
 ### 2.1 Migrate SETTINGS Feature
 
 #### Current Structure
+
 ```
 src/
 ├── app/settings/page.tsx
@@ -271,6 +286,7 @@ src/
 ```
 
 #### Target Structure
+
 ```
 src/features/settings/
 ├── ui/
@@ -287,6 +303,7 @@ src/features/settings/
 ```
 
 #### Step-by-step
+
 1. Copy settings page to `features/settings/ui/page.tsx`
 2. Create `features/settings/model/types.ts` from old types
 3. Create `features/settings/model/queries.ts`:
@@ -307,6 +324,7 @@ src/features/settings/
 6. ✅ Keep old files for now (will delete after testing)
 
 **Verification**:
+
 ```bash
 npm run build
 npm run test
@@ -320,6 +338,7 @@ npm run test
 ### 2.2 Migrate LOANS Feature
 
 #### Current Structure
+
 ```
 src/
 ├── app/accounts/loans/page.tsx
@@ -333,6 +352,7 @@ src/
 ```
 
 #### Target Structure
+
 ```
 src/features/loans/
 ├── api/
@@ -355,7 +375,9 @@ src/features/loans/
 ```
 
 #### Implementation
+
 **File**: `src/features/loans/model/queries.ts`
+
 ```ts
 import { Repository } from '@/shared/lib/persistence';
 import { Loan } from './types';
@@ -370,6 +392,7 @@ export async function getLoanById(id: string): Promise<Loan | null> {
 ```
 
 **File**: `src/features/loans/api/route.ts`
+
 ```ts
 import { NextResponse } from 'next/server';
 import { getLoans } from '../model/queries';
@@ -379,21 +402,20 @@ export async function GET() {
     const loans = await getLoans();
     return NextResponse.json(loans);
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to fetch loans' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch loans' }, { status: 500 });
   }
 }
 ```
 
 **File**: `src/app/accounts/loans/page.tsx` (update)
+
 ```tsx
 import { LoansPage } from '@/features/loans/ui';
 export default LoansPage;
 ```
 
 **Verification**:
+
 ```bash
 npm run build
 npm run test
@@ -408,6 +430,7 @@ npm run test
 ### 2.3 Migrate ACCOUNTS Feature (Most Important)
 
 #### Target Structure
+
 ```
 src/features/accounts/
 ├── api/
@@ -438,7 +461,9 @@ src/features/accounts/
 ```
 
 #### Key Implementation
+
 **File**: `src/features/accounts/model/types.ts`
+
 ```ts
 export interface Account {
   name: string;
@@ -469,13 +494,14 @@ export class AccountAggregate {
 ```
 
 **File**: `src/features/accounts/model/queries.ts`
+
 ```ts
 import { Repository } from '@/shared/lib/persistence';
 import { AccountAggregate } from './types';
 
 export async function getAccounts() {
   const raw = await Repository.accounts.findAll();
-  return raw.map(account => new AccountAggregate(account));
+  return raw.map((account) => new AccountAggregate(account));
 }
 
 export async function getAccountById(id: string) {
@@ -496,6 +522,7 @@ export async function getAccountReview(account: Account) {
 ```
 
 **File**: `src/features/accounts/model/hooks.ts`
+
 ```ts
 'use client';
 
@@ -503,15 +530,12 @@ import { useQuery } from '@/shared/hooks/query';
 import { getAccounts } from './queries';
 
 export function useAccounts() {
-  return useQuery(
-    ['accounts'],
-    () => getAccounts(),
-    { revalidate: 60 }
-  );
+  return useQuery(['accounts'], () => getAccounts(), { revalidate: 60 });
 }
 ```
 
 **File**: `src/features/accounts/ui/page.tsx`
+
 ```tsx
 'use client';
 
@@ -525,7 +549,7 @@ export function AccountsPage() {
 
   return (
     <div className="grid gap-4">
-      {accounts?.map(account => (
+      {accounts?.map((account) => (
         <AccountCard key={account.name} account={account} />
       ))}
     </div>
@@ -534,6 +558,7 @@ export function AccountsPage() {
 ```
 
 **File**: `src/features/accounts/api/route.ts`
+
 ```ts
 import { NextResponse } from 'next/server';
 import { getAccounts } from '../model/queries';
@@ -544,10 +569,7 @@ export async function GET() {
     const accounts = await getAccounts();
     return NextResponse.json(accounts);
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to fetch accounts' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch accounts' }, { status: 500 });
   }
 }
 
@@ -559,15 +581,9 @@ export async function POST(request: Request) {
     return NextResponse.json(validated, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.errors },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: error.errors }, { status: 400 });
     }
-    return NextResponse.json(
-      { error: 'Failed to create account' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
   }
 }
 ```
@@ -575,6 +591,7 @@ export async function POST(request: Request) {
 **Status**: ✅ COMPLETE - Accounts fully migrated
 
 ### Week 2 Deliverables
+
 - [x] Settings migrated
 - [x] Loans migrated
 - [x] Accounts migrated (most complex)
@@ -583,6 +600,7 @@ export async function POST(request: Request) {
 - [x] Old files still in place (safe rollback)
 
 **Verification**:
+
 ```bash
 npm run build      # ✅ Success
 npm run test       # ✅ All pass
@@ -594,26 +612,32 @@ npm run lint       # ✅ No errors
 ## WEEK 3: Continue Feature Migration (Transactions, Budget, Goals)
 
 ### Goal
+
 Migrate 3 interconnected features.
 
 ### 3.1 Migrate TRANSACTIONS (depends on Account)
+
 - Most complex data structure
 - Most frequently used
 - AI features integrated
 
 **Key Points**:
+
 - Import Account types from `features/accounts/model/types`
 - Use Repository for transaction persistence
 - Consolidate transaction-related AI features
 
 ### 3.2 Migrate BUDGET (depends on Transactions)
+
 - Budget calculation uses transaction history
 - Cross-feature dependency pattern
 
 ### 3.3 Migrate GOALS (depends on Accounts)
+
 - Goal progress calculated from account balance
 
 ### Pattern
+
 Each feature follows same structure as Accounts/Loans.
 
 ---
@@ -621,17 +645,21 @@ Each feature follows same structure as Accounts/Loans.
 ## WEEK 4: Consolidate AI & Investments, Integration
 
 ### Goal
+
 Consolidate scattered AI features, migrate investments, integrate all routes.
 
 ### 4.1 Consolidate AI Features
+
 - Move 13 scattered AI endpoints to feature-specific locations
 - All AI calls route through `shared/lib/ai/`
 
 ### 4.2 Migrate INVESTMENTS
+
 - Least complex
 - Good for testing new patterns
 
 ### 4.3 Update App Routes
+
 ```
 app/
 ├── layout.tsx
@@ -675,9 +703,11 @@ app/
 ## WEEK 5: Cleanup, Testing, Documentation
 
 ### Goal
+
 Remove old files, verify everything works, document.
 
 ### 5.1 Remove Old Structure
+
 ```bash
 # Backup just in case
 git branch backup/pre-cleanup
@@ -690,6 +720,7 @@ rm -rf src/components (after moving to features/*/ui)
 ```
 
 ### 5.2 Full System Testing
+
 ```bash
 npm run build       # Full build
 npm run test        # All unit tests
@@ -698,6 +729,7 @@ npm run dev         # Manual testing
 ```
 
 ### 5.3 Performance Audit
+
 ```bash
 # Check bundle size
 npx next-bundle-analyzer
@@ -708,6 +740,7 @@ npm run dev
 ```
 
 ### 5.4 Documentation
+
 - Update README with new structure
 - Create ARCHITECTURE.md
 - Update contribution guidelines
@@ -717,21 +750,25 @@ npm run dev
 ## Parallel Streams (If 2-3 Developers)
 
 ### Developer 1: Infrastructure + Accounts
+
 - Week 1: All infrastructure
 - Week 2: Accounts (largest)
 
 ### Developer 2: Loans + Transactions
+
 - Week 1: Setup (copy of infrastructure)
 - Week 2: Loans
 - Week 3: Transactions
 
 ### Developer 3: Budget + Goals + Investments
+
 - Week 1: Setup (copy of infrastructure)
 - Week 2: Follow along
 - Week 3: Budget + Goals
 - Week 4: Investments
 
 **Merge Strategy**:
+
 - Each feature is independent
 - Weekly merge to main after testing
 - No conflicts if following structure strictly
@@ -741,6 +778,7 @@ npm run dev
 ## Testing During Migration
 
 ### Unit Tests
+
 ```ts
 // features/accounts/__tests__/queries.test.ts
 import { getAccounts } from '../model/queries';
@@ -761,6 +799,7 @@ describe('getAccounts', () => {
 ```
 
 ### Integration Tests
+
 ```ts
 // features/accounts/__tests__/api.test.ts
 import { GET, POST } from '../api/route';
@@ -774,6 +813,7 @@ describe('GET /api/accounts', () => {
 ```
 
 ### E2E Tests (Optional)
+
 ```ts
 // tests/e2e/accounts.test.ts
 describe('Accounts Flow', () => {
@@ -805,14 +845,14 @@ git checkout <week-0-commit> -- src/
 
 ## Success Metrics
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| Build time | < 30s | ~20s |
-| Type errors | 0 | 0 |
-| ESLint errors | 0 | TBD |
-| Test coverage | > 70% | TBD |
-| Bundle size | < 400KB | TBD |
-| LCP | < 2.5s | TBD |
+| Metric        | Target  | Current |
+| ------------- | ------- | ------- |
+| Build time    | < 30s   | ~20s    |
+| Type errors   | 0       | 0       |
+| ESLint errors | 0       | TBD     |
+| Test coverage | > 70%   | TBD     |
+| Bundle size   | < 400KB | TBD     |
+| LCP           | < 2.5s  | TBD     |
 
 ---
 
@@ -841,21 +881,25 @@ git checkout <week-0-commit> -- src/
 ## Common Issues & Solutions
 
 ### Issue: Circular Dependencies
+
 **Cause**: Feature A imports from Feature B, B imports from A  
 **Solution**: Move shared logic to `shared/lib/`  
 **Prevention**: ESLint rules in place
 
 ### Issue: Type Errors After Migration
+
 **Cause**: Missing exports in `index.ts`  
 **Solution**: Verify all public APIs exported  
 **Prevention**: Use barrel files strictly
 
 ### Issue: API Routes Not Working
+
 **Cause**: Path mismatch between new location and expected route  
 **Solution**: Ensure `app/api/X/route.ts` delegates to `features/X/api/route.ts`  
 **Prevention**: Test routes after each migration
 
 ### Issue: Performance Regression
+
 **Cause**: Over-fetching, missing memoization  
 **Solution**: Profile with DevTools, optimize hot paths  
 **Prevention**: Run Lighthouse after each feature

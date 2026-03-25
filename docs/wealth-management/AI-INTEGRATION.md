@@ -10,6 +10,7 @@
 ## 1. Overview
 
 The AI layer provides:
+
 1. **Chat interface** - Natural language Q&A about your finances
 2. **Auto-categorization** - Classify transactions into spending categories
 3. **Budget advisor** - Suggest budget adjustments based on spending patterns
@@ -133,6 +134,7 @@ Selected model is stored in SQLite `settings` table and loaded on each request.
 The app supports dual authentication for AI providers:
 
 **OpenAI OAuth:**
+
 - Flow: Authorization Code with PKCE
 - Auth URL: https://auth.openai.com/oauth/authorize
 - Token URL: https://auth.openai.com/oauth/token
@@ -141,17 +143,20 @@ The app supports dual authentication for AI providers:
 - Token refresh: Automatic using refresh_token before expiration
 
 **Google OAuth (shared with Sheets):**
+
 - Flow: Standard OAuth 2.0 Authorization Code
 - Scopes: https://www.googleapis.com/auth/spreadsheets + https://www.googleapis.com/auth/generativelanguage
 - Benefit: Single Google login grants both Sheets and Gemini access
 - If user has already authorized Sheets via Google OAuth, Gemini access is automatic (if scope was included)
 
 **Anthropic:**
+
 - API key only (sk-ant-api03-xxx)
 - OAuth was banned by Anthropic on Feb 19, 2026
 - No OAuth support planned
 
 **Auth Priority:**
+
 1. If OAuth token exists and is valid → use OAuth
 2. If OAuth token expired → attempt refresh
 3. If refresh fails or no OAuth → fall back to API key
@@ -167,9 +172,11 @@ AI Provider: OpenAI
 
   Active: OAuth ✅ (connected as user@example.com)
 ```
+
 ### 2.3 Fallback Strategy
 
 If the selected provider fails:
+
 1. Retry once with same provider
 2. If still fails, try next configured provider (in order: OpenAI → Google → Anthropic)
 3. If all fail, return error message with "AI temporarily unavailable"
@@ -270,7 +277,7 @@ export const financialTools = {
       const accounts = await getAccounts();
       const rate = await getExchangeRate();
       return {
-        accounts: accounts.map(a => ({
+        accounts: accounts.map((a) => ({
           name: a.name,
           balance: a.balance,
           currency: a.currency,
@@ -284,7 +291,8 @@ export const financialTools = {
   }),
 
   getTransactions: tool({
-    description: 'Get transactions with optional filters. Use this to look up specific transactions or analyze spending.',
+    description:
+      'Get transactions with optional filters. Use this to look up specific transactions or analyze spending.',
     parameters: z.object({
       dateFrom: z.string().optional().describe('Start date in YYYY-MM-DD format'),
       dateTo: z.string().optional().describe('End date in YYYY-MM-DD format'),
@@ -304,7 +312,7 @@ export const financialTools = {
         count: transactions.length,
         totalPayments: sumPayments(transactions),
         totalDeposits: sumDeposits(transactions),
-        transactions: transactions.map(t => ({
+        transactions: transactions.map((t) => ({
           date: formatDate(t.date),
           payee: t.payee,
           category: t.category,
@@ -327,7 +335,7 @@ export const financialTools = {
       const budget = await getBudgetWithActuals(targetMonth);
       return {
         month: targetMonth,
-        categories: budget.map(b => ({
+        categories: budget.map((b) => ({
           category: b.category,
           monthlyLimit: b.monthlyLimit,
           spent: b.monthlySpent,
@@ -362,7 +370,7 @@ export const financialTools = {
             category: cat,
             amount: sumPayments(txns),
             count: txns.length,
-            percentage: (sumPayments(txns) / sumPayments(transactions) * 100).toFixed(1),
+            percentage: ((sumPayments(txns) / sumPayments(transactions)) * 100).toFixed(1),
           }))
           .sort((a, b) => b.amount - a.amount),
       };
@@ -426,7 +434,7 @@ export const financialTools = {
         totalPnLVND: portfolio.totalPnLVND,
         totalPnLPercent: portfolio.totalPnLPercent,
         allocation: portfolio.allocation, // { crypto: 45%, cash: 30%, gold: 15%, ... }
-        assets: portfolio.assets.map(a => ({
+        assets: portfolio.assets.map((a) => ({
           name: a.name,
           type: a.type,
           quantity: a.quantity,
@@ -485,7 +493,10 @@ export const financialTools = {
     parameters: z.object({
       years: z.number().default(5).describe('Years to project'),
       additionalMonthlySavings: z.number().optional().describe('Extra monthly savings in VND'),
-      expectedAnnualReturn: z.number().optional().describe('Expected annual return % (default: based on current portfolio)'),
+      expectedAnnualReturn: z
+        .number()
+        .optional()
+        .describe('Expected annual return % (default: based on current portfolio)'),
     }),
     execute: async ({ years, additionalMonthlySavings, expectedAnnualReturn }) => {
       return await runProjection({ years, additionalMonthlySavings, expectedAnnualReturn });
@@ -593,6 +604,7 @@ Tools return: Health score + metrics breakdown + goal status
   ▼
 AI formats: Score, improvement areas, action items
 ```
+
 ## 5. Auto-Categorization
 
 ### 5.1 Categorization Pipeline
@@ -679,6 +691,7 @@ Respond in JSON:
 ### 5.3 Learning from Corrections
 
 When a user corrects a category:
+
 1. Store correction in `CategoryCorrection` table
 2. Future transactions with same payee → check corrections first
 3. Corrections are included in AI prompt as examples
@@ -701,7 +714,7 @@ export async function POST(req: Request) {
   const { messages, modelId } = await req.json();
 
   // Get selected model (from request or settings)
-  const selectedModel = modelId || await getDefaultModelId();
+  const selectedModel = modelId || (await getDefaultModelId());
   const model = getLanguageModel(selectedModel);
 
   // Build system prompt with fresh financial context
@@ -780,17 +793,17 @@ const categorizationSchema = z.object({
   subcategory: z.string().optional(),
   confidence: z.number().min(0).max(1),
   reasoning: z.string(),
-  alternatives: z.array(z.object({
-    category: z.string(),
-    confidence: z.number(),
-  })).optional(),
+  alternatives: z
+    .array(
+      z.object({
+        category: z.string(),
+        confidence: z.number(),
+      }),
+    )
+    .optional(),
 });
 
-export async function categorizeWithAI(
-  payee: string,
-  memo: string | null,
-  amount: number
-) {
+export async function categorizeWithAI(payee: string, memo: string | null, amount: number) {
   const model = getLanguageModel(await getDefaultModelId());
 
   const { object } = await generateObject({
@@ -809,17 +822,17 @@ export async function categorizeWithAI(
 
 ### 8.1 Token Estimation
 
-| Operation | Est. Tokens | Cost (GPT-4o) | Frequency |
-|---|---|---|---|
-| Chat message (with tools) | ~2,000-5,000 | $0.01-0.025 | ~10/day |
-| Transaction categorization | ~500 | $0.0025 | ~5/day |
-| Budget analysis | ~3,000 | $0.015 | ~2/day |
-| Portfolio analysis | ~3,000-5,000 | $0.015-0.025 | ~3/day |
-| Goal planning/projection | ~2,000-4,000 | $0.01-0.02 | ~2/day |
-| Health score + actions | ~2,000 | $0.01 | ~1/day |
-| What-if scenario | ~3,000-5,000 | $0.015-0.025 | ~1/day |
-| **Daily estimate** | | **~$0.25-0.50** | |
-| **Monthly estimate** | | **~$8-15** | |
+| Operation                  | Est. Tokens  | Cost (GPT-4o)   | Frequency |
+| -------------------------- | ------------ | --------------- | --------- |
+| Chat message (with tools)  | ~2,000-5,000 | $0.01-0.025     | ~10/day   |
+| Transaction categorization | ~500         | $0.0025         | ~5/day    |
+| Budget analysis            | ~3,000       | $0.015          | ~2/day    |
+| Portfolio analysis         | ~3,000-5,000 | $0.015-0.025    | ~3/day    |
+| Goal planning/projection   | ~2,000-4,000 | $0.01-0.02      | ~2/day    |
+| Health score + actions     | ~2,000       | $0.01           | ~1/day    |
+| What-if scenario           | ~3,000-5,000 | $0.015-0.025    | ~1/day    |
+| **Daily estimate**         |              | **~$0.25-0.50** |           |
+| **Monthly estimate**       |              | **~$8-15**      |           |
 
 ### 8.2 Cost Optimization
 
@@ -831,15 +844,15 @@ export async function categorizeWithAI(
 
 ### 8.3 Model Selection Guide
 
-| Task | Recommended Model | Reason |
-|---|---|---|
-| Chat (complex analysis) | GPT-4o / Gemini 2.5 Pro | Best reasoning |
-| Chat (simple Q&A) | GPT-4o Mini / Gemini Flash | Fast, cheap |
-| Categorization | GPT-4o Mini / Gemini Flash | Simple classification |
-| Budget suggestions | GPT-4o / Claude Sonnet | Needs nuanced reasoning |
-| Wealth advisory | GPT-4o / Claude Sonnet / Gemini 2.5 Pro | Complex reasoning + financial context |
-| What-if scenarios | GPT-4o / Gemini 2.5 Pro | Mathematical projection + explanation |
-| Rebalancing | GPT-4o Mini / Gemini Flash | Pattern matching against targets |
+| Task                    | Recommended Model                       | Reason                                |
+| ----------------------- | --------------------------------------- | ------------------------------------- |
+| Chat (complex analysis) | GPT-4o / Gemini 2.5 Pro                 | Best reasoning                        |
+| Chat (simple Q&A)       | GPT-4o Mini / Gemini Flash              | Fast, cheap                           |
+| Categorization          | GPT-4o Mini / Gemini Flash              | Simple classification                 |
+| Budget suggestions      | GPT-4o / Claude Sonnet                  | Needs nuanced reasoning               |
+| Wealth advisory         | GPT-4o / Claude Sonnet / Gemini 2.5 Pro | Complex reasoning + financial context |
+| What-if scenarios       | GPT-4o / Gemini 2.5 Pro                 | Mathematical projection + explanation |
+| Rebalancing             | GPT-4o Mini / Gemini Flash              | Pattern matching against targets      |
 
 ---
 
@@ -899,7 +912,6 @@ Suggested category: **Shopping → Electronics** (95% confidence)
 
 Should I categorize it as Shopping, or would you prefer a different category?
 ```
-
 
 ### Example 4: Portfolio Analysis
 

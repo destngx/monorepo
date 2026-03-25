@@ -39,6 +39,7 @@
     "@swc/helpers": "0.5.19",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/three": "^0.183.0",
+    "@upstash/redis": "^1.37.0",
     "@vercel/analytics": "^1.1.1",
     "ai": "^6.0.105",
     "axios": "^1.6.0",

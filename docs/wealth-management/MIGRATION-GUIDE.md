@@ -59,87 +59,109 @@ src/
 ## Migrated Features
 
 ### 1. Accounts (`src/features/accounts/`)
+
 Manages bank account views, balance tracking, and account details.
 
 **Key exports:**
+
 - `getAccounts()` - Fetch all accounts
 - `useAccounts()` - React hook for accounts
 - Components: `AccountCard`, `AccountTable`, `AccountDetail`, etc.
 
 **App routes delegated:**
+
 - `/accounts` → `GoalsPage` from feature
 - `/accounts/credit-cards` → feature pages
 
 ### 2. Transactions (`src/features/transactions/`)
+
 Handles transaction listing, filtering, and review.
 
 **Key exports:**
+
 - `getTransactions(filters)` - Fetch transactions with optional filters
 - `useTransactions()` - React hook
 - `createTransaction()` - Add new transaction
 - Components: `TransactionTable`, `TransactionForm`, `TransactionFilters`
 
 **App routes delegated:**
+
 - `/transactions` → `TransactionsPage` from feature
 
 ### 3. Budget (`src/features/budget/`)
+
 Budget tracking and category spending analysis.
 
 **Key exports:**
+
 - `getBudgetItems()` - Fetch all budget categories
 - `useBudget()` - React hook
 - Components: `BudgetOverviewView`, `CategoryDetailView`, etc.
 
 **App routes delegated:**
+
 - `/budget` → `BudgetPage` from feature
 
 ### 4. Investments (`src/features/investments/`)
+
 Investment portfolio and asset tracking.
 
 **Key exports:**
+
 - `getAssets()` - Fetch investment assets
 - `getAssetPrices()` - Fetch current prices
 - Components: `InvestmentsPage`
 
 **App routes delegated:**
+
 - `/investments` → `InvestmentsPage` from feature
 
 ### 5. Goals (`src/features/goals/`)
+
 Financial goal management and tracking.
 
 **Key exports:**
+
 - `getGoals()` - Fetch all goals
 - `useGoals()` - React hook
 - `createGoal()` - Create new goal
 - Components: `GoalCard`, `GoalDetailChart`, `CreateGoalFlow`
 
 **App routes delegated:**
+
 - `/accounts/goals` → `GoalsPage` from feature
 - `/accounts/goals/[id]` → `GoalDetailPage`
 - `/accounts/goals/new` → `NewGoalPage`
 
 ### 6. Loans (`src/features/loans/`)
+
 Debt and loan tracking.
 
 **Key exports:**
+
 - `getLoans()` - Fetch all loans (server-side via sheets)
 - `useLoans()` - React hook
 - Components: `LoanCard`, `LoanList`, `LoanSummary`
 
 **App routes delegated:**
+
 - `/accounts/loans` → `LoansPage` from feature
 
 ### 7. Settings (`src/features/settings/`)
+
 Application settings and preferences.
 
 **Key exports:**
+
 - `useAISettings()` - AI provider settings hook
 - Components: Settings configuration UI
 
 **App routes delegated:**
+
 - `/settings` → `SettingsPage` from feature
 
 ### 8. Chat (`src/features/chat/`)
+
 Conversational AI interface (migrated in earlier phases).
 
 ## Import Patterns
@@ -153,12 +175,7 @@ import { useAccounts } from '@/features/accounts/model/hooks';
 import { Account } from '@/features/accounts/model/types';
 
 // Or via feature index (preferred)
-import { 
-  queries, 
-  mutations, 
-  hooks,
-  type Account 
-} from '@/features/accounts';
+import { queries, mutations, hooks, type Account } from '@/features/accounts';
 
 // Importing shared UI
 import { Button } from '@/shared/ui/button';
@@ -175,9 +192,9 @@ import { cn } from '@/shared/lib/utils';
 
 ```typescript
 // ❌ DO NOT import from old paths
-import { Account } from '@/lib/types/account';           // Old path
-import { getAccounts } from '@/lib/sheets/accounts';     // Old internal path
-import { AccountCard } from '@/components/accounts';     // Old monolithic path
+import { Account } from '@/lib/types/account'; // Old path
+import { getAccounts } from '@/lib/sheets/accounts'; // Old internal path
+import { AccountCard } from '@/components/accounts'; // Old monolithic path
 
 // ❌ DO NOT import between features directly
 import { Account } from '@/features/transactions/model';
@@ -199,6 +216,7 @@ mkdir -p src/features/my-feature/{model,ui,api,lib,__tests__}
 ### Step 2: Create model layer
 
 **`src/features/my-feature/model/types.ts`**
+
 ```typescript
 export interface MyEntity {
   id: string;
@@ -208,6 +226,7 @@ export interface MyEntity {
 ```
 
 **`src/features/my-feature/model/queries.ts`**
+
 ```typescript
 import { MyEntity } from './types';
 
@@ -219,6 +238,7 @@ export async function getMyEntities(): Promise<MyEntity[]> {
 ```
 
 **`src/features/my-feature/model/mutations.ts`**
+
 ```typescript
 import { MyEntity } from './types';
 
@@ -234,6 +254,7 @@ export async function createMyEntity(data: Omit<MyEntity, 'id'>): Promise<MyEnti
 ```
 
 **`src/features/my-feature/model/hooks.ts`**
+
 ```typescript
 'use client';
 
@@ -247,7 +268,8 @@ export function useMyEntities() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    queries.getMyEntities()
+    queries
+      .getMyEntities()
       .then(setData)
       .catch(setError)
       .finally(() => setLoading(false));
@@ -258,6 +280,7 @@ export function useMyEntities() {
 ```
 
 **`src/features/my-feature/model/index.ts`**
+
 ```typescript
 export * from './types';
 export * as queries from './queries';
@@ -268,6 +291,7 @@ export * from './hooks';
 ### Step 3: Create UI components
 
 **`src/features/my-feature/ui/my-entity-card.tsx`**
+
 ```typescript
 'use client';
 
@@ -283,6 +307,7 @@ export function MyEntityCard({ entity }: { entity: MyEntity }) {
 ```
 
 **`src/features/my-feature/ui/page.tsx`**
+
 ```typescript
 'use client';
 
@@ -308,6 +333,7 @@ export default function MyFeaturePage() {
 ### Step 4: Create API routes (if needed)
 
 **`src/features/my-feature/api/route.ts`**
+
 ```typescript
 import { getMyFeatureData } from '@/lib/sheets/my-feature';
 
@@ -326,6 +352,7 @@ export async function POST(req: Request) {
 ### Step 5: Create app route delegate
 
 **`src/app/my-feature/page.tsx`**
+
 ```typescript
 import MyFeaturePage from '@/features/my-feature/ui/page';
 
@@ -342,9 +369,9 @@ import { useAccounts } from '@/features/accounts/model/hooks';
 
 export function DashboardAccountsWidget() {
   const { accounts, loading } = useAccounts();
-  
+
   if (loading) return <div>Loading accounts...</div>;
-  
+
   return (
     <div>
       {accounts.map(account => (
@@ -358,12 +385,14 @@ export function DashboardAccountsWidget() {
 ### Sharing Types Between Features
 
 **Bad approach:** Importing from another feature's model directly
+
 ```typescript
 // ❌ Avoid
 import { Transaction } from '@/features/transactions/model/types';
 ```
 
 **Good approach:** Keep shared types in `@/shared/types`
+
 ```typescript
 // ✅ Prefer
 // In src/shared/types/transaction.ts
@@ -395,21 +424,21 @@ import { AccountCard } from '@/features/accounts/ui/account-card'; // ✅ OK - U
 
 The following old paths have been replaced. For reference:
 
-| Old Path | New Path | Notes |
-|----------|----------|-------|
-| `@/lib/types/account.ts` | `@/features/accounts/model/types.ts` | Account type definitions |
-| `@/lib/sheets/accounts` | `@/features/accounts/model/queries.ts` | Account queries |
-| `@/components/accounts/...` | `@/features/accounts/ui/...` | Account components |
-| `@/lib/types/transaction.ts` | `@/features/transactions/model/types.ts` | Transaction types |
-| `@/components/transactions/...` | `@/features/transactions/ui/...` | Transaction components |
-| `@/lib/types/budget.ts` | `@/features/budget/model/types.ts` | Budget types |
-| `@/components/budget/...` | `@/features/budget/ui/...` | Budget components |
-| `@/lib/types/goals.ts` | `@/features/goals/model/types.ts` | Goals types |
-| `@/components/goals/...` | `@/features/goals/ui/...` | Goals components |
-| `@/lib/types/loan.ts` | `@/features/loans/model/types.ts` | Loans types |
-| `@/components/loans/...` | `@/features/loans/ui/...` | Loans components |
-| `@/lib/types/settings.ts` | `@/features/settings/model/types.ts` | Settings types |
-| `@/app/settings/page.tsx` | `@/features/settings/ui/page.tsx` | Settings page |
+| Old Path                        | New Path                                 | Notes                    |
+| ------------------------------- | ---------------------------------------- | ------------------------ |
+| `@/lib/types/account.ts`        | `@/features/accounts/model/types.ts`     | Account type definitions |
+| `@/lib/sheets/accounts`         | `@/features/accounts/model/queries.ts`   | Account queries          |
+| `@/components/accounts/...`     | `@/features/accounts/ui/...`             | Account components       |
+| `@/lib/types/transaction.ts`    | `@/features/transactions/model/types.ts` | Transaction types        |
+| `@/components/transactions/...` | `@/features/transactions/ui/...`         | Transaction components   |
+| `@/lib/types/budget.ts`         | `@/features/budget/model/types.ts`       | Budget types             |
+| `@/components/budget/...`       | `@/features/budget/ui/...`               | Budget components        |
+| `@/lib/types/goals.ts`          | `@/features/goals/model/types.ts`        | Goals types              |
+| `@/components/goals/...`        | `@/features/goals/ui/...`                | Goals components         |
+| `@/lib/types/loan.ts`           | `@/features/loans/model/types.ts`        | Loans types              |
+| `@/components/loans/...`        | `@/features/loans/ui/...`                | Loans components         |
+| `@/lib/types/settings.ts`       | `@/features/settings/model/types.ts`     | Settings types           |
+| `@/app/settings/page.tsx`       | `@/features/settings/ui/page.tsx`        | Settings page            |
 
 ## Verification Checklist
 

@@ -1,4 +1,5 @@
 # Investment Analysis Feature - Global Macro War Room
+
 ## Comprehensive AI-Driven Investment Assistant
 
 **Version**: 1.0  
@@ -6,6 +7,7 @@
 **Status**: Production Ready
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Architecture](#architecture)
 3. [Information Sources](#information-sources)
@@ -26,6 +28,7 @@
 The **Global Macro War Room** is a sophisticated AI-driven investment analysis assistant that provides real-time, multi-dimensional synthesis of investment portfolios. It leverages a collaborative intelligence model where 5 Nobel-prize-level expert analysts debate, critique, and synthesize geopolitical, economic, technological, and environmental data to deliver actionable portfolio recommendations.
 
 ### Key Features
+
 - **Multi-Expert Analysis**: 5 distinct professional voices analyze from different perspectives
 - **Expert Debate**: Structured critiques and cross-challenges between experts
 - **Unified Synthesis**: Chairman synthesizes debate into cohesive strategic recommendations
@@ -34,6 +37,7 @@ The **Global Macro War Room** is a sophisticated AI-driven investment analysis a
 - **Real-Time Data**: Fetches current prices, news, and policy announcements
 
 ### User Flow
+
 ```
 User on /investments page
   ↓
@@ -61,6 +65,7 @@ Markdown response displays in terminal component (30-60 seconds)
 ### System Components
 
 #### 1. Frontend (Next.js)
+
 - **Location**: `/src/app/investments/page.tsx`
 - **Framework**: React (Client Component)
 - **State Management**: useState hooks
@@ -68,12 +73,14 @@ Markdown response displays in terminal component (30-60 seconds)
 - **Height**: 600px scrollable terminal with dark theme
 
 #### 2. API Route (Next.js Server)
+
 - **Location**: `/src/app/api/ai/investment-analysis/route.ts`
 - **Method**: POST
 - **Timeout**: 300 seconds (5 minutes)
 - **Response**: Plain text markdown
 
 #### 3. Data Sources
+
 - **Google Sheets**: Crypto holdings, Investment Fund Certificates
 - **Web Search**: Multi-tier fallback (DDG → Tavily → HTML)
 - **AI Model**: github-gpt-4o
@@ -119,6 +126,7 @@ Markdown response displays in terminal component (30-60 seconds)
 The AI gathers intelligence from **11 major information categories**:
 
 ### 1. **Weather & Environmental** 🌪️
+
 - Natural disasters and climate events
 - Supply chain disruptions from weather
 - Agricultural commodity price impacts
@@ -126,6 +134,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Seasonal trends
 
 ### 2. **Geopolitical Conflicts** ⚔️
+
 - Active wars and military escalations
 - Regional tensions and standoffs
 - International scandals and exposés
@@ -133,6 +142,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Nuclear threats
 
 ### 3. **The Great Game** 🎲
+
 - US-China strategic competition
 - Russian geopolitical positioning
 - European strategic interests
@@ -140,6 +150,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Alliance formations
 
 ### 4. **World Meetings** 🏛️
+
 - Central Bank Coordination Forums
 - IMF/World Bank meetings
 - ASEAN/Regional summits
@@ -147,6 +158,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Trade negotiations
 
 ### 5. **World Government Spending** 💰
+
 - Fiscal stimulus announcements
 - Infrastructure spending programs
 - Defense budget allocations
@@ -154,6 +166,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Debt management policies
 
 ### 6. **World Money** 💵
+
 - Federal Reserve rate decisions
 - ECB monetary policy
 - Bank of Japan moves
@@ -162,6 +175,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Inflation/deflation trends
 
 ### 7. **Cryptocurrency & Digital Assets** ₿
+
 - Bitcoin price and adoption news
 - Ethereum ecosystem developments
 - Solana ecosystem metrics
@@ -171,6 +185,7 @@ The AI gathers intelligence from **11 major information categories**:
 - DeFi ecosystem health
 
 ### 8. **American Game (USA)** 🇺🇸
+
 - Federal Reserve policy decisions
 - US economic indicators
 - Tech sector developments (AI, semiconductors)
@@ -179,6 +194,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Corporate earnings trends
 
 ### 9. **China Game** 🇨🇳
+
 - Chinese government stimulus announcements
 - Tech sector regulatory moves
 - US-China trade relationship
@@ -187,6 +203,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Foreign investment policies
 
 ### 10. **Russia Game** 🇷🇺
+
 - Sanctions and counter-sanctions
 - Oil/gas market impacts
 - Military capability developments
@@ -194,6 +211,7 @@ The AI gathers intelligence from **11 major information categories**:
 - Energy market dynamics
 
 ### 11. **Vietnam Specific** 🇻🇳
+
 - SBV (State Bank of Vietnam) policy decisions
 - Government fiscal announcements
 - Real estate and credit markets
@@ -206,8 +224,10 @@ The AI gathers intelligence from **11 major information categories**:
 ## Expert Roles
 
 ### 1. **The Geopolitical Strategist**
+
 **Primary Focus**: Categories 3, 2, 10  
 **Expertise Domains**:
+
 - US-China-Russia power competition
 - BRICS expansion and influence
 - Military developments and capability shifts
@@ -215,12 +235,14 @@ The AI gathers intelligence from **11 major information categories**:
 - Alliance formation and dissolution
 
 **Voice Characteristics**:
+
 - Cautious and risk-aware
 - Emphasizes long-term strategic implications
 - Identifies tail risks and black swans
 - References historical precedents
 
 **Key Contributions**:
+
 - Geopolitical risk assessment for portfolio
 - Identifies macro inflection points
 - Provides scenario analysis for conflicts
@@ -228,8 +250,10 @@ The AI gathers intelligence from **11 major information categories**:
 ---
 
 ### 2. **The Global Macro-Economist**
+
 **Primary Focus**: Categories 4, 5, 6, 8  
 **Expertise Domains**:
+
 - Central bank policy transmission
 - Government fiscal policy impacts
 - Global interest rate cycles
@@ -238,12 +262,14 @@ The AI gathers intelligence from **11 major information categories**:
 - Economic growth forecasting
 
 **Voice Characteristics**:
+
 - Data-driven and quantitative
 - Focuses on policy mechanisms
 - Models second-order effects
 - References inflation/growth tradeoffs
 
 **Key Contributions**:
+
 - Macro cycle positioning advice
 - Interest rate impact analysis
 - Currency exposure recommendations
@@ -252,8 +278,10 @@ The AI gathers intelligence from **11 major information categories**:
 ---
 
 ### 3. **The Frontier Tech Analyst**
+
 **Primary Focus**: Categories 7, 8 (AI/semis)  
 **Expertise Domains**:
+
 - Cryptocurrency adoption curves
 - AI capital expenditure trends
 - Semiconductor supply/demand
@@ -262,12 +290,14 @@ The AI gathers intelligence from **11 major information categories**:
 - Tech regulation impacts
 
 **Voice Characteristics**:
+
 - Bullish on long-term adoption
 - Realistic about near-term volatility
 - References adoption S-curves
 - Emphasizes technological disruption
 
 **Key Contributions**:
+
 - Crypto asset recommendations
 - Tech sector exposure advice
 - Digital transformation opportunities
@@ -276,8 +306,10 @@ The AI gathers intelligence from **11 major information categories**:
 ---
 
 ### 4. **The Environmental & Resource Expert**
+
 **Primary Focus**: Categories 1, 2, energy  
 **Expertise Domains**:
+
 - Climate transition impacts
 - Supply chain resilience
 - Energy transition trends
@@ -286,12 +318,14 @@ The AI gathers intelligence from **11 major information categories**:
 - Resource scarcity implications
 
 **Voice Characteristics**:
+
 - Long-term systems thinker
 - Emphasizes structural shifts
 - References climate science
 - Identifies supply constraints
 
 **Key Contributions**:
+
 - Commodity exposure recommendations
 - Energy transition positioning
 - Supply chain risk assessment
@@ -300,8 +334,10 @@ The AI gathers intelligence from **11 major information categories**:
 ---
 
 ### 5. **The Local Policy Director (Vietnam Expert)**
+
 **Primary Focus**: Category 11, localized versions of 4, 5, 6  
 **Expertise Domains**:
+
 - SBV monetary policy decisions
 - Vietnamese government fiscal policy
 - Local real estate market dynamics
@@ -310,12 +346,14 @@ The AI gathers intelligence from **11 major information categories**:
 - Vietnam's FDI trends
 
 **Voice Characteristics**:
+
 - Granular market microstructure knowledge
 - Understands local implementation challenges
 - References specific Vietnamese institutions
 - Emphasizes local constraints and opportunities
 
 **Key Contributions**:
+
 - Vietnam-specific portfolio recommendations
 - SBV policy impact analysis
 - Local market opportunity identification
@@ -326,6 +364,7 @@ The AI gathers intelligence from **11 major information categories**:
 ## API Specification
 
 ### Endpoint
+
 ```
 POST /api/ai/investment-analysis
 ```
@@ -333,11 +372,13 @@ POST /api/ai/investment-analysis
 ### Request
 
 **Headers**:
+
 ```
 Content-Type: application/json
 ```
 
 **Body**:
+
 ```json
 {
   "accounts": [
@@ -380,43 +421,54 @@ Content-Type: application/json
 **Body**: Plain text markdown
 
 **Response Structure**:
+
 ```markdown
 # 🌍 Global Macro War Room: Initiated
 
 ## 1. The Expert Briefings
+
 [5 expert paragraphs, 2-3 paragraphs each]
 
 ## 2. The Cross-Fire (Debate)
+
 [2-3 critical exchanges between experts]
 
 ## 3. Chairman's Synthesis (Lộc Phát Tài)
+
 [Unified strategic worldview]
 
 ## 4. Tactical Portfolio Orders
+
 [3 numbered actionable directives]
 ```
 
 ### Error Responses
 
 **400 Bad Request**:
+
 ```json
 {
   "error": "Invalid accounts data"
 }
 ```
+
 Conditions:
+
 - accounts field missing
 - accounts is not an array
 - accounts array is empty
 
 **500 Internal Server Error**:
+
 ```json
 {
   "error": "Failed to generate investment analysis",
   "details": "[Error message details]"
 }
 ```
+
 Conditions:
+
 - AI model generation fails
 - System prompt building fails
 - Unexpected exception
@@ -426,23 +478,26 @@ Conditions:
 ## Frontend Component
 
 ### Location
+
 ```
 /src/app/investments/page.tsx
 ```
 
 ### Component Type
+
 Client Component (`"use client"`)
 
 ### State Variables
+
 ```typescript
-const [accounts, setAccounts] = useState<Account[]>([])
-const [assets, setAssets] = useState<AssetResponse | null>(null)
-const [totalVND, setTotalVND] = useState(0)
-const [totalCrypto, setTotalCrypto] = useState(0)
-const [isLoadingAccounts, setIsLoadingAccounts] = useState(true)
-const [isAnalyzing, setIsAnalyzing] = useState(false)
-const [completion, setCompletion] = useState('')
-const [error, setError] = useState<string | null>(null)
+const [accounts, setAccounts] = useState<Account[]>([]);
+const [assets, setAssets] = useState<AssetResponse | null>(null);
+const [totalVND, setTotalVND] = useState(0);
+const [totalCrypto, setTotalCrypto] = useState(0);
+const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
+const [isAnalyzing, setIsAnalyzing] = useState(false);
+const [completion, setCompletion] = useState('');
+const [error, setError] = useState<string | null>(null);
 ```
 
 ### Lifecycle
@@ -480,6 +535,7 @@ const [error, setError] = useState<string | null>(null)
 ```
 
 ### Markdown Rendering
+
 Custom `ReactMarkdown` component styles:
 
 ```typescript
@@ -504,12 +560,14 @@ Custom `ReactMarkdown` component styles:
 The system prompt is the core of the analysis. It includes:
 
 ### 1. Role Definition
+
 ```
-"You are facilitating a Global Macro War Room meeting 
+"You are facilitating a Global Macro War Room meeting
 between 5 Nobel-prize-level expert analysts."
 ```
 
 ### 2. User Context Section
+
 ```
 USER CONTEXT:
 - Total VND Exposure: [calculated amount]
@@ -522,13 +580,16 @@ SPECIFIC INVESTMENT HOLDINGS:
 ```
 
 ### 3. Expert Instructions
+
 Each expert receives:
+
 - Clear domain boundaries (which categories they focus on)
 - Required evidence standards (must cite data)
 - Encouragement to critique others' assumptions
 - Permission to challenge contradictions
 
 ### 4. Debate Rules
+
 ```
 "The experts MUST:
 - Challenge assumptions explicitly
@@ -539,6 +600,7 @@ Each expert receives:
 ```
 
 ### 5. Synthesis Requirements
+
 ```
 "Lộc Phát Tài then steps in and:
 - Identifies common threads across experts
@@ -548,6 +610,7 @@ Each expert receives:
 ```
 
 ### 6. Output Format Specification
+
 ```
 EXACT MARKDOWN STRUCTURE (MUST FOLLOW):
 
@@ -567,6 +630,7 @@ EXACT MARKDOWN STRUCTURE (MUST FOLLOW):
 ```
 
 ### 7. Intelligence Briefing
+
 ```
 "Based on current research of these 11 categories:
 1. Weather & Environmental
@@ -587,12 +651,14 @@ EXACT MARKDOWN STRUCTURE (MUST FOLLOW):
 ## webSearch Tool
 
 ### Purpose
+
 Gather current intelligence across all 11 information categories relevant to the user's portfolio.
 
 ### Parameters
+
 ```typescript
 {
-  query: string  // The search query (required, never empty)
+  query: string; // The search query (required, never empty)
 }
 ```
 
@@ -601,30 +667,34 @@ Gather current intelligence across all 11 information categories relevant to the
 The tool uses **consolidated query approach** to avoid rate limiting:
 
 **Example Query**:
+
 ```
-"BTC ETH SOL price news March 2026 + 
-Vietnam SBV interest rate policy + 
-US Fed rate decision + 
-China economic stimulus + 
-BRICS expansion trade implications + 
-Middle East tensions oil prices + 
-AI semiconductor shortage + 
+"BTC ETH SOL price news March 2026 +
+Vietnam SBV interest rate policy +
+US Fed rate decision +
+China economic stimulus +
+BRICS expansion trade implications +
+Middle East tensions oil prices +
+AI semiconductor shortage +
 Taiwan strait tensions update"
 ```
 
 ### Tier-Based Fallback System
 
 **Tier 1**: `duck-duck-scrape` Library
+
 - Direct DuckDuckGo API
 - Fastest, most reliable
 - 5 results per query
 
 **Tier 2**: Tavily API (if configured)
+
 - Paid search service
 - Better result quality
 - 5 results per query
 
 **Tier 3**: HTML Scraper
+
 - html.duckduckgo.com fallback
 - Custom HTML parsing
 - Last resort option
@@ -641,14 +711,16 @@ Maximum Attempts: 3 per query
 ### Resilience & Failure Handling
 
 If all search tiers fail:
+
 1. Log "Partial Intelligence Blackout" in report
 2. Proceed with internal knowledge
 3. Use known macro trends (e.g., BTC halving dynamics)
 4. Maintain analysis quality despite data gaps
 
 Example fallback message:
+
 ```
-"[Intelligence Blackout: All search sources temporarily unavailable. 
+"[Intelligence Blackout: All search sources temporarily unavailable.
 Proceeding with deep knowledge of macro trends through March 2026.]"
 ```
 
@@ -658,30 +730,31 @@ Proceeding with deep knowledge of macro trends through March 2026.]"
 
 ### Frontend Error Scenarios
 
-| Scenario | Handling | UX |
-|----------|----------|-----|
-| No accounts loaded | Show error message | Red box with icon |
-| API returns 400 | Display error details | "Invalid accounts data" |
-| API returns 500 | Display error details | "Failed to generate analysis" |
-| Network timeout | AbortController catches | Error message, retry enabled |
-| Empty response | Validate response length | Error if text.length === 0 |
+| Scenario           | Handling                 | UX                            |
+| ------------------ | ------------------------ | ----------------------------- |
+| No accounts loaded | Show error message       | Red box with icon             |
+| API returns 400    | Display error details    | "Invalid accounts data"       |
+| API returns 500    | Display error details    | "Failed to generate analysis" |
+| Network timeout    | AbortController catches  | Error message, retry enabled  |
+| Empty response     | Validate response length | Error if text.length === 0    |
 
 ### API Error Scenarios
 
-| Code | Condition | Response |
-|------|-----------|----------|
-| 400 | No accounts provided | `{error: 'Invalid accounts data'}` |
-| 400 | Empty accounts array | `{error: 'Invalid accounts data'}` |
-| 400 | Non-array accounts | `{error: 'Invalid accounts data'}` |
-| 500 | generateText fails | `{error: '...', details: '...'}` |
-| 500 | buildSystemPrompt fails | `{error: '...', details: '...'}` |
-| 500 | readSheet fails | Fallback to empty array, continue |
+| Code | Condition               | Response                           |
+| ---- | ----------------------- | ---------------------------------- |
+| 400  | No accounts provided    | `{error: 'Invalid accounts data'}` |
+| 400  | Empty accounts array    | `{error: 'Invalid accounts data'}` |
+| 400  | Non-array accounts      | `{error: 'Invalid accounts data'}` |
+| 500  | generateText fails      | `{error: '...', details: '...'}`   |
+| 500  | buildSystemPrompt fails | `{error: '...', details: '...'}`   |
+| 500  | readSheet fails         | Fallback to empty array, continue  |
 
 ---
 
 ## Testing
 
 ### Test File Location
+
 ```
 /src/app/api/ai/investment-analysis/investment-analysis.test.ts
 ```
@@ -689,11 +762,13 @@ Proceeding with deep knowledge of macro trends through March 2026.]"
 ### Test Coverage
 
 **Input Validation Tests**:
+
 - ✅ Reject missing accounts
 - ✅ Reject empty accounts array
 - ✅ Reject non-array accounts
 
 **Analysis Generation Tests**:
+
 - ✅ Generate all 4 markdown sections
 - ✅ Include all 5 expert voices
 - ✅ Include expert debate structure
@@ -704,17 +779,21 @@ Proceeding with deep knowledge of macro trends through March 2026.]"
 - ✅ Pass user context to prompt
 
 **Error Handling Tests**:
+
 - ✅ Return 500 on AI generation failure
 - ✅ Gracefully handle sheet read failures
 
 **Response Format Tests**:
+
 - ✅ Return plain text markdown
 - ✅ Preserve markdown structure
 
 **Intelligence Tests**:
+
 - ✅ Configure webSearch for multi-category gathering
 
 ### Running Tests
+
 ```bash
 # Run all tests
 npm test
@@ -730,6 +809,7 @@ npm test -- --coverage
 ```
 
 ### Manual Testing Checklist
+
 - [ ] Navigate to `/investments` page
 - [ ] Verify accounts load correctly
 - [ ] Click "Initiate Global Macro Scan" button
@@ -748,6 +828,7 @@ npm test -- --coverage
 ## Performance
 
 ### Latency Targets
+
 ```
 Initial Page Load: ~500ms
   ├─ /api/accounts: 100ms
@@ -762,6 +843,7 @@ Maximum Response Time: 300s (5 minutes)
 ```
 
 ### Timeout Configuration
+
 ```
 API maxDuration: 300 seconds
 Web search retry: 20s per tier
@@ -769,6 +851,7 @@ Total analysis timeout: 300s maximum
 ```
 
 ### Scalability
+
 ```
 Single-user per request: Yes
 Concurrent user capacity: 10-50 per server
@@ -781,6 +864,7 @@ Database: Not used (stateless)
 ## Future Enhancements
 
 ### Phase 2: Advanced Features
+
 **Timeline**: Q2 2026
 
 - [ ] Response caching (60s TTL)
@@ -791,6 +875,7 @@ Database: Not used (stateless)
 - [ ] User preference settings
 
 ### Phase 3: Intelligence Layer
+
 **Timeline**: Q3 2026
 
 - [ ] Custom news source integration
@@ -801,6 +886,7 @@ Database: Not used (stateless)
 - [ ] Risk analysis dashboard
 
 ### Phase 4: Enterprise
+
 **Timeline**: Q4 2026
 
 - [ ] Multi-portfolio analysis
@@ -815,6 +901,7 @@ Database: Not used (stateless)
 ## Configuration & Deployment
 
 ### Environment Variables
+
 ```bash
 # Required
 TAVILY_API_KEY=xxx              # Optional (Tier 2 fallback)
@@ -827,6 +914,7 @@ DEBUG_MODE=false
 ```
 
 ### Dependencies
+
 ```json
 {
   "ai": "^6.0.105",
@@ -840,6 +928,7 @@ DEBUG_MODE=false
 ```
 
 ### Deployment Checklist
+
 - [ ] API maxDuration set to 300s
 - [ ] Rate limiting configured (2000ms base)
 - [ ] Google Sheets credentials available

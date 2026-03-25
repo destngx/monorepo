@@ -7,7 +7,7 @@ This document outlines a comprehensive refactoring to migrate from a functional/
 **Current State**: 173 TS/TSX files, mixed concerns, tight coupling between layers  
 **Target State**: 9 isolated feature modules, clear dependency graph, testable business logic  
 **Estimated Timeline**: 3-5 weeks (aggressive full refactor)  
-**Risk Level**: Medium-High (extensive file reorganization)  
+**Risk Level**: Medium-High (extensive file reorganization)
 
 ---
 
@@ -30,21 +30,22 @@ src/
 
 ### Business Domains Identified
 
-| Domain | Pages | Components | API Routes | Data Layer | Status |
-|--------|-------|------------|-----------|-----------|--------|
-| **Accounts** | 1 | 5 | 1 | accounts.ts | Core |
-| **Transactions** | 1 | 5 | 1 | transactions.ts | Core |
-| **Budget** | 1 | 4 | 1 | budget.ts | Core |
-| **Goals** | 3 | 6 | 1 | goals.ts | Core |
-| **Loans** | 1 | 3 | 1 | loans.ts | Core |
-| **Investments** | 1 | 0 | 2 | (services) | Core |
-| **Credit Cards** | 2 | 2 | 0 | (accounts) | Secondary |
-| **Chat/AI** | 1 | 12 | 14 | (distributed) | Cross-cutting |
-| **Dashboard** | 1 | 15 | 0 | (mixed) | Aggregate |
+| Domain           | Pages | Components | API Routes | Data Layer      | Status        |
+| ---------------- | ----- | ---------- | ---------- | --------------- | ------------- |
+| **Accounts**     | 1     | 5          | 1          | accounts.ts     | Core          |
+| **Transactions** | 1     | 5          | 1          | transactions.ts | Core          |
+| **Budget**       | 1     | 4          | 1          | budget.ts       | Core          |
+| **Goals**        | 3     | 6          | 1          | goals.ts        | Core          |
+| **Loans**        | 1     | 3          | 1          | loans.ts        | Core          |
+| **Investments**  | 1     | 0          | 2          | (services)      | Core          |
+| **Credit Cards** | 2     | 2          | 0          | (accounts)      | Secondary     |
+| **Chat/AI**      | 1     | 12         | 14         | (distributed)   | Cross-cutting |
+| **Dashboard**    | 1     | 15         | 0          | (mixed)         | Aggregate     |
 
 ### Key Pain Points
 
 #### 1. **Layer Leakage**
+
 ```ts
 // ❌ Component directly accessing persistence layer
 import { getAccounts } from '@/lib/sheets/accounts';
@@ -58,6 +59,7 @@ export function AccountsSummary() {
 **Impact**: Can't change persistence without touching UI. Hard to test.
 
 #### 2. **AI Scattered Across Codebase**
+
 - 12 AI API routes in `/api/ai/`
 - AI components in each domain folder
 - Prompts in `/lib/ai/prompts/`
@@ -66,6 +68,7 @@ export function AccountsSummary() {
 **Impact**: Duplicated logic, hard to maintain consistent AI behavior.
 
 #### 3. **No Business Logic Layer**
+
 - Validation, calculations, transformations happen in components or API routes
 - No shared business logic between API and UI
 - Difficult to test business rules
@@ -73,6 +76,7 @@ export function AccountsSummary() {
 **Impact**: Logic duplication, inconsistency between client/server.
 
 #### 4. **Type Explosion**
+
 - Types scattered in `/lib/types/`
 - Each domain has models but no domain-specific types file
 - No schema validation at API boundaries
@@ -139,6 +143,7 @@ src/
 ### FSD Layer Definition
 
 #### **Shared Layer** (Deepest - Most Reusable)
+
 ```
 Features can import from:
 - shared/ui
@@ -147,6 +152,7 @@ Features can import from:
 ```
 
 #### **Feature Layer** (Middle)
+
 ```
 Features can import from:
 - self
@@ -157,6 +163,7 @@ Features can import from:
 ```
 
 #### **App/Page Layer** (Surface)
+
 ```
 Pages can import from:
 - features/*/ui (components only!)
@@ -167,6 +174,7 @@ Pages can import from:
 ### Clean Architecture Principles
 
 #### Dependency Rule
+
 ```
       ┌─────────────────────────┐
       │   UI Components         │ (Enterprise rules)
@@ -228,6 +236,7 @@ src/features/accounts/
 ```
 
 ### Inside `accounts/model/types.ts`
+
 ```ts
 // ✅ Domain types (no persistence details)
 export interface Account {
@@ -243,11 +252,11 @@ export type AccountType = 'active' | 'savings' | 'investment' | ...;
 // Extend with domain-specific business logic
 export class AccountAggregate {
   constructor(private account: Account) {}
-  
+
   isLowBalance(threshold: number): boolean {
     return this.account.balance < threshold;
   }
-  
+
   canTransfer(amount: number): boolean {
     return this.account.balance >= amount;
   }
@@ -255,6 +264,7 @@ export class AccountAggregate {
 ```
 
 ### Inside `accounts/model/queries.ts`
+
 ```ts
 // ✅ Use case handlers (business logic)
 import { Repository } from '@/shared/lib/persistence';
@@ -262,7 +272,7 @@ import { Repository } from '@/shared/lib/persistence';
 export async function getAccountSummary(accountId: string) {
   const account = await Repository.accounts.findById(accountId);
   if (!account) throw new NotFoundError();
-  
+
   // Business logic
   return {
     ...account,
@@ -273,6 +283,7 @@ export async function getAccountSummary(accountId: string) {
 ```
 
 ### Inside `accounts/api/route.ts`
+
 ```ts
 // ✅ Thin controllers (no business logic)
 import { getAccountSummary } from '../model/queries';
@@ -280,9 +291,9 @@ import { getAccountSummary } from '../model/queries';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
-  
+
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-  
+
   try {
     const data = await getAccountSummary(id);
     return NextResponse.json(data);
@@ -318,6 +329,7 @@ shared/lib/ai/
 ```
 
 **Usage in features**:
+
 ```ts
 // accounts/model/queries.ts
 import { AIService } from '@/shared/lib/ai';
@@ -343,6 +355,7 @@ shared/lib/persistence/
 ```
 
 **Implementation**:
+
 ```ts
 // shared/lib/persistence/repository.ts
 export abstract class Repository<T> {
@@ -361,6 +374,7 @@ export const Repository = {
 ```
 
 **Usage**:
+
 ```ts
 // ✅ Only abstraction needed
 import { Repository } from '@/shared/lib/persistence';
@@ -378,13 +392,14 @@ shared/lib/validation/
 ```
 
 **All API endpoints must validate**:
+
 ```ts
 // accounts/api/route.ts
 import { AccountSchema } from '@/shared/lib/validation';
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const validated = AccountSchema.parse(body);  // Throws if invalid
+  const validated = AccountSchema.parse(body); // Throws if invalid
   return NextResponse.json(await createAccount(validated));
 }
 ```
@@ -394,6 +409,7 @@ export async function POST(request: Request) {
 ## Part 5: Migration Strategy (Feature-by-Feature)
 
 ### Phase 1: Infrastructure (Week 1)
+
 - [ ] Create `shared/lib/` structure
 - [ ] Create Repository abstraction
 - [ ] Create unified AI service layer
@@ -401,6 +417,7 @@ export async function POST(request: Request) {
 - [ ] Create `features/` directory structure
 
 ### Phase 2: Core Features (Weeks 2-3)
+
 Migrate in order of dependency (least dependent first):
 
 1. **Settings** (no dependencies)
@@ -433,6 +450,7 @@ Migrate in order of dependency (least dependent first):
    - Create chat feature
 
 ### Phase 3: Integration (Week 4-5)
+
 - [ ] Update root `/app/` pages to import from features
 - [ ] Remove old `lib/sheets`, `lib/types`, etc
 - [ ] Update imports throughout
@@ -446,6 +464,7 @@ Migrate in order of dependency (least dependent first):
 ### Example 1: Accounts Feature Migration
 
 #### Before (Current)
+
 ```
 src/
 ├── app/accounts/page.tsx
@@ -458,6 +477,7 @@ src/
 ```
 
 #### After (FSD)
+
 ```
 src/features/accounts/
 ├── api/
@@ -481,6 +501,7 @@ src/features/accounts/
 **Code Migration Example**:
 
 **BEFORE** (app/accounts/page.tsx):
+
 ```tsx
 import { getAccounts } from '@/lib/sheets/accounts';
 import { formatVND } from '@/lib/utils/currency';
@@ -489,7 +510,7 @@ export default async function AccountsPage() {
   const accounts = await getAccounts();
   return (
     <div>
-      {accounts.map(acc => (
+      {accounts.map((acc) => (
         <div key={acc.name}>
           {acc.name}: {formatVND(acc.balance)}
         </div>
@@ -500,6 +521,7 @@ export default async function AccountsPage() {
 ```
 
 **AFTER** (features/accounts/ui/page.tsx):
+
 ```tsx
 import { getAccountsList } from '../model/queries';
 import { AccountCard } from './account-card';
@@ -508,7 +530,7 @@ export default async function AccountsPage() {
   const accounts = await getAccountsList();
   return (
     <div className="grid gap-4">
-      {accounts.map(account => (
+      {accounts.map((account) => (
         <AccountCard key={account.id} account={account} />
       ))}
     </div>
@@ -517,17 +539,19 @@ export default async function AccountsPage() {
 ```
 
 **Business Logic** (features/accounts/model/queries.ts):
+
 ```ts
 import { Repository } from '@/shared/lib/persistence';
 import { AccountAggregate } from './types';
 
 export async function getAccountsList() {
   const raw = await Repository.accounts.findAll();
-  return raw.map(acc => new AccountAggregate(acc));
+  return raw.map((acc) => new AccountAggregate(acc));
 }
 ```
 
 **Types** (features/accounts/model/types.ts):
+
 ```ts
 export interface Account {
   id: string;
@@ -538,7 +562,7 @@ export interface Account {
 
 export class AccountAggregate {
   constructor(private account: Account) {}
-  
+
   getDisplayBalance(): string {
     return formatCurrency(this.account.balance, this.account.currency);
   }
@@ -560,13 +584,13 @@ import { Repository } from '@/shared/lib/persistence';
 export async function createAccount(data: CreateAccountInput) {
   // Validate
   const validated = CreateAccountSchema.parse(data);
-  
+
   // Execute
   const account = await Repository.accounts.create(validated);
-  
+
   // Revalidate cache
   revalidatePath('/accounts');
-  
+
   return account;
 }
 ```
@@ -601,11 +625,7 @@ import { Repository } from '@/shared/lib/persistence';
 import { ValidationService } from '@/shared/lib/validation';
 
 // Inject dependencies
-const handler = createAccountHandler(
-  Repository.accounts,
-  ValidationService,
-  Logger
-);
+const handler = createAccountHandler(Repository.accounts, ValidationService, Logger);
 
 export const POST = handler;
 ```
@@ -615,6 +635,7 @@ export const POST = handler;
 ## Part 8: Testing Strategy
 
 ### Unit Tests (in `__tests__/`)
+
 ```ts
 // features/accounts/__tests__/queries.test.ts
 import { getAccountsList } from '../model/queries';
@@ -631,6 +652,7 @@ describe('getAccountsList', () => {
 ```
 
 ### Integration Tests
+
 ```ts
 // features/accounts/__tests__/api.test.ts
 import { POST } from '../api/route';
@@ -641,7 +663,7 @@ describe('POST /api/accounts', () => {
       new Request(new URL('http://localhost:3000'), {
         method: 'POST',
         body: JSON.stringify({ name: 'Savings' }),
-      })
+      }),
     );
     expect(response.status).toBe(201);
   });
@@ -682,6 +704,7 @@ describe('POST /api/accounts', () => {
 ## Part 10: Key Metrics & Success Criteria
 
 ### Before Refactor
+
 - ❌ Circular dependencies possible
 - ❌ 13 AI features scattered
 - ❌ Components import data layer directly
@@ -689,6 +712,7 @@ describe('POST /api/accounts', () => {
 - ❌ Difficult to test business logic in isolation
 
 ### After Refactor
+
 - ✅ One-directional dependency graph
 - ✅ Single `shared/lib/ai` service layer
 - ✅ Components only import `features/*/ui`
@@ -702,6 +726,7 @@ describe('POST /api/accounts', () => {
 ## Part 11: Risk Mitigation
 
 ### High Risks
+
 - **Risk**: Breaking imports during migration
   - **Mitigation**: Run tests after each feature migration
   - **Tool**: ESLint rule to catch old imports
@@ -715,6 +740,7 @@ describe('POST /api/accounts', () => {
   - **Tool**: Lighthouse, Next.js built-in analytics
 
 ### Rollback Plan
+
 ```bash
 # If migration goes wrong:
 git checkout HEAD~N -- src/

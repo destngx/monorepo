@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getExchangeRate } from '@wealth-management/services/server';
 import { NetworkError, isAppError } from '@wealth-management/utils/errors';
+import { getOrSetCache, CACHE_KEYS, CACHE_TTL } from '@/shared/cache';
 
 export async function GET() {
   try {
-    const rate = await getExchangeRate();
+    const rate = await getOrSetCache(
+      CACHE_KEYS.EXCHANGE_RATE,
+      () => getExchangeRate(),
+      CACHE_TTL.EXCHANGE_RATES,
+      false,
+    );
     return NextResponse.json({ rate });
   } catch (error) {
     if (isAppError(error)) {
-      // Still return fallback rate for resilience, but log the structured error
       console.error('[Exchange Rate API Error]', error.toResponse());
     } else {
       const appError = new NetworkError(error instanceof Error ? error.message : 'Failed to fetch exchange rate');

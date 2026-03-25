@@ -92,12 +92,14 @@ src/features/accounts/
 **Purpose**: Isolated, self-contained feature modules
 
 **Guidelines**:
+
 - One feature per folder
 - Can only import from: self, shared/, core/
 - ❌ Cannot import from other features
 - Public exports only via index.ts
 
 **Features**:
+
 ```
 features/
 ├── accounts/          (Bank/crypto accounts)
@@ -223,21 +225,21 @@ app/
 
 ```ts
 // In features/accounts/ui/account-card.tsx
-import { Button } from '@/shared/ui/button';           // ✅ shared
-import { formatCurrency } from '@/shared/lib/utils';   // ✅ shared
-import { Account } from '../model/types';              // ✅ self
-import { useAccount } from '../model/hooks';           // ✅ self
+import { Button } from '@/shared/ui/button'; // ✅ shared
+import { formatCurrency } from '@/shared/lib/utils'; // ✅ shared
+import { Account } from '../model/types'; // ✅ self
+import { useAccount } from '../model/hooks'; // ✅ self
 ```
 
 ```ts
 // In features/accounts/model/queries.ts
-import { Repository } from '@/shared/lib/persistence';  // ✅ shared
-import { Account } from './types';                      // ✅ self
+import { Repository } from '@/shared/lib/persistence'; // ✅ shared
+import { Account } from './types'; // ✅ self
 ```
 
 ```ts
 // In features/accounts/api/route.ts
-import { getAccounts } from '../model/queries';         // ✅ self
+import { getAccounts } from '../model/queries'; // ✅ self
 import { AccountSchema } from '@/shared/lib/validation'; // ✅ shared
 ```
 
@@ -246,8 +248,8 @@ import { AccountSchema } from '@/shared/lib/validation'; // ✅ shared
 ```ts
 // In features/accounts/ui/account-card.tsx
 import { Budget } from '@/features/budget/model/types'; // ❌ other feature
-import { formatCurrency } from '@/lib/utils';           // ❌ old path
-import { getAccounts } from '@/features/accounts/api';  // ❌ importing internal
+import { formatCurrency } from '@/lib/utils'; // ❌ old path
+import { getAccounts } from '@/features/accounts/api'; // ❌ importing internal
 ```
 
 ---
@@ -387,6 +389,7 @@ When creating a new feature or refactoring existing one:
 ## SOLID Principles Checklist
 
 ### Single Responsibility Principle ✓
+
 ```ts
 // ✓ Each file has one reason to change
 features/accounts/model/types.ts        # Only: define Account type
@@ -396,25 +399,26 @@ features/accounts/api/route.ts          # Only: HTTP handling
 ```
 
 ### Open/Closed Principle ✓
+
 ```ts
 // ✓ Open for extension via composition, closed for modification
 export class AccountAggregate {
   constructor(
     private account: Account,
-    private validator: AccountValidator  // Injected
+    private validator: AccountValidator, // Injected
   ) {}
 }
 ```
 
 ### Liskov Substitution Principle ✓
+
 ```ts
 // ✓ Repositories are interchangeable
-const repo: Repository<Account> = environment.isDev
-  ? new MemoryAccountRepository()
-  : new SheetsAccountRepository();
+const repo: Repository<Account> = environment.isDev ? new MemoryAccountRepository() : new SheetsAccountRepository();
 ```
 
 ### Interface Segregation Principle ✓
+
 ```ts
 // ✓ Components depend on specific interfaces, not monolithic types
 export function useAccounts() {
@@ -428,6 +432,7 @@ export function useAccounts() {
 ```
 
 ### Dependency Inversion Principle ✓
+
 ```ts
 // ✓ Depend on abstractions, not concrete implementations
 // Not: import { SheetsAccountRepository } from '@/lib/sheets'
@@ -440,7 +445,9 @@ const accounts = await Repository.accounts.findAll();
 ## Performance Optimization Notes
 
 ### Code Splitting
+
 Each feature can be code-split via dynamic import:
+
 ```ts
 // app/accounts/page.tsx
 const AccountsPage = dynamic(
@@ -450,19 +457,17 @@ const AccountsPage = dynamic(
 ```
 
 ### Data Fetching Strategy
+
 ```ts
 // features/accounts/model/queries.ts
 export async function getAccounts() {
   // Uses unstable_cache for automatic revalidation
-  return cache(
-    () => Repository.accounts.findAll(),
-    ['accounts'],
-    { revalidate: 60 }
-  );
+  return cache(() => Repository.accounts.findAll(), ['accounts'], { revalidate: 60 });
 }
 ```
 
 ### Bundle Analysis
+
 ```bash
 # Check bundle size per feature
 npx next-bundle-analyzer
@@ -473,33 +478,39 @@ npx next-bundle-analyzer
 ## Troubleshooting
 
 ### Circular Dependency
+
 ```
 Error: Circular dependency detected in features/accounts
 ```
 
 **Fix**: Move shared logic to `shared/lib/`
+
 ```ts
 // ❌ features/accounts/lib → features/budget/lib
 // ✅ features/accounts/lib → shared/lib/utils
 ```
 
 ### Missing Import
+
 ```
 Module not found: Can't resolve '@/features/budget/model'
 ```
 
 **Fix**: Only import from public exports
+
 ```ts
 // ❌ import { getBalance } from '@/features/budget/model/queries'
 // ✅ import { useBalance } from '@/features/budget'
 ```
 
 ### Performance Regression
+
 ```
 LCP increased after refactor
 ```
 
 **Causes**:
+
 - Unnecessary re-renders
 - Missing memoization
 - Over-fetching data
@@ -516,12 +527,14 @@ Use this to track your refactoring progress:
 ## Migration Status
 
 ### Phase 1: Infrastructure (Week 1)
+
 - [ ] shared/lib/persistence/ - Repository abstraction
 - [ ] shared/lib/ai/ - Unified AI service
 - [ ] shared/lib/validation/ - Schemas
 - [ ] ESLint rules updated
 
 ### Phase 2: Feature Migration (Weeks 2-3)
+
 - [ ] features/settings/
 - [ ] features/loans/
 - [ ] features/accounts/
@@ -532,6 +545,7 @@ Use this to track your refactoring progress:
 - [ ] features/chat/
 
 ### Phase 3: Integration (Weeks 4-5)
+
 - [ ] app/ routes updated
 - [ ] Old lib/ removed
 - [ ] All imports migrated
@@ -545,6 +559,7 @@ Use this to track your refactoring progress:
 ## Conclusion
 
 This FSD architecture provides:
+
 - **Clear module boundaries** - no accidental dependencies
 - **Testability** - each feature is independently testable
 - **Scalability** - new features don't affect existing ones

@@ -3,6 +3,8 @@ import { AIOrchestrator } from '@wealth-management/ai/core';
 import { buildBudgetAdvisorPrompt, loadActionPrompt } from '@wealth-management/ai/server';
 import { BudgetItem, Transaction, Goal } from '@wealth-management/types';
 import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
+import { getOrSetCache, CACHE_KEYS, CACHE_TTL } from '@/shared/cache';
+import crypto from 'crypto';
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +17,11 @@ export async function POST(req: Request) {
     };
     const { budget, transactions, goals, date, modelId } = body;
 
-    // 2. Prepare 30-day projection context (last 100 txns)
+    const cacheKey = `${CACHE_KEYS.AI_BUDGET_ADVISOR}:${crypto
+      .createHash('md5')
+      .update(JSON.stringify({ budget, transactions, goals, date, modelId }))
+      .digest('hex')}`;
+
     const recentTxns = transactions.slice(-100);
 
     const taskInstruction = await buildBudgetAdvisorPrompt({
@@ -27,11 +33,17 @@ export async function POST(req: Request) {
 
     const actionPrompt = await loadActionPrompt('budget-advisor');
 
-    const result = await AIOrchestrator.runJson<Record<string, unknown>>({
-      modelId: modelId,
-      systemPromptInstruction: taskInstruction,
-      prompt: actionPrompt,
-    });
+    const result = await getOrSetCache(
+      cacheKey,
+      () =>
+        AIOrchestrator.runJson<Record<string, unknown>>({
+          modelId: modelId,
+          systemPromptInstruction: taskInstruction,
+          prompt: actionPrompt,
+        }),
+      CACHE_TTL.AI_RESPONSES,
+      false,
+    );
 
     return NextResponse.json(result);
   } catch (error: unknown) {

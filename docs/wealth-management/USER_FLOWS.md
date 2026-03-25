@@ -3,6 +3,7 @@
 This document outlines the primary user interactions and data movements within the Wealth Management System.
 
 ## 1. Dashboard Loading & Data Sync
+
 The dashboard is the central hub. It fetches all financial data in parallel to provide a holistic view.
 
 ```mermaid
@@ -16,7 +17,7 @@ sequenceDiagram
     User->>Browser: Opens Dashboard
     Browser->>Server: Request / (Page Load)
     Server->>Server: Promise.all([getAccounts, getBudget, getTransactions, getLoans])
-    
+
     rect rgb(240, 240, 240)
         Note over Server, Sheets: Data Fetching Pattern
         Server->>Cache: Check Cache (e.g., 'accounts')
@@ -35,6 +36,7 @@ sequenceDiagram
 ```
 
 ## 2. AI Financial Health Assessment
+
 The health card uses AI to analyze current state vs. recent performance.
 
 ```mermaid
@@ -53,6 +55,7 @@ sequenceDiagram
 ```
 
 ## 3. Adding a Transaction
+
 Adding a transaction triggers a direct write to Google Sheets and a cache invalidation.
 
 ```mermaid
@@ -72,6 +75,7 @@ sequenceDiagram
 ```
 
 ## 4. Loan & Debt Tracking
+
 Tracking external liabilities and repayment progress.
 
 ```mermaid
