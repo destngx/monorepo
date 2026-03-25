@@ -24,7 +24,7 @@ export interface BankRate {
   type: string;
 }
 
-export type FmarketRange = 'YTD' | '6M' | '1Y' | '3Y' | '5Y' | 'ALL';
+export type FmarketRange = '1M' | '6M' | 'YTD' | '1Y' | '2Y' | '3Y' | '5Y' | 'ALL';
 
 export function useFmarket() {
   const [stockFunds, setStockFunds] = useState<any[]>([]);
@@ -50,6 +50,9 @@ export function useFmarket() {
     const from = new Date();
 
     switch (range) {
+      case '1M':
+        from.setMonth(now.getMonth() - 1);
+        break;
       case 'YTD':
         from.setMonth(0, 1);
         break;
@@ -58,6 +61,9 @@ export function useFmarket() {
         break;
       case '1Y':
         from.setFullYear(now.getFullYear() - 1);
+        break;
+      case '2Y':
+        from.setFullYear(now.getFullYear() - 2);
         break;
       case '3Y':
         from.setFullYear(now.getFullYear() - 3);
@@ -172,9 +178,11 @@ export function useFmarket() {
   const [navRange, setNavRange] = useState<FmarketRange>('1Y');
 
   const navRangeMap: Record<FmarketRange, string> = {
-    YTD: 'navToBeginningOfYear',
+    '1M': 'navTo1Month',
     '6M': 'navTo6Months',
+    YTD: 'navToLastYear',
     '1Y': 'navTo12Months',
+    '2Y': 'navTo24Months',
     '3Y': 'navTo36Months',
     '5Y': 'navTo60Months',
     ALL: 'navToBeginning',

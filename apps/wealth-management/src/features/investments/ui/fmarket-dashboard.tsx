@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, Landmark, Award, RefreshCcw } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useState, useEffect } from 'react';
 
@@ -68,19 +68,31 @@ export function FmarketDashboard() {
 
   // Calculate the world gold price in VND/Lượng for comparison
   const usdRate = goldExtra?.rateUsdToVnd || usdHistory[usdHistory.length - 1]?.rateSellUsd || 26350;
-  const formattedGoldData = goldHistory.map((item: any) => ({
-    date: new Date(item.reportDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-    vnAsk: item.askSjc / 1000000, // Bán ra (VN)
-    vnBid: item.bidSjc / 1000000, // Mua vào (VN)
-    world: (item.price * 1.2056 * usdRate) / 1000000, // Thế giới quy đổi
-    rawDate: item.reportDate
-  })).sort((a: any, b: any) => a.rawDate - b.rawDate);
+  const formattedGoldData = goldHistory
+    .filter((item: any) => item.reportDate)
+    .map((item: any) => {
+      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate;
+      return {
+        date: new Date(timestamp).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        vnAsk: item.askSjc / 1000000,
+        vnBid: item.bidSjc / 1000000,
+        world: (item.price * 1.2056 * usdRate) / 1000000,
+        rawDate: timestamp
+      };
+    })
+    .sort((a: any, b: any) => a.rawDate - b.rawDate);
 
-  const formattedUsdData = usdHistory.map((item: any) => ({
-    date: new Date(item.reportDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-    price: item.rateSellUsd,
-    rawDate: item.reportDate
-  })).sort((a: any, b: any) => a.rawDate - b.rawDate);
+  const formattedUsdData = usdHistory
+    .filter((item: any) => item.reportDate)
+    .map((item: any) => {
+      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate;
+      return {
+        date: new Date(timestamp).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        price: item.rateSellUsd,
+        rawDate: timestamp
+      };
+    })
+    .sort((a: any, b: any) => a.rawDate - b.rawDate);
 
   const latestGoldPrice = goldProducts[0]?.price || (goldHistory[goldHistory.length - 1]?.askSjc / 10);
 
@@ -199,17 +211,70 @@ export function FmarketDashboard() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  <div className="h-[300px] w-full mt-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={bankRates.map((rate: any) => ({
+                        name: rate.name || rate.bankShortName || 'Bank',
+                        rate: rate.value || rate.interestRate
+                      }))} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
+                        <defs>
+                          <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#d97706" stopOpacity={0.3}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                        <XAxis 
+                          dataKey="name" 
+                          angle={-45} 
+                          textAnchor="end" 
+                          interval={0} 
+                          height={100} 
+                          tick={{ fontSize: 10, fontWeight: 700 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis 
+                          tick={{ fontSize: 10, fontWeight: 600 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(val) => `${val}%`}
+                        />
+                        <Tooltip 
+                          cursor={{ fill: 'rgba(245, 158, 11, 0.05)' }}
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white p-3 border border-border/50 shadow-2xl rounded-xl">
+                                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
+                                  <p className="text-sm font-black text-amber-600">{payload[0].value}% <span className="text-[10px] lowercase font-medium text-muted-foreground">/ năm</span></p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar 
+                          dataKey="rate" 
+                          fill="url(#barGradient)" 
+                          radius={[6, 6, 0, 0]}
+                          barSize={32}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-6">
                     {bankRates.map((rate: any, i: number) => (
                       <div 
                         key={i} 
-                        className="p-3 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors flex flex-col justify-between"
+                        className="p-3 rounded-xl border border-border/50 bg-muted/20 hover:bg-muted/30 transition-all flex flex-col justify-between group"
                       >
-                        <div className="text-[10px] uppercase font-bold text-muted-foreground truncate">
+                        <div className="text-[10px] uppercase font-bold text-muted-foreground truncate group-hover:text-amber-700">
                           {rate.name || rate.bankShortName || 'Bank'}
                         </div>
                         <div className="flex items-baseline justify-between mt-1">
-                          <span className="text-lg font-bold text-amber-600">
+                          <span className="text-lg font-black text-amber-600">
                             {rate.value || rate.interestRate}%
                           </span>
                           <span className="text-[9px] text-muted-foreground font-medium lowercase">
@@ -358,8 +423,9 @@ export function FmarketDashboard() {
                         tickFormatter={(val) => `${val}M`}
                       />
                       <Tooltip 
-                        contentStyle={{ fontSize: '11px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                        labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+                        contentStyle={{ fontSize: '11px', borderRadius: '12px', border: 'none', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
+                        labelStyle={{ fontWeight: 'black', marginBottom: '8px', color: '#111' }}
+                        cursor={{ stroke: '#ccc', strokeWidth: 1, strokeDasharray: '4 4' }}
                       />
                       <Legend verticalAlign="top" height={30} iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '0' }} />
                       <Area 
@@ -455,8 +521,9 @@ export function FmarketDashboard() {
                       tickFormatter={(val) => Math.round(val).toLocaleString()}
                     />
                     <Tooltip 
-                      contentStyle={{ fontSize: '11px', borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                      labelStyle={{ fontWeight: 'bold' }}
+                      contentStyle={{ fontSize: '11px', borderRadius: '12px', border: 'none', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
+                      labelStyle={{ fontWeight: 'black', marginBottom: '8px', color: '#111' }}
+                      cursor={{ stroke: '#ccc', strokeWidth: 1, strokeDasharray: '4 4' }}
                     />
                     <Area 
                       type="monotone" 
@@ -843,7 +910,7 @@ function TickerDetails({
                        <TrendingUp className="h-4 w-4 text-emerald-500" /> Biểu đồ NAV Lịch sử
                     </CardTitle>
                     <div className="flex bg-muted/50 p-0.5 rounded-lg border border-border/50 self-start">
-                      {(['YTD', '6M', '1Y', '3Y', '5Y', 'ALL'] as const).map((r) => (
+                      {(['1M', '6M', 'YTD', '1Y', '2Y', '3Y', '5Y', 'ALL'] as const).map((r) => (
                         <button
                           key={r}
                           onClick={() => onRangeChange(r)}
@@ -872,7 +939,11 @@ function TickerDetails({
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
                         <XAxis dataKey="date" fontSize={9} tickLine={false} axisLine={false} minTickGap={50} />
                         <YAxis fontSize={9} tickLine={false} axisLine={false} domain={['auto', 'auto']} tickFormatter={(v) => v.toLocaleString()} />
-                        <Tooltip contentStyle={{ fontSize: '11px', borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                        <Tooltip 
+                          contentStyle={{ fontSize: '11px', borderRadius: '12px', border: 'none', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
+                          labelStyle={{ fontWeight: 'black', marginBottom: '8px', color: '#111' }}
+                          cursor={{ stroke: '#ccc', strokeWidth: 1, strokeDasharray: '4 4' }}
+                        />
                         <Area type="monotone" dataKey="nav" stroke="#1e3a8a" strokeWidth={3} fillOpacity={1} fill="url(#colorNav)" />
                       </AreaChart>
                    </ResponsiveContainer>
@@ -887,17 +958,39 @@ function TickerDetails({
                        <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Phân bổ tài sản</CardTitle>
                      </CardHeader>
                      <CardContent className="p-6 space-y-6">
-                        {details.productAssetHoldingList?.map((asset: any) => (
-                          <div key={asset.id} className="space-y-2">
-                            <div className="flex justify-between text-xs font-bold">
-                              <span>{asset.assetType.name}</span>
-                              <span className="text-primary font-black">{asset.assetPercent}%</span>
-                            </div>
-                            <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                              <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${asset.assetPercent}%` }} />
-                            </div>
-                          </div>
-                        ))}
+                        {(() => {
+                           const holdings = details.productAssetHoldingList && details.productAssetHoldingList.length > 0
+                             ? details.productAssetHoldingList.map((asset: any) => ({
+                                 name: asset.assetType?.name || 'Khác',
+                                 percent: asset.assetPercent
+                               }))
+                             : details.productAssetAllocationModelList && details.productAssetAllocationModelList.length > 0
+                             ? details.productAssetAllocationModelList.map((model: any) => ({
+                                 name: model.name || 'Khác',
+                                 percent: 0 // API doesn't always provide percent in this list, but we show the categories
+                               }))
+                             : [];
+
+                           if (holdings.length === 0) {
+                             return (
+                               <div className="py-10 text-center text-muted-foreground text-xs italic">
+                                 Dữ liệu phân bổ đang được cập nhật...
+                               </div>
+                             );
+                           }
+
+                           return holdings.map((asset: any, idx: number) => (
+                             <div key={idx} className="space-y-2">
+                               <div className="flex justify-between text-xs font-bold">
+                                 <span>{asset.name}</span>
+                                 {asset.percent > 0 && <span className="text-primary font-black">{asset.percent}%</span>}
+                               </div>
+                               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                 <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${asset.percent || 100}%` }} />
+                               </div>
+                             </div>
+                           ));
+                        })()}
                      </CardContent>
                   </Card>
 
@@ -906,24 +999,41 @@ function TickerDetails({
                        <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Top 10 Danh mục</CardTitle>
                      </CardHeader>
                      <CardContent className="p-0">
-                       <Table>
-                         <TableHeader className="bg-muted/30">
-                            <TableRow>
-                               <TableHead className="text-[10px] uppercase font-bold">Mã CK</TableHead>
-                               <TableHead className="text-[10px] uppercase font-bold">Ngành</TableHead>
-                               <TableHead className="text-right text-[10px] uppercase font-bold">Tỷ trọng</TableHead>
-                            </TableRow>
-                         </TableHeader>
-                         <TableBody>
-                           {details.productTopHoldingList?.map((holding: any) => (
-                             <TableRow key={holding.id} className="hover:bg-muted/30 border-b border-border/50 last:border-0 hover:border-l-4 hover:border-l-primary transition-all">
-                               <TableCell className="py-3 text-sm font-black text-primary">{holding.stockCode}</TableCell>
-                               <TableCell className="py-3 text-[11px] text-muted-foreground font-medium">{holding.industry}</TableCell>
-                               <TableCell className="py-3 text-right text-sm font-bold">{holding.netAssetPercent}%</TableCell>
-                             </TableRow>
-                           ))}
-                         </TableBody>
-                       </Table>
+                       {(() => {
+                         const holdings = [
+                           ...(details?.productTopHoldingList || []),
+                           ...(details?.productTopHoldingBondList || [])
+                         ];
+                         
+                         if (holdings.length === 0) {
+                           return (
+                             <div className="py-20 text-center text-muted-foreground text-xs italic">
+                               Danh mục cổ phiếu/trái phiếu đang được cập nhật...
+                             </div>
+                           );
+                         }
+
+                         return (
+                           <Table>
+                             <TableHeader className="bg-muted/30">
+                                <TableRow>
+                                   <TableHead className="text-[10px] uppercase font-bold">Mã CK</TableHead>
+                                   <TableHead className="text-[10px] uppercase font-bold">Ngành</TableHead>
+                                   <TableHead className="text-right text-[10px] uppercase font-bold">Tỷ trọng</TableHead>
+                                </TableRow>
+                             </TableHeader>
+                             <TableBody>
+                               {holdings.map((holding: any, idx: number) => (
+                                 <TableRow key={holding.id || idx} className="hover:bg-muted/30 border-b border-border/50 last:border-0 hover:border-l-4 hover:border-l-primary transition-all">
+                                   <TableCell className="py-3 text-sm font-black text-primary">{holding.stockCode}</TableCell>
+                                   <TableCell className="py-3 text-[11px] text-muted-foreground font-medium">{holding.industry}</TableCell>
+                                   <TableCell className="py-3 text-right text-sm font-bold">{holding.netAssetPercent}%</TableCell>
+                                 </TableRow>
+                               ))}
+                             </TableBody>
+                           </Table>
+                         );
+                       })()}
                      </CardContent>
                   </Card>
                </div>

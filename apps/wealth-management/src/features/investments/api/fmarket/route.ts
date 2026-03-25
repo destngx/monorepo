@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       case 'getNavHistory': {
         const { productId, navPeriod = 'navToBeginning' } = params;
         const data = await fmarketFetch(`${BASE_URL}/product/get-nav-history`, 'POST', {
-          isAllData: navPeriod === 'navToBeginning' ? 1 : 0,
+          isAllData: 1,
           productId,
           navPeriod,
         });
