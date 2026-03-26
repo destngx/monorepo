@@ -92,6 +92,10 @@ class CacheManager:
         "quote": 60,
         "listing": 3600,
         "historical": 3600,
+        "intraday": 300,
+        "price_board": 60,
+        "finance": 86400,
+        "company": 86400,
     }
 
     def __init__(
@@ -172,6 +176,10 @@ class CacheConfig:
     QUOTE_TTL = 60
     LISTING_TTL = 3600
     HISTORICAL_TTL = 3600
+    INTRADAY_TTL = 300
+    PRICE_BOARD_TTL = 60
+    FINANCE_TTL = 86400
+    COMPANY_TTL = 86400
     DEFAULT_TTL = 300
 
     CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"

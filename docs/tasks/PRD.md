@@ -1,48 +1,83 @@
-# PRD: Refactor Gold and Exchange Rate Indicators
+# PRD: Vnstock API Expansion (Community Level)
 
 ## 🎯 Objective
 
-Update the wealth management investment page (fmarket tab) to show specific gold price and exchange rate information for a fixed date (25/03/2026) and remove the "Đối tác Quản lý quỹ Chiến lược" component.
+Expand `vnstock-server` to provide full access to all community-level features available in `vnstock` v3.5.0. This will enable the wealth management application and other consumers to access comprehensive Vietnamese market data including fundamental and technical analysis, company profiles, and trading statistics.
 
 ## 📝 User Requirements
 
-- Refactor indicators for gold price and exchange rate in fmarket tab.
-- Include the following information:
-  - Ngày 25/03/2026
-  - SJC mua vào: 172,000,000 VND
-  - SJC bán ra: 175,000,000 VND
-  - Vàng nhẫn mua vào: 172,000,000 VND
-  - Vàng nhẫn bán ra: 175,000,000 VND
-  - Vàng thế giới: 145,093,896 VND
-  - Tỷ giá (USD/VND): 26,359 VND
-- Remove component "Đối tác Quản lý quỹ Chiến lược".
+1.  **Identify currently implemented APIs** in `vnstock-server`.
+2.  **Identify all other community-level APIs** from `vnstock` v3.5.0.
+3.  **Implement all missing APIs** with:
+    - Consistent error handling and logging.
+    - Upstash Redis caching where applicable.
+    - Community tier rate limit management (60 req/min, 10k req/day).
+    - API key authentication for better reliability.
 
 ## 🛠 Actionable Tasks
 
-- [ ] Refactor `FmarketDashboard` component in `apps/wealth-management/src/features/investments/ui/fmarket-dashboard.tsx`.
-  - [ ] Update Gold Price Card to show SJC and Vàng nhẫn (Mua/Bán).
-  - [ ] Update USD Rate Card.
-  - [ ] Include World Gold Price info.
-  - [ ] Set specific date "Ngày 25/03/2026".
-- [ ] Refactor Gold and USD rate charts to support multiple ranges (YTD, 6M, 1Y, 3Y, 5Y, All).
-  - [ ] Add range selection buttons/tabs to the charts.
-  - [ ] Update `useFmarket` hook or component logic to fetch/filter data based on the selected range.
-- [ ] Refactor Fund subtabs to display available tickers based on new API requests.
-  - [ ] Add "Tiền tệ" (MMF) and "Cân bằng" (BALANCED) subtabs.
-  - [ ] Update API calls to fetch 1000 items and include `isMMFFund` for Money Market Funds.
-  - [ ] Ensure `isIpo: false` is used in all fund filter requests.
-- [ ] Implement Ticker Details view.
-  - [ ] Fetch product details using `getProductDetails(code)`.
-  - [ ] Include price, details, summary, and nav history chart.
-  - [ ] Design a premium view for fund details when a ticker is selected.
-- [ ] Update Bank Interest UI according to the new API response structure.
-  - [ ] Display the note from the API response.
-  - [ ] Update bank rate display to use `value` and `name` from the `bankList`.
-  - [ ] Display "Cập nhật lúc [updateAt] theo [sourceNote]".
-- [ ] Remove the Partner Issuers section ("Đối tác Quản lý quỹ Chiến lược") from `FmarketDashboard`.
-- [ ] Verify the changes visually.
+### Phase 1: Planning & Setup
+
+- [x] Audit current implementation (8 endpoints identified).
+- [x] Research `vnstock` v3.5.0 Community API surface area.
+- [x] Update project documentation (`PRD.md`, `progress.md`).
+
+### Propose plan for next phases
+
+mplementation Plan - Vnstock API Expansion
+Expand vnstock-server to include all available community-level APIs from the
+vnstock
+v3.5.0 library.
+
+Proposed Changes
+vnstock-server
+[MODIFY]
+main.py
+Refactor existing endpoints to use a more consistent structure if needed.
+Implement new endpoints for:
+Listing: all_bonds, all_covered_warrant, all_future_indices, all_government_bonds, industries_icb, symbols_by_exchange, symbols_by_group, symbols_by_industries.
+Quote & Price: intraday, price_depth.
+Finance: balance_sheet, cash_flow, income_statement, ratio, get_all.
+Company: affiliate, dividends, events, insider_deals, news, officers, overview, profile, ratio_summary, shareholders, subsidiaries, trading_stats.
+Trading: price_board.
+[MODIFY]
+cache.py
+Update CacheConfig with new TTL settings for the newly added data types (e.g., fundamental data can be cached longer than price data).
+Verification Plan
+Automated Tests
+Create a new test file apps/vnstock-server/tests/test_new_endpoints.py to verify each new endpoint.
+Use TestClient from FastAPI to simulate requests.
+Command: /Users/ez2/projects/personal/monorepo/apps/vnstock-server/.venv/bin/pytest apps/vnstock-server/tests/test_new_endpoints.py
+Manual Verification
+Run the server locally: bun nx serve vnstock-server (or the appropriate command from
+project.json
+).
+
+### Phase 2: Core Stock & Market APIs
+
+- [ ] Implement Listing APIs:
+  - `all_bonds`, `all_covered_warrant`, `all_future_indices`, `all_government_bonds`.
+  - `industries_icb`, `symbols_by_exchange`, `symbols_by_group`, `symbols_by_industries`.
+- [ ] Implement Price & Trading APIs:
+  - `intraday`, `price_depth`, `price_board`.
+
+### Phase 3: Financial & Fundamental APIs
+
+- [ ] Implement Financial Statement APIs:
+  - `balance_sheet`, `cash_flow`, `income_statement`, `ratio`, `get_all`.
+- [ ] Implement Company Profile & Data APIs:
+  - `overview`, `profile`, `ratio_summary`, `trading_stats`.
+  - `news`, `events`, `dividends`.
+  - `officers`, `shareholders`, `insider_deals`.
+  - `subsidiaries`, `affiliate`.
+
+### Phase 4: Verification
+
+- [ ] Create automated tests for all new endpoints.
+- [ ] Verify caching and rate limiting for new endpoints.
+- [ ] Update `walkthrough.md`.
 
 ## 📅 Timeline
 
-- Start date: 2026-03-25
-- Target completion: 2026-03-25
+- Start date: 2026-03-26
+- Target completion: 2026-03-27
