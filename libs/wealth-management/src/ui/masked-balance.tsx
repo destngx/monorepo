@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
-import { formatVND, formatUSD } from "@/lib/utils";
-import { useMask } from "@/components/mask-provider";
+import { cn } from "@wealth-management/utils";
+import { formatVND, formatUSD } from "@wealth-management/utils";
+import { useMask } from "./mask-provider";
 
 interface MaskedBalanceProps {
   amount?: number;

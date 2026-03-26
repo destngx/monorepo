@@ -2,7 +2,7 @@
 
 import { Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@wealth-management/utils";
-import { useScrollState } from "@/hooks/use-scroll-state";
+import { useScrollState } from "@wealth-management/hooks/use-scroll-state";
 import { useState, useEffect } from "react";
 
 interface AIFabProps {

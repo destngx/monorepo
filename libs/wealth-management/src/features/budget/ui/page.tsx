@@ -1,9 +1,7 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Loading } from '@/components/ui/loading';
-import { BudgetItem } from '../model/types';
-import { Transaction } from '@wealth-management/types';
+import { Button, Loading } from '@wealth-management/ui';
+import { BudgetItem, Transaction } from '@wealth-management/types';
 import { addMonths, format, subMonths } from 'date-fns';
 import { useEffect, useMemo, useState } from 'react';
 import { useApiErrorHandler } from '../../../hooks/use-api-error-handler';
@@ -11,7 +9,7 @@ import { useApiErrorHandler } from '../../../hooks/use-api-error-handler';
 import { AIBudgetAdvisorView } from '../ui/ai-budget-advisor-view';
 import { BudgetOverviewView } from '../ui/budget-overview-view';
 import { CategoryDetailView } from '../ui/category-detail-view';
-import { useAISettings } from '@/hooks/use-ai-settings';
+import { useAISettings } from '@wealth-management/hooks';
 import { cn } from '@wealth-management/utils';
 import { Sparkles } from 'lucide-react';
 

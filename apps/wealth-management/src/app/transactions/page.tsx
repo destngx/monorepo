@@ -11,6 +11,6 @@ export const generateStaticParams = async () => {
  * Maps app/transactions to features/transactions/ui/page
  */
 
-import { TransactionsPage } from '@/features/transactions/ui';
+import { TransactionsPage } from '@wealth-management/features/transactions/ui';
 
 export default TransactionsPage;

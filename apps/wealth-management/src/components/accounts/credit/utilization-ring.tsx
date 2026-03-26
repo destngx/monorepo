@@ -26,8 +26,8 @@ export function UtilizationRing({ used, limit }: UtilizationRingProps) {
   const activeColor = getColor(percentage);
 
   return (
-    <div className="relative w-full aspect-square max-w-[240px] mx-auto">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="relative w-full aspect-square max-w-[240px] mx-auto min-w-0 min-h-0">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <PieChart>
           <Pie
             data={data}

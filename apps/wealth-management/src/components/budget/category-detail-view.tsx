@@ -69,8 +69,8 @@ export function CategoryDetailView({
               <CategoryBadge category={category} type="expense" className="w-fit" />
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center pt-6">
-              <div className="relative h-[200px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="relative h-[200px] w-full min-w-0 min-h-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Pie
                       data={pieData}
@@ -119,8 +119,8 @@ export function CategoryDetailView({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[180px] w-full mt-4">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[180px] w-full mt-4 min-w-0 min-h-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={timelineData}>
                     <XAxis 
                       dataKey="name" 

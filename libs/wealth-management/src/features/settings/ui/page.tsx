@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@wealth-management/ui";
+import { Button } from "@wealth-management/ui";
+import { Input } from "@wealth-management/ui";
+import { Label } from "@wealth-management/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@wealth-management/ui";
 import { Save, Brain, Check, Github, Search, Filter } from "lucide-react";
-import { useAISettings, AIProvider } from "@/hooks/use-ai-settings";
+import { useAISettings, AIProvider } from "@wealth-management/hooks/use-ai-settings";
 import { AI_MODELS } from "@wealth-management/ai";
 import { useState, useEffect, useMemo } from "react";
 import { getCredentialStatuses } from "@/app/actions/cache";

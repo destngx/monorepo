@@ -1,10 +1,10 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@wealth-management/ui";
 import { Goal } from '../model/types';
-import { Progress } from "@/components/ui/progress";
-import { MaskedBalance } from "@/components/ui/masked-balance";
-import { Badge } from "@/components/ui/badge";
+import { Progress } from "@wealth-management/ui";
+import { MaskedBalance } from "@wealth-management/ui";
+import { Badge } from "@wealth-management/ui";
 import Link from "next/link";
 import { cn } from '@wealth-management/utils';
 

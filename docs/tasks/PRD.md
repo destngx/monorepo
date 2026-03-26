@@ -1,83 +1,58 @@
-# PRD: Vnstock API Expansion (Community Level)
+# PRD: Wealth Management Code Refactoring (File Splitting)
 
 ## 🎯 Objective
 
-Expand `vnstock-server` to provide full access to all community-level features available in `vnstock` v3.5.0. This will enable the wealth management application and other consumers to access comprehensive Vietnamese market data including fundamental and technical analysis, company profiles, and trading statistics.
+Refactor the `wealth-management` codebase by splitting files that exceed 300 lines of code. This will improve code maintainability, readability, and follow the project's architectural standards of keeping components and services focused and modular.
 
 ## 📝 User Requirements
 
-1.  **Identify currently implemented APIs** in `vnstock-server`.
-2.  **Identify all other community-level APIs** from `vnstock` v3.5.0.
-3.  **Implement all missing APIs** with:
-    - Consistent error handling and logging.
-    - Upstash Redis caching where applicable.
-    - Community tier rate limit management (60 req/min, 10k req/day).
-    - API key authentication for better reliability.
+1.  **Identify all files** in `libs/wealth-management` and `apps/wealth-management` that are > 300 lines.
+2.  **Split components** into smaller, reusable pieces.
+3.  **Modularize services** by extracting logic into specialized utilities or sub-services.
+4.  **Extract hooks** from large components to separate state and side-effect logic.
+5.  **Ensure no regression** in functionality after splitting.
+6.  **Maintain consistent styling** and premium aesthetics.
 
 ## 🛠 Actionable Tasks
 
-### Phase 1: Planning & Setup
+### Phase 1: High-Priority Large Files (> 1000 lines)
 
-- [x] Audit current implementation (8 endpoints identified).
-- [x] Research `vnstock` v3.5.0 Community API surface area.
-- [x] Update project documentation (`PRD.md`, `progress.md`).
+- [x] Refactor `apps/wealth-management/src/components/dashboard/market-pulse-dashboard.tsx` (Modularized)
+  - [x] Extract `MarketSection` to handle regional market views.
+  - [x] Use existing sub-components more effectively.
+- [x] Refactor `libs/wealth-management/src/shared/api/market-data-service.ts` (1267 lines)
+  - [x] Extract technical analysis logic to `TechnicalAnalysisService.ts`.
+  - [x] Extract valuation logic to `ValuationService.ts`.
+  - [x] Extract regional pulse logic to `MarketPulseVnService.ts` and `MarketPulseUsService.ts`.
+- [x] Refactor `apps/wealth-management/src/features/investments/ui/fmarket-dashboard.tsx` (1046 lines)
+  - [x] Extract `FundTable` to a separate component.
+  - [x] Extract `GoldProductTable` to a separate component.
+  - [x] Extract `TickerDetails` to a separate component.
+  - [x] Extract `BankRatesSection` and `GoldUsdSection`.
 
-### Propose plan for next phases
+### Phase 2: Medium-Priority Files (500 - 1000 lines)
 
-mplementation Plan - Vnstock API Expansion
-Expand vnstock-server to include all available community-level APIs from the
-vnstock
-v3.5.0 library.
+- [x] Refactor `libs/wealth-management/src/features/investments/ui/page.tsx` (Modularized)
+  - [x] Extract `ThinkTank` and `AssetLedgers`.
+- [x] Refactor `apps/wealth-management/src/features/investments/ui/page.tsx` (Modularized)
+  - [x] Extract `ThinkTank` and `AssetLedgers`.
+- [x] Refactor `apps/wealth-management/src/components/dashboard/ticker-analysis-dashboard.tsx` (604 lines)
+  - [x] Extract `TickerValuationView`.
 
-Proposed Changes
-vnstock-server
-[MODIFY]
-main.py
-Refactor existing endpoints to use a more consistent structure if needed.
-Implement new endpoints for:
-Listing: all_bonds, all_covered_warrant, all_future_indices, all_government_bonds, industries_icb, symbols_by_exchange, symbols_by_group, symbols_by_industries.
-Quote & Price: intraday, price_depth.
-Finance: balance_sheet, cash_flow, income_statement, ratio, get_all.
-Company: affiliate, dividends, events, insider_deals, news, officers, overview, profile, ratio_summary, shareholders, subsidiaries, trading_stats.
-Trading: price_board.
-[MODIFY]
-cache.py
-Update CacheConfig with new TTL settings for the newly added data types (e.g., fundamental data can be cached longer than price data).
-Verification Plan
-Automated Tests
-Create a new test file apps/vnstock-server/tests/test_new_endpoints.py to verify each new endpoint.
-Use TestClient from FastAPI to simulate requests.
-Command: /Users/ez2/projects/personal/monorepo/apps/vnstock-server/.venv/bin/pytest apps/vnstock-server/tests/test_new_endpoints.py
-Manual Verification
-Run the server locally: bun nx serve vnstock-server (or the appropriate command from
-project.json
-).
+### ✅ Phase 3: Secondary Components & Cleanup (Completed)
 
-### Phase 2: Core Stock & Market APIs
-
-- [ ] Implement Listing APIs:
-  - `all_bonds`, `all_covered_warrant`, `all_future_indices`, `all_government_bonds`.
-  - `industries_icb`, `symbols_by_exchange`, `symbols_by_group`, `symbols_by_industries`.
-- [ ] Implement Price & Trading APIs:
-  - `intraday`, `price_depth`, `price_board`.
-
-### Phase 3: Financial & Fundamental APIs
-
-- [ ] Implement Financial Statement APIs:
-  - `balance_sheet`, `cash_flow`, `income_statement`, `ratio`, `get_all`.
-- [ ] Implement Company Profile & Data APIs:
-  - `overview`, `profile`, `ratio_summary`, `trading_stats`.
-  - `news`, `events`, `dividends`.
-  - `officers`, `shareholders`, `insider_deals`.
-  - `subsidiaries`, `affiliate`.
-
-### Phase 4: Verification
-
-- [ ] Create automated tests for all new endpoints.
-- [ ] Verify caching and rate limiting for new endpoints.
-- [ ] Update `walkthrough.md`.
+- [x] Refactor `apps/wealth-management/src/features/accounts/ui/page.tsx` (483 lines)
+  - [x] Extract `AccountSection`.
+- [x] Refactor `libs/wealth-management/src/config/transactions/categories.ts` (481 lines)
+- [x] Refactor `libs/wealth-management/src/features/accounts/ui/page.tsx` (457 lines)
+- [x] Refactor `apps/wealth-management/src/components/transactions/notification-processor.tsx` (431 lines)
+- [x] Refactor `apps/wealth-management/src/components/transactions/transaction-form.tsx` (395 lines)
+- [x] Refactor `apps/wealth-management/src/features/chat/ui/ai-drawer.tsx` (323 lines)
+- [x] Refactor `apps/wealth-management/src/features/chat/ui/chat-interface.tsx` (303 lines)
+- [ ] ... and other files identified in the initial scan.
 
 ## 📅 Timeline
 
 - Start date: 2026-03-26
-- Target completion: 2026-03-27
+- Target completion: 2026-03-28
+- Status: Complete

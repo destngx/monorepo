@@ -1,7 +1,7 @@
 "use client";
 
 import { CreateGoalFlow } from "./create-goal-flow";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 

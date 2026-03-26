@@ -4,8 +4,10 @@
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
-  content: string;
+  role: 'user' | 'assistant' | 'system' | 'data' | 'tool';
+  content?: string;
+  parts?: any[];
+  toolInvocations?: any[];
   createdAt?: Date;
 }
 

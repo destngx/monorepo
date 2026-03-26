@@ -11,7 +11,7 @@ import { NAV_LINKS } from '@wealth-management/utils';
 import Link from 'next/link';
 import { cn } from '@wealth-management/utils';
 import { ModelSwitcher } from '@/features/chat/ui/model-switcher';
-import { useMask } from '@/components/mask-provider';
+import { useMask } from '@wealth-management/ui/mask-provider';
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 

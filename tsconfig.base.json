@@ -15,6 +15,7 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
+    "jsx": "react-jsx",
     "paths": {
       "@cloudinary-photos-app/components/layout": ["libs/cloudinary-photos-app/components/layout/src/index.ts"],
       "@cloudinary-photos-app/components/layout/server": ["libs/cloudinary-photos-app/components/layout/src/server.ts"],

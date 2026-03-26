@@ -1,3 +1,5 @@
+'use server';
+
 import { readSheet, updateRow } from './client';
 import { EmailNotification } from '@wealth-management/types/common';
 import { getCached, setCache, invalidateCache } from '@wealth-management/utils';

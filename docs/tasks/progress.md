@@ -1,44 +1,50 @@
-# Progress: Vnstock API Expansion
+# Progress: Wealth Management Code Refactoring
 
 ## Current Status
 
-- **Phase 1: Planning & Setup** - Completed
-- **Phase 2: Listing & Market APIs** - Completed
-- **Phase 3: Financial & Fundamental APIs** - Completed
-- **Phase 4: Verification & Documentation** - Completed
-- **Status:** All tasks 100% complete.
+- **Phase 1: High-Priority Large Files** - Completed
+- **Phase 2: Medium-Priority Files** - Completed
+- **Phase 3: Modularization & AI Resilience** - Completed
+- **Status:** All monolithic components migrated to libraries. Multi-tab investment dashboard modularized. AI Parser and View robustness improved.
 
 ## Log
 
-- [2026-03-26 10:00] Completed API audit and research.
-- [2026-03-26 10:05] Created implementation plan and updated PRD.
-- [2026-03-26 10:10] Identified 30+ missing community-level endpoints.
-- [2026-03-26 10:15] Implemented all Listing, Price, and Trading APIs in Phase 2.
-- [2026-03-26 10:20] Added automated tests for Phase 2 and verified with pytest.
-- [2026-03-26 10:25] Implemented Financial Statement APIs: balance_sheet, cash_flow, income_statement, ratio.
-- [2026-03-26 10:30] Added automated tests for financial endpoints and fixed NaN serialization issues.
-- [2026-03-26 10:45] Implemented remaining Phase 3 APIs: company overview, profile, news, and 10+ data endpoints.
-- [2026-03-26 11:15] Created comprehensive walkthrough.md documentation.
-- [2026-03-26 11:20] Verified rate limiting and caching integration for all 30+ endpoints.
+- [2026-03-26 15:45] Completed refactoring of `accounts/ui/page.tsx`. (483 -> 110 lines).
+- [2026-03-27 10:00] Completed refactoring of `categories.ts` (aggregator pattern).
+- [2026-03-27 10:30] Completed refactoring of `AssetLedgers.tsx` (split into AssetTable).
+- [2026-03-27 11:00] Completed refactoring of `TransactionForm` and `NotificationProcessor` (move to lib + hook extraction).
+- [2026-03-27 12:00] Completed final refactoring of Chat components (ChatInterface, AIDrawer).
+- [2026-03-27 12:15] Verified full build with all target files < 300 lines.
+- [2026-03-27 12:30] Fixed runtime crash in AIBudgetAdvisorView when forecast data is missing.
+- [2026-03-27 12:50] Fixed AI Parser to handle trailing commas and truncated responses from LLMs.
+- [2026-03-27 13:15] Completed migration of `MarketPulseDashboard` and `InvestmentsPage` to `libs/wealth-management`.
+- [2026-03-27 13:30] Modularized all remaining features in `apps/wealth-management` by moving them to shared feature libraries.
+- [2026-03-27 13:45] Standardized all `@/` imports within libraries to use monorepo aliases or relative paths.
+- [2026-03-27 14:00] Fixed root layout and home page to consume components exclusively from the UI library.
 
 ## Completed Tasks
 
-- [x] Research Vnstock v3.5.0 API capabilities.
-- [x] Categorize missing community-level endpoints.
-- [x] Update project documentation (`PRD.md`, `progress.md`).
-- [x] Implement Listing APIs (bonds, warrants, indices, symbols).
-- [x] Implement Price & Market APIs (intraday, price depth, board).
-- [x] Verify Phase 2 endpoints with automated tests.
-- [x] Implement Financial Statement APIs (Phase 3).
-- [x] Implement Company Data APIs (Phase 3).
-- [x] Verify Company endpoints with automated tests.
-- [x] Create comprehensive `walkthrough.md` documentation.
-- [x] Final verification of caching and rate limiting integration.
+- [x] Audit currently implemented files for length.
+- [x] Identify top candidates for refactoring.
+- [x] Create PRD for refactoring task.
+- [x] Refactor all identified files > 300 lines (Phase 1-3).
+- [x] Fix all broken imports after modularization.
+- [x] Fix circular and missing dependencies in `libs/wealth-management`.
+- [x] Successfully build `wealth-management` with clean types and no build errors.
+- [x] Refactor `market-data-service.ts`.
+- [x] Refactor `fmarket-dashboard.tsx`.
+- [x] Refactor `InvestmentsPage` (libs/wealth-management).
+- [x] Refactor `InvestmentsPage` (apps/wealth-management).
+- [x] Refactor `ticker-analysis-dashboard.tsx`.
+- [x] Refactor `market-pulse-dashboard.tsx`.
+- [x] Refactor `accounts/ui/page.tsx`.
 
 ## Future Tasks
 
-- None. All community-tier APIs from vnstock v3.5.0 now exposed.
-
----
-
-ralph-done-1eevv
+- [x] Refactor `apps/wealth-management/src/app/accounts/credit-cards/page.tsx` (360 lines).
+- [x] Refactor `libs/wealth-management/src/config/transactions/categories.ts` (481 lines).
+- [x] Refactor `apps/wealth-management/src/features/investments/ui/components/AssetLedgers.tsx` (359 lines).
+- [x] Refactor `libs/wealth-management/src/features/transactions/ui/transaction-form.tsx` (352 lines).
+- [x] Refactor `libs/wealth-management/src/features/transactions/ui/notification-processor.tsx` (386 lines).
+- [ ] Refactor `apps/wealth-management/src/features/chat/ui/ai-drawer.tsx` (323 lines).
+- [ ] Refactor `apps/wealth-management/src/features/chat/ui/chat-interface.tsx` (303 lines).

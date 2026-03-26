@@ -11,6 +11,8 @@ export * from './cashback';
 export * from './toast';
 export * from './api-wrapper';
 export * from './api-error-handler';
+export * from './errors';
+export * from './technical-analysis';
 
 // Constants
 export * from './constants/categories';

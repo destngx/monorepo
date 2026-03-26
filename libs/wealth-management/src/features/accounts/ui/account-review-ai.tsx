@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
-import { Account } from "../model/types";
-import ReactMarkdown from "react-markdown";
-import { AIInsightRenderer } from "../../ui/ai-insight-renderer";
-import type { StructuredInsight } from "../../ai/core/types";
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui';
+import { Button } from '@wealth-management/ui';
+import { Sparkles } from 'lucide-react';
+import { Account } from '../model/types';
+import ReactMarkdown from 'react-markdown';
+import { AIInsightRenderer } from '@wealth-management/ui';
+import type { StructuredInsight } from '@wealth-management/ai';
 
 interface Props {
   accounts: Account[];
@@ -24,16 +24,16 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
   const generateReview = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/ai/account-review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/ai/account-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accounts, totalAssets, totalLiabilities, totalNetWorth }),
       });
       const data = await response.json();
       setReview(data.review);
     } catch (e) {
       console.error(e);
-      setReview("Failed to generate AI review. Please try again later.");
+      setReview('Failed to generate AI review. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -44,7 +44,7 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
       hasGeneratedRef.current = true;
       generateReview();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accounts.length]);
 
   const isStructured = typeof review === 'object' && review !== null && 'sections' in review;
@@ -54,10 +54,14 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
       <CardHeader className="pb-2 pt-3 px-4 border-b border-indigo-100/50 dark:border-indigo-900/30">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-             <Sparkles className="h-4 w-4 text-indigo-500" />
-             <CardTitle className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">Lộc Phát Tài&apos;s Wealth Review</CardTitle>
+            <Sparkles className="h-4 w-4 text-indigo-500" />
+            <CardTitle className="text-sm font-semibold text-indigo-900 dark:text-indigo-300">
+              Lộc Phát Tài&apos;s Wealth Review
+            </CardTitle>
           </div>
-          <span className="text-[10px] font-bold text-indigo-600/60 dark:text-indigo-400/60 uppercase tracking-widest">AI Advisory</span>
+          <span className="text-[10px] font-bold text-indigo-600/60 dark:text-indigo-400/60 uppercase tracking-widest">
+            AI Advisory
+          </span>
         </div>
       </CardHeader>
       <CardContent className="p-4">
@@ -74,13 +78,13 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
           </div>
         ) : isStructured ? (
           <div className="w-full">
-            <AIInsightRenderer insight={review as StructuredInsight} />
+            <AIInsightRenderer insight={review} />
             <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-indigo-100/30 dark:border-indigo-900/20">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={generateReview} 
-                disabled={loading} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateReview}
+                disabled={loading}
                 className="text-[10px] h-7 px-3 gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100/50 transition-all font-semibold"
               >
                 <Sparkles className="h-3 w-3" />
@@ -94,11 +98,11 @@ export function AccountReviewAI({ accounts, totalAssets, totalLiabilities, total
               <ReactMarkdown>{review as string}</ReactMarkdown>
             </div>
             <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-indigo-100/30 dark:border-indigo-900/20">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={generateReview} 
-                disabled={loading} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={generateReview}
+                disabled={loading}
                 className="text-[10px] h-7 px-3 gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-100/50 transition-all font-semibold"
               >
                 <Sparkles className="h-3 w-3" />

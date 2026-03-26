@@ -1,36 +1,23 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { Sparkles } from "lucide-react";
-import { useAISettings } from "@/hooks/use-ai-settings";
-import { AI_MODELS } from "@wealth-management/ai";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import * as React from 'react';
+import { Sparkles } from 'lucide-react';
+import { useAISettings } from '@wealth-management/hooks';
+import { AI_MODELS } from '@wealth-management/ai';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@wealth-management/ui';
 
 export function ModelSwitcher() {
   const { settings, updateSettings, mounted } = useAISettings();
 
   if (!mounted) {
-    return (
-      <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-    );
+    return <div className="h-4 w-24 bg-muted animate-pulse rounded" />;
   }
 
-  const activeModel = AI_MODELS[settings.modelId] || AI_MODELS["gpt-4o-mini"];
+  const activeModel = AI_MODELS[settings.modelId] || AI_MODELS['gpt-4o-mini'];
 
   return (
-    <Select
-      value={settings.modelId}
-      onValueChange={(value) => updateSettings({ modelId: value })}
-    >
-      <SelectTrigger 
-        className="h-7 border-none bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 text-left shadow-none group px-2 gap-1.5 transition-colors"
-      >
+    <Select value={settings.modelId} onValueChange={(value) => updateSettings({ modelId: value })}>
+      <SelectTrigger className="h-7 border-none bg-transparent hover:bg-muted/50 focus:ring-0 focus:ring-offset-0 text-left shadow-none group px-2 gap-1.5 transition-colors">
         <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
         <SelectValue>
           <span className="text-xs text-muted-foreground group-hover:text-primary transition-colors truncate max-w-[100px]">

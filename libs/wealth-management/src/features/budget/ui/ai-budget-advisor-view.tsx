@@ -1,21 +1,22 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@wealth-management/ui";
 import { Sparkles, TrendingDown, Calendar, Wallet, Target, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { formatVND } from "@wealth-management/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@wealth-management/ui";
 
-interface AdvisorData {
-  briefing: string;
-  suggestions: Array<{ category: string; suggestedLimit: number; rationale: string; currentAverage: number }>;
-  forecast: {
+export interface AdvisorData {
+  briefing?: string;
+  suggestions?: Array<{ category: string; suggestedLimit: number; rationale: string; currentAverage: number }>;
+  forecast?: {
     projection: Array<{ date: string; balance: number }>;
     annotations: Array<{ date: string; message: string }>;
   };
-  alerts: Array<{ type: 'overspend' | 'spike' | 'bill' | 'opportunity' | 'goal'; title: string; message: string; urgency: 'critical' | 'warning' | 'info' }>;
-  goalImpact: string;
+  alerts?: Array<{ type: 'overspend' | 'spike' | 'bill' | 'opportunity' | 'goal'; title: string; message: string; urgency: 'critical' | 'warning' | 'info' }>;
+  goalImpact?: string;
+  [key: string]: any;
 }
 
 export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
@@ -68,7 +69,7 @@ export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
         <CardContent className="bg-zinc-950 p-0">
           <div className="h-[250px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.forecast.projection}>
+              <AreaChart data={data?.forecast?.projection ?? []}>
                 <defs>
                   <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
@@ -93,7 +94,7 @@ export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
           
           <div className="p-6 pt-0 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data.forecast.annotations.map((ann, i) => (
+              {data?.forecast?.annotations?.map((ann, i) => (
                 <div key={i} className="flex gap-3 items-start p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl">
                   <div className="p-1.5 bg-zinc-800 rounded-lg shrink-0">
                     <Info className="h-3 w-3 text-primary" />
@@ -125,7 +126,7 @@ export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {data.suggestions.map((s, i) => (
+          {data?.suggestions?.map((s, i) => (
             <Card key={i} className="border-none shadow-sm hover:ring-2 hover:ring-primary/10 transition-all border-l-4 border-l-indigo-500">
                <CardContent className="p-6 flex gap-6">
                   <div className="flex-1 space-y-4">
@@ -159,7 +160,7 @@ export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
         <div className="lg:col-span-2 space-y-4">
           <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-1">Urgent Alerts & Nudges</h3>
           <div className="space-y-3">
-             {data.alerts.map((alert, i) => (
+             {data?.alerts?.map((alert, i) => (
                <div key={i} className={`p-4 rounded-xl border flex gap-4 items-start transition-all hover:translate-x-1 ${getUrgencyStyles(alert.urgency)}`}>
                   <div className="shrink-0 pt-0.5">
                     {getAlertIcon(alert.type)}
@@ -185,7 +186,7 @@ export function AIBudgetAdvisorView({ data }: { data?: AdvisorData }) {
                        <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Knock-on Effects</h4>
                     </div>
                     <p className="text-xs text-indigo-800/80 dark:text-indigo-200/80 font-medium leading-relaxed italic">
-                       {data.goalImpact}
+                       {data?.goalImpact}
                     </p>
                  </div>
                  <div className="absolute bottom-0 right-0 p-4 opacity-5">

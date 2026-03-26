@@ -1,13 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, Button, CategoryBadge, MaskedBalance } from "@wealth-management/ui";
 import { Transaction } from "@wealth-management/types";
 import { formatVND } from "@wealth-management/utils";
-import { MaskedBalance } from "@/components/ui/masked-balance";
-import { Sparkles, ArrowLeft, TrendingUp, History, PieChart as PieChartIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { CategoryBadge } from "@/components/ui/category-badge";
+import { ArrowLeft, TrendingUp, Sparkles, History } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { format } from "date-fns";
 
@@ -71,7 +68,7 @@ export function CategoryDetailView({
             <CardContent className="flex flex-col items-center justify-center pt-6">
               <div className="relative h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
+                   <PieChart>
                     <Pie
                       data={pieData}
                       cx="50%"

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Transaction } from "../model/types";
 import { formatVND } from "@wealth-management/utils";
-import { MaskedBalance } from "@/components/ui/masked-balance";
+import { MaskedBalance } from "@wealth-management/ui";
 import { formatDate } from "@wealth-management/utils";
-import { CategoryBadge } from "@/components/ui/category-badge";
+import { CategoryBadge } from "@wealth-management/ui";
 import { ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 
 type SortKey = "date" | "accountName" | "payee" | "category" | "payment" | "deposit";

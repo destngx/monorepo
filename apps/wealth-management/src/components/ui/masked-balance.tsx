@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "@wealth-management/utils";
 import { formatVND, formatUSD } from "@wealth-management/utils";
-import { useMask } from "@/components/mask-provider";
+import { useMask } from "@wealth-management/ui/mask-provider";
 
 interface MaskedBalanceProps {
   amount?: number;

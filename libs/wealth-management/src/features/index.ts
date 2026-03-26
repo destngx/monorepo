@@ -2,8 +2,8 @@
 export * from './accounts';
 export * from './budget';
 export * from './chat';
-export * from './goals';
-export * from './investments';
-export * from './loans';
+export * as goalsFeature from './goals';
+export * as investmentsFeature from './investments';
+export * as loansFeature from './loans';
 export * from './settings';
 export * from './transactions';

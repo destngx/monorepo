@@ -11,6 +11,6 @@ export const generateStaticParams = async () => {
  * Maps app/budget to features/budget/ui/page
  */
 
-import { BudgetPage } from '@/features/budget/ui';
+import { BudgetPage } from '@wealth-management/features/budget/ui';
 
 export default BudgetPage;

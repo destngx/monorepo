@@ -1,41 +1,41 @@
-"use client";
+'use client';
 
-import { usePathname } from "next/navigation";
-import { RefreshCw, Menu, Eye, EyeOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useAISettings } from "@/hooks/use-ai-settings";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
-import { NAV_LINKS } from "@wealth-management/utils";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { ModelSwitcher } from "@/components/chat/model-switcher";
-import { useMask } from "@/components/mask-provider";
+import { usePathname } from 'next/navigation';
+import { RefreshCw, Menu, Eye, EyeOff } from 'lucide-react';
+import { Button } from '@wealth-management/ui';
+import { ThemeToggle } from '@wealth-management/ui';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useAISettings } from '@wealth-management/hooks';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@wealth-management/ui';
+import { NAV_LINKS } from '@wealth-management/utils';
+import Link from 'next/link';
+import { cn } from '@wealth-management/utils';
+import { ModelSwitcher } from '@wealth-management/features';
+import { useMask } from '@wealth-management/ui';
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 const pageTitles: Record<string, string> = {
-  "/": "Dashboard",
-  "/transactions": "Transactions",
-  "/budget": "Budget",
-  "/accounts": "Accounts",
-  "/investments": "Investments",
-  "/credit-cards": "Credit Card",
-  "/goals": "Financial Goals",
-  "/chat": "AI Wealth Advisor",
-  "/settings": "Settings",
+  '/': 'Dashboard',
+  '/transactions': 'Transactions',
+  '/budget': 'Budget',
+  '/accounts': 'Accounts',
+  '/investments': 'Investments',
+  '/credit-cards': 'Credit Card',
+  '/goals': 'Financial Goals',
+  '/chat': 'AI Wealth Advisor',
+  '/settings': 'Settings',
 };
 
 function formatTime(date: Date) {
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatCountdown(ms: number) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 export function Header() {
@@ -50,15 +50,15 @@ export function Header() {
   const title =
     pageTitles[pathname] ||
     Object.keys(pageTitles)
-      .find(key => key !== "/" && pathname.startsWith(key))
-      ?.replace("/", "") ||
-    "WealthOS";
+      .find((key) => key !== '/' && pathname.startsWith(key))
+      ?.replace('/', '') ||
+    'WealthOS';
 
   const doSync = useCallback(async () => {
     if (syncing) return;
     setSyncing(true);
     try {
-      await fetch("/api/sync", { method: "POST" });
+      await fetch('/api/sync', { method: 'POST' });
       setLastSyncedAt(new Date());
     } catch {
       // silent — next auto-sync will retry
@@ -112,15 +112,15 @@ export function Header() {
             </SheetHeader>
             <nav className="flex flex-col gap-2 p-4">
               {NAV_LINKS.map((link) => {
-                const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
+                const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
                 return (
                   <Link
                     key={link.href}
                     href={link.href}
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground",
-                      isActive ? "bg-muted text-foreground" : "text-muted-foreground"
+                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-muted hover:text-foreground',
+                      isActive ? 'bg-muted text-foreground' : 'text-muted-foreground',
                     )}
                   >
                     <link.icon className="h-4 w-4" />
@@ -149,14 +149,12 @@ export function Header() {
               ) : (
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
               )}
-              <span className={`relative inline-flex h-2 w-2 rounded-full ${syncing ? "bg-amber-500" : "bg-green-500"}`} />
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${syncing ? 'bg-amber-500' : 'bg-green-500'}`}
+              />
             </span>
             <span className="whitespace-nowrap">
-              {syncing
-                ? "Syncing…"
-                : lastSyncedAt
-                ? `Synced: ${formatTime(lastSyncedAt)}`
-                : "Not synced"}
+              {syncing ? 'Syncing…' : lastSyncedAt ? `Synced: ${formatTime(lastSyncedAt)}` : 'Not synced'}
             </span>
           </div>
           {!syncing && (
@@ -173,13 +171,9 @@ export function Header() {
           size="icon"
           className="h-8 w-8 px-0 cursor-pointer"
           onClick={toggleMask}
-          title={isMasked ? "Show all values" : "Hide all values"}
+          title={isMasked ? 'Show all values' : 'Hide all values'}
         >
-          {isMasked ? (
-            <EyeOff className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <Eye className="h-4 w-4 text-primary" />
-          )}
+          {isMasked ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-primary" />}
         </Button>
 
         <Button
@@ -189,7 +183,7 @@ export function Header() {
           onClick={doSync}
           disabled={syncing}
         >
-          <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">Sync</span>
         </Button>
       </div>

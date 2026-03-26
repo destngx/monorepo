@@ -1,3 +1,5 @@
+'use server';
+
 import { readSheet } from './client';
 import { BudgetItem } from '@wealth-management/types/budget';
 

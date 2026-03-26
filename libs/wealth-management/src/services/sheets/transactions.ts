@@ -1,3 +1,5 @@
+'use server';
+
 import { readSheet, writeToFirstEmptyRow } from './client';
 import { mapTransaction } from './mappers';
 import { Transaction } from '@wealth-management/types/transactions';

@@ -3,10 +3,9 @@
 import { useState, useEffect } from "react";
 import { Sparkles, RefreshCw, Calendar } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Button } from "@/components/ui/button";
+import { Button, AIInsightRenderer } from "@wealth-management/ui";
 import { Transaction } from "../model/types";
-import { AIInsightRenderer } from "../../ui/ai-insight-renderer";
-import type { StructuredInsight } from "../../ai/core/types";
+import { StructuredInsight } from "@wealth-management/ai";
 
 interface TransactionReviewAIProps {
   transactions: Transaction[];
@@ -78,7 +77,7 @@ export function TransactionReviewAI({ transactions }: TransactionReviewAIProps) 
             </p>
           </div>
         ) : isStructured ? (
-          <AIInsightRenderer insight={review as StructuredInsight} />
+          <AIInsightRenderer insight={review} />
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none text-amber-900/80 dark:text-amber-100/80 text-sm leading-relaxed italic pr-4">
             <ReactMarkdown>

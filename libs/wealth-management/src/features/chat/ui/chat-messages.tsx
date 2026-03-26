@@ -1,20 +1,14 @@
 "use client";
 
-import React from "react";
+import * as React from 'react';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Bot, User, CheckCircle, Zap } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt?: Date;
-}
+import { ScrollArea } from "@wealth-management/ui";
+import { ChatMessage } from "../model/types";
 
 interface ChatMessagesProps {
-  messages: Message[];
+  messages: ChatMessage[];
   isLoading?: boolean;
 }
 
@@ -79,7 +73,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
             >
               <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:first:mt-0 prose-headings:my-2 prose-headings:text-sm prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-0 prose-code:text-xs">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {message.content}
+                  {message.content || ""}
                 </ReactMarkdown>
               </div>
             </div>

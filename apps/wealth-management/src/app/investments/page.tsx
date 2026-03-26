@@ -8,9 +8,9 @@ export const generateStaticParams = async () => {
 
 /**
  * Delegating page route
- * Maps app/investments to features/investments/ui/page
+ * Maps app/investments to features/investments/ui/page in library
  */
 
-import { InvestmentsPage } from '@/features/investments/ui';
+import { InvestmentsPage } from '@wealth-management/features/investments/ui';
 
 export default InvestmentsPage;

@@ -1,3 +1,5 @@
+'use server';
+
 import { getSheetsClient } from './auth';
 import { AppError } from '../../utils/errors';
 

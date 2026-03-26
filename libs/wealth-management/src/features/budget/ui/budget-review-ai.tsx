@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { Sparkles, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Button } from "@/components/ui/button";
-import { AIInsightRenderer } from "../../ui/ai-insight-renderer";
-import type { StructuredInsight } from "../../ai/core/types";
+import { Button, AIInsightRenderer } from "@wealth-management/ui";
+import { StructuredInsight } from "@wealth-management/ai";
 
 interface BudgetReviewAIProps {
   budget: any[];
@@ -90,7 +89,7 @@ export function BudgetReviewAI({ budget, transactions, totalSpent, totalLimit, v
             </p>
           </div>
         ) : isStructured ? (
-          <AIInsightRenderer insight={review as StructuredInsight} />
+          <AIInsightRenderer insight={review} />
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none text-indigo-900/80 dark:text-indigo-100/80 text-sm leading-relaxed italic pr-4">
             <ReactMarkdown>

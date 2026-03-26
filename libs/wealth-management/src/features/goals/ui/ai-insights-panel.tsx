@@ -1,9 +1,9 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@wealth-management/ui";
 import { GoalProjection } from "../model/types";
 import { TrendingUp, Clock, Target, Rocket } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui";
 import { formatVND } from "@wealth-management/utils";
 
 interface AIInsightsProps {

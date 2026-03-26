@@ -2,12 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { MaskedBalance } from '@/components/ui/masked-balance';
 import { Account } from '../model/types';
 import { Transaction } from '@wealth-management/types';
 import { useApiErrorHandler } from '../../../hooks/use-api-error-handler';
-import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import {
   Landmark,
   Wallet,
@@ -24,9 +21,12 @@ import {
   ChevronRight,
   Flag,
 } from 'lucide-react';
-import { Loading } from '@/components/ui/loading';
+import { Loading } from '@wealth-management/ui';
+import { Card, CardContent } from '@wealth-management/ui';
+import { Progress } from '@wealth-management/ui';
+import { MaskedBalance } from '@wealth-management/ui';
 import { AccountReviewAI } from './account-review-ai';
-import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
+import { AIDataInsight } from '@wealth-management/ui';
 import { AccountTrendSparkline } from './account-trend-sparkline';
 
 // Display config for account types

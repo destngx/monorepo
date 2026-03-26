@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@wealth-management/ui";
 import { Sparkles, AlertCircle, TrendingUp } from "lucide-react";
 
 interface AISummaryProps {

@@ -6,6 +6,6 @@ export const generateStaticParams = async () => {
   return [];
 };
 
-import SettingsPage from '@/features/settings/ui/page';
+import SettingsPage from '@wealth-management/features/settings/ui/page';
 
 export default SettingsPage;

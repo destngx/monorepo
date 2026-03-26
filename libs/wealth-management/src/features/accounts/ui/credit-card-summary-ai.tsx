@@ -1,20 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, Button, Tabs, TabsList, TabsTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AIInsightRenderer } from "@wealth-management/ui";
 import { Sparkles, BrainCircuit, Lightbulb, TrendingUp } from "lucide-react";
 import { Transaction } from "@wealth-management/types";
 import ReactMarkdown from "react-markdown";
-import { AIInsightRenderer } from "../../ui/ai-insight-renderer";
-import type { StructuredInsight } from "../../ai/core/types";
-
-import { 
-  Tabs, TabsList, TabsTrigger 
-} from "@/components/ui/tabs";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select";
+import { StructuredInsight } from "@wealth-management/ai";
 
 interface Props {
   transactions: Transaction[];
@@ -152,7 +143,7 @@ export function CreditCardSummaryAI({ transactions, cardStats }: Props) {
             </div>
           ) : isStructured ? (
             <div className="w-full">
-              <AIInsightRenderer insight={currentSummary as StructuredInsight} />
+              <AIInsightRenderer insight={currentSummary} />
               <div className="flex justify-end gap-2 pt-3 border-t border-indigo-100/50 dark:border-indigo-900/30 mt-3">
                 <Button 
                   variant="outline" 

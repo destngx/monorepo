@@ -41,8 +41,8 @@ export function AccountTrendSparkline({ accountName, currentBalance, transaction
   const isPositive = lastValue >= firstValue;
 
   return (
-    <div className="w-16 h-8 opacity-60 hover:opacity-100 transition-opacity">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-16 h-8 opacity-60 hover:opacity-100 transition-opacity min-w-0 min-h-0">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <AreaChart data={sparklineData}>
           <defs>
             <linearGradient id={`color-${accountName.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="0" y2="1">

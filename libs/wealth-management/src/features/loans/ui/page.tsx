@@ -7,7 +7,7 @@ import { LoanSummary } from "./loan-summary";
 import { LoanList } from "./loan-list";
 import { LoanReviewAI } from "./loan-review-ai";
 import { RefreshCw, Target } from "lucide-react";
-import { AIDataInsight } from "@/components/dashboard/ai-data-insight";
+import { AIDataInsight } from "@wealth-management/ui/ai-data-insight";
 
 async function LoanContent() {
   const loans = await getLoans();

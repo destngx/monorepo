@@ -1,3 +1,5 @@
+'use server';
+
 import { readSheet } from './client';
 import { Loan } from '@wealth-management/types/loans';
 import { getCached, setCache } from '@wealth-management/utils';

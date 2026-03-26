@@ -1,17 +1,17 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google'; // Changing to Inter for modern look
+import { Inter } from 'next/font/google';
 import './globals.css';
-import { Sidebar } from '@/components/layout/sidebar';
-import { Header } from '@/components/layout/header';
-import { ThemeProvider } from '@/components/theme-provider';
-import { AIChatWidget } from '@/features/chat/ui/ai-chat-widget';
-
-import { SidebarProvider } from '@/components/layout/sidebar-provider';
-import { LayoutWrapper } from '@/components/layout/layout-wrapper';
-import { MaskProvider } from '@/components/mask-provider';
-import { AIContextProvider } from '@/features/chat/ui/ai-context-provider';
-import { ErrorNotificationsProvider } from '@/components/error-notifications-provider';
-import { ErrorNotificationDisplay } from '@/components/error-notification-display';
+import { 
+  Sidebar, 
+  Header, 
+  ThemeProvider, 
+  SidebarProvider, 
+  LayoutWrapper, 
+  MaskProvider,
+  ErrorNotificationsProvider,
+  ErrorNotificationDisplay
+} from '@wealth-management/ui';
+import { AIChatWidget, AIContextProvider } from '@wealth-management/features/chat/ui';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -33,7 +33,7 @@ export default function RootLayout({
             <MaskProvider>
               <AIContextProvider>
                 <SidebarProvider>
-                  <div className="flex min-h-screen bg-background">
+                  <div className="flex min-h-screen bg-background text-foreground transition-colors duration-300">
                     <Sidebar />
                     <LayoutWrapper>
                       <Header />
