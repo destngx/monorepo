@@ -1,6 +1,7 @@
 import { StorageError, isAppError } from './errors';
 
 const cache = new Map<string, { data: string; expiresAt: number }>();
+const cacheTags = new Map<string, Set<string>>(); // tag -> set of cache keys
 
 export async function getCached<T>(key: string): Promise<T | null> {
   const entry = cache.get(key);
@@ -39,4 +40,68 @@ export async function invalidateCache(keyPrefix: string) {
       cache.delete(key);
     }
   }
+}
+
+/**
+ * Register a cache key with a tag for batch invalidation.
+ * Useful for invalidating related caches when events occur (e.g., earnings release).
+ */
+export async function tagCache(tag: string, key: string) {
+  if (!cacheTags.has(tag)) {
+    cacheTags.set(tag, new Set());
+  }
+  cacheTags.get(tag).add(key);
+}
+
+/**
+ * Invalidate all cache keys associated with a specific tag.
+ * Example: invalidateCacheByTag('earnings:AAPL') invalidates all AAPL analysis caches.
+ */
+export async function invalidateCacheByTag(tag: string) {
+  const keysToInvalidate = cacheTags.get(tag);
+  if (!keysToInvalidate) {
+    console.warn(`[Cache] No keys found for tag: ${tag}`);
+    return 0;
+  }
+
+  let count = 0;
+  for (const key of keysToInvalidate) {
+    cache.delete(key);
+    count++;
+  }
+
+  cacheTags.delete(tag);
+  console.log(`[Cache] Invalidated ${count} keys for tag: ${tag}`);
+  return count;
+}
+
+/**
+ * Invalidate all caches related to a ticker (e.g., on earnings release or stock split).
+ */
+export async function invalidateTickerCache(symbol: string, reason: string) {
+  const invalidationPatterns = [
+    `stock-analysis:${symbol}`,
+    `vnstock:stock:${symbol}`,
+    `vnstock:historical:${symbol}`,
+    `market-pulse:asset:${symbol}`,
+    `search:`, // Note: search results may be reusable, but we invalidate if needed
+  ];
+
+  let totalInvalidated = 0;
+  for (const pattern of invalidationPatterns) {
+    const keysToDelete: string[] = [];
+    for (const key of cache.keys()) {
+      if (key.includes(pattern)) {
+        keysToDelete.push(key);
+      }
+    }
+
+    for (const key of keysToDelete) {
+      cache.delete(key);
+      totalInvalidated++;
+    }
+  }
+
+  console.log(`[Cache] Invalidated ${totalInvalidated} keys for ticker ${symbol} (reason: ${reason})`);
+  return totalInvalidated;
 }

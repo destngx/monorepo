@@ -9,6 +9,7 @@ import { DataSourceAdapter, YahooFinanceAdapter, VNStockAdapter, CafeFAdapter, S
 const CACHE_PREFIX = 'market-pulse:';
 const PRICE_CACHE_TTL = 300; // 5 minutes during trading
 const HISTORY_CACHE_TTL = 3600; // 1 hour for historical data
+const ASSET_DATA_CACHE_TTL = 14 * 24 * 3600; // 14 days for processed asset data
 
 export interface MarketAsset {
   symbol: string;
@@ -597,6 +598,15 @@ export async function fetchAssetData(
   market: 'US' | 'VN',
   timeframe = '1h',
 ): Promise<MarketAsset | null> {
+  const cacheKey = `${CACHE_PREFIX}asset:${symbol}:${market}:${timeframe}`;
+
+  // Check cache first
+  const cached = await getCached<MarketAsset>(cacheKey);
+  if (cached) {
+    console.log(`[MarketDataService] ✓ Cache hit for asset data: ${symbol} (${timeframe})`);
+    return cached;
+  }
+
   try {
     // Try each adapter in sequence
     for (const adapter of dataSourceAdapters) {
@@ -651,8 +661,7 @@ export async function fetchAssetData(
       if (Math.abs(percentChange) > 2 || (direction === 'up' && dayChange > 5)) momentum = 'fire';
       else if (Math.abs(percentChange) < 0.1) momentum = 'sleep';
 
-      console.log(`[MarketDataService] Successfully fetched ${symbol} from ${adapter.name}`);
-      return {
+      const assetData: MarketAsset = {
         symbol: name,
         name,
         market,
@@ -667,6 +676,14 @@ export async function fetchAssetData(
         lows,
         timestamps,
       };
+
+      console.log(`[MarketDataService] Successfully fetched ${symbol} from ${adapter.name}`);
+
+      // Cache asset data for 14 days
+      await setCache(cacheKey, assetData, ASSET_DATA_CACHE_TTL);
+      console.log(`[MarketDataService] Cached asset data for 14 days: ${symbol} (${timeframe})`);
+
+      return assetData;
     }
 
     // All sources failed

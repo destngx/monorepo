@@ -2,7 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { executeSearch } from '@wealth-management/services/services/search-service';
 import { generateObject } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
+import { getCached, setCache } from '@wealth-management/utils';
 import { z } from 'zod';
+
+const TICKER_DETAILS_CACHE_TTL = 30 * 24 * 3600; // 30 days
+
+export interface TickerDetails {
+  symbol: string;
+  fullName: string;
+  description: string;
+  sector: string;
+  industry: string;
+  market: 'VN' | 'US';
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,6 +23,22 @@ export async function POST(req: NextRequest) {
     if (!symbol) {
       return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
     }
+
+    const cacheKey = `ticker-details:${symbol.toUpperCase()}`;
+
+    // Check application-code cache first (before AI inference)
+    const cached = await getCached<TickerDetails>(cacheKey);
+    if (cached) {
+      console.log(`[TickerAPI] ✓ Cache hit for ticker details: ${symbol}`);
+      return NextResponse.json(cached, {
+        headers: {
+          'Cache-Control': 'public, max-age=2592000, stale-while-revalidate=604800',
+          'X-Cache': 'HIT',
+        },
+      });
+    }
+
+    console.log(`[TickerAPI] Cache miss for ${symbol}, generating details...`);
 
     const searchQuery = `"${symbol}" stock profile company details sector industry exchange vietnam us`;
     const searchResponse = await executeSearch(searchQuery);
@@ -52,7 +80,18 @@ export async function POST(req: NextRequest) {
       `,
     });
 
-    return NextResponse.json(object);
+    const tickerDetails: TickerDetails = object as TickerDetails;
+
+    // Cache the generated details for 30 days
+    await setCache(cacheKey, tickerDetails, TICKER_DETAILS_CACHE_TTL);
+    console.log(`[TickerAPI] Cached ticker details for 30 days: ${symbol}`);
+
+    return NextResponse.json(tickerDetails, {
+      headers: {
+        'Cache-Control': 'public, max-age=2592000, stale-while-revalidate=604800',
+        'X-Cache': 'MISS',
+      },
+    });
   } catch (error: any) {
     const statusCode = error.statusCode || 500;
     return NextResponse.json({ error: error.message }, { status: statusCode });

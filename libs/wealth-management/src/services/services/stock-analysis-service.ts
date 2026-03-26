@@ -7,7 +7,14 @@ import { calculateEMA, calculateSMA, calculateRSI } from '../../utils/technical-
 import { VNStockAdapter, YahooFinanceAdapter, StockDataPoint } from '../data-sources';
 
 const CACHE_PREFIX = 'stock-analysis:';
-const ANALYSIS_CACHE_TTL = 3600 * 24; // 24 hours for deep analysis
+const ANALYSIS_CACHE_TTL = 30 * 24 * 3600; // 30 days in seconds (2,592,000s)
+
+// Add ±10% jitter to prevent cache stampede
+function getAnalysisCacheTTLWithJitter(): number {
+  const jitterRange = Math.floor(ANALYSIS_CACHE_TTL * 0.1); // ±10%
+  const jitter = Math.floor(Math.random() * (jitterRange * 2)) - jitterRange;
+  return ANALYSIS_CACHE_TTL + jitter;
+}
 
 export interface StockAnalysis {
   symbol: string;
@@ -114,7 +121,7 @@ export async function getStockAnalysis(symbol: string, forceRefresh = false): Pr
       lastUpdated: new Date().toISOString(),
     };
 
-    await setCache(cacheKey, analysis, ANALYSIS_CACHE_TTL);
+    await setCache(cacheKey, analysis, getAnalysisCacheTTLWithJitter());
     return analysis;
   } catch (error) {
     const networkError = isAppError(error)

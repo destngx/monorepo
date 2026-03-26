@@ -15,3 +15,9 @@ This directory contains the technical and product documentation for the Wealth M
 - **[GOOGLE-SHEETS-INTEGRATION.md](file:///Users/destnguyxn/projects/wealth-management/docs/GOOGLE-SHEETS-INTEGRATION.md)**: Details on sheet ranges, columns, and sync logic.
 - **[AI-INTEGRATION.md](file:///Users/destnguyxn/projects/wealth-management/docs/AI-INTEGRATION.md)**: AI prompts, tools, and provider configuration.
 - **[SETUP-GUIDE.md](file:///Users/destnguyxn/projects/wealth-management/docs/SETUP-GUIDE.md)**: How to get the project running locally.
+
+## 🆕 Recent Features & Setup Guides
+
+- **[WEB_SEARCH_QUICK_START.md](WEB_SEARCH_QUICK_START.md)**: 5-minute setup for web search roundrobin (Tavily → Exa → DuckDuckGo)
+- **[WEB_SEARCH_ROUNDROBIN.md](WEB_SEARCH_ROUNDROBIN.md)**: Complete implementation guide for multi-provider web search
+- **[VNSTOCK_SETUP.md](VNSTOCK_SETUP.md)**: How to configure Vietnamese stock data (VNStock) — fixes "Failed to fetch asset data" errors

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCached, setCache } from '@wealth-management/utils';
 import {
   fetchAssetData,
   generateTechnicals,
   generateValuation,
 } from '@wealth-management/services/services/market-data-service';
+
+const ANALYZE_CACHE_TTL = 14 * 24 * 3600; // 14 days
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +15,22 @@ export async function POST(req: NextRequest) {
     if (!symbol || !market) {
       return NextResponse.json({ error: 'Symbol and market are required' }, { status: 400 });
     }
+
+    const cacheKey = `ticker-analyze:${symbol}:${market}`;
+
+    // Check application-code cache first
+    const cached = await getCached(cacheKey);
+    if (cached) {
+      console.log(`[TickerAnalyzeAPI] ✓ Cache hit for analysis: ${symbol} (${market})`);
+      return NextResponse.json(cached, {
+        headers: {
+          'Cache-Control': 'public, max-age=2592000, stale-while-revalidate=604800',
+          'X-Cache': 'HIT',
+        },
+      });
+    }
+
+    console.log(`[TickerAnalyzeAPI] Cache miss for ${symbol}, generating analysis...`);
 
     const [asset1h, asset1d] = await Promise.all([
       fetchAssetData(symbol, name || symbol, market, '1h'),
@@ -29,10 +48,21 @@ export async function POST(req: NextRequest) {
     // Generate valuation using 1D data
     const valuation = generateValuation([asset1d], market);
 
-    return NextResponse.json({
+    const analysisResult = {
       technicals1h,
       technicals1d,
       valuation,
+    };
+
+    // Cache the analysis for 14 days
+    await setCache(cacheKey, analysisResult, ANALYZE_CACHE_TTL);
+    console.log(`[TickerAnalyzeAPI] Cached analysis for 14 days: ${symbol} (${market})`);
+
+    return NextResponse.json(analysisResult, {
+      headers: {
+        'Cache-Control': 'public, max-age=2592000, stale-while-revalidate=604800',
+        'X-Cache': 'MISS',
+      },
     });
   } catch (error: any) {
     console.error('Ticker analysis failed:', error);

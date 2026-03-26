@@ -3,5 +3,5 @@ uvicorn
 vnstock==3.5.0
 pandas
 requests
-pytest
 httpx
+pytest

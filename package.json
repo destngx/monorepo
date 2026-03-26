@@ -50,6 +50,7 @@
     "eslint-plugin-prettier": "^4.2.1",
     "eslint-plugin-simple-import-sort": "^10.0.0",
     "eslint-plugin-storybook": "^0.6.12",
+    "exa-js": "^2.10.1",
     "exifr": "^7.1.3",
     "exifreader": "^4.17.0",
     "framer-motion": "^11.0.0",
