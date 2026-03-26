@@ -1,8 +1,5 @@
 import { readSheet } from './client';
 import { BudgetItem } from '@wealth-management/types/budget';
-import { getCached, setCache } from '@wealth-management/utils';
-
-const CACHE_KEY = 'budget';
 
 // The Budget_2026 sheet layout:
 // Row 10:  A="", B="", C=yearly serial, D=Jan serial, E=Feb serial, ... (col index 2=yearly, 3=month1 ...)
@@ -38,12 +35,7 @@ function serialToMonthYear(serial: number): { month: number; year: number } {
   return { month: d.getMonth(), year: d.getFullYear() };
 }
 
-export async function getBudget(forceFresh = false): Promise<BudgetItem[]> {
-  if (!forceFresh) {
-    const cached = await getCached<BudgetItem[]>(CACHE_KEY);
-    if (cached) return cached;
-  }
-
+export async function getBudget(): Promise<BudgetItem[]> {
   // Read sheet wide enough to capture all 12 months (cols A-N = columns 0-13)
   const rows = await readSheet('Budget_2026!A1:N200');
 
@@ -118,6 +110,5 @@ export async function getBudget(forceFresh = false): Promise<BudgetItem[]> {
     });
   }
 
-  await setCache(CACHE_KEY, items, 300);
   return items;
 }

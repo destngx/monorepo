@@ -11,14 +11,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const forceFresh = searchParams.get('force') === 'true';
 
-    const [transactions, categories] = await Promise.all([
-      getOrSetCache(CACHE_KEYS.TRANSACTIONS, () => getTransactions(false), CACHE_TTL.PORTFOLIO_DATA, forceFresh),
-      getOrSetCache('categories:all', () => getCategories(), CACHE_TTL.PORTFOLIO_DATA, forceFresh),
-    ]);
+    const [transactions, categories] = await Promise.all([getTransactions(forceFresh), getCategories(forceFresh)]);
 
-    const enrichedTransactions = transactions.map((t) => ({
+    const enrichedTransactions = transactions.map((t: any) => ({
       ...t,
-      categoryType: categories.find((c) => c.name.toLowerCase().trim() === t.category.toLowerCase().trim())?.type,
+      categoryType: categories.find((c: any) => c.name.toLowerCase().trim() === t.category.toLowerCase().trim())?.type,
     }));
 
     return NextResponse.json(enrichedTransactions);

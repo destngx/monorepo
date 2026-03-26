@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getOrSetCache, CACHE_KEYS, CACHE_TTL } from '@/shared/cache';
 
 const BASE_URL = 'https://api.fmarket.vn/res';
 
@@ -36,88 +37,92 @@ async function fmarketFetch(url: string, method = 'GET', body: any = null) {
   return response.json();
 }
 
+/**
+ * Cached Fmarket API actions
+ */
+const actions = {
+  getProductsFilterNav: (params: any) => {
+    const { page = 1, pageSize = 10, assetTypes = ['STOCK'], isMMFFund = false } = params;
+    return fmarketFetch(`${BASE_URL}/products/filter`, 'POST', {
+      types: ['NEW_FUND', 'TRADING_FUND'],
+      sortOrder: 'DESC',
+      sortField: 'navTo12Months',
+      isIpo: false,
+      isMMFFund,
+      fundAssetTypes: isMMFFund ? [] : assetTypes,
+      page,
+      pageSize,
+    });
+  },
+
+  getIssuers: () => fmarketFetch(`${BASE_URL}/issuers`, 'POST', {}),
+
+  getBankInterestRates: () => fmarketFetch(`${BASE_URL}/bank-interest-rate`, 'GET'),
+
+  getProductDetails: (params: any) => {
+    const { code } = params;
+    return fmarketFetch(`https://api.fmarket.vn/home/product/${code}`, 'GET');
+  },
+
+  getNavHistory: (params: any) => {
+    const { productId, navPeriod = 'navToBeginning' } = params;
+    return fmarketFetch(`${BASE_URL}/product/get-nav-history`, 'POST', {
+      isAllData: 1,
+      productId,
+      navPeriod,
+    });
+  },
+
+  getGoldPriceHistory: (params: any) => {
+    const { fromDate, toDate } = params;
+    return fmarketFetch(`${BASE_URL}/get-price-gold-history`, 'POST', {
+      fromDate,
+      toDate,
+      isAllData: false,
+    });
+  },
+
+  getUsdRateHistory: (params: any) => {
+    const { fromDate, toDate } = params;
+    return fmarketFetch(`${BASE_URL}/get-usd-rate-history`, 'POST', {
+      fromDate,
+      toDate,
+      isAllData: false,
+    });
+  },
+
+  getGoldProducts: () =>
+    fmarketFetch(`${BASE_URL}/products/filter`, 'POST', {
+      types: ['GOLD'],
+      issuerIds: [],
+      page: 1,
+      pageSize: 100,
+      fundAssetTypes: [],
+      bondRemainPeriods: [],
+      searchField: '',
+    }),
+};
+
 export async function POST(request: Request) {
   try {
-    const { action, params } = await request.json();
+    const { action, params = {} } = await request.json();
+    const { searchParams } = new URL(request.url);
+    const forceFresh = searchParams.get('force') === 'true';
 
-    switch (action) {
-      case 'getProductsFilterNav': {
-        const { page = 1, pageSize = 10, assetTypes = ['STOCK'], isMMFFund = false } = params;
-        const data = await fmarketFetch(`${BASE_URL}/products/filter`, 'POST', {
-          types: ['NEW_FUND', 'TRADING_FUND'],
-          sortOrder: 'DESC',
-          sortField: 'navTo12Months',
-          isIpo: false,
-          isMMFFund,
-          fundAssetTypes: isMMFFund ? [] : assetTypes,
-          page,
-          pageSize,
-        });
-        return NextResponse.json(data);
-      }
-
-      case 'getIssuers': {
-        const data = await fmarketFetch(`${BASE_URL}/issuers`, 'POST', {});
-        return NextResponse.json(data);
-      }
-
-      case 'getBankInterestRates': {
-        const data = await fmarketFetch(`${BASE_URL}/bank-interest-rate`, 'GET');
-        return NextResponse.json(data);
-      }
-
-      case 'getProductDetails': {
-        const { code } = params;
-        const data = await fmarketFetch(`https://api.fmarket.vn/home/product/${code}`, 'GET');
-        return NextResponse.json(data);
-      }
-
-      case 'getNavHistory': {
-        const { productId, navPeriod = 'navToBeginning' } = params;
-        const data = await fmarketFetch(`${BASE_URL}/product/get-nav-history`, 'POST', {
-          isAllData: 1,
-          productId,
-          navPeriod,
-        });
-        return NextResponse.json(data);
-      }
-
-      case 'getGoldPriceHistory': {
-        const { fromDate, toDate } = params;
-        const data = await fmarketFetch(`${BASE_URL}/get-price-gold-history`, 'POST', {
-          fromDate,
-          toDate,
-          isAllData: false,
-        });
-        return NextResponse.json(data);
-      }
-
-      case 'getUsdRateHistory': {
-        const { fromDate, toDate } = params;
-        const data = await fmarketFetch(`${BASE_URL}/get-usd-rate-history`, 'POST', {
-          fromDate,
-          toDate,
-          isAllData: false,
-        });
-        return NextResponse.json(data);
-      }
-
-      case 'getGoldProducts': {
-        const data = await fmarketFetch(`${BASE_URL}/products/filter`, 'POST', {
-          types: ['GOLD'],
-          issuerIds: [],
-          page: 1,
-          pageSize: 100,
-          fundAssetTypes: [],
-          bondRemainPeriods: [],
-          searchField: '',
-        });
-        return NextResponse.json(data);
-      }
-
-      default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    if (!(action in actions)) {
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
+
+    // Use centralized getOrSetCache with action-specific keys
+    const cacheKey = `fmarket:${action}:${JSON.stringify(params)}`;
+    const data = await getOrSetCache(
+      cacheKey,
+      () => (actions as any)[action](params),
+      CACHE_TTL.MARKET_DATA,
+      forceFresh,
+    );
+
+    return NextResponse.json(data);
   } catch (error) {
     console.error('[FmarketAPI] Error:', error);
     return NextResponse.json(

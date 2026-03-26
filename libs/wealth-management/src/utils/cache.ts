@@ -105,3 +105,34 @@ export async function invalidateTickerCache(symbol: string, reason: string) {
   console.log(`[Cache] Invalidated ${totalInvalidated} keys for ticker ${symbol} (reason: ${reason})`);
   return totalInvalidated;
 }
+export async function getCachedOrFetch<T>(
+  key: string,
+  fetchFn: () => Promise<T>,
+  ttlSeconds = 300,
+  forceFresh = false,
+): Promise<T> {
+  if (!forceFresh) {
+    const cached = await getCached<T>(key);
+    if (cached !== null) return cached;
+  }
+
+  const data = await fetchFn();
+  await setCache(key, data, ttlSeconds);
+  return data;
+}
+
+export function withCache<T>(keyPrefix: string, handler: (...args: any[]) => Promise<T>, ttlSeconds = 300) {
+  return async (...args: any[]): Promise<T> => {
+    // Standard pattern: last boolean argument is forceFresh
+    let forceFresh = false;
+    let actualArgs = args;
+
+    if (args.length > 0 && typeof args[args.length - 1] === 'boolean') {
+      forceFresh = args[args.length - 1];
+      actualArgs = args.slice(0, -1);
+    }
+
+    const key = `${keyPrefix}:${JSON.stringify(actualArgs)}`;
+    return getCachedOrFetch(key, () => handler(...args), ttlSeconds, forceFresh);
+  };
+}
