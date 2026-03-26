@@ -106,7 +106,7 @@
     "@swc-jotai/react-refresh": "^0.5.0",
     "@swc-node/register": "1.11.1",
     "@swc/cli": "0.8.0",
-    "@swc/core": "1.15.18",
+    "@swc/core": "1.15.21",
     "@swc/jest": "0.2.39",
     "@testing-library/react": "16.3.2",
     "@theunderscorer/nx-semantic-release": "^2.7.1",
