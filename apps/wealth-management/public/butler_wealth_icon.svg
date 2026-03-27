@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1B2A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1A2F4A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5D87A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#C9A84C;stop-opacity:1" />
+    </linearGradient>
+    <clipPath id="roundedClip">
+      <rect width="512" height="512" rx="112" ry="112"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bgGrad)"/>
+
+  <!-- Outer gold ring -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="url(#goldGrad)" stroke-width="6" opacity="0.9"/>
+  <!-- Inner thin ring -->
+  <circle cx="256" cy="256" r="208" fill="none" stroke="#C9A84C" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Butler body (tailcoat silhouette) -->
+  <!-- Head -->
+  <circle cx="256" cy="138" r="34" fill="url(#goldGrad)"/>
+  <!-- Neck -->
+  <rect x="248" y="168" width="16" height="14" rx="4" fill="url(#goldGrad)"/>
+  <!-- White collar/shirt front -->
+  <polygon points="256,178 240,195 256,200 272,195" fill="#FFFFFF" opacity="0.95"/>
+  <!-- Bow tie -->
+  <polygon points="248,183 256,189 264,183 256,177" fill="#0D1B2A"/>
+  <!-- Left coat lapel -->
+  <path d="M256,182 L210,215 L220,310 L256,305 Z" fill="#1A2038"/>
+  <!-- Right coat lapel -->
+  <path d="M256,182 L302,215 L292,310 L256,305 Z" fill="#1A2038"/>
+  <!-- Gold coat edges -->
+  <path d="M256,182 L210,215 L220,310" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+  <path d="M256,182 L302,215 L292,310" fill="none" stroke="url(#goldGrad)" stroke-width="3"/>
+  <!-- Shirt front detail -->
+  <line x1="256" y1="195" x2="256" y2="305" stroke="#C9A84C" stroke-width="1.5" opacity="0.6"/>
+  <circle cx="256" cy="215" r="3" fill="#C9A84C"/>
+  <circle cx="256" cy="235" r="3" fill="#C9A84C"/>
+  <circle cx="256" cy="255" r="3" fill="#C9A84C"/>
+  <!-- Shoulders -->
+  <ellipse cx="210" cy="210" rx="22" ry="12" fill="url(#goldGrad)" opacity="0.8"/>
+  <ellipse cx="302" cy="210" rx="22" ry="12" fill="url(#goldGrad)" opacity="0.8"/>
+
+  <!-- Left arm extended holding tray -->
+  <path d="M210,215 Q175,230 158,260" fill="none" stroke="url(#goldGrad)" stroke-width="16" stroke-linecap="round"/>
+  <!-- Right arm down -->
+  <path d="M302,215 Q330,250 325,300" fill="none" stroke="url(#goldGrad)" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Serving tray (silver platter) -->
+  <ellipse cx="148" cy="262" rx="52" ry="10" fill="#C9C9C9" stroke="url(#goldGrad)" stroke-width="3"/>
+  <ellipse cx="148" cy="258" rx="52" ry="10" fill="#E8E8E8" stroke="url(#goldGrad)" stroke-width="2.5"/>
+
+  <!-- Chart line ON tray -->
+  <polyline points="106,258 118,250 130,253 142,244 158,248 172,238 184,242"
+    fill="none" stroke="#27AE60" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Chart dots -->
+  <circle cx="118" cy="250" r="3" fill="#27AE60"/>
+  <circle cx="142" cy="244" r="3" fill="#27AE60"/>
+  <circle cx="172" cy="238" r="3.5" fill="#2ECC71"/>
+
+  <!-- Trousers -->
+  <rect x="228" y="305" width="30" height="80" rx="8" fill="url(#goldGrad)" opacity="0.85"/>
+  <rect x="254" y="305" width="30" height="80" rx="8" fill="url(#goldGrad)" opacity="0.85"/>
+  <!-- Trouser crease line -->
+  <line x1="243" y1="310" x2="243" y2="382" stroke="#0D1B2A" stroke-width="1.5" opacity="0.4"/>
+  <line x1="269" y1="310" x2="269" y2="382" stroke="#0D1B2A" stroke-width="1.5" opacity="0.4"/>
+  <!-- Shoes -->
+  <ellipse cx="239" cy="385" rx="20" ry="9" fill="#0D1B2A"/>
+  <ellipse cx="273" cy="385" rx="20" ry="9" fill="#0D1B2A"/>
+
+  <!-- Gold WM monogram at bottom -->
+  <text x="256" y="435" font-family="Georgia, serif" font-size="26" font-weight="bold"
+    fill="url(#goldGrad)" text-anchor="middle" letter-spacing="6" opacity="0.9">WM</text>
+  <!-- Decorative line under monogram -->
+  <line x1="210" y1="442" x2="302" y2="442" stroke="#C9A84C" stroke-width="1" opacity="0.5"/>
+</svg>
