@@ -1,9 +1,9 @@
 'use client';
 
 import { useFmarket } from '../model/use-fmarket';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui';
+import { GoldHistoryItem, UsdHistoryItem, GoldHistoryRaw, UsdHistoryRaw } from '../model/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui';
 import { TrendingUp, Landmark, Award } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui';
 import { useState, useEffect } from 'react';
 import { FundTable } from './fmarket/FundTable';
 import { TickerDetails } from './fmarket/TickerDetails';
@@ -68,11 +68,11 @@ export function FmarketDashboard() {
     );
   }
 
-  const usdRate = (goldExtra)?.rateUsdToVnd || (usdHistory[usdHistory.length - 1])?.rateSellUsd || 26350;
-  const formattedGoldData = goldHistory
-    .filter((item: any) => item.reportDate)
-    .map((item: any) => {
-      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate;
+  const usdRate = goldExtra?.rateUsdToVnd || usdHistory[usdHistory.length - 1]?.rateSellUsd || 26350;
+  const formattedGoldData: GoldHistoryItem[] = goldHistory
+    .filter((item: GoldHistoryRaw) => item.reportDate)
+    .map((item: GoldHistoryRaw) => {
+      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate as number;
       return {
         date: new Date(timestamp).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
         vnAsk: item.askSjc / 1000000,
@@ -81,19 +81,19 @@ export function FmarketDashboard() {
         rawDate: timestamp,
       };
     })
-    .sort((a: any, b: any) => a.rawDate - b.rawDate);
+    .sort((a, b) => a.rawDate - b.rawDate);
 
-  const formattedUsdData = usdHistory
-    .filter((item: any) => item.reportDate)
-    .map((item: any) => {
-      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate;
+  const formattedUsdData: UsdHistoryItem[] = usdHistory
+    .filter((item: UsdHistoryRaw) => item.reportDate)
+    .map((item: UsdHistoryRaw) => {
+      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate as number;
       return {
         date: new Date(timestamp).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
         price: item.rateSellUsd,
         rawDate: timestamp,
       };
     })
-    .sort((a: any, b: any) => a.rawDate - b.rawDate);
+    .sort((a, b) => a.rawDate - b.rawDate);
 
   return (
     <div className="space-y-8">

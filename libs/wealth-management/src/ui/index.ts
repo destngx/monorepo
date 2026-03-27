@@ -50,6 +50,7 @@ export { Separator } from './separator';
 export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from './sheet';
 export { Progress } from './progress';
 export { Avatar, AvatarImage, AvatarFallback } from './avatar';
+export { Skeleton } from './skeleton';
 
 export { MaskProvider, useMask } from './mask-provider';
 export { MaskedBalance } from './masked-balance';

@@ -1,8 +1,8 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Skeleton } from '@wealth-management/ui';
+import { FmarketFund } from '../../model/types';
 
 interface FundTableProps {
-  funds: any[];
+  funds: FmarketFund[];
   loading: boolean;
   onSelect?: (ticker: string) => void;
 }
@@ -41,8 +41,8 @@ export function FundTable({ funds, loading, onSelect }: FundTableProps) {
           ))
         ) : (
           (funds || []).map((fund) => (
-            <TableRow 
-              key={fund.id} 
+            <TableRow
+              key={fund.id}
               className="hover:bg-muted/50 transition-colors group cursor-pointer"
               onClick={() => onSelect?.(fund.shortName || fund.code)}
             >
@@ -52,7 +52,7 @@ export function FundTable({ funds, loading, onSelect }: FundTableProps) {
                     {fund.owner?.avatarUrl ? (
                       <img src={fund.owner.avatarUrl} alt={fund.code} className="h-full w-full object-cover shadow-sm" />
                     ) : (
-                      <div className="text-[10px] font-bold text-primary">{fund.code.slice(0, 3)}</div>
+                      <div className="text-[10px] font-bold text-primary">{fund.code?.slice(0, 3)}</div>
                     )}
                   </div>
                   <div>

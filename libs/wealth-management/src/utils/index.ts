@@ -13,6 +13,8 @@ export * from './api-wrapper';
 export * from './api-error-handler';
 export * from './errors';
 export * from './technical-analysis';
+export * from './redis-cache';
+export * from './redis-cache-keys';
 
 // Constants
 export * from './constants/categories';

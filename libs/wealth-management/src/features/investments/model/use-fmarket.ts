@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GoldExtra, UsdHistoryRaw, FmarketFund, GoldHistoryRaw } from './types';
 
 /**
  * Hook for FMarket data - stub implementation
@@ -16,16 +17,16 @@ export function useFmarket() {
   };
 
   return {
-    stockFunds: [],
-    bondFunds: [],
-    balancedFunds: [],
-    mmfFunds: [],
-    bankRates: [],
-    goldHistory: [],
-    usdHistory: [],
-    goldProducts: [],
-    goldExtra: null,
-    bankData: [],
+    stockFunds: [] as FmarketFund[],
+    bondFunds: [] as FmarketFund[],
+    balancedFunds: [] as FmarketFund[],
+    mmfFunds: [] as FmarketFund[],
+    bankRates: [] as any[],
+    goldHistory: [] as GoldHistoryRaw[],
+    usdHistory: [] as UsdHistoryRaw[],
+    goldProducts: [] as any[],
+    goldExtra: null as GoldExtra | null,
+    bankData: [] as any[],
     loading,
     goldLoading,
     usdLoading,
@@ -36,8 +37,8 @@ export function useFmarket() {
     setUsdRange: (range: string) => {},
     selectedTicker,
     setSelectedTicker,
-    tickerDetails: null,
-    navHistory: [],
+    tickerDetails: null as any,
+    navHistory: [] as any[],
     detailsLoading: false,
     navRange: '1m' as const,
     setNavRange: (range: string) => {},

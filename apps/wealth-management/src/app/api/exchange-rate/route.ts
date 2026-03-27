@@ -1,24 +1,6 @@
-import { NextResponse } from 'next/server';
-import { getExchangeRate } from '@wealth-management/services/server';
-import { NetworkError, isAppError } from '@wealth-management/utils/errors';
-import { getOrSetCache, CACHE_KEYS, CACHE_TTL } from '@/shared/cache';
+/**
+ * Delegating API route
+ * Maps app/api/exchange-rate to features/exchange-rate/api/route
+ */
 
-export async function GET() {
-  try {
-    const rate = await getOrSetCache(
-      CACHE_KEYS.EXCHANGE_RATE,
-      () => getExchangeRate(),
-      CACHE_TTL.EXCHANGE_RATES,
-      false,
-    );
-    return NextResponse.json({ rate });
-  } catch (error) {
-    if (isAppError(error)) {
-      console.error('[Exchange Rate API Error]', error.toResponse());
-    } else {
-      const appError = new NetworkError(error instanceof Error ? error.message : 'Failed to fetch exchange rate');
-      console.error('[Exchange Rate API Error]', appError.toResponse());
-    }
-    return NextResponse.json({ rate: 25400 });
-  }
-}
+export * from '@wealth-management/features/exchange-rate/api/route';

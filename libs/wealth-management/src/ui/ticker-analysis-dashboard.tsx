@@ -1,22 +1,40 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent } from './card';
-import { Badge } from './badge';
-import { Button } from './button';
-import { Input } from './input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
+import {
+  Card,
+  CardContent,
+  Badge,
+  Button,
+  Input,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@wealth-management/ui';
 import { Loader2, Search, ArrowRight, Zap } from 'lucide-react';
 import { TechnicalAnalysisView } from './market-pulse/TechnicalAnalysisView';
 import { SeasonalityStatsTable } from './market-pulse/SeasonalityStatsTable';
 import { GLASS_CARD } from './market-pulse/constants';
 import { fmarketApi } from '@wealth-management/services';
 import { TickerValuationView } from './ticker-analysis/TickerValuationView';
+import { FmarketProductDetails } from '../features/investments/model/types';
+
+interface TickerDetails {
+  symbol: string;
+  fullName: string;
+  description: string;
+  sector: string;
+  industry: string;
+  market: string;
+  type?: 'IFC' | 'STOCK';
+  id?: number | string;
+}
 
 export function TickerAnalysisDashboard() {
   const [symbol, setSymbol] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [details, setDetails] = useState<any>(null);
+  const [details, setDetails] = useState<TickerDetails | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +54,7 @@ export function TickerAnalysisDashboard() {
       try {
         const fmRes = await fmarketApi.getProductDetails(upperSymbol);
         if (fmRes?.status === 200 && fmRes?.data) {
-          const d = fmRes.data;
+          const d = fmRes.data as FmarketProductDetails;
           setDetails({
             symbol: d.code,
             fullName: d.name,

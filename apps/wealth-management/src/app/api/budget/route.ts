@@ -2,4 +2,4 @@
  * Delegating API route
  */
 
-export { GET } from '@/features/budget/api/route';
+export { GET } from '@wealth-management/features/budget/api/route';

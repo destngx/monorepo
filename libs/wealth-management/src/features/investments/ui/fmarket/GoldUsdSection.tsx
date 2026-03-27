@@ -1,19 +1,19 @@
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Skeleton } from '@wealth-management/ui';
 import { TrendingUp, Landmark, Award } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Area } from 'recharts';
 import { GoldProductTable } from './GoldProductTable';
+import { GoldHistoryItem, UsdHistoryItem } from '../../model/types';
 
 interface GoldUsdSectionProps {
   loading: boolean;
   goldLoading: boolean;
   usdLoading: boolean;
   goldRange: string;
-  setGoldRange: (r: any) => void;
+  setGoldRange: (r: string) => void;
   usdRange: string;
-  setUsdRange: (r: any) => void;
-  formattedGoldData: any[];
-  formattedUsdData: any[];
+  setUsdRange: (r: string) => void;
+  formattedGoldData: GoldHistoryItem[];
+  formattedUsdData: UsdHistoryItem[];
   goldProducts: any[];
 }
 

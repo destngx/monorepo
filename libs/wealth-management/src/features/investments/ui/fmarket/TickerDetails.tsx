@@ -1,16 +1,13 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui';
 import { TrendingUp, RefreshCcw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface TickerDetailsProps {
   details: any;
   history: any[];
   loading: boolean;
-  range: any;
-  onRangeChange: (r: any) => void;
+  range: string;
+  onRangeChange: (r: string) => void;
   onBack: () => void;
 }
 
