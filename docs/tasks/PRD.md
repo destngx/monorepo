@@ -1,83 +1,68 @@
-# PRD: Vnstock API Expansion (Community Level)
+# VNStock Server as Primary Data Provider for Wealth Management
 
-## 🎯 Objective
+## Background
 
-Expand `vnstock-server` to provide full access to all community-level features available in `vnstock` v3.5.0. This will enable the wealth management application and other consumers to access comprehensive Vietnamese market data including fundamental and technical analysis, company profiles, and trading statistics.
+The wealth-management app currently fetches Vietnamese market data through a 3-adapter fallback chain: **CafeF → VNStock → Yahoo Finance**. CafeF only provides real-time index snapshots (no historical), VNStock calls the local `vnstock-server` Python API for individual stocks, and Yahoo Finance acts as the universal fallback (but is unreliable for VN tickers).
 
-## 📝 User Requirements
+The `vnstock-server` FastAPI service already exposes `/api/v1/stocks/quote` and `/api/v1/stocks/historical` endpoints with built-in caching and rate limiting, backed by the `vnstock` Python library (source: VCI or KBS). It is the most reliable source for VN market data.
 
-1.  **Identify currently implemented APIs** in `vnstock-server`.
-2.  **Identify all other community-level APIs** from `vnstock` v3.5.0.
-3.  **Implement all missing APIs** with:
-    - Consistent error handling and logging.
-    - Upstash Redis caching where applicable.
-    - Community tier rate limit management (60 req/min, 10k req/day).
-    - API key authentication for better reliability.
+## Goal
 
-## 🛠 Actionable Tasks
+Promote `vnstock-server` as the **primary data provider** for all Vietnamese market data (indices + individual stocks), consolidating the adapter chain:
 
-### Phase 1: Planning & Setup
+**Before**: `CafeF (indices only) → VNStock (stocks only) → Yahoo Finance`
+**After**: `VNStockServer (VN indices + stocks) → Yahoo Finance (fallback)`
 
-- [x] Audit current implementation (8 endpoints identified).
-- [x] Research `vnstock` v3.5.0 Community API surface area.
-- [x] Update project documentation (`PRD.md`, `progress.md`).
+## Tasks
 
-### Propose plan for next phases
+### Task 1: Extend VNStock Server — Add Index & Price Board Endpoint Support
 
-mplementation Plan - Vnstock API Expansion
-Expand vnstock-server to include all available community-level APIs from the
-vnstock
-v3.5.0 library.
+Add a new `/api/v1/stocks/index-history` endpoint to the vnstock-server for fetching index historical data (VN-Index, HNX, VN30, UPCOM) since the vnstock library supports index symbols natively.
 
-Proposed Changes
-vnstock-server
-[MODIFY]
-main.py
-Refactor existing endpoints to use a more consistent structure if needed.
-Implement new endpoints for:
-Listing: all_bonds, all_covered_warrant, all_future_indices, all_government_bonds, industries_icb, symbols_by_exchange, symbols_by_group, symbols_by_industries.
-Quote & Price: intraday, price_depth.
-Finance: balance_sheet, cash_flow, income_statement, ratio, get_all.
-Company: affiliate, dividends, events, insider_deals, news, officers, overview, profile, ratio_summary, shareholders, subsidiaries, trading_stats.
-Trading: price_board.
-[MODIFY]
-cache.py
-Update CacheConfig with new TTL settings for the newly added data types (e.g., fundamental data can be cached longer than price data).
-Verification Plan
-Automated Tests
-Create a new test file apps/vnstock-server/tests/test_new_endpoints.py to verify each new endpoint.
-Use TestClient from FastAPI to simulate requests.
-Command: /Users/ez2/projects/personal/monorepo/apps/vnstock-server/.venv/bin/pytest apps/vnstock-server/tests/test_new_endpoints.py
-Manual Verification
-Run the server locally: bun nx serve vnstock-server (or the appropriate command from
-project.json
-).
+**Files**:
 
-### Phase 2: Core Stock & Market APIs
+- `apps/vnstock-server/src/modules/stocks/router.py`
 
-- [ ] Implement Listing APIs:
-  - `all_bonds`, `all_covered_warrant`, `all_future_indices`, `all_government_bonds`.
-  - `industries_icb`, `symbols_by_exchange`, `symbols_by_group`, `symbols_by_industries`.
-- [ ] Implement Price & Trading APIs:
-  - `intraday`, `price_depth`, `price_board`.
+### Task 2: Refactor VNStockAdapter — Support Indices + Health Check
 
-### Phase 3: Financial & Fundamental APIs
+Expand the existing `VNStockAdapter` to:
 
-- [ ] Implement Financial Statement APIs:
-  - `balance_sheet`, `cash_flow`, `income_statement`, `ratio`, `get_all`.
-- [ ] Implement Company Profile & Data APIs:
-  - `overview`, `profile`, `ratio_summary`, `trading_stats`.
-  - `news`, `events`, `dividends`.
-  - `officers`, `shareholders`, `insider_deals`.
-  - `subsidiaries`, `affiliate`.
+- Support VN index symbols (`^VNINDEX`, `^HNX`, `VN30`, `^UPCOM`) through the vnstock-server
+- Map internal index symbols to vnstock-compatible format
+- Add a health check to detect if vnstock-server is available before attempting requests
+- Keep graceful fallback behavior (return `null` on failure so chain continues)
 
-### Phase 4: Verification
+**Files**:
 
-- [ ] Create automated tests for all new endpoints.
-- [ ] Verify caching and rate limiting for new endpoints.
-- [ ] Update `walkthrough.md`.
+- `libs/wealth-management/src/services/data-sources/vnstock.ts`
 
-## 📅 Timeline
+### Task 3: Remove CafeFAdapter & Simplify Adapter Chain
 
-- Start date: 2026-03-26
-- Target completion: 2026-03-27
+Since VNStockAdapter will now handle all VN data (indices + stocks):
+
+- Remove `CafeFAdapter` from the adapter chain in `market-data-service.ts`
+- Update the `dataSourceAdapters` array to be `VNStockAdapter → YahooFinanceAdapter`
+- Remove the hardcoded CafeF real-time fetch in `fetchMarketGroup()` (lines 424-477)
+- Replace with a unified VNStock-first approach
+
+**Files**:
+
+- `libs/wealth-management/src/services/services/market-data-service.ts`
+- `libs/wealth-management/src/services/data-sources/index.ts`
+
+### Task 4: Update Tests
+
+- Update `adapters.test.ts` to reflect new VNStockAdapter index support
+- Update `fallback-chain.test.ts` if chain order changes
+- Ensure all tests pass
+
+**Files**:
+
+- `libs/wealth-management/src/services/data-sources/__tests__/adapters.test.ts`
+- `libs/wealth-management/src/services/data-sources/__tests__/fallback-chain.test.ts`
+
+### Task 5: Verification & Build Check
+
+- Run `bun nx test wealth-management-lib`
+- Run `bun nx build wealth-management`
+- Verify no type errors with `bun nx lint wealth-management-lib`

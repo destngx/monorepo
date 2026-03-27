@@ -6,6 +6,8 @@ import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
 import { calculateEMA, calculateSMA, calculateRSI, calculateSeasonality } from '../../utils/technical-analysis';
 import { DataSourceAdapter, YahooFinanceAdapter, VNStockAdapter, CafeFAdapter, StockDataPoint } from '../data-sources';
 
+/** Adapter chain priority: VNStock (primary) → Yahoo (fallback) → CafeF (last resort) */
+
 const CACHE_PREFIX = 'market-pulse:';
 const PRICE_CACHE_TTL = 300; // 5 minutes during trading
 const HISTORY_CACHE_TTL = 3600; // 1 hour for historical data
@@ -421,62 +423,28 @@ async function fetchMarketGroup(
 ): Promise<MarketState> {
   let validAssets: MarketAsset[] = [];
 
+  // Unified fetch: VNStock adapter chain handles both indices + stocks for VN market
+  // For VN 1h timeframe, also fetch USD/VND from dedicated currency API
   if (market === 'VN' && timeframe === '1h') {
-    // Specialized fetch for VN market using CafeF for real-time daily snapshot
-    const [vnIndices, fxData] = await Promise.all([fetchVNIndicesFromCafeF(), fetchUSDVNDFromCurrencyAPI()]);
+    const [fxData, ...assetResults] = await Promise.all([
+      fetchUSDVNDFromCurrencyAPI(),
+      ...tickers.filter((t) => t.symbol !== 'VND=X').map((t) => fetchAssetData(t.symbol, t.name, market, timeframe)),
+    ]);
 
-    // Also fetch Yahoo Finance historicals to get the `closes` arrays for correlation and technicals
-    const assetPromises = tickers.map((t) => fetchAssetData(t.symbol, t.name, market, timeframe));
-    const historicalAssets = await Promise.all(assetPromises);
+    validAssets = assetResults.filter((a): a is MarketAsset => a !== null);
 
-    const indexMap: Record<string, number> = {
-      'VN-Index': 1,
-      HNX: 2,
-      VN30: 11,
-      UPCOM: 9,
-    };
-
-    tickers.forEach((t) => {
-      const histAsset = historicalAssets.find((h) => h && h.name === t.name);
-      const closes = histAsset?.closes || [];
-
-      if (t.symbol === 'VND=X' && fxData) {
-        fxData.closes = closes;
-        validAssets.push(fxData);
-      } else {
-        const cafeId = indexMap[t.name];
-        const data = vnIndices ? vnIndices[cafeId] : null;
-
-        if (data) {
-          const current = data.CurrentIndex;
-          const prev = data.PrevIndex;
-          const diff = current - prev;
-          const percent = (diff / prev) * 100;
-
-          // Append real-time tick to closes if not exactly matching the last one
-          if (closes.length && Math.abs(closes[closes.length - 1] - current) > 0.01) {
-            closes.push(current);
-          }
-
-          validAssets.push({
-            symbol: t.name,
-            name: t.name,
-            market: 'VN',
-            price: current,
-            percentChange: percent,
-            dayChange: percent,
-            weekChange: histAsset ? histAsset.weekChange : percent,
-            direction: percent > 0.05 ? 'up' : percent < -0.05 ? 'down' : 'flat',
-            momentum: Math.abs(percent) > 1.5 ? 'fire' : 'stable',
-            closes,
-          });
-        } else if (histAsset) {
-          validAssets.push(histAsset);
-        }
+    // Inject USD/VND from currency API (more reliable source for FX)
+    if (fxData) {
+      const histFx = validAssets.find((a) => a.symbol === 'USD/VND');
+      if (histFx) {
+        // Merge real-time FX price with historical closes
+        fxData.closes = histFx.closes;
+        validAssets = validAssets.filter((a) => a.symbol !== 'USD/VND');
       }
-    });
+      validAssets.push(fxData);
+    }
   } else {
-    // Standard Yahoo fetch for US & VN (when timeframe > 1h)
+    // Standard adapter-chain fetch for US & VN (all timeframes)
     const assetPromises = tickers.map((t) => fetchAssetData(t.symbol, t.name, market, timeframe));
     const assets = await Promise.all(assetPromises);
     validAssets = assets.filter((a): a is MarketAsset => a !== null);
@@ -509,28 +477,7 @@ async function fetchMarketGroup(
   };
 }
 
-async function fetchVNIndicesFromCafeF(): Promise<any | null> {
-  try {
-    const url = `https://cafef.vn/du-lieu/Ajax/PageNew/RealtimeChartHeader.ashx?index=1;2;9;11;12&type=market`;
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        Referer: 'https://cafef.vn/',
-      },
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    const networkError = isAppError(e)
-      ? e
-      : new NetworkError('CafeF VN indices fetch failed', {
-          context: { source: 'cafef.vn', endpoint: 'RealtimeChartHeader' },
-        });
-    console.error('[MarketDataService]', networkError.message);
-    return null;
-  }
-}
+// fetchVNIndicesFromCafeF removed — VN index data now flows through VNStockAdapter → CafeFAdapter fallback chain
 
 async function fetchUSDVNDFromCurrencyAPI(): Promise<MarketAsset | null> {
   try {
@@ -560,11 +507,11 @@ async function fetchUSDVNDFromCurrencyAPI(): Promise<MarketAsset | null> {
   }
 }
 
-// Initialize data source adapters
-const dataSourceAdapters = [
-  new CafeFAdapter(), // Indices only
-  new VNStockAdapter(), // Vietnamese stocks
-  new YahooFinanceAdapter(), // Fallback
+// Initialize data source adapters — priority: VNStock (primary) → Yahoo (fallback) → CafeF (last resort)
+const dataSourceAdapters: DataSourceAdapter[] = [
+  new VNStockAdapter(), // Primary: Vietnamese indices + stocks via vnstock-server
+  new YahooFinanceAdapter(), // Fallback: Universal (US + VN)
+  new CafeFAdapter(), // Last resort: VN indices real-time snapshot only
 ];
 
 /**

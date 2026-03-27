@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { DataSourceAdapter, StockDataPoint } from '../../data-sources';
 
-describe('Multi-Source Fallback Chain', () => {
+describe('Multi-Source Fallback Chain (VNStock → Yahoo → CafeF)', () => {
   // Mock adapters for testing fallback logic
   const createMockAdapter = (
     name: string,
@@ -22,11 +22,11 @@ describe('Multi-Source Fallback Chain', () => {
     },
   });
 
-  it('tries adapters in sequence until success', async () => {
+  it('tries adapters in sequence: VNStock → Yahoo → CafeF', async () => {
     const adapters = [
-      createMockAdapter('First', true), // Fails
-      createMockAdapter('Second', true), // Fails
-      createMockAdapter('Third', false), // Succeeds
+      createMockAdapter('VNStock', true), // VNStock fails
+      createMockAdapter('Yahoo', true), // Yahoo fails
+      createMockAdapter('CafeF', false), // CafeF succeeds (last resort)
     ];
 
     let successSource = '';
@@ -38,37 +38,37 @@ describe('Multi-Source Fallback Chain', () => {
       }
     }
 
-    expect(successSource).toBe('Third');
+    expect(successSource).toBe('CafeF');
   });
 
-  it('stops after first success (no unnecessary requests)', async () => {
-    const calls = { first: 0, second: 0, third: 0 };
+  it('stops at VNStock when it succeeds (no unnecessary requests)', async () => {
+    const calls = { vnstock: 0, yahoo: 0, cafef: 0 };
 
     const adapters = [
       {
-        name: 'First',
-        supports: () => false,
-        fetchStock: async () => null,
-        fetchHistorical: async () => {
-          calls.first++;
-          return null;
-        },
-      } as DataSourceAdapter,
-      {
-        name: 'Second',
+        name: 'VNStock',
         supports: () => true,
         fetchStock: async () => null,
         fetchHistorical: async () => {
-          calls.second++;
+          calls.vnstock++;
           return [{ timestamp: Math.floor(Date.now() / 1000), close: 100 }];
         },
       } as DataSourceAdapter,
       {
-        name: 'Third',
+        name: 'Yahoo',
         supports: () => true,
         fetchStock: async () => null,
         fetchHistorical: async () => {
-          calls.third++;
+          calls.yahoo++;
+          return [{ timestamp: Math.floor(Date.now() / 1000), close: 100 }];
+        },
+      } as DataSourceAdapter,
+      {
+        name: 'CafeF',
+        supports: () => true,
+        fetchStock: async () => null,
+        fetchHistorical: async () => {
+          calls.cafef++;
           return [{ timestamp: Math.floor(Date.now() / 1000), close: 100 }];
         },
       } as DataSourceAdapter,
@@ -82,16 +82,35 @@ describe('Multi-Source Fallback Chain', () => {
       }
     }
 
-    expect(calls.first).toBe(0); // Not called (doesn't support)
-    expect(calls.second).toBe(1); // Called once, succeeded
-    expect(calls.third).toBe(0); // Not called (already succeeded)
+    expect(calls.vnstock).toBe(1); // Called once, succeeded
+    expect(calls.yahoo).toBe(0); // Not called (already succeeded)
+    expect(calls.cafef).toBe(0); // Not called (already succeeded)
+  });
+
+  it('falls back to Yahoo when VNStock fails', async () => {
+    const adapters = [
+      createMockAdapter('VNStock', true), // VNStock fails
+      createMockAdapter('Yahoo', false), // Yahoo succeeds
+      createMockAdapter('CafeF', false), // CafeF not reached
+    ];
+
+    let successSource = '';
+    for (const adapter of adapters) {
+      const result = await adapter.fetchHistorical('TEST', 'VN', '1d', '60d');
+      if (result && result.length > 0) {
+        successSource = adapter.name;
+        break;
+      }
+    }
+
+    expect(successSource).toBe('Yahoo');
   });
 
   it('returns null when all adapters fail', async () => {
     const adapters = [
-      createMockAdapter('First', true),
-      createMockAdapter('Second', true),
-      createMockAdapter('Third', true),
+      createMockAdapter('VNStock', true),
+      createMockAdapter('Yahoo', true),
+      createMockAdapter('CafeF', true),
     ];
 
     let result = null;
@@ -107,11 +126,11 @@ describe('Multi-Source Fallback Chain', () => {
   });
 
   it('respects supports() check before attempting fetch', async () => {
-    const fetchedFromUnsupported = [];
+    const fetchedFromUnsupported: string[] = [];
 
     const adapters = [
       {
-        name: 'Indices-Only',
+        name: 'VNStock-IndicesOnly',
         supports: (symbol: string) => symbol.startsWith('^'),
         fetchStock: async () => null,
         fetchHistorical: async (symbol: string) => {
@@ -120,7 +139,7 @@ describe('Multi-Source Fallback Chain', () => {
         },
       } as DataSourceAdapter,
       {
-        name: 'AllSupport',
+        name: 'Yahoo',
         supports: () => true,
         fetchStock: async () => null,
         fetchHistorical: async () => [{ timestamp: Math.floor(Date.now() / 1000), close: 100 }],
@@ -134,7 +153,7 @@ describe('Multi-Source Fallback Chain', () => {
       if (result && result.length > 0) break;
     }
 
-    // Indices-Only should never fetch because supports() returned false
+    // VNStock-IndicesOnly should never fetch because supports() returned false
     expect(fetchedFromUnsupported).toEqual([]);
   });
 });

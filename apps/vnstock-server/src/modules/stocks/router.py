@@ -137,3 +137,63 @@ async def get_historical_data(
     except Exception as e:
         logger.error(f"Error fetching historical data for {symbol}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching historical data for {symbol}: {str(e)}")
+
+@router.get("/index-history")
+@rate_limit()
+@cached_response("index-history", ttl=CacheConfig.HISTORICAL_TTL)
+async def get_index_history(
+    symbol: str = Query(..., description="Index symbol (e.g., VNINDEX, HNX, VN30, UPCOM)"),
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+):
+    """Get historical data for a Vietnamese market index."""
+    VALID_INDICES = {"VNINDEX", "HNX", "VN30", "UPCOM", "HNX30"}
+
+    normalized = symbol.upper().replace("^", "").replace("-", "")
+    if normalized not in VALID_INDICES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid index symbol '{symbol}'. Valid indices: {', '.join(sorted(VALID_INDICES))}",
+        )
+
+    if not end_date:
+        end_date = datetime.now().strftime("%Y-%m-%d")
+    if not start_date:
+        start_date = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+
+    try:
+        client = get_vnstock_client()
+        df = client.stock(symbol=normalized, source=ServerConfig.DEFAULT_SOURCE).quote.history(
+            start=start_date,
+            end=end_date,
+        )
+
+        if df.empty:
+            return {
+                "success": True,
+                "data": [],
+                "source": ServerConfig.DEFAULT_SOURCE,
+                "authenticated": is_authenticated(),
+                "cached": False,
+            }
+
+        if "time" in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df["time"]):
+                df["time"] = df["time"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        return {
+            "success": True,
+            "data": df.to_dict(orient="records"),
+            "source": ServerConfig.DEFAULT_SOURCE,
+            "authenticated": is_authenticated(),
+            "cached": False,
+            "index": normalized,
+            "range": {
+                "start": start_date,
+                "end": end_date,
+                "records": len(df),
+            },
+        }
+    except Exception as e:
+        logger.error(f"Error fetching index history for {normalized}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching index history for {normalized}: {str(e)}")
