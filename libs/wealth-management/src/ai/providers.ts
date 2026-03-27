@@ -3,12 +3,13 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { google } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
 import { AI_MODELS, AIModelConfig } from '@wealth-management/types/chat';
+import { env } from '@wealth-management/config';
 export type { AIModelId } from '@wealth-management/types/chat';
 
 let cachedCopilotToken: { token: string; expiresAt: number } | null = null;
 
 async function getCopilotToken() {
-  const ghToken = process.env.GITHUB_TOKEN;
+  const ghToken = env.ai.githubToken;
   if (!ghToken) throw new Error('GITHUB_TOKEN not set');
 
   if (cachedCopilotToken && cachedCopilotToken.expiresAt > Date.now() / 1000 + 300) {

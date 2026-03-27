@@ -2,8 +2,9 @@
 
 import { getSheetsClient } from './auth';
 import { AppError } from '../../utils/errors';
+import { env } from '@wealth-management/config';
 
-const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
+const SHEET_ID = env.sheets.id;
 
 export async function readSheet(range: string): Promise<string[][]> {
   if (!SHEET_ID) throw new Error('GOOGLE_SHEETS_ID is not configured');

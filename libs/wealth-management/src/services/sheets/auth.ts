@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { AuthError, isAppError, getErrorMessage } from '../../utils/errors';
+import { env } from '@wealth-management/config';
 
 export class GoogleSheetsError extends AuthError {
   constructor(
@@ -13,9 +14,9 @@ export class GoogleSheetsError extends AuthError {
 }
 
 export async function getSheetsClient() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  const clientId = env.sheets.clientId;
+  const clientSecret = env.sheets.clientSecret;
+  const refreshToken = env.sheets.refreshToken;
 
   if (!clientId || !clientSecret || !refreshToken) {
     throw new GoogleSheetsError(

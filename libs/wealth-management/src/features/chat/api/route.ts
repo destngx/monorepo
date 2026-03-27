@@ -3,6 +3,7 @@ import { getLanguageModel } from '@wealth-management/ai/providers';
 import { financialTools } from '@wealth-management/ai/server';
 import { buildSystemPrompt } from '@wealth-management/ai/server';
 import { ChatError, NetworkError, ValidationError, AppError } from '@wealth-management/utils/errors';
+import { env } from '@wealth-management/config';
 
 // Allow responses up to 5 minutes for deep searches and reasoning
 export const maxDuration = 300;
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     // Choose a smart default if no modelId provided
     let selectedModel = modelId;
     if (!selectedModel || selectedModel === 'gpt-4o-mini') {
-      selectedModel = process.env.GITHUB_TOKEN ? 'github-gpt-4o' : 'gpt-4o-mini';
+      selectedModel = env.ai.githubToken ? 'github-gpt-4o' : 'gpt-4o-mini';
     }
 
     const model = getLanguageModel(selectedModel);
@@ -38,12 +39,7 @@ export async function POST(req: Request) {
 
     const systemPrompt = await buildSystemPrompt(taskInstruction);
 
-    if (
-      !process.env.OPENAI_API_KEY &&
-      !process.env.GOOGLE_GENERATIVE_AI_API_KEY &&
-      !process.env.ANTHROPIC_API_KEY &&
-      !process.env.GITHUB_TOKEN
-    ) {
+    if (!env.ai.openaiApiKey && !env.ai.googleGenAiApiKey && !env.ai.anthropicApiKey && !env.ai.githubToken) {
       throw new ChatError('No AI provider API keys configured');
     }
 

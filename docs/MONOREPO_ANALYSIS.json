@@ -1,0 +1,438 @@
+{
+  "analysis_metadata": {
+    "timestamp": "2026-03-27",
+    "monorepo": "@destnguyxn-monorepo",
+    "location": "/Users/ez2/projects/personal/monorepo",
+    "nx_version": "22.6.1",
+    "next_version": "16.2.1",
+    "react_version": "19.2.4",
+    "python_support": true
+  },
+  "summary": {
+    "total_projects": 12,
+    "total_apps": 4,
+    "total_libs": 8,
+    "total_files_analyzed": 947,
+    "languages": ["TypeScript", "React", "Python"],
+    "monorepo_type": "Nx workspace with mixed-language apps"
+  },
+  "recommendation": {
+    "verdict": "Create AGENTS.md in exactly 3 directories",
+    "high_priority_count": 3,
+    "skip_count": 9,
+    "candidates": [
+      {
+        "priority": 1,
+        "path": "libs/wealth-management",
+        "reason": "348 TypeScript files (highest code density) + domain-specific logic"
+      },
+      {
+        "priority": 2,
+        "path": "apps/wealth-management",
+        "reason": "Custom setup targets (setup-ai, setup-oauth, verify-auth) + OAuth + AI SDKs"
+      },
+      {
+        "priority": 3,
+        "path": "apps/vnstock-server",
+        "reason": "Only Python app in TS monorepo (isolated ecosystem) + 80 markdown docs"
+      }
+    ]
+  },
+  "scored_projects": [
+    {
+      "rank": 1,
+      "name": "apps/portfolio-landpage",
+      "path": "apps/portfolio-landpage",
+      "type": "application",
+      "language": "TypeScript",
+      "framework": "Next.js",
+      "complexity_score": 588.9,
+      "metrics": {
+        "total_files": 50,
+        "size_mb": 53.89,
+        "file_breakdown": {
+          "images": 29,
+          "typescript": 10,
+          "javascript": 3,
+          "json": 4,
+          "markdown": 1,
+          "css": 2,
+          "other": 1
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json", "jest.config.ts", "next.config.js"],
+      "targets": ["build", "serve", "export", "test", "lint"],
+      "has_entry_point": false,
+      "entry_point_note": "Next.js app (no src/index)",
+      "needs_agents_md": false,
+      "reason": "Asset-heavy (53MB); moderate code complexity but well-structured. Standard Next.js patterns."
+    },
+    {
+      "rank": 2,
+      "name": "libs/wealth-management",
+      "path": "libs/wealth-management",
+      "type": "library",
+      "language": "TypeScript",
+      "framework": "None (pure TS lib)",
+      "complexity_score": 357.6,
+      "metrics": {
+        "total_files": 348,
+        "size_mb": 0.96,
+        "file_breakdown": {
+          "typescript": 225,
+          "typescript_react": 119,
+          "json": 3,
+          "markdown": 1
+        }
+      },
+      "config_files": ["tsconfig.json"],
+      "targets": ["lint", "test"],
+      "has_entry_point": true,
+      "entry_point": "src/index.ts",
+      "needs_agents_md": true,
+      "reason": "Highest code complexity: 348 files = dense domain-specific modules. Likely AI/crypto/portfolio logic."
+    },
+    {
+      "rank": 3,
+      "name": "apps/wealth-management",
+      "path": "apps/wealth-management",
+      "type": "application",
+      "language": "TypeScript",
+      "framework": "Next.js",
+      "complexity_score": 174.8,
+      "metrics": {
+        "total_files": 164,
+        "size_mb": 1.08,
+        "file_breakdown": {
+          "typescript_react": 91,
+          "typescript": 55,
+          "json": 5,
+          "svg": 5,
+          "css": 1,
+          "other": 2
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json", "next.config.ts"],
+      "targets": ["build", "serve", "serve-all", "lint", "test", "setup-ai", "setup-oauth", "verify-auth"],
+      "custom_targets": ["setup-ai", "setup-oauth", "verify-auth"],
+      "has_entry_point": false,
+      "entry_point_note": "Next.js app",
+      "needs_agents_md": true,
+      "reason": "Custom setup targets indicate OAuth + AI integration. 164 files with complex setup flows."
+    },
+    {
+      "rank": 4,
+      "name": "apps/vnstock-server",
+      "path": "apps/vnstock-server",
+      "type": "application",
+      "language": "Python",
+      "framework": "Unknown (FastAPI/Flask/Django)",
+      "complexity_score": 127.6,
+      "metrics": {
+        "total_files": 118,
+        "size_mb": 0.96,
+        "file_breakdown": {
+          "markdown": 80,
+          "python": 32,
+          "text": 2,
+          "json": 1,
+          "other": 3
+        }
+      },
+      "config_files": ["requirements.txt"],
+      "targets": ["install", "serve", "test"],
+      "has_entry_point": null,
+      "entry_point_note": "Likely main.py or app.py (requires inspection)",
+      "needs_agents_md": true,
+      "reason": "Only Python app in TS monorepo. Isolated ecosystem. 80 markdown docs suggest specialized knowledge."
+    },
+    {
+      "rank": 5,
+      "name": "apps/cloudinary-photos-app",
+      "path": "apps/cloudinary-photos-app",
+      "type": "application",
+      "language": "TypeScript",
+      "framework": "Next.js",
+      "complexity_score": 66.2,
+      "metrics": {
+        "total_files": 56,
+        "size_mb": 1.02,
+        "file_breakdown": {
+          "typescript_react": 29,
+          "typescript": 10,
+          "javascript": 3,
+          "json": 5,
+          "svg": 2,
+          "css": 1,
+          "other": 6
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json", "next.config.js"],
+      "targets": ["build", "serve", "export", "test", "lint"],
+      "has_entry_point": false,
+      "entry_point_note": "Next.js app",
+      "needs_agents_md": false,
+      "reason": "Moderate complexity; well-encapsulated. Uses shared component libs. Standard Next.js patterns."
+    },
+    {
+      "rank": 6,
+      "name": "libs/portfolio-landpage/components",
+      "path": "libs/portfolio-landpage/components",
+      "type": "library",
+      "language": "TypeScript",
+      "framework": "React",
+      "complexity_score": 30.2,
+      "metrics": {
+        "total_files": 30,
+        "size_mb": 0.02,
+        "file_breakdown": {
+          "typescript_react": 22,
+          "typescript": 2,
+          "json": 4,
+          "css": 1,
+          "markdown": 1
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json"],
+      "targets": ["lint"],
+      "has_entry_point": true,
+      "entry_point": "src/index.ts",
+      "needs_agents_md": false,
+      "reason": "Simple shared component lib. No test/build targets. Self-documenting."
+    },
+    {
+      "rank": 7,
+      "name": "libs/cloudinary-photos-app/components/ui",
+      "path": "libs/cloudinary-photos-app/components/ui",
+      "type": "library",
+      "language": "TypeScript",
+      "framework": "React",
+      "complexity_score": 27.3,
+      "metrics": {
+        "total_files": 27,
+        "size_mb": 0.03,
+        "file_breakdown": {
+          "typescript_react": 15,
+          "typescript": 5,
+          "json": 5,
+          "markdown": 1,
+          "other": 1
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json", "jest.config.ts"],
+      "targets": ["lint", "test"],
+      "has_entry_point": true,
+      "entry_point": "src/index.ts",
+      "needs_agents_md": false,
+      "reason": "Scoped UI component library. Tested. Code is minimal and straightforward."
+    },
+    {
+      "rank": 8,
+      "name": "libs/cloudinary-photos-app/components/icons",
+      "path": "libs/cloudinary-photos-app/components/icons",
+      "type": "library",
+      "language": "TypeScript",
+      "framework": "React",
+      "complexity_score": 16.1,
+      "metrics": {
+        "total_files": 16,
+        "size_mb": 0.01,
+        "file_breakdown": {
+          "typescript_react": 5,
+          "typescript": 4,
+          "json": 5,
+          "markdown": 1,
+          "other": 1
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json", "jest.config.ts"],
+      "targets": ["lint", "test"],
+      "has_entry_point": true,
+      "entry_point": "src/index.ts",
+      "needs_agents_md": false,
+      "reason": "Icon library. Minimal code. Clear patterns."
+    },
+    {
+      "rank": 9,
+      "name": "libs/cloudinary-photos-app/utils",
+      "path": "libs/cloudinary-photos-app/utils",
+      "type": "library",
+      "language": "TypeScript",
+      "framework": "None (utility lib)",
+      "complexity_score": 11.0,
+      "metrics": {
+        "total_files": 11,
+        "size_mb": 0.0,
+        "file_breakdown": {
+          "typescript": 4,
+          "json": 6,
+          "markdown": 1
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json", "jest.config.ts"],
+      "targets": ["nx-release-publish", "lint", "test"],
+      "has_entry_point": true,
+      "entry_point": "src/index.ts",
+      "needs_agents_md": false,
+      "reason": "Utility library. Published to npm. Code is trivial and self-documenting."
+    },
+    {
+      "rank": 10,
+      "name": "libs/cloudinary-photos-app/global-store",
+      "path": "libs/cloudinary-photos-app/global-store",
+      "type": "library",
+      "language": "TypeScript",
+      "framework": "Jotai (state management)",
+      "complexity_score": 10.0,
+      "metrics": {
+        "total_files": 10,
+        "size_mb": 0.0,
+        "file_breakdown": {
+          "typescript": 4,
+          "json": 5,
+          "markdown": 1
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json"],
+      "targets": ["build", "lint", "test"],
+      "has_entry_point": true,
+      "entry_point": "src/index.ts",
+      "needs_agents_md": false,
+      "reason": "Global state store (Jotai). Simple state management. Self-contained."
+    },
+    {
+      "rank": 11,
+      "name": "libs/cloudinary-photos-app/types",
+      "path": "libs/cloudinary-photos-app/types",
+      "type": "library",
+      "language": "TypeScript",
+      "framework": "None (type definitions)",
+      "complexity_score": 7.0,
+      "metrics": {
+        "total_files": 7,
+        "size_mb": 0.0,
+        "file_breakdown": {
+          "typescript": 2,
+          "json": 4,
+          "markdown": 1
+        }
+      },
+      "config_files": ["tsconfig.json", ".eslintrc.json"],
+      "targets": ["lint"],
+      "has_entry_point": true,
+      "entry_point": "src/index.ts",
+      "needs_agents_md": false,
+      "reason": "Type definitions only. Self-explanatory TypeScript interfaces."
+    }
+  ],
+  "scoring_methodology": {
+    "formula": "complexity_score = files + (size_mb * 10)",
+    "rationale": {
+      "files": "Code density; more files = more modules to understand",
+      "size_mb": "Actual size (excludes node_modules, dist, .next, __pycache__, .pytest_cache)",
+      "weight": "10x multiplier for size to balance with file count"
+    },
+    "threshold_for_agents_md": {
+      "score": "> 100",
+      "additional_conditions": [
+        "Unique patterns or cross-cutting concerns",
+        "Language isolation (Python in TS monorepo)",
+        "Custom targets beyond standard framework",
+        "Extensive setup/integration complexity"
+      ]
+    }
+  },
+  "agents_md_recommendations": {
+    "high_priority": [
+      {
+        "rank": 1,
+        "path": "libs/wealth-management/AGENTS.md",
+        "complexity_score": 357.6,
+        "target_sections": [
+          "## Architecture Overview",
+          "## Module Organization (348 files)",
+          "## Domain Layers (AI, Crypto, Portfolio Logic)",
+          "## Entry Points & Public API",
+          "## Type System & Validation",
+          "## Testing Strategy & Patterns",
+          "## Common Anti-patterns",
+          "## Integration Points with Apps",
+          "## Dependencies & External APIs"
+        ]
+      },
+      {
+        "rank": 2,
+        "path": "apps/wealth-management/AGENTS.md",
+        "complexity_score": 174.8,
+        "target_sections": [
+          "## Custom Setup Targets",
+          "## OAuth & Authentication Flows",
+          "## AI SDK Integration",
+          "## Environment Variables & Secrets",
+          "## Directory Structure (Next.js 16)",
+          "## State Management Strategy",
+          "## Common Pitfalls",
+          "## Setup Runbooks (setup-ai, setup-oauth, verify-auth)"
+        ]
+      },
+      {
+        "rank": 3,
+        "path": "apps/vnstock-server/AGENTS.md",
+        "complexity_score": 127.6,
+        "target_sections": [
+          "## Python Environment Setup",
+          "## Project Structure & Entry Point",
+          "## Dependency Management",
+          "## Server Framework & Patterns",
+          "## Testing Strategy (pytest)",
+          "## Integration with Monorepo",
+          "## Deployment & Docker Context",
+          "## Common Pitfalls"
+        ]
+      }
+    ],
+    "optional": [
+      {
+        "path": "apps/cloudinary-photos-app/AGENTS.md",
+        "complexity_score": 66.2,
+        "note": "Add only if teams frequently context-switch. Can be deferred."
+      }
+    ]
+  },
+  "config_inventory": {
+    "present_at_root": [
+      "jest.config.ts",
+      "jest.preset.js",
+      "nx.json",
+      "tsconfig.base.json",
+      ".eslintrc.json",
+      ".prettierrc",
+      ".nxreleaserc.json"
+    ],
+    "per_app_patterns": {
+      "next_js_apps": ["tsconfig.json", "next.config.js or next.config.ts", ".eslintrc.json"],
+      "test_runners": ["jest.config.ts (optional)"],
+      "python_apps": ["requirements.txt (minimal config)"]
+    }
+  },
+  "entry_points_summary": {
+    "next_js_apps": {
+      "pattern": "No explicit src/index",
+      "location": "App router in app/ or pages/",
+      "examples": ["apps/wealth-management", "apps/cloudinary-photos-app", "apps/portfolio-landpage"]
+    },
+    "typescript_libs": {
+      "pattern": "src/index.ts",
+      "examples": ["libs/wealth-management", "libs/cloudinary-photos-app/utils"]
+    },
+    "react_libs": {
+      "pattern": "src/index.ts or src/index.tsx",
+      "examples": ["libs/cloudinary-photos-app/components/ui", "libs/portfolio-landpage/components"]
+    },
+    "python_apps": {
+      "pattern": "Likely main.py, app.py, or __main__.py",
+      "status": "requires_inspection",
+      "examples": ["apps/vnstock-server"]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { generateText, LanguageModel } from 'ai';
 import { getLanguageModel } from '@wealth-management/ai/providers';
 import { AppError, ValidationError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
+import { env } from '@wealth-management/config';
 
 export const maxDuration = 60;
 
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
     // Choose a smart default if no modelId provided
     let selectedModel: string | undefined = modelId;
     if (!selectedModel || selectedModel === 'gpt-4o-mini') {
-      selectedModel = process.env.GITHUB_TOKEN ? 'github-gpt-4o' : 'gpt-4o-mini';
+      selectedModel = env.ai.githubToken ? 'github-gpt-4o' : 'gpt-4o-mini';
     }
 
     const model = getLanguageModel(selectedModel);

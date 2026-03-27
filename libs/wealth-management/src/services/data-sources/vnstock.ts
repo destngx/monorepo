@@ -1,6 +1,7 @@
 import { DataSourceAdapter, StockMetadata, StockDataPoint } from './types';
 import { NetworkError, isAppError } from '../../utils/errors';
 import { getCached, setCache } from '@wealth-management/utils';
+import { env } from '@wealth-management/config';
 
 const VNSTOCK_CACHE_PREFIX = 'vnstock:';
 const METADATA_CACHE_TTL = 30 * 24 * 3600; // 30 days for company metadata
@@ -8,7 +9,7 @@ const HISTORICAL_CACHE_TTL = 7 * 24 * 3600; // 7 days for historical price data
 
 export class VNStockAdapter implements DataSourceAdapter {
   name = 'VNStock';
-  private pythonServerUrl = process.env.VNSTOCK_SERVER_URL || 'http://localhost:8000';
+  private pythonServerUrl = env.dataSources.vnstockServerUrl;
 
   supports(symbol: string, market: 'US' | 'VN'): boolean {
     return market === 'VN';

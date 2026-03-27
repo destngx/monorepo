@@ -1,5 +1,6 @@
 import { NetworkError, isAppError, getErrorMessage } from '../../utils/errors';
 import { getCached, setCache } from '@wealth-management/utils';
+import { env } from '@wealth-management/config';
 
 export interface SearchResult {
   title: string;
@@ -55,7 +56,7 @@ function generateSearchCacheKey(query: string): string {
  * Benefits: Advanced search depth, high quality results
  */
 async function tavilySearch(query: string): Promise<SearchResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
+  const apiKey = env.search.tavilyApiKey;
   if (!apiKey) {
     throw new NetworkError('Tavily API key not configured', {
       context: { source: 'tavily' },
@@ -94,7 +95,7 @@ async function tavilySearch(query: string): Promise<SearchResult[]> {
  * Benefits: Neural search, high precision, well-structured results
  */
 async function exaSearch(query: string): Promise<SearchResult[]> {
-  const apiKey = process.env.EXA_API_KEY;
+  const apiKey = env.search.exaApiKey;
   if (!apiKey) {
     throw new NetworkError('Exa API key not configured', {
       context: { source: 'exa' },
@@ -247,14 +248,14 @@ export async function getSearchProviderStatus(): Promise<Record<string, { availa
 
   // Check Tavily
   status.tavily = {
-    available: !!process.env.TAVILY_API_KEY,
-    error: process.env.TAVILY_API_KEY ? undefined : 'API key not configured',
+    available: !!env.search.tavilyApiKey,
+    error: env.search.tavilyApiKey ? undefined : 'API key not configured',
   };
 
   // Check Exa
   status.exa = {
-    available: !!process.env.EXA_API_KEY,
-    error: process.env.EXA_API_KEY ? undefined : 'API key not configured',
+    available: !!env.search.exaApiKey,
+    error: env.search.exaApiKey ? undefined : 'API key not configured',
   };
 
   // DuckDuckGo always available (no API key needed)

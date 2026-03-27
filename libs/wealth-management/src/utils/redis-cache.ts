@@ -1,8 +1,9 @@
 import { Redis } from '@upstash/redis';
+import { env } from '../config/env';
 
 const validateRedisEnv = () => {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = env.redis.url;
+  const token = env.redis.token;
 
   if (!url || !token) {
     console.warn(

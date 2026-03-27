@@ -1,0 +1,171 @@
+================================================================================
+MONOREPO AGENTS.MD NECESSITY SCORECARD
+@destnguyxn-monorepo | Analyzed: 2026-03-27
+================================================================================
+
+VERDICT: Create AGENTS.md in exactly 3 directories
+
+================================================================================
+TIER 1: HIGH PRIORITY (Create Immediately)
+================================================================================
+
+✅ libs/wealth-management/AGENTS.md
+   ├─ Complexity Score: 357.6
+   ├─ Files: 348 (225 .ts + 119 .tsx)
+   ├─ Size: 0.96MB
+   ├─ Entry Point: src/index.ts
+   ├─ Targets: lint, test
+   └─ Reason: HIGHEST CODE COMPLEXITY
+             Dense domain-specific modules
+             Likely AI/crypto/portfolio logic
+
+✅ apps/wealth-management/AGENTS.md
+   ├─ Complexity Score: 174.8
+   ├─ Files: 164 (91 .tsx + 55 .ts)
+   ├─ Size: 1.08MB
+   ├─ Entry Point: Next.js app
+   ├─ Targets: build, serve, serve-all, lint, test
+   ├─ Custom: setup-ai, setup-oauth, verify-auth
+   └─ Reason: CUSTOM SETUP TARGETS
+             OAuth + AI SDK integration
+             Environment-sensitive setup
+
+✅ apps/vnstock-server/AGENTS.md
+   ├─ Complexity Score: 127.6
+   ├─ Files: 118 (32 .py + 80 markdown)
+   ├─ Size: 0.96MB
+   ├─ Entry Point: TBD (main.py/app.py)
+   ├─ Targets: install, serve, test
+   ├─ Config: requirements.txt only
+   └─ Reason: ISOLATED ECOSYSTEM
+             Only Python app in TS monorepo
+             Separate dev environment
+
+================================================================================
+TIER 2: BORDERLINE (Defer or Skip)
+================================================================================
+
+❓ apps/cloudinary-photos-app (66.2)
+   └─ Status: SKIP (Standard Next.js, no custom targets)
+
+❓ apps/portfolio-landpage (588.9)
+   └─ Status: SKIP (Asset-heavy: 53.89MB images)
+
+================================================================================
+TIER 3: SKIP (Self-Documenting Code)
+================================================================================
+
+❌ libs/portfolio-landpage/components (30.2)
+❌ libs/cloudinary-photos-app/components/ui (27.3)
+❌ libs/cloudinary-photos-app/components/icons (16.1)
+❌ libs/cloudinary-photos-app/utils (11.0)
+❌ libs/cloudinary-photos-app/global-store (10.0)
+❌ libs/cloudinary-photos-app/types (7.0)
+
+   Reason: Minimal files, clear patterns, single-purpose libraries
+
+================================================================================
+RECOMMENDED SECTIONS BY AGENTS.MD
+================================================================================
+
+libs/wealth-management/AGENTS.md:
+  □ Architecture Overview
+  □ Module Organization (348 files)
+  □ Domain Layers
+  □ Entry Points & Public API
+  □ Type System & Validation
+  □ Testing Strategy
+  □ Common Anti-patterns
+  □ Integration Points
+
+apps/wealth-management/AGENTS.md:
+  □ Custom Setup Targets
+  □ OAuth & Authentication
+  □ AI SDK Integration
+  □ Environment Variables
+  □ Directory Structure (Next.js 16)
+  □ State Management
+  □ Common Pitfalls
+  □ Setup Runbooks
+
+apps/vnstock-server/AGENTS.md:
+  □ Python Environment Setup
+  □ Project Structure
+  □ Entry Point Location
+  □ Dependency Management
+  □ Server Framework
+  □ Testing Strategy
+  □ Monorepo Integration
+  □ Common Pitfalls
+
+================================================================================
+CONFIG FILES PRESENT
+================================================================================
+
+Workspace Root:
+  ✓ nx.json (Nx configuration)
+  ✓ tsconfig.base.json (monorepo base)
+  ✓ jest.config.ts, jest.preset.js
+  ✓ .eslintrc.json, .prettierrc
+
+Per-Project:
+  ✓ All apps/libs: tsconfig.json
+  ✓ Next.js apps: next.config.js/ts
+  ✓ Apps/libs: .eslintrc.json
+  ✓ Optional: jest.config.ts (test runners)
+  ✓ Python app: requirements.txt only
+
+Note: No pyproject.toml, setup.py, or pytest.ini in vnstock-server
+
+================================================================================
+COMPLEXITY SCORING
+================================================================================
+
+Formula: Score = Files + (Size_MB × 10)
+
+Rationale:
+  • Files: Code density (more files = more modules)
+  • Size_MB: Actual file size (filtered: no node_modules, dist, .next)
+  • Weight: 10x multiplier for size
+
+Threshold:
+  Score > 100 AND (unique patterns OR language isolation OR custom targets)
+
+Projects Analyzed:
+  • Total: 12 (4 apps + 8 libs)
+  • Total Files: 947 (filtered)
+  • Languages: TypeScript/React/Python
+
+================================================================================
+NEXT STEPS (PRIORITIZED)
+================================================================================
+
+This Week:
+  1. Create libs/wealth-management/AGENTS.md
+  2. Create apps/wealth-management/AGENTS.md
+  3. Create apps/vnstock-server/AGENTS.md
+
+Before Finalizing vnstock-server:
+  □ Inspect actual entry point (main.py, app.py, or __main__.py)
+  □ Identify framework (FastAPI, Flask, Django, etc.)
+  □ Document server routes & API contract
+
+Optional (Later):
+  □ Create apps/cloudinary-photos-app/AGENTS.md (if frequent context-switches)
+  □ Consolidate wealth-management-lib patterns into lib's AGENTS.md
+
+================================================================================
+REFERENCE FILES
+================================================================================
+
+Detailed Analysis:
+  • docs/MONOREPO_ANALYSIS.md (391 lines) — Full scorecard & rationale
+  • docs/MONOREPO_ANALYSIS.json (550 lines) — Structured data
+
+Quick Reference:
+  • This file: docs/AGENTS_MD_SCORECARD.txt
+
+Generated: 2026-03-27
+Location: /Users/ez2/projects/personal/monorepo
+
+================================================================================

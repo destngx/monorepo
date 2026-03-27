@@ -5,10 +5,7 @@ import { GoldHistoryItem, UsdHistoryItem, GoldHistoryRaw, UsdHistoryRaw } from '
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui';
 import { TrendingUp, Landmark, Award } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { FundTable } from './fmarket/FundTable';
-import { TickerDetails } from './fmarket/TickerDetails';
-import { BankRatesSection } from './fmarket/BankRatesSection';
-import { GoldUsdSection } from './fmarket/GoldUsdSection';
+import { FundTable, TickerDetails, BankRatesSection, GoldUsdSection } from '@wealth-management/features/investments/ui/fmarket';
 
 export function FmarketDashboard() {
   const [mounted, setMounted] = useState(false);
@@ -72,7 +69,7 @@ export function FmarketDashboard() {
   const formattedGoldData: GoldHistoryItem[] = goldHistory
     .filter((item: GoldHistoryRaw) => item.reportDate)
     .map((item: GoldHistoryRaw) => {
-      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate as number;
+      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate;
       return {
         date: new Date(timestamp).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
         vnAsk: item.askSjc / 1000000,
@@ -86,7 +83,7 @@ export function FmarketDashboard() {
   const formattedUsdData: UsdHistoryItem[] = usdHistory
     .filter((item: UsdHistoryRaw) => item.reportDate)
     .map((item: UsdHistoryRaw) => {
-      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate as number;
+      const timestamp = typeof item.reportDate === 'string' ? new Date(item.reportDate).getTime() : item.reportDate;
       return {
         date: new Date(timestamp).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
         price: item.rateSellUsd,

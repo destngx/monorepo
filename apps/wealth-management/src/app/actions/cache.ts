@@ -3,6 +3,7 @@
 import { invalidateCache } from '@wealth-management/utils';
 import { revalidatePath } from 'next/cache';
 import { AppError, isAppError, getErrorMessage } from '@wealth-management/utils/errors';
+import { env } from '@wealth-management/config';
 
 export async function clearAllCache() {
   try {
@@ -30,9 +31,9 @@ export async function clearAllCache() {
 
 export async function getCredentialStatuses() {
   return {
-    github: !!process.env.GITHUB_TOKEN,
-    openai: !!process.env.OPENAI_API_KEY,
-    anthropic: !!process.env.ANTHROPIC_API_KEY,
-    google: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    github: !!env.ai.githubToken,
+    openai: !!env.ai.openaiApiKey,
+    anthropic: !!env.ai.anthropicApiKey,
+    google: !!env.ai.googleGenAiApiKey,
   };
 }
