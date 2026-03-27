@@ -16,17 +16,17 @@ const ASSET_DATA_CACHE_TTL = 14 * 24 * 3600; // 14 days for processed asset data
 export interface MarketAsset {
   symbol: string;
   name: string;
-  market: 'US' | 'VN';
+  market: 'VN';
   price: number;
   percentChange: number;
   dayChange: number;
   weekChange: number;
   direction: 'up' | 'down' | 'flat';
   momentum: 'fire' | 'stable' | 'sleep';
-  closes?: number[]; // Added historical closes for real calculations
+  closes?: number[];
   highs?: number[];
   lows?: number[];
-  timestamps?: number[]; // Added historical timestamps for seasonality
+  timestamps?: number[];
 }
 
 export interface Technicals {
@@ -176,27 +176,13 @@ export interface MarketPulseResponse {
   lastUpdated: string;
 }
 
-const US_TICKERS = [
-  { symbol: '^VIX', name: 'VIX' },
-  { symbol: 'DX-Y.NYB', name: 'DXY' },
-  { symbol: '^TNX', name: 'US10Y' },
-  { symbol: 'CL=F', name: 'WTI' },
-  { symbol: 'GC=F', name: 'Gold' },
-  { symbol: '^GSPC', name: 'S&P500' },
-  { symbol: '^NDX', name: 'NQ100' },
-  { symbol: 'BTC-USD', name: 'BTC' },
-];
-
 const VN_TICKERS = [
   // Indices
   { symbol: '^VNINDEX', name: 'VN-Index' },
-  { symbol: '^HNX', name: 'HNX' },
   { symbol: 'VN30', name: 'VN30' },
-  { symbol: '^UPCOM', name: 'UPCOM' },
   // Major Vietnamese stocks (most liquid)
   { symbol: 'VCB', name: 'Vietcombank' },
   { symbol: 'VNM', name: 'Vinamilk' },
-  { symbol: 'IFC', name: 'Imexpharm' },
   { symbol: 'ACB', name: 'ACB Bank' },
   { symbol: 'TCB', name: 'Techcombank' },
   { symbol: 'MBB', name: 'MB Bank' },
@@ -205,7 +191,6 @@ const VN_TICKERS = [
   { symbol: 'SAB', name: 'Sabeco' },
   { symbol: 'GAS', name: 'PV Gas' },
   // Currency
-  { symbol: 'VND=X', name: 'USD/VND' },
 ];
 
 /**
@@ -216,7 +201,7 @@ export async function getMarketPulseData(
   forceRefresh = false,
   market?: 'US' | 'VN',
 ): Promise<MarketPulseResponse> {
-  const cacheKey = `${CACHE_PREFIX}full-data:${timeframe}:${market || 'all'}`;
+  const cacheKey = `${CACHE_PREFIX}full-data:${timeframe}:VN`;
 
   if (!forceRefresh) {
     const cached = await getCached<MarketPulseResponse>(cacheKey);
@@ -225,9 +210,8 @@ export async function getMarketPulseData(
 
   const now = new Date();
 
-  // Only fetch the requested market(s)
-  const shouldFetchUS = !market || market === 'US';
-  const shouldFetchVN = !market || market === 'VN';
+  // Only fetch Vietnam market
+  const shouldFetchVN = true;
 
   const emptyMarketState: MarketState = {
     assets: [],
@@ -240,13 +224,10 @@ export async function getMarketPulseData(
     capitalFlow: {} as any,
   };
 
-  const [usData, vnData] = await Promise.all([
-    shouldFetchUS ? fetchMarketGroup(US_TICKERS, 'US', timeframe) : Promise.resolve(emptyMarketState),
-    shouldFetchVN ? fetchMarketGroup(VN_TICKERS, 'VN', timeframe) : Promise.resolve(emptyMarketState),
-  ]);
+  const vnData = await fetchMarketGroup(VN_TICKERS, 'VN', timeframe);
+  const usData = emptyMarketState;
 
   // Fetch real VN Gold (SJC 9999) from vang.today API
-  const usGold = usData.assets.find((a) => a.symbol === 'Gold');
   let vnGoldAdded = false;
 
   try {
@@ -266,12 +247,10 @@ export async function getMarketPulseData(
           price: price,
           percentChange: percentChange,
           dayChange: percentChange,
-          weekChange: usGold ? usGold.weekChange : percentChange * 5, // Proxy week trend using US Gold
+          weekChange: percentChange * 2,
           direction: percentChange > 0.05 ? 'up' : percentChange < -0.05 ? 'down' : 'flat',
           momentum: Math.abs(percentChange) > 1.5 ? 'fire' : 'stable',
-          closes: usGold?.closes
-            ? usGold.closes.map((c, i) => c * (realCloses && realCloses[i] ? realCloses[i] : 25400))
-            : [],
+          closes: realCloses || [],
         });
         vnGoldAdded = true;
       }
@@ -283,27 +262,6 @@ export async function getMarketPulseData(
           context: { source: 'vang.today', endpoint: 'api/prices' },
         });
     console.error('[MarketDataService]', networkError.message);
-  }
-
-  // Fallback to synthetic if API fails
-  if (!vnGoldAdded && usGold) {
-    const usdVnd = vnData.assets.find((a) => a.symbol === 'USD/VND');
-    if (usdVnd) {
-      const vnGoldPrice = usGold.price * usdVnd.price;
-      vnData.assets.push({
-        symbol: 'VN Gold',
-        name: 'VN Gold',
-        market: 'VN',
-        price: vnGoldPrice,
-        percentChange: usGold.percentChange,
-        dayChange: usGold.dayChange,
-        weekChange: usGold.weekChange,
-        direction: usGold.direction,
-        momentum: usGold.momentum,
-        closes: usGold.closes?.map((c, i) => c * (usdVnd.closes?.[i] || usdVnd.price)) || [],
-      });
-      vnGoldAdded = true;
-    }
   }
 
   if (vnGoldAdded) {
@@ -326,18 +284,9 @@ export async function getMarketPulseData(
 
   // Inject AI Analysis if available, otherwise fallback to heuristics
   if (aiAnalysis) {
-    if (aiAnalysis.usScenarios) usData.scenarios = aiAnalysis.usScenarios;
     if (aiAnalysis.vnScenarios) vnData.scenarios = aiAnalysis.vnScenarios;
-    if (aiAnalysis.usCapitalFlow) usData.capitalFlow = aiAnalysis.usCapitalFlow;
     if (aiAnalysis.vnCapitalFlow) vnData.capitalFlow = aiAnalysis.vnCapitalFlow;
 
-    if (aiAnalysis.usDrivers) {
-      usData.drivers.summaryEn = aiAnalysis.usDrivers.summaryEn;
-      usData.drivers.summaryVi = aiAnalysis.usDrivers.summaryVi;
-      usData.drivers.capitalFlowSignal = aiAnalysis.usDrivers.capitalFlowSignal;
-      usData.drivers.correlationSignalEn = aiAnalysis.usDrivers.correlationSignalEn;
-      usData.drivers.correlationSignalVi = aiAnalysis.usDrivers.correlationSignalVi;
-    }
     if (aiAnalysis.vnDrivers) {
       vnData.drivers.summaryEn = aiAnalysis.vnDrivers.summaryEn;
       vnData.drivers.summaryVi = aiAnalysis.vnDrivers.summaryVi;
@@ -349,7 +298,6 @@ export async function getMarketPulseData(
 
   // Final fallbacks for scenarios if AI didn't provide or failed
   const fallbackScenario = detectScenario(usData, vnData);
-  if (!usData.scenarios || usData.scenarios.length === 0) usData.scenarios = [fallbackScenario];
   if (!vnData.scenarios || vnData.scenarios.length === 0) vnData.scenarios = [fallbackScenario];
 
   const response: MarketPulseResponse = {
@@ -433,7 +381,7 @@ async function generateAiMarketAnalysis(us: MarketState, vn: MarketState, timefr
  */
 async function fetchMarketGroup(
   tickers: { symbol: string; name: string }[],
-  market: 'US' | 'VN',
+  market: 'VN',
   timeframe: string,
 ): Promise<MarketState> {
   let validAssets: MarketAsset[] = [];
@@ -557,7 +505,7 @@ function getIntervalAndRange(
 export async function fetchAssetData(
   symbol: string,
   name: string,
-  market: 'US' | 'VN',
+  market: 'VN',
   timeframe = '1h',
 ): Promise<MarketAsset | null> {
   const cacheKey = `${CACHE_PREFIX}asset:${symbol}:${market}:${timeframe}`;
@@ -662,7 +610,7 @@ export async function fetchAssetData(
   }
 }
 
-function computeCapitalFlow(assets: MarketAsset[], market: 'US' | 'VN'): MarketState['capitalFlow'] {
+function computeCapitalFlow(assets: MarketAsset[], market: 'VN'): MarketState['capitalFlow'] {
   const gold = assets.find((a) => a.name.includes('Gold'));
   const sp500 = assets.find((a) => a.name === 'S&P500' || a.name === 'VN-Index');
   const vix = assets.find((a) => a.name === 'VIX');
@@ -811,7 +759,7 @@ function generateRealCorrelationMatrix(assets: MarketAsset[]): number[][] {
   return matrix;
 }
 
-export function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): Technicals {
+export function generateTechnicals(assets: MarketAsset[], market: 'VN'): Technicals {
   const primaryAsset =
     assets.find((a) => a.name === 'S&P500' || a.name === 'VN-Index' || a.name === 'VN30') || assets[0];
   const closes = primaryAsset?.closes || [];
@@ -1122,7 +1070,7 @@ export function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): 
   };
 }
 
-export function generateValuation(assets: MarketAsset[], market: 'US' | 'VN'): Valuation {
+export function generateValuation(assets: MarketAsset[], market: 'VN'): Valuation {
   // Filter for indices or major assets to perform valuation on
   const valuationAssets = assets.filter(
     (a) =>

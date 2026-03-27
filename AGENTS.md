@@ -1,16 +1,12 @@
 # Monorepo Knowledge Base
 
-**Generated**: 2026-03-27  
-**Commit**: 3d4e52e  
-**Branch**: main
-
 ---
 
 ## OVERVIEW
 
-Nx-based monorepo with **Next.js portfolio apps** (TypeScript/React) and **Python backend** (vnstock data analytics). Mixed-language workspace serving portfolio landing page, photo gallery, wealth management dashboard, and stock market data aggregation.
+Nx-based monorepo with **Next.js apps** (TypeScript/React) and **Python backend** (vnstock data analytics). Mixed-language workspace serving portfolio landing page, photo gallery, wealth management dashboard, and stock market data aggregation.
 
-**Stack**: Nx 19+, Next.js 14, React 18, TypeScript, Python 3.12, Jest, TurboRepo caching
+**Stack**: Nx 19+, Next.js 16, React 18, TypeScript, Python 3.12, Jest, TurboRepo, Upstash caching
 
 ---
 
@@ -95,9 +91,8 @@ monorepo/
 Commands execute with dependency tracking:
 
 ```bash
-npm run build              # Build single app
-npm run build:all         # Build all apps (respects dependencies)
-npm run test:all          # Test all projects
+bun run build:all         # Build all apps (respects dependencies)
+bun run test:all          # Test all projects
 nx run-many -t lint      # Lint all
 ```
 
@@ -105,7 +100,7 @@ nx run-many -t lint      # Lint all
 
 ### Workspace Packages
 
-Shared libs resolved via npm workspaces (no manual tsconfig paths):
+Shared libs resolved via nx workspaces (no manual tsconfig paths):
 
 ```typescript
 // ✅ OK: Import from @-scoped packages
@@ -167,30 +162,10 @@ catch (e) { /* silently fail */ }
 
 ## COMMANDS
 
-```bash
-# Development
-npm run serve                 # Serve wealth-management
-npm run serve:all           # Serve all apps
+use `bun run` for all scripts (root package.json):
+use `bunx` for direct Nx commands:
 
-# Build
-npm run build               # Build single app (interactive)
-npm run build:all          # Build all apps in dependency order
-nx build wealth-management # Build specific app
-
-# Testing
-npm run test:all           # Run all tests
-npm run e2e:all           # Run e2e tests
-nx test {project}         # Test specific project
-
-# Linting
-npm run lint:all          # Lint all projects
-
-# Git Commit
-npm run cz                # Commitizen-driven commit workflow
-
-# Release
-npm run release           # Semantic versioning + changelog
-```
+use `uv` for Python, use it through nx scripts:
 
 ---
 
@@ -226,4 +201,3 @@ npm run release           # Semantic versioning + changelog
 | Integrate new vnstock API | See `apps/vnstock-server/AGENTS.md`          |
 | Fix type errors           | `tsx` compiler, LSP, `tsc --noEmit`          |
 | Debug Nx build failures   | `nx run-many -t build --verbose`             |
-| Add workspace package     | Use `npm link` or workspace protocol         |

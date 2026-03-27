@@ -9,6 +9,7 @@ import logging
 from typing import Optional, Any, Dict
 from datetime import datetime, timedelta
 import httpx
+from .ttl_utils import calculate_ttl_until_next_5am, DEFAULT_MAX_TTL
 
 logger = logging.getLogger(__name__)
 
@@ -86,17 +87,10 @@ class CacheManager:
     """
     Manages caching for vnstock API responses.
     Uses Upstash Redis for distributed, serverless caching.
+    All cache entries expire at 5am GMT+7 daily (max 1 day TTL).
     """
 
-    DEFAULT_TTL = {
-        "quote": 60,
-        "listing": 3600,
-        "historical": 3600,
-        "intraday": 300,
-        "price_board": 60,
-        "finance": 86400,
-        "company": 86400,
-    }
+    DEFAULT_TTL_HARDCODED = 86400
 
     def __init__(
         self, redis_url: Optional[str] = None, redis_token: Optional[str] = None
@@ -142,16 +136,18 @@ class CacheManager:
         data: Any,
         ttl: Optional[int] = None,
     ) -> bool:
-        """Set cached data with TTL."""
+        """Set cached data with TTL until next 5am GMT+7 (max 1 day)."""
         if not self.enabled:
             return False
 
         key = self._make_key(endpoint, params)
-        ttl = ttl or self.DEFAULT_TTL.get(endpoint, 300)
+
+        if ttl is None:
+            ttl = calculate_ttl_until_next_5am(max_ttl=DEFAULT_MAX_TTL)
 
         try:
             await self.client.set(key, json.dumps(data), ex=ttl)
-            logger.debug(f"✓ Cached: {key} (TTL: {ttl}s)")
+            logger.debug(f"✓ Cached: {key} (TTL: {ttl}s, expires at 5am GMT+7)")
             return True
         except Exception as e:
             logger.warning(f"Cache storage error: {e}")
@@ -171,16 +167,18 @@ class CacheManager:
 
 
 class CacheConfig:
-    """Configuration for cache behavior."""
+    """Configuration for cache behavior - all data expires at 5am GMT+7 daily."""
 
-    QUOTE_TTL = 60
-    LISTING_TTL = 3600
-    HISTORICAL_TTL = 3600
-    INTRADAY_TTL = 300
-    PRICE_BOARD_TTL = 60
-    FINANCE_TTL = 86400
-    COMPANY_TTL = 86400
-    DEFAULT_TTL = 300
+    MAX_TTL = 86400
+    DEFAULT_TTL = 86400
+
+    QUOTE_TTL = None
+    LISTING_TTL = None
+    HISTORICAL_TTL = None
+    INTRADAY_TTL = None
+    PRICE_BOARD_TTL = None
+    FINANCE_TTL = None
+    COMPANY_TTL = None
 
     CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
     REDIS_URL = os.getenv("UPSTASH_REDIS_REST_URL")
@@ -197,3 +195,14 @@ class CacheConfig:
             return False
 
         return True
+
+    @classmethod
+    def get_ttl(cls, ttl_param: Optional[int] = None) -> int:
+        """
+        Get dynamic TTL until next 5am GMT+7.
+
+        This allows decorators to pass None (or any per-type constant)
+        and get the dynamic calculation. E.g., @cached_response(..., ttl=CacheConfig.QUOTE_TTL)
+        will now compute dynamic TTL instead of using a static value.
+        """
+        return calculate_ttl_until_next_5am(max_ttl=DEFAULT_MAX_TTL)

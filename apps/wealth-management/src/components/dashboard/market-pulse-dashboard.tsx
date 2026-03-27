@@ -40,11 +40,15 @@ import {
   ArrowRight,
   Target,
 } from 'lucide-react';
-import { Button } from "@wealth-management/ui/button";
+import { Button } from '@wealth-management/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@wealth-management/ui/select';
 import { Badge } from '@wealth-management/ui/badge';
-import { Tooltip as ShadcnTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@wealth-management/ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui/tabs';
+import {
+  Tooltip as ShadcnTooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@wealth-management/ui/tooltip';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
 
 export const GLASS_CARD =
@@ -56,7 +60,6 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export function MarketPulseDashboard() {
   const [mounted, setMounted] = useState(false);
   const [timeframe, setTimeframe] = useState<string>('1h');
-  const [market, setMarket] = useState<'US' | 'VN'>('VN');
   const [autoRefresh, setAutoRefresh] = useState<string>('off');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -64,14 +67,14 @@ export function MarketPulseDashboard() {
   useEffect(() => setMounted(true), []);
 
   const refreshInterval = autoRefresh === 'off' ? 0 : parseInt(autoRefresh) * 1000;
-  const { data, error, isLoading, mutate } = useSWR(`/api/market-pulse?timeframe=${timeframe}&market=${market}`, fetcher, {
+  const { data, error, isLoading, mutate } = useSWR(`/api/market-pulse?timeframe=${timeframe}&market=VN`, fetcher, {
     refreshInterval,
   });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await mutate(fetch(`/api/market-pulse?timeframe=${timeframe}&market=${market}&force=true`).then((res) => res.json()));
+      await mutate(fetch(`/api/market-pulse?timeframe=${timeframe}&market=VN&force=true`).then((res) => res.json()));
     } finally {
       setIsRefreshing(false);
     }
@@ -155,315 +158,149 @@ export function MarketPulseDashboard() {
         </div>
       </div>
 
-      {/* Main Market Switcher */}
-      <Tabs defaultValue="vn" onValueChange={(v) => setMarket(v === 'us' ? 'US' : 'VN')} className="w-full">
-        <div className="flex items-center justify-between mb-6">
-          <TabsList className="bg-zinc-100 dark:bg-zinc-900/50 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800/50">
-            <TabsTrigger
-              value="vn"
-              className="px-6 py-2 rounded-lg data-[state=active]:bg-emerald-500/10 data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 gap-2 transition-all font-bold"
-            >
-              <Globe className="w-4 h-4" /> VIETNAM MARKET
-            </TabsTrigger>
-            <TabsTrigger
-              value="us"
-              className="px-6 py-2 rounded-lg data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-600 dark:data-[state=active]:text-indigo-400 gap-2 transition-all font-bold"
-            >
-              <Globe className="w-4 h-4" /> US MARKETS
-            </TabsTrigger>
-          </TabsList>
+      <div className="w-full space-y-8">
+        <IntelligenceBanner
+          scenarios={data?.vn?.scenarios}
+          capitalFlow={data?.vn?.capitalFlow}
+          market="VN"
+          timeframe={timeframe}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
+          <div className="lg:col-span-8">
+            <MarketSignalCard signals={data?.vn?.technicals?.signals} market="VN" />
+          </div>
+          <div className="lg:col-span-4">
+            <TimeframeRelationshipGrid
+              relationships={data?.vn?.technicals?.timeframeRelationships}
+              entryScore={data?.vn?.technicals?.entryTimingScore}
+            />
+          </div>
         </div>
 
-        <TabsContent value="us" className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-          <IntelligenceBanner
-            scenarios={data?.us?.scenarios}
-            capitalFlow={data?.us?.capitalFlow}
-            market="US"
-            timeframe={timeframe}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
-            <div className="lg:col-span-8">
-              <MarketSignalCard signals={data?.us?.technicals?.signals} market="US" />
-            </div>
-            <div className="lg:col-span-4">
-              <TimeframeRelationshipGrid
-                relationships={data?.us?.technicals?.timeframeRelationships}
-                entryScore={data?.us?.technicals?.entryTimingScore}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
-            {/* Main Charts area */}
-            <div className="lg:col-span-8 space-y-6">
-              <Card className={`${GLASS_CARD} border-zinc-700/30 group`}>
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
-                <CardHeader className="pb-2 border-b border-zinc-800/50 flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-[11px] font-bold tracking-widest text-zinc-400 uppercase">
-                      Velocity Spectrum 🇺🇸
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[9px] font-mono border-zinc-800 text-zinc-500 uppercase">
-                      {timeframe.toUpperCase()} Active
-                    </Badge>
-                    <AIDataInsight
-                      type="Velocity Bar Chart"
-                      description="Bar chart showing percentage change of US market assets. Green bars = positive momentum, Red bars = negative. Measures asset velocity relative to the selected timeframe."
-                      data={data?.us?.assets || []}
-                      market="US"
-                      timeframe={timeframe}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-8">
-                  <div className="h-[280px] w-full min-w-0">
-                    <MarketBarChart data={data?.us?.assets || []} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className={`${GLASS_CARD}`}>
-                <CardHeader className="bg-zinc-900/40 border-b border-zinc-800/50 py-3 px-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-xs flex items-center gap-2 font-mono text-zinc-400 uppercase">
-                    <Search className="w-3.5 h-3.5" />
-                    Snapshot Terminal
-                  </CardTitle>
-                  <AIDataInsight
-                    type="Snapshot Table"
-                    description="Table showing US market instruments with price, percentage change, day/week performance, and momentum status (fire/sleep/neutral)."
-                    data={data?.us?.assets || []}
-                    market="US"
-                    timeframe={timeframe}
-                  />
-                </CardHeader>
-                <CardContent className="p-0">
-                  <MarketSnapshotTable assets={data?.us?.assets || []} />
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Side Analytics */}
-            <div className="lg:col-span-4 space-y-6">
-              <div className="relative">
-                <div className="absolute top-3 right-3 z-10">
-                  <AIDataInsight
-                    type="Correlation Heatmap"
-                    description="Pairwise correlation matrix for US market assets. Values range from -1 (inverse) to +1 (perfectly correlated). High correlations (>0.85) indicate concentration risk."
-                    data={{ assets: data?.us?.assetList || [], matrix: data?.us?.correlationMatrix || [] }}
-                    market="US"
-                    timeframe={timeframe}
-                  />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
+          <div className="lg:col-span-8 space-y-6">
+            <Card className={`${GLASS_CARD} border-zinc-700/30 group`}>
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
+              <CardHeader className="pb-2 border-b border-zinc-800/50 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[11px] font-bold tracking-widest text-zinc-400 uppercase">
+                    Velocity Spectrum 🇻🇳
+                  </span>
                 </div>
-                <CorrelationHeatmap
-                  title="US Heatmatrix"
-                  assets={data?.us?.assetList || []}
-                  matrix={data?.us?.correlationMatrix || []}
-                />
-              </div>
-
-              <Card className={`${GLASS_CARD} p-4 space-y-4`}>
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-800/50">
-                  <div className="flex items-center gap-2 text-zinc-400 text-[10px] font-mono uppercase tracking-widest">
-                    <Zap className="w-3 h-3 text-orange-400" />
-                    Dominant Driver
-                  </div>
-                  {data?.us?.drivers?.capitalFlowSignal && (
-                    <Badge
-                      variant="outline"
-                      className={`text-[8px] font-mono border-none ${
-                        data.us.drivers.capitalFlowSignal === 'RISK-ON'
-                          ? 'bg-emerald-500/10 text-emerald-500'
-                          : data.us.drivers.capitalFlowSignal === 'DEFENSIVE'
-                            ? 'bg-rose-500/10 text-rose-500'
-                            : 'bg-amber-500/10 text-amber-500'
-                      }`}
-                    >
-                      {data.us.drivers.capitalFlowSignal}
-                    </Badge>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="text-lg font-bold tracking-tight text-white leading-tight">
-                      {data?.us?.drivers?.summaryEn || '...'}
-                    </div>
-                    <div className="text-xs text-zinc-500 italic font-mono leading-relaxed">
-                      {data?.us?.drivers?.summaryVi}
-                    </div>
-                  </div>
-
-                  {data?.us?.drivers?.correlationSignalEn && (
-                    <div className="pt-3 border-t border-zinc-800/30 space-y-2">
-                      <div className="flex items-center gap-1.5 text-[9px] font-bold text-amber-500 uppercase tracking-tighter">
-                        <AlertCircle className="w-3 h-3" /> Correlation Signal
-                      </div>
-                      <p className="text-[11px] text-zinc-400 leading-snug font-mono italic">
-                        {data.us.drivers.correlationSignalEn}
-                      </p>
-                      <p className="text-[10px] text-zinc-600 leading-snug font-mono italic">
-                        {data.us.drivers.correlationSignalVi}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800/50 mt-10">
-            <TechnicalAnalysisView technicals={data?.us?.technicals} market="US" />
-            <AssetValuationTerminal valuation={data?.us?.valuation} market="US" />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="vn" className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-          <IntelligenceBanner
-            scenarios={data?.vn?.scenarios}
-            capitalFlow={data?.vn?.capitalFlow}
-            market="VN"
-            timeframe={timeframe}
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
-            <div className="lg:col-span-8">
-              <MarketSignalCard signals={data?.vn?.technicals?.signals} market="VN" />
-            </div>
-            <div className="lg:col-span-4">
-              <TimeframeRelationshipGrid
-                relationships={data?.vn?.technicals?.timeframeRelationships}
-                entryScore={data?.vn?.technicals?.entryTimingScore}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-4">
-            <div className="lg:col-span-8 space-y-6">
-              <Card className={`${GLASS_CARD} border-zinc-700/30 group`}>
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
-                <CardHeader className="pb-2 border-b border-zinc-800/50 flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-[11px] font-bold tracking-widest text-zinc-400 uppercase">
-                      Velocity Spectrum 🇻🇳
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[9px] font-mono border-zinc-800 text-zinc-500 uppercase">
-                      {timeframe.toUpperCase()} Active
-                    </Badge>
-                    <AIDataInsight
-                      type="Velocity Bar Chart"
-                      description="Bar chart showing percentage change of Vietnam market assets. Green bars = positive momentum, Red bars = negative. Measures asset velocity relative to the selected timeframe."
-                      data={data?.vn?.assets || []}
-                      market="VN"
-                      timeframe={timeframe}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-8">
-                  <div className="h-[280px] w-full min-w-0">
-                    <MarketBarChart data={data?.vn?.assets || []} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className={`${GLASS_CARD}`}>
-                <CardHeader className="bg-zinc-900/40 border-b border-zinc-800/50 py-3 px-4 flex flex-row items-center justify-between">
-                  <CardTitle className="text-xs flex items-center gap-2 font-mono text-zinc-400 uppercase">
-                    <Search className="w-3.5 h-3.5" />
-                    Snapshot Terminal
-                  </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-[9px] font-mono border-zinc-800 text-zinc-500 uppercase">
+                    {timeframe.toUpperCase()} Active
+                  </Badge>
                   <AIDataInsight
-                    type="Snapshot Table"
-                    description="Table showing Vietnam market instruments with price, percentage change, day/week performance, and momentum status."
+                    type="Velocity Bar Chart"
+                    description="Bar chart showing percentage change of Vietnam market assets. Green bars = positive momentum, Red bars = negative. Measures asset velocity relative to the selected timeframe."
                     data={data?.vn?.assets || []}
                     market="VN"
                     timeframe={timeframe}
                   />
-                </CardHeader>
-                <CardContent className="p-0">
-                  <MarketSnapshotTable assets={data?.vn?.assets || []} />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-4 space-y-6">
-              <div className="relative">
-                <div className="absolute top-3 right-3 z-10">
-                  <AIDataInsight
-                    type="Correlation Heatmap"
-                    description="Pairwise correlation matrix for Vietnam market assets. Values range from -1 (inverse) to +1 (perfectly correlated). High correlations (>0.85) indicate concentration risk."
-                    data={{ assets: data?.vn?.assetList || [], matrix: data?.vn?.correlationMatrix || [] }}
-                    market="VN"
-                    timeframe={timeframe}
-                  />
                 </div>
-                <CorrelationHeatmap
-                  title="VN Heatmatrix"
-                  assets={data?.vn?.assetList || []}
-                  matrix={data?.vn?.correlationMatrix || []}
+              </CardHeader>
+              <CardContent className="pt-8">
+                <div className="h-[280px] w-full min-w-0">
+                  <MarketBarChart data={data?.vn?.assets || []} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className={`${GLASS_CARD}`}>
+              <CardHeader className="bg-zinc-900/40 border-b border-zinc-800/50 py-3 px-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-xs flex items-center gap-2 font-mono text-zinc-400 uppercase">
+                  <Search className="w-3.5 h-3.5" />
+                  Snapshot Terminal
+                </CardTitle>
+                <AIDataInsight
+                  type="Snapshot Table"
+                  description="Table showing Vietnam market instruments with price, percentage change, day/week performance, and momentum status."
+                  data={data?.vn?.assets || []}
+                  market="VN"
+                  timeframe={timeframe}
+                />
+              </CardHeader>
+              <CardContent className="p-0">
+                <MarketSnapshotTable assets={data?.vn?.assets || []} />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-4 space-y-6">
+            <div className="relative">
+              <div className="absolute top-3 right-3 z-10">
+                <AIDataInsight
+                  type="Correlation Heatmap"
+                  description="Pairwise correlation matrix for Vietnam market assets. Values range from -1 (inverse) to +1 (perfectly correlated). High correlations (>0.85) indicate concentration risk."
+                  data={{ assets: data?.vn?.assetList || [], matrix: data?.vn?.correlationMatrix || [] }}
+                  market="VN"
+                  timeframe={timeframe}
                 />
               </div>
-
-              <Card className={`${GLASS_CARD} p-4 space-y-4`}>
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-800/50">
-                  <div className="flex items-center gap-2 text-zinc-400 text-[10px] font-mono uppercase tracking-widest">
-                    <Zap className="w-3 h-3 text-emerald-400" />
-                    Dominant Driver
-                  </div>
-                  {data?.vn?.drivers?.capitalFlowSignal && (
-                    <Badge
-                      variant="outline"
-                      className={`text-[8px] font-mono border-none ${
-                        data.vn.drivers.capitalFlowSignal === 'RISK-ON'
-                          ? 'bg-emerald-500/10 text-emerald-500'
-                          : data.vn.drivers.capitalFlowSignal === 'DEFENSIVE'
-                            ? 'bg-rose-500/10 text-rose-500'
-                            : 'bg-amber-500/10 text-amber-500'
-                      }`}
-                    >
-                      {data.vn.drivers.capitalFlowSignal}
-                    </Badge>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="text-lg font-bold tracking-tight text-white leading-tight">
-                      {data?.vn?.drivers?.summaryEn || '...'}
-                    </div>
-                    <div className="text-xs text-zinc-500 italic font-mono leading-relaxed">
-                      {data?.vn?.drivers?.summaryVi}
-                    </div>
-                  </div>
-
-                  {data?.vn?.drivers?.correlationSignalEn && (
-                    <div className="pt-3 border-t border-zinc-800/30 space-y-2">
-                      <div className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-500 uppercase tracking-tighter">
-                        <AlertCircle className="w-3 h-3" /> Correlation Signal
-                      </div>
-                      <p className="text-[11px] text-zinc-400 leading-snug font-mono italic">
-                        {data.vn.drivers.correlationSignalEn}
-                      </p>
-                      <p className="text-[10px] text-zinc-600 leading-snug font-mono italic">
-                        {data.vn.drivers.correlationSignalVi}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </Card>
+              <CorrelationHeatmap
+                title="VN Heatmatrix"
+                assets={data?.vn?.assetList || []}
+                matrix={data?.vn?.correlationMatrix || []}
+              />
             </div>
-          </div>
 
-          <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800/50 mt-10">
-            <TechnicalAnalysisView technicals={data?.vn?.technicals} market="VN" />
-            <AssetValuationTerminal valuation={data?.vn?.valuation} market="VN" />
+            <Card className={`${GLASS_CARD} p-4 space-y-4`}>
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/50">
+                <div className="flex items-center gap-2 text-zinc-400 text-[10px] font-mono uppercase tracking-widest">
+                  <Zap className="w-3 h-3 text-emerald-400" />
+                  Dominant Driver
+                </div>
+                {data?.vn?.drivers?.capitalFlowSignal && (
+                  <Badge
+                    variant="outline"
+                    className={`text-[8px] font-mono border-none ${
+                      data.vn.drivers.capitalFlowSignal === 'RISK-ON'
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : data.vn.drivers.capitalFlowSignal === 'DEFENSIVE'
+                          ? 'bg-rose-500/10 text-rose-500'
+                          : 'bg-amber-500/10 text-amber-500'
+                    }`}
+                  >
+                    {data.vn.drivers.capitalFlowSignal}
+                  </Badge>
+                )}
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="text-lg font-bold tracking-tight text-white leading-tight">
+                    {data?.vn?.drivers?.summaryEn || '...'}
+                  </div>
+                  <div className="text-xs text-zinc-500 italic font-mono leading-relaxed">
+                    {data?.vn?.drivers?.summaryVi}
+                  </div>
+                </div>
+
+                {data?.vn?.drivers?.correlationSignalEn && (
+                  <div className="pt-3 border-t border-zinc-800/30 space-y-2">
+                    <div className="flex items-center gap-1.5 text-[9px] font-bold text-emerald-500 uppercase tracking-tighter">
+                      <AlertCircle className="w-3 h-3" /> Correlation Signal
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-snug font-mono italic">
+                      {data.vn.drivers.correlationSignalEn}
+                    </p>
+                    <p className="text-[10px] text-zinc-600 leading-snug font-mono italic">
+                      {data.vn.drivers.correlationSignalVi}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+
+        <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800/50 mt-10">
+          <TechnicalAnalysisView technicals={data?.vn?.technicals} market="VN" />
+          <AssetValuationTerminal valuation={data?.vn?.valuation} market="VN" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -523,20 +360,18 @@ export function IntelligenceBanner({
               </div>
               <div className="space-y-1">
                 <h3 className={`text-sm font-bold tracking-tight uppercase ${regimeColor}`}>{scenario.name}</h3>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  {scenario.summaryEn}
-                </p>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">{scenario.summaryEn}</p>
                 {scenario.actionEn && (
                   <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 leading-relaxed mt-2 p-2 bg-indigo-50 dark:bg-indigo-950/30 rounded-md border border-indigo-100 dark:border-indigo-900/50">
-                    <span className="text-[9px] uppercase font-bold text-indigo-700 dark:text-indigo-500 block mb-1">Reaction Plan</span>
+                    <span className="text-[9px] uppercase font-bold text-indigo-700 dark:text-indigo-500 block mb-1">
+                      Reaction Plan
+                    </span>
                     {scenario.actionEn}
                   </p>
                 )}
               </div>
               <div className="space-y-2 border-l pl-2 border-zinc-200 dark:border-zinc-800/50">
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 italic font-mono">
-                  {scenario.summaryVi}
-                </p>
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 italic font-mono">{scenario.summaryVi}</p>
                 {scenario.actionVi && (
                   <p className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 italic font-mono p-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-md border border-indigo-100/50 dark:border-indigo-900/30">
                     Hành động: {scenario.actionVi}
@@ -595,15 +430,51 @@ export function MarketSignalCard({ signals, market }: { signals?: any; market: s
   if (!signals) return null;
 
   const action = signals.action || 'HOLD/WATCH';
-  
+
   const config: Record<string, { color: string; icon: any; bg: string; text: string; border: string }> = {
-    'LONG': { color: 'emerald', icon: ArrowUpRight, bg: 'bg-emerald-500/10', text: 'text-emerald-500', border: 'border-emerald-500/20' },
-    'SHORT': { color: 'rose', icon: ArrowDownRight, bg: 'bg-rose-500/10', text: 'text-rose-500', border: 'border-rose-500/20' },
-    'EXIT': { color: 'rose', icon: ArrowRight, bg: 'bg-rose-500/10', text: 'text-rose-500', border: 'border-rose-500/30' },
-    'REDUCE': { color: 'amber', icon: AlertCircle, bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/30' },
-    'TAKE PROFIT': { color: 'indigo', icon: Target, bg: 'bg-indigo-500/10', text: 'text-indigo-500', border: 'border-indigo-500/30' },
-    'HOLD/WATCH': { color: 'zinc', icon: Moon, bg: 'bg-zinc-500/10', text: 'text-zinc-500', border: 'border-zinc-500/30' },
-    'AVOID': { color: 'zinc', icon: Shield, bg: 'bg-zinc-500/10', text: 'text-zinc-500', border: 'border-zinc-500/30' },
+    LONG: {
+      color: 'emerald',
+      icon: ArrowUpRight,
+      bg: 'bg-emerald-500/10',
+      text: 'text-emerald-500',
+      border: 'border-emerald-500/20',
+    },
+    SHORT: {
+      color: 'rose',
+      icon: ArrowDownRight,
+      bg: 'bg-rose-500/10',
+      text: 'text-rose-500',
+      border: 'border-rose-500/20',
+    },
+    EXIT: {
+      color: 'rose',
+      icon: ArrowRight,
+      bg: 'bg-rose-500/10',
+      text: 'text-rose-500',
+      border: 'border-rose-500/30',
+    },
+    REDUCE: {
+      color: 'amber',
+      icon: AlertCircle,
+      bg: 'bg-amber-500/10',
+      text: 'text-amber-500',
+      border: 'border-amber-500/30',
+    },
+    'TAKE PROFIT': {
+      color: 'indigo',
+      icon: Target,
+      bg: 'bg-indigo-500/10',
+      text: 'text-indigo-500',
+      border: 'border-indigo-500/30',
+    },
+    'HOLD/WATCH': {
+      color: 'zinc',
+      icon: Moon,
+      bg: 'bg-zinc-500/10',
+      text: 'text-zinc-500',
+      border: 'border-zinc-500/30',
+    },
+    AVOID: { color: 'zinc', icon: Shield, bg: 'bg-zinc-500/10', text: 'text-zinc-500', border: 'border-zinc-500/30' },
   };
 
   const current = config[action] || config['HOLD/WATCH'];
@@ -611,15 +482,15 @@ export function MarketSignalCard({ signals, market }: { signals?: any; market: s
 
   return (
     <Card className={`${GLASS_CARD} ${current.border} shadow-2xl`}>
-      <CardHeader className={`pb-4 border-b ${current.border} ${current.bg} flex flex-row items-center justify-between`}>
+      <CardHeader
+        className={`pb-4 border-b ${current.border} ${current.bg} flex flex-row items-center justify-between`}
+      >
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-xl bg-white dark:bg-zinc-950 shadow-inner ${current.text}`}>
             <Icon className="w-5 h-5 animate-pulse" />
           </div>
           <div>
-            <h3 className={`text-xl font-black tracking-tighter uppercase ${current.text}`}>
-              {signals.action} SIGNAL
-            </h3>
+            <h3 className={`text-xl font-black tracking-tighter uppercase ${current.text}`}>{signals.action} SIGNAL</h3>
             <p className="text-[10px] uppercase font-mono text-zinc-500 tracking-widest font-bold">
               Institutional Action Required
             </p>
@@ -648,13 +519,17 @@ export function MarketSignalCard({ signals, market }: { signals?: any; market: s
               <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/50">
                 <span className="text-[9px] font-bold text-zinc-500 uppercase block mb-1">Entry Range</span>
                 <span className={`text-lg font-mono font-black ${current.text}`}>
-                   {market === 'VN' ? (signals.entry?.toLocaleString() ?? 'N/A') : `$${signals.entry?.toFixed(2) ?? 'N/A'}`}
+                  {market === 'VN'
+                    ? (signals.entry?.toLocaleString() ?? 'N/A')
+                    : `$${signals.entry?.toFixed(2) ?? 'N/A'}`}
                 </span>
               </div>
               <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/50">
                 <span className="text-[9px] font-bold text-rose-500 uppercase block mb-1">Stop Loss</span>
                 <span className="text-lg font-mono font-black text-rose-500">
-                   {market === 'VN' ? (signals.stopLoss?.toLocaleString() ?? 'N/A') : `$${signals.stopLoss?.toFixed(2) ?? 'N/A'}`}
+                  {market === 'VN'
+                    ? (signals.stopLoss?.toLocaleString() ?? 'N/A')
+                    : `$${signals.stopLoss?.toFixed(2) ?? 'N/A'}`}
                 </span>
               </div>
             </div>
@@ -662,19 +537,26 @@ export function MarketSignalCard({ signals, market }: { signals?: any; market: s
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Execution Confluence</span>
-              <span className="text-[10px] font-mono font-bold text-indigo-500">R:R 1:{signals.rr?.toFixed(1) ?? '2.0'}</span>
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                Execution Confluence
+              </span>
+              <span className="text-[10px] font-mono font-bold text-indigo-500">
+                R:R 1:{signals.rr?.toFixed(1) ?? '2.0'}
+              </span>
             </div>
-            
+
             <div className="space-y-2">
               {(signals.reasons || []).slice(1).map((r: string, i: number) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/20 group hover:border-indigo-500/30 transition-colors">
+                <div
+                  key={i}
+                  className="flex items-start gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800/20 group hover:border-indigo-500/30 transition-colors"
+                >
                   <div className="mt-0.5 p-1 rounded bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 group-hover:bg-emerald-500 group-hover:border-emerald-500 transition-colors">
-                     <TrendingUp className="w-2.5 h-2.5 text-zinc-400 group-hover:text-white" />
+                    <TrendingUp className="w-2.5 h-2.5 text-zinc-400 group-hover:text-white" />
                   </div>
                   <div>
                     <p className="text-[11px] font-medium leading-normal">{r}</p>
-                    <p className="text-[9px] text-zinc-500 italic font-mono mt-0.5">{signals.reasonsVi?.[i+1]}</p>
+                    <p className="text-[9px] text-zinc-500 italic font-mono mt-0.5">{signals.reasonsVi?.[i + 1]}</p>
                   </div>
                 </div>
               ))}
@@ -685,10 +567,10 @@ export function MarketSignalCard({ signals, market }: { signals?: any; market: s
         {/* Dynamic Warning for AVOID/EXIT */}
         {(action === 'AVOID' || action === 'EXIT') && (
           <div className="mt-6 p-3 rounded-xl bg-rose-500/5 border border-rose-500/10 flex items-center gap-3">
-             <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse" />
-             <p className="text-[10px] font-bold text-rose-400 uppercase tracking-tight">
-               High volatility or distribution detected. Liquidating positions is recommended for risk mitigation.
-             </p>
+            <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse" />
+            <p className="text-[10px] font-bold text-rose-400 uppercase tracking-tight">
+              High volatility or distribution detected. Liquidating positions is recommended for risk mitigation.
+            </p>
           </div>
         )}
       </CardContent>
@@ -703,7 +585,10 @@ export function TimeframeRelationshipGrid({ relationships, entryScore }: { relat
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3">
         {relationships.map((rel, idx) => (
-          <div key={idx} className={`${GLASS_CARD} p-4 flex items-center justify-between group hover:bg-zinc-800/30 transition-all`}>
+          <div
+            key={idx}
+            className={`${GLASS_CARD} p-4 flex items-center justify-between group hover:bg-zinc-800/30 transition-all`}
+          >
             <div className="flex items-center gap-4">
               <div className="flex flex-col">
                 <div className="text-xs font-bold font-mono tracking-tighter text-white">
@@ -717,7 +602,10 @@ export function TimeframeRelationshipGrid({ relationships, entryScore }: { relat
                 <div className="text-[10px] text-zinc-600 italic font-mono">{rel.adviceVi}</div>
               </div>
             </div>
-            <Badge variant="outline" className={`text-[9px] font-mono border-zinc-800 ${rel.status === 'STRONG' ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500'}`}>
+            <Badge
+              variant="outline"
+              className={`text-[9px] font-mono border-zinc-800 ${rel.status === 'STRONG' ? 'text-emerald-500 bg-emerald-500/10' : 'text-zinc-500'}`}
+            >
               {rel.status}
             </Badge>
           </div>
@@ -726,7 +614,9 @@ export function TimeframeRelationshipGrid({ relationships, entryScore }: { relat
 
       {entryScore && (
         <Card className={`${GLASS_CARD} p-5`}>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">Entry Timing Score (15m)</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-4">
+            Entry Timing Score (15m)
+          </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col items-center justify-center p-3 border-r border-zinc-800/30">
               <div className="text-[9px] font-bold text-zinc-500 uppercase mb-1">Overall</div>
@@ -1020,7 +910,9 @@ export function SeasonalityStatsTable({ seasonality }: { seasonality?: any[] }) 
       <CardHeader className="bg-zinc-900/40 border-b border-zinc-800/50 py-3 px-5 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-emerald-500" />
-          <span className="text-xs font-bold uppercase tracking-widest text-zinc-400 font-mono">Seasonal Patterns (1Y)</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-zinc-400 font-mono">
+            Seasonal Patterns (1Y)
+          </span>
         </div>
         <div className="flex bg-zinc-800/50 p-0.5 rounded-lg">
           {(['day', 'week', 'month'] as const).map((t) => (
@@ -1055,13 +947,18 @@ export function SeasonalityStatsTable({ seasonality }: { seasonality?: any[] }) 
               <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors">
                 <td className="py-2.5 px-4 font-bold text-zinc-500">{s.rank}</td>
                 <td className="py-2.5 px-4 font-bold text-white">{s.name}</td>
-                <td className={`py-2.5 px-4 text-right font-bold ${(s.return ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {(s.return ?? 0) >= 0 ? '+' : ''}{(s.return ?? 0).toFixed(2)}%
+                <td
+                  className={`py-2.5 px-4 text-right font-bold ${(s.return ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+                >
+                  {(s.return ?? 0) >= 0 ? '+' : ''}
+                  {(s.return ?? 0).toFixed(2)}%
                 </td>
                 <td className="py-2.5 px-4 text-right text-zinc-400">{(s.winRate ?? 0).toFixed(1)}%</td>
                 <td className="py-2.5 px-4 text-right text-zinc-400">{(s.pf ?? 0).toFixed(2)}</td>
                 <td className="py-2.5 px-4 text-right text-zinc-300">{(s.stdDev ?? 0).toFixed(2)}%</td>
-                <td className={`py-2.5 px-4 text-right font-bold ${(s.score ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                <td
+                  className={`py-2.5 px-4 text-right font-bold ${(s.score ?? 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}
+                >
                   {(s.score ?? 0).toFixed(2)}
                 </td>
                 <td className="py-2.5 px-4 text-right text-zinc-600">{s.n}</td>
@@ -1094,12 +991,14 @@ export function TechnicalAnalysisView({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Compass className={`w-5 h-5 ${market === 'US' ? 'text-indigo-500' : 'text-emerald-500'}`} />
-            <h3 className="text-lg font-bold tracking-tight uppercase underline decoration-zinc-800 underline-offset-8 decoration-2">Technical Alpha Suite: {market}</h3>
+            <h3 className="text-lg font-bold tracking-tight uppercase underline decoration-zinc-800 underline-offset-8 decoration-2">
+              Technical Alpha Suite: {market}
+            </h3>
           </div>
           {technicals.n && (
-             <Badge variant="outline" className="text-[9px] font-mono border-zinc-800 text-zinc-500 opacity-70">
-                SỐ NẾN: {technicals.n}
-             </Badge>
+            <Badge variant="outline" className="text-[9px] font-mono border-zinc-800 text-zinc-500 opacity-70">
+              SỐ NẾN: {technicals.n}
+            </Badge>
           )}
         </div>
         <AIDataInsight
@@ -1119,20 +1018,22 @@ export function TechnicalAnalysisView({
               <TrendingUp className="w-4 h-4" /> Xu hướng (Trend)
             </h4>
           </div>
-          
+
           <div className="space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-200/10">
               <span className="text-xs text-zinc-400 font-medium">Hướng</span>
-              <span className={`text-sm font-black ${technicals.trend?.directionEn === 'Up' ? 'text-emerald-500' : technicals.trend?.directionEn === 'Down' ? 'text-rose-500' : 'text-zinc-500'}`}>
+              <span
+                className={`text-sm font-black ${technicals.trend?.directionEn === 'Up' ? 'text-emerald-500' : technicals.trend?.directionEn === 'Down' ? 'text-rose-500' : 'text-zinc-500'}`}
+              >
                 {technicals.trend?.direction || 'N/A'}
               </span>
             </div>
-            
+
             <div className="flex items-center justify-between pb-3 border-b border-zinc-200/10">
               <span className="text-xs text-zinc-400 font-medium">Độ mạnh</span>
               <span className="text-sm font-black text-white">{technicals.trend?.strength}%</span>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <span className="text-xs text-zinc-400 font-medium">Độ tin cậy</span>
               <span className="text-sm font-black text-white">{technicals.trend?.confidence}%</span>
@@ -1140,9 +1041,12 @@ export function TechnicalAnalysisView({
 
             <div className="pt-4 mt-2">
               <div className="bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/30 font-mono text-[9px] text-zinc-400">
-                <span className="text-zinc-500">RSI(14):</span> <span className="text-zinc-300 mr-2">{technicals.indicators?.rsi?.toFixed(2)}</span>
-                <span className="text-zinc-500 ml-2">EMA20:</span> <span className="text-zinc-300 mr-2">{technicals.indicators?.ema20?.toLocaleString()}</span>
-                <span className="text-zinc-500 ml-2">EMA50:</span> <span className="text-zinc-300">{technicals.indicators?.ema50?.toLocaleString()}</span>
+                <span className="text-zinc-500">RSI(14):</span>{' '}
+                <span className="text-zinc-300 mr-2">{technicals.indicators?.rsi?.toFixed(2)}</span>
+                <span className="text-zinc-500 ml-2">EMA20:</span>{' '}
+                <span className="text-zinc-300 mr-2">{technicals.indicators?.ema20?.toLocaleString()}</span>
+                <span className="text-zinc-500 ml-2">EMA50:</span>{' '}
+                <span className="text-zinc-300">{technicals.indicators?.ema50?.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -1160,12 +1064,16 @@ export function TechnicalAnalysisView({
             <div className="flex-1 space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-200/10 pb-2">
                 <span className="text-[10px] text-zinc-400 font-medium uppercase">Pha hiện tại</span>
-                <span className={`text-[11px] font-black ${technicals.cycle.phase === 'Markup' ? 'text-emerald-500' : 'text-rose-500'} uppercase`}>
-                  {technicals.cycle.descriptionVi.includes('(') ? technicals.cycle.descriptionVi.split('(')[0].trim() : technicals.cycle.descriptionVi}
+                <span
+                  className={`text-[11px] font-black ${technicals.cycle.phase === 'Markup' ? 'text-emerald-500' : 'text-rose-500'} uppercase`}
+                >
+                  {technicals.cycle.descriptionVi.includes('(')
+                    ? technicals.cycle.descriptionVi.split('(')[0].trim()
+                    : technicals.cycle.descriptionVi}
                   <span className="opacity-50 ml-1">({technicals.cycle.phase})</span>
                 </span>
               </div>
-              
+
               <div className="flex items-center justify-between border-b border-zinc-200/10 pb-2">
                 <span className="text-[10px] text-zinc-400 font-medium uppercase">Độ tin cậy</span>
                 <span className="text-xs font-black text-white">{technicals.cycle.confidence}%</span>
@@ -1200,7 +1108,7 @@ export function TechnicalAnalysisView({
                 </RePieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                 <div className="w-1.5 h-1.5 rounded-full bg-zinc-800 ring-2 ring-zinc-700/50" />
+                <div className="w-1.5 h-1.5 rounded-full bg-zinc-800 ring-2 ring-zinc-700/50" />
               </div>
             </div>
           </div>
@@ -1215,25 +1123,36 @@ export function TechnicalAnalysisView({
               <Zap className="w-3.5 h-3.5" /> ICT Concepts (FVG / OB)
             </h4>
             <Badge variant="outline" className="text-[9px] uppercase border-zinc-800 text-zinc-500">
-               Institutional Signatures
+              Institutional Signatures
             </Badge>
           </div>
           <div className="space-y-3">
             {technicals.ict?.fvgs?.length > 0 ? (
               technicals.ict.fvgs.map((fvg: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/40 group hover:border-amber-500/30 transition-all">
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/40 group hover:border-amber-500/30 transition-all"
+                >
                   <div className="flex items-center gap-3">
-                    <div className={`p-1.5 rounded-lg ${fvg.type === 'BULLISH' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                      {fvg.type === 'BULLISH' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                    <div
+                      className={`p-1.5 rounded-lg ${fvg.type === 'BULLISH' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}
+                    >
+                      {fvg.type === 'BULLISH' ? (
+                        <ArrowUpRight className="w-4 h-4" />
+                      ) : (
+                        <ArrowDownRight className="w-4 h-4" />
+                      )}
                     </div>
                     <div>
                       <div className="text-xs font-bold text-white leading-tight">FVG: {fvg.type} GAP</div>
                       <div className="text-[10px] text-zinc-500 font-mono tracking-tighter">
-                         Range: {fvg.bottom.toLocaleString()} - {fvg.top.toLocaleString()}
+                        Range: {fvg.bottom.toLocaleString()} - {fvg.top.toLocaleString()}
                       </div>
                     </div>
                   </div>
-                  <div className={`text-xs font-black font-mono ${fvg.type === 'BULLISH' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  <div
+                    className={`text-xs font-black font-mono ${fvg.type === 'BULLISH' ? 'text-emerald-500' : 'text-rose-500'}`}
+                  >
                     {fvg.gap.toFixed(2)} pts
                   </div>
                 </div>
@@ -1248,100 +1167,107 @@ export function TechnicalAnalysisView({
 
         {/* Sentiment Score Card */}
         <Card className={`${GLASS_CARD} p-6 border-zinc-200 dark:border-zinc-800/50`}>
-           <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4">
             <h4 className="text-[10px] font-bold text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
               <Flame className="w-3.5 h-3.5" /> Sentiment Synthesis
             </h4>
             <Badge variant="outline" className="text-[9px] uppercase border-zinc-800 text-zinc-500">
-               Crowd Psychology
+              Crowd Psychology
             </Badge>
           </div>
           <div className="flex gap-6 items-center">
-             <div className="relative w-24 h-24 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90">
-                   <circle
-                      cx="48"
-                      cy="48"
-                      r="40"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="transparent"
-                      className="text-zinc-800"
-                   />
-                   <circle
-                      cx="48"
-                      cy="48"
-                      r="40"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="transparent"
-                      strokeDasharray={251.2}
-                      strokeDashoffset={251.2 * (1 - (technicals.sentiment?.score || 50) / 100)}
-                      strokeLinecap="round"
-                      className={`${(technicals.sentiment?.score || 50) > 65 ? 'text-emerald-500' : (technicals.sentiment?.score || 50) < 35 ? 'text-rose-500' : 'text-indigo-500'} transition-all duration-1000`}
-                   />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                   <span className="text-xl font-black tabular-nums">{technicals.sentiment?.score || 0}</span>
-                   <span className="text-[8px] font-bold text-zinc-500 uppercase">Index</span>
-                </div>
-             </div>
-             <div className="flex-1 space-y-2">
-                <div className={`text-lg font-black tracking-tight ${(technicals.sentiment?.score || 50) > 65 ? 'text-emerald-400' : (technicals.sentiment?.score || 50) < 35 ? 'text-rose-400' : 'text-white'}`}>
-                   Psychology: {technicals.sentiment?.labelVi || 'Neutral'}
-                </div>
-                <p className="text-xs text-zinc-400 leading-relaxed">
-                   Synthesis of VIX volatility, crowd RSI positioning, and trend velocity. Current state suggests 
-                   <span className="font-bold ml-1 text-zinc-200">
-                      {technicals.sentiment?.score > 65 ?  'excessive optimism' : technicals.sentiment?.score < 35 ? 'extreme capitulation' : 'balanced equilibrium'}.
-                   </span>
-                </p>
-             </div>
+            <div className="relative w-24 h-24 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="transparent"
+                  className="text-zinc-800"
+                />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="transparent"
+                  strokeDasharray={251.2}
+                  strokeDashoffset={251.2 * (1 - (technicals.sentiment?.score || 50) / 100)}
+                  strokeLinecap="round"
+                  className={`${(technicals.sentiment?.score || 50) > 65 ? 'text-emerald-500' : (technicals.sentiment?.score || 50) < 35 ? 'text-rose-500' : 'text-indigo-500'} transition-all duration-1000`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-black tabular-nums">{technicals.sentiment?.score || 0}</span>
+                <span className="text-[8px] font-bold text-zinc-500 uppercase">Index</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2">
+              <div
+                className={`text-lg font-black tracking-tight ${(technicals.sentiment?.score || 50) > 65 ? 'text-emerald-400' : (technicals.sentiment?.score || 50) < 35 ? 'text-rose-400' : 'text-white'}`}
+              >
+                Psychology: {technicals.sentiment?.labelVi || 'Neutral'}
+              </div>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Synthesis of VIX volatility, crowd RSI positioning, and trend velocity. Current state suggests
+                <span className="font-bold ml-1 text-zinc-200">
+                  {technicals.sentiment?.score > 65
+                    ? 'excessive optimism'
+                    : technicals.sentiment?.score < 35
+                      ? 'extreme capitulation'
+                      : 'balanced equilibrium'}
+                  .
+                </span>
+              </p>
+            </div>
           </div>
         </Card>
       </div>
 
-        {/* Support/Resistance */}
-        <Card className={`${GLASS_CARD} p-0 overflow-hidden border-zinc-200 dark:border-zinc-800/50`}>
-          <div className="bg-zinc-50 dark:bg-zinc-800/20 p-4 border-b border-zinc-100 dark:border-zinc-800/50">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Key Levels (S/R)</div>
-          </div>
-          <div className="p-4 space-y-4">
-            {technicals.supportResistance.slice(0, 2).map((item: any, idx: number) => (
-              <div key={idx} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold font-mono">{item.symbol}</span>
-                  <span className="text-[10px] text-zinc-400">
-                    BOLLINGER WIDTH:{' '}
-                    {(((item.bollingerUpper - item.bollingerLower) / item.bollingerMid) * 100).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-rose-500/5 p-2 rounded border border-rose-500/10">
-                    <div className="text-[9px] uppercase text-rose-500 font-bold mb-1">Resistance</div>
-                    <div className="flex flex-wrap gap-1">
-                      {item.resistance.map((r: number, i: number) => (
-                        <span key={i} className="text-[10px] font-mono">
-                          {r.toLocaleString()}
-                        </span>
-                      ))}
-                    </div>
+      {/* Support/Resistance */}
+      <Card className={`${GLASS_CARD} p-0 overflow-hidden border-zinc-200 dark:border-zinc-800/50`}>
+        <div className="bg-zinc-50 dark:bg-zinc-800/20 p-4 border-b border-zinc-100 dark:border-zinc-800/50">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Key Levels (S/R)</div>
+        </div>
+        <div className="p-4 space-y-4">
+          {technicals.supportResistance.slice(0, 2).map((item: any, idx: number) => (
+            <div key={idx} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold font-mono">{item.symbol}</span>
+                <span className="text-[10px] text-zinc-400">
+                  BOLLINGER WIDTH:{' '}
+                  {(((item.bollingerUpper - item.bollingerLower) / item.bollingerMid) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-rose-500/5 p-2 rounded border border-rose-500/10">
+                  <div className="text-[9px] uppercase text-rose-500 font-bold mb-1">Resistance</div>
+                  <div className="flex flex-wrap gap-1">
+                    {item.resistance.map((r: number, i: number) => (
+                      <span key={i} className="text-[10px] font-mono">
+                        {r.toLocaleString()}
+                      </span>
+                    ))}
                   </div>
-                  <div className="bg-emerald-500/5 p-2 rounded border border-emerald-500/10">
-                    <div className="text-[9px] uppercase text-emerald-500 font-bold mb-1">Support</div>
-                    <div className="flex flex-wrap gap-1">
-                      {item.support.map((s: number, i: number) => (
-                        <span key={i} className="text-[10px] font-mono">
-                          {s.toLocaleString()}
-                        </span>
-                      ))}
-                    </div>
+                </div>
+                <div className="bg-emerald-500/5 p-2 rounded border border-emerald-500/10">
+                  <div className="text-[9px] uppercase text-emerald-500 font-bold mb-1">Support</div>
+                  <div className="flex flex-wrap gap-1">
+                    {item.support.map((s: number, i: number) => (
+                      <span key={i} className="text-[10px] font-mono">
+                        {s.toLocaleString()}
+                      </span>
+                    ))}
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </Card>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {showSeasonality && (
         <>
@@ -1387,7 +1313,7 @@ export function TechnicalAnalysisView({
       )}
       {technicals.dateRange && (
         <div className="text-[9px] font-mono text-zinc-600 px-2 flex items-center gap-1.5 opacity-50 uppercase mt-2">
-           <Activity className="w-2.5 h-2.5" /> Dữ liệu mẫu: {technicals.dateRange}
+          <Activity className="w-2.5 h-2.5" /> Dữ liệu mẫu: {technicals.dateRange}
         </div>
       )}
     </div>

@@ -1,9 +1,98 @@
 import { StorageError, isAppError } from './errors';
+import { calculateTtlUntilNext5am } from './ttl-utils';
 
 const cache = new Map<string, { data: string; expiresAt: number }>();
-const cacheTags = new Map<string, Set<string>>(); // tag -> set of cache keys
+const cacheTags = new Map<string, Set<string>>();
+
+let upstashClient: UpstashCacheClient | null = null;
+
+class UpstashCacheClient {
+  private url: string;
+  private token: string;
+
+  constructor(url: string, token: string) {
+    this.url = url.endsWith('/') ? url.slice(0, -1) : url;
+    this.token = token;
+  }
+
+  async get(key: string): Promise<string | null> {
+    try {
+      const response = await fetch(`${this.url}/get/${key}`, {
+        headers: { Authorization: `Bearer ${this.token}` },
+      });
+      if (!response.ok) return null;
+      const result = await response.json();
+      return result.result || null;
+    } catch (error) {
+      console.warn(`[Upstash] GET error for ${key}:`, error);
+      return null;
+    }
+  }
+
+  async set(key: string, value: string, exSeconds: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.url}/pipeline`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([['SET', key, value, 'EX', exSeconds.toString()]]),
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn(`[Upstash] SET error for ${key}:`, error);
+      return false;
+    }
+  }
+
+  async delete(key: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.url}/pipeline`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([['DEL', key]]),
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn(`[Upstash] DEL error for ${key}:`, error);
+      return false;
+    }
+  }
+}
+
+function initUpstashClient(): void {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    console.warn('[Cache] Upstash Redis not configured, using in-memory cache');
+    return;
+  }
+
+  upstashClient = new UpstashCacheClient(url, token);
+  console.log('[Cache] Upstash Redis initialized');
+}
 
 export async function getCached<T>(key: string): Promise<T | null> {
+  if (!upstashClient) {
+    initUpstashClient();
+  }
+
+  if (upstashClient) {
+    try {
+      const cached = await upstashClient.get(key);
+      if (cached) {
+        return JSON.parse(cached) as T;
+      }
+    } catch (error) {
+      console.warn(`[Cache] Upstash retrieval error for ${key}:`, error);
+    }
+  }
+
   const entry = cache.get(key);
   if (!entry) return null;
 
@@ -26,18 +115,46 @@ export async function getCached<T>(key: string): Promise<T | null> {
   }
 }
 
-export async function setCache(key: string, data: any, ttlSeconds = 300) {
-  const expiresAt = Date.now() + ttlSeconds * 1000;
+export async function setCache(key: string, data: any, ttlSeconds?: number) {
+  if (!upstashClient) {
+    initUpstashClient();
+  }
+
+  const ttl = ttlSeconds ?? calculateTtlUntilNext5am();
+
+  const expiresAt = Date.now() + ttl * 1000;
   cache.set(key, {
     data: JSON.stringify(data),
     expiresAt,
   });
+
+  if (upstashClient) {
+    try {
+      await upstashClient.set(key, JSON.stringify(data), ttl);
+      console.debug(`[Cache] Stored: ${key} (TTL: ${ttl}s, expires at 5am GMT+7)`);
+    } catch (error) {
+      console.warn(`[Cache] Upstash set error for ${key}:`, error);
+    }
+  }
 }
 
 export async function invalidateCache(keyPrefix: string) {
+  const keysToDelete: string[] = [];
+
   for (const key of cache.keys()) {
     if (key.startsWith(keyPrefix)) {
+      keysToDelete.push(key);
       cache.delete(key);
+    }
+  }
+
+  if (upstashClient && keysToDelete.length > 0) {
+    for (const key of keysToDelete) {
+      try {
+        await upstashClient.delete(key);
+      } catch (error) {
+        console.warn(`[Cache] Upstash delete error for ${key}:`, error);
+      }
     }
   }
 }
@@ -69,6 +186,14 @@ export async function invalidateCacheByTag(tag: string) {
   for (const key of keysToInvalidate) {
     cache.delete(key);
     count++;
+
+    if (upstashClient) {
+      try {
+        await upstashClient.delete(key);
+      } catch (error) {
+        console.warn(`[Cache] Upstash delete error for ${key}:`, error);
+      }
+    }
   }
 
   cacheTags.delete(tag);
@@ -85,7 +210,6 @@ export async function invalidateTickerCache(symbol: string, reason: string) {
     `vnstock:stock:${symbol}`,
     `vnstock:historical:${symbol}`,
     `market-pulse:asset:${symbol}`,
-    `search:`, // Note: search results may be reusable, but we invalidate if needed
   ];
 
   let totalInvalidated = 0;
@@ -100,6 +224,14 @@ export async function invalidateTickerCache(symbol: string, reason: string) {
     for (const key of keysToDelete) {
       cache.delete(key);
       totalInvalidated++;
+
+      if (upstashClient) {
+        try {
+          await upstashClient.delete(key);
+        } catch (error) {
+          console.warn(`[Cache] Upstash delete error for ${key}:`, error);
+        }
+      }
     }
   }
 
@@ -109,7 +241,7 @@ export async function invalidateTickerCache(symbol: string, reason: string) {
 export async function getCachedOrFetch<T>(
   key: string,
   fetchFn: () => Promise<T>,
-  ttlSeconds = 300,
+  ttlSeconds?: number,
   forceFresh = false,
 ): Promise<T> {
   if (!forceFresh) {
@@ -118,13 +250,13 @@ export async function getCachedOrFetch<T>(
   }
 
   const data = await fetchFn();
-  await setCache(key, data, ttlSeconds);
+  const ttl = ttlSeconds ?? calculateTtlUntilNext5am();
+  await setCache(key, data, ttl);
   return data;
 }
 
-export function withCache<T>(keyPrefix: string, handler: (...args: any[]) => Promise<T>, ttlSeconds = 300) {
+export function withCache<T>(keyPrefix: string, handler: (...args: any[]) => Promise<T>, ttlSeconds?: number) {
   return async (...args: any[]): Promise<T> => {
-    // Standard pattern: last boolean argument is forceFresh
     let forceFresh = false;
     let actualArgs = args;
 
@@ -134,6 +266,7 @@ export function withCache<T>(keyPrefix: string, handler: (...args: any[]) => Pro
     }
 
     const key = `${keyPrefix}:${JSON.stringify(actualArgs)}`;
-    return getCachedOrFetch(key, () => handler(...args), ttlSeconds, forceFresh);
+    const ttl = ttlSeconds ?? calculateTtlUntilNext5am();
+    return getCachedOrFetch(key, () => handler(...args), ttl, forceFresh);
   };
 }
