@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Search, ArrowRight, Activity, Zap, Layers, BarChart3 } from 'lucide-react';
+import { Loader2, Search, ArrowRight, Activity, Zap, Layers, BarChart3, AlertTriangle } from 'lucide-react';
 import { TechnicalAnalysisView, GLASS_CARD, TERMINAL_FONT, SeasonalityStatsTable } from './market-pulse-dashboard';
 import { fmarketApi } from '@/shared/api/fmarket';
 
@@ -18,6 +18,7 @@ export function TickerAnalysisDashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +28,7 @@ export function TickerAnalysisDashboard() {
     setDetails(null);
     setAnalysisData(null);
     setError(null);
+    setFallbackNotice(null);
 
     try {
       const upperSymbol = symbol.toUpperCase();
@@ -172,6 +174,11 @@ export function TickerAnalysisDashboard() {
       if (!res.ok) throw new Error('Failed to run deep analysis');
       const data = await res.json();
       setAnalysisData(data);
+
+      // Show fallback notice if vnstock-server was unavailable
+      if (data.dataSource?.status === 'fallback') {
+        setFallbackNotice(data.dataSource.fallbackReason || 'Using alternative data provider.');
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -211,6 +218,16 @@ export function TickerAnalysisDashboard() {
           </div>
 
           {error && <div className="text-sm text-rose-500 font-medium bg-rose-500/10 p-4 rounded-xl">{error}</div>}
+
+          {fallbackNotice && (
+            <div className="text-sm text-amber-400 font-medium bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-xs uppercase tracking-wide mb-1">Alternative Data Provider</p>
+                <p className="text-xs text-amber-300/80">{fallbackNotice}</p>
+              </div>
+            </div>
+          )}
 
           {details && !analysisData && (
             <div className="mt-4 p-6 bg-zinc-50 dark:bg-zinc-900/40 rounded-2xl border border-zinc-200 dark:border-zinc-800/50 space-y-4 animate-in slide-in-from-bottom-4">

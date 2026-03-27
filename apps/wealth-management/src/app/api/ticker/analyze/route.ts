@@ -5,6 +5,7 @@ import {
   generateTechnicals,
   generateValuation,
 } from '@wealth-management/services/services/market-data-service';
+import { VNStockAdapter } from '@wealth-management/services/data-sources';
 
 const ANALYZE_CACHE_TTL = 14 * 24 * 3600; // 14 days
 
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
 
     console.log(`[TickerAnalyzeAPI] Cache miss for ${symbol}, generating analysis...`);
 
+    // Check if vnstock-server is available
+    const vnstockAdapter = new VNStockAdapter();
+    const isVnstockAvailable = market === 'VN' ? await vnstockAdapter.isServerAvailable() : true;
+
     const [asset1h, asset1d] = await Promise.all([
       fetchAssetData(symbol, name || symbol, market, '1h'),
       fetchAssetData(symbol, name || symbol, market, '1d'),
@@ -48,10 +53,20 @@ export async function POST(req: NextRequest) {
     // Generate valuation using 1D data
     const valuation = generateValuation([asset1d], market);
 
+    // Build data source metadata
+    const dataSource = isVnstockAvailable
+      ? { provider: 'vnstock-server', status: 'primary' as const }
+      : {
+          provider: 'yahoo-finance',
+          status: 'fallback' as const,
+          fallbackReason: 'vnstock-server is unavailable. Using Yahoo Finance as alternative provider.',
+        };
+
     const analysisResult = {
       technicals1h,
       technicals1d,
       valuation,
+      dataSource,
     };
 
     // Cache the analysis for 14 days

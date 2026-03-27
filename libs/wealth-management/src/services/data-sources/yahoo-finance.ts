@@ -4,6 +4,18 @@ import { NetworkError, isAppError } from '../../utils/errors';
 export class YahooFinanceAdapter implements DataSourceAdapter {
   name = 'YahooFinance';
 
+  /**
+   * Convert internal symbol to Yahoo Finance format.
+   * VN individual stocks need '.VN' suffix (e.g., VCB → VCB.VN).
+   * Indices (^VNINDEX), FX (VND=X), and US symbols are kept as-is.
+   */
+  private toYahooSymbol(symbol: string, market: 'US' | 'VN'): string {
+    if (market !== 'VN') return symbol;
+    // Skip indices (^prefix), FX (=X suffix), and already-suffixed symbols
+    if (symbol.startsWith('^') || symbol.includes('=') || symbol.endsWith('.VN')) return symbol;
+    return `${symbol}.VN`;
+  }
+
   supports(symbol: string, market: 'US' | 'VN'): boolean {
     // Yahoo supports both, but VN support is unreliable
     return true;
@@ -11,7 +23,8 @@ export class YahooFinanceAdapter implements DataSourceAdapter {
 
   async fetchStock(symbol: string, market: 'US' | 'VN'): Promise<StockMetadata | null> {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`;
+      const yahooSymbol = this.toYahooSymbol(symbol, market);
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=1d&interval=1d`;
       const res = await fetch(url);
       if (!res.ok) return null;
 
@@ -48,7 +61,8 @@ export class YahooFinanceAdapter implements DataSourceAdapter {
     range: string,
   ): Promise<StockDataPoint[] | null> {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`;
+      const yahooSymbol = this.toYahooSymbol(symbol, market);
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${range}&interval=${interval}`;
       const res = await fetch(url);
       if (!res.ok) return null;
 
