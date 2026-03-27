@@ -1,6 +1,6 @@
 import { Transaction } from "@wealth-management/types";
 
-import { MaskedBalance } from "@/components/ui/masked-balance";
+import { MaskedBalance } from "@wealth-management/ui/masked-balance";
 import { getEffectiveDate } from "@wealth-management/utils";
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

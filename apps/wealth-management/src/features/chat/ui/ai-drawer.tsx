@@ -17,9 +17,9 @@ import {
   CheckCircle,
   Trash2,
 } from 'lucide-react';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Sheet, SheetContent, SheetTitle } from '@wealth-management/ui/sheet';
+import { Button } from "@wealth-management/ui/button";
+import { ScrollArea } from '@wealth-management/ui/scroll-area';
 import { cn } from '@wealth-management/utils';
 
 import { ChatMessage, SuggestionItem } from '../model/types';

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { AIInsightRenderer } from '@wealth-management/ui';
 import type { StructuredInsight } from '@wealth-management/ai/server';
 import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';

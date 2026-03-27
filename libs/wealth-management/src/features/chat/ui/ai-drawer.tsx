@@ -23,9 +23,9 @@ import {
   Sheet, 
   SheetContent, 
   SheetTitle,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from "-management/ui/sheet";
+import { Button } from "-management/ui/button";
+import { ScrollArea } from "-management/ui/scroll-area";
 import { cn } from "@wealth-management/utils";
 
 interface AIDrawerProps {

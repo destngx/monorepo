@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Sparkles, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Button } from "@/components/ui/button";
+import { Button } from "-management/ui/button";
 import { AIInsightRenderer } from "../../ui/ai-insight-renderer";
 import type { StructuredInsight } from "../../ai/core/types";
 

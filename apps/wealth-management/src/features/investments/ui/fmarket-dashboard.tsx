@@ -2,11 +2,11 @@
 
 import { useFmarket } from '../model/use-fmarket';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wealth-management/ui/table';
+import { Skeleton } from '@wealth-management/ui/skeleton';
 import { TrendingUp, Landmark, Award, RefreshCcw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui/tabs';
 import { useState, useEffect } from 'react';
 
 export function FmarketDashboard() {

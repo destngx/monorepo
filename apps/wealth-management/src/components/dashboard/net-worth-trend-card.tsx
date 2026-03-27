@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@wealth-management/ui/card";
-import { MaskedBalance } from "@/components/ui/masked-balance";
+import { MaskedBalance } from "@wealth-management/ui/masked-balance";
 import { Account } from "@wealth-management/types";
 import { Transaction } from "@wealth-management/types";
 import { Loan } from "@wealth-management/types";
@@ -23,14 +23,14 @@ export function NetWorthTrendCard({ accounts, transactions, loans }: NetWorthTre
   // Calculate MoM Change
   const now = new Date();
   subMonths(now, 1);
-  
+
   const currentMonthTxns = transactions.filter(t => {
     const d = new Date(t.date);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
   const currentMonthFlow = currentMonthTxns.reduce((sum, t) => sum + (t.deposit || 0) - (t.payment || 0), 0);
   const lastMonthNetWorth = currentNetWorth - currentMonthFlow;
-  
+
   const momChange = lastMonthNetWorth !== 0 ? ((currentNetWorth - lastMonthNetWorth) / Math.abs(lastMonthNetWorth)) * 100 : 0;
   const isPositive = momChange >= 0;
 
@@ -38,7 +38,7 @@ export function NetWorthTrendCard({ accounts, transactions, loans }: NetWorthTre
   const sparklineData = useMemo(() => {
     const data = [];
     let runningNetWorth = currentNetWorth;
-    
+
     // We go backwards from today
     for (let i = 0; i < 30; i++) {
       const targetDate = subDays(now, i);
@@ -47,7 +47,7 @@ export function NetWorthTrendCard({ accounts, transactions, loans }: NetWorthTre
         return d.toDateString() === targetDate.toDateString();
       });
       const dayFlow = dayTxns.reduce((sum, t) => sum + (t.deposit || 0) - (t.payment || 0), 0);
-      
+
       data.unshift({ value: runningNetWorth });
       runningNetWorth -= dayFlow;
     }
@@ -57,7 +57,7 @@ export function NetWorthTrendCard({ accounts, transactions, loans }: NetWorthTre
   return (
     <Card glass className="overflow-hidden border-none text-white shadow-2xl relative">
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
-      
+
       <CardContent className="p-8 relative z-10">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
@@ -77,7 +77,7 @@ export function NetWorthTrendCard({ accounts, transactions, loans }: NetWorthTre
           </div>
 
           {/* Sparkline */}
-          <div className="w-full md:w-48 h-20 opacity-80 hover:opacity-100 transition-opacity">
+          <div className="w-full h-20 opacity-80 hover:opacity-100 transition-opacity">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparklineData}>
                 <defs>
@@ -87,12 +87,12 @@ export function NetWorthTrendCard({ accounts, transactions, loans }: NetWorthTre
                   </linearGradient>
                 </defs>
                 <YAxis hide domain={['dataMin - 1000000', 'dataMax + 1000000']} />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke={isPositive ? "#10b981" : "#f43f5e"} 
-                  strokeWidth={2} 
-                  fill="url(#sparklineColor)" 
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={isPositive ? "#10b981" : "#f43f5e"}
+                  strokeWidth={2}
+                  fill="url(#sparklineColor)"
                   animationDuration={2000}
                 />
               </AreaChart>

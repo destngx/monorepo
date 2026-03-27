@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@wealth-management/ui/badge';
+import { Button } from "@wealth-management/ui/button";
+import { Input } from '@wealth-management/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui/tabs';
 import { Loader2, Search, ArrowRight, Activity, Zap, Layers, BarChart3, AlertTriangle } from 'lucide-react';
 import { TechnicalAnalysisView, GLASS_CARD, TERMINAL_FONT, SeasonalityStatsTable } from './market-pulse-dashboard';
 import { fmarketApi } from '@/shared/api/fmarket';

@@ -1,6 +1,6 @@
 "use client";
 
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "@wealth-management/ui/progress";
 import { Clock } from "lucide-react";
 
 interface StatementCycleBarProps {

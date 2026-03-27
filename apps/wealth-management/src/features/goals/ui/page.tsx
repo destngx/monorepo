@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { AIGoalsSummary } from './ai-summary-card';
 import { GoalCard } from './goal-card';
 import { Goal } from '../model/types';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import Link from 'next/link';
 import { Plus, SlidersHorizontal } from 'lucide-react';
 import { useAIContext } from '@/features/chat/ui/ai-context-provider';

@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@wealth-management/ui/dialog";
+import { Button } from "@wealth-management/ui/button";
+import { Input } from "@wealth-management/ui/input";
 import { useForm, Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TransactionInputSchema, TransactionInput } from "@wealth-management/schemas";
 import { Account } from "@wealth-management/types";
 import { X, Sparkles, Search } from "lucide-react";
 import { cn } from "@wealth-management/utils";
-import { CategoryBadge } from "@/components/ui/category-badge";
+import { CategoryBadge } from "@wealth-management/ui/category-badge";
 
 interface CategoryChip {
   name: string;

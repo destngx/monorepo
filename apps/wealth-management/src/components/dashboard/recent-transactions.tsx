@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { Transaction } from '@wealth-management/types';
-import { MaskedBalance } from '@/components/ui/masked-balance';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 import { formatDate } from '@wealth-management/utils';
 import { ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 

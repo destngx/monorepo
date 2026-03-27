@@ -10,7 +10,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@wealth-management/ui/select";
 
 export function ModelSwitcher() {
   const { settings, updateSettings, mounted } = useAISettings();

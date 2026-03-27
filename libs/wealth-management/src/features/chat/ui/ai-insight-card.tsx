@@ -1,8 +1,8 @@
 "use client";
 
 import { Sparkles, ArrowRight, BookOpen } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "-management/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "-management/ui/card";
 import { cn } from "@wealth-management/utils";
 
 interface AIInsightCardProps {

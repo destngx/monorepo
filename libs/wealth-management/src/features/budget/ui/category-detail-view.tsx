@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "-management/ui/card";
 import { Transaction } from "@wealth-management/types";
 import { formatVND } from "@wealth-management/utils";
-import { MaskedBalance } from "@/components/ui/masked-balance";
+import { MaskedBalance } from "-management/ui/masked-balance";
 import { Sparkles, ArrowLeft, TrendingUp, History, PieChart as PieChartIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { CategoryBadge } from "@/components/ui/category-badge";
+import { Button } from "-management/ui/button";
+import { CategoryBadge } from "-management/ui/category-badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { format } from "date-fns";
 

@@ -4,14 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Account } from '@wealth-management/types';
 import { Transaction } from '@wealth-management/types';
-import { Loading } from '@/components/ui/loading';
+import { Loading } from '@wealth-management/ui/loading';
 import { Card, CardContent } from '@wealth-management/ui/card';
 import { Landmark, ArrowLeft, MoreVertical, ShieldCheck, Zap, Info, ExternalLink } from 'lucide-react';
 import { UtilizationRing } from '@/features/accounts/ui/credit/utilization-ring';
 import { StatementCycleBar } from '@/features/accounts/ui/credit/statement-cycle-bar';
 import { DueDateCountdown } from '@/features/accounts/ui/credit/due-date-countdown';
-import { MaskedBalance } from '@/components/ui/masked-balance';
-import { Button } from '@/components/ui/button';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
+import { Button } from "@wealth-management/ui/button";
 import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 export default function CreditCardSubPage() {

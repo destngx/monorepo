@@ -27,8 +27,8 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Badge } from '@wealth-management/ui/badge';
+import { Button } from "@wealth-management/ui/button";
 import { GLASS_CARD, TERMINAL_FONT } from './market-pulse-dashboard';
 
 const fetcher = (url: string, body: any) => 

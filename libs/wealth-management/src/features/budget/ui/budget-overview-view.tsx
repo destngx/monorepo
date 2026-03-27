@@ -1,13 +1,13 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle } from "-management/ui/card";
+import { Progress } from "-management/ui/progress";
 import { BudgetItem } from "../model/types";
 import { formatVND } from "@wealth-management/utils";
-import { MaskedBalance } from "@/components/ui/masked-balance";
+import { MaskedBalance } from "-management/ui/masked-balance";
 import { Sparkles, ChevronLeft, ChevronRight, Plus, TrendingUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { CategoryBadge } from "@/components/ui/category-badge";
+import { Button } from "-management/ui/button";
+import { CategoryBadge } from "-management/ui/category-badge";
 
 interface BudgetOverviewViewProps {
   budget: BudgetItem[];

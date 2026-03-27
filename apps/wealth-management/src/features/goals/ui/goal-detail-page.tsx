@@ -2,12 +2,12 @@
 
 import { use, useState, useEffect } from 'react';
 import { Goal, GoalProjection } from '../model/types';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { Card, CardContent } from '@wealth-management/ui/card';
 import { ArrowLeft, Plus, Target, ShieldCheck, History as HistoryIcon, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { MaskedBalance } from '@/components/ui/masked-balance';
+import { Badge } from '@wealth-management/ui/badge';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 import { GoalDetailChart } from './goal-detail-chart';
 import { AIGoalInsights } from './ai-insights-panel';
 import { cn } from '@wealth-management/utils';

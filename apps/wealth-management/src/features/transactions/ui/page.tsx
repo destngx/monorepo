@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { Plus, ChevronUp, Loader2 } from 'lucide-react';
 import { TransactionFilters } from '@/components/transactions/transaction-filters';
 import { TransactionTable } from '@/components/transactions/transaction-table';
@@ -9,7 +9,7 @@ import { TransactionForm } from './transaction-form';
 import { NotificationProcessor } from '@/components/transactions/notification-processor';
 import { TransactionInput } from '@wealth-management/schemas';
 import { Transaction } from '../model/types';
-import { Loading } from '@/components/ui/loading';
+import { Loading } from '@wealth-management/ui/loading';
 import { subDays, isAfter } from 'date-fns';
 import { TransactionReviewAI } from '@/components/transactions/transaction-review-ai';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';

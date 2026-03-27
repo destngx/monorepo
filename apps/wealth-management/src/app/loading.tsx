@@ -1,6 +1,6 @@
 "use client";
 
-import { Loading } from "@/components/ui/loading";
+import { Loading } from "@wealth-management/ui/loading";
 
 export default function GlobalLoading() {
   return (

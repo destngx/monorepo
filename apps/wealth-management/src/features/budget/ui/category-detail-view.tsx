@@ -4,10 +4,10 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@wealth-management/ui/card";
 import { Transaction } from "@wealth-management/types";
 import { formatVND } from "@wealth-management/utils";
-import { MaskedBalance } from "@/components/ui/masked-balance";
+import { MaskedBalance } from "@wealth-management/ui/masked-balance";
 import { Sparkles, ArrowLeft, TrendingUp, History } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { CategoryBadge } from "@/components/ui/category-badge";
+import { Button } from "@wealth-management/ui/button";
+import { CategoryBadge } from "@wealth-management/ui/category-badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
 import { format } from "date-fns";
 

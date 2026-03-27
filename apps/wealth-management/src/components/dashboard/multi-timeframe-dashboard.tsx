@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import useSWR from 'swr';
 import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@wealth-management/ui/badge';
 import {
   History,
   ArrowRight,
@@ -26,7 +26,7 @@ import {
   TimeframeRelationshipGrid,
   TechnicalAnalysisView
 } from './market-pulse-dashboard';
-import { Label } from '@/components/ui/label';
+import { Label } from '@wealth-management/ui/label';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 

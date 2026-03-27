@@ -54,9 +54,9 @@ class UpstashRedisClient:
                     cmd.extend(["EX", str(ex)])
 
                 response = await client.post(
-                    f"{self.url}/exec",
+                    f"{self.url}/pipeline",
                     headers=self.headers,
-                    json={"commands": [cmd]},
+                    json=[cmd],
                     timeout=5.0,
                 )
                 response.raise_for_status()
@@ -70,9 +70,9 @@ class UpstashRedisClient:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    f"{self.url}/exec",
+                    f"{self.url}/pipeline",
                     headers=self.headers,
-                    json={"commands": [["DEL", key]]},
+                    json=[["DEL", key]],
                     timeout=5.0,
                 )
                 response.raise_for_status()

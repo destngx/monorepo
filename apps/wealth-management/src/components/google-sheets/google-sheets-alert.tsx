@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Terminal } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@wealth-management/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui/button";
 
 interface GoogleSheetsAlertProps {
   errorType: 'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR';

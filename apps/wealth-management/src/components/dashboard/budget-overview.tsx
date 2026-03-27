@@ -1,10 +1,10 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Progress } from '@wealth-management/ui/progress';
 import { BudgetItem } from '@wealth-management/types';
 import { Transaction } from '@wealth-management/types';
-import { MaskedBalance } from '@/components/ui/masked-balance';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { getEffectiveDate } from '@wealth-management/utils';

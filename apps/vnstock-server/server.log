@@ -1,0 +1,15 @@
+INFO:vnai.beam.auth:API key setup completed
+INFO:src.modules.shared.deps:✓ API key loaded and authenticated successfully
+INFO:src.cache:✓ Cache layer initialized (Upstash Redis)
+INFO:src.rate_limiter:✓ Rate limiter initialized: COMMUNITY (60 req/min, 10000 req/day)
+INFO:     Started server process [31294]
+INFO:     Waiting for application startup.
+INFO:src.main:Configuration validation passed
+INFO:src.main:Cache layer is operational
+INFO:src.main:✓ Rate limiter ready: COMMUNITY (60 req/min, 10000 req/day)
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [31294]

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { Account } from '@wealth-management/types';
 import { ACCOUNT_TYPES } from '@wealth-management/features/accounts/model/types';
-import { MaskedBalance } from '@/components/ui/masked-balance';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 import { Landmark, Wallet, BarChart3, Archive, Bitcoin, DollarSign } from 'lucide-react';
 
 const getIcon = (type: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
+import { Input } from "-management/ui/input";
 import { Search } from "lucide-react";
 
 interface TransactionFiltersProps {

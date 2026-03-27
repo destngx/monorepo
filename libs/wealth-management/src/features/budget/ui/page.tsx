@@ -1,7 +1,7 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Loading } from '@/components/ui/loading';
+import { Button } from '-management/ui/button';
+import { Loading } from '-management/ui/loading';
 import { BudgetItem } from '../model/types';
 import { Transaction } from '@wealth-management/types';
 import { addMonths, format, subMonths } from 'date-fns';

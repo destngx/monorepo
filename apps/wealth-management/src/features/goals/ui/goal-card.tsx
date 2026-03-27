@@ -2,8 +2,8 @@
 
 import { Card, CardContent } from '@wealth-management/ui/card';
 import { Goal } from '../model/types';
-import { MaskedBalance } from '@/components/ui/masked-balance';
-import { Badge } from '@/components/ui/badge';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
+import { Badge } from '@wealth-management/ui/badge';
 import Link from 'next/link';
 import { cn } from '@wealth-management/utils';
 

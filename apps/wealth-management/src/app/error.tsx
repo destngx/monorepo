@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { useErrorNotifications } from '@wealth-management/hooks';
 

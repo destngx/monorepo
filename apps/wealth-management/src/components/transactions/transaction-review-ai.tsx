@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Calendar } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { Transaction } from '@wealth-management/types';
 import { AIInsightRenderer } from '@wealth-management/ui';
 import type { StructuredInsight } from '@wealth-management/ai/server';

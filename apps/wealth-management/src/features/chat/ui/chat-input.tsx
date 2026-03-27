@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback } from "react";
 import { Send, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui/button";
 
 interface ChatInputProps {
   onSubmit: (message: string) => Promise<void>;

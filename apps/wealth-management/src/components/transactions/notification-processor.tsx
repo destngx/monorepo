@@ -8,13 +8,13 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+} from '@wealth-management/ui/dialog';
+import { Button } from "@wealth-management/ui/button";
 import { Check, AlertCircle, X, Sparkles } from 'lucide-react';
-import { MaskedBalance } from '@/components/ui/masked-balance';
-import { CategoryBadge } from '@/components/ui/category-badge';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
+import { CategoryBadge } from '@wealth-management/ui/category-badge';
 import { EmailNotification } from '@wealth-management/types';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@wealth-management/ui/tooltip';
 import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 
 interface ProposedTransaction {

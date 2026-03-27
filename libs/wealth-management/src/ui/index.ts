@@ -33,4 +33,5 @@ export { Avatar, AvatarFallback, AvatarImage } from './avatar';
 export { CategoryBadge } from './category-badge';
 export { MaskedBalance } from './masked-balance';
 export { Loading } from './loading';
+export { Skeleton } from './skeleton';
 export { AIInsightRenderer } from './ai-insight-renderer';

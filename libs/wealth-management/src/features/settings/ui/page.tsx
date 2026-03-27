@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "-management/ui/card";
+import { Button } from "-management/ui/button";
+import { Input } from "-management/ui/input";
+import { Label } from "-management/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "-management/ui/select";
 import { Save, Brain, Check, Github, Search, Filter } from "lucide-react";
 import { useAISettings, AIProvider } from "@/hooks/use-ai-settings";
 import { AI_MODELS } from "@wealth-management/ai";

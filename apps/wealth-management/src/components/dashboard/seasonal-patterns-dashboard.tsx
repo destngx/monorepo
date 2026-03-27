@@ -30,7 +30,7 @@ import {
   SeasonalityStatsTable 
 } from './market-pulse-dashboard';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@wealth-management/ui/badge';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 

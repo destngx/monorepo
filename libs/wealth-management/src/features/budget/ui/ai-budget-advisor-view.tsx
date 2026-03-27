@@ -1,11 +1,11 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "-management/ui/card";
 import { Sparkles, TrendingDown, Calendar, Wallet, Target, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { formatVND } from "@wealth-management/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "-management/ui/button";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "-management/ui/badge";
 
 interface AdvisorData {
   briefing: string;

@@ -1,8 +1,8 @@
 "use client";
 
 import { Loan } from "@wealth-management/types";
-import { MaskedBalance } from "@/components/ui/masked-balance";
-import { Progress } from "@/components/ui/progress";
+import { MaskedBalance } from "@wealth-management/ui/masked-balance";
+import { Progress } from "@wealth-management/ui/progress";
 import { 
   Table, 
   TableBody, 
@@ -10,7 +10,7 @@ import {
   TableHead, 
   TableHeader, 
   TableRow 
-} from "@/components/ui/table";
+} from "@wealth-management/ui/table";
 
 export function LoanList({ loans }: { loans: Loan[] }) {
   return (

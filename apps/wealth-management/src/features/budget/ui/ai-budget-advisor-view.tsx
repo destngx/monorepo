@@ -3,9 +3,9 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
 import { Sparkles, TrendingDown, Calendar, Wallet, Target, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { formatVND } from '@wealth-management/utils';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@wealth-management/ui/badge';
 
 export interface AdvisorData {
   briefing: string;

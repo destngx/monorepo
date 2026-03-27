@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Sparkles, X, Loader2, RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { Popover as PopoverPrimitive, Portal as PortalPrimitive } from 'radix-ui';
 import { isAppError, getErrorMessage } from '@wealth-management/utils/errors';
 

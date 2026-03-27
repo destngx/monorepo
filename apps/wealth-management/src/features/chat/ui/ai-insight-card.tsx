@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles, ArrowRight, BookOpen } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@wealth-management/ui/card";
 import { cn } from "@wealth-management/utils";
 

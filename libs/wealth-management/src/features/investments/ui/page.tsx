@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { MaskedBalance } from '@/components/ui/masked-balance';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '-management/ui/card';
+import { MaskedBalance } from '-management/ui/masked-balance';
 import { useApiErrorHandler } from '@/hooks/use-api-error-handler';
 import {
   TrendingUp,
@@ -25,10 +25,10 @@ import {
   User,
   Bot,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '-management/ui/button';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '-management/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '-management/ui/tooltip';
 import { MarketPulseDashboard } from '@/components/dashboard/market-pulse-dashboard';
 import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';

@@ -8,18 +8,18 @@ import {
   DialogTitle, 
   DialogDescription,
   DialogFooter
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+} from "-management/ui/dialog";
+import { Button } from "-management/ui/button";
 import { Check, AlertCircle, X, Sparkles } from "lucide-react";
-import { MaskedBalance } from "@/components/ui/masked-balance";
-import { CategoryBadge } from "@/components/ui/category-badge";
+import { MaskedBalance } from "-management/ui/masked-balance";
+import { CategoryBadge } from "-management/ui/category-badge";
 import { EmailNotification } from "@wealth-management/types";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "-management/ui/tooltip";
 
 interface ProposedTransaction {
   notificationId: string;

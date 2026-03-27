@@ -13,7 +13,7 @@ import {
   subMonths
 } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@wealth-management/ui/select";
 
 import { getEffectiveDate } from "@wealth-management/utils";
 

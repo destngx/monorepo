@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@wealth-management/ui/card";
-import { TrendingUp, AlertCircle, ShieldCheck, HelpCircle, Users, Coins } from "lucide-react";
-import { MaskedBalance } from "../ui/masked-balance";
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
+import { TrendingUp, AlertCircle, ShieldCheck, HelpCircle, Users, Coins } from 'lucide-react';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 
 interface PatternData {
   forecast?: { message: string; amount: number; status: 'on-track' | 'at-risk' };
@@ -31,9 +31,11 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
             <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed">
               {patterns.forecast.message}
             </p>
-            <div className={`mt-3 text-xs font-bold uppercase tracking-wider ${
-              patterns.forecast.status === 'at-risk' ? 'text-rose-500' : 'text-emerald-500'
-            }`}>
+            <div
+              className={`mt-3 text-xs font-bold uppercase tracking-wider ${
+                patterns.forecast.status === 'at-risk' ? 'text-rose-500' : 'text-emerald-500'
+              }`}
+            >
               Status: {patterns.forecast.status.replace('-', ' ')}
             </div>
           </CardContent>
@@ -52,14 +54,12 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
           <CardContent className="space-y-3">
             <div className="flex items-center gap-4">
               <div className="text-3xl font-black text-indigo-500">{patterns.portfolioScore.score}</div>
-              <p className="text-xs text-zinc-500 font-medium leading-snug">
-                {patterns.portfolioScore.breakdown}
-              </p>
+              <p className="text-xs text-zinc-500 font-medium leading-snug">{patterns.portfolioScore.breakdown}</p>
             </div>
             <div className="w-full bg-zinc-100 dark:bg-zinc-900 h-1.5 rounded-full overflow-hidden">
-              <div 
-                className="bg-indigo-500 h-full rounded-full transition-all duration-1000" 
-                style={{ width: `${patterns.portfolioScore.score}%` }} 
+              <div
+                className="bg-indigo-500 h-full rounded-full transition-all duration-1000"
+                style={{ width: `${patterns.portfolioScore.score}%` }}
               />
             </div>
           </CardContent>
@@ -76,7 +76,9 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200 italic mb-2">"{patterns.whatIf.scenario}"</p>
+            <p className="text-sm font-bold text-zinc-800 dark:text-zinc-200 italic mb-2">
+              "{patterns.whatIf.scenario}"
+            </p>
             <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/20 p-2 rounded-lg">
               Potential Impact: {patterns.whatIf.impact}
             </p>
@@ -98,7 +100,9 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
               <div key={i} className="space-y-1">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-zinc-800 dark:text-zinc-200">{a.title}</span>
-                  <span className="text-amber-600 tabular-nums"><MaskedBalance amount={a.amount} /></span>
+                  <span className="text-amber-600 tabular-nums">
+                    <MaskedBalance amount={a.amount} />
+                  </span>
                 </div>
                 <p className="text-[10px] text-zinc-500">{a.reason}</p>
               </div>
@@ -117,9 +121,7 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium mb-3">
-              {patterns.benchmarking.message}
-            </p>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium mb-3">{patterns.benchmarking.message}</p>
             <div className="flex items-center gap-2">
               <div className="text-xl font-black text-blue-500">Top {100 - patterns.benchmarking.percentile}%</div>
               <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-tighter">Savings percentile</span>
@@ -145,7 +147,9 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
               {patterns.investments.tactic}
             </p>
             <div className="p-2 bg-violet-50 dark:bg-violet-950/20 rounded-lg border border-violet-100 dark:border-violet-900/50">
-              <p className="text-[10px] uppercase font-black text-violet-700 dark:text-violet-300 mb-1">Tactical Opportunity</p>
+              <p className="text-[10px] uppercase font-black text-violet-700 dark:text-violet-300 mb-1">
+                Tactical Opportunity
+              </p>
               <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">{patterns.investments.opportunity}</p>
             </div>
           </CardContent>

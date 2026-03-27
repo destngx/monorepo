@@ -1,9 +1,9 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@wealth-management/ui/card';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from "@wealth-management/ui/button";
+import { Label } from '@wealth-management/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@wealth-management/ui/select';
 import { Save, Brain, Check, Github, Search, Filter } from 'lucide-react';
 import { useAISettings, AIProvider } from '@/hooks/use-ai-settings';
 import { AI_MODELS } from '@wealth-management/ai';

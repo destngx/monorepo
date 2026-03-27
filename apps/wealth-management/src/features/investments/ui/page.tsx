@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
-import { MaskedBalance } from '@/components/ui/masked-balance';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 import {
   TrendingUp,
   Globe,
@@ -19,10 +19,10 @@ import {
   Layers,
   Newspaper,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@wealth-management/ui/tooltip';
 import { MarketPulseDashboard } from '@/components/dashboard/market-pulse-dashboard';
 import { MultiTimeframeDashboard } from '@/components/dashboard/multi-timeframe-dashboard';
 import { SeasonalPatternsDashboard } from '../../../components/dashboard/seasonal-patterns-dashboard';

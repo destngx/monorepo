@@ -1,6 +1,6 @@
 "use client";
 
-import { MaskedBalance } from "@/components/ui/masked-balance";
+import { MaskedBalance } from "@wealth-management/ui/masked-balance";
 import { Calendar } from "lucide-react";
 
 interface DueDateCountdownProps {

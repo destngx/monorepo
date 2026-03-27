@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "-management/ui/card";
+import { Button } from "-management/ui/button";
 import { Sparkles, BrainCircuit, Lightbulb, TrendingUp } from "lucide-react";
 import { Transaction } from "@wealth-management/types";
 import ReactMarkdown from "react-markdown";
@@ -11,10 +11,10 @@ import type { StructuredInsight } from "../../ai/core/types";
 
 import { 
   Tabs, TabsList, TabsTrigger 
-} from "@/components/ui/tabs";
+} from "-management/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select";
+} from "-management/ui/select";
 
 interface Props {
   transactions: Transaction[];

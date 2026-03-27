@@ -2,8 +2,8 @@
 
 import { use, useState, useEffect } from 'react';
 import { Goal, GoalProjection } from '../model/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '-management/ui/button';
+import { Card, CardContent } from '-management/ui/card';
 import {
   ArrowLeft,
   Plus,
@@ -15,8 +15,8 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { MaskedBalance } from '@/components/ui/masked-balance';
+import { Badge } from '-management/ui/badge';
+import { MaskedBalance } from '-management/ui/masked-balance';
 import { GoalDetailChart } from './goal-detail-chart';
 import { AIGoalInsights } from './ai-insights-panel';
 import { cn } from '@wealth-management/utils';

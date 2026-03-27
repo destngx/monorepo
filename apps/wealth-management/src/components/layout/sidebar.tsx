@@ -9,13 +9,13 @@ import {
 import { cn } from "@wealth-management/utils";
 import { NAV_LINKS } from "@wealth-management/utils";
 import { useSidebar } from "./sidebar-provider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@wealth-management/ui/tooltip";
 
 export function Sidebar() {
   const pathname = usePathname();

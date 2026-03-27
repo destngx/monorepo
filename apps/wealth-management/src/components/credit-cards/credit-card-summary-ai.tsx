@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { Sparkles, BrainCircuit, Lightbulb, TrendingUp } from 'lucide-react';
 import { Transaction } from '@wealth-management/types';
 import ReactMarkdown from 'react-markdown';
 import { AIInsightRenderer } from '@wealth-management/ui';
 import type { StructuredInsight } from '@wealth-management/ai/server';
 
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@wealth-management/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@wealth-management/ui/select';
 import { isAppError, getErrorMessage, AppError } from '@wealth-management/utils/errors';
 
 interface Props {

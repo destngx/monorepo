@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@wealth-management/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button } from "@wealth-management/ui/button";
 import { Sparkles } from "lucide-react";
 import { Account } from "../model/types";
 import ReactMarkdown from "react-markdown";

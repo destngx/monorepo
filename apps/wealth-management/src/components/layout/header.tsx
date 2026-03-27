@@ -2,11 +2,11 @@
 
 import { usePathname } from 'next/navigation';
 import { RefreshCw, Menu, Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@wealth-management/ui/button";
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAISettings } from '@/hooks/use-ai-settings';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from '@wealth-management/ui/sheet';
 import { NAV_LINKS } from '@wealth-management/utils';
 import Link from 'next/link';
 import { cn } from '@wealth-management/utils';

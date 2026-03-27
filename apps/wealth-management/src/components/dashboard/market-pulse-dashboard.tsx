@@ -40,11 +40,11 @@ import {
   ArrowRight,
   Target,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip as ShadcnTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from "@wealth-management/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@wealth-management/ui/select';
+import { Badge } from '@wealth-management/ui/badge';
+import { Tooltip as ShadcnTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@wealth-management/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui/tabs';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
 
 export const GLASS_CARD =

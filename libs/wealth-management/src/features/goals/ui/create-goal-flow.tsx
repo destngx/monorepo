@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "-management/ui/button";
+import { Input } from "-management/ui/input";
+import { Card, CardContent } from "-management/ui/card";
 import { ArrowRight, ArrowLeft, Check, Sparkles, Target, Wallet, Calendar } from "lucide-react";
 import { cn } from "@wealth-management/utils";
 import { GoalType } from "../model/types";
