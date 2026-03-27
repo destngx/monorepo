@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { getLanguageModel } from '@wealth-management/ai/providers';
 import { buildSystemPrompt, loadTaskPrompt, loadActionPrompt, replacePlaceholders } from '@wealth-management/ai/server';
 import { getBudget } from '@wealth-management/services/server';
 import { getAccounts } from '@wealth-management/services/server';
@@ -37,12 +37,13 @@ export async function POST(req: Request) {
     const actionPrompt = await loadActionPrompt('parse-notifications');
 
     const { text } = await generateText({
-      model: openai('gpt-4o'),
+      model: getLanguageModel('github-gpt-4o'),
       system: systemPrompt,
       prompt: actionPrompt,
     });
 
     const cleanText = text.trim();
+    console.log('AI Response:', cleanText.substring(0, 500)); // Log first 500 chars
     const startBracket = cleanText.indexOf('[');
     const endBracket = cleanText.lastIndexOf(']');
 

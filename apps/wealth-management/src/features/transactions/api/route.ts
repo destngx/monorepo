@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getTransactions, addTransaction } from '@wealth-management/services/server';
-import { TransactionSchema } from '@wealth-management/schemas';
+import { TransactionInputSchema } from '@wealth-management/schemas';
 import { getCategories } from '@wealth-management/services/server';
 import { parseDate } from '@wealth-management/utils';
 import { handleApiError } from '@wealth-management/utils/server';
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       body.date = parseDate(String(body.date));
     }
 
-    const validatedData = TransactionSchema.parse(body);
+    const validatedData = TransactionInputSchema.parse(body);
 
     await addTransaction({
       ...validatedData,

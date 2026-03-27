@@ -1,33 +1,34 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Plus, ChevronUp, Loader2 } from "lucide-react";
-import { TransactionFilters } from "@/components/transactions/transaction-filters";
-import { TransactionTable } from "@/components/transactions/transaction-table";
-import { TransactionForm } from "@/components/transactions/transaction-form";
-import { NotificationProcessor } from "@/components/transactions/notification-processor";
-import { TransactionInput } from "@wealth-management/schemas";
-import { Transaction } from "../model/types";
-import { Loading } from "@/components/ui/loading";
-import { subDays, isAfter } from "date-fns";
-import { TransactionReviewAI } from "@/components/transactions/transaction-review-ai";
-import { AIDataInsight } from "@/components/dashboard/ai-data-insight";
-import { Sparkles } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import { Plus, ChevronUp, Loader2 } from 'lucide-react';
+import { TransactionFilters } from '@/components/transactions/transaction-filters';
+import { TransactionTable } from '@/components/transactions/transaction-table';
+import { TransactionForm } from './transaction-form';
+import { NotificationProcessor } from '@/components/transactions/notification-processor';
+import { TransactionInput } from '@wealth-management/schemas';
+import { Transaction } from '../model/types';
+import { Loading } from '@/components/ui/loading';
+import { subDays, isAfter } from 'date-fns';
+import { TransactionReviewAI } from '@/components/transactions/transaction-review-ai';
+import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
+import { Sparkles } from 'lucide-react';
 
-import { GoogleSheetsAlert } from "@/components/google-sheets/google-sheets-alert";
+import { GoogleSheetsAlert } from '@/components/google-sheets/google-sheets-alert';
 
 const PAGE_SIZE = 500;
 
 function filterTransactions(txns: Transaction[], q: string): Transaction[] {
   if (!q.trim()) return txns;
   const lower = q.toLowerCase();
-  return txns.filter(t =>
-    t.payee?.toLowerCase().includes(lower) ||
-    t.accountName?.toLowerCase().includes(lower) ||
-    t.category?.toLowerCase().includes(lower) ||
-    t.memo?.toLowerCase().includes(lower) ||
-    t.tags?.some(tag => tag.toLowerCase().includes(lower))
+  return txns.filter(
+    (t) =>
+      t.payee?.toLowerCase().includes(lower) ||
+      t.accountName?.toLowerCase().includes(lower) ||
+      t.category?.toLowerCase().includes(lower) ||
+      t.memo?.toLowerCase().includes(lower) ||
+      t.tags?.some((tag) => tag.toLowerCase().includes(lower)),
   );
 }
 
@@ -36,7 +37,7 @@ export default function TransactionsPage() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [pendingNotifCount, setPendingNotifCount] = useState(0);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [isLoading, setIsLoading] = useState(true);
   const [shouldShowScrollTop, setShouldShowScrollTop] = useState(false);
@@ -49,13 +50,13 @@ export default function TransactionsPage() {
     try {
       const res = await fetch('/api/transactions');
       if (res.ok) {
-        const data = await res.json() as Transaction[];
+        const data = (await res.json()) as Transaction[];
         // Sort newest-first at the source so pagination stays chronologically correct
         data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setAllTransactions(data);
         setVisibleCount(PAGE_SIZE);
       } else if (res.status === 401) {
-        const errorData = await res.json() as { code?: 'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR' };
+        const errorData = (await res.json()) as { code?: 'MISSING_CREDENTIALS' | 'OAUTH_EXPIRED' | 'API_ERROR' };
         setAuthError(errorData.code || 'API_ERROR');
       }
     } catch (e) {
@@ -70,16 +71,16 @@ export default function TransactionsPage() {
     try {
       const res = await fetch('/api/notifications');
       if (res.ok) {
-        const data = await res.json() as unknown[];
+        const data = (await res.json()) as unknown[];
         setPendingNotifCount(data.length);
       }
     } catch (e) {
-      console.error("Failed to fetch notifications count", e);
+      console.error('Failed to fetch notifications count', e);
     }
   };
 
-  useEffect(() => { 
-    void fetchTransactions(); 
+  useEffect(() => {
+    void fetchTransactions();
     void fetchPendingCount();
   }, []);
 
@@ -92,12 +93,12 @@ export default function TransactionsPage() {
   // Show scroll-to-top when scrolled past 400px
   useEffect(() => {
     const onScroll = () => setShouldShowScrollTop(window.scrollY > 400);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   const scrollToTop = useCallback(() => {
-    topRef.current?.scrollIntoView({ behavior: "smooth" });
+    topRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
   // Filter first, then paginate
@@ -106,14 +107,20 @@ export default function TransactionsPage() {
   const hasMore = visibleCount < filtered.length;
   const remaining = filtered.length - visibleCount;
 
-  const handleLoadMore = () => setVisibleCount(prev => prev + PAGE_SIZE);
+  const handleLoadMore = () => setVisibleCount((prev) => prev + PAGE_SIZE);
 
   const handleCreate = async (data: TransactionInput) => {
-    await fetch('/api/transactions', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res = await fetch('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || `Failed to create transaction: ${res.status}`);
+    }
+
     setIsFormOpen(false);
     void fetchTransactions();
   };
@@ -124,27 +131,27 @@ export default function TransactionsPage() {
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-        <div className="flex items-center gap-2">
-          <h2 className="text-2xl font-bold tracking-tight">Transactions</h2>
-          <AIDataInsight 
-            type="Transaction Data"
-            description="Overview of recent transactions including payee, category, and amounts."
-            data={visibleTransactions}
-          />
-        </div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-tight">Transactions</h2>
+            <AIDataInsight
+              type="Transaction Data"
+              description="Overview of recent transactions including payee, category, and amounts."
+              data={visibleTransactions}
+            />
+          </div>
           <p className="text-muted-foreground text-sm">
             {isLoading
-              ? "Thinking…"
+              ? 'Thinking…'
               : search
-              ? `${filtered.length} result${filtered.length !== 1 ? "s" : ""} for "${search}" · showing ${visibleTransactions.length}`
-              : `${allTransactions.length} total · showing ${visibleTransactions.length}`}
+                ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''} for "${search}" · showing ${visibleTransactions.length}`
+                : `${allTransactions.length} total · showing ${visibleTransactions.length}`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <div className="relative">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsNotifOpen(true)} 
+            <Button
+              variant="outline"
+              onClick={() => setIsNotifOpen(true)}
               className="gap-2 cursor-pointer border-indigo-200 bg-indigo-50/30 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
             >
               <Sparkles className="h-4 w-4" />
@@ -164,14 +171,12 @@ export default function TransactionsPage() {
       </div>
 
       {/* Google Sheets Auth Alerts */}
-      {authError && (
-        <GoogleSheetsAlert errorType={authError} />
-      )}
+      {authError && <GoogleSheetsAlert errorType={authError} />}
 
       {/* AI Transaction Review for Last 7 Days */}
       {!isLoading && allTransactions.length > 0 && !authError && (
-        <TransactionReviewAI 
-          transactions={allTransactions.filter(t => isAfter(new Date(t.date), subDays(new Date(), 7)))} 
+        <TransactionReviewAI
+          transactions={allTransactions.filter((t) => isAfter(new Date(t.date), subDays(new Date(), 7)))}
         />
       )}
 
@@ -186,11 +191,7 @@ export default function TransactionsPage() {
 
             {hasMore && (
               <div className="flex flex-col items-center gap-1 pt-6 pb-2">
-                <Button
-                  variant="outline"
-                  className="gap-2 cursor-pointer min-w-[220px]"
-                  onClick={handleLoadMore}
-                >
+                <Button variant="outline" className="gap-2 cursor-pointer min-w-[220px]" onClick={handleLoadMore}>
                   <Loader2 className="h-4 w-4" />
                   Load {Math.min(PAGE_SIZE, remaining)} more
                   <span className="text-muted-foreground text-xs">({remaining} remaining)</span>
@@ -199,20 +200,14 @@ export default function TransactionsPage() {
             )}
 
             {!hasMore && filtered.length > PAGE_SIZE && (
-              <p className="text-center text-xs text-muted-foreground pt-4">
-                All {filtered.length} transactions shown
-              </p>
+              <p className="text-center text-xs text-muted-foreground pt-4">All {filtered.length} transactions shown</p>
             )}
           </>
         )}
       </div>
 
       <TransactionForm open={isFormOpen} onOpenChange={setIsFormOpen} onSubmit={handleCreate} />
-      <NotificationProcessor 
-        open={isNotifOpen} 
-        onOpenChange={setIsNotifOpen} 
-        onComplete={fetchTransactions} 
-      />
+      <NotificationProcessor open={isNotifOpen} onOpenChange={setIsNotifOpen} onComplete={fetchTransactions} />
 
       {shouldShowScrollTop && (
         <button
