@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@wealth-management/ui/card";
 import { HeartPulse, CheckCircle2, AlertCircle } from "lucide-react";
 import { AIDataInsight } from "@/components/dashboard/ai-data-insight";
 

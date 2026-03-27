@@ -62,9 +62,9 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-8 pb-12">
+    <div className="flex flex-col gap-8 pb-12 min-h-screen bg-dashboard-gradient">
       <ServerErrorNotifier errors={serverErrors} />
-      <div className="space-y-8 max-w-7xl mx-auto w-full">
+      <div className="space-y-8 max-w-7xl mx-auto w-full px-4 sm:px-6">
         {/* Top Intelligence Section */}
         <section className="space-y-6">
           <NetWorthTrendCard accounts={accounts} transactions={transactions} loans={loans} />

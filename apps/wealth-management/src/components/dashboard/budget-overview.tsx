@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { BudgetItem } from '@wealth-management/types';
 import { Transaction } from '@wealth-management/types';
@@ -57,7 +57,7 @@ export function BudgetOverview({ budget, transactions }: { budget: BudgetItem[];
     .slice(0, 5);
 
   return (
-    <Card className="col-span-1 shadow-sm flex flex-col justify-between h-full">
+    <Card glass className="col-span-1 border-none shadow-xl flex flex-col justify-between h-full">
       <CardHeader>
         <CardTitle className="text-lg">Budget Overview</CardTitle>
         <CardDescription>Top 5 budget constraints of this month</CardDescription>

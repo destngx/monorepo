@@ -17,7 +17,7 @@ import {
   PieChart as RePieChart,
   Pie,
 } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import {
   TrendingUp,
   Activity,

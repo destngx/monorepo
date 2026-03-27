@@ -3,7 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import { Goal, GoalProjection } from '../model/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@wealth-management/ui/card';
 import { ArrowLeft, Plus, Target, ShieldCheck, History as HistoryIcon, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';

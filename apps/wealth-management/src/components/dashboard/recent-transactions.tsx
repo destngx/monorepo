@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { Transaction } from '@wealth-management/types';
 import { MaskedBalance } from '@/components/ui/masked-balance';
 import { formatDate } from '@wealth-management/utils';

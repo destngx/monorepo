@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@wealth-management/ui/card";
 import { TrendingUp, AlertCircle, ShieldCheck, HelpCircle, Users, Coins } from "lucide-react";
 import { MaskedBalance } from "../ui/masked-balance";
 
@@ -20,7 +20,7 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 margin-bottom-4">
       {/* Spending Forecast */}
       {patterns.forecast && (
-        <Card className="border-none bg-white dark:bg-zinc-950 shadow-sm border-l-4 border-l-primary ">
+        <Card glass className="border-none border-l-4 border-l-primary ">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
@@ -42,7 +42,7 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
 
       {/* Portfolio Health Score */}
       {patterns.portfolioScore && (
-        <Card className="border-none bg-white dark:bg-zinc-950 shadow-sm border-l-4 border-l-indigo-500">
+        <Card glass className="border-none border-l-4 border-l-indigo-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-indigo-500" />
@@ -68,7 +68,7 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
 
       {/* What-If Scenarios */}
       {patterns.whatIf && (
-        <Card className="border-none bg-white dark:bg-zinc-950 shadow-sm border-l-4 border-l-emerald-500">
+        <Card glass className="border-none border-l-4 border-l-emerald-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <HelpCircle className="h-4 w-4 text-emerald-500" />
@@ -86,7 +86,7 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
 
       {/* Anomaly Detection */}
       {patterns.anomalies && patterns.anomalies.length > 0 && (
-        <Card className="border-none bg-white dark:bg-zinc-950 shadow-sm border-l-4 border-l-amber-500">
+        <Card glass className="border-none border-l-4 border-l-amber-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-amber-500" />
@@ -109,7 +109,7 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
 
       {/* Peer Benchmarking */}
       {patterns.benchmarking && (
-        <Card className="border-none bg-white dark:bg-zinc-950 shadow-sm border-l-4 border-l-blue-500">
+        <Card glass className="border-none border-l-4 border-l-blue-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Users className="h-4 w-4 text-blue-500" />
@@ -130,7 +130,7 @@ export function AIInsightPatterns({ patterns }: { patterns: PatternData | undefi
 
       {/* Investment Insights */}
       {patterns.investments && (
-        <Card className="border-none bg-white dark:bg-zinc-950 shadow-sm border-l-4 border-l-violet-500">
+        <Card glass className="border-none border-l-4 border-l-violet-500">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Coins className="h-4 w-4 text-violet-500" />

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Account } from '@wealth-management/types';
 import { Transaction } from '@wealth-management/types';
 import { Loading } from '@/components/ui/loading';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@wealth-management/ui/card';
 import { Landmark, ArrowLeft, MoreVertical, ShieldCheck, Zap, Info, ExternalLink } from 'lucide-react';
 import { UtilizationRing } from '@/features/accounts/ui/credit/utilization-ring';
 import { StatementCycleBar } from '@/features/accounts/ui/credit/statement-cycle-bar';

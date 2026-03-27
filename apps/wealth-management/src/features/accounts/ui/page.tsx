@@ -7,7 +7,7 @@ import { Account } from '../model/types';
 import { Transaction } from '@wealth-management/types';
 import { ACCOUNT_TYPES } from '@wealth-management/features/accounts/model/types';
 import { type AccountType } from '../model/types';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@wealth-management/ui/card';
 import { Progress } from '@/components/ui/progress';
 import {
   Landmark,

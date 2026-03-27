@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@wealth-management/ui/card";
 import { MaskedBalance } from "@/components/ui/masked-balance";
 import { Account } from "@wealth-management/types";
 import { Transaction } from "@wealth-management/types";
@@ -55,7 +55,7 @@ export function NetWorthTrendCard({ accounts, transactions, loans }: NetWorthTre
   }, [currentNetWorth, transactions]);
 
   return (
-    <Card className="overflow-hidden border-none bg-gradient-to-br from-zinc-900 to-black text-white shadow-2xl relative">
+    <Card glass className="overflow-hidden border-none text-white shadow-2xl relative">
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
       
       <CardContent className="p-8 relative z-10">

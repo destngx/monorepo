@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Terminal } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@wealth-management/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface GoogleSheetsAlertProps {

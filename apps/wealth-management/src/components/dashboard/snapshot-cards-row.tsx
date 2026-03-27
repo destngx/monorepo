@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@wealth-management/ui/card";
 import { MaskedBalance } from "@/components/ui/masked-balance";
 import { Account } from "@wealth-management/types";
 import { Transaction } from "@wealth-management/types";

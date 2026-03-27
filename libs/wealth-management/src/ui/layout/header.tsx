@@ -9,7 +9,7 @@ import { useAISettings } from "@/hooks/use-ai-settings";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import { NAV_LINKS } from "@wealth-management/utils";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn } from "@wealth-management/utils";
 import { ModelSwitcher } from "@/components/chat/model-switcher";
 import { useMask } from "@/components/mask-provider";
 

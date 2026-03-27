@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@wealth-management/ui/card';
 import { Sparkles, Loader2, Info, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Account } from '@wealth-management/types';
 import { Transaction } from '@wealth-management/types';
@@ -65,7 +65,7 @@ export function AIDailyBriefing({ accounts, transactions, budget, loans }: AIDai
 
   if (loading) {
     return (
-      <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 animate-pulse">
+      <Card glass className="border-none animate-pulse">
         <CardContent className="p-6 flex items-center justify-center gap-3">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           <span className="text-sm font-medium text-muted-foreground italic">
@@ -79,7 +79,7 @@ export function AIDailyBriefing({ accounts, transactions, budget, loans }: AIDai
   return (
     <div className="space-y-6">
       {/* Briefing Card */}
-      <Card className="border-none bg-white dark:bg-zinc-950 shadow-xl shadow-zinc-200/50 dark:shadow-none overflow-hidden relative">
+      <Card glass className="border-none overflow-hidden relative">
         <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
         <CardContent className="p-6">
           <div className="flex items-start gap-4">

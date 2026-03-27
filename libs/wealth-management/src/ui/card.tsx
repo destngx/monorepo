@@ -1,13 +1,14 @@
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@wealth-management/utils"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({ className, glass, ...props }: React.ComponentProps<"div"> & { glass?: boolean }) {
   return (
     <div
       data-slot="card"
       className={cn(
         "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm",
+        glass && "glass backdrop-blur-md border-white/10 dark:border-white/5",
         className
       )}
       {...props}

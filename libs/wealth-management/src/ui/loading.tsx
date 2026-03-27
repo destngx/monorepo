@@ -1,5 +1,5 @@
 import { Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@wealth-management/utils";
 
 interface LoadingProps extends React.HTMLAttributes<HTMLDivElement> {
   message?: string;

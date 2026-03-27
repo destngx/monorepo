@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { Button } from '@/components/ui/button';
 import { Sparkles, ShieldAlert } from 'lucide-react';
 import { Loan } from '@wealth-management/types';

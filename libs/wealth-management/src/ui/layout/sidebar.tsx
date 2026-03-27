@@ -6,7 +6,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@wealth-management/utils";
 import { NAV_LINKS } from "@wealth-management/utils";
 import { useSidebar } from "./sidebar-provider";
 import { Button } from "@/components/ui/button";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSidebar } from "./sidebar-provider";
-import { cn } from "@/lib/utils";
+import { cn } from "@wealth-management/utils";
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSidebar();

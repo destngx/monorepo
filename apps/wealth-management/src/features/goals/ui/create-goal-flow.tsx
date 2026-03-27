@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
+import { Card } from '@wealth-management/ui/card';
 import { ArrowRight, ArrowLeft, Check, Sparkles, Calendar } from 'lucide-react';
 import { cn } from '@wealth-management/utils';
 import { GoalType } from '../model/types';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { Account } from '@wealth-management/types';
 import { Transaction } from '@wealth-management/types';
 import { Loan } from '@wealth-management/types';

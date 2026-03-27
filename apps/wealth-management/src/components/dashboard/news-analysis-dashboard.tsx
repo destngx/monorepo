@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import useSWR from 'swr';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
 import { 
   BarChart, 
   Bar, 

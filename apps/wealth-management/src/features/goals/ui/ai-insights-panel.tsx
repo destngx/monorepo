@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@wealth-management/ui/card';
 import { GoalProjection } from '../model/types';
 import { TrendingUp, Clock, Rocket } from 'lucide-react';
 import { formatVND } from '@wealth-management/utils';

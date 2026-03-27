@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { Account } from '@wealth-management/types';
 import { ACCOUNT_TYPES } from '@wealth-management/features/accounts/model/types';
 import { MaskedBalance } from '@/components/ui/masked-balance';
@@ -26,7 +26,7 @@ export function AccountsSummary({ accounts }: { accounts: Account[] }) {
   const sortedAccounts = [...accounts].sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 5);
 
   return (
-    <Card className="col-span-1 shadow-sm h-full flex flex-col">
+    <Card glass className="col-span-1 border-none shadow-xl h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg">Top Accounts</CardTitle>
       </CardHeader>

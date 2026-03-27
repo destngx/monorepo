@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@wealth-management/ui/card";
 import { Transaction } from "@wealth-management/types";
 import { 
   format, 
@@ -64,7 +64,7 @@ export function SpendingChart({ transactions }: { transactions: Transaction[] })
   }, [transactions, range]);
 
   return (
-    <Card className="h-full shadow-sm">
+    <Card glass className="h-full border-none shadow-xl">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
         <div>
           <CardTitle className="text-lg">Income vs Expense</CardTitle>

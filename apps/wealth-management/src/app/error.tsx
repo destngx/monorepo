@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wealth-management/ui/card';
 import { useErrorNotifications } from '@wealth-management/hooks';
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {

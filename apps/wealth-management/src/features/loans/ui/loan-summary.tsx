@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@wealth-management/ui/card";
 import { Landmark, TrendingDown, Clock } from "lucide-react";
 import { MaskedBalance } from "@/components/ui/masked-balance";
 import { Loan } from "../model/types";

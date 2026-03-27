@@ -1,7 +1,7 @@
 'use client';
 
 import { useFmarket } from '../model/use-fmarket';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, Landmark, Award, RefreshCcw } from 'lucide-react';
