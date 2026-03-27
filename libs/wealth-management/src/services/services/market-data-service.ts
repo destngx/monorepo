@@ -214,8 +214,9 @@ const VN_TICKERS = [
 export async function getMarketPulseData(
   timeframe: '1h' | '4h' | '1d' | '1w' = '1h',
   forceRefresh = false,
+  market?: 'US' | 'VN',
 ): Promise<MarketPulseResponse> {
-  const cacheKey = `${CACHE_PREFIX}full-data:${timeframe}`;
+  const cacheKey = `${CACHE_PREFIX}full-data:${timeframe}:${market || 'all'}`;
 
   if (!forceRefresh) {
     const cached = await getCached<MarketPulseResponse>(cacheKey);
@@ -224,10 +225,24 @@ export async function getMarketPulseData(
 
   const now = new Date();
 
-  // Fetch US and VN symbols in parallel
+  // Only fetch the requested market(s)
+  const shouldFetchUS = !market || market === 'US';
+  const shouldFetchVN = !market || market === 'VN';
+
+  const emptyMarketState: MarketState = {
+    assets: [],
+    assetList: [],
+    correlationMatrix: [],
+    technicals: {} as any,
+    valuation: {} as any,
+    drivers: {} as any,
+    scenarios: [],
+    capitalFlow: {} as any,
+  };
+
   const [usData, vnData] = await Promise.all([
-    fetchMarketGroup(US_TICKERS, 'US', timeframe),
-    fetchMarketGroup(VN_TICKERS, 'VN', timeframe),
+    shouldFetchUS ? fetchMarketGroup(US_TICKERS, 'US', timeframe) : Promise.resolve(emptyMarketState),
+    shouldFetchVN ? fetchMarketGroup(VN_TICKERS, 'VN', timeframe) : Promise.resolve(emptyMarketState),
   ]);
 
   // Fetch real VN Gold (SJC 9999) from vang.today API
@@ -811,9 +826,9 @@ export function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): 
   const sma50 = calculateSMA(closes, 50);
 
   // Real ATR Calculation
-  const highs = primaryAsset.highs || [];
-  const lows = primaryAsset.lows || [];
-  let atr = primaryAsset.price * 0.02; // Fallback
+  const highs = primaryAsset?.highs || [];
+  const lows = primaryAsset?.lows || [];
+  let atr = (primaryAsset?.price || 0) * 0.02; // Fallback
 
   if (closes.length > 14 && highs.length > 14 && lows.length > 14) {
     let trSum = 0;
@@ -832,7 +847,7 @@ export function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): 
   let desc = '';
   let descVi = '';
 
-  const currentPrice = primaryAsset.price;
+  const currentPrice = primaryAsset?.price || 0;
   const isAboveEma20 = ema20 ? currentPrice > ema20 : false;
   const isAboveEma50 = ema50 ? currentPrice > ema50 : false;
   const isAboveEma200 = ema200 ? currentPrice > ema200 : true; // Trend fallback
@@ -972,7 +987,7 @@ export function generateTechnicals(assets: MarketAsset[], market: 'US' | 'VN'): 
   });
 
   // Seasonality calculation
-  const dates = (primaryAsset.timestamps || []).map((ts) => new Date(ts * 1000));
+  const dates = (primaryAsset?.timestamps || []).map((ts) => new Date(ts * 1000));
   const dayStats = calculateSeasonality(closes, dates, 'day');
   const weekStats = calculateSeasonality(closes, dates, 'week');
   const monthStats = calculateSeasonality(closes, dates, 'month');

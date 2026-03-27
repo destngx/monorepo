@@ -6,9 +6,10 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const timeframe = (searchParams.get('timeframe') as '1h' | '4h' | '1d' | '1w') || '1h';
+    const market = (searchParams.get('market') as 'US' | 'VN') || undefined;
     const shouldForce = searchParams.get('force') === 'true';
 
-    const data = await getMarketPulseData(timeframe, shouldForce);
+    const data = await getMarketPulseData(timeframe, shouldForce, market);
     return NextResponse.json(data);
   } catch (error) {
     if (isAppError(error)) {

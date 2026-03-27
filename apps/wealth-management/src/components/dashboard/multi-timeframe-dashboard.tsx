@@ -41,10 +41,10 @@ export function MultiTimeframeDashboard() {
   const [selectedTFs, setSelectedTFs] = useState<string[]>(['1h', '4h', '1d', '1w']);
   const [market, setMarket] = useState<'US' | 'VN'>('VN');
 
-  const { data: d1h, isLoading: loading1h } = useSWR(selectedTFs.includes('1h') ? `/api/market-pulse?timeframe=1h` : null, fetcher);
-  const { data: d4h, isLoading: loading4h } = useSWR(selectedTFs.includes('4h') ? `/api/market-pulse?timeframe=4h` : null, fetcher);
-  const { data: d1d, isLoading: loading1d } = useSWR(selectedTFs.includes('1d') ? `/api/market-pulse?timeframe=1d` : null, fetcher);
-  const { data: d1w, isLoading: loading1w } = useSWR(selectedTFs.includes('1w') ? `/api/market-pulse?timeframe=1w` : null, fetcher);
+  const { data: d1h, isLoading: loading1h } = useSWR(selectedTFs.includes('1h') ? `/api/market-pulse?timeframe=1h&market=${market}` : null, fetcher);
+  const { data: d4h, isLoading: loading4h } = useSWR(selectedTFs.includes('4h') ? `/api/market-pulse?timeframe=4h&market=${market}` : null, fetcher);
+  const { data: d1d, isLoading: loading1d } = useSWR(selectedTFs.includes('1d') ? `/api/market-pulse?timeframe=1d&market=${market}` : null, fetcher);
+  const { data: d1w, isLoading: loading1w } = useSWR(selectedTFs.includes('1w') ? `/api/market-pulse?timeframe=1w&market=${market}` : null, fetcher);
 
   const tfData: Record<string, { data: any; isLoading: boolean }> = {
     '1h': { data: d1h, isLoading: loading1h },

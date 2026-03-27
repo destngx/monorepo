@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "finance-expert": {
+      "source": "personamanagmentlayer/pcl",
+      "sourceType": "github",
+      "computedHash": "0e3c08e5876eda04e95680d0634d84dba469bac9675bef85cfaff65b262d8d83"
+    },
     "link-workspace-packages": {
       "source": "nrwl/nx-ai-agents-config",
       "sourceType": "github",
@@ -30,6 +35,11 @@
       "source": "nrwl/nx-ai-agents-config",
       "sourceType": "github",
       "computedHash": "32b7b72c54c6644e97ac8c8491e3cfa936afa6f8a86798214258d631367b4add"
+    },
+    "trading-signal": {
+      "source": "binance/binance-skills-hub",
+      "sourceType": "github",
+      "computedHash": "3363c91803ed82496034ffbf54b5407ecc9a7713c994fe941328b7be6fccdcf6"
     }
   }
 }

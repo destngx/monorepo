@@ -56,6 +56,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export function MarketPulseDashboard() {
   const [mounted, setMounted] = useState(false);
   const [timeframe, setTimeframe] = useState<string>('1h');
+  const [market, setMarket] = useState<'US' | 'VN'>('VN');
   const [autoRefresh, setAutoRefresh] = useState<string>('off');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -63,14 +64,14 @@ export function MarketPulseDashboard() {
   useEffect(() => setMounted(true), []);
 
   const refreshInterval = autoRefresh === 'off' ? 0 : parseInt(autoRefresh) * 1000;
-  const { data, error, isLoading, mutate } = useSWR(`/api/market-pulse?timeframe=${timeframe}`, fetcher, {
+  const { data, error, isLoading, mutate } = useSWR(`/api/market-pulse?timeframe=${timeframe}&market=${market}`, fetcher, {
     refreshInterval,
   });
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await mutate(fetch(`/api/market-pulse?timeframe=${timeframe}&force=true`).then((res) => res.json()));
+      await mutate(fetch(`/api/market-pulse?timeframe=${timeframe}&market=${market}&force=true`).then((res) => res.json()));
     } finally {
       setIsRefreshing(false);
     }
@@ -155,7 +156,7 @@ export function MarketPulseDashboard() {
       </div>
 
       {/* Main Market Switcher */}
-      <Tabs defaultValue="vn" className="w-full">
+      <Tabs defaultValue="vn" onValueChange={(v) => setMarket(v === 'us' ? 'US' : 'VN')} className="w-full">
         <div className="flex items-center justify-between mb-6">
           <TabsList className="bg-zinc-100 dark:bg-zinc-900/50 p-1 rounded-xl border border-zinc-200 dark:border-zinc-800/50">
             <TabsTrigger

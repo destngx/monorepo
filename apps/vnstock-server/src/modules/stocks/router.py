@@ -147,7 +147,7 @@ async def get_index_history(
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
 ):
     """Get historical data for a Vietnamese market index."""
-    VALID_INDICES = {"VNINDEX", "HNX", "VN30", "UPCOM", "HNX30"}
+    VALID_INDICES = {"VNINDEX", "VN30"}
 
     normalized = symbol.upper().replace("^", "").replace("-", "")
     if normalized not in VALID_INDICES:

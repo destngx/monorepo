@@ -12,10 +12,7 @@ const HEALTH_CHECK_TTL = 60; // 1 minute health check cache
  */
 const INDEX_SYMBOL_MAP: Record<string, string> = {
   '^VNINDEX': 'VNINDEX',
-  '^HNX': 'HNX',
   VN30: 'VN30',
-  '^UPCOM': 'UPCOM',
-  '^HNX30': 'HNX30',
 };
 
 /**

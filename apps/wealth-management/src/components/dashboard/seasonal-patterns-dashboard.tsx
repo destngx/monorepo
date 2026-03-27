@@ -37,7 +37,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export function SeasonalPatternsDashboard() {
   const [market, setMarket] = useState<'US' | 'VN'>('VN');
   const [timeframe] = useState('1d'); // Seasonality is most accurate on Daily data
-  const { data, isLoading, mutate } = useSWR(`/api/market-pulse?timeframe=${timeframe}`, fetcher);
+  const { data, isLoading, mutate } = useSWR(`/api/market-pulse?timeframe=${timeframe}&market=${market}`, fetcher);
 
   const marketData = market === 'US' ? data?.us : data?.vn;
   const seasonality = marketData?.technicals?.seasonality || [];

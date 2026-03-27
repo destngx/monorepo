@@ -50,7 +50,8 @@ export async function tagCache(tag: string, key: string) {
   if (!cacheTags.has(tag)) {
     cacheTags.set(tag, new Set());
   }
-  cacheTags.get(tag).add(key);
+  const tagSet = cacheTags.get(tag);
+  if (tagSet) tagSet.add(key);
 }
 
 /**
