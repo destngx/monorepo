@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { Send, Loader2 } from 'lucide-react';
-import { Button } from '-management/ui/button';
+import { Button } from '@wealth-management/ui/button';
 import { ChatError, isAppError } from '../../../utils/errors';
 
 interface ChatInputProps {

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '-management/ui/card';
-import { MaskedBalance } from '-management/ui/masked-balance';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@wealth-management/ui/card';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 import { useApiErrorHandler } from '@/hooks/use-api-error-handler';
 import {
   TrendingUp,
@@ -25,10 +25,10 @@ import {
   User,
   Bot,
 } from 'lucide-react';
-import { Button } from '-management/ui/button';
+import { Button } from '@wealth-management/ui/button';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '-management/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '-management/ui/tooltip';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@wealth-management/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@wealth-management/ui/tooltip';
 import { MarketPulseDashboard } from '@/components/dashboard/market-pulse-dashboard';
 import { formatDistanceToNow } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
@@ -65,6 +65,7 @@ export default function InvestmentsPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [inputContext, setInputContext] = useState<any>(null);
   const [input, setInput] = useState('');
+  const [isHydrated, setIsHydrated] = useState(false);
   const { messages, setMessages, sendMessage, status } = useChat({
     api: '/api/chat',
     body: { context: inputContext },
@@ -81,6 +82,11 @@ export default function InvestmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const { withErrorHandling } = useApiErrorHandler();
+
+  // Fix hydration mismatch by syncing client state after mount
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -817,7 +823,7 @@ export default function InvestmentsPage() {
         
       </div> */}
 
-      <Tabs defaultValue="terminal" className="space-y-6">
+      <Tabs defaultValue="terminal" className="space-y-6 flex flex-col">
         <TabsList className="bg-muted/50 p-1 border">
           <TabsTrigger value="terminal" className="gap-2 px-4">
             <Terminal className="h-4 w-4" /> Think Tank Terminal
@@ -848,7 +854,7 @@ export default function InvestmentsPage() {
               </div>
               <Button
                 onClick={handleInitiateScan}
-                disabled={isAnalyzing || isLoadingAccounts}
+                disabled={!isHydrated || isAnalyzing || isLoadingAccounts}
                 className="gap-2 shadow-lg shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"
               >
                 {isAnalyzing ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}

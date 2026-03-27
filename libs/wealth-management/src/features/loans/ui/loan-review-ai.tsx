@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '-management/ui/card';
-import { Button } from '-management/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@wealth-management/ui/card';
+import { Button } from '@wealth-management/ui/button';
 import { Sparkles, ShieldAlert } from 'lucide-react';
 import { Loan } from '../model/types';
 import ReactMarkdown from 'react-markdown';

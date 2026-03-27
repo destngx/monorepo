@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { MaskedBalance } from '-management/ui/masked-balance';
+import { MaskedBalance } from '@wealth-management/ui/masked-balance';
 import { Account } from '../model/types';
 import { Transaction } from '@wealth-management/types';
 import { useApiErrorHandler } from '../../../hooks/use-api-error-handler';
-import { Card, CardContent } from '-management/ui/card';
-import { Progress } from '-management/ui/progress';
+import { Card, CardContent } from '@wealth-management/ui/card';
+import { Progress } from '@wealth-management/ui/progress';
 import {
   Landmark,
   Wallet,
@@ -24,7 +24,7 @@ import {
   ChevronRight,
   Flag,
 } from 'lucide-react';
-import { Loading } from '-management/ui/loading';
+import { Loading } from '@wealth-management/ui/loading';
 import { AccountReviewAI } from './account-review-ai';
 import { AIDataInsight } from '@/components/dashboard/ai-data-insight';
 import { AccountTrendSparkline } from './account-trend-sparkline';
