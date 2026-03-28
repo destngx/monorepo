@@ -28,7 +28,7 @@
       "!{projectRoot}/jest.config.[jt]s",
       "!{projectRoot}/.eslintrc.json"
     ],
-    "sharedGlobals": ["{workspaceRoot}/babel.config.json"]
+    "sharedGlobals": ["{workspaceRoot}/babel.config.json", "{workspaceRoot}/go.work"]
   },
   "generators": {
     "@nx/react": {
@@ -46,5 +46,6 @@
       }
     }
   },
-  "analytics": false
+  "analytics": false,
+  "plugins": ["@nx-go/nx-go"]
 }

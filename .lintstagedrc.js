@@ -1,3 +1,4 @@
-module.exports = {
-  '*.{js,json,css,scss,md,ts,html,graphql}': ['nx format:write --files', 'nx affected:lint --fix --files'],
+export default {
+  '*.{js,jsx,ts,tsx,mjs,svelte}': ['eslint --fix', 'prettier --write'],
+  '*.{json,css,scss,md,html,graphql}': ['prettier --write'],
 };

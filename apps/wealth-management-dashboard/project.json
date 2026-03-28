@@ -1,0 +1,50 @@
+{
+  "name": "wealth-management-dashboard",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/wealth-management-dashboard/src",
+  "tags": ["type:app", "scope:wm"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx vite build",
+        "cwd": "apps/wealth-management-dashboard"
+      },
+      "configurations": {
+        "production": {
+          "command": "bunx vite build --mode production",
+          "cwd": "apps/wealth-management-dashboard"
+        }
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx vite dev",
+        "cwd": "apps/wealth-management-dashboard"
+      }
+    },
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx svelte-check --tsconfig ./tsconfig.json",
+        "cwd": "apps/wealth-management-dashboard"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx eslint .",
+        "cwd": "apps/wealth-management-dashboard"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bunx vitest",
+        "cwd": "apps/wealth-management-dashboard"
+      }
+    }
+  }
+}

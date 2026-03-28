@@ -1,12 +1,12 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
-# compiled output
+# Compiled output
 build
 dist
 tmp
 /out-tsc
 
-# dependencies
+# Dependencies
 node_modules
 
 # IDEs and editors
@@ -17,11 +17,9 @@ node_modules
 *.launch
 .settings/
 *.sublime-workspace
-
-# IDE - VSCode
 .vscode
 
-# misc
+# Misc
 /.sass-cache
 /connect.lock
 /coverage
@@ -41,14 +39,25 @@ Thumbs.db
 # NX
 .nx
 
+# Turbo
+.turbo
+
 # Environment
 .env
 .env.local
-.env*
+.env*.local
 .env.development
 
-# typesript
+# TypeScript
 tsconfig.tsbuildinfo
+.tsbuildinfo
+
+# ESLint (legacy config - removed with flat config)
+.eslintignore
+.eslintrc.json
+
+# Prettier ignore (managed by .prettierignore)
+.prettierignore
 
 # Python
 __pycache__/
@@ -58,7 +67,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -87,8 +95,33 @@ venv.bak/
 **/.pytest_*
 .coverage
 htmlcov/
+.ruff_cache
 
 # Type checking
 .mypy_cache/
 .pyre/
 .typeguard/
+
+# Go
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Test binary and coverage
+*.coverprofile
+profile.cov
+
+# Go workspace (now managed in root)
+# Commented: go.work and go.work.sum should be committed for workspace management
+# go.work
+# go.work.sum
+
+# SvelteKit
+.svelte-kit
+

@@ -12,13 +12,11 @@ Nx-based monorepo with **Next.js apps** (TypeScript/React) and **Python backend*
 
 ## WHERE TO LOOK
 
-| Task                       | Location                                                    | Tech             | Status           |
-| -------------------------- | ----------------------------------------------------------- | ---------------- | ---------------- |
-| Wealth management features | `apps/wealth-management` + `libs/wealth-management`         | Next.js + React  | 🔄 Active        |
-| Shared wealth lib (FSD)    | `libs/wealth-management/src`                                | TypeScript       | 📦 Stable        |
-| Stock data integration     | `apps/vnstock-server`                                       | Python + vnstock | 📚 See AGENTS.md |
-| Cloud photo gallery        | `apps/cloudinary-photos-app` + `libs/cloudinary-photos-app` | Next.js + React  | ✅ Stable        |
-| Portfolio landing          | `apps/portfolio-landpage` + `libs/portfolio-landpage`       | Next.js + React  | ✅ Stable        |
+| Task                       | Location                                            | Tech             | Status           |
+| -------------------------- | --------------------------------------------------- | ---------------- | ---------------- |
+| Wealth management features | `apps/wealth-management` + `libs/wealth-management` | Next.js + React  | 🔄 Active        |
+| Shared wealth lib (FSD)    | `libs/wealth-management/src`                        | TypeScript       | 📦 Stable        |
+| Stock data integration     | `apps/vnstock-server`                               | Python + vnstock | 📚 See AGENTS.md |
 
 ---
 

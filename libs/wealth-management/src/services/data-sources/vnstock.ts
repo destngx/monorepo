@@ -161,8 +161,11 @@ export class VNStockAdapter implements DataSourceAdapter {
         fetchUrl = `${this.pythonServerUrl}/api/v1/stocks/index-history?symbol=${encodeURIComponent(apiSymbol)}&start_date=${startDate}`;
       } else {
         // Use standard historical endpoint for individual stocks
-        let resolution = interval.toUpperCase();
-        if (resolution === '1H') resolution = '1H';
+        let resolution = '1D';
+        if (interval === '1h') resolution = '1H';
+        if (interval === '4h') resolution = '1H'; // Python server often handles 4h via 1h candles
+        if (interval === '1w') resolution = '1W';
+
         fetchUrl = `${this.pythonServerUrl}/api/v1/stocks/historical?symbol=${encodeURIComponent(apiSymbol)}&resolution=${resolution}&start_date=${startDate}`;
       }
 

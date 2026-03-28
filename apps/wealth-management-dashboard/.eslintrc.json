@@ -1,34 +1,36 @@
 {
   "root": true,
-  "plugins": ["@nx", "@typescript-eslint", "react-hooks"],
+  "plugins": ["@typescript-eslint", "svelte"],
   "parser": "@typescript-eslint/parser",
-  "extends": ["eslint:recommended", "google", "plugin:@typescript-eslint/recommended-type-checked"],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "extraFileExtensions": [".svelte"],
+    "project": "./tsconfig.json",
+    "tsconfigRootDir": "."
+  },
+  "env": {
+    "browser": true,
+    "es2020": true,
+    "node": true
+  },
   "overrides": [
+    {
+      "files": ["*.svelte"],
+      "parser": "svelte-eslint-parser",
+      "parserOptions": {
+        "parser": "@typescript-eslint/parser"
+      }
+    },
     {
       "files": ["*.ts", "*.tsx", "*.js", "*.jsx"],
       "rules": {
         "max-len": ["warn", 120],
-        "no-console": [
-          "warn",
-          {
-            "allow": ["warn", "error"]
-          }
-        ],
-        "spaced-comment": [
-          "warn",
-          "always",
-          {
-            "exceptions": ["/"]
-          }
-        ],
+        "no-console": ["warn", { "allow": ["warn", "error"] }],
+        "spaced-comment": ["warn", "always", { "exceptions": ["/"] }],
         "object-curly-spacing": "off",
-        "indent": [
-          "warn",
-          2,
-          {
-            "ignoredNodes": ["PropertyDefinition"]
-          }
-        ],
+        "indent": ["warn", 2, { "ignoredNodes": ["PropertyDefinition"] }],
         "@typescript-eslint/naming-convention": [
           "warn",
           {
@@ -39,10 +41,7 @@
           {
             "selector": "interface",
             "format": ["PascalCase"],
-            "custom": {
-              "regex": "^I[A-Z]",
-              "match": false
-            }
+            "custom": { "regex": "^I[A-Z]", "match": false }
           },
           {
             "selector": "variable",
@@ -59,13 +58,7 @@
         ],
         "new-cap": "off",
         "require-jsdoc": "off",
-        "no-unused-vars": "warn"
-      }
-    },
-    {
-      "files": ["*.ts", "*.tsx"],
-      "extends": ["plugin:@nx/typescript"],
-      "rules": {
+        "no-unused-vars": "warn",
         "@typescript-eslint/no-unsafe-argument": "warn",
         "@typescript-eslint/no-unsafe-assignment": "warn",
         "@typescript-eslint/no-unsafe-call": "warn",
@@ -81,22 +74,6 @@
         "no-constant-condition": "warn",
         "valid-jsdoc": "warn"
       }
-    },
-    {
-      "files": ["*.js", "*.jsx"],
-      "extends": ["plugin:@nx/javascript"],
-      "rules": {}
-    },
-    {
-      "files": ["*.spec.ts", "*.spec.tsx", "*.spec.js", "*.spec.jsx"],
-      "env": {
-        "jest": true
-      },
-      "rules": {}
     }
-  ],
-  "parserOptions": {
-    "project": "./tsconfig.base.json",
-    "tsconfigRootDir": "./tsconfig.base.json"
-  }
+  ]
 }

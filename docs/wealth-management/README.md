@@ -1,23 +1,67 @@
-# wealth-management docs
+# Wealth Management Platform: Product & Engineering Documentation
 
-This directory contains the technical and product documentation for the Wealth Management System.
+Welcome to the centralized documentation for the **Wealth Management Platform**. This workspace serves as the single source of truth for Business Analysts (BA), Product Owners (PO), and the Engineering team.
 
-## Main Documents
+---
 
-1. **[FEATURES_GUIDE.md](file:///Users/destnguyxn/projects/wealth-management/docs/FEATURES_GUIDE.md)**: Overview of all user-facing features (Dashboard, Transactions, Loans, etc.).
-2. **[USER_FLOWS.md](file:///Users/destnguyxn/projects/wealth-management/docs/USER_FLOWS.md)**: Technical sequence diagrams of key interactions.
-3. **[REQUIREMENTS.md](file:///Users/destnguyxn/projects/wealth-management/docs/REQUIREMENTS.md)**: Functional and non-functional requirements.
-4. **[ARCHITECTURE.md](file:///Users/destnguyxn/projects/wealth-management/docs/ARCHITECTURE.md)**: Technical architecture, tech stack, and data models.
-5. **[PRD.md](file:///Users/destnguyxn/projects/wealth-management/docs/PRD.md)**: Product Requirements Document with Roadmap.
+## 1. Documentation Map (The Pillars)
 
-## Specialized Documentation
+Our documentation is organized into four strategic pillars to ensure clarity from vision to implementation.
 
-- **[GOOGLE-SHEETS-INTEGRATION.md](file:///Users/destnguyxn/projects/wealth-management/docs/GOOGLE-SHEETS-INTEGRATION.md)**: Details on sheet ranges, columns, and sync logic.
-- **[AI-INTEGRATION.md](file:///Users/destnguyxn/projects/wealth-management/docs/AI-INTEGRATION.md)**: AI prompts, tools, and provider configuration.
-- **[SETUP-GUIDE.md](file:///Users/destnguyxn/projects/wealth-management/docs/SETUP-GUIDE.md)**: How to get the project running locally.
+### 🏛️ [Product Vision & Requirements](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/)
 
-## 🆕 Recent Features & Setup Guides
+_High-level "What" and "Why" from the user's perspective._
 
-- **[WEB_SEARCH_QUICK_START.md](WEB_SEARCH_QUICK_START.md)**: 5-minute setup for web search roundrobin (Tavily → Exa → DuckDuckGo)
-- **[WEB_SEARCH_ROUNDROBIN.md](WEB_SEARCH_ROUNDROBIN.md)**: Complete implementation guide for multi-provider web search
-- **[VNSTOCK_SETUP.md](VNSTOCK_SETUP.md)**: How to configure Vietnamese stock data (VNStock) — fixes "Failed to fetch asset data" errors
+- **[Core Ledger](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/transactions.md)**: Manual-first entry with high-fidelity audit trails.
+- **[Wealth Intelligence](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/intelligence.md)**: AI-driven "CFO" insights and briefings.
+- **[Portfolio Management](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/accounts.md)**: Unified tracking of Bank, Crypto, and Securities.
+
+### 📜 [Functional Specifications](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_specs/README.md)
+
+_Detailed "How" for Feature Teams and UX/UI._
+
+- **[Command Center](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_specs/1-Core-Command-Center/Portfolio_Home_and_Global_Patterns.md)**: Stealth Mode, Net Worth Pulse, and Executive Summaries.
+- **[Investment Terminal](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_specs/4-Market-Alpha/Investment_and_Market_Terminal.md)**: Market Pulse (VNStock/Binance) and Ticker Alpha.
+
+### 🛠️ [Technical Architecture](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/README.md)
+
+_Engineering blueprints for System Integrity._
+
+- **[Data Engine](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/1-Data-Engine/Architecture_and_Schema.md)**: Yearly Tab Sharding, Caching Hierarchies, and Schema Design.
+- **[AI Orchestration](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/2-AI-Systems/Orchestration_and_Tools.md)**: LLM Tool Selection, System Prompts, and Synthesis Logic.
+
+### 🚀 [Operations & Quality](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_setup/README.md)
+
+_Setup, Connectivity, and Resilience._
+
+- **[Setup & Deployment](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_setup/1-Environment-Requirements/Infrastructure_and_Prerequisites.md)**: Infrastructure specs and interactive bootstrapping.
+- **[Testing Strategy](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_testing/TEST_STRATEGY.md)**: TDD/BDD standards and mandatory Edge Case Matrix.
+
+---
+
+## 2. Core Architectural Decisions (ADR)
+
+### Why Google Sheets as a Database?
+
+- **Universal Accessibility**: Financial data remains human-readable and editable without touching code.
+- **Zero-Cost Persistence**: Leverages Google Cloud's highly available infrastructure with zero egress/storage costs for retail-scale ledgers.
+- **Built-in Power**: Users can use standard Excel/Sheets formulas for custom reporting alongside the AI dashboard.
+
+### Why Multi-Layer Caching (Redis + SWR)?
+
+- **Performance**: We achieve **p95 < 300ms** latency for Net Worth aggregates by caching sharded sheet data in **Upstash Redis**.
+- **Resilience**: The app remains functional in "Stale Mode" even if the Google Sheets API is temporarily rate-limited or offline.
+
+---
+
+## 3. Key Technical Standards
+
+- **Stealth by Default**: All sensitive balances are masked (`••••••`) on every initial load and page navigation to ensure privacy in public spaces.
+- **Yearly Sharding**: Transactions are automatically sharded into yearly tabs (e.g., `Transactions_2026`) to ensure O(1) read performance as the ledger grows.
+- **AI-Human Hybrid**: The "Audit First" entry model (Email Parser → Review → Ledger) ensures data integrity remains 100% accurate.
+
+---
+
+**Last Refactor**: March 30, 2026  
+**Document Custodians**: Product Owner & System Architect  
+**Workspace**: Nx Monorepo (`apps/wealth-management`, `libs/wealth-management`)

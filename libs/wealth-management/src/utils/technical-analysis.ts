@@ -94,51 +94,53 @@ export function calculateSeasonality(
     if (ret > 0) stats[key].wins++;
   }
 
-  const result: SeasonalityStats[] = Object.keys(stats).map((keyStr) => {
-    const key = parseInt(keyStr);
-    const s = stats[key];
-    const avgReturn = s.returns.reduce((a, b) => a + b, 0) / s.total;
-    const winRate = (s.wins / s.total) * 100;
+  const result: SeasonalityStats[] = Object.keys(stats)
+    .map((keyStr) => {
+      const key = parseInt(keyStr);
+      const s = stats[key];
+      const avgReturn = s.returns.reduce((a, b) => a + b, 0) / s.total;
+      const winRate = (s.wins / s.total) * 100;
 
-    const gains = s.returns.filter((r) => r > 0).reduce((a, b) => a + b, 0);
-    const losses = Math.abs(s.returns.filter((r) => r < 0).reduce((a, b) => a + b, 0));
-    const pf = losses === 0 ? gains * 10 : gains / losses;
+      const gains = s.returns.filter((r) => r > 0).reduce((a, b) => a + b, 0);
+      const losses = Math.abs(s.returns.filter((r) => r < 0).reduce((a, b) => a + b, 0));
+      const pf = losses === 0 ? gains * 10 : gains / losses;
 
-    const squareDiffs = s.returns.map((r) => Math.pow(r - avgReturn, 2));
-    const stdDev = Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / s.total) * 100;
+      const squareDiffs = s.returns.map((r) => Math.pow(r - avgReturn, 2));
+      const stdDev = Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / s.total) * 100;
 
-    // Composite score
-    const score = (avgReturn * 100 * winRate) / (1 + stdDev);
+      // Composite score
+      const score = (avgReturn * 100 * winRate) / (1 + stdDev);
 
-    let name = '';
-    let label = '';
+      let name = '';
+      let label = '';
 
-    if (type === 'day') {
-      const labels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const shorts = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      name = labels[key];
-      label = shorts[key];
-    } else if (type === 'week') {
-      name = `Week ${key}`;
-      label = `W${key}`;
-    } else {
-      const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      name = labels[key];
-      label = labels[key];
-    }
+      if (type === 'day') {
+        const labels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const shorts = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        name = labels[key];
+        label = shorts[key];
+      } else if (type === 'week') {
+        name = `Week ${key}`;
+        label = `W${key}`;
+      } else {
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        name = labels[key];
+        label = labels[key];
+      }
 
-    return {
-      rank: 0,
-      name,
-      label,
-      return: avgReturn * 100,
-      winRate,
-      pf: parseFloat(pf.toFixed(2)),
-      stdDev,
-      score,
-      n: s.total,
-    };
-  });
+      return {
+        rank: 0,
+        name,
+        label,
+        return: avgReturn * 100,
+        winRate,
+        pf: parseFloat(pf.toFixed(2)),
+        stdDev,
+        score,
+        n: s.total,
+      };
+    })
+    .filter((item) => item.n > 1); // Ensure at least 2 data points for a period
 
   return result.sort((a, b) => b.score - a.score).map((item, idx) => ({ ...item, rank: idx + 1 }));
 }

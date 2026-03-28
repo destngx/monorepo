@@ -1,8 +1,0 @@
-node_modules
-dist
-coverage
-next-env.d.ts
-next.config.js
-post.config.js
-postcss.config.js
-tailwind.config.js

@@ -82,6 +82,23 @@ class UpstashRedisClient:
             logger.warning(f"Redis DEL error for {key}: {e}")
             return False
 
+    async def flushall(self) -> bool:
+        """Clear all keys from Redis."""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.url}/pipeline",
+                    headers=self.headers,
+                    json=[["FLUSHALL"]],
+                    timeout=5.0,
+                )
+                response.raise_for_status()
+                logger.info("✓ Redis FLUSHALL executed successfully")
+                return True
+        except Exception as e:
+            logger.error(f"Redis FLUSHALL error: {e}")
+            return False
+
 
 class CacheManager:
     """
@@ -164,6 +181,14 @@ class CacheManager:
             key = self._make_key(endpoint, params)
             return await self.client.delete(key)
         return True
+
+    async def flush_all(self) -> bool:
+        """Clear all cached data from Redis (FLUSHALL)."""
+        if not self.enabled:
+            logger.warning("Cache is disabled, flush_all operation skipped")
+            return False
+
+        return await self.client.flushall()
 
 
 class CacheConfig:

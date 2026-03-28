@@ -1,9 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from ...cache import CacheConfig
 from ..shared.deps import get_cache_manager, get_rate_limiter, is_authenticated
 
 router = APIRouter(prefix="/api/v1/health", tags=["Health"])
+
 
 @router.get("")
 def health_check():
@@ -14,6 +15,7 @@ def health_check():
         "timestamp": datetime.now().isoformat(),
         "authenticated": is_authenticated(),
     }
+
 
 @router.get("/cache")
 def get_cache_status():
@@ -37,6 +39,7 @@ def get_cache_status():
         },
     }
 
+
 @router.get("/ratelimit")
 def get_rate_limit_status():
     """Get rate limiter status."""
@@ -44,6 +47,7 @@ def get_rate_limit_status():
     if not rate_limiter:
         return {"error": "Rate limiter not initialized"}
     return rate_limiter.get_status_dict()
+
 
 @router.get("/quota")
 def get_quota_status():
@@ -65,7 +69,9 @@ def get_quota_status():
             "total": status.requests_per_day,
             "used": status.current_day_requests,
             "remaining": status.remaining_day,
-            "percentage_used": round(100 * status.current_day_requests / status.requests_per_day, 1),
+            "percentage_used": round(
+                100 * status.current_day_requests / status.requests_per_day, 1
+            ),
         },
         "minute_quota": {
             "total": status.requests_per_minute,
@@ -76,3 +82,27 @@ def get_quota_status():
         "warning_level": warning_level,
         "resets_at": status.day_reset_at,
     }
+
+
+@router.post("/cache/clear")
+async def clear_all_cache():
+    """Clear all cached data from Upstash Redis."""
+    cache_manager = get_cache_manager()
+    if not cache_manager:
+        raise HTTPException(status_code=503, detail="Cache manager not initialized")
+
+    if not cache_manager.enabled:
+        raise HTTPException(status_code=503, detail="Cache is not enabled")
+
+    try:
+        success = await cache_manager.flush_all()
+        return {
+            "success": success,
+            "message": "All cache data cleared successfully"
+            if success
+            else "Failed to clear cache",
+            "timestamp": datetime.now().isoformat(),
+            "endpoint": "/api/v1/health/cache/clear",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
