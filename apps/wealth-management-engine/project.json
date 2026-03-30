@@ -22,10 +22,21 @@
       "cache": false
     },
     "test": {
-      "executor": "@nx-go/nx-go:test"
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mkdir -p \"$PWD/../../tmp/go-build-cache\" \"$PWD/../../tmp/go-mod-cache\" && GOCACHE=\"$PWD/../../tmp/go-build-cache\" GOMODCACHE=\"$PWD/../../tmp/go-mod-cache\" go test ./...",
+        "cwd": "apps/wealth-management-engine"
+      }
     },
     "lint": {
       "executor": "@nx-go/nx-go:lint"
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "find . -name '*.go' -not -path './tmp/*' -exec gofmt -w {} +",
+        "cwd": "apps/wealth-management-engine"
+      }
     },
     "tidy": {
       "executor": "@nx-go/nx-go:tidy"

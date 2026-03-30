@@ -14,6 +14,7 @@ The documentation is organized into four pillars of system integrity:
 
 - **[Architecture & Schema Logic](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/1-Data-Engine/Architecture_and_Schema.md)**
 - _Focus_: Google Sheets as a DB, Yearly Sharding, Data Flow, and Caching.
+- _Naming Standard_: See section **2.0 Domain Modeling & Naming Convention (Go Engine)** in Architecture & Schema Logic.
 
 ### 2-AI-Systems
 

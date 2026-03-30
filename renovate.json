@@ -1,6 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [],
+  "enabledManagers": ["npm", "gomod", "pip_requirements"],
   "labels": ["dependencies"],
   "dependencyDashboard": true,
   "commitMessagePrefix": "chore(deps): ",
@@ -11,7 +12,26 @@
   "major": {
     "dependencyDashboardApproval": true
   },
+  "gomod": {
+    "enabled": true
+  },
+  "pip_requirements": {
+    "enabled": true
+  },
   "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "matchPaths": ["go.work", "apps/wealth-management-engine/**"],
+      "groupName": "go backend dependencies",
+      "groupSlug": "go-backend",
+      "postUpdateOptions": ["gomodTidy"]
+    },
+    {
+      "matchManagers": ["pip_requirements"],
+      "matchPaths": ["apps/vnstock-server/**"],
+      "groupName": "python backend dependencies",
+      "groupSlug": "python-backend"
+    },
     {
       "matchPackagePatterns": ["^eslint"],
       "groupName": "eslint and its plugins",
@@ -19,7 +39,7 @@
       "enabled": false
     },
     {
-      "matchPackageNames": ["node", "pnpm", "@typescript-eslint/eslint-plugin", "@typescript-eslint/parser", "esbuild"],
+      "matchPackageNames": ["node", "bun", "@typescript-eslint/eslint-plugin", "@typescript-eslint/parser", "esbuild"],
       "enabled": false
     },
     {

@@ -1,201 +1,113 @@
 # Monorepo Knowledge Base
 
----
+## Overview
 
-## OVERVIEW
+Nx monorepo with mixed stacks:
 
-Nx-based monorepo with **Next.js apps** (TypeScript/React) and **Python backend** (vnstock data analytics). Mixed-language workspace serving portfolio landing page, photo gallery, wealth management dashboard, and stock market data aggregation.
+- TypeScript/Next.js apps and shared libs
+- Go backend engine for wealth-management
+- Python backend for market data (`vnstock-server`)
 
-**Stack**: Nx 19+, Next.js 16, React 18, TypeScript, Python 3.12, Jest, TurboRepo, Upstash caching
+Primary active backend migration target is `apps/wealth-management-engine` (Go, Hexagonal architecture).
 
----
+## Current Focus Areas
 
-## WHERE TO LOOK
+| Area                      | Location                                            | Stack            | Status                 |
+| ------------------------- | --------------------------------------------------- | ---------------- | ---------------------- |
+| Wealth engine backend     | `apps/wealth-management-engine`                     | Go + Fiber + MCP | Active                 |
+| Wealth dashboard frontend | `apps/wealth-management-dashboard`                  | SvelteKit        | Active                 |
+| Legacy wealth app         | `apps/wealth-management` + `libs/wealth-management` | Next.js + React  | Reference/legacy track |
+| Market data backend       | `apps/vnstock-server`                               | Python + vnstock | Active                 |
 
-| Task                       | Location                                            | Tech             | Status           |
-| -------------------------- | --------------------------------------------------- | ---------------- | ---------------- |
-| Wealth management features | `apps/wealth-management` + `libs/wealth-management` | Next.js + React  | 🔄 Active        |
-| Shared wealth lib (FSD)    | `libs/wealth-management/src`                        | TypeScript       | 📦 Stable        |
-| Stock data integration     | `apps/vnstock-server`                               | Python + vnstock | 📚 See AGENTS.md |
+## Key Structure
 
----
-
-## STRUCTURE
-
-```
+```text
 monorepo/
-├── apps/                           # Standalone applications
-│   ├── wealth-management/          # Main Next.js dashboard (AI chat, investing, goals)
-│   ├── vnstock-server/             # Python backend (stock data crawler)
-│   ├── cloudinary-photos-app/      # Gallery web app
-│   └── portfolio-landpage/         # Portfolio showcase
-├── libs/                           # Shared libraries (npm workspaces)
-│   ├── wealth-management/          # Reusable wealth features (FSD architecture)
-│   ├── cloudinary-photos-app/      # UI components + utils for gallery
-│   └── portfolio-landpage/         # Portfolio components
-├── docs/                           # Documentation
-│   ├── tasks/                      # Task tracking
-│   └── wealth-management/          # Wealth app architecture docs
-├── tools/                          # Monorepo tooling
-├── deployments/                    # Docker compose configs
-├── nx.json                         # Nx configuration
-├── tsconfig.base.json              # TypeScript base config
-└── package.json                    # Root workspace
+├── apps/
+│   ├── wealth-management-engine/      # Go backend (ports/adapters)
+│   ├── wealth-management-dashboard/   # SvelteKit frontend
+│   ├── wealth-management/             # Legacy Next.js app
+│   ├── vnstock-server/                # Python backend
+│   ├── cloudinary-photos-app/
+│   └── portfolio-landpage/
+├── libs/
+├── docs/
+│   ├── tasks/
+│   └── wealth-management/
+├── go.work
+├── go.work.sum
+├── nx.json
+└── package.json
 ```
 
----
+## Documentation Conventions
 
-## CONVENTIONS
+- Sprint docs are folder-based under `docs/wealth-management/tasks/`:
+  - `SPRINT_1/README.md`, `SPRINT_2/README.md`, etc.
+  - Each task is a standalone file: `WM-xxx.md`.
+- Global standards and standing conventions live in:
+  - `docs/wealth-management/tasks/README.md` (source of truth for sprint process/conventions).
 
-### TypeScript Workspace
+## Engineering Conventions (Must Follow)
 
-**Entry Points**: Each app/lib has `package.json` or `tsconfig.json`  
-**Module Format**: ESM (Next.js defaults to `type: "module"`)  
-**Path Aliases**: Configured in `tsconfig.base.json`
+### Runtime and Tooling
 
-```json
-{
-  "paths": {
-    "@wealth-management/*": ["libs/wealth-management/src/*"],
-    "@cloudinary-photos-app/*": ["libs/cloudinary-photos-app/*"]
-  }
-}
-```
+- Use `bun run` for root scripts.
+- Use `bunx nx ...` for Nx tasks.
+- Use `uv` for Python workflows (prefer via Nx scripts when available).
+- Volta pins Node at major `22` in root `package.json`.
 
-### Linting & Formatting
+### Wealth Engine (Go)
 
-- **Linter**: ESLint (`.eslintrc.json` per package)
-- **Formatter**: Prettier (`.prettierrc`)
-- **Pre-commit**: Husky + lint-staged
+- Architecture: strict Hexagonal (`domain/`, `port/`, `service/`, `adapter/`).
+- `port` holds interfaces/contracts; `adapter` holds implementations.
+- Domain naming:
+  - Prefer business naming (`accounts`, not `accounts_sheet`).
+  - Keep storage/provider details out of domain type names.
+- Adapter naming:
+  - `adapter/cache` (not `adapter/redis`)
+  - `adapter/config` (not `adapter/env`)
+  - `adapter/db/...` for database backends (Google Sheets is one backend)
+  - `adapter/market/...` for market providers (`vnstock` is one implementation)
+- MCP server is always enabled on engine startup.
+- Go test target is executed via:
+  - `bunx nx run wealth-management-engine:test`
 
-### Testing
+### Test and Delivery Workflow
 
-- **Jest** for unit/integration tests
-- **Cypress** for e2e (wealth-management)
-- Config: `jest.config.ts`, `jest.preset.js` (root)
+- Default workflow: TDD + BDD.
+- Prefer real provider behavior tests for AI provider integrations where practical.
+- Repo-local temp cache usage for Go tasks under `tmp/` (avoid root `/tmp` for project scripts).
 
-### Python (vnstock-server)
+### Security and Env
 
-- **Virtual Env**: `.venv/` in project root
-- **Package Mgmt**: pip with `requirements.txt`
-- **Tests**: pytest (`.pytest_cache/`)
+- `.env.local` is runtime input only.
+- Never print or document secrets from `.env.local`.
+- Never commit credential files.
 
----
-
-## KEY PATTERNS
-
-### Nx Build Graph
-
-Commands execute with dependency tracking:
+## Useful Commands
 
 ```bash
-bun run build:all         # Build all apps (respects dependencies)
-bun run test:all          # Test all projects
-nx run-many -t lint      # Lint all
+# Nx
+bunx nx show projects
+bunx nx run-many -t lint
+bunx nx run-many -t test
+
+# Wealth engine
+bunx nx serve wealth-management-engine
+bunx nx run wealth-management-engine:test
+
+# Wealth dashboard
+bunx nx serve wealth-management-dashboard
+
+# Python backend (if mapped in Nx, prefer Nx target)
+uv run pytest apps/vnstock-server
 ```
 
-**Important**: Nx caches build outputs. Clear with `nx reset`.
+## Anti-Patterns
 
-### Workspace Packages
-
-Shared libs resolved via nx workspaces (no manual tsconfig paths):
-
-```typescript
-// ✅ OK: Import from @-scoped packages
-import { useAccount } from '@wealth-management/features/accounts';
-
-// ❌ WRONG: Direct relative imports between apps
-import { X } from '../../../libs/wealth-management/src';
-```
-
-### Error Handling (Wealth App)
-
-All errors inherit from `AppError` (never swallow errors):
-
-```typescript
-import { AppError } from "@wealth-management/utils/errors";
-
-// ✅ Proper
-throw new AppError("Invalid account", { code: "INVALID_ACCOUNT" });
-
-// ❌ Wrong
-catch (e) { /* silently fail */ }
-```
-
----
-
-## ANTI-PATTERNS (THIS PROJECT)
-
-**NEVER:**
-
-- Bypass vnstock_news internals (use library methods only)
-- Import across feature boundaries directly (use public APIs)
-- Swallow errors without logging
-- Use relative imports for cross-workspace deps
-- Commit `.env.local` or credential files
-- Pass `site_name` strings directly (use structured configs)
-
-**DO NOT:**
-
-- Assume sites have RSS feeds without checking
-- Patch around tsconfig paths (use `npm link`)
-- Run `terraform init` with backend config (GitHub Actions handles it)
-
----
-
-## UNIQUE STYLES
-
-**Wealth Management**:
-
-- **FSD (Feature-Sliced Design)**: `features/{feature}/ui`, `features/{feature}/model`
-- **AI Integration**: System prompts, tool definitions, streaming responses
-- **Google Sheets**: Real-time caching via Upstash Redis
-
-**Vnstock Server**:
-
-- **Agent-based**: Custom AGENTS.md rules per skill (news, migration, architecture)
-- **Documentation-heavy**: Comprehensive docs for Vietnamese stock ecosystem
-
----
-
-## COMMANDS
-
-use `bun run` for all scripts (root package.json):
-use `bunx` for direct Nx commands:
-
-use `uv` for Python, use it through nx scripts:
-
----
-
-## NOTES & GOTCHAS
-
-**Wealth Management Refactoring**:
-
-- Recent API extraction to `libs/wealth-management` (commit 3d4e52e)
-- Old imports from `apps/` may still exist—use migration guide in `docs/`
-
-**Python Dependencies**:
-
-- vnstock libraries prefer `~/.venv` (shared across projects)
-- Local `.venv` at `apps/vnstock-server/.venv/` for isolation
-
-**Build Caching**:
-
-- Nx caches aggressively; clear with `nx reset` if experiencing stale output
-- GitHub Actions uses remote cache (S3)
-
-**Type Safety**:
-
-- No `as any` or `@ts-ignore` — resolve types properly
-- Missing modules? Check workspace linking via `/link-workspace-packages` skill
-
----
-
-## QUICK REFERENCE
-
-| Workflow                  | Command                                      |
-| ------------------------- | -------------------------------------------- |
-| Add feature to wealth app | See `docs/wealth-management/ARCHITECTURE.md` |
-| Integrate new vnstock API | See `apps/vnstock-server/AGENTS.md`          |
-| Fix type errors           | `tsx` compiler, LSP, `tsc --noEmit`          |
-| Debug Nx build failures   | `nx run-many -t build --verbose`             |
+- Do not use `npm`, `yarn`, or `pnpm` commands in this workspace.
+- Do not bypass ports with cross-layer direct calls in Go engine.
+- Do not patch workspace linking with ad-hoc TS path hacks.
+- Do not swallow errors silently.
+- Do not hardcode provider-specific logic into general domain contracts.

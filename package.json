@@ -7,7 +7,7 @@
     "serve": "nx serve",
     "build": "nx build",
     "e2e:all": "nx run-many -t e2e",
-    "lint:all": "nx run-many -t lint",
+    "lint:all": "nx run-many -t lint --exclude=wealth-management,cloudinary-photos-app,portfolio-landpage",
     "test:all": "nx run-many -t test",
     "serve:all": "nx run-many -t serve",
     "build:all": "nx run-many -t build",
@@ -98,7 +98,7 @@
     "vitest": "^4.1.2"
   },
   "volta": {
-    "node": "20.9.0"
+    "node": "22"
   },
   "trustedDependencies": [
     "core-js-pure",

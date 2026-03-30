@@ -45,16 +45,13 @@ Vnstock cung cấp các gói sử dụng khác nhau phù hợp với từng nhu 
 
 ### So sánh gói sử dụng
 
-| Tiêu Chí          | Khách | Cộng đồng (Tiêu chuẩn) | Bronze    | Silver   | Golden    |
-| ----------------- | ----- | ---------------------- | --------- | -------- | --------- |
-| **Giới Hạn/Phút** | 20    | 60                     | 180 (3x)  | 300 (5x) | 500 (10x) |
-| **Giới Hạn/Giờ**  | 1.2K  | 3.6K                   | 10.8K     | 18K      | 36K       |
-| **Giới Hạn/Ngày** | 5K    | 10K                    | 50K       | 100K     | 150K      |
-| **Đăng Nhập**     | ❌    | ✅                     | ✅        | ✅       | ✅        |
-| **API Key**       | ❌    | ✅                     | ✅        | ✅       | ✅        |
-| **vnstock_data**  | ❌    | ❌                     | ✅        | ✅       | ✅        |
-| **Hỗ Trợ**        | ❌    | ❌                     | ✅        | ✅       | ✅        |
-| **Cam Kết**       | Không | Không                  | Linh Hoạt | Quý      | 1 Năm     |
+| Tiêu Chí          | Khách | Cộng đồng (Tiêu chuẩn) |
+| ----------------- | ----- | ---------------------- |
+| **Giới Hạn/Phút** | 20    | 60                     |
+| **Giới Hạn/Giờ**  | 1.2K  | 3.6K                   |
+| **Giới Hạn/Ngày** | 5K    | 10K                    |
+| **Đăng Nhập**     | ❌    | ✅                     |
+| **API Key**       | ❌    | ✅                     |
 
 (\*) **Lưu ý quan trọng về Rate Limit:**
 
@@ -90,66 +87,14 @@ Vnstock cung cấp các gói sử dụng khác nhau phù hợp với từng nhu 
   quote = Quote(source="vci", symbol="VCB")
   ```
 
-#### 3. **Bronze** - Dữ Liệu Cơ Bản
-
-- **Ai nên dùng**: Nhà phân tích, trader cá nhân, startup
-- **Đặc điểm**:
-  - Giới hạn 180 request/phút (10.8K/giờ, 50K/ngày) - **9x Guest**
-  - Truy cập **vnstock_data** với dữ liệu nâng cao
-  - Plan linh hoạt (hàng tháng hoặc quý)
-  - Hỗ trợ cơ bản
-- **Tính năng nâng cao**: Xem [vnstock_data Overview](../vnstock-data/01-overview.md)
-- **Tham gia**: https://vnstocks.com/insiders-program
-
-#### 4. **Silver** - Chức Năng Mở Rộng
-
-- **Ai nên dùng**: nhóm, quản lý quỹ đầu tư, dự án công khai
-- **Đặc điểm**:
-  - Giới hạn 300 request/phút (18K/giờ, 100K/ngày) - **15x Guest**
-  - Truy cập hầu hết chức năng nâng cao của vnstock_data
-  - Plan quý (3 tháng)
-  - Hỗ trợ ưu tiên
-- **Tính năng nâng cao**: Xem [vnstock_data Overview](../vnstock-data/01-overview.md)
-- **Tham gia**: https://vnstocks.com/insiders-program
-
-#### 5. **Golden** - Toàn Bộ Chức Năng
-
-- **Ai nên dùng**: Dự án lâu dài, đồng hành bền vững cùng dự án
-- **Đặc điểm**:
-  - Giới hạn 600 request/phút (36K/giờ, 150K/ngày) - **30x Guest**
-  - Truy cập **tất cả** chức năng của bộ thư viện tài trợ
-  - Plan 1 năm (cam kết lâu dài)
-  - Hỗ trợ tối ưu & ưu đãi chi phí tốt nhất
-- **Tính năng nâng cao**: Xem [vnstock_data Overview](../vnstock-data/01-overview.md)
-- **Tham gia**: https://vnstocks.com/insiders-program
-
 ### 📊 Rate Limit Chi Tiết
 
 ```python
 TIER_LIMITS = {
     "guest": {"min": 20, "hour": 1200, "day": 5000},
     "free": {"min": 60, "hour": 3600, "day": 10000},
-    "bronze": {"min": 180, "hour": 10800, "day": 50000},
-    "silver": {"min": 300, "hour": 15000, "day": 100000},
-    "golden": {"min": 500, "hour": 30000, "day": 150000}
 }
 ```
-
-### 🚀 Nâng Cấp
-
-Khi bạn gặp rate limit:
-
-```python
-from vnstock.core.quota import RateLimitExceeded
-
-try:
-    quote = Quote(source="vci", symbol="VCB")
-    df = quote.history(start="2024-01-01", end="2024-12-31")
-except RateLimitExceeded as e:
-    print(e)  # Sẽ hiển thị hướng dẫn nâng cấp phù hợp
-```
-
----
 
 ## 🏗️ Kiến Trúc Tổng Thể
 

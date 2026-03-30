@@ -1,9 +1,0 @@
-- [x] Initialize `modules` directory structure.
-- [x] Create shared dependencies/utilities in `modules/shared/deps.py`.
-- [x] Implement `listing` slice.
-- [x] Implement `stocks` slice (Quote/Trading).
-- [x] Implement `finance` slice.
-- [x] Implement `company` slice.
-- [x] Implement `health` slice.
-- [x] Refactor `main.py` to use `APIRouter` from modules.
-- [x] Verify functionality with existing tests.

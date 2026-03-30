@@ -17,13 +17,13 @@ export default [
       '.pytest_cache/**',
       '.venv/**',
       '**/__generated__/**',
-      // Legacy apps
+      // Legacy/reference surfaces not in active scope
       'apps/cloudinary-photos-app/**',
       'apps/portfolio-landpage/**',
-      'apps/wealth-management/**',
+      'apps/wealth-management-legacy/**',
       'libs/cloudinary-photos-app/**',
       'libs/portfolio-landpage/**',
-      'libs/wealth-management/**',
+      'libs/wealth-management-legacy/**',
     ],
   },
   // JavaScript base

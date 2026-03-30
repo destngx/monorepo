@@ -15,6 +15,12 @@ To provide a high-performance, cost-effective, and auditable financial database 
 
 ## 2. Core Entity Schema
 
+### 2.0 Domain Modeling & Naming Convention (Go Engine)
+
+- In `apps/wealth-management-engine/domain`, each business entity must live in its own domain file.
+- Use singular snake_case file names mapped to business concepts (for example: `accounts.go`, `transaction.go`, `budget.go`).
+- Use concise PascalCase domain type names without redundant transport/storage suffixes (for example: `Accounts`, `Transaction`, not `AccountsSheet`).
+
 ### 2.1 Transaction Ledger (`Transactions_YYYY`)
 
 _This is the core transactional database for the entire domain._
