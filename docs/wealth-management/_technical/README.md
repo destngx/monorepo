@@ -8,7 +8,7 @@
 
 ## 1. Document Pillars
 
-The documentation is organized into four pillars of system integrity:
+The documentation is organized into five pillars of system integrity:
 
 ### 1-Data-Engine
 
@@ -30,6 +30,11 @@ The documentation is organized into four pillars of system integrity:
 
 - **[Safety & Edge Cases](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/4-Resilience/Safety_and_Edge_Cases.md)**
 - _Focus_: Offline "Full-Stop" protocols, API Rate Limits, and Service Fallbacks.
+
+### 5-Code-Structure
+
+- **[Modularization & Testability Strategy](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md)**
+- _Focus_: file/function size budgets, vertical slice strategy, and strict e2e ownership/failure policy.
 
 ---
 

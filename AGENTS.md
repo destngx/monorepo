@@ -47,6 +47,7 @@ monorepo/
   - Each task is a standalone file: `WM-xxx.md`.
 - Global standards and standing conventions live in:
   - `docs/wealth-management/tasks/README.md` (source of truth for sprint process/conventions).
+- OpenAPI docs are generated at runtime from the registered Fiber routes and honor the incoming host/protocol so `/api/docs` stays accessible without a static server URL.
 
 ## Engineering Conventions (Must Follow)
 
@@ -72,12 +73,13 @@ monorepo/
 - MCP server is always enabled on engine startup.
 - Go test target is executed via:
   - `bunx nx run wealth-management-engine:test`
+- Root `bun` scripts `test:go`, `test:e2e`, and `format:go` wrap the respective Nx targets so Go tooling can be invoked via `bun run ...`.
 
 ### Test and Delivery Workflow
 
 - Default workflow: TDD + BDD.
 - Prefer real provider behavior tests for AI provider integrations where practical.
-- Repo-local temp cache usage for Go tasks under `tmp/` (avoid root `/tmp` for project scripts).
+- Repo-local temp cache usage for Go tasks under `apps/wealth-management-engine/tmp/` (avoid root `/tmp` for project scripts).
 
 ### Security and Env
 

@@ -23,5 +23,10 @@ export default {
     const args = activeFiles.map(quote).join(' ');
     return [`prettier --write ${args}`];
   },
-  '*.go': ['gofmt -w'],
+  '*.go': (files) => {
+    const activeFiles = files.filter((file) => !isLegacyFile(file));
+    if (activeFiles.length === 0) return [];
+    const args = activeFiles.map(quote).join(' ');
+    return [`gofmt -w ${args}`];
+  },
 };

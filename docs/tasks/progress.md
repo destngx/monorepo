@@ -28,10 +28,10 @@
   - Added provider-oriented market adapter structure with VNStock provider implementation.
   - Added provider endpoint `GET /api/external/market/providers/:provider/health` (with backward-compatible `GET /api/external/vnstock/health`).
   - Implemented cache service operations for `SET`, `GET`, and pattern invalidation.
-  - Added cache routes in Go engine (`/api/cache/health`, `/api/cache/set`, `/api/cache/get/:key`, `/api/cache/invalidate`).
-  - Added BDD-style tests for adapter behavior and invalidation flow.
-  - Updated Nx target `wealth-management-engine:test` for consistent Go test execution.
-  - Verified with `bunx nx run wealth-management-engine:test`.
+- Added cache routes in Go engine (`/api/cache/health`, `/api/cache/set`, `/api/cache/get/:key`, `/api/cache/invalidate`).
+- Added BDD-style tests for adapter behavior and invalidation flow.
+- Updated Nx `wealth-management-engine:test` to rely on repo-local `tmp/` build/mod caches and expose a `bunx nx run wealth-management-engine:test` entry point.
+- Verified with `bunx nx run wealth-management-engine:test`.
 - [x] **WM-006**: GitHub Copilot API Integration & Handshake (Go)
   - Added native Copilot token exchange flow using `GITHUB_TOKEN` and `/copilot_internal/v2/token`.
   - Added in-memory token caching with expiry buffer.

@@ -24,6 +24,9 @@ graph TD
     WM-001 --> WM-012["WM-012: OpenAPI/Swagger Docs"]
     WM-010 --> WM-001
 
+    WM-003 --> WM-013["WM-013: Google Sheets Auth CLI"]
+    WM-006 --> WM-014["WM-014: GitHub Copilot Auth CLI"]
+
     WM-004["WM-004: Legacy Marking"] ---|"Independent"| Independent[Independent]
 ```
 
@@ -38,7 +41,8 @@ graph TD
 3.  **Authentication**: OAuth2 Google Sheets client successfully implemented in a shared Go library.
 4.  **AI Validation**: The Go backend successfully completes the **AI Readiness Suite** (Streaming, JSON, Tools, Skills, and Multi-Role Prompts) via GitHub Copilot GPT-4.1.
 5.  **External Connectivity**: All 3 external services (Google Sheets, Upstash Redis, GitHub Copilot) confirmed reachable from the Go core.
-6.  **Legacy**: Current `apps/wealth-management`, `apps/portfolio-landpage`, and `apps/cloudinary-photos-app` (Next.js) are marked as `[LEGACY]`. Root `package.json` cleaned of legacy dependencies.
+6.  **Interactive CLI**: Support for `auth google sheets` and `auth copilot github` via Go engine CLI. (WM-013, WM-014)
+7.  **Legacy**: Current `apps/wealth-management`, `apps/portfolio-landpage`, and `apps/cloudinary-photos-app` (Next.js) are marked as `[LEGACY]`. Root `package.json` cleaned of legacy dependencies.
 7.  **Quality**: Sub-200ms latency on the first Go "Hello World" API endpoint.
 8.  **MCP Readiness**: The **Wealth Management Engine** is successfully detectable as an **MCP Server** via `stdio` or `eventsource`.
 9.  **Architecture**: **Hexagonal** (Go Engine) and **FSD/DDD** (Svelte Dashboard) patterns confirmed in first commit; all commands via **Bun/Bunx**.
@@ -75,3 +79,5 @@ graph TD
 - [WM-010](./WM-010.md)
 - [WM-011](./WM-011.md)
 - [WM-012](./WM-012.md)
+- [WM-013](./WM-013.md)
+- [WM-014](./WM-014.md)

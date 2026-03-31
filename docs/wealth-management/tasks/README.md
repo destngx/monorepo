@@ -57,6 +57,7 @@ The migration is prioritized into four functional increments:
 - **Software Principles**: Strictly follow **SOLID** and **DRY**.
 - **Engine Architecture (Go)**: Use **Hexagonal Architecture** (Ports & Adapters). Business logic (Domain) must be isolated from external drivers (Sheets, Redis, AI) via clean ports.
 - **Domain Naming Convention (Go)**: In `apps/wealth-management-engine/domain`, use singular snake_case file names mapped to business concepts (e.g., `accounts.go`, `health.go`) and concise PascalCase type names without redundant suffixes (e.g., `Accounts`, not `AccountsSheet`).
+- Keep sheet-related domain models in dedicated files (e.g., `domain/accounts.go` for the Accounts tab and `domain/sheets.go` for configuration) so the "account sheet" concept stays tied to the business domain rather than storage details.
 - **Dashboard Architecture (Svelte)**: Use **Domain-Driven Design (DDD)** with **Feature-Sliced Design (FSD)** influence. Organize code into `features/`, `entities/`, and `shared/` layers.
 - **NX Workspace Strategy**: Leverage **Nx Monorepo** structures. Use tags (`type:app`, `type:lib`, `scope:wm`) and ensure all shared Go/Svelte logic is extracted into unified core libraries (**`libs/wm-core`** for Go, **`libs/wm-core-ui`** for Svelte) before app consumption.
 
@@ -88,7 +89,7 @@ This section is the single source of truth for implementation conventions across
 - Use generalized integration names over vendor-specific names in domain-facing paths:
   - cache adapters under `adapter/cache/` (not `adapter/redis/`),
   - config adapter under `adapter/config/` (not `adapter/env/`),
-  - database adapters under `adapter/db/...` with Google Sheets as one backend,
+  - database adapters under `adapter/db/...` with Google Sheets implemented as `adapter/db/google_sheets`; keep the folder name generic so future data stores (Sheets, SQL, etc.) live under the same `db` adapter boundary.
   - market data provider adapters under `adapter/market/...` with `vnstock` as one provider implementation.
 - Prefer business domain naming:
   - use `accounts` (not `accounts_sheet`) in domain concepts and service naming.
@@ -100,6 +101,7 @@ This section is the single source of truth for implementation conventions across
 - `project.json` for `wealth-management-engine` must include:
   - `test` target runnable via `bunx nx run wealth-management-engine:test`,
   - formatting command support.
+- `package.json` exposes `test:go`, `test:e2e`, and `format:go` scripts that wrap the corresponding Nx targets through `bunx`, keeping Go tooling accessible through the preferred `bun` workflow.
 - Husky/lint-staged should include Go formatting for staged `.go` files.
 
 ### 5.5 Market Provider Pattern (Capability-Based Architecture)
@@ -126,6 +128,7 @@ This section is the single source of truth for implementation conventions across
 - Do not expose temporary `/api/test/*` endpoints in the engine.
 - Use real, domain-facing API routes (e.g., `/api/ai/stream`, `/api/ai/json`, `/api/ai/tools`).
 - OpenAPI spec must be generated from code/runtime route registration, not maintained as hardcoded YAML.
+- The runtime spec draws the server URL from the request's protocol and host headers so `/api/docs` stays valid even when someone reaches it from another machine.
 - Swagger grouping/tagging must follow API domain boundary: use the second path segment under `/api/{domain}/...` (for example, `/api/market/*` -> `market` tag).
 - Documentation infrastructure endpoints must not appear as business API operations in Swagger paths:
   - exclude `/api/docs`
@@ -138,6 +141,18 @@ This section is the single source of truth for implementation conventions across
 - E2E tests should validate response meaning (schema/content) rather than status-code-only checks.
 - During live e2e runs, runtime/provider failures must fail the suite (no skip-based pass masking).
 - `test-e2e` must return non-zero exit status when any e2e test fails.
+- Documentation should describe these checks as **Testing** steps rather than “Verification” so tooling names stay consistent with actual Go commands.
+
+### 5.9 Code Size and Cognition Strategy
+
+- Apply the official modularization standard in:
+  - [\_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md)
+- Enforce file/function budgets for all new and refactored backend code:
+  - file target <= 200 lines (hard cap: 300),
+  - function target <= 40 lines (hard cap: 60).
+- Split implementation by vertical use-case slices (handler/service/DTO/mapper) to avoid "god files".
+- `main.go` remains composition-root only (wiring/bootstrap/route registration).
+- For oversized files, refactor within the same task (unless explicitly approved) with tests safeguarding behavior.
 
 ---
 

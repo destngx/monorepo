@@ -1,4 +1,4 @@
-package service
+package cache
 
 import (
 	"apps/wealth-management-engine/domain"
@@ -12,6 +12,10 @@ type cacheService struct {
 
 func NewCacheService(client port.CacheClient) port.CacheService {
 	return &cacheService{client: client}
+}
+
+func New(client port.CacheClient) port.CacheService {
+	return NewCacheService(client)
 }
 
 func (s *cacheService) Set(ctx context.Context, key string, value string, ttlSeconds int) error {

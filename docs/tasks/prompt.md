@@ -23,7 +23,7 @@ FOLLOW THESE 11 STEPS EXACTLY EVERY ITERATION:
 5. Identify the scope (files/libs affected).
 6. Research existing patterns in the target component.
 7. Execute the task (Code, Refactor).
-8. Run local verification (Type-check, Lint, Test).
+8. Run local tests (Type-check, Lint, Test).
 9. Adversarial Self-Review (See §1.1).
 10. Commit changes with a descriptive message.
 11. Append results to `docs/tasks/progress.md`.

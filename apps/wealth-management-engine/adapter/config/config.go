@@ -10,8 +10,8 @@ import (
 )
 
 var envFiles = []string{
+	"../../.env.local",
 	".env.local",
-	"apps/wealth-management-engine/.env.local",
 }
 
 func Load() {

@@ -1,9 +1,8 @@
 package main
 
 import (
+	aiAdapter "apps/wealth-management-engine/adapter/ai"
 	copilotAdapter "apps/wealth-management-engine/adapter/ai/copilot"
-	skillAIAdapter "apps/wealth-management-engine/adapter/ai/skill"
-	toolAIAdapter "apps/wealth-management-engine/adapter/ai/tool"
 	cacheAdapter "apps/wealth-management-engine/adapter/cache"
 	configAdapter "apps/wealth-management-engine/adapter/config"
 	dbAdapter "apps/wealth-management-engine/adapter/db/google_sheets"
@@ -14,6 +13,9 @@ import (
 	"apps/wealth-management-engine/domain"
 	"apps/wealth-management-engine/port"
 	"apps/wealth-management-engine/service"
+	aiService "apps/wealth-management-engine/service/ai"
+	cacheService "apps/wealth-management-engine/service/cache"
+	marketProviderService "apps/wealth-management-engine/service/market_provider"
 	"context"
 	"github.com/gofiber/fiber/v2"
 	"log"
@@ -59,9 +61,9 @@ func main() {
 	app.Get("/api/openapi.json", openAPIHandler.Spec)
 	app.Get("/api/docs", openAPIHandler.Docs)
 
-	toolIntegrationSvc := service.NewToolIntegrationService(
-		toolAIAdapter.NewBalanceTool(),
-		skillAIAdapter.NewMarketAnalysisSkill(resolveSkillPath()),
+	toolIntegrationSvc := aiService.NewToolIntegrationService(
+		aiAdapter.NewBalanceTool(),
+		aiAdapter.NewMarketAnalysisSkill(resolveSkillPath()),
 	)
 	toolIntegrationHandler := fiberAdapter.NewToolIntegrationHandler(toolIntegrationSvc)
 	app.Post("/api/ai/tools", toolIntegrationHandler.Run)
@@ -83,7 +85,7 @@ func main() {
 			log.Printf("Failed to initialize Upstash Redis client: %v", cacheClientErr)
 		} else {
 			cacheClient = createdCacheClient
-			cacheSvc := service.NewCacheService(cacheClient)
+			cacheSvc := cacheService.New(cacheClient)
 			cacheHandler := fiberAdapter.NewCacheHandler(cacheSvc)
 			app.Get("/api/cache/health", cacheHandler.Ping)
 			app.Post("/api/cache/set", cacheHandler.Set)
@@ -107,7 +109,7 @@ func main() {
 	}
 	if len(marketProviders) > 0 {
 		marketRouting := domain.DefaultMarketRoutingConfig()
-		marketProviderSvc := service.NewMarketProviderServiceWithRouting(marketRouting, cacheClient, marketProviders...)
+		marketProviderSvc := marketProviderService.NewServiceWithRouting(marketRouting, cacheClient, marketProviders...)
 		marketProviderHandler := fiberAdapter.NewMarketProviderHandler(marketProviderSvc)
 		marketHandler := fiberAdapter.NewMarketHandler(marketProviderSvc)
 
@@ -122,11 +124,11 @@ func main() {
 	}
 
 	if aiConfigErr == nil {
-		aiClient, aiClientErr := copilotAdapter.NewClient(aiConfig)
+		aiClient, aiClientErr := copilotAdapter.NewCopilotClient(aiConfig)
 		if aiClientErr != nil {
 			log.Printf("Failed to initialize GitHub Copilot client: %v", aiClientErr)
 		} else {
-			aiSvc := service.NewAIService(aiClient, aiConfig.DefaultModel)
+			aiSvc := aiService.NewAIService(aiClient, aiConfig.DefaultModel)
 			aiHandler := fiberAdapter.NewAIHandler(aiSvc)
 			app.Post("/api/ai/stream", aiHandler.Stream)
 			app.Post("/api/ai/json", aiHandler.JSON)
