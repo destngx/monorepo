@@ -24,8 +24,20 @@ type Client struct {
 }
 
 func NewClient(config domain.AIConfig) (*Client, error) {
-	if config.GitHubToken == "" {
-		return nil, errors.New("missing GitHub token")
+	if config.GitHubToken == "" && config.CopilotBearerToken == "" {
+		return nil, errors.New("missing GitHub token or Copilot bearer token")
+	}
+	if strings.TrimSpace(config.EditorVersion) == "" {
+		config.EditorVersion = "vscode/1.80.0"
+	}
+	if strings.TrimSpace(config.EditorPluginVersion) == "" {
+		config.EditorPluginVersion = "copilot-chat/0.1.0"
+	}
+	if strings.TrimSpace(config.CopilotIntegrationID) == "" {
+		config.CopilotIntegrationID = "vscode-chat"
+	}
+	if strings.TrimSpace(config.UserAgent) == "" {
+		config.UserAgent = "GitHubCopilotChat/0.1.0"
 	}
 
 	return &Client{
@@ -74,8 +86,7 @@ func (c *Client) StreamCompletion(ctx context.Context, prompt string, model stri
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+token)
-	request.Header.Set("Editor-Version", "vscode/1.80.0")
-	request.Header.Set("Editor-Plugin-Version", "copilot-chat/0.1.0")
+	c.applyCopilotHeaders(request)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -120,8 +131,7 @@ func (c *Client) CompleteJSON(ctx context.Context, messages []domain.RoleMessage
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+token)
-	request.Header.Set("Editor-Version", "vscode/1.80.0")
-	request.Header.Set("Editor-Plugin-Version", "copilot-chat/0.1.0")
+	c.applyCopilotHeaders(request)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -151,6 +161,10 @@ func (c *Client) CompleteJSON(ctx context.Context, messages []domain.RoleMessage
 }
 
 func (c *Client) getCopilotToken(ctx context.Context) (string, error) {
+	if token := strings.TrimSpace(c.config.CopilotBearerToken); token != "" {
+		return token, nil
+	}
+
 	c.mu.Lock()
 	if c.cachedToken != "" && c.cachedExpiry > time.Now().Unix()+300 {
 		token := c.cachedToken
@@ -170,6 +184,7 @@ func (c *Client) getCopilotToken(ctx context.Context) (string, error) {
 	}
 	request.Header.Set("Authorization", "token "+c.config.GitHubToken)
 	request.Header.Set("Accept", "application/json")
+	c.applyCopilotHeaders(request)
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -199,4 +214,11 @@ func (c *Client) getCopilotToken(ctx context.Context) (string, error) {
 	c.mu.Unlock()
 
 	return tokenPayload.Token, nil
+}
+
+func (c *Client) applyCopilotHeaders(request *http.Request) {
+	request.Header.Set("Editor-Version", c.config.EditorVersion)
+	request.Header.Set("Editor-Plugin-Version", c.config.EditorPluginVersion)
+	request.Header.Set("Copilot-Integration-Id", c.config.CopilotIntegrationID)
+	request.Header.Set("User-Agent", c.config.UserAgent)
 }

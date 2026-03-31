@@ -26,6 +26,7 @@ func TestGivenEmptyModelWhenStreamThenUsesDefaultModel(t *testing.T) {
 type fakeAIClient struct {
 	lastModel string
 	lastMsgs  []domain.RoleMessage
+	jsonReply string
 }
 
 func (f *fakeAIClient) StreamCompletion(_ context.Context, _ string, model string) (io.ReadCloser, error) {
@@ -36,6 +37,9 @@ func (f *fakeAIClient) StreamCompletion(_ context.Context, _ string, model strin
 func (f *fakeAIClient) CompleteJSON(_ context.Context, messages []domain.RoleMessage, model string) (string, error) {
 	f.lastModel = model
 	f.lastMsgs = messages
+	if strings.TrimSpace(f.jsonReply) != "" {
+		return f.jsonReply, nil
+	}
 	return `{"persona":"Portfolio Strategist","summary":"Stable trend","actions":["Rebalance cash"],"roles":["system","assistant","user"]}`, nil
 }
 
@@ -65,5 +69,35 @@ func TestGivenSystemUserAssistantWhenGenerateStructuredJSONThenReturnsParsedStru
 	}
 	if client.lastModel != "gpt-4.1" {
 		t.Fatalf("expected default model gpt-4.1, got %s", client.lastModel)
+	}
+}
+
+func TestGivenEmptyStructuredFieldsWhenGenerateStructuredJSONThenAppliesFallbackValues(t *testing.T) {
+	client := &fakeAIClient{
+		jsonReply: `{"persona":"","summary":"","actions":null,"roles":null}`,
+	}
+	service := NewAIService(client, "gpt-4.1")
+
+	parsed, err := service.GenerateStructuredJSON(
+		context.Background(),
+		"You are a strict JSON-only financial assistant.",
+		"Give me an investment briefing.",
+		"Previous answer discussed risk budgeting.",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if strings.TrimSpace(parsed.Persona) == "" {
+		t.Fatalf("expected non-empty persona fallback")
+	}
+	if strings.TrimSpace(parsed.Summary) == "" {
+		t.Fatalf("expected non-empty summary fallback")
+	}
+	if len(parsed.Actions) == 0 {
+		t.Fatalf("expected non-empty actions fallback")
+	}
+	if len(parsed.Roles) == 0 {
+		t.Fatalf("expected non-empty roles fallback")
 	}
 }

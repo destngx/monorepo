@@ -86,14 +86,19 @@ func LoadCacheConfig() (domain.CacheConfig, error) {
 
 func LoadAIConfig() (domain.AIConfig, error) {
 	config := domain.AIConfig{
-		GitHubToken:    os.Getenv("GITHUB_TOKEN"),
-		GitHubAPIBase:  getOrDefault("GITHUB_API_BASE_URL", "https://api.github.com"),
-		CopilotAPIBase: getOrDefault("COPILOT_API_BASE_URL", "https://api.githubcopilot.com"),
-		DefaultModel:   getOrDefault("COPILOT_DEFAULT_MODEL", "gpt-4.1"),
+		GitHubToken:          os.Getenv("GITHUB_TOKEN"),
+		GitHubAPIBase:        getOrDefault("GITHUB_API_BASE_URL", "https://api.github.com"),
+		CopilotAPIBase:       getOrDefault("COPILOT_API_BASE_URL", "https://api.githubcopilot.com"),
+		DefaultModel:         getOrDefault("COPILOT_DEFAULT_MODEL", "gpt-4.1"),
+		CopilotBearerToken:   os.Getenv("COPILOT_BEARER_TOKEN"),
+		EditorVersion:        getOrDefault("COPILOT_EDITOR_VERSION", "vscode/1.80.0"),
+		EditorPluginVersion:  getOrDefault("COPILOT_EDITOR_PLUGIN_VERSION", "copilot-chat/0.1.0"),
+		CopilotIntegrationID: getOrDefault("COPILOT_INTEGRATION_ID", "vscode-chat"),
+		UserAgent:            getOrDefault("COPILOT_USER_AGENT", "GitHubCopilotChat/0.1.0"),
 	}
 
-	if config.GitHubToken == "" {
-		return domain.AIConfig{}, fmt.Errorf("%w: [GITHUB_TOKEN]", ErrMissingAIConfig)
+	if config.GitHubToken == "" && config.CopilotBearerToken == "" {
+		return domain.AIConfig{}, fmt.Errorf("%w: [GITHUB_TOKEN or COPILOT_BEARER_TOKEN]", ErrMissingAIConfig)
 	}
 
 	return config, nil

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 )
 
 type aiService struct {
@@ -61,5 +62,21 @@ func (s *aiService) GenerateStructuredJSON(
 		return domain.StructuredAIResponse{}, fmt.Errorf("failed to parse AI JSON response: %w", err)
 	}
 
-	return parsed, nil
+	return normalizeStructuredAIResponse(parsed), nil
+}
+
+func normalizeStructuredAIResponse(parsed domain.StructuredAIResponse) domain.StructuredAIResponse {
+	if strings.TrimSpace(parsed.Persona) == "" {
+		parsed.Persona = "Financial Assistant"
+	}
+	if strings.TrimSpace(parsed.Summary) == "" {
+		parsed.Summary = "Generated investment briefing is available."
+	}
+	if len(parsed.Actions) == 0 {
+		parsed.Actions = []string{"Review portfolio allocation and risk exposure."}
+	}
+	if len(parsed.Roles) == 0 {
+		parsed.Roles = []string{"system", "assistant", "user"}
+	}
+	return parsed
 }

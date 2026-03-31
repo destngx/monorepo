@@ -21,6 +21,7 @@ graph TD
     WM-002["WM-002: Dashboard Scaffold (Svelte)"] -.->|"Consumes /api/*"| WM-001
 
     WM-010["WM-010: Market Provider Arch (Capability-Based)"] --> WM-011["WM-011: Routing & E2E Verification"]
+    WM-001 --> WM-012["WM-012: OpenAPI/Swagger Docs"]
     WM-010 --> WM-001
 
     WM-004["WM-004: Legacy Marking"] ---|"Independent"| Independent[Independent]
@@ -73,3 +74,4 @@ graph TD
 - [WM-009](./WM-009.md)
 - [WM-010](./WM-010.md)
 - [WM-011](./WM-011.md)
+- [WM-012](./WM-012.md)

@@ -38,6 +38,13 @@ The documentation is organized into four pillars of system integrity:
 - **Tone**: All logic should follow "Defensive Engineering."
 - **Integrity**: Prioritize data accuracy in the Transaction Ledger over UI speed.
 - **Privacy**: The **"Stealth by Default"** rule is a mandatory global filter for all UI components.
+- **API Documentation Contract**:
+  - OpenAPI is generated dynamically from code route registration.
+  - Swagger tags are grouped by `/api/{domain}` path segment.
+  - Documentation endpoints (`/api/docs`, `/api/openapi.json`) are excluded from business API operations in the OpenAPI `paths` section.
+- **AI Endpoint Namespace**:
+  - Real AI APIs are exposed under `/api/ai/*`.
+  - `/api/test/*` endpoints are not part of the production API contract.
 
 ---
 

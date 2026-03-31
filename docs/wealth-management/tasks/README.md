@@ -121,7 +121,25 @@ This section is the single source of truth for implementation conventions across
 - Skip benchmark and stress-test requirements unless explicitly requested.
 - Treat `vnstock` as a single provider implementation under a provider abstraction, not as the only market integration model.
 
+### 5.7 API Contract and Documentation Policy
+
+- Do not expose temporary `/api/test/*` endpoints in the engine.
+- Use real, domain-facing API routes (e.g., `/api/ai/stream`, `/api/ai/json`, `/api/ai/tools`).
+- OpenAPI spec must be generated from code/runtime route registration, not maintained as hardcoded YAML.
+- Swagger grouping/tagging must follow API domain boundary: use the second path segment under `/api/{domain}/...` (for example, `/api/market/*` -> `market` tag).
+- Documentation infrastructure endpoints must not appear as business API operations in Swagger paths:
+  - exclude `/api/docs`
+  - exclude `/api/openapi.json`
+
+### 5.8 Test Placement Convention
+
+- Integration/e2e tests for HTTP APIs must live in the same package area as the API adapter being tested (for engine APIs: `adapter/fiber`), not in a separate top-level `integration/` package.
+- Keep live API tests env-gated (`RUN_LIVE_API_TESTS=true`) and runnable through Nx target `test-e2e`, which executes all `TestE2E*` tests.
+- E2E tests should validate response meaning (schema/content) rather than status-code-only checks.
+- During live e2e runs, runtime/provider failures must fail the suite (no skip-based pass masking).
+- `test-e2e` must return non-zero exit status when any e2e test fails.
+
 ---
 
 **Project Lead**: Antigravity  
-**Last Updated**: March 30, 2026
+**Last Updated**: March 31, 2026
