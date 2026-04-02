@@ -1,6 +1,7 @@
 package fmarket
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/domain"
 	"apps/wealth-management-engine/port"
 	"bytes"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -16,20 +18,27 @@ import (
 type Provider struct {
 	baseURL    string
 	httpClient *http.Client
+	log        *logger.Logger
 }
 
 var _ port.MarketProvider = (*Provider)(nil)
 
-func NewProvider(config domain.MarketDataProviderConfig) (*Provider, error) {
+func NewProvider(config domain.MarketDataProviderConfig, log *logger.Logger) (*Provider, error) {
 	if strings.TrimSpace(config.BaseURL) == "" {
 		return nil, fmt.Errorf("missing fmarket base URL")
 	}
+
+	log.LogApplicationEvent(context.Background(), "initializing fmarket market provider",
+		slog.String("base_url", config.BaseURL),
+		slog.String("component", "fmarket"),
+	)
 
 	return &Provider{
 		baseURL: strings.TrimRight(config.BaseURL, "/"),
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		log: log,
 	}, nil
 }
 

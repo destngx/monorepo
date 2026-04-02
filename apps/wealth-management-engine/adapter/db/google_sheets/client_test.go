@@ -1,6 +1,7 @@
 package google_sheets
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -124,6 +125,88 @@ func TestAppendRowUsesUserEnteredMode(t *testing.T) {
 	}
 }
 
+func TestUpdateRowUsesUserEnteredMode(t *testing.T) {
+	var capturedQuery url.Values
+	var capturedBody map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"update-token","token_type":"Bearer","expires_in":3600}`))
+		case strings.HasPrefix(r.URL.Path, "/v4/spreadsheets/spreadsheet-123/values/EmailNotifications!F9"):
+			capturedQuery = r.URL.Query()
+			if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"updatedRange": "EmailNotifications!F9"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL, domain.SheetsConfig{
+		ClientID:      "client-id",
+		ClientSecret:  "client-secret",
+		RefreshToken:  "refresh-token",
+		SpreadsheetID: "spreadsheet-123",
+		RedirectURL:   "http://127.0.0.1:3000",
+	})
+
+	if err := client.UpdateRow("EmailNotifications!F9", []any{"done"}); err != nil {
+		t.Fatalf("UpdateRow returned error: %v", err)
+	}
+	if got := capturedQuery.Get("valueInputOption"); got != "USER_ENTERED" {
+		t.Fatalf("expected valueInputOption=USER_ENTERED, got %q", got)
+	}
+	values, ok := capturedBody["values"].([]any)
+	if !ok || len(values) != 1 {
+		t.Fatalf("unexpected update body: %#v", capturedBody)
+	}
+}
+
+func TestWriteToFirstEmptyRowUpdatesNextDataRow(t *testing.T) {
+	var updatePath string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"write-token","token_type":"Bearer","expires_in":3600}`))
+		case strings.HasPrefix(r.URL.Path, "/v4/spreadsheets/spreadsheet-123/values/Transactions!A2:A"):
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"range":  "Transactions!A2:A",
+				"values": [][]any{{"Wallet"}, {"Brokerage"}, {""}},
+			})
+		case strings.HasPrefix(r.URL.Path, "/v4/spreadsheets/spreadsheet-123/values/Transactions!A4"):
+			updatePath = r.URL.Path
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"updatedRange": "Transactions!A4"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL, domain.SheetsConfig{
+		ClientID:      "client-id",
+		ClientSecret:  "client-secret",
+		RefreshToken:  "refresh-token",
+		SpreadsheetID: "spreadsheet-123",
+		RedirectURL:   "http://127.0.0.1:3000",
+	})
+
+	if err := client.WriteToFirstEmptyRow("Transactions", "Transactions!A2:A", []any{"Wallet", "31/03/2026"}); err != nil {
+		t.Fatalf("WriteToFirstEmptyRow returned error: %v", err)
+	}
+	if updatePath == "" {
+		t.Fatalf("expected update request for next data row")
+	}
+}
+
 func newTestClient(t *testing.T, baseURL string, config domain.SheetsConfig) *SheetsClient {
 	t.Helper()
 
@@ -150,5 +233,6 @@ func newTestClient(t *testing.T, baseURL string, config domain.SheetsConfig) *Sh
 		t.Fatalf("failed to create sheets service: %v", err)
 	}
 
-	return NewSheetsClientWithService(service, config.SpreadsheetID)
+	testLog := logger.NewTestLogger(t)
+	return NewSheetsClientWithService(service, config.SpreadsheetID, testLog)
 }

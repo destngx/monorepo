@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 func (p *Provider) GetTicker(ctx context.Context, symbol string, tickerType domain.TickerType) (domain.Ticker, error) {
@@ -38,6 +39,26 @@ func (p *Provider) GetTicker(ctx context.Context, symbol string, tickerType doma
 			Price:    product.Nav,
 		}, nil
 	case domain.TickerTypeGold:
+		if strings.EqualFold(symbol, "XAU") {
+			series, err := p.GetPriceSeries(ctx, symbol, domain.SeriesTypeGoldUSD)
+			if err != nil {
+				return domain.Ticker{}, err
+			}
+			payload, ok := series.Data.(map[string]any)
+			if !ok {
+				return domain.Ticker{}, fmt.Errorf("unexpected gold series payload")
+			}
+			price, _ := payload["price"].(float64)
+			timestamp, _ := payload["timestamp"].(string)
+			return domain.Ticker{
+				Symbol:    "XAU",
+				Type:      tickerType,
+				Provider:  p.Name(),
+				Currency:  "USD",
+				Price:     price,
+				Timestamp: timestamp,
+			}, nil
+		}
 		series, err := p.GetPriceSeries(ctx, symbol, domain.SeriesTypeGoldUSD)
 		if err != nil {
 			return domain.Ticker{}, err

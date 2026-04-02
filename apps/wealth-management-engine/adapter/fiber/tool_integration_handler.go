@@ -1,8 +1,10 @@
 package fiber
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/port"
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -11,10 +13,11 @@ import (
 
 type ToolIntegrationHandler struct {
 	service port.ToolIntegrationService
+	log     *logger.Logger
 }
 
-func NewToolIntegrationHandler(service port.ToolIntegrationService) *ToolIntegrationHandler {
-	return &ToolIntegrationHandler{service: service}
+func NewToolIntegrationHandler(service port.ToolIntegrationService, log *logger.Logger) *ToolIntegrationHandler {
+	return &ToolIntegrationHandler{service: service, log: log}
 }
 
 func (h *ToolIntegrationHandler) Run(c *fiber.Ctx) error {
@@ -30,6 +33,11 @@ func (h *ToolIntegrationHandler) Run(c *fiber.Ctx) error {
 
 	conversation, err := h.service.RunConversation(context.Background(), body.Prompt)
 	if err != nil {
+		requestID := c.Get("X-Request-ID")
+		h.log.LogError(c.UserContext(), "tool_integration_handler: conversation failed", err,
+			slog.String("request_id", requestID),
+			slog.String("endpoint", c.Path()),
+		)
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 

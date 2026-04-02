@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/domain"
 	"context"
 	"net/http"
@@ -21,10 +22,11 @@ func TestGivenSetRequestWhenCacheAcceptsThenValueIsWritten(t *testing.T) {
 	}))
 	defer server.Close()
 
+	testLog := logger.NewTestLogger(t)
 	client, err := NewClient(domain.CacheConfig{
 		RESTURL:   server.URL,
 		RESTToken: "test-token",
-	})
+	}, testLog)
 	if err != nil {
 		t.Fatalf("failed to build cache client: %v", err)
 	}
@@ -45,10 +47,11 @@ func TestGivenCachedValueWhenGetThenReturnsValueAndFound(t *testing.T) {
 	}))
 	defer server.Close()
 
+	testLog := logger.NewTestLogger(t)
 	client, err := NewClient(domain.CacheConfig{
 		RESTURL:   server.URL,
 		RESTToken: "test-token",
-	})
+	}, testLog)
 	if err != nil {
 		t.Fatalf("failed to build cache client: %v", err)
 	}

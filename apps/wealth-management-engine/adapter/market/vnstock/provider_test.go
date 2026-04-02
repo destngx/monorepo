@@ -1,6 +1,7 @@
 package vnstock
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/domain"
 	"context"
 	"net/http"
@@ -18,7 +19,8 @@ func TestGivenVNStockHealthEndpointWhenHealthThenReturnsProviderStatus(t *testin
 	}))
 	defer server.Close()
 
-	provider, err := NewProvider(domain.MarketDataProviderConfig{BaseURL: server.URL})
+	testLog := logger.NewTestLogger(t)
+	provider, err := NewProvider(domain.MarketDataProviderConfig{BaseURL: server.URL}, testLog)
 	if err != nil {
 		t.Fatalf("new provider error: %v", err)
 	}

@@ -1,6 +1,7 @@
 package market_provider
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/domain"
 	"context"
 	"errors"
@@ -21,6 +22,7 @@ func TestGivenTickerTypeWhenPrimaryProviderFailsThenFallbackProviderIsUsed(t *te
 		},
 	}
 
+	testLog := logger.NewTestLogger(t)
 	service := NewServiceWithRouting(
 		domain.MarketRoutingConfig{
 			GetTicker: map[domain.TickerType][]string{
@@ -29,6 +31,7 @@ func TestGivenTickerTypeWhenPrimaryProviderFailsThenFallbackProviderIsUsed(t *te
 			CacheTTLSeconds: 300,
 		},
 		nil,
+		testLog,
 		primary,
 		secondary,
 	)
@@ -60,6 +63,7 @@ func TestGivenCachedTickerWhenGetTickerThenReturnsFromCacheWithoutProviderCall(t
 		},
 	}
 
+	testLog := logger.NewTestLogger(t)
 	service := NewMarketProviderServiceWithRouting(
 		domain.MarketRoutingConfig{
 			GetTicker: map[domain.TickerType][]string{
@@ -68,6 +72,7 @@ func TestGivenCachedTickerWhenGetTickerThenReturnsFromCacheWithoutProviderCall(t
 			CacheTTLSeconds: 300,
 		},
 		cache,
+		testLog,
 		provider,
 	)
 
@@ -97,6 +102,7 @@ func TestGivenSkipCacheContextWhenGetTickerThenBypassesCachedValue(t *testing.T)
 			Provider: "vnstock",
 		},
 	}
+	testLog := logger.NewTestLogger(t)
 	service := NewMarketProviderServiceWithRouting(
 		domain.MarketRoutingConfig{
 			GetTicker: map[domain.TickerType][]string{
@@ -105,6 +111,7 @@ func TestGivenSkipCacheContextWhenGetTickerThenBypassesCachedValue(t *testing.T)
 			CacheTTLSeconds: 300,
 		},
 		cache,
+		testLog,
 		provider,
 	)
 

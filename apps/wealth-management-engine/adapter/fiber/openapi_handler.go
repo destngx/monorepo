@@ -78,14 +78,47 @@ func buildOpenAPISpec(app *fiber.App, serverURL string) map[string]any {
 			}
 
 			operation := map[string]any{
-				"summary":       fmt.Sprintf("%s %s", route.Method, route.Path),
+				"summary":       fmt.Sprintf("%s %s", route.Method, toOpenAPIPath(route.Path)),
 				"operationId":   toOperationID(route.Method, route.Path),
 				"tags":          []string{toTagFromPath(route.Path)},
-				"responses":     map[string]any{"200": map[string]any{"description": "OK"}},
+				"responses":     responsesForRoute(route.Method, route.Path),
 				"x-handlerName": route.Name,
 			}
-			if len(route.Params) > 0 {
-				operation["parameters"] = toPathParameters(route.Params)
+			if meta, ok := lookupRouteMeta(route.Method, route.Path); ok {
+				if meta.Summary != "" {
+					operation["summary"] = meta.Summary
+				}
+				if len(meta.Tags) > 0 {
+					operation["tags"] = meta.Tags
+				}
+				if len(meta.PathParams) > 0 || len(meta.QueryParams) > 0 {
+					operation["parameters"] = append(toParameters(meta.PathParams), toParameters(meta.QueryParams)...)
+				}
+				if meta.RequestBody != nil {
+					operation["requestBody"] = meta.RequestBody
+				}
+				if meta.Responses != nil {
+					operation["responses"] = meta.Responses
+				}
+			} else {
+				if requestBody := requestBodyForRoute(route.Method, route.Path); requestBody != nil {
+					operation["requestBody"] = requestBody
+				}
+				if queryParams := queryParametersForRoute(route.Path); len(queryParams) > 0 {
+					if existing, ok := operation["parameters"].([]map[string]any); ok {
+						operation["parameters"] = append(existing, queryParams...)
+					} else {
+						operation["parameters"] = queryParams
+					}
+				}
+				if len(route.Params) > 0 {
+					pathParams := toPathParameters(route.Params)
+					if existing, ok := operation["parameters"].([]map[string]any); ok {
+						operation["parameters"] = append(existing, pathParams...)
+					} else {
+						operation["parameters"] = pathParams
+					}
+				}
 			}
 
 			pathItem := paths[path].(map[string]any)
@@ -107,6 +140,100 @@ func buildOpenAPISpec(app *fiber.App, serverURL string) map[string]any {
 	}
 }
 
+func queryParametersForRoute(path string) []map[string]any {
+	switch path {
+	case "/api/accounts", "/api/transactions", "/api/categories", "/api/goals", "/api/notifications", "/api/investments/assets":
+		return []map[string]any{queryParameter("force", "boolean", "Bypass cache and fetch fresh data from Google Sheets.")}
+	default:
+		return nil
+	}
+}
+
+func requestBodyForRoute(method string, path string) map[string]any {
+	switch {
+	case method == fiber.MethodPost && path == "/api/transactions":
+		return jsonRequestBody(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"accountName":     map[string]any{"type": "string"},
+				"date":            map[string]any{"type": "string"},
+				"payee":           map[string]any{"type": "string"},
+				"category":        map[string]any{"type": "string"},
+				"tags":            map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"cleared":         map[string]any{"type": "boolean"},
+				"payment":         map[string]any{"type": "number"},
+				"deposit":         map[string]any{"type": "number"},
+				"memo":            map[string]any{"type": "string"},
+				"referenceNumber": map[string]any{"type": "string"},
+			},
+			"required": []string{"accountName", "date", "payee", "category"},
+		})
+	case method == fiber.MethodPatch && path == "/api/notifications":
+		return jsonRequestBody(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"rowNumbers": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
+			},
+			"required": []string{"rowNumbers"},
+		})
+	default:
+		return nil
+	}
+}
+
+func responsesForRoute(method string, path string) map[string]any {
+	responses := map[string]any{"200": map[string]any{"description": "OK"}}
+	if method == fiber.MethodPost && path == "/api/transactions" {
+		responses["400"] = map[string]any{"description": "Invalid transaction payload"}
+	}
+	if method == fiber.MethodPatch && path == "/api/notifications" {
+		responses["400"] = map[string]any{"description": "Invalid notification rowNumbers payload"}
+	}
+	if strings.HasPrefix(path, "/api/") && path != "/api/health" {
+		responses["503"] = map[string]any{"description": "Google Sheets configuration unavailable"}
+	}
+	return responses
+}
+
+func queryParameter(name string, parameterType string, description string) map[string]any {
+	return map[string]any{
+		"name":        name,
+		"in":          "query",
+		"required":    false,
+		"description": description,
+		"schema":      map[string]any{"type": parameterType},
+	}
+}
+
+func toParameters(params []RouteParameter) []map[string]any {
+	parameters := make([]map[string]any, 0, len(params))
+	for _, param := range params {
+		parameter := map[string]any{
+			"name":        param.Name,
+			"in":          param.In,
+			"required":    param.Required,
+			"description": param.Description,
+			"schema":      map[string]any{"type": param.Type},
+		}
+		if param.Default != nil {
+			parameter["schema"].(map[string]any)["default"] = param.Default
+		}
+		parameters = append(parameters, parameter)
+	}
+	return parameters
+}
+
+func jsonRequestBody(schema map[string]any) map[string]any {
+	return map[string]any{
+		"required": true,
+		"content": map[string]any{
+			"application/json": map[string]any{
+				"schema": schema,
+			},
+		},
+	}
+}
+
 func toTagFromPath(path string) string {
 	trimmed := strings.Trim(path, "/")
 	if trimmed == "" {
@@ -115,7 +242,11 @@ func toTagFromPath(path string) string {
 
 	segments := strings.Split(trimmed, "/")
 	if len(segments) >= 2 && segments[0] == "api" && segments[1] != "" {
-		return segments[1]
+		tag := segments[1]
+		if tag == "external" && len(segments) >= 3 && segments[2] != "" {
+			return segments[2]
+		}
+		return tag
 	}
 	if segments[0] != "" {
 		return segments[0]

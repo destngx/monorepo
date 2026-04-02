@@ -21,7 +21,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx vite dev",
+        "command": "bunx vite dev --host",
         "cwd": "apps/wealth-management-dashboard"
       }
     },

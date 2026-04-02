@@ -1,6 +1,7 @@
 package fiber
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/domain"
 	"context"
 	"encoding/json"
@@ -19,7 +20,7 @@ func TestGivenTickerRequestWhenMarketHandlerCalledThenReturnsTickerPayload(t *te
 			Type:     domain.TickerTypeEquity,
 			Provider: "vnstock",
 		},
-	})
+	}, logger.NewTestLogger(t))
 	app.Get("/api/market/ticker", handler.GetTicker)
 
 	request := httptest.NewRequest(http.MethodGet, "/api/market/ticker?symbol=ACB&type=equity", nil)
@@ -35,7 +36,7 @@ func TestGivenTickerRequestWhenMarketHandlerCalledThenReturnsTickerPayload(t *te
 
 func TestGivenMissingTickerQueryWhenMarketHandlerCalledThenReturnsBadRequest(t *testing.T) {
 	app := fiber.New()
-	handler := NewMarketHandler(&fakeMarketService{})
+	handler := NewMarketHandler(&fakeMarketService{}, logger.NewTestLogger(t))
 	app.Get("/api/market/ticker", handler.GetTicker)
 
 	request := httptest.NewRequest(http.MethodGet, "/api/market/ticker?symbol=ACB", nil)
@@ -60,7 +61,7 @@ func TestGivenPriceSeriesRequestWhenMarketHandlerCalledThenReturnsMetadata(t *te
 				{Price: 2000.5, Timestamp: "2026-03-30T10:00:00Z"},
 			},
 		},
-	})
+	}, logger.NewTestLogger(t))
 	app.Get("/api/market/price-series", handler.GetPriceSeries)
 
 	request := httptest.NewRequest(http.MethodGet, "/api/market/price-series?symbol=GOLD&type=gold_usd", nil)
@@ -91,7 +92,7 @@ func TestGivenSkipCacheQueryWhenTickerCalledThenContextBypassesCache(t *testing.
 		},
 	}
 	app := fiber.New()
-	handler := NewMarketHandler(fake)
+	handler := NewMarketHandler(fake, logger.NewTestLogger(t))
 	app.Get("/api/market/ticker", handler.GetTicker)
 
 	request := httptest.NewRequest(http.MethodGet, "/api/market/ticker?symbol=ACB&type=equity&skipCache=true", nil)

@@ -1,6 +1,7 @@
 package market_provider
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/domain"
 	"context"
 	"testing"
@@ -18,6 +19,7 @@ func TestGivenCacheMissWhenGetExchangeRateThenProviderResultIsStoredWithCapabili
 		},
 	}
 
+	testLog := logger.NewTestLogger(t)
 	service := NewServiceWithRouting(
 		domain.MarketRoutingConfig{
 			GetExchangeRate: map[string][]string{
@@ -26,6 +28,7 @@ func TestGivenCacheMissWhenGetExchangeRateThenProviderResultIsStoredWithCapabili
 			CacheTTLSeconds: 300,
 		},
 		cache,
+		testLog,
 		provider,
 	)
 

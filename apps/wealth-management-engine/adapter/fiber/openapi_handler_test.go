@@ -12,7 +12,39 @@ import (
 
 func TestGivenOpenAPISpecRouteWhenRequestedThenReturnsJSONSpec(t *testing.T) {
 	app := fiber.New()
-	app.Get("/api/market/ticker", func(c *fiber.Ctx) error { return c.SendStatus(http.StatusOK) })
+	api := NewRouteRegistrar(app, "/api", "")
+	cache := api.Group("/cache", "cache")
+	cache.Get("/get/:key", func(c *fiber.Ctx) error { return c.SendStatus(http.StatusOK) }, RouteMeta{
+		Summary: "GET /api/cache/get/{key}",
+		Tags:    []string{"cache"},
+		PathParams: []RouteParameter{
+			PathParam("key", "string", "Cache entry key."),
+		},
+	})
+	cache.Delete("/invalidate", func(c *fiber.Ctx) error { return c.SendStatus(http.StatusOK) }, RouteMeta{
+		Summary: "DELETE /api/cache/invalidate",
+		Tags:    []string{"cache"},
+		QueryParams: []RouteParameter{
+			QueryParam("pattern", "string", "Cache key pattern to invalidate.", "*"),
+		},
+	})
+	api.Get("/market/ticker", func(c *fiber.Ctx) error { return c.SendStatus(http.StatusOK) }, RouteMeta{
+		Summary: "GET /api/market/ticker",
+		Tags:    []string{"market"},
+		QueryParams: []RouteParameter{
+			QueryParam("symbol", "string", "Ticker symbol to fetch."),
+			QueryParam("type", "string", "Ticker type."),
+		},
+	})
+	api.Get("/market/exchange-rate", func(c *fiber.Ctx) error { return c.SendStatus(http.StatusOK) }, RouteMeta{
+		Summary: "GET /api/market/exchange-rate",
+		Tags:    []string{"market"},
+		QueryParams: []RouteParameter{
+			QueryParam("skipCache", "boolean", "Bypass market cache and fetch fresh provider data.", false),
+			QueryParam("from", "string", "Source currency code."),
+			QueryParam("to", "string", "Target currency code."),
+		},
+	})
 	app.Get("/api/docs", func(c *fiber.Ctx) error { return c.SendStatus(http.StatusOK) })
 	handler := NewOpenAPIHandler(app)
 	app.Get("/api/openapi.json", handler.Spec)
@@ -40,8 +72,23 @@ func TestGivenOpenAPISpecRouteWhenRequestedThenReturnsJSONSpec(t *testing.T) {
 	if !strings.Contains(string(body), "/api/market/ticker") {
 		t.Fatalf("expected market ticker path in spec")
 	}
+	if !strings.Contains(string(body), "/api/cache/get/{key}") {
+		t.Fatalf("expected cache path parameter route in spec")
+	}
 	if !strings.Contains(string(body), `"tags":["market"]`) {
 		t.Fatalf("expected market route tag to be market, got body=%s", string(body))
+	}
+	if !strings.Contains(string(body), `"default":false`) {
+		t.Fatalf("expected boolean default value in spec, got body=%s", string(body))
+	}
+	if !strings.Contains(string(body), `"name":"key"`) || !strings.Contains(string(body), `"in":"path"`) {
+		t.Fatalf("expected key path parameter in spec, got body=%s", string(body))
+	}
+	if !strings.Contains(string(body), `"name":"skipCache"`) {
+		t.Fatalf("expected skipCache query parameter in spec, got body=%s", string(body))
+	}
+	if !strings.Contains(string(body), `"default":"*"`) {
+		t.Fatalf("expected string default value in spec, got body=%s", string(body))
 	}
 	if strings.Contains(string(body), "/api/docs") {
 		t.Fatalf("expected /api/docs to be excluded from openapi spec, got body=%s", string(body))

@@ -58,6 +58,7 @@ func (p *Provider) GetPriceSeries(ctx context.Context, symbol string, seriesType
 		SeriesType: seriesType,
 		Currency:   "USD",
 		Data: map[string]any{
+			"price":     last.Price,
 			"points":    points,
 			"bidSjc":    last.BidSJC,
 			"askSjc":    last.AskSJC,

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -61,7 +62,6 @@ func getOrDefault(key string, fallback string) string {
 
 var ErrMissingSheetsConfig = errors.New("missing Google Sheets configuration")
 var ErrMissingCacheConfig = errors.New("missing Upstash Redis configuration")
-var ErrMissingAIConfig = errors.New("missing GitHub Copilot configuration")
 
 func LoadCacheConfig() (domain.CacheConfig, error) {
 	config := domain.CacheConfig{
@@ -84,28 +84,29 @@ func LoadCacheConfig() (domain.CacheConfig, error) {
 	return config, nil
 }
 
-func LoadAIConfig() (domain.AIConfig, error) {
-	config := domain.AIConfig{
-		GitHubToken:          os.Getenv("GITHUB_TOKEN"),
-		GitHubAPIBase:        getOrDefault("GITHUB_API_BASE_URL", "https://api.github.com"),
-		CopilotAPIBase:       getOrDefault("COPILOT_API_BASE_URL", "https://api.githubcopilot.com"),
-		DefaultModel:         getOrDefault("COPILOT_DEFAULT_MODEL", "gpt-4.1"),
-		CopilotBearerToken:   os.Getenv("COPILOT_BEARER_TOKEN"),
-		EditorVersion:        getOrDefault("COPILOT_EDITOR_VERSION", "vscode/1.80.0"),
-		EditorPluginVersion:  getOrDefault("COPILOT_EDITOR_PLUGIN_VERSION", "copilot-chat/0.1.0"),
-		CopilotIntegrationID: getOrDefault("COPILOT_INTEGRATION_ID", "vscode-chat"),
-		UserAgent:            getOrDefault("COPILOT_USER_AGENT", "GitHubCopilotChat/0.1.0"),
-	}
-
-	if config.GitHubToken == "" && config.CopilotBearerToken == "" {
-		return domain.AIConfig{}, fmt.Errorf("%w: [GITHUB_TOKEN or COPILOT_BEARER_TOKEN]", ErrMissingAIConfig)
-	}
-
-	return config, nil
-}
-
 func LoadMarketDataProviderConfig(baseURLEnv string, fallbackBaseURL string) domain.MarketDataProviderConfig {
 	return domain.MarketDataProviderConfig{
 		BaseURL: getOrDefault(baseURLEnv, fallbackBaseURL),
 	}
+}
+
+func getOrDefaultInt(key string, fallback int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func LoadLoggerConfig() (logLevel string, colorEnabled bool) {
+	logLevel = os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	colorEnabled = os.Getenv("LOG_COLOR") != "false"
+	return logLevel, colorEnabled
 }

@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"context"
 	"errors"
 	"testing"
@@ -10,7 +11,8 @@ func TestGivenPatternWhenInvalidateThenDeletesAllMatchedKeys(t *testing.T) {
 	client := &fakeCacheClient{
 		keysToReturn: []string{"ledger:1", "ledger:2"},
 	}
-	cacheService := NewCacheService(client)
+	testLog := logger.NewTestLogger(t)
+	cacheService := NewCacheService(client, testLog)
 
 	deleted, err := cacheService.Invalidate(context.Background(), "ledger:*")
 	if err != nil {
@@ -26,7 +28,8 @@ func TestGivenDeleteFailsWhenInvalidateThenReturnsError(t *testing.T) {
 		keysToReturn: []string{"ledger:1"},
 		deleteErr:    errors.New("delete failed"),
 	}
-	cacheService := NewCacheService(client)
+	testLog := logger.NewTestLogger(t)
+	cacheService := NewCacheService(client, testLog)
 
 	_, err := cacheService.Invalidate(context.Background(), "ledger:*")
 	if err == nil {

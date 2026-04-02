@@ -1,37 +1,47 @@
 package cache
 
 import (
+	"apps/wealth-management-engine/adapter/logger"
 	"apps/wealth-management-engine/domain"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type Client struct {
 	baseURL string
 	token   string
 	client  *http.Client
+	log     *logger.Logger
 }
 
-func NewClient(config domain.CacheConfig) (*Client, error) {
+func NewClient(config domain.CacheConfig, log *logger.Logger) (*Client, error) {
 	if config.RESTURL == "" || config.RESTToken == "" {
 		return nil, errors.New("missing Upstash Redis REST configuration")
 	}
 
+	log.LogApplicationEvent(context.Background(), "initializing upstash cache client",
+		slog.String("base_url", config.RESTURL),
+		slog.String("component", "upstash_cache"),
+	)
+
 	return &Client{
 		baseURL: strings.TrimRight(config.RESTURL, "/"),
 		token:   config.RESTToken,
-		client:  &http.Client{},
+		client:  &http.Client{Timeout: 10 * time.Second},
+		log:     log,
 	}, nil
 }
 
-func NewClientWithHTTPClient(config domain.CacheConfig, client *http.Client) (*Client, error) {
-	cacheClient, err := NewClient(config)
+func NewClientWithHTTPClient(config domain.CacheConfig, client *http.Client, log *logger.Logger) (*Client, error) {
+	cacheClient, err := NewClient(config, log)
 	if err != nil {
 		return nil, err
 	}

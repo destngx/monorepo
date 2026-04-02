@@ -49,7 +49,7 @@ func main() {
 
 	ctx := context.Background()
 	tokenSource := config.TokenSource(ctx, token)
-	
+
 	fmt.Println("🔄 Attempting to refresh access token...")
 	newToken, err := tokenSource.Token()
 	if err != nil {

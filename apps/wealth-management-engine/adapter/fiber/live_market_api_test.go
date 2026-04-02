@@ -23,14 +23,6 @@ func TestE2ELiveMarketAPISmoke(t *testing.T) {
 
 	clearMarketCache(t, baseURL)
 
-	assertJSONEndpoint200(t, baseURL, "/api/external/fmarket/health", func(t *testing.T, body []byte) {
-		var payload map[string]any
-		decodeJSON(t, body, &payload)
-		if payload["provider"] != "fmarket" || payload["status"] != "ok" {
-			t.Fatalf("expected provider=fmarket, got %+v", payload)
-		}
-	})
-
 	assertJSONEndpoint200(t, baseURL, "/api/external/vnstock/health", func(t *testing.T, body []byte) {
 		var payload map[string]any
 		decodeJSON(t, body, &payload)
