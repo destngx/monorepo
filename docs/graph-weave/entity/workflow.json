@@ -1,0 +1,50 @@
+{
+  "workflow_id": "customer-support",
+  "version": "1.2.0",
+  "display_name": "Customer Support Resolution Engine",
+  "tenant_id": "tenant_abc",
+  "description": "Handles customer billing, shipping, and returns queries using multi-agent orchestration.",
+  "limits": {
+    "max_hops": 8,
+    "max_tokens": 200000,
+    "timeout_seconds": 120,
+    "stagnation_window": 3,
+    "stagnation_threshold": 2
+  },
+  "skills": ["billing_system", "shipping_api", "returns_processor"],
+  "subagents": [
+    {
+      "name": "billing_agent",
+      "skill_id": "billing_system",
+      "description": "Handles all Stripe billing operations.",
+      "allowed_tools": ["stripe_get_invoice", "stripe_process_refund"],
+      "summarization_model": "claude-3-haiku-20240307"
+    },
+    {
+      "name": "shipping_agent",
+      "skill_id": "shipping_api",
+      "description": "Tracks orders and initiates shipment actions.",
+      "allowed_tools": ["fedex_track_package", "shopify_get_order"],
+      "summarization_model": "claude-3-haiku-20240307"
+    }
+  ],
+  "guardrails": {
+    "input": {
+      "model": "llama-guard-3",
+      "blocked_patterns": ["ignore previous instructions", "system prompt", "jailbreak"],
+      "max_prompt_tokens": 2000
+    },
+    "output": {
+      "model": "llama-guard-3",
+      "pii_detection": true,
+      "blocked_topics": ["competitor_names", "internal_pricing"],
+      "required_format": "markdown"
+    }
+  },
+  "routing_rules": {
+    "entry_node": "initializer",
+    "fallback_on_stagnation": "output_guardrail",
+    "fallback_on_max_hops": "output_guardrail",
+    "fallback_on_guardrail_fail": "FORCE_EXIT"
+  }
+}
