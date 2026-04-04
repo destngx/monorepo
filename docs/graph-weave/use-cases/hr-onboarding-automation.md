@@ -1,43 +1,28 @@
 # Use case: HR Onboarding Automation
 
-1. Tenant: Enterprise HR system
-Trigger: New employee created
-Workflow: `hr-onboarding:v1.0.0`
+Tenant: enterprise HR platform
+Trigger: a new hire record is created in Workday
+Workflow: `hr-onboarding:v1.1.0`
 
-Flow
-- Generate documents
-- Call HRIS APIs
-- Send onboarding email
-Edge Cases
-- Missing employee data → guardrail fallback
-- API timeout → retry + circuit breaker
+Execution flow:
 
-2.Tenant: `hrflow`
-Workflow ID: `hrflow/onboarding/v1.0.0`
+- Input guardrail validates the hire payload
+- Graph initializer loads the workflow and Tier 1 HR/document skills
+- Orchestrator fans out to isolated subagents
+  - IT: create accounts and access
+  - HR: enroll payroll and benefits
+  - Facilities: assign desk and equipment
+- Doc generation creates the contract and onboarding packet
+- Email subagent dispatches the package
+- Orchestrator aggregates summaries and verifies every mandatory step before finish
 
-Step-by-Step:
+Example path:
 
-Input: `{"new_hire": "John Doe", "role": "engineer", "start_date": "2025-02-01"}`
+- A new hire arrives in Workday
+- The workflow generates the contract, provisions tools, and sends the onboarding packet automatically
 
-Orchestrator parallel routes to 3 subagents (each isolated):
+Edge cases:
 
-- SubAgent_IT: Create GitHub, Slack, Gmail accounts
-- SubAgent_HR: Add to payroll, benefits enrollment
-- SubAgent_Facilities: Assign desk, order laptop
-
-Each returns summary; orchestrator aggregates
-
-Guardrail: Validate all mandatory steps completed before FINISH
-
-3. Tenant Profile: Enterprise Human Resources department.
-
-Trigger: New hire record created in Workday.
-
-Workflow ID: `hr-onboarding:v1.1.0`
-
-Execution:
-  - Orchestrator loads hris_system and doc_gen skills.
-  - Orchestrator tells doc_agent to generate a customized PDF contract.
-  - Orchestrator tells email_agent to dispatch the contract via SES.
-
-Edge Case Handled: Token Budget. Generating massive documents consumes heavy tokens. CircuitBreakerWatchdogNode halts execution gracefully via interrupt() if the max_tokens config is breached, preventing budget blowout.
+- Missing employee data -> guardrail fallback
+- HRIS timeout -> retry with circuit breaker protection
+- Large document generation -> max token watchdog exit before budget blowout

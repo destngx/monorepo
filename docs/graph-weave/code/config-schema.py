@@ -1,5 +1,4 @@
 class GraphWeaveConfigurable(TypedDict):
-    """Payload that goes INSIDE config['configurable']"""
     tenant_id: str
     thread_id: str
     workflow_id: str
@@ -7,15 +6,14 @@ class GraphWeaveConfigurable(TypedDict):
     max_tokens: int
     user_id: str
 
-# Execution construction:
+
 graph.invoke(
     state_input,
     config={
-        "configurable": {  # Fits GraphWeaveConfigurable
+        "configurable": {
             "tenant_id": "tenant_abc",
             "thread_id": "session_123",
-            # ...
         },
-        "recursion_limit": 25  # Top-level, native LangGraph key
-    }
+        "recursion_limit": 25,
+    },
 )

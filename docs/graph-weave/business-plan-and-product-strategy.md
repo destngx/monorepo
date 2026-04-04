@@ -1,51 +1,53 @@
 # Business Plan and Product Strategy
 
-1. Executive Summary
+## Executive Summary
 
-GraphWeave is a deterministic, multi-tenant, dynamically configurable Agentic Workflow Engine built on LangGraph.
-It provides Workflow-as-a-Service (WaaS) for enterprise engineering teams allowing them to orchestrate complex, multi-step AI agentic workflows ( LLM operations ) without writing custom orchestration code.
+GraphWeave is a deterministic, multi-tenant Agentic Workflow Engine built on LangGraph. It provides Workflow-as-a-Service for teams that need reliable multi-step AI orchestration without custom orchestration code.
 
-Unlike traditional agent frameworks, GraphWeave enforces:
-- Strict runtime determinism (JSON-driven routing)
-- Dynamic workflow configuration (no code changes)
-- Isolated Agents configurable
-- Skills, and MCPs support
-- Speedy with Redis
-- Enterprise-grade safety (guardrails + isolation)
+It is designed around:
 
-It serves SaaS platforms, DevOps systems, and enterprise automation layers needing reliable AI orchestration at scale.
+- JSON-driven routing and runtime determinism
+- Dynamic workflow configuration without code changes
+- Isolated subagents
+- Skill and MCP support
+- Redis-backed runtime speed
+- Enterprise guardrails and tenant isolation
 
-2. Value Propositions
+The practical goal is to let teams update tools, skills, or models without touching graph code while still keeping execution deterministic and auditable.
 
-2.1 Decoupled Intelligence
+## Value Propositions
 
-GraphWeave separates orchestration logic from domain capabilities. Organizations can update tools or switch foundational models without altering the underlying graph architecture.
-Workflows are defined entirely in JSON, separating business logic from execution logic. 
+### Decoupled Intelligence
 
-2.2 Two-Tier Cost Optimization
+Orchestration logic stays separate from domain capabilities. Teams can change tools or models without changing the graph structure.
 
-By loading only lightweight skill summaries into the Orchestrator's context and fetching heavy MCP tool schemas strictly on-demand, token consumption is reduced by up to 80% per invocation.
+### Two-Tier Cost Optimization
 
-2.3 Subagent Isolation
+Tier 1 skill summaries stay in the orchestrator context; heavy MCP schemas load only when needed. This reduces token usage and keeps routing fast.
 
-Raw tool outputs and intermediate reasoning never pollute the main Orchestrator's state memory. Subagents operate in sandbox contexts and return only heavily summarized, intent-aligned results.
+That split matters most in long-lived workflows: the orchestrator reasons over compact summaries first and only expands the full schema for the chosen branch.
 
-2.4 Enterprise Safety
+### Subagent Isolation
 
-Pre-commit validation, built-in middleware (PII, injection,...), circuit breaker kill switch, stagnation detection, hop limits
+Raw tool output and intermediate reasoning stay out of shared state. Subagents run in sandboxed contexts and return only summarized results.
 
-2.5 SemVer Workflow Immutability
+### Enterprise Safety
 
-Workflows are strictly versioned (major.minor.patch) and isolation. A tenant can safely test v1.3.0 while production traffic relies unhindered on v1.2.0, guaranteeing predictable execution.
+Pre-commit validation, input/output guardrails, stagnation detection, hop limits, and circuit breakers protect runtime execution.
 
-3. Target Market
+These controls cover both correctness and blast-radius control. Malformed workflows are rejected before storage, suspicious input is blocked early, and runaway loops can be terminated by watchdogs.
 
-GraphWeave targets B2B SaaS platforms requiring embedded AI workflows, enterprise microservices architectures transitioning to autonomous agents, and internal platform engineering teams (DevOps/SRE) needing a reliable engine for automated remediation and data analysis.
+### Workflow Immutability
 
-4. Monetization Model
+Workflows are versioned with SemVer so production and test traffic can safely run different revisions side by side.
 
-The platform operates on a consumption-based pricing model:
+## Target Market
 
-- Per-Tenant Token Quota and Request Quota: Billed dynamically based on accumulated token_usage state, total request execution number.
-- Compute Hops: Premium tiers unlock higher max_hops configurations for deeper reasoning.
-- SLA & Dedicated Infrastructure: Enterprise tiers receive isolated Redis clusters and guaranteed zero-queueing API execution.
+GraphWeave targets B2B SaaS platforms, enterprise automation layers, DevOps/SRE teams, and platform engineering groups that need deterministic AI workflow execution at scale.
+
+## Monetization Model
+
+- Per-tenant request and token quotas
+- Premium hop limits for deeper reasoning
+- Enterprise SLA tiers with isolated Redis and dedicated execution capacity
+- Dedicated infrastructure for tenants that need strict latency or isolation guarantees

@@ -1,10 +1,6 @@
-async def skill_loader_node(state: GraphWeaveState, config: GraphWeaveConfig) -> GraphWeaveState:
-    """
-    Purpose: Lazy load Tier2 schemas for orchestrator-selected skills
-    Inputs: state.subagent_payload["required_tools"]
-    Outputs: state.active_mcp_contexts populated
-    Failure: Log warning, continue with partial skills
-    """
+async def skill_loader_node(
+    state: GraphWeaveState, config: GraphWeaveConfig
+) -> GraphWeaveState:
     required_tools = state.get("subagent_payload", {}).get("required_tools", [])
 
     for tool_id in required_tools:
@@ -27,8 +23,10 @@ async def skill_loader(state: OrchestratorState, config: RunnableConfig) -> Dict
     if target_skill in state["active_mcp_contexts"]:
         return {"routing_directive": "IDLE"}
 
-    full_schema = await redis_client.get(f"skills:tier2:{target_skill}:{conf['tenant_id']}")
+    full_schema = await redis_client.get(
+        f"skills:tier2:{target_skill}:{conf['tenant_id']}"
+    )
     return {
         "active_mcp_contexts": {target_skill: json.loads(full_schema)},
-        "routing_directive": "IDLE"
+        "routing_directive": "IDLE",
     }

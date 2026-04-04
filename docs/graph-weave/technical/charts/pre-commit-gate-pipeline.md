@@ -1,40 +1,20 @@
 ```mermaid
 flowchart LR
-    Upload[POST /workflows JSON] --> Pydantic[1. Schema Validation]
-    Pydantic --> Integrity[2. Tool Ref Integrity]
-    Integrity --> DAG[3. NetworkX Cycle/Reachability]
-    DAG --> SemVer[4. Version Conflict Check]
-    SemVer --> DB[(Save to DB)]
+    A[Workflow JSON submitted] --> B[Pydantic schema validation]
+    B -->|invalid| X1[Reject: schema error]
+    B -->|valid| C[MCP / skill integrity check]
+    C -->|missing refs| X2[Reject: missing skill]
+    C -->|ok| D[NetworkX DAG validation]
+    D -->|cycles or dead nodes| X3[Reject: graph error]
+    D -->|ok| E[SemVer + limit checks]
+    E -->|invalid| X4[Reject: version or limit error]
+    E -->|ok| F[Store workflow + cache graph]
+    F --> G[Return workflow ID + version]
 ```
 
-```mermaid
-flowchart LR
-    A[Upload JSON] --> B[Schema Validate]
-    B --> C[Tool Integrity]
-    C --> D[DAG Check]
-    D --> E[SemVer Check]
-    E --> F[Accept]
-```
+Validation notes:
 
-```mermaid
-flowchart LR
-    A[Workflow JSON<br/>Submitted] --> B[Pydantic Schema<br/>Validation]
-    
-    B -->|Invalid| REJECT1[Reject: Schema Error]
-    B -->|Valid| C[MCP Registry<br/>Integrity Check]
-    
-    C -->|Missing Skills| REJECT2[Reject: MCP Not Found]
-    C -->|All Present| D[NetworkX DAG<br/>Validation]
-    
-    D -->|Cycles| REJECT3[Reject: Cyclic Graph]
-    D -->|Unreachable Nodes| REJECT4[Reject: Dead Code]
-    D -->|Valid DAG| E[SemVer Check]
-    
-    E -->|Invalid Format| REJECT5[Reject: Version Error]
-    E -->|Valid| F[Limit Enforcement]
-    
-    F -->|Exceeds Max| REJECT6[Reject: Limit Violation]
-    F -->|Pass| G[Store in Redis<br/>+ Cache Graph]
-    
-    G --> H[Return Success<br/>Workflow ID + Version]
-```
+- Schema errors fail fast before any storage occurs.
+- MCP or skill references must exist before a workflow is accepted.
+- Cycles and dead nodes are rejected when they indicate bypasses, while the orchestrator’s intentional runtime loop remains a separate concern.
+- SemVer and limit checks prevent incompatible versions and unsafe resource settings from entering the runtime.

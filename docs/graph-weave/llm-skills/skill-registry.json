@@ -10,22 +10,22 @@
           "type": "object",
           "required": ["id", "description", "token_cost", "requires_auth"],
           "properties": {
-            "id": {"type": "string"},
-            "description": {"type": "string", "maxLength": 100},
-            "token_cost": {"type": "integer", "minimum": 1, "maximum": 200},
-            "requires_auth": {"type": "boolean"}
+            "id": { "type": "string" },
+            "description": { "type": "string", "maxLength": 100 },
+            "token_cost": { "type": "integer", "minimum": 1, "maximum": 200 },
+            "requires_auth": { "type": "boolean" }
           }
         },
         "tier2": {
           "type": "object",
           "required": ["mcp_tool_schema", "instructions", "examples"],
           "properties": {
-            "mcp_tool_schema": {"type": "object"},
-            "instructions": {"type": "array", "items": {"type": "string"}},
-            "examples": {"type": "array"},
-            "error_handling": {"type": "object"},
-            "rate_limit": {"type": "object"},
-            "timeout_seconds": {"type": "integer", "default": 30}
+            "mcp_tool_schema": { "type": "object" },
+            "instructions": { "type": "array", "items": { "type": "string" } },
+            "examples": { "type": "array", "items": { "type": "object" } },
+            "error_handling": { "type": "object" },
+            "rate_limit": { "type": "object" },
+            "timeout_seconds": { "type": "integer", "default": 30 }
           }
         }
       }

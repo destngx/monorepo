@@ -1,5 +1,5 @@
-{"event": "on_node_start", "data": {"node": "skill_loader", "status": "Loading Billing System context..."}}
-{"event": "on_tool_start", "data": {"tool": "stripe_get_invoice", "subagent": "billing_agent", "status": "Querying Stripe API..."}}
-{"event": "on_chat_model_stream", "data": {"chunk": "Your order #12345 "}}
-{"event": "on_chat_model_stream", "data": {"chunk": "is currently out for delivery."}}
+{"event": "on_node_start", "data": {"node": "skill_loader", "status": "Loading Tier 2 schema"}}
+{"event": "on_tool_start", "data": {"tool": "order_lookup", "subagent": "shipping_agent", "status": "Querying provider"}}
+{"event": "on_chat_model_stream", "data": {"chunk": "Your order is currently "}}
+{"event": "on_chat_model_stream", "data": {"chunk": "out for delivery."}}
 {"event": "on_graph_end", "data": {"status": "complete", "tokens_used": 3420, "hops": 3, "duration_ms": 2840}}

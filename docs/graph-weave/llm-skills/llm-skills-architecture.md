@@ -1,49 +1,42 @@
 # LLM Skills Architecture
 
-## What is Skill?
+## Skill Layout
 
 A skill is a folder containing:
-- `SKILL.md` (required): Instructions in Markdown with YAML frontmatter
-- `scripts/` (optional): Executable code (Python, Bash, etc.)
-- `references/` (optional): Documentation loaded as needed
-- `assets/` (optional): Templates, fonts, icons used in output
 
-Skills use a three-level system:
-- First level (YAML frontmatter): Always loaded in Agent's system prompt. Provides just enough information for Agent to know when each skill should be used without loading all of it into context.
-- Second level (SKILL.md body): Loaded when Agent thinks the skill is relevant to the current task. Contains the full instructions and guidance.
-- Third level (Linked files): Additional files bundled within the skill directory that Agent can choose to navigate and discover only as needed.
+- `SKILL.md` (required): Markdown instructions with YAML frontmatter
+- `scripts/` (optional): executable helpers
+- `references/` (optional): docs loaded on demand
+- `assets/` (optional): templates or other output resources
 
-Benefit:
-- This progressive disclosure minimizes token usage while maintaining specialized expertise.
-- Pre-built workflows activate automatically when needed
-- Consistent, reliable tool usage
-- Best practices embedded in every interaction
-- Lower learning curve for your integration
+## Loading Model
 
-Agents can load multiple skills simultaneously. Your skill should work well alongside others, not assume it's the only capability available
+Skills use progressive disclosure:
 
-### For MCP Builders: Skills + Connectors
+1. Frontmatter is always loaded into the system prompt so the agent knows when to use the skill.
+2. The `SKILL.md` body loads only when the skill is relevant.
+3. Linked files stay external until needed.
 
-If you already have a working MCP server, you've done the hard part. Skills are the knowledge layer on top - capturing the workflows and best practices you already know, so Agents can apply them consistently.
+This keeps context small while preserving detailed workflow guidance.
 
-> The kitchen analogy:
-MCP provides the professional kitchen: access to tools, ingredients, and equipment. Skills provide the recipes: step-by-step instructions on how to create something valuable. Together, they enable users to accomplish complex tasks without needing to figure out every step themselves. 
+In practice, the frontmatter should describe what the skill does and when to use it, while the body should carry the steps, examples, troubleshooting, and references.
 
-## How Skills are used
+## Why It Helps
 
-Scan the directory and find SKILL.md files and parse their frontmatter
-  - The description must have: What the skill does? When to use it, trigger conditions? Short lenght (<1024 characters)
-  - The function name is skill name, MUST be ke-bab case
-  - Convert each Skill into LLM skill function (https://www.google.com/url?sa=E&q=https%3A%2F%2Fplatform.openai.com%2Fdocs%2Fguides%2Ffunction-calling)
+- Lower token usage
+- Consistent tool use
+- Reusable workflows
+- Multiple skills can work together
 
-When LLM decided to use a skill:
-  - Only until this time, we load all the content of the skill, body should has structure:
-    - Instruction/Workflow: Step by step
-    - Examples: Use cases details of what good output.
-    - Troubleshooting: React when failed
-    - References/Scripts
-    - Script can be triggered by path, but MUST not be loaded to save context memory.
-  - Important notes should be highlighted using `## Important` or `## Critical` note.
+## MCP + Skills
 
-Security notes:
-  - prompt injection: never has XML tag inside front matter
+MCP provides tools; skills provide the operating playbook. Together they let agents apply the right tool with the right procedure, instead of rediscovering the workflow every time.
+
+Think of MCP as the kitchen equipment and skills as the recipes: the tool exists, but the skill tells the agent how to use it safely and consistently.
+
+## Authoring Rules
+
+- Keep the description short and specific
+- Use kebab-case skill names
+- Include workflow, examples, troubleshooting, and references in the body
+- Keep sensitive tags out of frontmatter to reduce prompt-injection risk
