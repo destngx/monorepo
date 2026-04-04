@@ -1,0 +1,19 @@
+{
+  "reasoning": "...",
+  "routing_directive": "SubAgent_X | FINISH | FORCE_EXIT",
+  "subagent_payload": {
+    "objective": "...",
+    "required_tools": []
+  },
+  "final_response": "..."
+},
+{
+  "reasoning": "User asked for order status. I need to call order_api tool via SubAgent_order_tools.",
+  "routing_directive": "SubAgent_order_tools",
+  "subagent_payload": {
+    "objective": "Retrieve status for order ORD-12345",
+    "required_tools": ["order_api"],
+    "parameters": {"order_id": "ORD-12345"}
+  },
+  "final_response": ""
+}

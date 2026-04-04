@@ -1,0 +1,20 @@
+{
+  "tenant_id": "tenant_abc",
+  "workflow_id": "customer-support",
+  "workflow_version": "1.2.0",
+  "session": {
+    "thread_id": "tenant_abc::session_user123_20260401",
+    "user_id": "user_123",
+    "resume": false
+  },
+  "input": {
+    "user_message": "Where is my order #12345? I also want to initiate a return.",
+    "context_metadata": {
+      "channel": "web_chat",
+      "locale": "en-US",
+      "customer_tier": "premium"
+    }
+  },
+  "streaming": true,
+  "sse_filter": ["on_node_start", "on_tool_start", "on_chat_model_stream"]
+}
