@@ -1,5 +1,40 @@
 # LLM Skills Architecture
 
+## 1. Objective
+
+- What: Define how GraphWeave packages and loads skills.
+- Why: Make skills reusable, discoverable, and context-efficient.
+- Who: AI workflow authors and runtime engineers.
+
+## 2. Scope
+
+- In scope: skill folder layout, frontmatter, body loading, and linked reference files.
+- Out of scope: provider implementation details inside individual skills.
+
+## 3. Specification
+
+- Skills must expose concise frontmatter for discovery and detailed bodies for on-demand loading.
+- The system must support multiple skills at once.
+- Skills must be written so they work alongside MCP tooling, not instead of it.
+
+## 4. Technical Plan
+
+- Discover skills from folder structure and frontmatter metadata.
+- Load the full body only when the skill is selected.
+- Keep supporting references external until needed.
+
+## 5. Tasks
+
+- [ ] Define the skill folder contract.
+- [ ] Keep frontmatter concise and discovery-friendly.
+- [ ] Preserve body sections for workflow, examples, troubleshooting, and references.
+
+## 6. Verification
+
+- Given a skill folder, when it is discovered, then the frontmatter should be enough to decide whether it is relevant.
+- Given a selected skill, when it is activated, then the full body should load on demand.
+- Given multiple skills are available, when the agent needs them, then they should be able to work together.
+
 ## Skill Layout
 
 A skill is a folder containing:

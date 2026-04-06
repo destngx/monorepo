@@ -1,5 +1,44 @@
 # Business Plan and Product Strategy
 
+## 1. Objective
+
+- What: Define GraphWeave as a deterministic Workflow-as-a-Service platform for AI orchestration.
+- Why: Give enterprise teams a safe way to run multi-step workflows without custom orchestration glue.
+- Who: SaaS platforms, DevOps/SRE teams, and platform engineering groups.
+
+## 2. Scope
+
+- In scope: JSON-defined workflows, isolated subagents, Redis-backed runtime state, MCP support, guardrails, and versioned workflows.
+- Out of scope: ad hoc orchestration code, non-deterministic routing, and unversioned production workflows.
+
+## 3. Specification
+
+- Workflows must route from declarative JSON and remain deterministic at runtime.
+- Tier 1 skill summaries are always loaded; Tier 2 MCP schemas load only on demand.
+- Subagents must not mutate shared state directly and must return summarized results.
+- Guardrails must cover input validation, output redaction, stagnation detection, hop limits, and circuit breakers.
+- Workflow versions must be SemVer-addressable so test and production can run side by side.
+
+## 4. Technical Plan
+
+- Use LangGraph as the universal interpreter and Redis as the runtime state/cache layer.
+- Keep execution isolated per tenant and per thread.
+- Inject provider/config routing rather than hardcoding workflow branches.
+- Preserve auditability by keeping runtime decisions and summaries structured.
+
+## 5. Tasks
+
+- [ ] Define workflow contracts and versioning rules.
+- [ ] Implement tiered skill loading and subagent isolation.
+- [ ] Add guardrails, stagnation detection, and circuit breaker controls.
+- [ ] Wire Redis-backed caching and tenant/thread scoping.
+
+## 6. Verification
+
+- Given a valid workflow definition, when it is executed, then routing remains deterministic.
+- Given a malformed or unsafe workflow, when it is submitted, then it is rejected before runtime.
+- Given repeated intents or failures, when thresholds are exceeded, then the workflow exits safely.
+
 ## Executive Summary
 
 GraphWeave is a deterministic, multi-tenant Agentic Workflow Engine built on LangGraph. It provides Workflow-as-a-Service for teams that need reliable multi-step AI orchestration without custom orchestration code.

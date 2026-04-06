@@ -1,3 +1,41 @@
+## 1. Objective
+
+- What: Define the runtime shape of the universal interpreter graph.
+- Why: Make execution, routing, and stop conditions explicit for deterministic workflow runs.
+- Who: Runtime engineers, workflow authors, and platform operators.
+
+## 2. Scope
+
+- In scope: initializer, orchestrator, skill loading, stagnation detection, subagent execution, circuit breaker, and output guardrail.
+- Out of scope: provider internals, business-domain logic, and UI presentation.
+
+## 3. Specification
+
+- The same compiled graph must handle multiple workflows through dynamic configuration.
+- Tier 1 summaries must be always available; Tier 2 schemas must be loaded lazily.
+- Subagents must stay isolated and return summarized results.
+- Circuit breakers and stagnation detection must be able to force safe exit.
+- Output guardrails must run before workflow completion.
+
+## 4. Technical Plan
+
+- Model the runtime as a single reusable graph with dynamic branching.
+- Route to skill loading only when the orchestrator requests additional context.
+- Use the watchdog boundary to interrupt execution safely.
+- Return to the orchestrator after subagent completion unless an exit condition is met.
+
+## 5. Tasks
+
+- [ ] Document the canonical node sequence for execution.
+- [ ] Preserve the lazy-load and stagnation branches.
+- [ ] Keep safe-exit paths explicit.
+
+## 6. Verification
+
+- Given a workflow start, when the initializer runs, then the orchestrator must receive a valid state.
+- Given a skill request, when the orchestrator selects it, then the loader must fetch Tier 2 context only for that skill.
+- Given stagnation or a kill flag, when detected, then the graph must exit safely rather than loop.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Initializer

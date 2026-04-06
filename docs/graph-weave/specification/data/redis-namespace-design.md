@@ -2,6 +2,42 @@
 
 All runtime state lives in Redis.
 
+## 1. Objective
+
+- What: Define the Redis keyspace used by GraphWeave.
+- Why: Keep workflow storage, runtime state, cache, and control flags cleanly separated.
+- Who: Runtime and platform engineers.
+
+## 2. Scope
+
+- In scope: workflow JSON, version pointers, skill summaries, kill switches, active threads, compiled graphs, and checkpoints.
+- Out of scope: business-domain source data and provider payloads.
+
+## 3. Specification
+
+- Workflow keys must be tenant-aware and versioned.
+- Skill summaries and MCP schemas must use separate namespaces.
+- Kill switches must support tenant, workflow, and thread blast radii.
+- Active threads and compiled graphs must be independently addressable.
+
+## 4. Technical Plan
+
+- Use deterministic prefixes for each Redis concern.
+- Keep checkpoint storage distinct from workflow definitions.
+- Treat compiled graphs as cacheable artifacts with their own TTL strategy.
+
+## 5. Tasks
+
+- [ ] Define workflow pointer and version key conventions.
+- [ ] Separate skill, kill-switch, and active-thread namespaces.
+- [ ] Keep compiled graph cache and checkpoint storage distinct.
+
+## 6. Verification
+
+- Given a tenant-scoped workflow, when it is stored, then its version and pointer keys must be predictable.
+- Given a kill switch, when it is triggered, then the matching scope must be stoppable without affecting other tenants.
+- Given cached graphs and checkpoints exist, when they are read, then they must resolve from different namespaces.
+
 | Namespace                                            | Purpose                                    |
 | ---------------------------------------------------- | ------------------------------------------ |
 | `workflow:{tenant_id}:{workflow_id}:v{version}`      | Stored workflow JSON                       |

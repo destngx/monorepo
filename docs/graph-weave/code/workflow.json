@@ -1,9 +1,13 @@
 {
-  "workflow_id": "customer-support",
-  "version": "1.2.0",
-  "display_name": "Customer Support Resolution Engine",
-  "tenant_id": "tenant_abc",
-  "description": "Handles customer billing, shipping, and returns queries using multi-agent orchestration.",
+  "name": "customer-support",
+  "version": "2.0.0",
+  "description": "Multi-agent customer support resolution using LangGraph with skill-loaded nodes",
+  "metadata": {
+    "author": "support-platform",
+    "tenant_id": "tenant_abc",
+    "created_at": "2026-04-07T00:00:00Z",
+    "tags": ["customer-support", "multi-agent"]
+  },
   "limits": {
     "max_hops": 8,
     "max_tokens": 200000,
@@ -11,40 +15,230 @@
     "stagnation_window": 3,
     "stagnation_threshold": 2
   },
-  "skills": ["billing_system", "shipping_api", "returns_processor"],
-  "subagents": [
+  "nodes": [
     {
-      "name": "billing_agent",
-      "skill_id": "billing_system",
-      "description": "Handles all Stripe billing operations.",
-      "allowed_tools": ["stripe_get_invoice", "stripe_process_refund"],
-      "summarization_model": "claude-3-haiku-20240307"
+      "id": "initializer",
+      "type": "entry",
+      "display_name": "Input Parser",
+      "description": "Accept customer query and route context",
+      "config": {
+        "properties": {
+          "customer_query": { "type": "string" },
+          "customer_id": { "type": "string" },
+          "category": { "type": "string", "enum": ["billing", "shipping", "returns"] }
+        },
+        "required": ["customer_query"]
+      }
     },
     {
-      "name": "shipping_agent",
-      "skill_id": "shipping_api",
-      "description": "Tracks orders and initiates shipment actions.",
-      "allowed_tools": ["fedex_track_package", "shopify_get_order"],
-      "summarization_model": "claude-3-haiku-20240307"
+      "id": "classify_query",
+      "type": "skill_call",
+      "display_name": "Query Classification",
+      "description": "Classify the support request type",
+      "config": {
+        "skill_id": "classify_support_request",
+        "input_mapping": {
+          "query": "$.config.customer_query"
+        },
+        "output_key": "classification"
+      },
+      "guardrails": {
+        "input": {
+          "max_tokens": 2000,
+          "blocked_patterns": ["ignore instructions", "system prompt"]
+        },
+        "output": {
+          "pii_detection": true,
+          "required_format": "json"
+        }
+      }
+    },
+    {
+      "id": "route_decision",
+      "type": "branch",
+      "display_name": "Route Selection",
+      "description": "Route to appropriate agent based on classification",
+      "config": {
+        "condition_expression": "$.classification.category"
+      }
+    },
+    {
+      "id": "billing_agent",
+      "type": "skill_call",
+      "display_name": "Billing Agent",
+      "description": "Handle billing and payment queries",
+      "config": {
+        "skill_id": "billing_system",
+        "input_mapping": {
+          "query": "$.config.customer_query",
+          "customer_id": "$.config.customer_id"
+        },
+        "output_key": "billing_response"
+      },
+      "guardrails": {
+        "input": {
+          "blocked_patterns": ["ignore previous"]
+        },
+        "output": {
+          "pii_detection": true,
+          "blocked_topics": ["internal_pricing"]
+        }
+      }
+    },
+    {
+      "id": "shipping_agent",
+      "type": "skill_call",
+      "display_name": "Shipping Agent",
+      "description": "Handle shipping and tracking queries",
+      "config": {
+        "skill_id": "shipping_api",
+        "input_mapping": {
+          "query": "$.config.customer_query",
+          "customer_id": "$.config.customer_id"
+        },
+        "output_key": "shipping_response"
+      },
+      "guardrails": {
+        "output": {
+          "pii_detection": true
+        }
+      }
+    },
+    {
+      "id": "returns_agent",
+      "type": "skill_call",
+      "display_name": "Returns Agent",
+      "description": "Handle return and refund queries",
+      "config": {
+        "skill_id": "returns_processor",
+        "input_mapping": {
+          "query": "$.config.customer_query",
+          "customer_id": "$.config.customer_id"
+        },
+        "output_key": "returns_response"
+      },
+      "guardrails": {
+        "output": {
+          "pii_detection": true,
+          "blocked_topics": ["competitor_names"]
+        }
+      }
+    },
+    {
+      "id": "verify_resolution",
+      "type": "branch",
+      "display_name": "Resolution Check",
+      "description": "Verify if issue was resolved or needs escalation",
+      "config": {
+        "condition_expression": "$.billing_response.resolved || $.shipping_response.resolved || $.returns_response.resolved"
+      }
+    },
+    {
+      "id": "escalation",
+      "type": "skill_call",
+      "display_name": "Escalation Handler",
+      "description": "Escalate unresolved tickets to human support",
+      "config": {
+        "skill_id": "escalate_to_human",
+        "input_mapping": {
+          "query": "$.config.customer_query",
+          "customer_id": "$.config.customer_id"
+        },
+        "output_key": "escalation_ticket"
+      }
+    },
+    {
+      "id": "output_formatter",
+      "type": "exit",
+      "display_name": "Final Response",
+      "description": "Format response and complete workflow",
+      "config": {
+        "output_mapping": {
+          "resolution": {
+            "billing": "$.billing_response.resolution || null",
+            "shipping": "$.shipping_response.resolution || null",
+            "returns": "$.returns_response.resolution || null"
+          },
+          "escalation_ticket": "$.escalation_ticket.ticket_id || null",
+          "status": {
+            "resolved": "$.verify_resolution",
+            "customer_id": "$.config.customer_id"
+          }
+        }
+      }
     }
   ],
-  "guardrails": {
-    "input": {
-      "model": "llama-guard-3",
-      "blocked_patterns": ["ignore previous instructions", "system prompt", "jailbreak"],
-      "max_prompt_tokens": 2000
+  "edges": [
+    {
+      "id": "init_to_classify",
+      "from": "initializer",
+      "to": "classify_query",
+      "config": { "label": "Begin classification" }
     },
-    "output": {
-      "model": "llama-guard-3",
-      "pii_detection": true,
-      "blocked_topics": ["competitor_names", "internal_pricing"],
-      "required_format": "markdown"
+    {
+      "id": "classify_to_route",
+      "from": "classify_query",
+      "to": "route_decision",
+      "config": { "label": "Check category" }
+    },
+    {
+      "id": "route_to_billing",
+      "from": "route_decision",
+      "to": "billing_agent",
+      "condition": "$.classification.category == 'billing'",
+      "config": { "label": "Route to billing" }
+    },
+    {
+      "id": "route_to_shipping",
+      "from": "route_decision",
+      "to": "shipping_agent",
+      "condition": "$.classification.category == 'shipping'",
+      "config": { "label": "Route to shipping" }
+    },
+    {
+      "id": "route_to_returns",
+      "from": "route_decision",
+      "to": "returns_agent",
+      "condition": "$.classification.category == 'returns'",
+      "config": { "label": "Route to returns" }
+    },
+    {
+      "id": "billing_to_verify",
+      "from": "billing_agent",
+      "to": "verify_resolution",
+      "config": { "label": "Check resolution" }
+    },
+    {
+      "id": "shipping_to_verify",
+      "from": "shipping_agent",
+      "to": "verify_resolution",
+      "config": { "label": "Check resolution" }
+    },
+    {
+      "id": "returns_to_verify",
+      "from": "returns_agent",
+      "to": "verify_resolution",
+      "config": { "label": "Check resolution" }
+    },
+    {
+      "id": "verify_resolved",
+      "from": "verify_resolution",
+      "to": "output_formatter",
+      "condition": "$.verify_resolution == true",
+      "config": { "label": "Issue resolved" }
+    },
+    {
+      "id": "verify_escalate",
+      "from": "verify_resolution",
+      "to": "escalation",
+      "condition": "$.verify_resolution == false",
+      "config": { "label": "Escalate" }
+    },
+    {
+      "id": "escalation_to_output",
+      "from": "escalation",
+      "to": "output_formatter",
+      "config": { "label": "Complete" }
     }
-  },
-  "routing_rules": {
-    "entry_node": "initializer",
-    "fallback_on_stagnation": "output_guardrail",
-    "fallback_on_max_hops": "output_guardrail",
-    "fallback_on_guardrail_fail": "FORCE_EXIT"
-  }
+  ]
 }
