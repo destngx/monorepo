@@ -1,181 +1,21 @@
 # Workflow JSON Schema System
 
-## Quick Start
+Local entrypoint for the prompt-driven workflow schema.
 
-A **workflow** is a declarative LangGraph definition in JSON that specifies:
+## Use this folder for
 
-1. **Nodes** — discrete work units (entry, prompt-driven agent execution, branching, exit)
-2. **Edges** — transitions between nodes with conditions
-3. **Limits** — execution constraints (timeouts, token budgets, hop limits)
-4. **Metadata** — author, version, tags
+- workflow JSON entry docs
+- migration notes
+- local references to deeper schema files
 
-**Skills** are separate: they're recipes/playbooks loaded dynamically by agents at node execution time, not part of workflow structure.
+## Local references
 
-### Minimal Example
-
-```json
-{
-  "name": "classify-email",
-  "version": "1.0.0",
-  "nodes": [
-    {
-      "id": "start",
-      "type": "entry",
-      "config": {
-        "properties": { "email_body": { "type": "string" } },
-        "required": ["email_body"]
-      }
-    },
-    {
-      "id": "classify",
-      "config": {
-        "system_prompt": "You are an email classifier. Load the right skills for categorization.",
-        "user_prompt_template": "Classify this email: {text}",
-        "input_mapping": { "text": "$.config.email_body" },
-        "output_key": "classification"
-      }
-    },
-    {
-      "id": "end",
-      "type": "exit",
-      "config": {
-        "output_mapping": { "category": "$.classification.output" }
-      }
-    }
-  ],
-  "edges": [
-    { "from": "start", "to": "classify" },
-    { "from": "classify", "to": "end" }
-  ]
-}
-```
-
----
-
-## Concepts
-
-### Node Types
-
-| Type               | Purpose                                  | Example                |
-| ------------------ | ---------------------------------------- | ---------------------- |
-| **entry**          | Workflow start; defines input schema     | Accept customer query  |
-| **exit**           | Workflow end; maps outputs               | Return final decision  |
-| **agent_node**     | Execute an autonomous agent with prompts | Call "research" skill  |
-| **branch**         | Evaluate condition (no work)             | If/then decision point |
-| **human_decision** | Pause for human approval                 | Ask user to verify     |
-
-### Edges
-
-Connect nodes with optional conditions:
-
-```json
-{ "from": "classify", "to": "high_priority", "condition": "$.classification.priority == 'high'" },
-{ "from": "classify", "to": "low_priority", "condition": "$.classification.priority == 'low'" }
-```
-
-Conditions are **JSONPath expressions** evaluated against workflow state.
-
-### Skills
-
-Skills are loaded **at node execution time**, not at graph build time.
-
-When an `agent_node` executes:
-
-1. Runtime reads `system_prompt` and `user_prompt_template`.
-2. Agent decides which skills to load via `load_skill()`.
-3. Runtime provides skill markdown (frontmatter + body + examples) on demand.
-4. Agent executes with prompt context plus loaded skills.
-5. Output stored via `output_key`.
-
-**Key insight**: Workflow structure is independent of skill availability.
-
-### Input/Output Mapping
-
-Use **JSONPath** to route data between nodes:
-
-```json
-{
-  "id": "research_node",
-  "config": {
-    "system_prompt": "You are a researcher. Load the appropriate skills before starting.",
-    "user_prompt_template": "Research: {topic}",
-    "input_mapping": {
-      "topic": "$.config.topic", // From entry config
-      "depth": "$.config.depth"
-    },
-    "output_key": "research_data" // Stored as $.research_data
-  }
-}
-```
-
-Access mapped data in subsequent nodes:
-
-```json
-{
-  "from": "research_node",
-  "to": "summarize",
-  "condition": "$.research_data.confidence > 0.7"
-}
-```
-
-### Guardrails
-
-Protect sensitive node execution:
-
-```json
-{
-  "id": "billing_agent",
-  "type": "agent_node",
-  "guardrails": {
-    "input": {
-      "max_tokens": 2000,
-      "blocked_patterns": ["ignore instructions", "system prompt"]
-    },
-    "output": {
-      "pii_detection": true,
-      "required_format": "json",
-      "blocked_topics": ["internal_pricing"]
-    }
-  }
-}
-```
-
-Guardrails are evaluated by the runtime before/after node execution.
-
----
-
-## File Structure
-
-```
-docs/graph-weave/
-├── specification/
-│   └── workflow-schema/
-│       ├── WORKFLOW_JSON_SPEC.md          ← Full authoritative spec
-│       └── MIGRATION_GUIDE.md             ← How to migrate from old model
-├── code/
-│   ├── workflow.json                      ← Example workflow (customer support)
-│   ├── state_schema.py                    ← Python state contract
-│   └── config_schema.py                   ← Python configurable contract
-└── ...
-```
-
----
-
-## Validation
-
-Use the Python schema modules to validate workflows:
-
-```python
-from state_schema import GraphWeaveState
-from config_schema import GraphWeaveConfigurable
-
-# Parse and validate state/config against the runtime contracts
-state: GraphWeaveState = json_data["state"]
-config: GraphWeaveConfigurable = json_data["config"]
-
-# Validate workflow structure with the Python runtime validators
-# (workflow JSON validation remains part of the runtime pipeline)
-```
+- `[[WORKFLOW_JSON_SPEC.md]]`
+- `[[MIGRATION_GUIDE.md]]`
+- `[[plan/README]]`
+- `[[tasks/README]]`
+- `[[verification/README]]`
+- `[[../README]]`
 
 ---
 

@@ -43,10 +43,8 @@ Thumbs.db
 .turbo
 
 # Environment
-.env
-.env.local
-.env*.local
-.env.development
+.env*
+!.env.example
 
 # TypeScript
 tsconfig.tsbuildinfo
