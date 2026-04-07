@@ -1,45 +1,67 @@
-# Workflow JSON Specification (Corrected LangGraph Model)
+# Workflow JSON Specification (Prompt-Driven Agent Model)
 
 ## 1. Objective
 
-- **What**: Define the authoritative JSON schema for declaring LangGraph workflows where skills are loaded as node context (not routing logic).
-- **Why**: Separate workflow structure (nodes, edges, conditions) from skill content (recipes, playbooks).
+- **What**: Define the authoritative JSON schema for declaring LangGraph workflows where agents execute autonomously based on system + user prompts and load skills dynamically at runtime.
+- **Why**: Separate workflow structure (nodes, edges, conditions) from skill content (recipes) and agent behavior (prompts). Allow agents to decide which skills to load based on task context.
 - **Who**: Workflow authors, runtime engineers, integrators.
 
 ## Traceability
 
 - **FR-WF-001**: Workflow JSON must define explicit nodes and edges (LangGraph-native).
-- **FR-WF-002**: Skills must be referenced in node definitions, not used to determine routing.
-- **FR-WF-003**: Edge conditions must evaluate node results, not available skills.
-- **FR-WF-004**: Guardrails must be attached to nodes, not the workflow level.
-- **FR-WF-005**: Workflow structure must be serializable and execute on any LangGraph runtime.
+- **FR-WF-002**: Nodes must specify system and user prompts; agents decide skill loading autonomously.
+- **FR-WF-003**: Edge conditions must evaluate node results (JSONPath), not available skills or agent choices.
+- **FR-WF-004**: Guardrails must be attached to nodes for input/output validation.
+- **FR-WF-005**: Workflow structure must be serializable and execute on any LangGraph runtime with MCP tool support.
 
 ## 2. Scope
 
-- **In scope**: Node definition, edge transitions, edge conditions, input/output mapping, per-node guardrails.
-- **Out of scope**: Skill content (skills are loaded separately at runtime); provider implementation details; multi-tenant tenant routing.
+- **In scope**: Node definition (agent_node types with prompts), edge transitions, edge conditions, input/output mapping, per-node guardrails.
+- **Out of scope**: Skill content (loaded dynamically at agent runtime); LLM model selection; MCP tool implementations.
 
-## 3. Key Concept: Separation of Concerns
+## 3. Key Concept: Prompt-Driven Agent Autonomy
 
 ```
 ┌─────────────────────────────────────┐
 │       Workflow JSON (Structure)      │
 ├─────────────────────────────────────┤
-│ • Nodes (discrete work units)        │
+│ • Nodes (agent_node with prompts)    │
 │ • Edges (transitions)                │
-│ • Conditions (evaluated at runtime)  │
-│ • Node refs to skills (not routing)  │
+│ • Conditions (evaluated on output)   │
+│ • Limits (safety bounds)             │
+│ • NO explicit skill references       │
 └─────────────────────────────────────┘
-            ↓ (loads)
+            ↓ (manages)
 ┌─────────────────────────────────────┐
-│      Skills (Loaded Content)         │
+│      Agent Execution (Per Node)      │
 ├─────────────────────────────────────┤
-│ • Recipes and procedures             │
-│ • Examples and patterns              │
-│ • Troubleshooting guides             │
-│ • Context injected at node execution │
+│ • System prompt: Role definition     │
+│ • User prompt: Task description      │
+│ • Agent reads prompt context         │
+│ • Agent calls load_skill() as needed │
+│ • Agent executes autonomously        │
+│ • Output stored in state             │
+└─────────────────────────────────────┘
+            ↓ (feeds output to)
+┌─────────────────────────────────────┐
+│      Edge Routing (Deterministic)    │
+├─────────────────────────────────────┤
+│ • Condition: JSONPath expression     │
+│ • Evaluate on agent output           │
+│ • First true condition → next node   │
+└─────────────────────────────────────┘
+            ↓ (loads if needed)
+┌─────────────────────────────────────┐
+│    Skills (External Content)         │
+├─────────────────────────────────────┤
+│ • Markdown with YAML frontmatter     │
+│ • Loaded dynamically by agent        │
+│ • Independent of workflow            │
+│ • Can update without redeployment    │
 └─────────────────────────────────────┘
 ```
+
+**Key Principle**: Agents decide which skills to load via `load_skill()` MCP tool based on task context. Workflow doesn't know about specific skills—it only defines structure and edge routing.
 
 ## 4. JSON Schema
 
@@ -79,7 +101,7 @@ Every node is a discrete work unit. The node type determines its behavior.
 ```json
 {
   "id": "string (unique within workflow)",
-  "type": "enum: entry | exit | skill_call | human_decision | branch",
+  "type": "enum: entry | exit | agent_node | human_decision | branch",
   "display_name": "string (optional)",
   "description": "string (optional)",
 
@@ -122,38 +144,75 @@ Marks the start of the workflow. Accepts input config.
 }
 ```
 
-### Node Type: `skill_call`
+### Node Type: `agent_node`
 
-Executes a skill. The skill is loaded from the skill registry and injected as context.
+Executes an LLM agent with system and user prompts. The agent autonomously decides which skills to load via `load_skill()` MCP tool.
 
 ```json
 {
   "id": "research_node",
-  "type": "skill_call",
+  "type": "agent_node",
   "display_name": "Research Phase",
-  "description": "Conduct deep research using the research skill",
+  "description": "Conduct research using agent-selected skills",
 
   "config": {
-    "skill_id": "research",
+    "system_prompt": "You are a thorough researcher. You have access to:\n- load_skill(skill_name): Load a research playbook\n- search(query): Real-time web search\n- verify(claim): Fact-check information\n\nBefore starting, load the research skill to guide your work. Always cite sources and provide confidence scores based on evidence quality.",
+
+    "user_prompt_template": "Research the following topic:\n{topic}\n\nProvide:\n1. Key findings with sources\n2. Confidence score (0-1)\n3. Known limitations",
+
     "input_mapping": {
       "topic": "$.config.topic",
       "depth": "$.config.depth"
     },
-    "output_key": "research_result"
+
+    "output_key": "research_output",
+
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "findings": { "type": "string" },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": ["findings", "confidence"]
+    }
   },
 
   "guardrails": {
     "input": {
-      "max_tokens": 2000,
-      "blocked_patterns": ["ignore instructions"]
+      "max_tokens": 5000,
+      "blocked_patterns": ["ignore instructions", "system prompt"]
     },
     "output": {
       "pii_detection": true,
-      "required_format": "markdown"
+      "schema_validation": true,
+      "required_format": "json"
     }
+  },
+
+  "retry_config": {
+    "max_attempts": 2,
+    "on_error": "retry",
+    "timeout_seconds": 120
   }
 }
 ```
+
+**System Prompt Best Practices**:
+
+1. **Role definition**: "You are a [role] with expertise in [domain]"
+2. **Tool availability**: List all available tools: `load_skill()`, `search()`, `verify()`, `analyze()`
+3. **Skill loading instruction**: "Load the [skill_name] skill to guide your work" or "Select appropriate skills based on task"
+4. **Output format**: "Return JSON with fields: {field1, field2, ...}"
+5. **Constraints**: "Do not... You must... Always..."
+6. **Quality standards**: "Be thorough, verify claims, cite sources, report confidence"
+
+**User Prompt Best Practices**:
+
+1. **Use templates**: `{topic}`, `{context}`, `{user_input}` (interpolated from input_mapping)
+2. **Clear instructions**: Specify what agent should do and what format to return
+3. **Context inclusion**: Include relevant details that agent needs to succeed
+4. **Output schema**: Tell agent what fields to include in response
 
 ### Node Type: `branch`
 
@@ -167,7 +226,7 @@ Evaluates a condition and determines routing. Does not execute skill work itself
   "description": "Assess if research is high-confidence",
 
   "config": {
-    "condition_expression": "$.research_result.confidence > 0.7"
+    "condition_expression": "$.research_output.confidence > 0.7"
   }
 }
 ```
@@ -202,8 +261,8 @@ Marks the end of the workflow. Outputs final result.
 
   "config": {
     "output_mapping": {
-      "final_report": "$.summary_result.output",
-      "confidence": "$.research_result.confidence"
+      "final_report": "$.summary_output.text",
+      "confidence": "$.research_output.confidence"
     }
   }
 }
@@ -241,7 +300,7 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
    {
      "from": "research_node",
      "to": "summarize",
-     "condition": "$.research_result.confidence > 0.7"
+     "condition": "$.research_output.confidence > 0.7"
    }
    ```
 
@@ -250,120 +309,158 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
    {
      "from": "research_node",
      "to": "rework",
-     "condition": "!($.research_result.confidence > 0.7)"
+     "condition": "!($.research_output.confidence > 0.7)"
    }
    ```
 
-## 5. Complete Example: Research Workflow
+## 5. Complete Example: Multi-Agent Research Workflow
 
 ```json
 {
-  "name": "research-workflow",
+  "name": "multi-agent-research",
   "version": "1.0.0",
-  "description": "Multi-stage research with confidence gates",
+  "description": "Research with agent autonomy and confidence-based routing",
 
   "metadata": {
     "author": "ai-researcher",
     "created_at": "2026-04-07T00:00:00Z",
-    "tags": ["research", "analysis"]
+    "tags": ["research", "analysis", "multi-agent"]
   },
 
   "limits": {
     "max_hops": 10,
-    "max_tokens": 150000,
+    "max_tokens": 250000,
     "timeout_seconds": 600
   },
 
   "nodes": [
     {
-      "id": "start",
+      "id": "entry",
       "type": "entry",
-      "display_name": "Input",
+      "display_name": "Input Configuration",
       "config": {
         "properties": {
-          "topic": { "type": "string" },
-          "depth": { "type": "integer", "minimum": 1, "maximum": 5 }
+          "topic": { "type": "string", "description": "Topic to research" },
+          "depth": { "type": "string", "enum": ["quick", "thorough"] }
         },
         "required": ["topic"]
       }
     },
+
     {
-      "id": "research_phase",
-      "type": "skill_call",
-      "display_name": "Research",
-      "description": "Conduct initial research using the research skill",
+      "id": "research",
+      "type": "agent_node",
+      "display_name": "Research Agent",
+      "description": "Conduct research using agent-selected skills",
 
       "config": {
-        "skill_id": "research",
+        "system_prompt": "You are a research analyst with deep subject matter expertise. You have access to:\n- load_skill(skill_name): Load skill guides (e.g., 'research', 'investigation', 'analysis')\n- search(query): Real-time web search\n- verify(claim): Fact-check assertions\n\nBefore starting, load the 'research' skill to guide your methodology. Always cite sources. Report confidence based on source quality and agreement between sources.",
+
+        "user_prompt_template": "Research the topic: {topic}\n\nDepth requested: {depth}\n\nProvide:\n1. Key findings with sources\n2. Confidence score (0-1) \n3. Known gaps or uncertainties\n4. Recommended next steps if confidence is low",
+
         "input_mapping": {
-          "topic": "$.config.topic",
-          "depth": "$.config.depth"
+          "topic": "$.entry.topic",
+          "depth": "$.entry.depth"
         },
-        "output_key": "research_data"
+
+        "output_key": "research_output",
+
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "findings": { "type": "string" },
+            "sources": { "type": "array", "items": { "type": "string" } },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "gaps": { "type": "string" }
+          },
+          "required": ["findings", "confidence"]
+        }
       },
 
       "guardrails": {
         "input": {
           "max_tokens": 3000,
-          "blocked_patterns": ["ignore previous"]
+          "blocked_patterns": ["ignore instructions", "system prompt"]
         },
         "output": {
           "pii_detection": true,
-          "required_format": "markdown"
+          "schema_validation": true,
+          "required_format": "json"
+        }
+      },
+
+      "retry_config": {
+        "max_attempts": 2,
+        "on_error": "retry",
+        "timeout_seconds": 180
+      }
+    },
+
+    {
+      "id": "confidence_check",
+      "type": "branch",
+      "display_name": "Confidence Gate",
+      "description": "Route based on research confidence",
+      "config": {
+        "condition_expression": "$.research_output.confidence"
+      }
+    },
+
+    {
+      "id": "verify",
+      "type": "agent_node",
+      "display_name": "Verification Agent",
+      "description": "Verify research findings for accuracy",
+
+      "config": {
+        "system_prompt": "You are a fact-checker and verification specialist. You have access to:\n- load_skill(skill_name): Load verification skill\n- verify(claim): Fact-check assertions\n- search(query): Counter-evidence search\n\nLoad the 'verification' skill. Systematically verify each key finding. Report verified, disputed, and unverifiable claims.",
+
+        "user_prompt_template": "Verify these research findings:\n{findings}\n\nReport:\n1. Verified facts\n2. Disputed or uncertain claims\n3. Missing evidence\n4. Overall verification confidence (0-1)",
+
+        "input_mapping": {
+          "findings": "$.research_output.findings"
+        },
+
+        "output_key": "verification_output"
+      },
+
+      "guardrails": {
+        "output": {
+          "pii_detection": true,
+          "schema_validation": true
         }
       }
     },
+
     {
-      "id": "confidence_gate",
-      "type": "branch",
-      "display_name": "Confidence Check",
-      "description": "Evaluate research quality",
-      "config": {
-        "condition_expression": "$.research_data.confidence > 0.75"
-      }
-    },
-    {
-      "id": "summarize_phase",
-      "type": "skill_call",
-      "display_name": "Summarization",
+      "id": "summarize",
+      "type": "agent_node",
+      "display_name": "Summarization Agent",
       "description": "Create executive summary",
 
       "config": {
-        "skill_id": "summarize",
-        "input_mapping": {
-          "research_text": "$.research_data.output",
-          "max_length": 500
-        },
-        "output_key": "summary"
-      }
-    },
-    {
-      "id": "rework_phase",
-      "type": "skill_call",
-      "display_name": "Rework Research",
-      "description": "Deepen research due to low confidence",
+        "system_prompt": "You are a technical writer. Load the 'summarization' skill. Create clear, concise summaries that highlight key points and integrate verification results.",
 
-      "config": {
-        "skill_id": "research",
+        "user_prompt_template": "Summarize these results:\nResearch: {research}\nVerification: {verification}\n\nCreate a concise summary with key findings, verified status, and confidence rating.",
+
         "input_mapping": {
-          "topic": "$.config.topic",
-          "depth": "5"
+          "research": "$.research_output.findings",
+          "verification": "$.verification_output"
         },
-        "output_key": "research_data"
+
+        "output_key": "summary_output"
       }
     },
+
     {
-      "id": "end",
+      "id": "exit",
       "type": "exit",
-      "display_name": "Complete",
+      "display_name": "Output",
       "config": {
         "output_mapping": {
-          "summary": "$.summary.output",
-          "confidence": "$.research_data.confidence",
-          "metadata": {
-            "workflow": "research-workflow",
-            "completed_at": "NOW()"
-          }
+          "research": "$.research_output",
+          "verification": "$.verification_output",
+          "summary": "$.summary_output"
         }
       }
     }
@@ -371,63 +468,98 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
 
   "edges": [
     {
-      "from": "start",
-      "to": "research_phase",
-      "config": { "label": "Initialize research" }
+      "from": "entry",
+      "to": "research",
+      "config": { "label": "Start research" }
     },
     {
-      "from": "research_phase",
-      "to": "confidence_gate",
-      "config": { "label": "Assess quality" }
+      "from": "research",
+      "to": "confidence_check",
+      "config": { "label": "Evaluate confidence" }
     },
     {
-      "from": "confidence_gate",
-      "to": "summarize_phase",
-      "condition": "$.research_data.confidence > 0.75",
-      "config": { "label": "High confidence → summarize" }
+      "from": "confidence_check",
+      "to": "verify",
+      "condition": "$.research_output.confidence > 0.6",
+      "config": { "label": "Confidence adequate → verify" }
     },
     {
-      "from": "confidence_gate",
-      "to": "rework_phase",
-      "condition": "!($.research_data.confidence > 0.75)",
-      "config": { "label": "Low confidence → rework" }
+      "from": "confidence_check",
+      "to": "research",
+      "condition": "$.research_output.confidence <= 0.6",
+      "config": { "label": "Low confidence → retry research" }
     },
     {
-      "from": "summarize_phase",
-      "to": "end",
-      "config": { "label": "Output result" }
+      "from": "verify",
+      "to": "summarize",
+      "config": { "label": "Proceed to summary" }
     },
     {
-      "from": "rework_phase",
-      "to": "confidence_gate",
-      "config": { "label": "Re-evaluate" }
+      "from": "summarize",
+      "to": "exit",
+      "config": { "label": "Complete" }
     }
   ]
 }
 ```
 
-## 6. How Skills Load at Runtime
+## 6. How Agent Autonomy Works at Runtime
 
-1. **Workflow JSON Parsed**: Runtime reads nodes and edges.
-2. **Node Identified**: Runtime encounters `"skill_id": "research"`.
-3. **Skill Loaded**: Runtime fetches skill from registry (SKILL.md frontmatter + body).
-4. **Context Injected**: Skill markdown (with examples, procedures) injected into node execution context.
-5. **Execution**: Agent executes with skill guidance + node input mapping.
-6. **Output Mapped**: Node output stored via `output_key`.
-7. **Edge Evaluated**: Next node determined by edge conditions (not skill availability).
+### Execution Flow
 
-**Key Point**: The workflow structure doesn't change based on available skills. Skills are **context**, not **routing logic**.
+```
+1. NODE EXECUTION (agent_node)
+   ├─ Inputs: {topic: "AI ethics", depth: "thorough"}
+   ├─ System Prompt: "You are a researcher. Load skills as needed."
+   ├─ User Prompt: "Research: AI ethics, depth: thorough"
+
+2. AGENT READS PROMPTS (LLM + MCP Tools)
+   ├─ LLM analyzes: "I need to research, so I should load research skill"
+   ├─ LLM calls MCP tool: load_skill("research")
+   ├─ MCP returns: Skill definition (Markdown with YAML frontmatter)
+   ├─ LLM reads skill: "Research methodology steps..."
+   ├─ LLM may also call: search(), verify(), analyze() as needed
+   ├─ LLM outputs: {findings: "...", confidence: 0.85, sources: [...]}
+
+3. OUTPUT STORED
+   ├─ Node stores output at key: "research_output"
+   ├─ State updated: {research_output: {findings: ..., confidence: 0.85}}
+
+4. EDGE EVALUATION (Workflow)
+   ├─ Condition: "$.research_output.confidence > 0.6"
+   ├─ Evaluation: 0.85 > 0.6? YES
+   ├─ Next node: verify (if exists) or summarize
+
+5. GUARDRAILS
+   ├─ Pre-execution: Validate inputs (token count, blocked patterns)
+   ├─ Post-execution: Validate outputs (schema, PII, format)
+```
+
+### Key Differences from Explicit Skill References
+
+| Aspect                  | Old (skill_call)                       | New (agent_node + prompt-driven)                    |
+| ----------------------- | -------------------------------------- | --------------------------------------------------- |
+| **Skill selection**     | Explicit in workflow `skill_id`        | Agent decides via `load_skill()`                    |
+| **Skill loading**       | Runtime loads specified skill          | Agent requests skill on demand                      |
+| **Agent autonomy**      | Limited (follows fixed skill)          | High (can load multiple skills, use other tools)    |
+| **Workflow coupling**   | Tight (workflow knows all skills)      | Loose (workflow only defines structure)             |
+| **Flexibility**         | Low (skill changes = workflow changes) | High (skill updates don't require workflow changes) |
+| **Multi-skill support** | No (one skill per node)                | Yes (agent can load multiple skills)                |
+
+**Bottom Line**: Workflow defines WHAT nodes do (research, verify, summarize) and HOW to route between them (based on confidence). Agents decide WHICH skills to load based on task context.
 
 ## 7. Verification Checklist
 
 - [ ] All nodes have unique IDs within the workflow.
-- [ ] Every `skill_call` node references a valid `skill_id` (or is gracefully skipped).
+- [ ] Every `agent_node` has both `system_prompt` and `user_prompt_template` defined.
+- [ ] All `user_prompt_template` placeholders (e.g., `{topic}`) have corresponding keys in `input_mapping`.
 - [ ] All edges reference existing source and target nodes.
 - [ ] Conditions use valid JSONPath syntax and reference accessible state paths.
 - [ ] Entry and exit nodes are present and correctly linked.
-- [ ] No circular loops without explicit stagnation handling.
+- [ ] No circular loops without explicit stagnation handling in limits.
 - [ ] Input/output mappings are valid JSONPath expressions.
-- [ ] Guardrails are optional but, if present, have valid models or patterns.
+- [ ] Output schemas in `agent_node` are valid JSON Schema.
+- [ ] Guardrails (if present) have valid models or patterns.
 
 ## 8. Runtime Contract
 
@@ -435,7 +567,7 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
 
 - Workflow JSON (above schema)
 - Initial config (matches entry node properties)
-- Loaded skills (skill_id → SKILL.md mapping)
+- Available MCP tools for agents (load_skill, search, verify, analyze)
 
 **Output**:
 
@@ -446,27 +578,43 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
 
 - Nodes execute in order defined by edges and conditions.
 - State is immutable during edge evaluation (snapshots for condition checking).
-- Skill loading is non-blocking (skills load in background if needed).
+- Agent skill loading is non-blocking (agents call load_skill() synchronously, tool returns skill definition).
 - Execution halts on max_hops, timeout, or explicit exit.
+- **Determinism at edge level**: Given same node output, same edge is taken (JSONPath evaluation is deterministic).
+- **Agent autonomy within guardrails**: Agent can choose skills/tools within constraints defined by prompts and guardrails.
 
 ---
 
-## Differences from Previous Approaches
+## 9. Differences from Previous Approaches
 
-| Aspect         | Hybrid Config (Rejected)          | Explicit State Machine (Adopted)                           |
-| -------------- | --------------------------------- | ---------------------------------------------------------- |
-| **Routing**    | Determined by available skills    | Determined by edge conditions on state                     |
-| **Node Type**  | Implicit (subagent + skill_id)    | Explicit (entry, exit, skill_call, branch, human_decision) |
-| **Skill Role** | Constrains workflow DAG           | Loaded as node execution context                           |
-| **Structure**  | Workflow adapts to skills         | Skills adapt to workflow structure                         |
-| **Modularity** | Skills + workflow tightly coupled | Clear separation of structure and content                  |
+| Aspect                    | Hybrid Config (Rejected)          | Explicit State Machine + skill_call (Old)  | Prompt-Driven agent_node (Current)                       |
+| ------------------------- | --------------------------------- | ------------------------------------------ | -------------------------------------------------------- |
+| **Routing**               | Determined by available skills    | Determined by `skill_id` + edge conditions | Determined by edge conditions on agent output            |
+| **Skill Loading**         | Implicit (workflow decides)       | Explicit (workflow specifies `skill_id`)   | Dynamic (agent requests via `load_skill()`)              |
+| **Node Type**             | Implicit (subagent + skill_id)    | Explicit (skill_call)                      | Explicit (agent_node with prompts)                       |
+| **Agent Role**            | Fixed (execute skill)             | Fixed (execute skill)                      | Autonomous (decide which skills to load)                 |
+| **Skill Ref in Workflow** | Yes                               | Yes (explicit `skill_id`)                  | No (implicit via prompts)                                |
+| **Multi-Skill Support**   | No                                | No (one skill per node)                    | Yes (agent can load multiple skills)                     |
+| **Modularity**            | Skills + workflow tightly coupled | Skills + workflow coupled via `skill_id`   | Clear separation: workflow = structure, skills = content |
 
 ---
 
-## Next Steps
+## 10. Next Steps
 
-1. **Implement Workflow Parser**: Load JSON, validate schema, build LangGraph.
-2. **Implement Skill Loader**: Resolve skill_id → load SKILL.md frontmatter + body.
-3. **Implement Executor**: Execute nodes, evaluate edge conditions, handle guardrails.
-4. **Build Registry**: Map skill_id to SKILL.md location (file-based or HTTP).
-5. **Test Suite**: Validate schema compliance and execution correctness.
+1. **Create SYSTEM_PROMPT_GUIDELINES.md**: Best practices for writing effective system prompts for agent_node types.
+2. **Design load_skill() MCP Tool**: Specification for how agents load skills at runtime.
+3. **Implement Workflow Parser**: Load JSON, validate schema, build LangGraph with agent_node types.
+4. **Implement Skill Discovery**: How agents find and enumerate available skills at runtime.
+5. **Implement Agent Executor**: Execute LLM agents with system + user prompts, handle MCP tool calls.
+6. **Build Example Workflows**: Convert existing workflows to prompt-driven agent_node format.
+7. **Test Suite**: Validate schema compliance, agent autonomy, edge routing determinism, and guardrails.
+
+---
+
+## 11. Key Takeaways
+
+1. **Workflow = Structure**: Nodes, edges, conditions. No explicit skill references.
+2. **Prompts = Behavior**: System prompts define agent role; user prompts define task.
+3. **Agent Autonomy = Flexibility**: Agents load skills dynamically based on task context.
+4. **Edge Conditions = Determinism**: Routing is deterministic, based on agent output and JSONPath evaluation.
+5. **No Coupling**: Workflow can remain unchanged when skills are added/updated.

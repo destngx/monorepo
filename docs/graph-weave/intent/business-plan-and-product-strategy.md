@@ -6,10 +6,20 @@
 - Why: Give enterprise teams a safe way to run multi-step workflows without custom orchestration glue.
 - Who: SaaS platforms, DevOps/SRE teams, and platform engineering groups.
 
+## Traceability
+
+- FR-INTENT-001: GraphWeave must be documented as a product spec and implementation guide.
+- FR-INTENT-002: The docs must express GraphWeave as a source of truth, not an exploratory draft.
+- FR-INTENT-003: The platform must support deterministic workflow execution with a fixed stack.
+
 ## 2. Scope
 
-- In scope: JSON-defined workflows, isolated subagents, Redis-backed runtime state, MCP support, guardrails, and versioned workflows.
+- In scope: JSON-defined workflows, isolated agent nodes, Redis-backed runtime state, MCP support, guardrails, and versioned workflows.
 - Out of scope: ad hoc orchestration code, non-deterministic routing, and unversioned production workflows.
+
+## 2.1 Success Definition
+
+- Teams can understand the architecture, build on the docs, and implement compatible workflows without reverse-engineering the runtime.
 
 ## 3. Specification
 
@@ -18,6 +28,8 @@
 - Subagents must not mutate shared state directly and must return summarized results.
 - Guardrails must cover input validation, output redaction, stagnation detection, hop limits, and circuit breakers.
 - Workflow versions must be SemVer-addressable so test and production can run side by side.
+- The external API, gateway choice, and core runtime stack are fixed: LangGraph, FastAPI, Redis, and MCP.
+- Redis key names are examples and must be treated as guidelines unless elevated to a contract in a future revision.
 
 ## 4. Technical Plan
 
@@ -25,6 +37,8 @@
 - Keep execution isolated per tenant and per thread.
 - Inject provider/config routing rather than hardcoding workflow branches.
 - Preserve auditability by keeping runtime decisions and summaries structured.
+- Maintain the canonical tenant model as tenant + workflow + thread.
+- Keep diagrams close to implementation behavior but label them as authoritative only where they define runtime contracts.
 
 ## 5. Tasks
 
@@ -32,12 +46,16 @@
 - [ ] Implement tiered skill loading and subagent isolation.
 - [ ] Add guardrails, stagnation detection, and circuit breaker controls.
 - [ ] Wire Redis-backed caching and tenant/thread scoping.
+- [ ] Add traceability IDs to all requirement statements and scenarios.
+- [ ] Capture explicit non-functional targets for latency, reliability, and safety.
 
 ## 6. Verification
 
 - Given a valid workflow definition, when it is executed, then routing remains deterministic.
 - Given a malformed or unsafe workflow, when it is submitted, then it is rejected before runtime.
 - Given repeated intents or failures, when thresholds are exceeded, then the workflow exits safely.
+- Given a documented requirement, when a reviewer or implementer reads the docs, then they can trace it to a unique ID.
+- Given a performance-sensitive workflow, when it is executed, then the specified latency and reliability targets must be measurable.
 
 ## Executive Summary
 
@@ -47,7 +65,7 @@ It is designed around:
 
 - JSON-driven routing and runtime determinism
 - Dynamic workflow configuration without code changes
-- Isolated subagents
+- Isolated agent nodes
 - Skill and MCP support
 - Redis-backed runtime speed
 - Enterprise guardrails and tenant isolation

@@ -1,8 +1,8 @@
 def orchestrator_router(state: GraphWeaveState) -> str:
     directive = state.get("routing_directive", "")
 
-    if directive.startswith("SubAgent_"):
-        return "subagent"
+    if directive.startswith("Agent_") or directive.startswith("LOAD_SKILL"):
+        return "agent_node"
     elif directive == "FINISH":
         return "finish"
     elif directive == "FORCE_EXIT":
@@ -17,15 +17,15 @@ def stagnation_router(state: GraphWeaveState) -> str:
     return "continue"
 
 
-def subagent_router(state: GraphWeaveState) -> str:
+def agent_router(state: GraphWeaveState) -> str:
     directive = state["routing_directive"]
 
-    subagent_map = {
-        "SubAgent_order_tools": "order_subagent",
-        "SubAgent_return_tools": "return_subagent",
+    agent_map = {
+        "Agent_order_tools": "order_agent",
+        "Agent_return_tools": "return_agent",
     }
 
-    return subagent_map.get(directive, "default_subagent")
+    return agent_map.get(directive, "default_agent")
 
 
 def orchestrator_router(state: OrchestratorState, config: RunnableConfig) -> str:
@@ -39,7 +39,7 @@ def orchestrator_router(state: OrchestratorState, config: RunnableConfig) -> str
     directive = state["routing_directive"]
     if directive.startswith("LOAD_SKILL"):
         return "skill_loader"
-    if directive == "CALL_SUBAGENT":
+    if directive == "CALL_AGENT":
         return "stagnation_detector"
     if directive in ["FINISH", "FORCE_EXIT"]:
         return "output_guardrail"
@@ -49,8 +49,8 @@ def orchestrator_router(state: OrchestratorState, config: RunnableConfig) -> str
 def stagnation_router(state: OrchestratorState) -> str:
     if state["stagnation_detected"]:
         return "output_guardrail"
-    return f"subagent_{state['current_subagent_target']}"
+    return f"agent_{state['current_agent_target']}"
 
 
-def subagent_router(state: OrchestratorState) -> str:
+def agent_terminal_router(state: OrchestratorState) -> str:
     return "circuit_breaker"

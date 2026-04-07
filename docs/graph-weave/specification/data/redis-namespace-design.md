@@ -2,6 +2,13 @@
 
 All runtime state lives in Redis.
 
+## Traceability
+
+- FR-DATA-001: Workflow storage, runtime state, and control flags must be separated in Redis.
+- FR-DATA-002: Tenant/workflow/thread scoping must be reflected in key design.
+- FR-DATA-003: Compiled graphs and checkpoints must be independently addressable.
+- FR-DATA-004: Skill caches must be separated into tenant-aware Tier 1 and Tier 2 namespaces.
+
 ## 1. Objective
 
 - What: Define the Redis keyspace used by GraphWeave.
@@ -19,24 +26,32 @@ All runtime state lives in Redis.
 - Skill summaries and MCP schemas must use separate namespaces.
 - Kill switches must support tenant, workflow, and thread blast radii.
 - Active threads and compiled graphs must be independently addressable.
+- Redis key examples are guidelines; they may evolve if the scope and blast-radius rules stay intact.
+- The data contract must preserve auditability and deterministic lookups.
+- Skill summary entries must use a minimal JSON structure.
 
 ## 4. Technical Plan
 
 - Use deterministic prefixes for each Redis concern.
 - Keep checkpoint storage distinct from workflow definitions.
 - Treat compiled graphs as cacheable artifacts with their own TTL strategy.
+- Use the keyspace as a source of runtime intent, not as a business-domain model.
+- Keep namespace changes backward compatible unless the spec version changes.
 
 ## 5. Tasks
 
 - [ ] Define workflow pointer and version key conventions.
 - [ ] Separate skill, kill-switch, and active-thread namespaces.
 - [ ] Keep compiled graph cache and checkpoint storage distinct.
+- [ ] Document TTL implications for pointers, caches, and kill switches.
+- [ ] Define the minimal JSON shape for Tier 1 skill summaries.
 
 ## 6. Verification
 
 - Given a tenant-scoped workflow, when it is stored, then its version and pointer keys must be predictable.
 - Given a kill switch, when it is triggered, then the matching scope must be stoppable without affecting other tenants.
 - Given cached graphs and checkpoints exist, when they are read, then they must resolve from different namespaces.
+- Given the published key design, when an operator inspects Redis, then workflow, cache, checkpoint, and kill-switch entries must be separable at a glance.
 
 | Namespace                                            | Purpose                                    |
 | ---------------------------------------------------- | ------------------------------------------ |

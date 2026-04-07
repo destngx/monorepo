@@ -79,6 +79,50 @@ func (s *dbService) ListAccounts() ([]domain.Account, error) {
 	return accounts, nil
 }
 
+func (s *dbService) CreateAccount(input domain.AccountCreateInput) error {
+	if strings.TrimSpace(input.Name) == "" {
+		return fmt.Errorf("account name is required")
+	}
+	balance := 0.0
+	if input.Balance != nil {
+		balance = *input.Balance
+	}
+	values := []any{
+		strings.TrimSpace(input.Name),
+		"",
+		nil,
+		nil,
+		0.0,
+		balance,
+		string(input.Type),
+		nilToString(input.Note),
+		"",
+	}
+	if err := s.client.WriteToFirstEmptyRow("Accounts", accountsSheetRange, values); err != nil {
+		return err
+	}
+	return s.invalidatePatterns("accounts:*")
+}
+
+func (s *dbService) DeleteAccount(name string) error {
+	rows, err := s.client.ReadSheet(accountsSheetRange)
+	if err != nil {
+		return err
+	}
+	for i, row := range rows {
+		if strings.TrimSpace(cellAt(row, 0)) == strings.TrimSpace(name) {
+			// Mark as deleted by prefixing name
+			rangeAddr := fmt.Sprintf("Accounts!A%d", i+2)
+			if err := s.client.UpdateRow(rangeAddr, []any{"[DELETED] " + name}); err != nil {
+				return err
+			}
+			return s.invalidatePatterns("accounts:*")
+		}
+	}
+	return fmt.Errorf("account not found")
+}
+
+
 func (s *dbService) ListTransactions(forceFresh bool) ([]domain.Transaction, error) {
 	const cacheKey = "transactions:all"
 	if !forceFresh {

@@ -6,8 +6,8 @@ async def subagent_executor_node(
     subagent_graph.add_node("summarizer", summarizer_node)
 
     subagent_state = SubAgentState(
-        objective=state["subagent_payload"]["objective"],
-        required_tools=state["subagent_payload"]["required_tools"],
+        objective=state["agent_payload"]["objective"],
+        required_tools=state["agent_payload"]["required_tools"],
         mcp_contexts=state["active_mcp_contexts"],
     )
 
@@ -17,8 +17,8 @@ async def subagent_executor_node(
         )
 
         summary = {
-            "subagent_type": state["routing_directive"],
-            "objective": state["subagent_payload"]["objective"],
+            "agent_type": state["routing_directive"],
+            "objective": state["agent_payload"]["objective"],
             "result": result["summary"],
             "tool_calls_made": result["tool_count"],
             "success": True,
@@ -26,21 +26,21 @@ async def subagent_executor_node(
 
     except Exception as e:
         summary = {
-            "subagent_type": state["routing_directive"],
-            "objective": state["subagent_payload"]["objective"],
+            "agent_type": state["routing_directive"],
+            "objective": state["agent_payload"]["objective"],
             "error": str(e),
             "success": False,
         }
 
-    state["subagent_summaries"].append(summary)
+    state["agent_summaries"].append(summary)
 
     return state
 
 
 async def subagent_node(state: OrchestratorState, config: RunnableConfig) -> Dict:
-    target = state["current_subagent_target"]
+    target = state["current_agent_target"]
     mcp_context = state["active_mcp_contexts"][target]
-    task = state["current_subagent_target_task"]
+    task = state["current_agent_target_task"]
 
     tool_result = await execute_tool_isolated(task, mcp_context, config)
 
@@ -49,6 +49,6 @@ async def subagent_node(state: OrchestratorState, config: RunnableConfig) -> Dic
     )
 
     return {
-        "subagent_summaries": [summary.content],
-        "token_usage": {"subagent_tokens": count_tokens(tool_result)},
+        "agent_summaries": [summary.content],
+        "token_usage": {"agent_tokens": count_tokens(tool_result)},
     }

@@ -114,6 +114,16 @@ func main() {
 				},
 			})
 
+			accounts.Post("/", dbHandler.CreateAccount, fiberAdapter.RouteMeta{
+				Summary: "Creates a new account in the accounts sheet.",
+				Tags:    []string{"accounts"},
+			})
+			accounts.Delete("/:name", dbHandler.DeleteAccount, fiberAdapter.RouteMeta{
+				Summary: "Deletes an account by name from the accounts sheet.",
+				Tags:    []string{"accounts"},
+			})
+
+
 			transactions := api.Group("/transactions", "transactions")
 			transactions.Get("/", dbHandler.GetTransactions, fiberAdapter.RouteMeta{
 				Summary: "Returns all transactions associated with linked accounts, including metadata columns. Use `?force=true` to bypass cache and fetch directly.",

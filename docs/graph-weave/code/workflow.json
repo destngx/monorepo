@@ -1,12 +1,12 @@
 {
   "name": "customer-support",
   "version": "2.0.0",
-  "description": "Multi-agent customer support resolution using LangGraph with skill-loaded nodes",
+  "description": "Multi-agent customer support using prompt-driven agents with skill autonomy",
   "metadata": {
     "author": "support-platform",
     "tenant_id": "tenant_abc",
     "created_at": "2026-04-07T00:00:00Z",
-    "tags": ["customer-support", "multi-agent"]
+    "tags": ["customer-support", "multi-agent", "prompt-driven"]
   },
   "limits": {
     "max_hops": 8,
@@ -17,31 +17,37 @@
   },
   "nodes": [
     {
-      "id": "initializer",
+      "id": "entry",
       "type": "entry",
       "display_name": "Input Parser",
-      "description": "Accept customer query and route context",
+      "description": "Accept customer query and context",
       "config": {
         "properties": {
           "customer_query": { "type": "string" },
           "customer_id": { "type": "string" },
-          "category": { "type": "string", "enum": ["billing", "shipping", "returns"] }
+          "category_hint": { "type": "string", "enum": ["billing", "shipping", "returns", "auto"] }
         },
         "required": ["customer_query"]
       }
     },
     {
-      "id": "classify_query",
-      "type": "skill_call",
-      "display_name": "Query Classification",
-      "description": "Classify the support request type",
+      "id": "classifier",
+      "type": "agent_node",
+      "display_name": "Query Classifier",
+      "description": "Classify support request type",
+
       "config": {
-        "skill_id": "classify_support_request",
+        "system_prompt": "You are a customer support classifier. You have access to:\n- load_skill(skill_name): Load classification playbooks\n- search(query): Look up customer context\n\nLoad the 'support_classification' skill. Analyze the customer query and classify it into one of: billing, shipping, returns, or other. Return your classification with confidence score.",
+
+        "user_prompt_template": "Customer query: {query}\n\nClassify this query into one of: 'billing', 'shipping', 'returns', 'other'.\n\nReturn JSON:\n{{\n  \"category\": \"<category>\",\n  \"confidence\": <0-1>,\n  \"reasoning\": \"<brief explanation>\"\n}}",
+
         "input_mapping": {
-          "query": "$.config.customer_query"
+          "query": "$.entry.customer_query"
         },
+
         "output_key": "classification"
       },
+
       "guardrails": {
         "input": {
           "max_tokens": 2000,
@@ -49,78 +55,107 @@
         },
         "output": {
           "pii_detection": true,
-          "required_format": "json"
+          "required_format": "json",
+          "schema_validation": true
         }
+      },
+
+      "retry_config": {
+        "max_attempts": 2,
+        "on_error": "retry",
+        "timeout_seconds": 60
       }
     },
     {
       "id": "route_decision",
       "type": "branch",
       "display_name": "Route Selection",
-      "description": "Route to appropriate agent based on classification",
+      "description": "Route to appropriate specialist agent",
       "config": {
         "condition_expression": "$.classification.category"
       }
     },
     {
       "id": "billing_agent",
-      "type": "skill_call",
-      "display_name": "Billing Agent",
+      "type": "agent_node",
+      "display_name": "Billing Specialist",
       "description": "Handle billing and payment queries",
+
       "config": {
-        "skill_id": "billing_system",
+        "system_prompt": "You are a billing support specialist with expertise in payment systems, invoicing, and subscriptions. You have access to:\n- load_skill(skill_name): Load billing resolution playbooks\n- lookup_account(customer_id): Get customer account details\n- process_refund(amount, reason): Process refunds with proper authorization\n- escalate(reason): Escalate to human agent if needed\n\nLoad the 'billing_resolution' skill. Always verify customer identity before discussing account details. Apply company policy strictly.",
+
+        "user_prompt_template": "Customer ID: {customer_id}\nBilling Issue: {query}\n\nResolve the billing issue following company policy. Return JSON:\n{{\n  \"issue_type\": \"<type>\",\n  \"resolution\": \"<action taken>\",\n  \"status\": \"resolved\" or \"escalated\",\n  \"confidence\": <0-1>\n}}",
+
         "input_mapping": {
-          "query": "$.config.customer_query",
-          "customer_id": "$.config.customer_id"
+          "customer_id": "$.entry.customer_id",
+          "query": "$.entry.customer_query"
         },
+
         "output_key": "billing_response"
       },
+
       "guardrails": {
         "input": {
-          "blocked_patterns": ["ignore previous"]
+          "max_tokens": 3000,
+          "blocked_patterns": ["ignore previous", "bypass"]
         },
         "output": {
           "pii_detection": true,
-          "blocked_topics": ["internal_pricing"]
+          "blocked_topics": ["internal_pricing", "cost_basis"],
+          "schema_validation": true
         }
       }
     },
     {
       "id": "shipping_agent",
-      "type": "skill_call",
-      "display_name": "Shipping Agent",
+      "type": "agent_node",
+      "display_name": "Shipping Specialist",
       "description": "Handle shipping and tracking queries",
+
       "config": {
-        "skill_id": "shipping_api",
+        "system_prompt": "You are a shipping and logistics specialist. You have access to:\n- load_skill(skill_name): Load shipping playbooks\n- lookup_order(customer_id): Get order history\n- track_shipment(tracking_id): Get tracking details\n- reroute_package(order_id): Reroute in-transit packages\n- escalate(reason): Escalate if unable to resolve\n\nLoad the 'shipping_resolution' skill. Always verify customer identity and order ownership.",
+
+        "user_prompt_template": "Customer ID: {customer_id}\nShipping Issue: {query}\n\nResolve the shipping issue. Return JSON:\n{{\n  \"issue_type\": \"<type>\",\n  \"resolution\": \"<action taken>\",\n  \"status\": \"resolved\" or \"escalated\",\n  \"tracking_update\": \"<if applicable>\",\n  \"confidence\": <0-1>\n}}",
+
         "input_mapping": {
-          "query": "$.config.customer_query",
-          "customer_id": "$.config.customer_id"
+          "customer_id": "$.entry.customer_id",
+          "query": "$.entry.customer_query"
         },
+
         "output_key": "shipping_response"
       },
+
       "guardrails": {
         "output": {
-          "pii_detection": true
+          "pii_detection": true,
+          "schema_validation": true
         }
       }
     },
     {
       "id": "returns_agent",
-      "type": "skill_call",
-      "display_name": "Returns Agent",
+      "type": "agent_node",
+      "display_name": "Returns Specialist",
       "description": "Handle return and refund queries",
+
       "config": {
-        "skill_id": "returns_processor",
+        "system_prompt": "You are a returns and refunds specialist. You have access to:\n- load_skill(skill_name): Load returns processing playbooks\n- lookup_return_policy(item_type): Check return eligibility\n- initiate_return(order_id): Start return process\n- authorize_refund(amount): Authorize refund within limits\n- escalate(reason): Escalate complex returns\n\nLoad the 'returns_processing' skill. Always verify return eligibility based on policy.",
+
+        "user_prompt_template": "Customer ID: {customer_id}\nReturn Request: {query}\n\nProcess the return request following return policy. Return JSON:\n{{\n  \"issue_type\": \"<type>\",\n  \"eligibility\": \"eligible\" or \"ineligible\",\n  \"resolution\": \"<action taken>\",\n  \"status\": \"resolved\" or \"escalated\",\n  \"confidence\": <0-1>\n}}",
+
         "input_mapping": {
-          "query": "$.config.customer_query",
-          "customer_id": "$.config.customer_id"
+          "customer_id": "$.entry.customer_id",
+          "query": "$.entry.customer_query"
         },
+
         "output_key": "returns_response"
       },
+
       "guardrails": {
         "output": {
           "pii_detection": true,
-          "blocked_topics": ["competitor_names"]
+          "blocked_topics": ["competitor_names", "internal_costs"],
+          "schema_validation": true
         }
       }
     },
@@ -128,27 +163,33 @@
       "id": "verify_resolution",
       "type": "branch",
       "display_name": "Resolution Check",
-      "description": "Verify if issue was resolved or needs escalation",
+      "description": "Determine if issue was resolved or needs escalation",
       "config": {
-        "condition_expression": "$.billing_response.resolved || $.shipping_response.resolved || $.returns_response.resolved"
+        "condition_expression": "$.billing_response.status == 'resolved' || $.shipping_response.status == 'resolved' || $.returns_response.status == 'resolved'"
       }
     },
     {
-      "id": "escalation",
-      "type": "skill_call",
+      "id": "escalation_agent",
+      "type": "agent_node",
       "display_name": "Escalation Handler",
       "description": "Escalate unresolved tickets to human support",
+
       "config": {
-        "skill_id": "escalate_to_human",
+        "system_prompt": "You are an escalation specialist responsible for preparing tickets for human review. You have access to:\n- load_skill(skill_name): Load escalation procedures\n- create_escalation_ticket(summary, priority): Create human support ticket\n- notify_agent(ticket_id, message): Notify human agent\n\nLoad the 'escalation_procedures' skill. Summarize the issue and context clearly for human handoff.",
+
+        "user_prompt_template": "Unresolved Issue:\nQuery: {query}\nCustomer ID: {customer_id}\nAttempted Resolution: {attempts}\n\nCreate escalation ticket summary. Return JSON:\n{{\n  \"ticket_id\": \"<generated>\",\n  \"summary\": \"<issue summary>\",\n  \"priority\": \"high\" or \"normal\",\n  \"context\": \"<customer context for agent>\",\n  \"next_steps\": \"<recommended actions>\"\n}}",
+
         "input_mapping": {
-          "query": "$.config.customer_query",
-          "customer_id": "$.config.customer_id"
+          "query": "$.entry.customer_query",
+          "customer_id": "$.entry.customer_id",
+          "attempts": "$.classification"
         },
+
         "output_key": "escalation_ticket"
       }
     },
     {
-      "id": "output_formatter",
+      "id": "exit",
       "type": "exit",
       "display_name": "Final Response",
       "description": "Format response and complete workflow",
@@ -162,7 +203,7 @@
           "escalation_ticket": "$.escalation_ticket.ticket_id || null",
           "status": {
             "resolved": "$.verify_resolution",
-            "customer_id": "$.config.customer_id"
+            "customer_id": "$.entry.customer_id"
           }
         }
       }
@@ -170,75 +211,64 @@
   ],
   "edges": [
     {
-      "id": "init_to_classify",
-      "from": "initializer",
-      "to": "classify_query",
-      "config": { "label": "Begin classification" }
+      "from": "entry",
+      "to": "classifier",
+      "config": { "label": "Classify query" }
     },
     {
-      "id": "classify_to_route",
-      "from": "classify_query",
+      "from": "classifier",
       "to": "route_decision",
-      "config": { "label": "Check category" }
+      "config": { "label": "Route based on category" }
     },
     {
-      "id": "route_to_billing",
       "from": "route_decision",
       "to": "billing_agent",
       "condition": "$.classification.category == 'billing'",
       "config": { "label": "Route to billing" }
     },
     {
-      "id": "route_to_shipping",
       "from": "route_decision",
       "to": "shipping_agent",
       "condition": "$.classification.category == 'shipping'",
       "config": { "label": "Route to shipping" }
     },
     {
-      "id": "route_to_returns",
       "from": "route_decision",
       "to": "returns_agent",
       "condition": "$.classification.category == 'returns'",
       "config": { "label": "Route to returns" }
     },
     {
-      "id": "billing_to_verify",
       "from": "billing_agent",
       "to": "verify_resolution",
-      "config": { "label": "Check resolution" }
+      "config": { "label": "Check if resolved" }
     },
     {
-      "id": "shipping_to_verify",
       "from": "shipping_agent",
       "to": "verify_resolution",
-      "config": { "label": "Check resolution" }
+      "config": { "label": "Check if resolved" }
     },
     {
-      "id": "returns_to_verify",
       "from": "returns_agent",
       "to": "verify_resolution",
-      "config": { "label": "Check resolution" }
+      "config": { "label": "Check if resolved" }
     },
     {
-      "id": "verify_resolved",
       "from": "verify_resolution",
-      "to": "output_formatter",
+      "to": "exit",
       "condition": "$.verify_resolution == true",
       "config": { "label": "Issue resolved" }
     },
     {
-      "id": "verify_escalate",
       "from": "verify_resolution",
-      "to": "escalation",
+      "to": "escalation_agent",
       "condition": "$.verify_resolution == false",
-      "config": { "label": "Escalate" }
+      "config": { "label": "Escalate to human" }
     },
     {
-      "id": "escalation_to_output",
-      "from": "escalation",
-      "to": "output_formatter",
-      "config": { "label": "Complete" }
+      "from": "escalation_agent",
+      "to": "exit",
+      "config": { "label": "Complete with escalation" }
     }
   ]
 }

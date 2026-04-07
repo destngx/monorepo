@@ -121,6 +121,9 @@ func (f *fakeDatabaseServiceForHandler) CreateTransaction(input domain.Transacti
 	f.createdTransaction = &input
 	return nil
 }
+func (f *fakeDatabaseServiceForHandler) CreateAccount(domain.AccountCreateInput) error { return nil }
+func (f *fakeDatabaseServiceForHandler) DeleteAccount(string) error { return nil }
+
 func (f *fakeDatabaseServiceForHandler) ListCategories(bool) ([]domain.Category, error) {
 	return []domain.Category{}, nil
 }

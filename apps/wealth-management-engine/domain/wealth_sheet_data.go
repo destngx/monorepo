@@ -101,6 +101,15 @@ type TransactionCreateInput struct {
 	Deposit         *float64 `json:"deposit,omitempty"`
 }
 
+type AccountCreateInput struct {
+	Name     string      `json:"name"`
+	Type     AccountType `json:"type"`
+	Balance  *float64    `json:"balance,omitempty"`
+	Currency Currency    `json:"currency,omitempty"`
+	Note     *string     `json:"note,omitempty"`
+}
+
+
 type Category struct {
 	Name string       `json:"name"`
 	Type CategoryType `json:"type"`

@@ -5,6 +5,9 @@ import "apps/wealth-management-engine/domain"
 type DatabaseService interface {
 	ReadAccounts() (domain.Accounts, error)
 	ListAccounts() ([]domain.Account, error)
+	CreateAccount(input domain.AccountCreateInput) error
+	DeleteAccount(name string) error
+
 	ListTransactions(forceFresh bool) ([]domain.Transaction, error)
 	CreateTransaction(input domain.TransactionCreateInput) error
 	ListCategories(forceFresh bool) ([]domain.Category, error)

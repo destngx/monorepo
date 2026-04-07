@@ -1,4 +1,4 @@
-# Migration Guide: From Subagent-Routing to LangGraph-Native Workflows
+# Migration Guide: From Subagent-Routing to Prompt-Driven LangGraph Workflows
 
 ## Problem Statement
 
@@ -40,14 +40,14 @@ The previous workflow model mixed **skill availability with routing logic**. Thi
 3. Routing depends on available skills (fragile).
 4. Difficult to visualize or reason about graph flow.
 
-### New Model (Explicit State Machine + Skill Loading)
+### New Model (Explicit State Machine + Prompt-Driven Agents)
 
 ```json
 {
   "nodes": [
-    { "id": "classify", "type": "skill_call", "skill_id": "classify_support_request" },
+    { "id": "classify", "type": "agent_node", "config": { "system_prompt": "...", "user_prompt_template": "..." } },
     { "id": "route_decision", "type": "branch", "condition": "$.classification.category" },
-    { "id": "billing_agent", "type": "skill_call", "skill_id": "billing_system" }
+    { "id": "billing_agent", "type": "agent_node", "config": { "system_prompt": "...", "user_prompt_template": "..." } }
   ],
   "edges": [
     { "from": "classify", "to": "route_decision" },
@@ -152,16 +152,16 @@ Document transitions:
 - After agent execution → verify resolution.
 - If unresolved → escalate.
 
-### Step 3: Assign Skills to Nodes
+### Step 3: Assign Prompt Roles to Nodes
 
-Map each work unit to a skill:
+Map each work unit to an agent role and prompt contract:
 
-- `classify_query` → skill: `classify_support_request`
-- `billing_agent` → skill: `billing_system`
+- `classify_query` → role: classifier, prompt: system + user template
+- `billing_agent` → role: billing specialist, prompt: system + user template
 
 ### Step 4: Specify Input/Output Mappings
 
-For each `skill_call` node:
+For each `agent_node`:
 
 - What inputs come from where? (JSONPath)
 - What output key stores the result?
@@ -281,13 +281,13 @@ graph TD
 A: No. Skills remain SKILL.md files with frontmatter + body. Only the workflow JSON changes.
 
 **Q: How are skills discovered?**
-A: Skills are resolved by `skill_id` at runtime. The registry maps `skill_id` → `SKILL.md` location.
+A: Agents call `load_skill()` at runtime. The registry maps skill names → `SKILL.md` or equivalent package location.
 
 **Q: What if a skill fails to load?**
-A: The workflow should handle gracefully. A missing skill can be treated as a node failure, triggering fallback edges (if defined).
+A: The node fails fast and routes according to the workflow's failure path or exits.
 
 **Q: Can I have conditional skill loading?**
-A: Not directly. If you need conditional skill selection, use a `branch` node to evaluate the condition, then route to different `skill_call` nodes.
+A: Yes, but the workflow should branch into different `agent_node` paths. The agent still decides whether to load skills.
 
 **Q: Are workflows deterministic now?**
 A: Yes. Given the same input and state snapshots, the graph path is deterministic (conditions are evaluated the same way).

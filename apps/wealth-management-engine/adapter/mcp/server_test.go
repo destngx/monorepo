@@ -125,6 +125,9 @@ func (f *fakeDatabaseServiceForMCP) ListTransactions(bool) ([]domain.Transaction
 func (f *fakeDatabaseServiceForMCP) CreateTransaction(domain.TransactionCreateInput) error {
 	return nil
 }
+func (f *fakeDatabaseServiceForMCP) CreateAccount(domain.AccountCreateInput) error { return nil }
+func (f *fakeDatabaseServiceForMCP) DeleteAccount(string) error { return nil }
+
 func (f *fakeDatabaseServiceForMCP) ListCategories(bool) ([]domain.Category, error) {
 	return []domain.Category{{Name: "Salary", Type: domain.CategoryTypeIncome}}, nil
 }

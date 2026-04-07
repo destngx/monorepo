@@ -38,6 +38,32 @@ func (h *DatabaseHandler) GetAccounts(c *fiber.Ctx) error {
 	return c.JSON(accounts)
 }
 
+func (h *DatabaseHandler) CreateAccount(c *fiber.Ctx) error {
+	var body domain.AccountCreateInput
+	if err := c.BodyParser(&body); err != nil {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if strings.TrimSpace(body.Name) == "" || body.Type == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "name and type are required"})
+	}
+	if err := h.databaseService.CreateAccount(body); err != nil {
+		return h.handleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true})
+}
+
+func (h *DatabaseHandler) DeleteAccount(c *fiber.Ctx) error {
+	name := c.Params("name")
+	if strings.TrimSpace(name) == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "account name is required"})
+	}
+	if err := h.databaseService.DeleteAccount(name); err != nil {
+		return h.handleError(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true})
+}
+
+
 func (h *DatabaseHandler) GetTransactions(c *fiber.Ctx) error {
 	transactions, err := h.databaseService.ListTransactions(forceFresh(c))
 	if err != nil {

@@ -6,16 +6,28 @@
 - Why: Give analysts partial but useful answers instead of infinite retries.
 - Who: Hedge fund research desks.
 
+## Traceability
+
+- UC-FIN-001: The workflow must combine external research and internal SQL data.
+- UC-FIN-002: The workflow must detect repeated intent and stop safely.
+- UC-FIN-003: The workflow must return partial results when stagnation is detected.
+
 ## 2. Scope
 
 - In scope: web search, SQL lookup, synthesis, stagnation detection, and partial-answer recovery.
 - Out of scope: manual research workflows and repeated retry loops without stop conditions.
+
+## 2.1 Success Definition
+
+- The analyst gets a defensible summary plus a stagnation signal when the workflow cannot make further progress.
 
 ## 3. Specification
 
 - The workflow must alternate between search and SQL where appropriate.
 - Repeated directives or objectives must be detected with a sliding window.
 - If the same intent repeats three times, the workflow must exit safely and return partial results.
+- The stagnation threshold defaults to 3 and must remain configurable per workflow.
+- The runtime contract should document how to choose higher thresholds for complex research flows.
 
 ## 4. Technical Plan
 
@@ -28,12 +40,14 @@
 - [ ] Fetch research sources and SQL-backed metrics.
 - [ ] Detect repeated intent or objective patterns.
 - [ ] Return the last successful summary on stagnation.
+- [ ] Add cases for repeated JOIN failures, repeated extraction, and partial-answer recovery.
 
 ## 6. Verification
 
 - Given repeated JOIN failures, when the same intent repeats, then the workflow must stop rather than loop forever.
 - Given a partial result, when stagnation is detected, then the workflow must return it with a stagnation flag.
 - Given a normal research run, when the data is available, then it should complete without fallback.
+- Given a complex research job, when it completes, then it must either return a final synthesis or a structured partial result.
 
 Tenant: hedge fund research desk
 Trigger: analyst asks for earnings and SQL-backed performance synthesis

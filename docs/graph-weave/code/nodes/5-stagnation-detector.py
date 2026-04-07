@@ -8,7 +8,7 @@ async def stagnation_detector_node(
     if last_three[0] == last_three[1] == last_three[2]:
         raise StagnationError(
             f"Identical routing decision repeated 3 times: {last_three[0]}",
-            partial_results=state.get("subagent_summaries", []),
+            partial_results=state.get("agent_summaries", []),
         )
 
     return state
@@ -24,7 +24,7 @@ async def stagnation_detector(state: OrchestratorState, config: RunnableConfig) 
     window = workflow_def["limits"]["stagnation_window"]
     threshold = workflow_def["limits"]["stagnation_threshold"]
 
-    current_intent = f"{state['routing_directive']}:{state['current_subagent_target']}"
+    current_intent = f"{state['routing_directive']}:{state['current_agent_target']}"
     updated_history = state["stagnation_history"] + [current_intent]
     repeat_count = updated_history[-window:].count(current_intent)
 

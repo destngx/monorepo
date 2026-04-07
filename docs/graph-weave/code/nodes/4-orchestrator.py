@@ -9,7 +9,7 @@ async def orchestrator_node(
     {ORCHESTRATOR_OUTPUT_SCHEMA}
 
     Rules:
-    - If you need tool execution, route to SubAgent_X with payload
+    - If you need tool execution, route to an agent node with payload
     - If answer is complete, route to FINISH with final_response
     - If safety violation, route to FORCE_EXIT
     """
@@ -24,7 +24,7 @@ async def orchestrator_node(
 
     output = response.choices[0].message.parsed
     state["routing_directive"] = output["routing_directive"]
-    state["subagent_payload"] = output["subagent_payload"]
+    state["agent_payload"] = output["agent_payload"]
     state["final_response"] = output["final_response"]
 
     state["stagnation_history"].append(json.dumps(output))
@@ -44,7 +44,7 @@ async def orchestrator(state: OrchestratorState, config: RunnableConfig) -> Dict
         workflow_def["system_prompt"],
         state["available_skills"],
         state["active_mcp_contexts"],
-        state["subagent_summaries"],
+        state["agent_summaries"],
     )
 
     response = await llm.with_structured_output(OrchestratorOutput).ainvoke(
@@ -54,7 +54,7 @@ async def orchestrator(state: OrchestratorState, config: RunnableConfig) -> Dict
     return {
         "messages": [AIMessage(content=response.reasoning)],
         "routing_directive": response.routing_directive,
-        "current_subagent_target": response.subagent_target,
-        "current_subagent_target_task": response.subagent_payload.get("objective", ""),
+        "current_agent_target": response.agent_target,
+        "current_agent_target_task": response.agent_payload.get("objective", ""),
         "token_usage": {"orchestrator_tokens": count_tokens(response)},
     }

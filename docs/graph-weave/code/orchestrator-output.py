@@ -1,7 +1,7 @@
 class OrchestratorOutput(TypedDict):
     reasoning: str
     routing_directive: Literal[
-        "SubAgent_order_tools", "SubAgent_return_tools", "FINISH", "FORCE_EXIT"
+        "Agent_order_tools", "Agent_return_tools", "LOAD_SKILL", "FINISH", "FORCE_EXIT"
     ]
-    subagent_payload: Dict[str, Any]
+    agent_payload: Dict[str, Any]
     final_response: str

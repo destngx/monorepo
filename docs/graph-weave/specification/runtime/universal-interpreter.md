@@ -4,6 +4,12 @@
 - Why: Make execution, routing, and stop conditions explicit for deterministic workflow runs.
 - Who: Runtime engineers, workflow authors, and platform operators.
 
+## Traceability
+
+- FR-RUNTIME-040: A single compiled graph must handle multiple workflows.
+- FR-RUNTIME-041: Tier 1 skill summaries must always be loaded before routing.
+- FR-RUNTIME-042: Subagent and exit paths must remain isolated and explicit.
+
 ## 2. Scope
 
 - In scope: initializer, orchestrator, skill loading, stagnation detection, subagent execution, circuit breaker, and output guardrail.
@@ -16,6 +22,8 @@
 - Subagents must stay isolated and return summarized results.
 - Circuit breakers and stagnation detection must be able to force safe exit.
 - Output guardrails must run before workflow completion.
+- The runtime spec should be treated as authoritative for node order and safe-exit behavior.
+- NFR: the interpreter must remain responsive enough for streaming workflows.
 
 ## 4. Technical Plan
 
@@ -23,18 +31,22 @@
 - Route to skill loading only when the orchestrator requests additional context.
 - Use the watchdog boundary to interrupt execution safely.
 - Return to the orchestrator after subagent completion unless an exit condition is met.
+- Keep node naming and control flow aligned with the documented runtime contract.
+- Allow internal module changes so long as the graph behavior remains the same.
 
 ## 5. Tasks
 
 - [ ] Document the canonical node sequence for execution.
 - [ ] Preserve the lazy-load and stagnation branches.
 - [ ] Keep safe-exit paths explicit.
+- [ ] Map each node to a traceable requirement ID.
 
 ## 6. Verification
 
 - Given a workflow start, when the initializer runs, then the orchestrator must receive a valid state.
 - Given a skill request, when the orchestrator selects it, then the loader must fetch Tier 2 context only for that skill.
 - Given stagnation or a kill flag, when detected, then the graph must exit safely rather than loop.
+- Given a supported workflow, when the interpreter runs, then it must honor the documented node sequence and runtime contract.
 
 ```mermaid
 stateDiagram-v2

@@ -1,7 +1,7 @@
 async def skill_loader_node(
     state: GraphWeaveState, config: GraphWeaveConfig
 ) -> GraphWeaveState:
-    required_tools = state.get("subagent_payload", {}).get("required_tools", [])
+    required_tools = state.get("agent_payload", {}).get("required_tools", [])
 
     for tool_id in required_tools:
         tier2_key = f"graphweave:skills:{config['tenant_id']}:{tool_id}:tier2"

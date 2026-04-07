@@ -32,7 +32,7 @@ async def graph_initializer(state: OrchestratorState, config: RunnableConfig) ->
     return {
         "available_skills": tier1_summaries,
         "active_mcp_contexts": {},
-        "subagent_summaries": [],
+        "agent_summaries": [],
         "stagnation_history": [],
         "routing_directive": "IDLE",
         "stagnation_detected": False,

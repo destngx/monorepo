@@ -4,12 +4,12 @@
 
 A **workflow** is a declarative LangGraph definition in JSON that specifies:
 
-1. **Nodes** — discrete work units (entry, skill execution, branching, exit)
+1. **Nodes** — discrete work units (entry, prompt-driven agent execution, branching, exit)
 2. **Edges** — transitions between nodes with conditions
 3. **Limits** — execution constraints (timeouts, token budgets, hop limits)
 4. **Metadata** — author, version, tags
 
-**Skills** are separate: they're recipes/playbooks loaded at node execution time, not part of workflow structure.
+**Skills** are separate: they're recipes/playbooks loaded dynamically by agents at node execution time, not part of workflow structure.
 
 ### Minimal Example
 
@@ -28,9 +28,9 @@ A **workflow** is a declarative LangGraph definition in JSON that specifies:
     },
     {
       "id": "classify",
-      "type": "skill_call",
-      "skill_id": "classify_email",
       "config": {
+        "system_prompt": "You are an email classifier. Load the right skills for categorization.",
+        "user_prompt_template": "Classify this email: {text}",
         "input_mapping": { "text": "$.config.email_body" },
         "output_key": "classification"
       }
@@ -56,13 +56,13 @@ A **workflow** is a declarative LangGraph definition in JSON that specifies:
 
 ### Node Types
 
-| Type               | Purpose                                   | Example                |
-| ------------------ | ----------------------------------------- | ---------------------- |
-| **entry**          | Workflow start; defines input schema      | Accept customer query  |
-| **exit**           | Workflow end; maps outputs                | Return final decision  |
-| **skill_call**     | Execute a skill with input/output mapping | Call "research" skill  |
-| **branch**         | Evaluate condition (no work)              | If/then decision point |
-| **human_decision** | Pause for human approval                  | Ask user to verify     |
+| Type               | Purpose                                  | Example                |
+| ------------------ | ---------------------------------------- | ---------------------- |
+| **entry**          | Workflow start; defines input schema     | Accept customer query  |
+| **exit**           | Workflow end; maps outputs               | Return final decision  |
+| **agent_node**     | Execute an autonomous agent with prompts | Call "research" skill  |
+| **branch**         | Evaluate condition (no work)             | If/then decision point |
+| **human_decision** | Pause for human approval                 | Ask user to verify     |
 
 ### Edges
 
@@ -79,14 +79,13 @@ Conditions are **JSONPath expressions** evaluated against workflow state.
 
 Skills are loaded **at node execution time**, not at graph build time.
 
-When a `skill_call` node executes:
+When an `agent_node` executes:
 
-1. Runtime reads `skill_id` (e.g., "research").
-2. Looks up skill in registry → finds `SKILL.md`.
-3. Loads skill markdown (frontmatter + body + examples).
-4. Injects into execution context.
-5. Agent executes with skill guidance.
-6. Output stored via `output_key`.
+1. Runtime reads `system_prompt` and `user_prompt_template`.
+2. Agent decides which skills to load via `load_skill()`.
+3. Runtime provides skill markdown (frontmatter + body + examples) on demand.
+4. Agent executes with prompt context plus loaded skills.
+5. Output stored via `output_key`.
 
 **Key insight**: Workflow structure is independent of skill availability.
 
@@ -98,6 +97,8 @@ Use **JSONPath** to route data between nodes:
 {
   "id": "research_node",
   "config": {
+    "system_prompt": "You are a researcher. Load the appropriate skills before starting.",
+    "user_prompt_template": "Research: {topic}",
     "input_mapping": {
       "topic": "$.config.topic", // From entry config
       "depth": "$.config.depth"
@@ -124,7 +125,7 @@ Protect sensitive node execution:
 ```json
 {
   "id": "billing_agent",
-  "type": "skill_call",
+  "type": "agent_node",
   "guardrails": {
     "input": {
       "max_tokens": 2000,
@@ -153,7 +154,8 @@ docs/graph-weave/
 │       └── MIGRATION_GUIDE.md             ← How to migrate from old model
 ├── code/
 │   ├── workflow.json                      ← Example workflow (customer support)
-│   └── workflow.schema.ts                 ← TypeScript validation schema
+│   ├── state_schema.py                    ← Python state contract
+│   └── config_schema.py                   ← Python configurable contract
 └── ...
 ```
 
@@ -161,22 +163,18 @@ docs/graph-weave/
 
 ## Validation
 
-Use the TypeScript schema to validate workflows:
+Use the Python schema modules to validate workflows:
 
-```typescript
-import { validateWorkflow, validateWorkflowIntegrity } from './workflow.schema';
+```python
+from state_schema import GraphWeaveState
+from config_schema import GraphWeaveConfigurable
 
-// Parse and validate
-const result = validateWorkflow(jsonData);
-if (!result.valid) {
-  console.error('Validation failed:', result.errors);
-}
+# Parse and validate state/config against the runtime contracts
+state: GraphWeaveState = json_data["state"]
+config: GraphWeaveConfigurable = json_data["config"]
 
-// Check for structural issues (unreachable nodes, etc.)
-const integrity = validateWorkflowIntegrity(result.workflow!);
-if (!integrity.valid) {
-  console.warn('Integrity issues:', integrity.issues);
-}
+# Validate workflow structure with the Python runtime validators
+# (workflow JSON validation remains part of the runtime pipeline)
 ```
 
 ---
@@ -198,7 +196,7 @@ For each node:
   1. Evaluate incoming edges
   2. Find first edge with true condition (or first unconditional edge)
   3. Execute next node:
-     - If skill_call: load skill, execute, store output
+   - If agent_node: load skills on demand, execute, store output
      - If branch: evaluate condition, don't execute work
      - If human_decision: pause, wait for user input
      - If exit: return final output
@@ -253,10 +251,18 @@ Route to different agents based on classification:
 ```json
 {
   "nodes": [
-    { "id": "classify", "type": "skill_call", "skill_id": "classify_request" },
+    { "id": "classify", "type": "agent_node", "config": { "system_prompt": "...", "user_prompt_template": "..." } },
     { "id": "route", "type": "branch", "config": { "condition_expression": "$.classification.type" } },
-    { "id": "billing_agent", "type": "skill_call", "skill_id": "billing" },
-    { "id": "shipping_agent", "type": "skill_call", "skill_id": "shipping" }
+    {
+      "id": "billing_agent",
+      "type": "agent_node",
+      "config": { "system_prompt": "...", "user_prompt_template": "..." }
+    },
+    {
+      "id": "shipping_agent",
+      "type": "agent_node",
+      "config": { "system_prompt": "...", "user_prompt_template": "..." }
+    }
   ],
   "edges": [
     { "from": "classify", "to": "route" },
@@ -288,9 +294,9 @@ Multiple agents, then aggregation:
 {
   "nodes": [
     { "id": "split", "type": "branch" },
-    { "id": "agent_a", "type": "skill_call", "skill_id": "analysis_a" },
-    { "id": "agent_b", "type": "skill_call", "skill_id": "analysis_b" },
-    { "id": "merge", "type": "skill_call", "skill_id": "aggregate" }
+    { "id": "agent_a", "type": "agent_node", "config": { "system_prompt": "...", "user_prompt_template": "..." } },
+    { "id": "agent_b", "type": "agent_node", "config": { "system_prompt": "...", "user_prompt_template": "..." } },
+    { "id": "merge", "type": "agent_node", "config": { "system_prompt": "...", "user_prompt_template": "..." } }
   ],
   "edges": [
     { "from": "split", "to": "agent_a" },
@@ -305,13 +311,13 @@ Multiple agents, then aggregation:
 
 ## Troubleshooting
 
-| Issue                      | Solution                                                      |
-| -------------------------- | ------------------------------------------------------------- |
-| **Unreachable node**       | Check incoming edges; all non-entry nodes need incoming path. |
-| **Condition always false** | Verify JSONPath is correct; check state structure.            |
-| **Missing skill_id**       | Add `"skill_id": "..."` to `skill_call` node config.          |
-| **Circular loop**          | Ensure loop has explicit stagnation detection in limits.      |
-| **Output mapping wrong**   | Verify JSONPath in exit node matches actual state keys.       |
+| Issue                      | Solution                                                        |
+| -------------------------- | --------------------------------------------------------------- |
+| **Unreachable node**       | Check incoming edges; all non-entry nodes need incoming path.   |
+| **Condition always false** | Verify JSONPath is correct; check state structure.              |
+| **Missing prompt fields**  | Add `system_prompt` and `user_prompt_template` to `agent_node`. |
+| **Circular loop**          | Ensure loop has explicit stagnation detection in limits.        |
+| **Output mapping wrong**   | Verify JSONPath in exit node matches actual state keys.         |
 
 ---
 
@@ -323,16 +329,16 @@ See `MIGRATION_GUIDE.md` for detailed migration steps from subagent-routing work
 
 - ❌ Remove top-level `skills` array
 - ❌ Remove `subagents` array
-- ✅ Add explicit `nodes` array (entry, exit, skill_call, branch)
+- ✅ Add explicit `nodes` array (entry, exit, agent_node, branch)
 - ✅ Add explicit `edges` array with conditions
-- ✅ Move skill refs to node-level `config.skill_id`
+- ✅ Move behavior to node-level `system_prompt` and `user_prompt_template`
 
 ---
 
 ## References
 
 - **Authoritative spec**: `WORKFLOW_JSON_SPEC.md`
-- **TypeScript validation**: `workflow.schema.ts`
+- **Python validation contracts**: `state-schema.py`, `config-schema.py`
 - **Example workflow**: `workflow.json` (customer support)
 - **Migration guide**: `MIGRATION_GUIDE.md`
 - **Skills architecture**: `llm-skills-architecture.md`

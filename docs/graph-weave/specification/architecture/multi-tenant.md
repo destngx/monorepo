@@ -4,6 +4,12 @@
 - Why: Prevent one tenant from reading or affecting another tenant's execution.
 - Who: Multi-tenant platform operators and runtime engineers.
 
+## Traceability
+
+- FR-MT-001: Every request must carry tenant, workflow, and thread scope.
+- FR-MT-002: State and kill-switch behavior must remain isolated by tenant.
+- FR-MT-003: Active threads must be auditable per tenant.
+
 ## 2. Scope
 
 - In scope: tenant IDs, thread IDs, workflow namespaces, skill namespaces, and kill-switch scoping.
@@ -15,24 +21,32 @@
 - Checkpoints must remain thread-scoped.
 - Redis namespaces must be tenant-aware for workflows, skills, and kill switches.
 - Active threads must be trackable per tenant for cancellation and audit.
+- The authoritative tenant model is tenant + workflow + thread.
+- Redis key examples are guidelines; implementations may refine names if they preserve tenant/workflow/thread isolation.
+- Workflow execution, skill caches, and kill switches must all respect tenant scoping.
 
 ## 4. Technical Plan
 
 - Encode tenant identity into every runtime key.
 - Store state and schema data in separate Redis namespaces.
 - Ensure kill-switch keys can target tenant, workflow, or thread blast radii.
+- Keep per-tenant auditability explicit in every runtime store interaction.
+- Do not share mutable execution state across tenants.
+- Keep active-thread listings and cache namespaces tenant-scoped.
 
 ## 5. Tasks
 
 - [ ] Encode tenant/thread scope into workflow and checkpoint keys.
 - [ ] Separate tier-1 and tier-2 skill namespaces.
 - [ ] Add tenant-scoped active-thread tracking and kill-switch controls.
+- [ ] Document the blast-radius rules for each kill-switch scope.
 
 ## 6. Verification
 
 - Given two tenants, when they execute simultaneously, then their state and checkpoints must remain isolated.
 - Given a kill switch is set for one tenant, when another tenant runs, then it must not be interrupted.
 - Given active threads are listed, when a tenant is inspected, then only that tenant's threads should appear.
+- Given a workflow scoped request, when it is executed, then the runtime must be able to identify tenant, workflow, and thread together.
 
 ```mermaid
 graph TB

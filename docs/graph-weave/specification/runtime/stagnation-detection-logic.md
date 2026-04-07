@@ -1,9 +1,14 @@
-```mermaid
 ## 1. Objective
 
 - What: Detect repeated routing behavior and stop runaway workflow loops.
 - Why: Prevent the orchestrator from cycling without new information.
 - Who: Runtime engineers and workflow authors.
+
+## Traceability
+
+- FR-RUNTIME-030: Stagnation detection must use a sliding window.
+- FR-RUNTIME-031: Repeated directives, repeated objectives, and semantic repetition can all trigger stagnation.
+- FR-RUNTIME-032: Stagnation must force a safe exit path.
 
 ## 2. Scope
 
@@ -13,37 +18,48 @@
 ## 3. Specification
 
 - Repetition must be judged over a sliding window.
-- Exact directive repetition, repeated objectives, or semantic similarity can all trip stagnation.
+- Exact directive repetition, repeated objectives, and semantic similarity can all trip stagnation.
 - Once stagnation is detected, the workflow must route to the guardrail/exit path.
+- The default threshold is 3, but it must be configurable per workflow.
+- The docs should distinguish exact repetition from semantic repetition.
+- NFR: detection must be lightweight enough to run on every orchestrator turn.
+- A meta-message must be injected before routing to the guardrail path.
 
 ## 4. Technical Plan
 
 - Record recent orchestrator outputs and compare them across a configurable window.
 - Increment a stagnation counter when repetition is detected.
 - Exit after the counter reaches the configured threshold.
+- Preserve recent intent history only as long as needed for comparison.
+- Keep the threshold semantics configurable without changing the overall safe-exit behavior.
 
 ## 5. Tasks
 
 - [ ] Persist recent routing decisions for comparison.
 - [ ] Compare directive, objective, and semantic similarity patterns.
 - [ ] Route to the guardrail when the threshold is exceeded.
+- [ ] Add tests for exact, objective, and semantic repetition.
+- [ ] Inject a stagnation meta-message before the guardrail path.
 
 ## 6. Verification
 
 - Given repeated routing directives, when the window threshold is met, then stagnation must be detected.
 - Given repeated objectives, when the same intent appears, then the workflow must not keep looping.
 - Given semantically similar outputs, when similarity exceeds the threshold, then the guardrail path must be taken.
+- Given a workflow configured with a custom threshold, when the limit is reached, then the safe-exit path must remain the same.
+- Given stagnation is detected, when the exit path is taken, then a meta-message must be injected into context.
 
 flowchart TD
-    A[Receive routing_directive] --> B{Action == CALL_SUBAGENT?}
-    B -- Yes --> C[Append Intent to stagnation_history]
-    C --> D{Count(Intent) >= Threshold?}
-    D -- Yes --> E[Set stagnation_detected = True]
-    E --> F[Inject Meta-Message to Context]
-    F --> G[Route to output_guardrail]
-    D -- No --> H[Route to SubAgent]
-    B -- No --> I[Standard Routing]
-```
+A[Receive routing_directive] --> B{Action == CALL_SUBAGENT?}
+B -- Yes --> C[Append Intent to stagnation_history]
+C --> D{Count(Intent) >= Threshold?}
+D -- Yes --> E[Set stagnation_detected = True]
+E --> F[Inject Meta-Message to Context]
+F --> G[Route to output_guardrail]
+D -- No --> H[Route to SubAgent]
+B -- No --> I[Standard Routing]
+
+````
 
 Important behavior:
 
@@ -74,4 +90,4 @@ Important behavior:
     Counter -->|Yes| FORCE_EXIT: Terminate workflow
 
     FORCE_EXIT --> [*]
-```
+````

@@ -17,9 +17,7 @@ class StagnationDetector:
                 is_stagnated=True, reason="Repeated routing directive"
             )
 
-        objectives = [
-            r.get("subagent_payload", {}).get("objective", "") for r in recent
-        ]
+        objectives = [r.get("agent_payload", {}).get("objective", "") for r in recent]
         if all(obj == objectives[0] for obj in objectives):
             return StagnationResult(is_stagnated=True, reason="Repeated objective")
 
