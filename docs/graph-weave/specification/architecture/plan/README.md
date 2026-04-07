@@ -13,3 +13,11 @@ Purpose: capture architecture sequencing, trade-offs, and boundary decisions.
 - keep entries short
 - link back to the relevant architecture spec
 - record why a boundary exists and what it protects
+- prefer decisions over narrative
+- update this layer before any implementation work that changes a boundary
+
+## See also
+
+- `[[../README]]`
+- `[[../tasks/README]]`
+- `[[../verification/README]]`
