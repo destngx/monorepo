@@ -18,12 +18,15 @@
 ## 3. Specification
 
 - Every request must carry a tenant_id and thread_id.
+- Every request must carry tenant_id, workflow_id, and thread_id together so scope is explicit at ingress.
 - Checkpoints must remain thread-scoped.
 - Redis namespaces must be tenant-aware for workflows, skills, and kill switches.
 - Active threads must be trackable per tenant for cancellation and audit.
 - The authoritative tenant model is tenant + workflow + thread.
 - Redis key examples are guidelines; implementations may refine names if they preserve tenant/workflow/thread isolation.
 - Workflow execution, skill caches, and kill switches must all respect tenant scoping.
+- Routing decisions must preserve the current tenant context through gateway, runtime, and storage calls.
+- A tenant-scoped kill switch must never affect threads outside its tenant.
 
 ## 4. Technical Plan
 
@@ -33,6 +36,8 @@
 - Keep per-tenant auditability explicit in every runtime store interaction.
 - Do not share mutable execution state across tenants.
 - Keep active-thread listings and cache namespaces tenant-scoped.
+- Enforce a stable routing chain: gateway identifies scope, runtime preserves it, storage partitions by it.
+- Treat blast radius as a first-class property for every control flag.
 
 ## 5. Tasks
 

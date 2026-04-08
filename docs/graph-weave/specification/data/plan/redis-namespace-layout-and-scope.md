@@ -21,6 +21,8 @@ Purpose: record the Redis namespace structure so runtime state stays determinist
 - Separate skill, checkpoint, active-thread, and kill-switch namespaces.
 - Preserve predictable pointers for latest-version reads.
 - Keep the keyspace readable for operator troubleshooting.
+- Preserve the canonical {env}:{tenant_id}:{type}:{resource_id}:{field} shape where it helps explain scope.
+- Keep the operator-facing namespace map stable across releases.
 
 ## Definition of done
 

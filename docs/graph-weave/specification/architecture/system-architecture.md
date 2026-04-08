@@ -23,6 +23,7 @@
 - Workflow definitions must be registry-backed and separate from execution state.
 - External model calls must remain isolated behind the graph engine.
 - The external HTTP contract must remain concrete and stable for client integrations.
+- The fixed core stack is FastAPI, LangGraph, Redis, MCP, and PostgreSQL.
 - Runtime event naming must follow a clear SSE convention with request, node, tool, checkpoint, and completion events.
 - Diagram intent: the architecture diagrams are authoritative for component boundaries, while sequence/control diagrams describe expected runtime behavior.
 
@@ -34,6 +35,7 @@
 - Add monitoring/tracing around the shared platform boundary.
 - Maintain explicit contracts for request/response shapes and streaming behavior.
 - Treat internal module structure as flexible as long as the fixed stack and external behavior remain intact.
+- Keep PostgreSQL for registry and audit support, not primary runtime state.
 - Enforce tenant scoping for workflow execution, Redis state, skill caches, and kill switches.
 
 ## 5. Tasks

@@ -18,7 +18,9 @@
 ## 3. Specification
 
 - Level 1 frontmatter must always be available to the orchestrator.
+- The loading model is three-tier: Level 1 frontmatter, Level 2 body, and Level 3 linked files.
 - Level 1 metadata must stay minimal and focus on name, description, and trigger cues.
+- Skill registry discovery must come from folder layout plus frontmatter metadata, not from runtime code scanning.
 - Level 2 skill bodies must be loaded only when the orchestrator selects a specific skill.
 - Level 3 linked files must load only when the skill execution needs them.
 - Missing Level 2 bodies or required Level 3 linked files must fail the node.
@@ -29,11 +31,13 @@
 ## 4. Technical Plan
 
 - Load Level 1 frontmatter first and inject it into the orchestrator prompt.
+- Use registry metadata as the lookup index for discovering which skills exist and whether they are relevant.
 - Fetch Level 2 bodies only for selected skills.
 - Open Level 3 linked files only when the execution path needs them.
 - Track loaded skill artifacts in active context state for agent execution.
 - Keep the loading flow explicit enough to explain why a skill was or was not expanded.
 - Maintain a clear convention for naming skill-loading events in streams.
+- The interpreter receives pre-loaded skills and does not perform registry discovery itself.
 
 ## 5. Tasks
 

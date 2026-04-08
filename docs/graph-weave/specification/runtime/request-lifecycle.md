@@ -25,6 +25,8 @@
 - Active-thread state must be cleared on completion.
 - The concrete gateway contract must split into `POST /execute` for submission and `GET /execute/{run_id}/status` for SSE status streaming.
 - Event names must follow a clear convention that maps to workflow lifecycle stages: `request.*`, `node.*`, `tool.*`, `checkpoint.*`, `complete`.
+- The submission payload must carry tenant_id, workflow_id, and execution input.
+- The status stream must expose the current lifecycle state and the latest checkpoint snapshot when available.
 - NFR: submission and streaming must keep the workflow responsive under expected load.
 
 ## 4. Technical Plan
@@ -35,6 +37,7 @@
 - Store run state so the status request can attach to the correct execution.
 - Define event naming rules by lifecycle stage rather than by implementation detail.
 - Keep the runtime lifecycle compatible with the fixed LangGraph/FastAPI/Redis/MCP stack.
+- Keep active-thread cleanup deterministic so completed runs do not remain visible as live work.
 
 ## 5. Tasks
 

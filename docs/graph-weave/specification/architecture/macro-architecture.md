@@ -24,6 +24,7 @@
 - MCP servers remain the external tool boundary for all subagent/tool calls.
 - The diagrams in this file are authoritative for boundary definition and should match the runtime architecture.
 - PostgreSQL is for registry/audit support, not the primary runtime state store.
+- The fixed boundary stack is FastAPI, LangGraph, Redis, MCP, and PostgreSQL.
 - Tenant isolation applies across workflow execution, Redis, skill caches, and kill switches.
 
 ## 4. Technical Plan

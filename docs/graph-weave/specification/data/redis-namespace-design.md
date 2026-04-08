@@ -29,6 +29,8 @@ All runtime state lives in Redis.
 - Redis key examples are guidelines; they may evolve if the scope and blast-radius rules stay intact.
 - The data contract must preserve auditability and deterministic lookups.
 - Skill summary entries must use a minimal JSON structure.
+- The canonical namespace prefix is tenant-aware and must preserve tenant/workflow/thread isolation.
+- Workflow definitions, run state, checkpoints, and control flags must each live in separate key families.
 
 ## 4. Technical Plan
 
@@ -37,6 +39,8 @@ All runtime state lives in Redis.
 - Treat compiled graphs as cacheable artifacts with their own TTL strategy.
 - Use the keyspace as a source of runtime intent, not as a business-domain model.
 - Keep namespace changes backward compatible unless the spec version changes.
+- Keep the lookup shape predictable for operators inspecting Redis.
+- Treat TTL as a property of the key family, not of individual ad hoc entries.
 
 ## 5. Tasks
 

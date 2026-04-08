@@ -18,16 +18,20 @@
 ## 3. Specification
 
 - The same compiled graph must handle multiple workflows through dynamic configuration.
+- Interpreter input must include compiled graph, execution state, execution context, and pre-loaded skills.
+- Interpreter output must include final state, result, emitted events, and any deferred skill requests.
 - Level 1 frontmatter must always be available; Level 2 bodies must be loaded lazily and Level 3 linked files only on demand.
 - Subagents must stay isolated and return summarized results.
 - Circuit breakers and stagnation detection must be able to force safe exit.
 - Output guardrails must run before workflow completion.
 - The runtime spec should be treated as authoritative for graph traversal order and safe-exit behavior.
+- The interpreter itself must not fetch skills; it receives them from the loading boundary.
 - NFR: the interpreter must remain responsive enough for streaming workflows.
 
 ## 4. Technical Plan
 
 - Model the runtime as a single reusable graph executor with dynamic branching.
+- Treat the interpreter as a pure execution boundary: input state in, output state and events out.
 - Route to skill loading only when the orchestrator traversing the graph requests additional context.
 - Use the watchdog boundary to interrupt execution safely.
 - Return to the orchestrator after subagent completion unless an exit condition is met.

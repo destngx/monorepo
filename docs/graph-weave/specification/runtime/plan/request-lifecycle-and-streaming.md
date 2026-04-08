@@ -22,6 +22,7 @@ Purpose: record the two-request lifecycle so submission, run creation, checkpoin
 - Stream structured SSE events for request, node, tool, checkpoint, and completion milestones from the status request.
 - Persist checkpoints during execution so interrupted runs can resume.
 - Clear active thread state on completion.
+- Preserve tenant_id, workflow_id, and thread_id through submission and streaming.
 
 ## Definition of done
 

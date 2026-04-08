@@ -23,6 +23,8 @@ Purpose: record the reusable graph executor shape, node order, and lazy skill-lo
 - Open Level 3 linked files only when needed by the selected skill.
 - Keep subagent work isolated and summarized.
 - Make safe-exit paths explicit through stagnation, breaker, and output-guardrail routes.
+- Treat the interpreter as a consumer of pre-loaded skills, not a skill fetcher.
+- Define interpreter I/O as compiled graph + state + context + skills in, result + events + deferred requests out.
 
 ## Definition of done
 
