@@ -44,6 +44,9 @@ Cache note: use Redis for tenant-scoped lookup results, and expose an explicit s
 - The skill cache invalidation API must allow external tooling or operators to refresh stale lookup entries when skill files change outside the runtime.
 - On cache miss, the runtime should rebuild the tenant-scoped lookup entry from folder/frontmatter source of truth and then continue loading.
 - Cache invalidation should be triggered by an explicit API call when external edits, package updates, or hotfixes change skill files outside the runtime.
+- Skill versioning must be semantic and explicit in the frontmatter so cached lookup entries can be invalidated or refreshed safely when a version changes.
+- The invalidation API should accept tenant scope, skill identifier, and reason, and it should remove the cached lookup entry rather than mutate skill content.
+- Cache lookup keys must include an explicit version segment; if no version is specified, the runtime should resolve `latest`.
 
 ## 5. Tasks
 

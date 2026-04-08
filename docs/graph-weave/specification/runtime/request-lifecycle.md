@@ -49,6 +49,7 @@
 - `thread_id` is the live execution handle used by runtime state.
 - If a run is retried or replayed later, the same `run_id` can keep the user-facing history while a new `thread_id` can represent the new live attempt.
 - This separation makes reruns, recovery, and audit trails easier to understand without changing the client-facing job identity.
+- When a rerun creates a new `thread_id`, the old thread is considered closed for runtime state purposes but remains linked to the same `run_id` history.
 
 ## 5. Tasks
 

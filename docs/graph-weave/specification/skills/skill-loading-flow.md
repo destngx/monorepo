@@ -41,6 +41,9 @@
 - The Skills layer owns lookup metadata, the Runtime layer owns pre-loading, and Redis stores tenant-scoped cached lookup entries; the interpreter receives pre-loaded skills and does not perform registry discovery itself.
 - On cache miss, the Runtime layer reloads from folder/frontmatter source of truth, updates the Redis lookup entry, and then continues loading.
 - Skill cache invalidation is explicit and API-driven so external edits can be reflected without restarting the runtime.
+- Skill invalidation should be a dedicated API action that accepts tenant scope, skill identifier, and reason, then deletes the cached lookup entry so the next load rebuilds from source of truth.
+- Skill version changes should be treated as cache invalidation triggers, not as ad hoc runtime mutations.
+- Skill cache keys must include a version segment, and the default lookup target when no version is specified is `latest`.
 
 ## 5. Tasks
 

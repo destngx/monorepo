@@ -63,8 +63,8 @@ All runtime state lives in Redis.
 | ---------------------------------------------------- | ------------------------------------------ |
 | `workflow:{tenant_id}:{workflow_id}:v{version}`      | Stored workflow JSON                       |
 | `workflow_pointer:{tenant_id}:{workflow_id}`         | Latest version pointer                     |
-| `skills:level1:{tenant_id}:{skill_id}`               | Level 1 skill frontmatter                  |
-| `skills:level2:{tenant_id}:{skill_id}`               | Level 2 skill bodies or cached summaries   |
+| `skills:level1:{tenant_id}:{skill_id}:{version}`     | Level 1 skill frontmatter                  |
+| `skills:level2:{tenant_id}:{skill_id}:{version}`     | Level 2 skill bodies or cached summaries   |
 | `ratelimit:{tenant_id}:tokens_per_min`               | Rate limiting bucket                       |
 | `graphweave:circuit_breaker:{scope}:{id}:kill`       | Kill switch flags                          |
 | `active_threads:{tenant_id}`                         | Active execution tracking                  |
@@ -74,6 +74,7 @@ All runtime state lives in Redis.
 Practical notes:
 
 - Workflow pointers let consumers read the latest version without hardcoding a SemVer tag.
+- Skill lookup keys should include a version segment; if a version is omitted, the runtime should resolve `latest`.
 - Kill-switch keys are scoped by tenant, workflow, and thread so operators can stop execution at different blast radii.
 - Active thread tracking is useful for audits, cancellation, and debugging long-running jobs.
 
