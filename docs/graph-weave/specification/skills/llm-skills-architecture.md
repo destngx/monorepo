@@ -42,6 +42,8 @@ Cache note: use Redis for tenant-scoped lookup results, and expose an explicit s
 - Keep the runtime contract aligned with the prompt-driven agent_node model, not skill_call routing.
 - Treat Level 3 assets as lazy, execution-time dependencies rather than registry data.
 - The skill cache invalidation API must allow external tooling or operators to refresh stale lookup entries when skill files change outside the runtime.
+- On cache miss, the runtime should rebuild the tenant-scoped lookup entry from folder/frontmatter source of truth and then continue loading.
+- Cache invalidation should be triggered by an explicit API call when external edits, package updates, or hotfixes change skill files outside the runtime.
 
 ## 5. Tasks
 

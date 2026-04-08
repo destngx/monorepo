@@ -39,6 +39,8 @@
 - Keep the loading flow explicit enough to explain why a skill was or was not expanded.
 - Maintain a clear convention for naming skill-loading events in streams.
 - The Skills layer owns lookup metadata, the Runtime layer owns pre-loading, and Redis stores tenant-scoped cached lookup entries; the interpreter receives pre-loaded skills and does not perform registry discovery itself.
+- On cache miss, the Runtime layer reloads from folder/frontmatter source of truth, updates the Redis lookup entry, and then continues loading.
+- Skill cache invalidation is explicit and API-driven so external edits can be reflected without restarting the runtime.
 
 ## 5. Tasks
 
