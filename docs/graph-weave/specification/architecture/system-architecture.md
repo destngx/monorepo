@@ -23,7 +23,7 @@
 - Workflow definitions must be registry-backed and separate from execution state.
 - External model calls must remain isolated behind the graph engine.
 - The external HTTP contract must remain concrete and stable for client integrations.
-- The fixed core stack is FastAPI, LangGraph, Redis, MCP, and PostgreSQL.
+- The fixed core stack is FastAPI, LangGraph, Redis, and MCP.
 - Runtime event naming must follow a clear SSE convention with request, node, tool, checkpoint, and completion events.
 - Diagram intent: the architecture diagrams are authoritative for component boundaries, while sequence/control diagrams describe expected runtime behavior.
 
@@ -35,7 +35,7 @@
 - Add monitoring/tracing around the shared platform boundary.
 - Maintain explicit contracts for request/response shapes and streaming behavior.
 - Treat internal module structure as flexible as long as the fixed stack and external behavior remain intact.
-- Keep PostgreSQL for registry and audit support, not primary runtime state.
+- Keep registry and audit concerns outside the runtime state boundary.
 - Enforce tenant scoping for workflow execution, Redis state, skill caches, and kill switches.
 
 ## 5. Tasks
@@ -60,7 +60,6 @@ graph TB
     subgraph Platform Infrastructure
         API[FastAPI Gateway]
         Rate[Redis Rate Limiter]
-        Registry[(PostgreSQL Workflow Registry)]
         Cache[(Redis Cache)]
     end
     subgraph Universal Graph Engine
@@ -84,13 +83,11 @@ graph TB
     Container(validator, "Pre-Commit Validator", "Pydantic", "Validates workflow JSON before storage")
     Container(interpreter, "Universal Interpreter", "LangGraph", "Single compiled graph for all workflows")
     Container(redis, "Redis Cluster", "Redis 7.2", "Runtime state, checkpoints, kill switches")
-    ContainerDb(postgres, "PostgreSQL", "TimescaleDB", "Audit logs, tenant config (optional)")
-
     Container(monitor, "Prometheus", "Monitoring", "Collects metrics from all services")
     Container(tracing, "Jaeger", "Tracing", "Distributed tracing")
 
     Rel(api, validator, "Validates", "gRPC")
-    Rel(api, interpreter, "Creates thread", "LangGraph API")
+    Rel(api, interpreter, "Creates thread_id", "LangGraph API")
     Rel(interpreter, redis, "Reads/writes", "RESP")
     Rel(interpreter, validator, "Validates on-demand", "gRPC")
     Rel(validator, redis, "Writes validated", "RESP")

@@ -8,7 +8,7 @@
 
 ## Traceability
 
-- FR-SKILL-010: Skills must use three-tier progressive disclosure.
+- FR-SKILL-010: Skills must use three-level progressive disclosure.
 - FR-SKILL-011: Skill packages must support multiple skills simultaneously.
 - FR-SKILL-012: Skill packaging must work with MCP tooling and dynamic runtime loading.
 
@@ -25,20 +25,23 @@
 - The folder format is illustrative, but the loading contract is mandatory.
 - The docs should distinguish discovery metadata from the full body contract.
 - Discovery metadata must be a minimal JSON-compatible summary used for Level 1 loading.
-- Discovery metadata must include name, version, category, inputs, outputs, and examples so the registry can be queried predictably.
+- Discovery metadata must include name, version, category, inputs, outputs, and examples so it can be queried predictably.
 - Level 1 is pre-loaded, Level 2 is on-demand, and Level 3 is only opened when needed during execution.
 - NFR: skills should be concise enough to keep prompts compact but rich enough to be actionable.
 
+Cache note: use Redis for tenant-scoped lookup results, and expose an explicit skill cache invalidation API for external edits or package changes.
+
 ## 4. Technical Plan
 
-- Discover skills from folder structure and frontmatter metadata.
-- Keep registry records separate from full skill bodies so discovery stays cheap.
+- The Skills layer owns lookup metadata and discovery metadata resolution.
+- Keep registry lookup results in Redis as tenant-scoped cache entries so discovery stays cheap.
 - Load the full body only when the skill is selected.
 - Keep supporting references external until needed.
 - Keep skill packaging compatible with both folder-based discovery and registry-based loading.
 - Preserve a clear boundary between metadata, instructions, and supporting examples.
 - Keep the runtime contract aligned with the prompt-driven agent_node model, not skill_call routing.
 - Treat Level 3 assets as lazy, execution-time dependencies rather than registry data.
+- The skill cache invalidation API must allow external tooling or operators to refresh stale lookup entries when skill files change outside the runtime.
 
 ## 5. Tasks
 
@@ -65,7 +68,7 @@ A skill is a folder containing:
 
 ## Loading Model
 
-Skills use three-tier progressive disclosure:
+Skills use three-level progressive disclosure:
 
 1. **Level 1 — YAML frontmatter**: always loaded into the system prompt so the agent knows when to use the skill.
 2. **Level 2 — SKILL.md body**: full instructions and workflow steps load only when the skill is relevant.

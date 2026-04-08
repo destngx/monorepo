@@ -20,7 +20,7 @@ Purpose: record the immutable architecture boundary so implementation stays alig
 - Keep the API gateway stateless and narrow.
 - Preserve FastAPI, LangGraph, Redis, and MCP as the fixed core stack.
 - Treat the interpreter as the single workflow runtime.
-- Keep PostgreSQL for registry and audit support, not runtime state.
+- Keep registry and audit concerns outside runtime state.
 
 ## Definition of done
 

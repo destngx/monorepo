@@ -44,7 +44,7 @@ Verify task produced one deliverable: prompt-driven workflow model specification
 
 | #         | Criterion                          | Expected                                   | Actual | Status |
 | --------- | ---------------------------------- | ------------------------------------------ | ------ | ------ |
-| SCHEMA-01 | Agent mode vs. graph mode defined  | When each mode is used                     | pass   | pass   |
+| SCHEMA-01 | Agent mode defined                 | Prompt-driven agent mode is defined        | pass   | pass   |
 | SCHEMA-02 | System prompt structure documented | Goal, available skills, state, next step   | pass   | pass   |
 | SCHEMA-03 | System prompt fields specified     | Required sections and content              | pass   | pass   |
 | SCHEMA-04 | Skill list injection documented    | How skills are provided to LLM             | pass   | pass   |

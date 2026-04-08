@@ -41,6 +41,7 @@ All runtime state lives in Redis.
 - Keep namespace changes backward compatible unless the spec version changes.
 - Keep the lookup shape predictable for operators inspecting Redis.
 - Treat TTL as a property of the key family, not of individual ad hoc entries.
+- Skill cache invalidation should be explicit and API-driven: when a skill changes, the lookup entry should be removed or refreshed through an invalidation endpoint rather than relying on a hash-encoded key.
 
 ## 5. Tasks
 

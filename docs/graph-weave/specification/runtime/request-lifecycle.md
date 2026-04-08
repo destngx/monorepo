@@ -20,12 +20,15 @@
 
 - The submission request must be validated before graph execution.
 - The submission request must return a run id immediately after creation.
+- The gateway must generate a thread_id for each run and attach it to execution state.
+- thread_id is gateway-generated and returned with the run id.
 - A separate SSE status request must stream structured events back to the client for that run id.
 - Checkpoints must be written during execution so interrupted runs can resume.
 - Active-thread state must be cleared on completion.
 - The concrete gateway contract must split into `POST /execute` for submission and `GET /execute/{run_id}/status` for SSE status streaming.
 - Event names must follow a clear convention that maps to workflow lifecycle stages: `request.*`, `node.*`, `tool.*`, `checkpoint.*`, `complete`.
 - The submission payload must carry tenant_id, workflow_id, and execution input.
+- The submission payload does not require a client-supplied thread_id.
 - The status stream must expose the current lifecycle state and the latest checkpoint snapshot when available.
 - NFR: submission and streaming must keep the workflow responsive under expected load.
 
@@ -35,9 +38,17 @@
 - Route state and checkpoints through Redis.
 - Emit SSE events for request, node, tool, token, checkpoint, and completion milestones on the status endpoint.
 - Store run state so the status request can attach to the correct execution.
+- Store thread_id in run state so checkpoints and cancellation remain consistent.
 - Define event naming rules by lifecycle stage rather than by implementation detail.
 - Keep the runtime lifecycle compatible with the fixed LangGraph/FastAPI/Redis/MCP stack.
 - Keep active-thread cleanup deterministic so completed runs do not remain visible as live work.
+
+## 4.1 Why Two IDs Exist
+
+- `run_id` is the stable public record of the submission.
+- `thread_id` is the live execution handle used by runtime state.
+- If a run is retried or replayed later, the same `run_id` can keep the user-facing history while a new `thread_id` can represent the new live attempt.
+- This separation makes reruns, recovery, and audit trails easier to understand without changing the client-facing job identity.
 
 ## 5. Tasks
 
@@ -66,12 +77,12 @@ sequenceDiagram
     participant M as MCP Servers
     participant S as SSE Streamer
 
-    C->>API: POST /execute {workflow_id, input}
+    C->>API: POST /execute {tenant_id, workflow_id, input}
     API->>R: Check quota + fetch workflow
     API->>V: Validate workflow JSON
     V-->>API: Validation passed
-    API->>R: Create run id + store run state
-    API-->>C: 202 Accepted {run_id}
+    API->>R: Create run id + thread id + store run state
+    API-->>C: 202 Accepted {run_id, thread_id}
 
     C->>API: GET /execute/{run_id}/status
     API->>R: Load run state

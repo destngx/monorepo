@@ -6,7 +6,7 @@
 
 ## Traceability
 
-- FR-MT-001: Every request must carry tenant, workflow, and thread scope.
+- FR-MT-001: Every execution must be associated with tenant, workflow, and thread scope.
 - FR-MT-002: State and kill-switch behavior must remain isolated by tenant.
 - FR-MT-003: Active threads must be auditable per tenant.
 
@@ -17,8 +17,9 @@
 
 ## 3. Specification
 
-- Every request must carry a tenant_id and thread_id.
-- Every request must carry tenant_id, workflow_id, and thread_id together so scope is explicit at ingress.
+- Every request must carry tenant_id and workflow_id.
+- The gateway assigns thread_id during submission and includes it in execution state before runtime begins.
+- thread_id is gateway-generated and is not supplied by the client.
 - Checkpoints must remain thread-scoped.
 - Redis namespaces must be tenant-aware for workflows, skills, and kill switches.
 - Active threads must be trackable per tenant for cancellation and audit.
@@ -42,7 +43,7 @@
 ## 5. Tasks
 
 - [ ] Encode tenant/thread scope into workflow and checkpoint keys.
-- [ ] Separate tier-1 and tier-2 skill namespaces.
+- [ ] Separate level-1 and level-2 skill namespaces.
 - [ ] Add tenant-scoped active-thread tracking and kill-switch controls.
 - [ ] Document the blast-radius rules for each kill-switch scope.
 
@@ -56,16 +57,16 @@
 ```mermaid
 graph TB
     subgraph "Request isolation"
-        A[Tenant A request] --> ACFG[tenant_id=A, thread_id=A1]
-        B[Tenant B request] --> BCFG[tenant_id=B, thread_id=B1]
+    A[Tenant A request] --> ACFG[tenant_id=A, workflow_id=W1]
+    B[Tenant B request] --> BCFG[tenant_id=B, workflow_id=W2]
         ACFG --> ASTATE[(Checkpoint A1)]
         BCFG --> BSTATE[(Checkpoint B1)]
     end
 
     subgraph "Redis namespaces"
         R1[workflow:{tenant}:{workflow}:{version}]
-        R2[skills:tier1:{tenant}:{skill_id}]
-        R3[skills:tier2:{tenant}:{skill_id}]
+        R2[skills:level1:{tenant}:{skill_id}]
+        R3[skills:level2:{tenant}:{skill_id}]
         R4[graphweave:circuit_breaker:{scope}:{id}:kill]
         R5[active_threads:{tenant}]
     end

@@ -1,6 +1,6 @@
 ## 1. Objective
 
-- What: Show how GraphWeave loads skills in two tiers.
+- What: Show how GraphWeave loads skills in three levels.
 - Why: Keep orchestrator context small while still allowing full capability expansion on demand.
 - Who: Runtime engineers and AI workflow authors.
 
@@ -12,15 +12,16 @@
 
 ## 2. Scope
 
-- In scope: tier-1 summaries, tier-2 schemas, lazy loading, and failure handling.
+- In scope: level-1 summaries, level-2 bodies, level-3 linked files, lazy loading, and failure handling.
 - Out of scope: subagent tool execution internals and provider-specific parsing.
 
 ## 3. Specification
 
 - Level 1 frontmatter must always be available to the orchestrator.
-- The loading model is three-tier: Level 1 frontmatter, Level 2 body, and Level 3 linked files.
+- The loading model is three-level: Level 1 frontmatter, Level 2 body, and Level 3 linked files.
+- Mapping: Level 1 = discovery metadata, Level 2 = body instructions, Level 3 = linked assets.
 - Level 1 metadata must stay minimal and focus on name, description, and trigger cues.
-- Skill registry discovery must come from folder layout plus frontmatter metadata, not from runtime code scanning.
+- Skill discovery must come from folder layout plus frontmatter metadata, not from runtime code scanning.
 - Level 2 skill bodies must be loaded only when the orchestrator selects a specific skill.
 - Level 3 linked files must load only when the skill execution needs them.
 - Missing Level 2 bodies or required Level 3 linked files must fail the node.
@@ -31,13 +32,13 @@
 ## 4. Technical Plan
 
 - Load Level 1 frontmatter first and inject it into the orchestrator prompt.
-- Use registry metadata as the lookup index for discovering which skills exist and whether they are relevant.
+- Use Redis as the lookup cache for discovering which skills exist and whether they are relevant.
 - Fetch Level 2 bodies only for selected skills.
 - Open Level 3 linked files only when the execution path needs them.
 - Track loaded skill artifacts in active context state for agent execution.
 - Keep the loading flow explicit enough to explain why a skill was or was not expanded.
 - Maintain a clear convention for naming skill-loading events in streams.
-- The interpreter receives pre-loaded skills and does not perform registry discovery itself.
+- The Skills layer owns lookup metadata, the Runtime layer owns pre-loading, and Redis stores tenant-scoped cached lookup entries; the interpreter receives pre-loaded skills and does not perform registry discovery itself.
 
 ## 5. Tasks
 

@@ -6,14 +6,14 @@
 
 ## Traceability
 
-- FR-ARCH-010: The platform boundary must include FastAPI, Redis, PostgreSQL audit storage, LangGraph, and MCP servers.
+- FR-ARCH-010: The platform boundary must include FastAPI, Redis, LangGraph, and MCP servers.
 - FR-ARCH-011: The external tool boundary must remain MCP-based.
 - FR-ARCH-012: Request validation must happen before runtime execution.
 - FR-ARCH-013: Tenant, workflow, and thread isolation must apply to workflow execution, Redis state, skill caches, and kill switches.
 
 ## 2. Scope
 
-- In scope: gateway, validator, universal interpreter, Redis, PostgreSQL audit storage, and MCP servers.
+- In scope: gateway, validator, universal interpreter, Redis, and MCP servers.
 - Out of scope: end-user product features and provider-specific internal implementations.
 
 ## 3. Specification
@@ -23,15 +23,14 @@
 - The interpreter must execute a single compiled graph with dynamic configuration.
 - MCP servers remain the external tool boundary for all subagent/tool calls.
 - The diagrams in this file are authoritative for boundary definition and should match the runtime architecture.
-- PostgreSQL is for registry/audit support, not the primary runtime state store.
-- The fixed boundary stack is FastAPI, LangGraph, Redis, MCP, and PostgreSQL.
+- The fixed boundary stack is FastAPI, LangGraph, Redis, and MCP.
 - Tenant isolation applies across workflow execution, Redis, skill caches, and kill switches.
 
 ## 4. Technical Plan
 
 - Keep the platform split into a request layer, validation layer, runtime layer, and external tool layer.
 - Store runtime checkpoints and thread state in Redis.
-- Use PostgreSQL for registry/audit needs only.
+- Keep registry/audit data outside the runtime boundary.
 - Keep the MCP boundary explicit so agent nodes cannot bypass tool mediation.
 - Preserve the fixed stack and avoid introducing alternate runtime frameworks in the spec.
 - Scope every execution artifact by tenant, workflow, and thread where applicable.
@@ -39,7 +38,7 @@
 ## 5. Tasks
 
 - [ ] Define request flow and validation boundaries.
-- [ ] Keep Redis and PostgreSQL responsibilities separate.
+- [ ] Keep Redis responsibilities separate from non-runtime concerns.
 - [ ] Document how MCP tool calls cross the runtime boundary.
 - [ ] Add traceable IDs to each boundary rule.
 - [ ] Record the authoritative component list.
@@ -63,14 +62,13 @@ C4Context
         Container(validator, "Pre-Commit Validator", "Python/Pydantic", "Validates workflow JSON before storage")
         Container(interpreter, "Universal Interpreter", "LangGraph", "Single compiled graph with dynamic configuration")
         Container(redis, "Redis Cluster", "Redis 7.2+", "State, checkpoints, cache, kill switches")
-        ContainerDb(postgres, "PostgreSQL", "Optional", "Admin and audit storage")
     }
 
     System_Ext(mcp_servers, "MCP Servers", "External tool providers")
 
     Rel(user, api, "HTTP POST / SSE", "JSON")
     Rel(api, validator, "Validates", "workflow JSON")
-    Rel(api, interpreter, "Creates thread", "thread_id")
+    Rel(api, interpreter, "Creates thread_id", "run scope")
     Rel(interpreter, redis, "Reads / writes", "state and checkpoints")
     Rel(interpreter, mcp_servers, "Calls tools", "MCP protocol")
     Rel(validator, redis, "Stores validated workflows", "definitions")

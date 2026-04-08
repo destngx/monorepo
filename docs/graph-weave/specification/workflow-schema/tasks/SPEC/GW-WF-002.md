@@ -29,7 +29,7 @@
 ### Scope
 
 - **In Scope** :
-  - Define prompt-driven mode (vs. graph-driven mode)
+  - Define prompt-driven mode as the only workflow execution model
   - Document LLM agent contract (system prompt, available skills, expected output)
   - Define how LLM generates next node/action from state
   - Document skill discovery in prompt context

@@ -22,7 +22,7 @@ Purpose: record the three-level progressive-disclosure loading model so skill co
 - Open Level 3 linked files only when they are required.
 - Fail the node if a required artifact is missing.
 - Keep the packaging contract compatible with MCP tooling.
-- Preserve a distinct boundary between discovery metadata and on-demand loading.
+- The Skills layer owns registry lookup; the Runtime layer owns loading and handoff.
 
 ## Definition of done
 
