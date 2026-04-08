@@ -12,7 +12,7 @@ Purpose: index atomic architecture task files.
 
 ## Format
 
-- `WM-ARCH-###.md`
+- `GW-ARCH-###.md`
 - short title
 - phase ID (SPEC, MOCK, MVP, FULL)
 - phase tag

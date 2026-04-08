@@ -1,5 +1,9 @@
 # GraphWeave Living Spec
 
+Project ID: `GW`
+
+Use this short id to prefix GraphWeave-scoped tasks and documents across the monorepo so they stay isolated and easy to search.
+
 This repo uses a layered living-spec structure. Each layer answers one question:
 
 | Layer        | Question                                      | Source                                                                                                                                             |
@@ -26,6 +30,12 @@ This repo uses a layered living-spec structure. Each layer answers one question:
 5. Then use component-local `verification/` for DoD, acceptance criteria, regression coverage, and evidence.
 6. Use `delta-changes.md` for incremental history, debate outcomes, and friction.
 7. Use `progress.md` for phase status and high-level delivery tracking.
+
+## Naming rules
+
+- Use `GW` as the short id for GraphWeave artifacts.
+- Prefer prefixes like `GW-ARCH-001`, `GW-RUNTIME-001`, `GW-DATA-001`, `GW-SKILL-001`, and `GW-WF-001`.
+- Keep the prefix stable across tasks, plan docs, and other GraphWeave documents.
 
 ## Default delivery flow
 

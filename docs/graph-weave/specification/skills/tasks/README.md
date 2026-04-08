@@ -12,7 +12,7 @@ Purpose: index atomic skill-contract task files.
 
 ## Format
 
-- `WM-SKILL-###.md`
+- `GW-SKILL-###.md`
 - short title
 - phase ID (SPEC, MOCK, MVP, FULL)
 - phase tag

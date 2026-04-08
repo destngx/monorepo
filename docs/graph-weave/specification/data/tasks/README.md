@@ -12,7 +12,7 @@ Purpose: index atomic data-contract task files.
 
 ## Format
 
-- `WM-DATA-###.md`
+- `GW-DATA-###.md`
 - short title
 - phase ID (SPEC, MOCK, MVP, FULL)
 - phase tag
