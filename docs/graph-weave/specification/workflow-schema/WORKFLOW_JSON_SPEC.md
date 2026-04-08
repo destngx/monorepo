@@ -4,6 +4,7 @@
 
 - **What**: Define the authoritative JSON schema for declaring LangGraph workflows where agents execute autonomously based on system + user prompts and load skills dynamically at runtime.
 - **Why**: Treat nodes and edges as the core workflow graph, separate that graph from skill content (recipes), and let agent behavior emerge from node prompts. Allow agents to decide which skills to load based on task context.
+- Workflow metadata, nodes, edges, limits, and guardrails must be explicit and serializable.
 - **Who**: Workflow authors, runtime engineers, integrators.
 
 ## Traceability
@@ -62,6 +63,9 @@
 ```
 
 **Key Principle**: Nodes and edges define the workflow graph. Agents decide which skills to load via `load_skill()` MCP tool based on task context. Workflow doesn't know about specific skills—it only defines structure and edge routing.
+
+- Nodes must define `id`, `type`, `config`, and guardrails; edges must define `from`, `to`, and `condition`.
+- Schema versioning must preserve forward and backward compatibility where possible.
 
 ## 4. JSON Schema
 
@@ -555,6 +559,7 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
 - [ ] All `user_prompt_template` placeholders (e.g., `{topic}`) have corresponding keys in `input_mapping`.
 - [ ] All edges reference existing source and target nodes.
 - [ ] Conditions use valid JSONPath syntax and reference accessible state paths.
+- [ ] Every node definition includes required metadata and guardrails where applicable.
 - [ ] Entry and exit nodes are present and correctly linked.
 - [ ] No circular loops without explicit stagnation handling in limits.
 - [ ] Input/output mappings are valid JSONPath expressions.

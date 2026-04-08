@@ -20,6 +20,7 @@ Purpose: record the declarative workflow graph shape so node behavior, edge rout
 - Attach guardrails to the node where the risk lives.
 - Use output mappings for deterministic exits.
 - Keep edge conditions deterministic and JSONPath-driven.
+- Keep schema versioning explicit so compatible workflows can be validated predictably.
 
 ## Definition of done
 

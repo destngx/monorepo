@@ -20,12 +20,15 @@ Purpose: record the separation between workflow structure, agent prompts, and dy
 - Let agents choose skills dynamically.
 - Route by edge conditions on node output.
 - Keep skill availability separate from workflow structure.
+- Define agent-mode outputs as structured actions: goto node, call skill, or done.
+- Keep agent state and execution history available to the prompt without exposing routing internals.
 
 ## Definition of done
 
 - Prompt-driven autonomy is documented as a first-class design rule.
 - Skill loading stays out of routing logic.
 - The plan explains why deterministic edges and agent autonomy coexist inside the graph.
+- The prompt contract defines the available skills, current state, and next-step expectations.
 
 ## Next links
 
