@@ -9,6 +9,8 @@
 - FR-ARCH-001: GraphWeave must use FastAPI, LangGraph, Redis, and MCP as the fixed core stack.
 - FR-ARCH-002: GraphWeave must expose concrete API contracts for client integration.
 - FR-ARCH-003: The runtime architecture must support measurable latency, streaming, and observability goals.
+- FR-ARCH-005: The application must provide enterprise-grade colorized logging for operators and debugging.
+- FR-ARCH-006: The application API must expose dynamic Swagger/OpenAPI docs that include params, request body, and endpoint descriptions.
 - FR-ARCH-004: Tenant, workflow, and thread scopes must be isolated across state, caches, and kill switches.
 
 ## 2. Scope
@@ -26,6 +28,8 @@
 - The fixed core stack is FastAPI, LangGraph, Redis, and MCP.
 - Runtime event naming must follow a clear SSE convention with request, node, tool, checkpoint, and completion events.
 - Diagram intent: the architecture diagrams are authoritative for component boundaries, while sequence/control diagrams describe expected runtime behavior.
+- Operator logs must use clear color coding and structured severity labels (info, warn, error, debug) suitable for enterprise support.
+- OpenAPI must reflect the live application contract, including route params, request bodies, query parameters, and descriptions, without requiring a separate static spec.
 
 ## 4. Technical Plan
 
@@ -34,6 +38,7 @@
 - Use a compiled LangGraph executor as the single workflow runtime.
 - Add monitoring/tracing around the shared platform boundary.
 - Maintain explicit contracts for request/response shapes and streaming behavior.
+- Keep logging readable in terminal and aggregated logs by using color consistently and preserving structured fields.
 - Treat internal module structure as flexible as long as the fixed stack and external behavior remain intact.
 - Keep registry and audit concerns outside the runtime state boundary.
 - Enforce tenant scoping for workflow execution, Redis state, skill caches, and kill switches.
@@ -43,7 +48,9 @@
 - [ ] Wire the API gateway to registry, cache, and executor paths.
 - [ ] Keep workflow registry and runtime state separated.
 - [ ] Add metrics/tracing to the platform boundary.
+- [ ] Add enterprise-grade colorized logging with structured severity labels.
 - [ ] Document client-facing endpoints and streaming conventions.
+- [ ] Expose dynamic Swagger/OpenAPI docs with params, body, and descriptions.
 - [ ] Record latency/reliability targets for the runtime boundary.
 
 ## 6. Verification
@@ -51,6 +58,8 @@
 - Given a client request, when it enters the platform, then it must pass through gateway and registry/cache checks.
 - Given a graph run, when it executes, then state must persist through Redis-backed storage.
 - Given observability is enabled, when workflows run, then metrics/traces must be emitted.
+- Given an API route is registered, when OpenAPI is generated, then the docs must include params, body, and descriptions dynamically.
+- Given logs are emitted, when an operator reads them, then severity and color cues must make the event easy to scan in enterprise support.
 - Given a client integration, when it uses the documented API, then the request and stream contract must match the spec.
 - Given a runtime run, when it completes, then it must satisfy the documented performance and reliability targets.
 
