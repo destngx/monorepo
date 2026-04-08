@@ -24,6 +24,7 @@
 - The docs should distinguish exact repetition from semantic repetition.
 - NFR: detection must be lightweight enough to run on every orchestrator turn.
 - A meta-message must be injected before routing to the guardrail path.
+- Stagnation detection must not mutate workflow state beyond the meta-message and guardrail route.
 
 ## 4. Technical Plan
 
@@ -32,6 +33,7 @@
 - Exit after the counter reaches the configured threshold.
 - Preserve recent intent history only as long as needed for comparison.
 - Keep the threshold semantics configurable without changing the overall safe-exit behavior.
+- Keep the detector separate from the circuit breaker so each concern has one responsibility.
 
 ## 5. Tasks
 

@@ -20,12 +20,15 @@ Purpose: record how runtime artifacts are stored so reusable graph caches do not
 - Treat compiled graphs as cacheable artifacts.
 - Keep checkpoint storage distinct so resume logic stays clean.
 - Preserve compatibility when namespace changes are unavoidable.
+- Capture run_id, version, last_node, timestamp, and execution state in checkpoints.
+- Treat anything required to resume as checkpoint state; everything else stays ephemeral.
 
 ## Definition of done
 
 - Graph cache and checkpoint storage are documented as separate concerns.
 - TTL intent is visible where it affects operator behavior.
 - The plan makes it hard to confuse live state with cached runtime artifacts.
+- The checkpoint contract is explicit enough to resume from the last saved node.
 
 ## Next links
 

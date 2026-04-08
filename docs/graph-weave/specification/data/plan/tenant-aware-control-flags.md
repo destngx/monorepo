@@ -20,12 +20,15 @@ Purpose: record the blast-radius rules for kill switches and active-thread track
 - Keep active-thread data tenant-scoped.
 - Ensure one tenant's stop flag cannot affect another tenant.
 - Make control flags easy to audit in Redis.
+- Use kill-switch for tenant-wide stop, rate-limit for workflow throttling, feature-flag for tenant-wide behavior, and quota for tenant budget control.
+- Treat TTL as part of the control contract so stale flags expire predictably.
 
 ## Definition of done
 
 - Control flags are mapped to their scopes.
 - Active-thread tracking remains tenant-aware.
 - The storage plan explains how interruption stays isolated.
+- The blast radius of each flag type is documented clearly.
 
 ## Next links
 

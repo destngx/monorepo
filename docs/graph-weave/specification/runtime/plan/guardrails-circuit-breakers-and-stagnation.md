@@ -20,6 +20,7 @@ Purpose: record the runtime safety controls that stop unsafe, stalled, or ambigu
 - Support tenant, workflow, and thread-scoped kill switches.
 - Fail closed when breaker state is ambiguous.
 - Detect stagnation with a sliding window and route to the guardrail path.
+- Keep stagnation detection and kill-switch lifecycle separate, but let both feed the same safe-exit path.
 
 ## Definition of done
 

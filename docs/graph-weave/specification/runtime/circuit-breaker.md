@@ -23,6 +23,7 @@
 - The default TTL is 300s, but workflows may override it with clear rationale.
 - Half-open behavior must be configurable enough to support partial recovery checks.
 - If breaker state is ambiguous, execution must fail closed.
+- The circuit breaker must remain orthogonal to stagnation detection: one handles kill-state, the other handles repeated-loop safety.
 
 ## 4. Technical Plan
 
@@ -31,6 +32,7 @@
 - Allow manual override or health-check recovery to close the circuit again.
 - Keep the kill-switch semantics stable even if the internal Redis key naming changes.
 - Ensure interrupt behavior is safe for checkpoints and resumability.
+- Keep the state machine deterministic so the outer runtime can reason about open, interrupted, draining, and half-open states.
 
 ## 5. Tasks
 
