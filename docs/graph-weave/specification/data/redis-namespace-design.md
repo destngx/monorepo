@@ -7,7 +7,7 @@ All runtime state lives in Redis.
 - FR-DATA-001: Workflow storage, runtime state, and control flags must be separated in Redis.
 - FR-DATA-002: Tenant/workflow/thread scoping must be reflected in key design.
 - FR-DATA-003: Compiled graphs and checkpoints must be independently addressable.
-- FR-DATA-004: Skill caches must be separated into tenant-aware Tier 1 and Tier 2 namespaces.
+- FR-DATA-004: Skill caches must be separated into tenant-aware Level 1 and Level 2 namespaces; Level 3 linked files remain external to Redis.
 
 ## 1. Objective
 
@@ -44,7 +44,7 @@ All runtime state lives in Redis.
 - [ ] Separate skill, kill-switch, and active-thread namespaces.
 - [ ] Keep compiled graph cache and checkpoint storage distinct.
 - [ ] Document TTL implications for pointers, caches, and kill switches.
-- [ ] Define the minimal JSON shape for Tier 1 skill summaries.
+- [ ] Define the minimal JSON shape for Level 1 skill frontmatter.
 
 ## 6. Verification
 
@@ -57,8 +57,8 @@ All runtime state lives in Redis.
 | ---------------------------------------------------- | ------------------------------------------ |
 | `workflow:{tenant_id}:{workflow_id}:v{version}`      | Stored workflow JSON                       |
 | `workflow_pointer:{tenant_id}:{workflow_id}`         | Latest version pointer                     |
-| `skills:tier1:{tenant_id}:{skill_id}`                | Tier 1 skill summaries                     |
-| `skills:tier2:{tenant_id}:{skill_id}`                | Tier 2 MCP schemas                         |
+| `skills:level1:{tenant_id}:{skill_id}`               | Level 1 skill frontmatter                  |
+| `skills:level2:{tenant_id}:{skill_id}`               | Level 2 skill bodies or cached summaries   |
 | `ratelimit:{tenant_id}:tokens_per_min`               | Rate limiting bucket                       |
 | `graphweave:circuit_breaker:{scope}:{id}:kill`       | Kill switch flags                          |
 | `active_threads:{tenant_id}`                         | Active execution tracking                  |

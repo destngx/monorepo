@@ -21,3 +21,9 @@ Purpose: capture architecture sequencing, trade-offs, and boundary decisions.
 - `[[../README]]`
 - `[[../tasks/README]]`
 - `[[../verification/README]]`
+
+## Plan files
+
+- `[[platform-boundary-and-fixed-stack]]` — fixed stack, platform layers, and external contract
+- `[[runtime-execution-flow]]` — request path, validation, execution, and SSE boundary
+- `[[tenant-isolation-and-scoping]]` — tenant, workflow, and thread isolation rules

@@ -8,7 +8,7 @@
 
 ## Traceability
 
-- FR-SKILL-010: Skills must use progressive disclosure.
+- FR-SKILL-010: Skills must use three-tier progressive disclosure.
 - FR-SKILL-011: Skill packages must support multiple skills simultaneously.
 - FR-SKILL-012: Skill packaging must work with MCP tooling and dynamic runtime loading.
 
@@ -24,7 +24,7 @@
 - Skills must be written so they work alongside MCP tooling, not instead of it.
 - The folder format is illustrative, but the loading contract is mandatory.
 - The docs should distinguish discovery metadata from the full body contract.
-- Discovery metadata must be a minimal JSON-compatible summary used for Tier 1 loading.
+- Discovery metadata must be a minimal JSON-compatible summary used for Level 1 loading.
 - NFR: skills should be concise enough to keep prompts compact but rich enough to be actionable.
 
 ## 4. Technical Plan
@@ -61,11 +61,11 @@ A skill is a folder containing:
 
 ## Loading Model
 
-Skills use progressive disclosure:
+Skills use three-tier progressive disclosure:
 
-1. Frontmatter is always loaded into the system prompt as the Tier 1 summary so the agent knows when to use the skill.
-2. The `SKILL.md` body loads only when the skill is relevant.
-3. Linked files stay external until needed.
+1. **Level 1 — YAML frontmatter**: always loaded into the system prompt so the agent knows when to use the skill.
+2. **Level 2 — SKILL.md body**: full instructions and workflow steps load only when the skill is relevant.
+3. **Level 3 — linked files**: scripts, templates, and reference files load only when specifically needed during execution.
 
 This keeps context small while preserving detailed workflow guidance.
 

@@ -1,10 +1,10 @@
 # Workflow JSON Schema System
 
-Local entrypoint for the prompt-driven workflow schema.
+Local entrypoint for the prompt-driven workflow graph schema.
 
 ## Use this folder for
 
-- workflow JSON entry docs
+- workflow graph JSON entry docs
 - migration notes
 - local references to deeper schema files
 
@@ -25,22 +25,22 @@ Local entrypoint for the prompt-driven workflow schema.
 
 - Load workflow JSON.
 - Validate schema and structure.
-- Build LangGraph with nodes and edges.
+- Build LangGraph from the explicit node-and-edge graph.
 
 ### 2. **Execution**
 
 ```
 Entry Node → [Input Config] → Current State
 
-For each node:
+For each node in the graph:
   1. Evaluate incoming edges
   2. Find first edge with true condition (or first unconditional edge)
-  3. Execute next node:
+  3. Execute the next node:
    - If agent_node: load skills on demand, execute, store output
-     - If branch: evaluate condition, don't execute work
-     - If human_decision: pause, wait for user input
-     - If exit: return final output
-  4. Repeat until exit node reached (or limits exceeded)
+   - If branch: evaluate condition, don't execute work
+   - If human_decision: pause, wait for user input
+   - If exit: return final output
+  4. Repeat until the exit node is reached (or limits exceeded)
 ```
 
 ### 3. **Edge Condition Evaluation**
@@ -84,7 +84,7 @@ next_node = eligible_edges[0].to
 
 ## Common Patterns
 
-### Pattern 1: Decision Tree
+### Pattern 1: Decision Graph
 
 Route to different agents based on classification:
 

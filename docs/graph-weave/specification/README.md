@@ -4,13 +4,13 @@ Purpose: define the canonical system contract in declarative form.
 
 ## Component map
 
-| Component                    | Scope                                                             |
-| ---------------------------- | ----------------------------------------------------------------- |
-| `[[architecture/README]]`    | system context, macro boundaries, tenant isolation                |
-| `[[runtime/README]]`         | execution flow, control loops, guardrails, circuit breakers       |
-| `[[data/README]]`            | Redis namespaces, state organization, cache contracts             |
-| `[[skills/README]]`          | skill packaging, loading policy, Tier 1/Tier 2 rules              |
-| `[[workflow-schema/README]]` | prompt-driven workflow JSON, node/edge contracts, migration notes |
+| Component                    | Scope                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `[[architecture/README]]`    | system context, macro boundaries, tenant isolation                      |
+| `[[runtime/README]]`         | execution flow, control loops, guardrails, circuit breakers             |
+| `[[data/README]]`            | Redis namespaces, state organization, cache contracts                   |
+| `[[skills/README]]`          | skill packaging, loading policy, and three-level progressive disclosure |
+| `[[workflow-schema/README]]` | prompt-driven workflow JSON, node/edge contracts, migration notes       |
 
 ## Boundaries
 

@@ -24,7 +24,7 @@
 ## 3. Specification
 
 - Workflows must route from declarative JSON and remain deterministic at runtime.
-- Tier 1 skill summaries are always loaded; Tier 2 MCP schemas load only on demand.
+- Level 1 frontmatter is always loaded; Level 2 bodies load only on demand and Level 3 linked files open only when needed.
 - Subagents must not mutate shared state directly and must return summarized results.
 - Guardrails must cover input validation, output redaction, stagnation detection, hop limits, and circuit breakers.
 - Workflow versions must be SemVer-addressable so test and production can run side by side.
@@ -80,7 +80,7 @@ Orchestration logic stays separate from domain capabilities. Teams can change to
 
 ### Two-Tier Cost Optimization
 
-Tier 1 skill summaries stay in the orchestrator context; heavy MCP schemas load only when needed. This reduces token usage and keeps routing fast.
+Level 1 frontmatter stays in the orchestrator context; heavy Level 2 bodies and Level 3 linked files load only when needed. This reduces token usage and keeps routing fast.
 
 That split matters most in long-lived workflows: the orchestrator reasons over compact summaries first and only expands the full schema for the chosen branch.
 

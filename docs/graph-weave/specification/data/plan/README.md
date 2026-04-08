@@ -19,3 +19,9 @@ Purpose: capture data-namespace sequencing, storage trade-offs, and migration de
 - `[[../README]]`
 - `[[../tasks/README]]`
 - `[[../verification/README]]`
+
+## Plan files
+
+- `[[redis-namespace-layout-and-scope]]` — workflow, checkpoint, skill, and kill-switch key structure
+- `[[compiled-graph-and-checkpoint-storage]]` — cache/checkpoint separation and TTL intent
+- `[[tenant-aware-control-flags]]` — tenant/workflow/thread blast-radius rules

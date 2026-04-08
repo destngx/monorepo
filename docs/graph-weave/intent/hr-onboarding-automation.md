@@ -57,7 +57,7 @@ Workflow: `hr-onboarding:v1.1.0`
 Execution flow:
 
 - Input guardrail validates the hire payload
-- Graph initializer loads the workflow and Tier 1 HR/document skills
+- Graph initializer loads the workflow and Level 1 HR/document skill frontmatter
 - Orchestrator fans out to isolated agent nodes
   - IT: create accounts and access
   - HR: enroll payroll and benefits

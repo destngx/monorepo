@@ -32,7 +32,7 @@
 
 ## 4. Technical Plan
 
-- Load Tier 1 summaries first, then fetch Tier 2 MCP schema only for the selected branch.
+- Load Level 1 frontmatter first, then fetch the Level 2 body only for the selected branch and open Level 3 linked files only if needed.
 - Keep shipping/order and billing/refund work isolated in agent nodes.
 - Stream the final answer over SSE once guardrails pass.
 
@@ -57,7 +57,7 @@ Workflow: `customer-support:v2.1.0`
 Execution flow:
 
 - Input guardrail validates the request
-- Graph initializer loads the workflow definition and Tier 1 summaries
+- Graph initializer loads the workflow definition and Level 1 frontmatter
 - Orchestrator routes first to shipping/order lookup, then to billing/refund
 - Skill loader fetches the full MCP schema only for the selected skill
 - Subagents execute in isolation and return summaries only

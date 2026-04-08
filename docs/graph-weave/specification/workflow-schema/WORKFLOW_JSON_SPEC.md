@@ -3,12 +3,12 @@
 ## 1. Objective
 
 - **What**: Define the authoritative JSON schema for declaring LangGraph workflows where agents execute autonomously based on system + user prompts and load skills dynamically at runtime.
-- **Why**: Separate workflow structure (nodes, edges, conditions) from skill content (recipes) and agent behavior (prompts). Allow agents to decide which skills to load based on task context.
+- **Why**: Treat nodes and edges as the core workflow graph, separate that graph from skill content (recipes), and let agent behavior emerge from node prompts. Allow agents to decide which skills to load based on task context.
 - **Who**: Workflow authors, runtime engineers, integrators.
 
 ## Traceability
 
-- **FR-WF-001**: Workflow JSON must define explicit nodes and edges (LangGraph-native).
+- **FR-WF-001**: Workflow JSON must define explicit nodes and edges as the source of truth for workflow structure.
 - **FR-WF-002**: Nodes must specify system and user prompts; agents decide skill loading autonomously.
 - **FR-WF-003**: Edge conditions must evaluate node results (JSONPath), not available skills or agent choices.
 - **FR-WF-004**: Guardrails must be attached to nodes for input/output validation.
@@ -61,7 +61,7 @@
 └─────────────────────────────────────┘
 ```
 
-**Key Principle**: Agents decide which skills to load via `load_skill()` MCP tool based on task context. Workflow doesn't know about specific skills—it only defines structure and edge routing.
+**Key Principle**: Nodes and edges define the workflow graph. Agents decide which skills to load via `load_skill()` MCP tool based on task context. Workflow doesn't know about specific skills—it only defines structure and edge routing.
 
 ## 4. JSON Schema
 
@@ -96,7 +96,7 @@
 
 ### Node Definition
 
-Every node is a discrete work unit. The node type determines its behavior.
+Every node is a discrete work unit inside the workflow graph. The node type determines its behavior.
 
 ```json
 {
@@ -546,11 +546,11 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
 | **Flexibility**         | Low (skill changes = workflow changes) | High (skill updates don't require workflow changes) |
 | **Multi-skill support** | No (one skill per node)                | Yes (agent can load multiple skills)                |
 
-**Bottom Line**: Workflow defines WHAT nodes do (research, verify, summarize) and HOW to route between them (based on confidence). Agents decide WHICH skills to load based on task context.
+**Bottom Line**: The graph defines WHAT nodes do (research, verify, summarize) and HOW to route between them (based on confidence). Agents decide WHICH skills to load based on task context.
 
 ## 7. Verification Checklist
 
-- [ ] All nodes have unique IDs within the workflow.
+- [ ] All nodes have unique IDs within the workflow graph.
 - [ ] Every `agent_node` has both `system_prompt` and `user_prompt_template` defined.
 - [ ] All `user_prompt_template` placeholders (e.g., `{topic}`) have corresponding keys in `input_mapping`.
 - [ ] All edges reference existing source and target nodes.

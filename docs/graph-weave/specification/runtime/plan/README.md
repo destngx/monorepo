@@ -19,3 +19,9 @@ Purpose: capture runtime sequencing, trade-offs, and control-loop decisions.
 - `[[../README]]`
 - `[[../tasks/README]]`
 - `[[../verification/README]]`
+
+## Plan files
+
+- `[[request-lifecycle-and-streaming]]` — request validation, SSE, checkpoints, and completion flow
+- `[[universal-interpreter-and-skill-loading]]` — compiled graph behavior, lazy loading, and safe exit paths
+- `[[guardrails-circuit-breakers-and-stagnation]]` — kill switches, watchdogs, and runaway-loop prevention
