@@ -43,6 +43,27 @@
 - Keep registry and audit concerns outside the runtime state boundary.
 - Enforce tenant scoping for workflow execution, Redis state, skill caches, and kill switches.
 
+## Workflow Registry API [MOCK, MVP, FULL]
+
+The platform exposes a complete workflow management API for CRUD operations:
+
+| Endpoint                   | Method | Purpose                                        |
+| -------------------------- | ------ | ---------------------------------------------- |
+| `/workflows`               | POST   | Create new workflow with validation            |
+| `/workflows`               | GET    | List all workflows for a tenant (with filters) |
+| `/workflows/{workflow_id}` | GET    | Retrieve specific workflow                     |
+| `/workflows/{workflow_id}` | PUT    | Update workflow metadata or definition         |
+| `/workflows/{workflow_id}` | DELETE | Delete workflow                                |
+
+All endpoints:
+
+- Require `tenant_id` for scoping
+- Validate workflow JSON per `WORKFLOW_JSON_SPEC`
+- Return standardized error responses
+- Support full metadata: name, version, tags, owner, status, timestamps
+
+See `[[../workflow-schema/WORKFLOW_MANAGEMENT_API.md]]` for detailed endpoint specification.
+
 ## 5. Tasks
 
 - [ ] Wire the API gateway to registry, cache, and executor paths.

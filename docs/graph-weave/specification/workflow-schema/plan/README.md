@@ -25,3 +25,4 @@ Purpose: capture workflow-schema sequencing, migration trade-offs, and node/edge
 - `[[schema-and-node-contracts]]` — node types, edge rules, guardrails, and output mappings
 - `[[prompt-driven-agent-model]]` — prompts, autonomy, and skill-loading separation
 - `[[schema-migration-and-compatibility]]` — old-model migration and backward-compatibility intent
+- `[[api-organization]]` — [MOCK] Swagger UI semantic tag grouping design and endpoints organization

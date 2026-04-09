@@ -1,0 +1,59 @@
+{
+  "workflow_id": "multi-node-test:v1.0.0",
+  "name": "Multi-Node Test Workflow",
+  "version": "1.0.0",
+  "description": "Test workflow with entry -> agent -> exit nodes for verification",
+  "metadata": {
+    "author": "test",
+    "tenant_id": "test-tenant",
+    "created_at": "2024-04-09T00:00:00Z",
+    "tags": ["test", "mock"]
+  },
+  "limits": {
+    "max_hops": 20,
+    "max_tokens": 100000,
+    "timeout_seconds": 300,
+    "stagnation_window": 3,
+    "stagnation_threshold": 2
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "type": "entry",
+      "display_name": "Start",
+      "config": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "description": "Research topic"
+          }
+        },
+        "required": ["topic"]
+      }
+    },
+    {
+      "id": "research_agent",
+      "type": "agent_node",
+      "display_name": "Research Agent",
+      "config": {
+        "system_prompt": "You are a research agent. Search for information about the given topic.",
+        "user_prompt_template": "Research the following topic: {topic}"
+      }
+    },
+    {
+      "id": "end",
+      "type": "exit",
+      "display_name": "End"
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "research_agent"
+    },
+    {
+      "from": "research_agent",
+      "to": "end"
+    }
+  ]
+}
