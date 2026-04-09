@@ -20,13 +20,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #      | Criterion       | Expected                           | Actual | Status      |
-| ------ | --------------- | ---------------------------------- | ------ | ----------- |
-| DOC-01 | Execution trace | The spec explains the request flow |        | in progress |
+| #      | Criterion       | Expected                           | Actual | Status |
+| ------ | --------------- | ---------------------------------- | ------ | ------ |
+| DOC-01 | Execution trace | The spec explains the request flow | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/runtime/request-lifecycle.md`
+- `docs/graph-weave/specification/runtime/request-lifecycle.md` — Two-request lifecycle documented (lines 28-32), including submission and status streaming
 
 ## 5. Final Decision
 
@@ -36,4 +36,11 @@
 | Needs Revision  | Execution rule is ambiguous   |
 | Fail + Rollback | Rule conflicts with lifecycle |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Request-lifecycle spec defines two-request pattern: `POST /execute` for submission and `GET /execute/{run_id}/status` for SSE
+- Execution endpoint implements submission request contract: accepts tenant_id, workflow_id, input
+- Returns run_id and thread_id immediately per spec requirement (FR-RUNTIME-002)
+- Execution rule remains documented and unchanged in spec

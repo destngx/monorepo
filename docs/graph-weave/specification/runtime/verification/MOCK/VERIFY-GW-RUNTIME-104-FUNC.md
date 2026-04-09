@@ -21,13 +21,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #       | Criterion           | Expected                        | Actual | Status      |
-| ------- | ------------------- | ------------------------------- | ------ | ----------- |
-| FUNC-01 | Error payload shape | The response is consistent JSON |        | in progress |
+| #       | Criterion           | Expected                        | Actual | Status |
+| ------- | ------------------- | ------------------------------- | ------ | ------ |
+| FUNC-01 | Error payload shape | The response is consistent JSON | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/runtime/stagnation-detection-logic.md`
+- `docs/graph-weave/specification/runtime/stagnation-detection-logic.md` — Error handling follows safe exit patterns
 
 ## 5. Final Decision
 
@@ -37,4 +37,12 @@
 | Needs Revision  | Error response is unclear    |
 | Fail + Rollback | Behavior conflicts with spec |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Error handling integrated into FastAPI app
+- Tests pass: 5/5 (invalid_payload, missing_field, is_json, status_endpoint, events_field)
+- Standard FastAPI validation errors (422) for bad payloads
+- Status endpoint returns consistent JSON with run_id and events
+- Error responses are deterministic and consistent

@@ -20,13 +20,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #      | Criterion | Expected                         | Actual | Status      |
-| ------ | --------- | -------------------------------- | ------ | ----------- |
-| DOC-01 | MCP trace | The spec names the mock boundary |        | in progress |
+| #      | Criterion | Expected                         | Actual | Status |
+| ------ | --------- | -------------------------------- | ------ | ------ |
+| DOC-01 | MCP trace | The spec names the mock boundary | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/skills/llm-skills-architecture.md`
+- `docs/graph-weave/specification/skills/llm-skills-architecture.md` — MCP boundary documented and mocked per spec
 
 ## 5. Final Decision
 
@@ -36,4 +36,12 @@
 | Needs Revision  | MCP mock rule is ambiguous  |
 | Fail + Rollback | Rule conflicts with spec    |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Mock MCP integration documented in skills spec
+- MCP boundary remains clear and testable
+- Tool schema format matches MCP specification
+- Mock server provides deterministic responses for testing
+- Ready for integration with workflow execution engine

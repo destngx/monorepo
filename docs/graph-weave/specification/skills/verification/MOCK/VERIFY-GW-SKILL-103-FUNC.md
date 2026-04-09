@@ -21,13 +21,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #       | Criterion           | Expected                                       | Actual | Status      |
-| ------- | ------------------- | ---------------------------------------------- | ------ | ----------- |
-| FUNC-01 | Mock MCP calls work | Skill loading/execution returns fake responses |        | in progress |
+| #       | Criterion           | Expected                                       | Actual | Status |
+| ------- | ------------------- | ---------------------------------------------- | ------ | ------ |
+| FUNC-01 | Mock MCP calls work | Skill loading/execution returns fake responses | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/skills/llm-skills-architecture.md`
+- `docs/graph-weave/specification/skills/llm-skills-architecture.md` — MCP boundary defined and mocked per spec
 
 ## 5. Final Decision
 
@@ -37,4 +37,12 @@
 | Needs Revision  | MCP behavior is incomplete     |
 | Fail + Rollback | Behavior conflicts with spec   |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Mock MCP server created at `apps/graph-weave/src/adapters/mcp.py`
+- Tests pass: 6/6 (list_tools, tool_has_schema, call_tool, nonexistent_tool_fails, list_resources, deterministic_responses)
+- Tool schema includes name, description, and inputSchema per spec
+- Deterministic responses enabled for testing and reproducibility
+- Ready for integration with LangGraph execution

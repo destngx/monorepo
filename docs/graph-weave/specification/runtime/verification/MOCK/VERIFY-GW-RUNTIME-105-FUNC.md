@@ -21,13 +21,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #       | Criterion            | Expected                       | Actual | Status      |
-| ------- | -------------------- | ------------------------------ | ------ | ----------- |
-| FUNC-01 | Checkpoint roundtrip | State can be stored and loaded |        | in progress |
+| #       | Criterion            | Expected                       | Actual | Status |
+| ------- | -------------------- | ------------------------------ | ------ | ------ |
+| FUNC-01 | Checkpoint roundtrip | State can be stored and loaded | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/data/compiled-graph-and-checkpoint-storage.md`
+- `docs/graph-weave/specification/data/compiled-graph-and-checkpoint-storage.md` — Checkpoint storage follows runtime lifecycle spec
 
 ## 5. Final Decision
 
@@ -37,4 +37,12 @@
 | Needs Revision  | State roundtrip is incomplete |
 | Fail + Rollback | Behavior conflicts with spec  |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Mock checkpoint store created at `apps/graph-weave/src/adapters/checkpoint.py`
+- Tests pass: 6/6 (save, load, nonexistent, list, isolation_by_thread, delete)
+- Checkpoint state persists in memory across save/load cycles
+- Thread isolation working: separate checkpoints per thread_id
+- Ready for integration with rerun and resume paths

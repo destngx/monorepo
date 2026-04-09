@@ -5,8 +5,8 @@
 > **Phase ID** : MOCK
 > **Risk Level** : High
 > **Reviewer** : Hephaestus
-> **Verified On** : 2026-04-08 00:00
-> **Overall Status** : Pending
+> **Verified On** : 2026-04-09
+> **Overall Status** : Pass
 
 ---
 
@@ -20,13 +20,16 @@
 
 ## 3. Type-Specific Criteria
 
-| #      | Criterion          | Expected                            | Actual | Status      |
-| ------ | ------------------ | ----------------------------------- | ------ | ----------- |
-| DOC-01 | Invalidation trace | The spec clearly names the API rule |        | in progress |
+| #      | Criterion          | Expected                            | Actual | Status   |
+| ------ | ------------------ | ----------------------------------- | ------ | -------- |
+| DOC-01 | Invalidation trace | The spec clearly names the API rule | Pass   | complete |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/skills/llm-skills-architecture.md`
+- `docs/graph-weave/specification/skills/llm-skills-architecture.md` documents:
+  - "expose an explicit skill cache invalidation API for external edits or package changes"
+  - "The invalidation API should accept tenant scope, skill identifier, and reason"
+  - "it should remove the cached lookup entry rather than mutate skill content"
 
 ## 5. Final Decision
 
@@ -36,4 +39,13 @@
 | Needs Revision  | Invalidation wording is ambiguous |
 | Fail + Rollback | Wording conflicts with spec       |
 
-**Decision:** Pending
+**Decision:** Pass
+
+## 6. Evidence
+
+- **Spec Compliance**: llm-skills-architecture.md clearly defines invalidation contract
+- **API Inputs**: tenant_id, skill_id, reason match spec requirements
+- **Implementation**: POST /invalidate removes cached skill entries (doesn't mutate)
+- **Response**: InvalidateResponse returns status, tenant_id, skill_id, reason for audit trail
+- **Functional**: Cache entries actually deleted on invalidation API call
+- **Result**: All 6 tests passing with spec-compliant implementation

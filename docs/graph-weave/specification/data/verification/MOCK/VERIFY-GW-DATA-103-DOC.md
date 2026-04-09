@@ -20,13 +20,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #      | Criterion     | Expected                          | Actual | Status      |
-| ------ | ------------- | --------------------------------- | ------ | ----------- |
-| DOC-01 | Adapter trace | The spec describes the mock store |        | in progress |
+| #      | Criterion     | Expected                          | Actual | Status |
+| ------ | ------------- | --------------------------------- | ------ | ------ |
+| DOC-01 | Adapter trace | The spec describes the mock store | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/data/redis-namespace-design.md`
+- `docs/graph-weave/specification/data/redis-namespace-design.md` — Redis namespace contract documented (lines 3-46), including key families, namespace isolation, and cache operations
 
 ## 5. Final Decision
 
@@ -36,4 +36,12 @@
 | Needs Revision  | Adapter rule is ambiguous      |
 | Fail + Rollback | Rule conflicts with cache spec |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Mock Redis adapter contract documented in redis-namespace-design.md
+- Adapter implements namespace isolation per FR-DATA-002 (line 8)
+- In-memory store supports all required operations: get, set, delete, exists, clear
+- Key families remain predictable and tenant-scoped as specified
+- Cache contract remains stable and documented

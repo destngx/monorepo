@@ -22,11 +22,11 @@
 
 | #      | Criterion   | Expected                        | Actual | Status |
 | ------ | ----------- | ------------------------------- | ------ | ------ |
-| DOC-01 | Error trace | The spec names the failure path |
+| DOC-01 | Error trace | The spec names the failure path | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/runtime/stagnation-detection-logic.md`
+- `docs/graph-weave/specification/runtime/stagnation-detection-logic.md` — Error handling documented in runtime spec
 
 ## 5. Final Decision
 
@@ -36,4 +36,11 @@
 | Needs Revision  | Error rule is ambiguous  |
 | Fail + Rollback | Rule conflicts with spec |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Error handling rule documented in runtime spec
+- Consistent JSON error responses implemented
+- Status endpoint returns structured error information
+- Mock error paths are testable and deterministic

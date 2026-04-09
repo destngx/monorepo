@@ -22,11 +22,11 @@
 
 | #      | Criterion        | Expected                           | Actual | Status |
 | ------ | ---------------- | ---------------------------------- | ------ | ------ |
-| DOC-01 | Checkpoint trace | The spec names the checkpoint path |
+| DOC-01 | Checkpoint trace | The spec names the checkpoint path | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/data/compiled-graph-and-checkpoint-storage.md`
+- `docs/graph-weave/specification/data/compiled-graph-and-checkpoint-storage.md` — Checkpoint storage documented in data/runtime specs
 
 ## 5. Final Decision
 
@@ -36,4 +36,11 @@
 | Needs Revision  | Checkpoint rule is ambiguous  |
 | Fail + Rollback | Rule conflicts with spec      |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Checkpoint storage documented in compiled-graph-and-checkpoint-storage.md
+- Checkpoint lifecycle follows request-lifecycle spec requirements
+- State persistence enabled for rerun and resume paths
+- Thread-scoped checkpoints maintain isolation

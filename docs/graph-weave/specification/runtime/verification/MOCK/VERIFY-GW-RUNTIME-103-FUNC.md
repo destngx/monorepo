@@ -21,13 +21,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #       | Criterion              | Expected                        | Actual | Status      |
-| ------- | ---------------------- | ------------------------------- | ------ | ----------- |
-| FUNC-01 | Mock response returned | Request in, mocked response out |        | in progress |
+| #       | Criterion              | Expected                        | Actual | Status |
+| ------- | ---------------------- | ------------------------------- | ------ | ------ |
+| FUNC-01 | Mock response returned | Request in, mocked response out | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/runtime/request-lifecycle.md`
+- `docs/graph-weave/specification/runtime/request-lifecycle.md` — Execution endpoint follows two-request lifecycle (line 28)
 
 ## 5. Final Decision
 
@@ -37,4 +37,11 @@
 | Needs Revision  | Endpoint output is incomplete     |
 | Fail + Rollback | Endpoint conflicts with lifecycle |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Endpoint created at `POST /execute` in `apps/graph-weave/src/main.py`
+- Tests pass: 4/4 (test_execute_endpoint_exists, test_execute_returns_run_id, test_execute_returns_thread_id, test_execute_returns_deterministic_response)
+- Response includes run_id (UUID), thread_id (UUID), status ("pending"), workflow_id, tenant_id
+- Follows request-lifecycle spec: returns run_id and thread_id immediately (lines 22, 23)

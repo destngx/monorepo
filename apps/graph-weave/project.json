@@ -1,0 +1,32 @@
+{
+  "name": "graph-weave",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/graph-weave/src",
+  "projectType": "application",
+  "tags": ["type:app", "app:graph-weave", "scope:backend", "lang:python"],
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv pip install -r requirements.txt",
+        "cwd": "apps/graph-weave"
+      },
+      "inputs": ["{projectRoot}/requirements.txt"]
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".venv/bin/uvicorn src.main:app --reload --host 0.0.0.0 --port 8001",
+        "cwd": "apps/graph-weave"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/pytest",
+        "cwd": "apps/graph-weave"
+      },
+      "inputs": ["default", "{projectRoot}/tests/**/*"]
+    }
+  }
+}

@@ -20,13 +20,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #       | Criterion           | Expected                       | Actual | Status      |
-| ------- | ------------------- | ------------------------------ | ------ | ----------- |
-| FUNC-01 | Cache ops available | get/set/delete succeed in mock |        | in progress |
+| #       | Criterion           | Expected                       | Actual | Status |
+| ------- | ------------------- | ------------------------------ | ------ | ------ |
+| FUNC-01 | Cache ops available | get/set/delete succeed in mock | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/data/redis-namespace-design.md`
+- `docs/graph-weave/specification/data/redis-namespace-design.md` — Adapter supports namespace isolation per key design (lines 25, 32)
 
 ## 5. Final Decision
 
@@ -36,4 +36,12 @@
 | Needs Revision  | Cache ops are incomplete          |
 | Fail + Rollback | Behavior conflicts with spec      |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- Mock Redis adapter created at `apps/graph-weave/src/adapters/cache.py`
+- Tests pass: 7/7 (get/set/delete/exists/clear/overwrite/namespace_isolation)
+- Adapter supports basic Redis operations: get, set, delete, exists, clear
+- Namespace isolation working: different key prefixes maintain separate values
+- Ready for integration with execution and checkpoint storage

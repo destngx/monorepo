@@ -21,13 +21,13 @@
 
 ## 3. Type-Specific Criteria
 
-| #       | Criterion              | Expected                          | Actual | Status      |
-| ------- | ---------------------- | --------------------------------- | ------ | ----------- |
-| FUNC-01 | Colorized logs present | INFO/WARN/ERROR output is colored |        | in progress |
+| #       | Criterion              | Expected                          | Actual | Status |
+| ------- | ---------------------- | --------------------------------- | ------ | ------ |
+| FUNC-01 | Colorized logs present | INFO/WARN/ERROR output is colored | ✓      | passed |
 
 ## 4. Documentation Check
 
-- `docs/graph-weave/specification/architecture/system-architecture.md`
+- `docs/graph-weave/specification/architecture/system-architecture.md` — Colorized logging requirement documented (FR-ARCH-005, line 12)
 
 ## 5. Final Decision
 
@@ -37,4 +37,12 @@
 | Needs Revision  | Colorized output is unclear          |
 | Fail + Rollback | Logging behavior conflicts with spec |
 
-**Decision:** Pending
+**Decision:** Pass
+
+**Evidence:**
+
+- ColorFormatter implemented with ANSI color codes in `src/logging.py`
+- Color mappings: DEBUG=Cyan, INFO=Green, WARNING=Yellow, ERROR=Red, CRITICAL=Magenta
+- Logging setup function initializes colorized handler on startup
+- Tests pass: 6/6 (formatter, colors, setup, output, get_logger, format_record)
+- Enterprise-ready output for operator readability
