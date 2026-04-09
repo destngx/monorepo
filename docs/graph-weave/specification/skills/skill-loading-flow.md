@@ -6,9 +6,9 @@
 
 ## Traceability
 
-- FR-SKILL-001: Level 1 frontmatter must always be present.
-- FR-SKILL-002: Level 2 skill bodies must be loaded dynamically at runtime.
-- FR-SKILL-003: Missing Level 2 bodies or required Level 3 linked files must fail the node.
+- FR-SKILL-001 [MVP,FULL]: Level 1 frontmatter must always be present.
+- FR-SKILL-002 [MVP,FULL]: Level 2 skill bodies must be loaded dynamically at runtime.
+- FR-SKILL-003 [MVP,FULL]: Missing Level 2 bodies or required Level 3 linked files must fail the node.
 
 ## 2. Scope
 

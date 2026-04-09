@@ -6,9 +6,9 @@
 
 ## Traceability
 
-- FR-RUNTIME-030: Stagnation detection must use a sliding window.
-- FR-RUNTIME-031: Repeated directives, repeated objectives, and semantic repetition can all trigger stagnation.
-- FR-RUNTIME-032: Stagnation must force a safe exit path.
+- FR-RUNTIME-030 [MVP,FULL]: Stagnation detection must use a sliding window.
+- FR-RUNTIME-031 [MVP,FULL]: Repeated directives, repeated objectives, and semantic repetition can all trigger stagnation.
+- FR-RUNTIME-032 [MVP,FULL]: Stagnation must force a safe exit path.
 
 ## 2. Scope
 

@@ -6,10 +6,10 @@
 
 ## Traceability
 
-- FR-ARCH-010: The platform boundary must include FastAPI, Redis, LangGraph, and MCP servers.
-- FR-ARCH-011: The external tool boundary must remain MCP-based.
-- FR-ARCH-012: Request validation must happen before runtime execution.
-- FR-ARCH-013: Tenant, workflow, and thread isolation must apply to workflow execution, Redis state, skill caches, and kill switches.
+- FR-ARCH-010 [MVP,FULL]: The platform boundary must include FastAPI, Redis, LangGraph, and MCP servers.
+- FR-ARCH-011 [MVP,FULL]: The external tool boundary must remain MCP-based.
+- FR-ARCH-012 [MOCK,MVP]: Request validation must happen before runtime execution.
+- FR-ARCH-013 [MOCK,MVP,FULL]: Tenant, workflow, and thread isolation must apply to workflow execution, Redis state, skill caches, and kill switches.
 
 ## 2. Scope
 

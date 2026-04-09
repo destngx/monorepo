@@ -6,12 +6,12 @@
 
 ## Traceability
 
-- FR-ARCH-001: GraphWeave must use FastAPI, LangGraph, Redis, and MCP as the fixed core stack.
-- FR-ARCH-002: GraphWeave must expose concrete API contracts for client integration.
-- FR-ARCH-003: The runtime architecture must support measurable latency, streaming, and observability goals.
-- FR-ARCH-005: The application must provide enterprise-grade colorized logging for operators and debugging.
-- FR-ARCH-006: The application API must expose dynamic Swagger/OpenAPI docs that include params, request body, and endpoint descriptions.
-- FR-ARCH-004: Tenant, workflow, and thread scopes must be isolated across state, caches, and kill switches.
+- FR-ARCH-001 [MOCK,MVP,FULL]: GraphWeave must use FastAPI, LangGraph, Redis, and MCP as the fixed core stack.
+- FR-ARCH-002 [MOCK,MVP]: GraphWeave must expose concrete API contracts for client integration.
+- FR-ARCH-003 [MVP,FULL]: The runtime architecture must support measurable latency, streaming, and observability goals.
+- FR-ARCH-005 [MOCK,MVP,FULL]: The application must provide enterprise-grade colorized logging for operators and debugging.
+- FR-ARCH-006 [MOCK,MVP,FULL]: The application API must expose dynamic Swagger/OpenAPI docs that include params, request body, and endpoint descriptions.
+- FR-ARCH-004 [MOCK,MVP,FULL]: Tenant, workflow, and thread scopes must be isolated across state, caches, and kill switches.
 
 ## 2. Scope
 

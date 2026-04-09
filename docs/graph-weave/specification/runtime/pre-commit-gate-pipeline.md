@@ -6,9 +6,9 @@
 
 ## Traceability
 
-- FR-RUNTIME-020: Workflow JSON must be validated before storage.
-- FR-RUNTIME-021: Missing skills or invalid graph structure must fail fast.
-- FR-RUNTIME-022: Accepted workflows must be cached and versioned.
+- FR-RUNTIME-020 [MOCK,MVP]: Workflow JSON must be validated before storage.
+- FR-RUNTIME-021 [MVP,FULL]: Missing skills or invalid graph structure must fail fast.
+- FR-RUNTIME-022 [MVP,FULL]: Accepted workflows must be cached and versioned.
 
 ## 2. Scope
 

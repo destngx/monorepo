@@ -6,9 +6,9 @@
 
 ## Traceability
 
-- FR-RUNTIME-040: A single compiled graph must handle multiple workflows.
-- FR-RUNTIME-041: Level 1 skill frontmatter must always be loaded before routing.
-- FR-RUNTIME-042: Subagent and exit paths must remain isolated and explicit.
+- FR-RUNTIME-040 [MVP,FULL]: A single compiled graph must handle multiple workflows.
+- FR-RUNTIME-041 [MVP,FULL]: Level 1 skill frontmatter must always be loaded before routing.
+- FR-RUNTIME-042 [MVP,FULL]: Subagent and exit paths must remain isolated and explicit.
 
 ## 2. Scope
 

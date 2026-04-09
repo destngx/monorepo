@@ -8,9 +8,9 @@
 
 ## Traceability
 
-- FR-SKILL-010: Skills must use three-level progressive disclosure.
-- FR-SKILL-011: Skill packages must support multiple skills simultaneously.
-- FR-SKILL-012: Skill packaging must work with MCP tooling and dynamic runtime loading.
+- FR-SKILL-010 [MVP,FULL]: Skills must use three-level progressive disclosure.
+- FR-SKILL-011 [MVP,FULL]: Skill packages must support multiple skills simultaneously.
+- FR-SKILL-012 [MVP,FULL]: Skill packaging must work with MCP tooling and dynamic runtime loading.
 
 ## 2. Scope
 

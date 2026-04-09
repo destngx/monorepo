@@ -56,6 +56,12 @@ This order is iterative, but the default loop is:
 - `tasks/` should be one acceptance criterion per item.
 - `verification/` should prove behavior with Given/When/Then or checklists.
 
+## Phase intent
+
+- **MOCK**: A working application with mocked responses for external systems and complicated logic.
+- **MVP**: Real minimal execution path with the core stack wired end-to-end.
+- **FULL**: Production hardening, guardrails, multi-tenant correctness, and richer loading behavior.
+
 ## Tier rules
 
 - **Auto-done**: formatting, docs cleanup, verification updates, routine evidence capture.

@@ -6,10 +6,10 @@
 
 ## Traceability
 
-- FR-RUNTIME-001: Workflow submission must be validated before execution.
-- FR-RUNTIME-002: Workflow submission must return a run id for later status access.
-- FR-RUNTIME-003: A separate SSE status request must stream structured events for the submitted run.
-- FR-RUNTIME-004: Checkpoints and active thread state must survive interruptions and completion.
+- FR-RUNTIME-001 [MOCK,MVP]: Workflow submission must be validated before execution.
+- FR-RUNTIME-002 [MOCK,MVP]: Workflow submission must return a run id for later status access.
+- FR-RUNTIME-003 [MOCK,MVP,FULL]: A separate SSE status request must stream structured events for the submitted run.
+- FR-RUNTIME-004 [MVP,FULL]: Checkpoints and active thread state must survive interruptions and completion.
 
 ## 2. Scope
 

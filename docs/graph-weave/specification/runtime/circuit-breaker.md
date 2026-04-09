@@ -6,9 +6,9 @@
 
 ## Traceability
 
-- FR-RUNTIME-010: Kill switches must support tenant, workflow, and thread scopes.
-- FR-RUNTIME-011: The circuit breaker must support half-open recovery.
-- FR-RUNTIME-012: Emergency stops must interrupt execution safely.
+- FR-RUNTIME-010 [MVP,FULL]: Kill switches must support tenant, workflow, and thread scopes.
+- FR-RUNTIME-011 [FULL]: The circuit breaker must support half-open recovery.
+- FR-RUNTIME-012 [MVP,FULL]: Emergency stops must interrupt execution safely.
 
 ## 2. Scope
 

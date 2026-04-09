@@ -8,8 +8,8 @@
 
 ## Traceability
 
-- FR-DATA-003: Compiled graphs and checkpoints must be independently addressable.
-- FR-DATA-004: Cached runtime artifacts must remain distinct from live execution state.
+- FR-DATA-003 [MVP,FULL]: Compiled graphs and checkpoints must be independently addressable.
+- FR-DATA-004 [MVP,FULL]: Cached runtime artifacts must remain distinct from live execution state.
 
 ## 2. Scope
 

@@ -19,6 +19,7 @@ Purpose: define the canonical system contract in declarative form.
 - Data docs define storage and namespace contracts.
 - Skills docs define how skills are discovered and loaded.
 - Workflow schema docs define the executable workflow declaration.
+- Requirements and features may carry inline phase labels like `[MOCK]`, `[MVP]`, and `[FULL]`; multiple labels are allowed when a requirement spans more than one phase.
 
 ## Review rule
 

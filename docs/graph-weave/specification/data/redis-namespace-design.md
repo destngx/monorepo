@@ -4,10 +4,10 @@ All runtime state lives in Redis.
 
 ## Traceability
 
-- FR-DATA-001: Workflow storage, runtime state, and control flags must be separated in Redis.
-- FR-DATA-002: Tenant/workflow/thread scoping must be reflected in key design.
-- FR-DATA-003: Compiled graphs and checkpoints must be independently addressable.
-- FR-DATA-004: Skill caches must be separated into tenant-aware Level 1 and Level 2 namespaces; Level 3 linked files remain external to Redis.
+- FR-DATA-001 [MOCK,MVP]: Workflow storage, runtime state, and control flags must be separated in Redis.
+- FR-DATA-002 [MOCK,MVP,FULL]: Tenant/workflow/thread scoping must be reflected in key design.
+- FR-DATA-003 [MVP,FULL]: Compiled graphs and checkpoints must be independently addressable.
+- FR-DATA-004 [MVP,FULL]: Skill caches must be separated into tenant-aware Level 1 and Level 2 namespaces; Level 3 linked files remain external to Redis.
 
 ## 1. Objective
 

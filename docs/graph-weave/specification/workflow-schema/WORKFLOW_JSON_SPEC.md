@@ -9,11 +9,11 @@
 
 ## Traceability
 
-- **FR-WF-001**: Workflow JSON must define explicit nodes and edges as the source of truth for workflow structure.
-- **FR-WF-002**: Nodes must specify system and user prompts; agents decide skill loading autonomously.
-- **FR-WF-003**: Edge conditions must evaluate node results (JSONPath), not available skills or agent choices.
-- **FR-WF-004**: Guardrails must be attached to nodes for input/output validation.
-- **FR-WF-005**: Workflow structure must be serializable and execute on any LangGraph runtime with MCP tool support.
+- **FR-WF-001 [MOCK,MVP,FULL]**: Workflow JSON must define explicit nodes and edges as the source of truth for workflow structure.
+- **FR-WF-002 [MOCK,MVP,FULL]**: Nodes must specify system and user prompts; agents decide skill loading autonomously.
+- **FR-WF-003 [MOCK,MVP,FULL]**: Edge conditions must evaluate node results (JSONPath), not available skills or agent choices.
+- **FR-WF-004 [MOCK,MVP,FULL]**: Guardrails must be attached to nodes for input/output validation.
+- **FR-WF-005 [MVP,FULL]**: Workflow structure must be serializable and execute on any LangGraph runtime with MCP tool support.
 
 ## 2. Scope
 
