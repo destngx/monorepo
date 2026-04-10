@@ -4,9 +4,30 @@
 
 The Workflow Management API enables full lifecycle management of workflows: create, retrieve, list, update, and delete operations. All endpoints are tenant-scoped and return standardized responses.
 
-**Phase**: MOCK
+**Phase**: MOCK, MVP
 
 **API Organization**: Endpoints are organized under the **Workflows** tag in Swagger UI for semantic grouping with related workflow operations.
+
+## Critical Requirement: Workflow Pre-Creation [MVP]
+
+**Workflows must be created via POST /workflows BEFORE they can be executed.**
+
+When a client calls `POST /execute` with a workflow_id that does not exist:
+
+- POST /execute returns **404 Not Found**
+- Message: `{"error": "NotFound", "message": "Workflow not found"}`
+
+This enforces a clear separation of concerns:
+
+1. **Deployment Phase**: Create workflows via POST /workflows
+2. **Execution Phase**: Execute workflows via POST /execute
+
+**Rationale:**
+
+- Enables workflow versioning and rollback
+- Clear audit trail of what workflows are deployed
+- Prevents accidental execution of non-existent workflows
+- Aligns with containerized deployment model: "deploy first, run second"
 
 ## Objective
 

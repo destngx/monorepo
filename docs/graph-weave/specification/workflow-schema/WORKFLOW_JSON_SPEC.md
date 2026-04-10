@@ -317,6 +317,80 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
    }
    ```
 
+### 4.1 Edge Condition Evaluation Rules [MVP]
+
+**JSONPath Expression Evaluation**:
+
+- Conditions are evaluated as JSONPath expressions against the current workflow state snapshot.
+- The runtime must snapshot the state before evaluating all outgoing edges from a node.
+- State is immutable during edge evaluation (prevents race conditions and ensures determinism).
+- If a JSONPath path does not exist in state, evaluation must treat it as `null`.
+- Operators: `>`, `<`, `>=`, `<=`, `==`, `!=`, `!` (negation)
+- Nested path access: `$.field.nested.path` follows JSONPath dot notation.
+
+**None/Null Handling**:
+
+- If a referenced path is `null`, comparison with literals follows JSON semantics:
+  - `null > 0` evaluates to `false`
+  - `null == null` evaluates to `true`
+  - `null != "value"` evaluates to `true`
+- Agents MUST ensure output keys exist in state before edge evaluation (guardrails validate this).
+- If a required output key is missing, treat as validation error and force exit.
+
+**Determinism Guarantee**:
+
+- Given the same node output and state snapshot, the same edge is always taken (JSONPath evaluation is deterministic).
+- This enables replay, testing, and audit trails.
+
+**Edge Routing Order**:
+
+- The runtime evaluates edges in the order they are defined in the workflow JSON.
+- The first edge with a `true` condition is taken.
+- Unconditional edges (no condition field) are always `true`.
+- If no edge condition is true, the workflow enters a `stagnation_detected` state and is forced to exit.
+
+### 4.2 State Propagation and Mutation Rules [MVP]
+
+**State Structure**:
+
+- Workflow state is a flat-or-nested JSON object that accumulates outputs from each node.
+- Node outputs are stored at keys defined in the node's `output_key` field.
+- State persists across all nodes in the workflow.
+- State is NOT cleared between nodes; outputs are additive.
+
+**Output Storage**:
+
+```python
+# Example state accumulation:
+state = {
+  "entry": { "topic": "AI ethics", "depth": "thorough" },
+  "research_output": { "findings": "...", "confidence": 0.85 },
+  "verification_output": { "verified_facts": [...], "confidence": 0.9 },
+  "summary_output": { "text": "...", "key_points": [...] }
+}
+```
+
+**State Immutability During Edge Evaluation**:
+
+```python
+# Correct: Snapshot before evaluating edges
+state_snapshot = copy.deepcopy(workflow_state)
+eligible_edges = [
+    e for e in outgoing_edges
+    if evaluate_condition(e.condition, state_snapshot)
+]
+next_node = eligible_edges[0].to
+
+# Incorrect: Mutating state while evaluating edges
+# This breaks determinism and causes race conditions
+```
+
+**Input Mapping**:
+
+- Node `input_mapping` fields use JSONPath to extract values from state for template substitution.
+- Template placeholders (e.g., `{topic}`, `{research}`) are replaced with values from state at node execution time.
+- If a mapped path doesn't exist, the runtime must raise a validation error and exit.
+
 ## 5. Complete Example: Multi-Agent Research Workflow
 
 ```json
@@ -559,12 +633,16 @@ Edges define transitions between nodes. An edge evaluates a condition to decide 
 - [ ] All `user_prompt_template` placeholders (e.g., `{topic}`) have corresponding keys in `input_mapping`.
 - [ ] All edges reference existing source and target nodes.
 - [ ] Conditions use valid JSONPath syntax and reference accessible state paths.
+- [ ] Edge conditions handle `null` values correctly (null comparisons must be intentional).
+- [ ] State propagation is additive: each node output adds a key to the accumulated state.
+- [ ] No missing required output keys: all paths referenced in edge conditions must exist in node outputs.
 - [ ] Every node definition includes required metadata and guardrails where applicable.
 - [ ] Entry and exit nodes are present and correctly linked.
 - [ ] No circular loops without explicit stagnation handling in limits.
 - [ ] Input/output mappings are valid JSONPath expressions.
 - [ ] Output schemas in `agent_node` are valid JSON Schema.
 - [ ] Guardrails (if present) have valid models or patterns.
+- [ ] Edge routing order is deterministic (first true condition taken).
 
 ## 8. Runtime Contract
 

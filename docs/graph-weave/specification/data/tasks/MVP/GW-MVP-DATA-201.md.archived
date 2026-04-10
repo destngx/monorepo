@@ -1,0 +1,87 @@
+# GW-MVP-DATA-201: Real Redis Integration
+
+**Objective**: Replace mock in-memory storage with real Redis instance, implementing tenant-scoped key namespacing and atomic operations for run state, workflows, and checkpoints.
+
+**Phase**: [MVP]
+
+## Requirements
+
+### Functional
+
+- Must connect to real Redis (local or remote, configurable via .env)
+- Implement tenant-scoped namespacing: run:{tenant_id}:{run_id}, workflow:{tenant_id}:{workflow_id}:{version}
+- Support atomic operations: SET NX (create), GET, MGET, SETEX (expiration)
+- Implement circuit breaker: if Redis unavailable, graceful degradation or fail-open
+- Support both single Redis instance (MVP) and future multi-tenant instances ([FULL])
+- Key expiration: runs expire after 7 days, workflows don't expire
+- TTL enforcement: active_threads key expires after completion (cleanup)
+
+### Non-Functional
+
+- Redis connection pooling (reuse connections, don't create new per request)
+- Latency: Redis operations <50ms p99
+- Availability: graceful handling of Redis timeouts (30s default)
+- Memory: single Redis instance should handle 100K concurrent runs
+
+## Implementation Approach
+
+1. Create `adapters/redis_adapter.py` with:
+   - Connection pool initialization using Upstash Redis REST API
+   - Wrapper functions: get(key), set(key, value), delete(key), rpush(key, value), lpush, etc.
+   - Tenant-scoped helpers: run_key(run_id, tenant_id), workflow_key(workflow_id, tenant_id, version)
+   - HTTP client for Upstash REST calls (using requests or aiohttp)
+2. Update `src/config.py` to load environment variables:
+   - `UPSTASH_REDIS_REST_URL`: Upstash Redis instance URL
+   - `UPSTASH_REDIS_REST_TOKEN`: Upstash auth token
+   - Use these to build Redis client headers
+3. Replace all in-memory storage with Redis calls via Upstash REST API
+4. Implement circuit breaker: retry failed Redis ops, fallback to in-memory if timeout
+5. Add health check endpoint: GET /health returns Redis status (queries Upstash health)
+
+## Acceptance Criteria
+
+- [ ] Redis client initialized with connection pooling
+- [ ] All run state stored in Redis (not in-memory)
+- [ ] All workflow definitions stored in Redis
+- [ ] All event logs stored in Redis
+- [ ] All checkpoints stored in Redis
+- [ ] Tenant-scoped key namespacing enforced everywhere
+- [ ] TTL expiration working (test via Redis TTL verification)
+- [ ] Circuit breaker gracefully handles Redis unavailability
+- [ ] Tests passing (100+ new tests)
+- [ ] lsp_diagnostics clean
+
+## Related Requirements
+
+- FR-ARCH-013 [MOCK,MVP,FULL]: Tenant, workflow, and thread isolation must apply to workflow execution, Redis state, skill caches, and kill switches
+
+## Deliverables
+
+1. `src/adapters/redis_adapter.py` - Redis client wrapper (150 lines)
+2. `src/config.py` - Update with REDIS_URL and Redis config
+3. `tests/test_redis_integration.py` - Integration tests with real Redis (200 lines, 30+ tests)
+
+## Implementation Notes
+
+- **Environment Variables** (from `.env.local`):
+  - `UPSTASH_REDIS_REST_URL`: Full URL to Upstash Redis instance (e.g., https://your-upstash-instance.upstash.io)
+  - `UPSTASH_REDIS_REST_TOKEN`: Bearer token for authentication
+  - See `.env.example` for template
+- **Redis Client**: Use Upstash REST API (HTTP-based, no connection pooling needed)
+  - All Redis commands go via HTTP POST to `{UPSTASH_REDIS_REST_URL}`
+  - Authorization header: `Authorization: Bearer {UPSTASH_REDIS_REST_TOKEN}`
+  - No need for redis-py library; use requests or aiohttp
+- Decision 6: Single Redis with prefix scoping (MVP), separate instances deferred to FULL
+- Key format: run:{tenant_id}:{run_id}, not run:global or shared
+- Circuit breaker: max 3 retries, 100ms backoff, then fail-open to in-memory
+- This is a foundational task for GW-MVP-RUNTIME-201, 202, 203 (all depend on Redis)
+- Must complete before any real execution can happen
+
+## Testing Strategy
+
+- Unit: Key naming functions produce correct tenant-scoped keys
+- Unit: Connection pool properly reuses connections
+- Integration: SET/GET operations work with tenant isolation (Tenant A can't read Tenant B keys)
+- Integration: TTL expiration works correctly
+- Integration: Circuit breaker recovers when Redis comes back online
+- E2E: Full workflow stores all intermediate state in Redis (verify via redis-cli inspection)

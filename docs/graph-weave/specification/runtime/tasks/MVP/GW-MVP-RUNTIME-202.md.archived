@@ -1,0 +1,107 @@
+# GW-MVP-RUNTIME-202: Real LangGraph Executor Integration
+
+**Objective**: Replace mock LangGraph executor with real LangGraph runtime that traverses workflow nodes, evaluates conditions, and executes agents via real MCP tools instead of mocked responses.
+
+**Phase**: [MVP]
+
+## Requirements
+
+### Functional
+
+- LangGraph must execute real workflow nodes (entry, agent_node, branch, exit)
+- Edge conditions must evaluate as real JSONPath expressions against workflow state
+- Agent nodes must call real MCP tools (load_skill, search, verify) instead of mocked responses
+- Agents must use real LLM (Claude or configurable) instead of mock keyword routing
+- State propagation must be deterministic: node outputs accumulate in workflow_state
+- Node execution must emit granular events: node.started, node.completed, node.failed, node.skipped
+- Tool calls must be mediated through MCP (no direct provider access)
+- Execution timeout must be enforced at 300 seconds (configurable)
+- Stagnation detection must interrupt loops after max_hops or repeated nodes
+
+### Non-Functional
+
+- Execution latency for simple workflow <5 seconds
+- LLM calls must support streaming (for token-level feedback)
+- Memory usage must not exceed 200MB per concurrent execution
+- No blocking calls in main event loop
+
+## Implementation Approach
+
+1. Replace `MockLangGraphExecutor` with `RealLangGraphExecutor` in `adapters/langgraph_executor.py`
+2. Use `langgraph.graph.StateGraph` to build real graph from workflow JSON
+3. For each agent_node: create LangGraph node that:
+   - Calls Claude API with system + user prompts
+   - Handles MCP tool calls from agent (load_skill, search, verify)
+   - Stores output in workflow_state
+4. For branch nodes: create deterministic condition evaluator (JSONPath)
+5. For entry/exit nodes: pass-through state transformation
+6. Wrap graph in circuit breaker with timeout enforcement
+7. Stream execution events (node.started, etc.) to Redis event log
+8. Handle stagnation: track node visit count, exit if max_hops exceeded
+
+## Acceptance Criteria
+
+- [ ] RealLangGraphExecutor class created with real LangGraph graph building
+- [ ] Agent nodes call Claude API (configurable model)
+- [ ] MCP tool calls properly routed and responses returned to agent
+- [ ] Edge conditions evaluated as JSONPath (not mocked)
+- [ ] All execution events emitted (node._, tool._, state.\*)
+- [ ] Stagnation detection working (circuit breaker exits on max_hops)
+- [ ] No mock responses in executor (all responses real)
+- [ ] Tests passing (150+ new tests for real execution)
+- [ ] lsp_diagnostics clean
+
+## Related Requirements
+
+- FR-RUNTIME-040 [MVP,FULL]: A single compiled graph must handle multiple workflows
+- FR-RUNTIME-041 [MVP,FULL]: Level 1 skill frontmatter must always be loaded before routing
+
+## Deliverables
+
+1. `src/adapters/langgraph_executor.py` - Replace mock with real LangGraph execution (300 lines)
+2. `src/adapters/mcp_router.py` - Route MCP tool calls from agents to real tools (80 lines)
+3. `src/adapters/stagnation_detector.py` - Detect loops and force exit (40 lines)
+4. `tests/test_real_langgraph_executor.py` - Integration tests with real LangGraph (200 lines, 25+ tests)
+
+## Implementation Notes
+
+- Decision 5: JSON polling vs SSE - executor should stream events to Redis, polling client pulls from log
+- Use Claude API via LangChain or direct SDK (configure in .env)
+- MCP tool routing: load_skill → skills service, search → web search MCP, verify → fact-check MCP
+- Stagnation threshold: default max_hops=20 per workflow spec
+- This task depends on GW-MVP-DATA-201 (Real Redis) for event log storage
+- Prerequisite for GW-MVP-RUNTIME-203 (Event Emitter) - events must be real, not mocked
+
+## Environment Variables Required
+
+| Variable                   | Purpose                                                    | Loaded By                                          |
+| -------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| `UPSTASH_REDIS_REST_URL`   | Redis endpoint for event log persistence                   | `src/config.py` → `adapters/langgraph_executor.py` |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash authentication token                               | `src/config.py` → `adapters/langgraph_executor.py` |
+| `GITHUB_TOKEN`             | GitHub API token for skill loading via Level 1 frontmatter | `src/config.py` → `services/skill_service.py`      |
+
+**Reference**: See `[[../../../../../../README.md#environment-configuration-rules]]` for configuration strategy and validation rules.
+
+**Configuration Loading**:
+
+```python
+# In adapters/langgraph_executor.py
+from src.config import Config
+
+class RealLangGraphExecutor:
+    def __init__(self):
+        self.redis_client = RedisClient(
+            url=Config.UPSTASH_REDIS_REST_URL,
+            token=Config.UPSTASH_REDIS_REST_TOKEN
+        )
+        self.skill_service = SkillService(github_token=Config.GITHUB_TOKEN)
+```
+
+## Testing Strategy
+
+- Unit: JSONPath condition evaluation matches spec examples (no Redis needed)
+- Unit: Agent prompt templates correctly interpolate input_mapping (no Redis needed)
+- Integration: End-to-end workflow execution with UPSTASH env vars loaded
+- Integration: MCP tool calls properly routed and respond with GITHUB_TOKEN for skill loading
+- Integration: Event emission to Redis verified with UPSTASH env vars
+- E2E: Full workflow with real LangGraph → agent calls → MCP tools → state accumulation (in GW-MVP-E2E-002, all env vars required)

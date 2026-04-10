@@ -45,15 +45,45 @@
 
 **Objective**: Replace all mocks with real minimal implementations. Wire the core stack end-to-end: real LangGraph execution, real Redis, real MCP server integration.
 
+**Status**: In Progress - Task Specification Refinement Complete (14 tasks from original 11)
+
+**Task Split Summary**:
+
+- Original: 11 MVP tasks (GW-MVP-DATA-201, RUNTIME-202 were oversized)
+- Refined: 14 MVP tasks (split DATA-201 into 201A+201B, RUNTIME-202 into 202A+202B+202C)
+- Result: Better scoping, reduced critical path, improved parallelization
+
+**Updated MVP Task Index**:
+
+| Component            | Tasks                                                                                                                                                                | Count | Duration | Status         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------- | -------------- |
+| **Data Layer**       | GW-MVP-DATA-201A (Redis Adapter), GW-MVP-DATA-201B (Circuit Breaker), GW-MVP-DATA-202 (Checkpoints), GW-MVP-DATA-203 (Thread Lifecycle)                              | 4     | 5-6h     | Specs complete |
+| **Runtime Layer**    | GW-MVP-RUNTIME-201 (Status), GW-MVP-RUNTIME-202A (Graph Builder), GW-MVP-RUNTIME-202B (LLM Integration), GW-MVP-RUNTIME-202C (Executor), GW-MVP-RUNTIME-203 (Events) | 5     | 6-7h     | Specs complete |
+| **E2E Verification** | GW-MVP-E2E-001 (Happy Path), GW-MVP-E2E-002 (Agent+MCP), GW-MVP-E2E-003 (Recovery+Cancel)                                                                            | 3     | 5-6h     | Specs complete |
+| **E2E Stress**       | (Reserved for FULL phase)                                                                                                                                            | 2     | 2-3h     | Pending        |
+
+**Critical Path**: DATA-201A (1.5h) → DATA-201B (1.5h) → RUNTIME-202B (1.5h) → RUNTIME-202C (1h) → E2E-002 (2h) = 8 hours minimum
+
+**Optimal Wall-Clock**: 11-15 hours with 2-3 parallel teams
+
+**Task Details**: See `[[specification/MVP-TASK-INDEX.md]]` (comprehensive index with all dependencies)
+
 **Scope Changes**:
 
-- Replace mock Redis adapter with actual Redis backend (GW-DATA-103 → GW-DATA-201)
-- Replace mock MCP integration with actual MCP protocol (GW-SKILL-103 → GW-SKILL-201)
-- Replace mock error handling with production error paths (GW-RUNTIME-104 → GW-RUNTIME-201)
-- Add real checkpoint persistence (GW-RUNTIME-105 → GW-RUNTIME-201)
-- Keep happy-path focus; defer edge cases to FULL phase
+- Split DATA-201 (2-3h) → DATA-201A + DATA-201B (1.5h each) for cleaner separation of concerns
+- Split RUNTIME-202 (3h) → RUNTIME-202A + RUNTIME-202B + RUNTIME-202C (1h, 1.5h, 1h) to enable parallelization
+- Enhanced all 9 remaining task specs with comprehensive verification coverage (concurrency tests, error scenarios, timeout handling, race conditions)
+- Explicit dependency documentation for all 14 tasks
 
-**Success Criteria**: Happy-path workflow execution end-to-end with real external systems, all original MOCK verification files still passing.
+**Success Criteria**:
+
+- ✅ All 14 task specifications locked with dependencies documented
+- ✅ All 9 existing task specs enhanced with verification coverage (20+ tests per task avg)
+- ✅ 5 new split task specs created (DATA-201A/B, RUNTIME-202A/B/C)
+- ⏳ DATA-201A passes 15+ tests, <50ms p99 latency
+- ⏳ All 14 tasks pass assigned test coverage (140+ total tests planned)
+- ⏳ 0 type errors, 0 lsp_diagnostics
+- ⏳ All 205 MOCK phase tests still passing (no regressions)
 
 ## FULL Phase Directions
 

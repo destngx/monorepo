@@ -45,28 +45,147 @@
 - [ ] Keep safe-exit paths explicit.
 - [ ] Map each node to a traceable requirement ID.
 
+## 5.1 Implementation Notes: State Flow and Routing [MVP]
+
+### Execution State Shape
+
+The interpreter maintains execution state as it traverses the graph:
+
+```python
+execution_state = {
+    "workflow_id": "...",
+    "run_id": "...",
+    "thread_id": "...",
+    "tenant_id": "...",
+    "current_node": "research",
+    "status": "running",  # queued, validating, pending, running, completed, failed, cancelled
+    "node_outputs": {
+        "entry": { "topic": "AI ethics", "depth": "thorough" },
+        "research_output": { "findings": "...", "confidence": 0.85 },
+        # ... accumulated outputs from each node
+    },
+    "events": [
+        { "type": "request.started", "timestamp": "...", "data": {...} },
+        # ... immutable append-only event log
+    ],
+    "checkpoints": [
+        { "node_id": "research", "state_snapshot": {...}, "timestamp": "..." },
+        # ... persisted checkpoints for recovery
+    ],
+    "metadata": {
+        "start_time": "...",
+        "hops": 0,  # Track edges traversed for max_hops enforcement
+        "stagnation_count": 0,  # Track repeated nodes for stagnation detection
+    }
+}
+```
+
+### Edge Routing Algorithm (Deterministic)
+
+```python
+def route_to_next_node(current_node, workflow_state):
+    """
+    Deterministic routing based on edge conditions evaluated against state snapshot.
+    Returns: (next_node_id, taken_edge_id, condition_value)
+    """
+
+    # Snapshot state to ensure immutability during edge evaluation
+    state_snapshot = copy.deepcopy(workflow_state["node_outputs"])
+
+    # Get outgoing edges from current node (in definition order)
+    outgoing_edges = get_outgoing_edges(current_node, workflow)
+
+    for edge in outgoing_edges:
+        if edge.condition is None:
+            # Unconditional edge - always true
+            return edge.to, edge.id, True
+
+        # Evaluate condition as JSONPath expression
+        condition_result = evaluate_jsonpath(
+            expression=edge.condition,
+            data=state_snapshot
+        )
+
+        if condition_result:
+            # First true condition is taken
+            return edge.to, edge.id, condition_result
+
+    # No edge condition evaluated to true - stagnation
+    raise StagnationDetected(current_node, outgoing_edges)
+```
+
+### Stagnation Detection and Exit
+
+Stagnation occurs when:
+
+1. A node is visited more than `stagnation_threshold` times consecutively (default: 2).
+2. No outgoing edge condition evaluates to true.
+3. Workflow exceeds `max_hops` limit.
+
+When stagnation is detected:
+
+1. Emit `state.stagnation` event.
+2. Force exit through output guardrail with error status.
+3. Return final state and exit event to client.
+
+### Event Emission Pattern
+
+Events are emitted at lifecycle milestones and stored in Redis:
+
+```python
+def emit_event(run_id, event_type, data):
+    """Store immutable event in Redis append-only log."""
+    event = {
+        "type": event_type,
+        "run_id": run_id,
+        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        "data": data
+    }
+    # Append to run event log (cannot be modified or deleted)
+    redis.rpush(f"run:{tenant_id}:{run_id}:events", json.dumps(event))
+    return event
+```
+
+Emission points:
+
+- `request.started` - When execution begins
+- `request.validation_started` - Before input validation
+- `request.validation_completed` - After validation succeeds
+- `node.started` - When entering a node
+- `node.completed` - When node produces output
+- `node.failed` - When node execution fails
+- `node.skipped` - When edge condition causes skip
+- `checkpoint.saving` - Before persisting checkpoint
+- `checkpoint.saved` - After checkpoint stored
+- `state.stagnation` - When loop detected
+- `complete` - Final event sent to client
+
 ## 6. Verification
 
 - Given a workflow start, when the initializer runs, then the orchestrator must receive a valid state.
 - Given a skill request, when the orchestrator selects it, then the loader must fetch Level 2 context only for that skill and open Level 3 files only if needed.
 - Given stagnation or a kill flag, when detected, then the graph must exit safely rather than loop.
 - Given a supported workflow graph, when the interpreter runs, then it must honor the documented traversal sequence and runtime contract.
+- Given edge conditions, when evaluating against state snapshots, then routing must be deterministic (same input state → same next node).
+- Given missing node outputs, when a condition references a non-existent path, then the interpreter must raise a validation error and exit.
 
-```mermaid
+## 7. Execution Diagrams
+
 stateDiagram-v2
-    [*] --> Initializer
-    Initializer --> Orchestrator
-    Orchestrator --> Skill_Loader: LOAD_SKILL
-    Skill_Loader --> Orchestrator
-    Orchestrator --> Stagnation_Detector: CALL_SUBAGENT
-    Stagnation_Detector --> Output_Guardrail: Stagnation=True
-    Stagnation_Detector --> SubAgent_Node: Stagnation=False
-    SubAgent_Node --> Circuit_Breaker_Watchdog
-    Circuit_Breaker_Watchdog --> Orchestrator: Safe
-    Circuit_Breaker_Watchdog --> [*]: FORCE_EXIT (interrupt)
-    Orchestrator --> Output_Guardrail: FINISH
-    Output_Guardrail --> [*]
-```
+[*] --> Initializer
+Initializer --> Orchestrator
+Orchestrator --> Skill_Loader: LOAD_SKILL
+Skill_Loader --> Orchestrator
+Orchestrator --> Stagnation_Detector: CALL_SUBAGENT
+Stagnation_Detector --> Output_Guardrail: Stagnation=True
+Stagnation_Detector --> SubAgent_Node: Stagnation=False
+SubAgent_Node --> Circuit_Breaker_Watchdog
+Circuit_Breaker_Watchdog --> Orchestrator: Safe
+Circuit_Breaker_Watchdog --> [*]: FORCE_EXIT (interrupt)
+Orchestrator --> Output_Guardrail: FINISH
+Output_Guardrail --> [*]
+
+````
 
 ```mermaid
 stateDiagram-v2
@@ -84,7 +203,7 @@ stateDiagram-v2
     circuit_breaker --> orchestrator
 
     output_guardrail --> [*]
-```
+````
 
 ```mermaid
 graph TD
