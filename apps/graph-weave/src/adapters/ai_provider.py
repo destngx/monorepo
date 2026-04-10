@@ -1,12 +1,44 @@
 """
-Mock AI Provider for MOCK phase.
+AI providers for GraphWeave.
 
-Simulates LLM responses with deterministic, template-based outputs.
-Each prompt type gets a consistent, realistic response based on the prompt context.
+Includes the existing deterministic mock provider and a GitHub Copilot-backed
+provider for the MVP integration path.
 """
 
-from typing import Any, Dict, Optional
+from typing import Protocol, TypedDict, cast
+import os
 import json
+
+import httpx
+
+
+class AIProvider(Protocol):
+    def call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = "gpt-4",
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+    ) -> dict[str, object]: ...
+
+
+class CopilotMessage(TypedDict):
+    content: str
+
+
+class CopilotChoice(TypedDict):
+    message: CopilotMessage
+
+
+class CopilotUsage(TypedDict, total=False):
+    total_tokens: int
+
+
+class CopilotResponse(TypedDict):
+    choices: list[CopilotChoice]
+    usage: CopilotUsage
+    model: str
 
 
 class MockAIProvider:
@@ -23,20 +55,7 @@ class MockAIProvider:
         model: str = "gpt-4",
         temperature: float = 0.7,
         max_tokens: int = 2000,
-    ) -> Dict[str, Any]:
-        """
-        Call the mock AI provider.
-
-        Args:
-            system_prompt: System role definition
-            user_prompt: User task/instruction
-            model: Model name (ignored in mock)
-            temperature: Temperature (ignored in mock)
-            max_tokens: Max tokens (ignored in mock)
-
-        Returns:
-            Dict with 'content' (the generated text) and 'tokens_used' and 'model'
-        """
+    ) -> dict[str, object]:
         self._call_count += 1
 
         # Determine response type based on prompt keywords
@@ -50,12 +69,6 @@ class MockAIProvider:
         }
 
     def _generate_response(self, system_prompt: str, user_prompt: str) -> str:
-        """
-        Generate a deterministic mock response based on prompt content.
-
-        Uses keyword matching to return appropriate mock responses for different
-        types of tasks (research, analysis, synthesis, etc).
-        """
         system_lower = system_prompt.lower()
         user_lower = user_prompt.lower()
         combined = f"{system_lower} {user_lower}"
@@ -97,7 +110,6 @@ class MockAIProvider:
         return self._default_response(user_prompt)
 
     def _research_response(self, user_prompt: str) -> str:
-        """Generate a research response."""
         return json.dumps(
             {
                 "status": "research_complete",
@@ -118,7 +130,6 @@ class MockAIProvider:
         )
 
     def _sql_response(self, user_prompt: str) -> str:
-        """Generate a SQL query response."""
         return json.dumps(
             {
                 "status": "query_complete",
@@ -142,13 +153,10 @@ class MockAIProvider:
         )
 
     def _synthesis_response(self, user_prompt: str) -> str:
-        """Generate a synthesis response."""
         return json.dumps(
             {
                 "status": "synthesis_complete",
-                "summary": "Q3 2024 showed strong revenue growth (+4.8%) and margin expansion (17-18%), "
-                "with operational efficiency gains offsetting elevated commodity costs. "
-                "Industry positioning remains competitive vs. peers.",
+                "summary": "Q3 2024 showed strong revenue growth (+4.8%) and margin expansion (17-18%), with operational efficiency gains offsetting elevated commodity costs. Industry positioning remains competitive vs. peers.",
                 "key_insights": [
                     "Revenue growth outpacing sector average",
                     "Operating leverage improving",
@@ -164,7 +172,6 @@ class MockAIProvider:
         )
 
     def _classification_response(self, user_prompt: str) -> str:
-        """Generate a classification response."""
         return json.dumps(
             {
                 "status": "classification_complete",
@@ -178,7 +185,6 @@ class MockAIProvider:
         )
 
     def _stagnation_response(self, user_prompt: str) -> str:
-        """Generate a stagnation detection response."""
         return json.dumps(
             {
                 "status": "stagnation_check_complete",
@@ -192,7 +198,6 @@ class MockAIProvider:
         )
 
     def _default_response(self, user_prompt: str) -> str:
-        """Generate a default response."""
         return json.dumps(
             {
                 "status": "completed",
@@ -204,9 +209,53 @@ class MockAIProvider:
         )
 
     def _estimate_tokens(self, content: str) -> int:
-        """Estimate token count (rough approximation: ~4 chars per token)."""
         return max(1, len(content) // 4)
 
     def reset(self) -> None:
-        """Reset call count for testing."""
         self._call_count = 0
+
+
+class GitHubCopilotProvider:
+    def __init__(self, token: str, base_url: str = "https://api.githubcopilot.com"):
+        self.token: str = token
+        self.base_url: str = base_url.rstrip("/")
+
+    def call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: str = "gpt-4.1",
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+    ) -> dict[str, object]:
+        response = httpx.post(
+            f"{self.base_url}/chat/completions",
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            },
+            headers={"Authorization": f"Bearer {self.token}"},
+            timeout=30,
+        )
+        _ = response.raise_for_status()
+        payload = cast(CopilotResponse, response.json())
+
+        choices = payload["choices"]
+        content = choices[0]["message"]["content"]
+        return {
+            "content": content,
+            "tokens_used": payload.get("usage", {}).get("total_tokens", 0),
+            "model": payload.get("model", model),
+        }
+
+
+def create_ai_provider(use_github_provider: bool = False) -> AIProvider:
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        return GitHubCopilotProvider(token=token)
+    raise RuntimeError("GITHUB_TOKEN is required for GitHub Copilot provider")

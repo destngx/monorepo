@@ -1,5 +1,6 @@
 import pytest
 from src.adapters.cache import MockRedisAdapter
+from src.config import GraphWeaveConfig
 
 
 @pytest.fixture
@@ -48,3 +49,7 @@ class TestMockRedisAdapter:
 
         assert cache_adapter.get("key1") is None
         assert cache_adapter.get("key2") is None
+
+    def test_redis_config_defaults_present(self):
+        assert isinstance(GraphWeaveConfig.UPSTASH_REDIS_REST_URL, str)
+        assert isinstance(GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN, str)

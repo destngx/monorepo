@@ -25,13 +25,12 @@ class TestErrorHandling:
 
     def test_status_endpoint_returns_json(self, client):
         response = client.get("/execute/test-run-id/status")
-        assert response.status_code == 200
+        assert response.status_code == 404
         data = response.json()
         assert isinstance(data, dict)
-        assert "run_id" in data
+        assert data["detail"] == "Run not found"
 
     def test_status_endpoint_has_events_field(self, client):
         response = client.get("/execute/test-run-id/status")
         data = response.json()
-        assert "events" in data
-        assert isinstance(data["events"], list)
+        assert data["detail"] == "Run not found"

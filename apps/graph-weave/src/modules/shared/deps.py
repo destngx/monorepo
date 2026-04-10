@@ -3,16 +3,30 @@ Shared dependencies for modules.
 """
 
 from typing import Optional
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.cache import RedisAdapter
+from src.config import GraphWeaveConfig
+from src.services.checkpoint_service import CheckpointService
+from src.services.thread_lifecycle_service import ThreadLifecycleService
 from src.adapters.workflow import MockWorkflowStore
 from src.adapters.checkpoint import MockCheckpointStore
 
 
 class Services:
     def __init__(self):
-        self.cache = MockRedisAdapter()
+        if (
+            not GraphWeaveConfig.UPSTASH_REDIS_REST_URL
+            or not GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN
+        ):
+            raise RuntimeError(
+                "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required"
+            )
+        self.cache = RedisAdapter.from_env(
+            GraphWeaveConfig.UPSTASH_REDIS_REST_URL,
+            GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN,
+        )
         self.workflow_store = MockWorkflowStore()
-        self.checkpoint_store = MockCheckpointStore()
+        self.checkpoint_service = CheckpointService(self.cache)
+        self.thread_lifecycle_service = ThreadLifecycleService(self.cache)
 
 
 _services: Optional[Services] = None
@@ -29,7 +43,7 @@ def get_services() -> Services:
     return _services
 
 
-def get_cache() -> MockRedisAdapter:
+def get_cache() -> RedisAdapter:
     return get_services().cache
 
 
@@ -38,4 +52,12 @@ def get_workflow_store() -> MockWorkflowStore:
 
 
 def get_checkpoint_store() -> MockCheckpointStore:
-    return get_services().checkpoint_store
+    return MockCheckpointStore()
+
+
+def get_checkpoint_service() -> CheckpointService:
+    return get_services().checkpoint_service
+
+
+def get_thread_lifecycle_service() -> ThreadLifecycleService:
+    return get_services().thread_lifecycle_service

@@ -15,10 +15,8 @@ class GraphWeaveConfig:
     HOST = os.getenv("HOST", "0.0.0.0")
     PORT = int(os.getenv("PORT", 8001))
 
-    # Mock settings
-    ENABLE_MOCK_REDIS = os.getenv("ENABLE_MOCK_REDIS", "true").lower() == "true"
-    ENABLE_MOCK_MCP = os.getenv("ENABLE_MOCK_MCP", "true").lower() == "true"
-    ENABLE_MOCK_LANGGRAPH = os.getenv("ENABLE_MOCK_LANGGRAPH", "true").lower() == "true"
+    UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "")
+    UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
 
     @staticmethod
     def validate() -> bool:

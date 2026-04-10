@@ -21,6 +21,10 @@ class MockWorkflowStore:
             "created_at": timestamp,
             "updated_at": timestamp,
         }
+
+        if "tags" not in workflow_data or workflow_data["tags"] is None:
+            workflow_data["tags"] = []
+
         self._workflows[tenant_id][workflow_id] = workflow_data
         return workflow_data
 
@@ -44,6 +48,9 @@ class MockWorkflowStore:
         for key, value in updates.items():
             if key not in ["workflow_id", "version", "created_at", "tenant_id"]:
                 workflow[key] = value
+
+        if "tags" in workflow and workflow["tags"] is None:
+            workflow["tags"] = []
 
         workflow["updated_at"] = timestamp
         return workflow

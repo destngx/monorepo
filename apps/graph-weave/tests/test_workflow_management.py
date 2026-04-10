@@ -77,6 +77,13 @@ class TestWorkflowCreateEndpoint:
         response = client.post("/workflows", json=sample_create_request)
         assert response.status_code == 422
 
+    def test_create_workflow_invalid_definition_missing_fields(
+        self, client, sample_create_request
+    ):
+        sample_create_request["definition"] = {"nodes": []}
+        response = client.post("/workflows", json=sample_create_request)
+        assert response.status_code == 422
+
     def test_create_workflow_version_mismatch(self, client, sample_create_request):
         sample_create_request["version"] = "1.0.0"
         response = client.post("/workflows", json=sample_create_request)
@@ -363,6 +370,17 @@ class TestWorkflowUpdateEndpoint:
         assert data["owner"] == "new_owner"
         assert data["status"] == "draft"
 
+    def test_update_workflow_immutable_fields_rejected(
+        self, client, sample_create_request
+    ):
+        client.post("/workflows", json=sample_create_request)
+        response = client.put(
+            f"/workflows/{sample_create_request['workflow_id']}",
+            params={"tenant_id": sample_create_request["tenant_id"]},
+            json={"workflow_id": "changed:v9.9.9"},
+        )
+        assert response.status_code == 400
+
 
 class TestWorkflowDeleteEndpoint:
     def test_delete_workflow_success(self, client, sample_create_request):
@@ -404,3 +422,13 @@ class TestWorkflowDeleteEndpoint:
             params={"tenant_id": sample_create_request["tenant_id"]},
         )
         assert get_response.status_code == 200
+
+    def test_delete_workflow_referenced_by_other_workflow_documented(
+        self, client, sample_create_request
+    ):
+        client.post("/workflows", json=sample_create_request)
+        response = client.delete(
+            f"/workflows/{sample_create_request['workflow_id']}",
+            params={"tenant_id": sample_create_request["tenant_id"]},
+        )
+        assert response.status_code == 204

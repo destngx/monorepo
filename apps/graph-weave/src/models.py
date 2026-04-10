@@ -1,4 +1,5 @@
 from pydantic import BaseModel, field_validator, Field, model_validator
+from enum import Enum
 from typing import Any, Dict, Optional, List
 from datetime import datetime
 import re
@@ -43,6 +44,16 @@ class ExecuteRequest(BaseModel):
         return validate_resource_id(v, "workflow_id")
 
 
+class StatusEnum(str, Enum):
+    queued = "queued"
+    validating = "validating"
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
+    cancelled = "cancelled"
+
+
 class ExecuteResponse(BaseModel):
     run_id: str = Field(
         ...,
@@ -54,10 +65,10 @@ class ExecuteResponse(BaseModel):
         description="Thread identifier (UUID) - changes on each execution within a run",
         json_schema_extra={"example": "a7e2c9f1-4b6d-11ee-be56-0242ac120002"},
     )
-    status: str = Field(
+    status: StatusEnum = Field(
         ...,
-        description="Execution status: pending, running, completed, or failed",
-        json_schema_extra={"example": "pending"},
+        description="Execution status: queued, validating, pending, running, completed, failed, or cancelled",
+        json_schema_extra={"example": "queued"},
     )
     workflow_id: str = Field(
         ...,
@@ -83,10 +94,20 @@ class ExecuteResponse(BaseModel):
     @field_validator("status")
     @classmethod
     def validate_status(cls, v: str) -> str:
-        valid_statuses = ["pending", "running", "completed", "failed"]
+        valid_statuses = [s.value for s in StatusEnum]
         if v not in valid_statuses:
             raise ValueError(f"status must be one of {valid_statuses}, got '{v}'")
         return v
+
+
+class RecoveryRequest(BaseModel):
+    thread_id: str = Field(..., min_length=1, max_length=128)
+
+
+class CancelResponse(BaseModel):
+    run_id: str
+    status: StatusEnum
+    thread_id: str
 
 
 class InvalidateRequest(BaseModel):

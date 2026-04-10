@@ -2,8 +2,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import logging
+import os
 import uuid
+import threading
+import time
 from contextlib import asynccontextmanager
+from typing import Any, Optional
 
 from .config import GraphWeaveConfig
 from .logging import setup_logging, get_logger
@@ -12,26 +16,77 @@ from .modules.shared.deps import (
     get_cache,
     get_workflow_store,
     get_checkpoint_store,
+    get_checkpoint_service,
+    get_thread_lifecycle_service,
 )
-from .adapters.ai_provider import MockAIProvider
+from .adapters.ai_provider import create_ai_provider
 from .adapters.langgraph_executor import MockLangGraphExecutor
+from .services.status_service import StatusService
 from .models import (
     ExecuteRequest,
     ExecuteResponse,
     InvalidateRequest,
     InvalidateResponse,
+    RecoveryRequest,
+    CancelResponse,
     WorkflowCreate,
     WorkflowDetailResponse,
     WorkflowListResponse,
+    WorkflowSummary,
     UpdateWorkflowRequest,
 )
 
 setup_logging(debug=GraphWeaveConfig.DEBUG)
 logger = get_logger(__name__)
 
-ai_provider = MockAIProvider()
+ai_provider = create_ai_provider()
 langgraph_executor = MockLangGraphExecutor(ai_provider=ai_provider)
-execution_runs: dict = {}
+execution_runs: dict[str, dict[str, Any]] = {}
+status_service = StatusService(execution_runs)
+
+
+def _background_execute_run(
+    run_id: str,
+    tenant_id: str,
+    workflow_id: str,
+    workflow: dict[str, Any],
+    input_data: dict[str, Any],
+    checkpoint_store: Any,
+    cache: Any,
+) -> None:
+    checkpoint_service = get_checkpoint_service()
+    thread_lifecycle_service = get_thread_lifecycle_service()
+    thread_lifecycle_service.add_active_thread(tenant_id, run_id, workflow_id)
+    status_service.transition_status(tenant_id, run_id, "validating")
+    time.sleep(0.01)
+    status_service.transition_status(tenant_id, run_id, "pending")
+    time.sleep(0.01)
+    status_service.transition_status(tenant_id, run_id, "running")
+    time.sleep(0.01)
+
+    langgraph_executor.set_current_run_id(run_id)
+    execution_result = langgraph_executor.execute(
+        workflow=workflow,
+        input_data=input_data,
+        checkpoint_store=checkpoint_store,
+        cache=cache,
+    )
+    checkpoint_service.save_checkpoint(
+        tenant_id,
+        run_id,
+        {
+            "node_id": execution_result.get("run_id"),
+            "workflow_state": execution_result.get("final_state", {}),
+        },
+    )
+    execution_runs[run_id] = execution_result
+    status_service.transition_status(
+        tenant_id,
+        run_id,
+        execution_result.get("status", "failed"),
+        execution_result,
+    )
+    thread_lifecycle_service.remove_active_thread(tenant_id, run_id)
 
 
 @asynccontextmanager
@@ -119,11 +174,6 @@ async def execute(request: ExecuteRequest):
     """
     Execute a workflow by ID.
 
-    TODO [MVP]: Authenticate user and verify permission to execute workflow
-    TODO [MVP]: Check workflow is not archived/deprecated before execution
-    TODO [MVP]: Validate input matches workflow input schema
-    TODO [MVP]: Queue execution if async execution mode is enabled
-    TODO [MVP]: Add execution timeout handling (default 5 min, configurable per workflow)
     """
     run_id = str(uuid.uuid4())
     thread_id = str(uuid.uuid4())
@@ -137,56 +187,52 @@ async def execute(request: ExecuteRequest):
         workflow = workflow_store.get(request.tenant_id, request.workflow_id)
 
         if not workflow:
-            # MOCK PHASE: Auto-create minimal workflow for testing
-            # TODO [MVP]: Remove this - workflows must be pre-created
-            logger.warning(
-                f"Workflow not found, creating mock workflow: {request.workflow_id}"
-            )
-            mock_workflow = {
-                "tenant_id": request.tenant_id,
-                "workflow_id": request.workflow_id,
-                "name": request.workflow_id,
-                "version": "1.0.0",
-                "description": "Auto-created mock workflow for testing",
-                "owner": "system",
-                "tags": ["mock"],
-                "definition": {
-                    "nodes": [
-                        {"id": "entry", "type": "entry_node", "config": {}},
-                        {"id": "exit", "type": "exit_node", "config": {}},
-                    ],
-                    "edges": [{"from": "entry", "to": "exit"}],
-                    "entry_point": "entry",
-                    "exit_point": "exit",
-                },
-            }
-            workflow_store.create(request.tenant_id, mock_workflow)
-            workflow = workflow_store.get(request.tenant_id, request.workflow_id)
+            raise HTTPException(status_code=404, detail="Workflow not found")
 
         checkpoint_store = get_checkpoint_store()
         cache = get_cache()
 
-        langgraph_executor.set_current_run_id(run_id)
-
-        execution_result = langgraph_executor.execute(
-            workflow=workflow,
-            input_data=request.input,
-            checkpoint_store=checkpoint_store,
-            cache=cache,
+        status_service.set_status(
+            request.tenant_id,
+            run_id,
+            "queued",
+            {"workflow_id": request.workflow_id, "thread_id": thread_id},
         )
 
-        execution_runs[run_id] = execution_result
+        execution_runs[run_id] = {
+            "run_id": run_id,
+            "thread_id": thread_id,
+            "workflow_id": request.workflow_id,
+            "tenant_id": request.tenant_id,
+            "status": "queued",
+            "events": [],
+            "final_state": None,
+            "hop_count": 0,
+        }
+
+        worker = threading.Thread(
+            target=_background_execute_run,
+            args=(
+                run_id,
+                request.tenant_id,
+                request.workflow_id,
+                workflow,
+                request.input,
+                checkpoint_store,
+                cache,
+            ),
+            daemon=True,
+        )
+        worker.start()
 
         logger.info(
-            f"Execution completed: run_id={run_id}, status={execution_result.get('status')}"
+            f"Execution queued: run_id={run_id}, thread_id={thread_id}, workflow_id={request.workflow_id}"
         )
 
-        # MOCK PHASE: Always return pending status for consistent mock behavior
-        # TODO [MVP]: Return actual execution status from executor
         return ExecuteResponse(
             run_id=run_id,
             thread_id=thread_id,
-            status="pending",
+            status="queued",
             workflow_id=request.workflow_id,
             tenant_id=request.tenant_id,
         )
@@ -198,7 +244,7 @@ async def execute(request: ExecuteRequest):
         return ExecuteResponse(
             run_id=run_id,
             thread_id=thread_id,
-            status="error",
+            status="failed",
             workflow_id=request.workflow_id,
             tenant_id=request.tenant_id,
         )
@@ -209,18 +255,7 @@ async def get_execution_status(run_id: str):
     logger.info(f"Fetching status for run_id={run_id}")
 
     if run_id not in execution_runs:
-        # MOCK PHASE: Return mock status for non-existent run_ids
-        # TODO [MVP]: Remove this - return 404 for non-existent runs
-        logger.warning(f"Run not found, returning mock status: {run_id}")
-        return {
-            "run_id": run_id,
-            "status": "pending",
-            "workflow_id": None,
-            "tenant_id": None,
-            "events": [],
-            "final_state": None,
-            "hop_count": 0,
-        }
+        raise HTTPException(status_code=404, detail="Run not found")
 
     result = execution_runs[run_id]
 
@@ -233,6 +268,52 @@ async def get_execution_status(run_id: str):
         "final_state": result.get("final_state"),
         "hop_count": result.get("hop_count"),
     }
+
+
+@app.post(
+    "/execute/{run_id}/recover", response_model=ExecuteResponse, tags=["Execution"]
+)
+async def recover_execution(run_id: str, request: RecoveryRequest):
+    if run_id not in execution_runs:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    checkpoint_service = get_checkpoint_service()
+    checkpoint = checkpoint_service.load_checkpoint(
+        execution_runs[run_id].get("tenant_id", "unknown"), request.thread_id
+    )
+    if checkpoint is None:
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+
+    execution_runs[run_id]["status"] = "running"
+    execution_runs[run_id]["final_state"] = checkpoint.get("workflow_state", {})
+    return ExecuteResponse(
+        run_id=run_id,
+        thread_id=request.thread_id,
+        status="running",
+        workflow_id=execution_runs[run_id].get("workflow_id", "unknown"),
+        tenant_id=execution_runs[run_id].get("tenant_id", "unknown"),
+    )
+
+
+@app.post("/execute/{run_id}/cancel", response_model=CancelResponse, tags=["Execution"])
+async def cancel_execution(run_id: str):
+    if run_id not in execution_runs:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    result = execution_runs[run_id]
+    tenant_id = result.get("tenant_id", "unknown")
+    thread_id = result.get("thread_id", run_id)
+
+    thread_service = get_thread_lifecycle_service()
+    thread_service.set_kill_flag(tenant_id, thread_id)
+    thread_service.remove_active_thread(tenant_id, thread_id)
+    checkpoint_service = get_checkpoint_service()
+    checkpoint_service.clear_checkpoint(tenant_id, thread_id)
+
+    result["status"] = "cancelled"
+    status_service.transition_status(tenant_id, run_id, "cancelled", result)
+
+    return CancelResponse(run_id=run_id, status="cancelled", thread_id=thread_id)
 
 
 @app.post("/invalidate", response_model=InvalidateResponse, tags=["Skills"])
@@ -272,11 +353,6 @@ async def create_workflow(request: WorkflowCreate):
     """
     Create a new workflow definition.
 
-    TODO [MVP]: Add authentication/authorization to verify tenant ownership
-    TODO [MVP]: Validate workflow definition schema (DAG connectivity, node types)
-    TODO [MVP]: Check for name/ID uniqueness across organization
-    TODO [MVP]: Persist to PostgreSQL with audit logging
-    TODO [MVP]: Register workflow in skill discovery system
     """
     # Validate tenant_id is provided
     if not request.tenant_id:
@@ -319,22 +395,17 @@ async def create_workflow(request: WorkflowCreate):
 
 @app.get("/workflows", response_model=WorkflowListResponse, tags=["Workflows"])
 async def list_workflows(
-    tenant_id: str = None,
-    status: str = None,
-    owner: str = None,
-    tags: str = None,  # Comma-separated list
+    tenant_id: Optional[str] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    tags: Optional[str] = None,
 ):
     """
     List workflows for a tenant with optional filtering.
 
-    TODO [MVP]: Support pagination (offset, limit)
-    TODO [MVP]: Add sorting options (by name, created_at, updated_at)
-    TODO [MVP]: Cache results with 5-minute TTL
-    TODO [MVP]: Add permission checks (user can only see workflows they own or are shared)
-    TODO [MVP]: Full-text search on workflow name/description
     """
     # Validate tenant_id is provided
-    if not tenant_id:
+    if tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant_id is required")
 
     store = get_workflow_store()
@@ -357,7 +428,7 @@ async def list_workflows(
     return WorkflowListResponse(
         tenant_id=tenant_id,
         count=len(workflows),
-        workflows=workflows,
+        workflows=[WorkflowSummary(**workflow) for workflow in workflows],
     )
 
 
@@ -366,17 +437,13 @@ async def list_workflows(
     response_model=WorkflowDetailResponse,
     tags=["Workflows"],
 )
-async def get_workflow(workflow_id: str, tenant_id: str = None):
+async def get_workflow(workflow_id: str, tenant_id: Optional[str] = None):
     """
     Get a specific workflow definition by ID.
 
-    TODO [MVP]: Add permission check (user can only read if they own or have access)
-    TODO [MVP]: Return version history if requested
-    TODO [MVP]: Include execution statistics (runs, success rate, avg duration)
-    TODO [MVP]: Add cache with 30-minute TTL
     """
     # Validate tenant_id is provided
-    if not tenant_id:
+    if tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant_id is required")
 
     store = get_workflow_store()
@@ -398,20 +465,14 @@ async def get_workflow(workflow_id: str, tenant_id: str = None):
 async def update_workflow(
     workflow_id: str,
     request: UpdateWorkflowRequest,
-    tenant_id: str = None,
+    tenant_id: Optional[str] = None,
 ):
     """
     Update workflow metadata and configuration.
 
-    TODO [MVP]: Validate that immutable fields (workflow_id, version, created_at) are not modified
-    TODO [MVP]: Add permission check (only owner or admin can update)
-    TODO [MVP]: Create version history entry
-    TODO [MVP]: Trigger workflow recompilation if definition changed
-    TODO [MVP]: Notify dependent workflows of changes
-    TODO [MVP]: Audit log the changes with user/timestamp
     """
     # Validate tenant_id is provided
-    if not tenant_id:
+    if tenant_id is None:
         raise HTTPException(status_code=400, detail="tenant_id is required")
 
     # Validate that at least one field is provided
@@ -444,7 +505,7 @@ async def update_workflow(
     store = get_workflow_store()
 
     # Build updates dictionary
-    updates = {}
+    updates: dict[str, Any] = {}
     if request.name is not None:
         updates["name"] = request.name
     if request.description is not None:
@@ -469,16 +530,10 @@ async def update_workflow(
 
 
 @app.delete("/workflows/{workflow_id}", status_code=204, tags=["Workflows"])
-async def delete_workflow(workflow_id: str, tenant_id: str = None):
+async def delete_workflow(workflow_id: str, tenant_id: Optional[str] = None):
     """
     Delete a workflow definition.
 
-    TODO [MVP]: Add permission check (only owner or admin can delete)
-    TODO [MVP]: Check if workflow is referenced by other workflows (prevent orphans)
-    TODO [MVP]: Check if there are active executions using this workflow
-    TODO [MVP]: Create audit log entry for deletion
-    TODO [MVP]: Soft delete (mark as deleted, keep history) instead of hard delete
-    TODO [MVP]: Notify users who have saved this workflow as template
     """
     # Validate tenant_id is provided
     if not tenant_id:

@@ -1,14 +1,14 @@
-# MVP Task Index: Complete 14-Task Specification
+# MVP Task Index: Complete 19-Task Specification
 
-**Purpose**: Central registry of all 14 MVP tasks with explicit dependencies, timing, and ordering for parallel execution.
+**Purpose**: Central registry of all 19 MVP tasks with explicit dependencies, timing, and ordering for parallel execution.
 
-**Generated**: From dependency analysis and task splitting recommendations (DATA-201, RUNTIME-202 split from 11 → 14 tasks)
+**Generated**: From dependency analysis and task splitting recommendations (DATA-201, RUNTIME-202 split from 11 → 14 tasks, plus 5 runtime hardening tasks derived from the remaining MVP TODOs)
 
 **Critical Path**: 8 hours minimum (DATA-201A → DATA-201B → RUNTIME-202B → RUNTIME-202C → E2E-002)
 
 ---
 
-## All 14 MVP Tasks (Execution Order)
+## All 19 MVP Tasks (Execution Order)
 
 ### Foundation Phase (2-3h, SEQUENTIAL)
 
@@ -70,6 +70,46 @@
 - **Deliverables**: `src/services/event_emitter.py`, `tests/test_event_emitter.py` (20+ tests)
 - **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-203.md]]`
 
+#### GW-MVP-RUNTIME-204: Execution Endpoint Hardening (1h)
+
+- **Objective**: Harden `POST /execute` and `GET /execute/{run_id}/status` with auth, validation, and MVP status behavior
+- **Blocked By**: RUNTIME-201, RUNTIME-202A, RUNTIME-202B, RUNTIME-202C
+- **Blocks**: NONE
+- **Deliverables**: `src/main.py` execution guards and status behavior, `tests/test_execute_endpoint.py`
+- **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-204.md]]`
+
+#### GW-MVP-RUNTIME-205: Workflow Create Hardening (1h)
+
+- **Objective**: Validate workflow creation with tenant ownership, schema checks, uniqueness, and auditability
+- **Blocked By**: NONE (documentation hardening)
+- **Blocks**: NONE
+- **Deliverables**: `src/main.py` create-path hardening notes, `tests/test_workflow_create.py`
+- **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-205.md]]`
+
+#### GW-MVP-RUNTIME-206: Workflow Read and List Behavior (1h)
+
+- **Objective**: Define read/list semantics for permissions, pagination, sorting, and cache expectations
+- **Blocked By**: NONE (documentation hardening)
+- **Blocks**: NONE
+- **Deliverables**: `src/main.py` read/list behavior notes, `tests/test_workflow_read_list.py`
+- **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-206.md]]`
+
+#### GW-MVP-RUNTIME-207: Workflow Update Semantics (1h)
+
+- **Objective**: Protect immutable fields and document versioning / recompilation behavior for updates
+- **Blocked By**: NONE (documentation hardening)
+- **Blocks**: NONE
+- **Deliverables**: `src/main.py` update semantics notes, `tests/test_workflow_update.py`
+- **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-207.md]]`
+
+#### GW-MVP-RUNTIME-208: Workflow Delete Semantics (1h)
+
+- **Objective**: Document delete permissions, dependency checks, and soft-delete behavior
+- **Blocked By**: NONE (documentation hardening)
+- **Blocks**: NONE
+- **Deliverables**: `src/main.py` delete semantics notes, `tests/test_workflow_delete.py`
+- **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-208.md]]`
+
 ### Data Layer Phase (Depends on Runtime Layer)
 
 #### GW-MVP-DATA-202: Checkpoint Persistence (1.5h)
@@ -128,8 +168,8 @@
 └────────────────┼─────────┼──────────────────────────────────┘
                  │         │
          ┌───────┴─────────┴──────────────┐
-         │ Phase 2: Runtime & Data        │
-         │ (Parallel 3-4h + 1.5-2h)       │
+            │ Phase 2: Runtime & Data        │
+            │ (Parallel 3-4h + 1.5-2h)       │
          │                                │
          ├─ RUNTIME-202A (1h)            │ (no deps)
          ├─ RUNTIME-202B (1.5h)   ← DATA-201B
@@ -186,7 +226,7 @@ T+6h:     All Phase 2 complete → Start E2E-001/002/003 in parallel
 T+8h:     E2E-001 complete
 T+8h:     E2E-002 complete (critical path finishes)
 T+8h:     E2E-003 complete
-T+8h:     MVP Phase Ready ✓ (all 14 tasks + 150+ tests passing)
+T+8h:     MVP Phase Ready ✓ (all 19 tasks + 150+ tests passing)
 
 Wall-clock: 8 hours minimum with 3 parallel teams
 ```
@@ -215,8 +255,8 @@ Wall-clock: 8 hours minimum with 3 parallel teams
 
 ## Success Criteria
 
-- ✅ All 14 task specifications with complete acceptance criteria
-- ✅ All 14 task environment variables and configuration requirements documented
+- ✅ All 19 task specifications with complete acceptance criteria
+- ✅ All 19 task environment variables and configuration requirements documented
 - ✅ Explicit dependencies documented for all tasks (no hidden blocking relationships)
 - ✅ 150+ tests planned with comprehensive coverage (unit, integration, concurrency, error scenarios)
 - ⏳ Critical path identified and minimized (8 hours with optimal parallelization)

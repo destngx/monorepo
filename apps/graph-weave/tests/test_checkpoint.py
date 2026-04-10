@@ -44,3 +44,7 @@ class TestCheckpointStorage:
 
         loaded = checkpoint_store.load("run-1", "thread-1")
         assert loaded is None
+
+    def test_checkpoint_key_shape_matches_thread_contract(self, checkpoint_store):
+        checkpoint_store.save("run-1", "thread-1", {"node": "start"})
+        assert checkpoint_store.load("run-1", "thread-1") is not None

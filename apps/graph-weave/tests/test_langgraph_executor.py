@@ -333,6 +333,22 @@ class TestMockLangGraphExecutorAgentNodeExecution:
 
 
 class TestMockLangGraphExecutorFullExecution:
+    def test_execute_requires_current_run_id(
+        self, workflow_multi_node, test_input_data
+    ):
+        executor = MockLangGraphExecutor()
+
+        from src.adapters.checkpoint import MockCheckpointStore
+        from src.adapters.cache import MockRedisAdapter
+
+        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+
+        with pytest.raises(ValueError):
+            executor.execute(
+                workflow_multi_node, test_input_data, checkpoint_store, cache
+            )
+
     def test_execute_simple_workflow(self, workflow_multi_node, test_input_data):
         executor = MockLangGraphExecutor()
         run_id = "test-run-full"
@@ -357,6 +373,29 @@ class TestMockLangGraphExecutorFullExecution:
         assert len(result["events"]) > 0
         assert "final_state" in result
         assert "hop_count" in result
+
+    def test_execute_records_terminal_state_and_event_stream(
+        self, workflow_multi_node, test_input_data
+    ):
+        executor = MockLangGraphExecutor()
+        run_id = "test-run-terminal"
+        executor.set_current_run_id(run_id)
+
+        from src.adapters.checkpoint import MockCheckpointStore
+        from src.adapters.cache import MockRedisAdapter
+
+        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+
+        result = executor.execute(
+            workflow_multi_node, test_input_data, checkpoint_store, cache
+        )
+
+        assert result["run_id"] == run_id
+        assert result["status"] in ["completed", "error"]
+        assert isinstance(result["events"], list)
+        assert result["final_state"]["status"] in ["completed", "error", None]
+        assert len(executor.get_events(run_id)) > 0
 
     def test_execute_respects_max_hops(self, test_input_data):
         executor = MockLangGraphExecutor()

@@ -9,19 +9,30 @@ Simulates real workflow execution by:
 5. Tracking execution state through CheckpointStore
 """
 
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, TypedDict, cast, Mapping
 from datetime import datetime
 import json
 import copy
 
-from .ai_provider import MockAIProvider
+from .ai_provider import AIProvider, MockAIProvider
+
+
+class ExecutorState(TypedDict):
+    input: Dict[str, Any]
+    step: int
+    current_node: Optional[str]
+    node_results: Dict[str, Dict[str, Any]]
+    status: Optional[str]
+    hop_count: int
+    last_result: Optional[Dict[str, Any]]
 
 
 class MockLangGraphExecutor:
     """Executes workflows by traversing nodes and edges, calling AI provider for agent work."""
 
-    def __init__(self, ai_provider: Optional[MockAIProvider] = None):
-        self.ai_provider = ai_provider or MockAIProvider()
+    def __init__(self, ai_provider: Optional[AIProvider] = None):
+        self.ai_provider: AIProvider = ai_provider or MockAIProvider()
+        self._current_run_id: Optional[str] = None
         self.execution_events: Dict[str, List[Dict[str, Any]]] = {}
 
     def execute(
@@ -43,7 +54,7 @@ class MockLangGraphExecutor:
         Returns:
             Final execution result with status, events, and final state
         """
-        run_id = self.execution_events.get("__current_run_id__")
+        run_id = self._current_run_id
         if not run_id:
             raise ValueError("No current run_id set")
 
@@ -51,11 +62,14 @@ class MockLangGraphExecutor:
         workflow_id = workflow.get("workflow_id", "unknown")
         tenant_id = workflow.get("metadata", {}).get("tenant_id", "unknown")
 
-        state = {
+        state: ExecutorState = {
             "input": input_data,
             "step": 0,
             "current_node": None,
             "node_results": {},
+            "status": None,
+            "hop_count": 0,
+            "last_result": None,
         }
 
         try:
@@ -144,7 +158,7 @@ class MockLangGraphExecutor:
             }
 
     def set_current_run_id(self, run_id: str) -> None:
-        self.execution_events["__current_run_id__"] = run_id
+        self._current_run_id = run_id
 
     def get_events(self, run_id: str) -> List[Dict[str, Any]]:
         return self.execution_events.get(run_id, [])
@@ -167,7 +181,7 @@ class MockLangGraphExecutor:
         self,
         run_id: str,
         node: Dict[str, Any],
-        state: Dict[str, Any],
+        state: ExecutorState,
         workflow: Dict[str, Any],
         checkpoint_store: Any,
     ) -> Dict[str, Any]:
@@ -185,16 +199,18 @@ class MockLangGraphExecutor:
             user_prompt=user_prompt,
         )
 
+        content = str(ai_response.get("content", ""))
+
         self._log_event(
             run_id,
             "agent_response",
-            f"Agent {node_id} returned: {ai_response.get('content', '')[:100]}...",
+            f"Agent {node_id} returned: {content[:100]}...",
         )
 
         try:
-            result_data = json.loads(ai_response.get("content", "{}"))
+            result_data = json.loads(content)
         except json.JSONDecodeError:
-            result_data = {"raw_response": ai_response.get("content", "")}
+            result_data = {"raw_response": content}
 
         result = {
             "node_id": node_id,
@@ -213,7 +229,7 @@ class MockLangGraphExecutor:
         run_id: str,
         workflow: Dict[str, Any],
         current_node_id: str,
-        state: Dict[str, Any],
+        state: Mapping[str, Any],
     ) -> Optional[str]:
         edges = workflow.get("edges", [])
         matching_edges = [e for e in edges if e.get("from") == current_node_id]
@@ -252,7 +268,7 @@ class MockLangGraphExecutor:
                 return node.get("id")
         return None
 
-    def _evaluate_condition(self, condition: str, state: Dict[str, Any]) -> bool:
+    def _evaluate_condition(self, condition: str, state: Mapping[str, Any]) -> bool:
         if not condition:
             return True
 
@@ -300,7 +316,7 @@ class MockLangGraphExecutor:
         except Exception:
             return False
 
-    def _get_state_value(self, path: str, state: Dict[str, Any]) -> Any:
+    def _get_state_value(self, path: str, state: Mapping[str, Any]) -> Any:
         if path.startswith("$."):
             path = path[2:]
 
@@ -315,7 +331,7 @@ class MockLangGraphExecutor:
 
         return current
 
-    def _interpolate_prompt(self, template: str, state: Dict[str, Any]) -> str:
+    def _interpolate_prompt(self, template: str, state: Mapping[str, Any]) -> str:
         result = template
         for key, value in state.items():
             placeholder = f"{{{key}}}"
