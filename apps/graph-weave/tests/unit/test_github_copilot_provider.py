@@ -22,7 +22,7 @@ def test_github_copilot_provider_uses_github_token_and_returns_response(monkeypa
                     {"message": {"content": json.dumps({"status": "completed"})}}
                 ],
                 "usage": {"total_tokens": 42},
-                "model": "claude-3.5-sonnet",
+                "model": "gpt-4.1",
             }
 
     def fake_post(url, json=None, headers=None, timeout=None):
@@ -37,14 +37,14 @@ def test_github_copilot_provider_uses_github_token_and_returns_response(monkeypa
     result = provider.call(
         system_prompt="You are a helpful assistant",
         user_prompt="Return JSON only",
-        model="claude-3.5-sonnet",
+        model="gpt-4.1",
         temperature=0.2,
         max_tokens=256,
     )
 
     assert captured["url"].startswith("https://api.githubcopilot.com")
     assert captured["headers"]["Authorization"] == "Bearer gho_test_token"
-    assert captured["json"]["model"] == "claude-3.5-sonnet"
-    assert result["model"] == "claude-3.5-sonnet"
+    assert captured["json"]["model"] == "gpt-4.1"
+    assert result["model"] == "gpt-4.1"
     assert result["tokens_used"] == 42
     assert result["content"] == json.dumps({"status": "completed"})

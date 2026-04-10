@@ -89,7 +89,7 @@ def mock_github_provider_http(monkeypatch, request):
             return {
                 "choices": [{"message": {"content": '{"status": "completed"}'}}],
                 "usage": {"total_tokens": 1},
-                "model": "claude-3.5-sonnet",
+                "model": "gpt-4.1",
             }
 
     def fake_post(*args, **kwargs):
