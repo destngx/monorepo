@@ -21,12 +21,22 @@
 - State schema: required fields, types, nested objects
 - Node parameter validation: ensure all required params present
 - Prompt template interpolation: variables in prompts replaced from context
+- **Per-node configuration**: each agent_node can specify custom:
+  - `system_prompt` (string, can override workflow default)
+  - `user_prompt_template` (string with {variables})
+  - `provider` (e.g., "github", "openai", defaults to global)
+  - `model` (e.g., "claude-3.5-sonnet", defaults to global)
+  - `temperature` (optional, 0-1, defaults to global)
+  - `max_tokens` (optional, defaults to global)
+  - `tools` (optional, list of MCP tools node can access: load_skill, search, verify)
+- Node-level configuration validation (ensure provider exists, model valid for provider)
+- Fallback to global config if node-level not specified
 
 ### Non-Functional
 
-- Graph building <100ms for typical workflow (10-node)
+- Graph building <100ms for typical workflow (10-node) even with per-node config
 - State schema validation before graph execution
-- Clear error messages for invalid workflow JSON
+- Clear error messages for invalid workflow JSON and node config
 - No external API calls (all local computation)
 
 ## Implementation Approach
@@ -37,7 +47,7 @@
      - `build_graph(spec)` → `StateGraph`
    - Node builders:
      - `build_entry_node(spec)` → function
-     - `build_agent_node(spec)` → function
+     - `build_agent_node(spec, node_config)` → function (with per-node config extraction)
      - `build_branch_node(spec)` → function
      - `build_exit_node(spec)` → function
    - Edge evaluator:
@@ -46,14 +56,39 @@
      - Required fields per node type
      - Output key naming conventions
      - Prompt template variable interpolation
+   - **Per-node config validation**:
+     - Extract `provider`, `model`, `temperature`, `max_tokens`, `tools` from node
+     - Validate provider exists (github, openai, etc.)
+     - Validate model name for provider
+     - Validate temperature in [0, 1] if specified
+     - Validate max_tokens >= 1 if specified
+     - Validate tools list contains only valid MCP tools
 
-2. Use `jsonpath-ng` library for JSONPath evaluation
+2. Extended node schema example:
 
-3. Implementation notes:
+   ```json
+   {
+     "type": "agent_node",
+     "id": "research_node",
+     "system_prompt": "You are an AI researcher...",
+     "user_prompt_template": "Research {topic}",
+     "provider": "github",
+     "model": "claude-3.5-sonnet",
+     "temperature": 0.7,
+     "max_tokens": 2000,
+     "tools": ["load_skill", "search"],
+     "output_key": "research_output"
+   }
+   ```
+
+3. Use `jsonpath-ng` library for JSONPath evaluation
+
+4. Implementation notes:
    - Each node is a LangGraph node function
    - Edges connect nodes based on condition evaluation
    - State flows through nodes, accumulating outputs
    - Graph is compiled once, reused for multiple executions
+   - Per-node config attached to node metadata for downstream use
 
 ## Acceptance Criteria
 
@@ -82,6 +117,8 @@
 
 - [ ] Entry node builds and passes through input state
 - [ ] Agent node builds with system_prompt, user_prompt_template
+- [ ] Agent node extracts per-node config (provider, model, temperature, max_tokens)
+- [ ] Agent node falls back to global config if not specified
 - [ ] Branch node builds with edge conditions
 - [ ] Exit node builds with output mapping
 - [ ] JSONPath condition `"$.field > value"` evaluates correctly
@@ -90,8 +127,13 @@
 - [ ] State schema validation: type mismatch raises error
 - [ ] Prompt template interpolation: {topic} replaced correctly
 - [ ] Prompt template interpolation: {missing_var} raises error
+- [ ] Per-node provider validation: invalid provider raises error
+- [ ] Per-node model validation: model not supported for provider raises error
+- [ ] Per-node temperature validation: value outside [0,1] raises error
+- [ ] Per-node tools validation: unknown tool name raises error
 - [ ] Graph with 5 nodes builds without error
 - [ ] Graph topology validated (all edges reference existing nodes)
+- [ ] Multiple nodes with different providers/models all configured correctly
 
 ## Error Scenarios
 
@@ -100,6 +142,10 @@
 - [ ] Missing required node parameters → error
 - [ ] Circular edges without exit condition → warning (but allowed)
 - [ ] Dangling nodes (no outgoing edges, not exit) → error
+- [ ] **Invalid provider in node config → error with suggestion**
+- [ ] **Invalid model for provider → error with supported models list**
+- [ ] **Temperature outside [0,1] → error**
+- [ ] **Tools list contains unknown tool → error with available tools list**
 
 ## Environment Variables
 

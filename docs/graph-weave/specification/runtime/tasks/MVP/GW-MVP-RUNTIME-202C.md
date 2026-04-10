@@ -16,12 +16,14 @@
 
 - Real execution loop through StateGraph
 - Event emission after each node: node.started, node.completed, node.failed
+- **Per-node configuration use**: each node executes with its own provider/model/prompts
 - Stagnation detection: max 20 node visits (configurable)
 - Execution timeout: 300 seconds (configurable)
 - Circuit breaker: checks kill flag after each node
 - State accumulation: all node outputs merged into workflow_state
 - Event persistence: all events stored in Redis immediately
 - Execution resumable: can continue from checkpoint
+- Provider switching: handle transitions between different LLM providers mid-workflow
 
 ### Non-Functional
 
@@ -84,7 +86,7 @@
 2. Finalize `src/adapters/langgraph_executor.py` (300 LOC total)
 3. `tests/test_stagnation_detector.py` (150+ LOC, 15+ tests)
 
-## Test Coverage (15+ tests)
+## Test Coverage (18+ tests)
 
 ### Unit Tests
 
@@ -104,6 +106,11 @@
 - [ ] Timeout: 300s execution stopped
 - [ ] Circuit breaker: kill flag stops execution mid-workflow
 - [ ] Concurrent execution: multiple workflows track visits independently
+- [ ] **Per-node provider used correctly: GitHub Copilot node calls GitHub Copilot API, OpenAI node calls OpenAI API**
+- [ ] **Per-node model respected: node with gpt-4 uses gpt-4, not default model**
+- [ ] **Provider switching: workflow transitions from GitHub Copilot → OpenAI → GitHub Copilot without error**
+- [ ] **Per-node temperature affects output: higher temp produces more varied responses**
+- [ ] **Per-node tools constrained: node with ["search"] cannot call "verify"**
 
 ## Concurrency Tests
 
@@ -124,7 +131,7 @@
 
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
-- `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`
+- `GITHUB_TOKEN` (for GitHub Copilot provider access)
 
 **Reference**: See `[[../../../../../../README.md#environment-configuration-rules]]` for configuration strategy.
 

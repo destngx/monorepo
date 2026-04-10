@@ -95,7 +95,7 @@ graph TB
     subgraph Universal Graph Engine
         LG[LangGraph Executor]
         State[(AsyncRedisSaver)]
-        LLM[LLM API / Claude / OpenAI]
+        LLM[LLM API / GitHub Copilot]
     end
     Client --> API
     API --> Rate

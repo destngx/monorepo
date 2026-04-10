@@ -74,6 +74,10 @@
 - Split RUNTIME-202 (3h) → RUNTIME-202A + RUNTIME-202B + RUNTIME-202C (1h, 1.5h, 1h) to enable parallelization
 - Enhanced all 9 remaining task specs with comprehensive verification coverage (concurrency tests, error scenarios, timeout handling, race conditions)
 - Explicit dependency documentation for all 14 tasks
+- **Provider Update**: All LLM provider references updated to use GitHub Copilot (via GITHUB_TOKEN) instead of Anthropic/Claude
+  - Environment variables changed: removed `ANTHROPIC_API_KEY`, all tasks use `GITHUB_TOKEN` for authentication
+  - Per-node provider configuration supports `"github"` provider with `claude-3.5-sonnet` default model
+  - Provider routing infrastructure remains flexible for future multi-provider support (OpenAI, etc.)
 
 **Success Criteria**:
 

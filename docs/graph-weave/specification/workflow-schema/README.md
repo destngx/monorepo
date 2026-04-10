@@ -25,7 +25,8 @@ Local entrypoint for the prompt-driven workflow graph schema.
 
 - Load workflow JSON.
 - Validate schema and structure.
-- Build LangGraph from the explicit node-and-edge graph.
+- **Extract per-node configuration** (provider, model, temperature, max_tokens, tools, custom prompts).
+- Build LangGraph from the explicit node-and-edge graph with per-node metadata.
 
 ### 2. **Execution**
 
@@ -36,10 +37,15 @@ For each node in the graph:
   1. Evaluate incoming edges
   2. Find first edge with true condition (or first unconditional edge)
   3. Execute the next node:
-   - If agent_node: load skills on demand, execute, store output
-   - If branch: evaluate condition, don't execute work
-   - If human_decision: pause, wait for user input
-   - If exit: return final output
+    - If agent_node:
+      * Load per-node configuration (provider, model, temperature, max_tokens, tools, prompts)
+      * Route to appropriate LLM provider (GitHub Copilot, OpenAI, etc.)
+      * Load skills on demand (if in allowed tools list)
+      * Execute with node-specific prompts and LLM settings
+      * Store output in state
+    - If branch: evaluate condition, don't execute work
+    - If human_decision: pause, wait for user input
+    - If exit: return final output
   4. Repeat until the exit node is reached (or limits exceeded)
 ```
 
@@ -78,6 +84,33 @@ eligible_edges = [
 
 # Take first eligible edge (deterministic)
 next_node = eligible_edges[0].to
+```
+
+### 5. **Per-Node LLM Configuration [MVP]**
+
+Each agent_node can override global defaults:
+
+```python
+# Per-node config extracted at graph build time
+node_config = {
+    "provider": "github",                  # LLM provider (github for GitHub Copilot)
+    "model": "claude-3.5-sonnet",          # Model name for provider
+    "temperature": 0.7,                    # Sampling temperature [0, 1]
+    "max_tokens": 2000,                    # Maximum output length
+    "system_prompt": "You are...",         # Node-specific system prompt (overrides global)
+    "user_prompt_template": "...",         # Node-specific user prompt (overrides global)
+    "tools": ["load_skill", "search"]      # MCP tools this node can access (subset of global)
+}
+
+# At node execution time:
+provider_client = get_provider_client(node_config["provider"], node_config["model"])
+response = provider_client.call(
+    system_prompt=node_config["system_prompt"],
+    user_prompt=node_config["user_prompt_template"].format(**context),
+    temperature=node_config["temperature"],
+    max_tokens=node_config["max_tokens"],
+    tools=node_config["tools"]  # Only these tools available to agent
+)
 ```
 
 ---

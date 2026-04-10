@@ -22,7 +22,7 @@
 
 - **Data / Files** : `[[../specification/workflow-schema/plan/prompt-driven-agent-model.md]]`, `[[../specification/workflow-schema/README.md]]`, `[[../specification/runtime/plan/universal-interpreter-and-skill-loading.md]]`
 - **Dependencies** : GW-WF-001 (workflow schema must be defined), GW-SKILL-001 (skills must be discoverable)
-- **External Systems**: LangGraph, LLM provider (e.g., Claude, GPT-4)
+- **External Systems**: LangGraph, LLM provider (e.g., GitHub Copilot)
 
 ---
 

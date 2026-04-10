@@ -48,7 +48,7 @@
 
 #### GW-MVP-RUNTIME-202B: LLM & MCP Tool Integration (1.5h)
 
-- **Objective**: Claude LLM integration with MCP tool routing (load_skill, search, verify)
+- **Objective**: GitHub Copilot AI integration with MCP tool routing (load_skill, search, verify)
 - **Blocked By**: DATA-201B
 - **Blocks**: RUNTIME-202C
 - **Deliverables**: `src/adapters/mcp_router.py`, `tests/test_mcp_router.py` (15+ tests)
@@ -165,8 +165,7 @@ Critical Path: DATA-201A (1.5h) → DATA-201B (1.5h) → RUNTIME-202B (1.5h) →
 | -------------------------- | ----------------------------------------------------------------------------- | ----- |
 | `UPSTASH_REDIS_REST_URL`   | DATA-201A/B, RUNTIME-201/202A/B/C, RUNTIME-203, DATA-202/203, E2E-001/002/003 | MVP   |
 | `UPSTASH_REDIS_REST_TOKEN` | DATA-201A/B, RUNTIME-201/202A/B/C, RUNTIME-203, DATA-202/203, E2E-001/002/003 | MVP   |
-| `ANTHROPIC_API_KEY`        | RUNTIME-202B, E2E-002                                                         | MVP   |
-| `GITHUB_TOKEN`             | RUNTIME-202B, E2E-002                                                         | MVP   |
+| `GITHUB_TOKEN`             | RUNTIME-202B, E2E-002 (GitHub Copilot AI provider access)                     | MVP   |
 
 **Reference**: `[[../README.md#environment-configuration-rules]]`
 
@@ -233,5 +232,5 @@ Wall-clock: 8 hours minimum with 3 parallel teams
 - Concurrency tests mandatory for all tasks (no hidden race conditions)
 - Error scenarios covered: timeouts, network failures, invalid data, state inconsistency
 - No task has scope creep (sized 1-2h each)
-- All external dependencies (Redis, Claude, MCP) required before test execution
+- All external dependencies (Redis, GitHub Copilot, MCP) required before test execution
 - Redis cleanup after each test (no orphaned data)
