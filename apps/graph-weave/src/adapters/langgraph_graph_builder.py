@@ -28,8 +28,8 @@ class AgentNodeFunc(Protocol):
 
 VALID_PROVIDERS = {"github", "openai", "anthropic"}
 PROVIDER_MODELS = {
-    "github": ["claude-3.5-sonnet", "claude-3-opus", "gpt-4"],
-    "openai": ["gpt-4", "gpt-3.5-turbo"],
+    "github": ["claude-3.5-sonnet", "claude-3-opus", "gpt-4.1"],
+    "openai": ["gpt-4.1", "gpt-3.5-turbo"],
     "anthropic": ["claude-3-opus", "claude-3-sonnet"],
 }
 VALID_TOOLS = {"load_skill", "search", "verify"}

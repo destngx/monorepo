@@ -11,7 +11,7 @@ class MockRedisAdapter:
     def __init__(self):
         self._store: Dict[str, Any] = {}
 
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value: Any, ex: Optional[int] = None, **kwargs) -> None:
         self._store[key] = value
 
     def get(self, key: str) -> Optional[Any]:

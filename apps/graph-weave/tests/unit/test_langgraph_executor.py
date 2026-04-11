@@ -1,49 +1,48 @@
 import pytest
 import json
 from src.adapters.langgraph_executor import MockLangGraphExecutor
-from src.adapters.ai_provider import MockAIProvider
+from tests.mocks.gateway_mock import MockGatewayClient
 
 
 class TestMockLangGraphExecutorInstantiation:
-    def test_instantiation_with_default_provider(self):
-        executor = MockLangGraphExecutor()
+    def test_instantiation_with_default_provider(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         assert executor is not None
-        assert executor.ai_provider is not None
         assert executor.execution_events == {}
 
-    def test_instantiation_with_custom_provider(self):
-        provider = MockAIProvider()
+    def test_instantiation_with_custom_provider(self, mock_mcp_router):
+        provider = MockGatewayClient()
         executor = MockLangGraphExecutor(ai_provider=provider)
         assert executor.ai_provider is provider
 
 
 class TestMockLangGraphExecutorNodeFinding:
-    def test_find_entry_node(self, workflow_multi_node):
-        executor = MockLangGraphExecutor()
+    def test_find_entry_node(self, mock_mcp_router, workflow_multi_node):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         entry_node_id = executor._find_entry_node(workflow_multi_node)
         assert entry_node_id == "start"
 
-    def test_find_exit_node(self, workflow_multi_node):
-        executor = MockLangGraphExecutor()
+    def test_find_exit_node(self, mock_mcp_router, workflow_multi_node):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         exit_node_id = executor._find_exit_node(workflow_multi_node)
         assert exit_node_id == "end"
 
-    def test_find_node_by_id(self, workflow_multi_node):
-        executor = MockLangGraphExecutor()
+    def test_find_node_by_id(self, mock_mcp_router, workflow_multi_node):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         node = executor._find_node(workflow_multi_node, "research_agent")
         assert node is not None
         assert node["id"] == "research_agent"
         assert node["type"] == "agent_node"
 
-    def test_find_nonexistent_node(self, workflow_multi_node):
-        executor = MockLangGraphExecutor()
+    def test_find_nonexistent_node(self, mock_mcp_router, workflow_multi_node):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         node = executor._find_node(workflow_multi_node, "nonexistent")
         assert node is None
 
 
 class TestMockLangGraphExecutorEventLogging:
-    def test_log_event_creates_timestamped_event(self):
-        executor = MockLangGraphExecutor()
+    def test_log_event_creates_timestamped_event(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-1"
         executor.set_current_run_id(run_id)
 
@@ -55,8 +54,8 @@ class TestMockLangGraphExecutorEventLogging:
         assert events[0]["message"] == "Testing"
         assert "timestamp" in events[0]
 
-    def test_log_multiple_events(self):
-        executor = MockLangGraphExecutor()
+    def test_log_multiple_events(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-2"
         executor.set_current_run_id(run_id)
 
@@ -70,8 +69,8 @@ class TestMockLangGraphExecutorEventLogging:
         assert events[1]["type"] == "agent_response"
         assert events[2]["type"] == "edge_route"
 
-    def test_event_timestamp_format(self):
-        executor = MockLangGraphExecutor()
+    def test_event_timestamp_format(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-3"
         executor.set_current_run_id(run_id)
 
@@ -82,8 +81,8 @@ class TestMockLangGraphExecutorEventLogging:
         assert timestamp.endswith("Z")
         assert "T" in timestamp
 
-    def test_get_events_for_run_id(self):
-        executor = MockLangGraphExecutor()
+    def test_get_events_for_run_id(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-4"
         executor.set_current_run_id(run_id)
 
@@ -93,39 +92,39 @@ class TestMockLangGraphExecutorEventLogging:
         events = executor.get_events(run_id)
         assert len(events) == 2
 
-    def test_get_events_empty_run_id(self):
-        executor = MockLangGraphExecutor()
+    def test_get_events_empty_run_id(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         events = executor.get_events("nonexistent-run")
         assert events == []
 
 
 class TestMockLangGraphExecutorPromptInterpolation:
-    def test_interpolate_single_variable(self):
-        executor = MockLangGraphExecutor()
+    def test_interpolate_single_variable(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         template = "Analyze {topic}"
         state = {"topic": "earnings"}
 
         result = executor._interpolate_prompt(template, state)
         assert result == "Analyze earnings"
 
-    def test_interpolate_multiple_variables(self):
-        executor = MockLangGraphExecutor()
+    def test_interpolate_multiple_variables(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         template = "Analyze {topic} with depth {depth}"
         state = {"topic": "earnings", "depth": "3"}
 
         result = executor._interpolate_prompt(template, state)
         assert result == "Analyze earnings with depth 3"
 
-    def test_interpolate_with_missing_variable(self):
-        executor = MockLangGraphExecutor()
+    def test_interpolate_with_missing_variable(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         template = "Analyze {topic} and {missing}"
         state = {"topic": "earnings"}
 
         result = executor._interpolate_prompt(template, state)
         assert "{missing}" in result
 
-    def test_interpolate_no_variables(self):
-        executor = MockLangGraphExecutor()
+    def test_interpolate_no_variables(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         template = "Static text"
         state = {"topic": "earnings"}
 
@@ -134,64 +133,64 @@ class TestMockLangGraphExecutorPromptInterpolation:
 
 
 class TestMockLangGraphExecutorConditionEvaluation:
-    def test_evaluate_condition_equals_true(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_equals_true(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "research_complete"}
 
         result = executor._evaluate_condition("$.status == 'research_complete'", state)
         assert result is True
 
-    def test_evaluate_condition_equals_false(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_equals_false(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "error"}
 
         result = executor._evaluate_condition("$.status == 'research_complete'", state)
         assert result is False
 
-    def test_evaluate_condition_not_equals_true(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_not_equals_true(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"confidence": "0.5"}
 
         result = executor._evaluate_condition("$.confidence != '0.5'", state)
         assert result is False
 
-    def test_evaluate_condition_greater_than_true(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_greater_than_true(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"confidence": 0.92}
 
         result = executor._evaluate_condition("$.confidence > 0.8", state)
         assert result is True
 
-    def test_evaluate_condition_greater_than_false(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_greater_than_false(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"confidence": 0.5}
 
         result = executor._evaluate_condition("$.confidence > 0.8", state)
         assert result is False
 
-    def test_evaluate_condition_less_than_true(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_less_than_true(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"hop_count": 5}
 
         result = executor._evaluate_condition("$.hop_count < 20", state)
         assert result is True
 
-    def test_evaluate_condition_less_than_false(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_less_than_false(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"hop_count": 25}
 
         result = executor._evaluate_condition("$.hop_count < 20", state)
         assert result is False
 
-    def test_evaluate_condition_none_returns_true(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_none_returns_true(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "any"}
 
         result = executor._evaluate_condition(None, state)
         assert result is True
 
-    def test_evaluate_condition_empty_returns_true(self):
-        executor = MockLangGraphExecutor()
+    def test_evaluate_condition_empty_returns_true(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "any"}
 
         result = executor._evaluate_condition("", state)
@@ -199,29 +198,29 @@ class TestMockLangGraphExecutorConditionEvaluation:
 
 
 class TestMockLangGraphExecutorStateValueExtraction:
-    def test_get_state_value_simple_key(self):
-        executor = MockLangGraphExecutor()
+    def test_get_state_value_simple_key(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "running"}
 
         value = executor._get_state_value("$.status", state)
         assert value == "running"
 
-    def test_get_state_value_nested_key(self):
-        executor = MockLangGraphExecutor()
+    def test_get_state_value_nested_key(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"node_results": {"agent_1": {"status": "done"}}}
 
         value = executor._get_state_value("$.node_results.agent_1.status", state)
         assert value == "done"
 
-    def test_get_state_value_missing_key(self):
-        executor = MockLangGraphExecutor()
+    def test_get_state_value_missing_key(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "running"}
 
         value = executor._get_state_value("$.missing", state)
         assert value is None
 
-    def test_get_state_value_without_dollar_prefix(self):
-        executor = MockLangGraphExecutor()
+    def test_get_state_value_without_dollar_prefix(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "running"}
 
         value = executor._get_state_value("status", state)
@@ -229,8 +228,8 @@ class TestMockLangGraphExecutorStateValueExtraction:
 
 
 class TestMockLangGraphExecutorEdgeRouting:
-    def test_route_by_edge_unconditional(self, workflow_multi_node):
-        executor = MockLangGraphExecutor()
+    def test_route_by_edge_unconditional(self, mock_mcp_router, workflow_multi_node):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {"status": "pending"}
 
         next_node = executor._route_by_edge(
@@ -238,8 +237,8 @@ class TestMockLangGraphExecutorEdgeRouting:
         )
         assert next_node == "research_agent"
 
-    def test_route_by_edge_with_matching_condition(self):
-        executor = MockLangGraphExecutor()
+    def test_route_by_edge_with_matching_condition(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         workflow = {
             "nodes": [
                 {"id": "node1", "type": "agent_node"},
@@ -255,8 +254,8 @@ class TestMockLangGraphExecutorEdgeRouting:
         next_node = executor._route_by_edge("test-run", workflow, "node1", state)
         assert next_node == "node2"
 
-    def test_route_by_edge_with_nonmatching_condition(self):
-        executor = MockLangGraphExecutor()
+    def test_route_by_edge_with_nonmatching_condition(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         workflow = {
             "nodes": [
                 {"id": "node1", "type": "agent_node"},
@@ -274,8 +273,8 @@ class TestMockLangGraphExecutorEdgeRouting:
         next_node = executor._route_by_edge("test-run", workflow, "node1", state)
         assert next_node == "node3"
 
-    def test_route_by_edge_no_outgoing_edges(self):
-        executor = MockLangGraphExecutor()
+    def test_route_by_edge_no_outgoing_edges(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         workflow = {
             "nodes": [
                 {"id": "node1", "type": "agent_node"},
@@ -291,8 +290,8 @@ class TestMockLangGraphExecutorEdgeRouting:
 
 
 class TestMockLangGraphExecutorAgentNodeExecution:
-    def test_execute_agent_node(self):
-        executor = MockLangGraphExecutor()
+    def test_execute_agent_node(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         node = {
             "id": "research_agent",
             "type": "agent_node",
@@ -313,8 +312,8 @@ class TestMockLangGraphExecutorAgentNodeExecution:
         assert "tokens_used" in result
         assert isinstance(result["result"], dict)
 
-    def test_execute_agent_node_updates_state(self):
-        executor = MockLangGraphExecutor()
+    def test_execute_agent_node_updates_state(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         node = {
             "id": "agent",
             "type": "agent_node",
@@ -334,9 +333,9 @@ class TestMockLangGraphExecutorAgentNodeExecution:
 
 class TestMockLangGraphExecutorFullExecution:
     def test_execute_requires_current_run_id(
-        self, workflow_multi_node, test_input_data
+        self, mock_mcp_router, workflow_multi_node, test_input_data
     ):
-        executor = MockLangGraphExecutor()
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
 
         from src.adapters.checkpoint import MockCheckpointStore
         from src.adapters.cache import MockRedisAdapter
@@ -349,8 +348,8 @@ class TestMockLangGraphExecutorFullExecution:
                 workflow_multi_node, test_input_data, checkpoint_store, cache
             )
 
-    def test_execute_simple_workflow(self, workflow_multi_node, test_input_data):
-        executor = MockLangGraphExecutor()
+    def test_execute_simple_workflow(self, mock_mcp_router, workflow_multi_node, test_input_data):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-full"
         executor.set_current_run_id(run_id)
 
@@ -375,9 +374,9 @@ class TestMockLangGraphExecutorFullExecution:
         assert "hop_count" in result
 
     def test_execute_records_terminal_state_and_event_stream(
-        self, workflow_multi_node, test_input_data
+        self, mock_mcp_router, workflow_multi_node, test_input_data
     ):
-        executor = MockLangGraphExecutor()
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-terminal"
         executor.set_current_run_id(run_id)
 
@@ -392,13 +391,13 @@ class TestMockLangGraphExecutorFullExecution:
         )
 
         assert result["run_id"] == run_id
-        assert result["status"] in ["completed", "error"]
+        assert result["status"] in ["completed", "failed"]
         assert isinstance(result["events"], list)
-        assert result["final_state"]["status"] in ["completed", "error", None]
+        assert result["workflow_state"]["status"] in ["completed", "failed", None]
         assert len(executor.get_events(run_id)) > 0
 
-    def test_execute_respects_max_hops(self, test_input_data):
-        executor = MockLangGraphExecutor()
+    def test_execute_respects_max_hops(self, mock_mcp_router, test_input_data):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-hops"
         executor.set_current_run_id(run_id)
 
@@ -431,8 +430,8 @@ class TestMockLangGraphExecutorFullExecution:
 
         assert result["hop_count"] <= 3
 
-    def test_execute_logs_entry_event(self, workflow_multi_node, test_input_data):
-        executor = MockLangGraphExecutor()
+    def test_execute_logs_entry_event(self, mock_mcp_router, workflow_multi_node, test_input_data):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-entry"
         executor.set_current_run_id(run_id)
 
@@ -449,8 +448,8 @@ class TestMockLangGraphExecutorFullExecution:
 
         assert "node_entry" in event_types or "node_execute" in event_types
 
-    def test_execute_logs_exit_event(self, workflow_multi_node, test_input_data):
-        executor = MockLangGraphExecutor()
+    def test_execute_logs_exit_event(self, mock_mcp_router, workflow_multi_node, test_input_data):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-exit"
         executor.set_current_run_id(run_id)
 
@@ -467,8 +466,8 @@ class TestMockLangGraphExecutorFullExecution:
 
         assert "node_exit" in event_types
 
-    def test_execute_handles_error(self, test_input_data):
-        executor = MockLangGraphExecutor()
+    def test_execute_handles_error(self, mock_mcp_router, test_input_data):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         run_id = "test-run-error"
         executor.set_current_run_id(run_id)
 

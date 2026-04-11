@@ -61,41 +61,80 @@ def clear_workflow_store():
 def mock_redis_services(monkeypatch, request):
     if request.node.get_closest_marker("live") is not None:
         return
-    monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_URL", "test")
-    monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_TOKEN", "test")
-    monkeypatch.setenv("GITHUB_TOKEN", "gho_test_token")
-    monkeypatch.setattr(
-        deps.RedisAdapter,
-        "from_env",
-        classmethod(lambda cls, url, token: MockRedisAdapter()),
+    # Ensure URL is empty to trigger MockRedisAdapter in deps.py
+    monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_URL", "")
+    monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_TOKEN", "")
+    
+    # Force a refresh of the services global if it was already initialized
+    deps._services = None
+    services = deps.get_services()
+    
+    # Double check services are using mock
+    assert isinstance(services.cache, MockRedisAdapter)
+    
+    from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
+    services.redis_client = NamespacedRedisClient(
+        redis_client=services.cache,
+        fallback_storage=FallbackStorage()
     )
-    services = deps.Services()
-    services.cache = MockRedisAdapter()
-    services.checkpoint_service = deps.CheckpointService(services.cache)
-    services.thread_lifecycle_service = deps.ThreadLifecycleService(services.cache)
+    
+    services.checkpoint_service = deps.CheckpointService(services.redis_client)
+    services.thread_lifecycle_service = deps.ThreadLifecycleService(services.redis_client)
     deps._services = services
 
 
 @pytest.fixture(autouse=True)
-def mock_github_provider_http(monkeypatch, request):
+def mock_gateway_http(monkeypatch, request):
+    """Mocks all AI Gateway HTTP calls for E2E tests."""
     if request.node.get_closest_marker("live") is not None:
         return
 
     class FakeResponse:
+        def __init__(self, json_data):
+            self.json_data = json_data
+            self.status_code = 200
+
         def raise_for_status(self):
             return None
 
         def json(self):
-            return {
-                "choices": [{"message": {"content": '{"status": "completed"}'}}],
-                "usage": {"total_tokens": 1},
-                "model": "gpt-4.1",
-            }
+            return self.json_data
 
-    def fake_post(*args, **kwargs):
-        return FakeResponse()
+    def fake_post(url, json=None, **kwargs):
+        # Default mock response following OpenAI structure
+        content_dict = {"status": "completed", "message": "E2E Success"}
+        
+        # Simple routing for E2E tests based on prompt keywords
+        messages = json.get("messages", []) if json else []
+        prompt_texts = [m["content"].lower() for m in messages]
+        full_text = " ".join(prompt_texts)
+        
+        if "stagnation" in full_text:
+            content_dict["stagnation_detected"] = True
+        if "detect_alert_storm" in full_text or "alert storm" in full_text:
+            content_dict["alert_storm_detected"] = True
+        if "redact" in full_text or "sensitive" in full_text:
+            content_dict["redaction_completed"] = True
+            content_dict["message"] = "Incident report with [REDACTED] values"
+            
+        content = json.dumps(content_dict)
+            
+        return FakeResponse({
+            "choices": [{"message": {"role": "assistant", "content": content}}],
+            "usage": {"total_tokens": 1},
+            "model": json.get("model", "gpt-4.1") if json else "gpt-4.1",
+        })
 
     monkeypatch.setattr(httpx, "post", fake_post)
+
+
+@pytest.fixture
+def mock_mcp_router():
+    """Provides a mocked MCPRouter with a MockGatewayClient."""
+    from src.adapters.mcp_router import MCPRouter
+    from tests.mocks.gateway_mock import MockGatewayClient
+    client = MockGatewayClient()
+    return MCPRouter(ai_gateway_client=client)
 
 
 @pytest.fixture

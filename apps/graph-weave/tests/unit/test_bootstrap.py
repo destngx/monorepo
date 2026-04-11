@@ -9,10 +9,26 @@ def client():
 
 
 class TestAppBootstrap:
-    def test_app_shell_boots(self, client):
+    def test_app_shell_boots(self, client, monkeypatch):
+        # Mock httpx.get for the gateway health check
+        import httpx
+
+        class MockResponse:
+            def __init__(self, status_code):
+                self.status_code = status_code
+
+        def mock_get(*args, **kwargs):
+            return MockResponse(200)
+
+        monkeypatch.setattr(httpx, "get", mock_get)
+
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"status": "ok"}
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "ai_gateway" in data["services"]
+        assert "redis" in data["services"]
 
     def test_openapi_docs_available(self, client):
         response = client.get("/api/docs")

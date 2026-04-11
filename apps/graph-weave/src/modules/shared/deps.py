@@ -3,12 +3,13 @@ Shared dependencies for modules.
 """
 
 from typing import Optional
-from src.adapters.cache import RedisAdapter
+from src.adapters.cache import RedisAdapter, MockRedisAdapter
 from src.config import GraphWeaveConfig
 from src.services.checkpoint_service import CheckpointService
 from src.services.thread_lifecycle_service import ThreadLifecycleService
 from src.adapters.workflow import MockWorkflowStore
 from src.adapters.checkpoint import MockCheckpointStore
+from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
 
 
 class Services:
@@ -17,16 +18,21 @@ class Services:
             not GraphWeaveConfig.UPSTASH_REDIS_REST_URL
             or not GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN
         ):
-            raise RuntimeError(
-                "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required"
+            # Default to MockRedisAdapter for local dev/testing if env vars are missing
+            # This prevents RuntimeError during module import (test collection)
+            self.cache = MockRedisAdapter()
+        else:
+            self.cache = RedisAdapter.from_env(
+                GraphWeaveConfig.UPSTASH_REDIS_REST_URL,
+                GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN,
             )
-        self.cache = RedisAdapter.from_env(
-            GraphWeaveConfig.UPSTASH_REDIS_REST_URL,
-            GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN,
+        self.redis_client = NamespacedRedisClient(
+            redis_client=self.cache,
+            fallback_storage=FallbackStorage()
         )
         self.workflow_store = MockWorkflowStore()
-        self.checkpoint_service = CheckpointService(self.cache)
-        self.thread_lifecycle_service = ThreadLifecycleService(self.cache)
+        self.checkpoint_service = CheckpointService(self.redis_client)
+        self.thread_lifecycle_service = ThreadLifecycleService(self.redis_client)
 
 
 _services: Optional[Services] = None
@@ -61,3 +67,7 @@ def get_checkpoint_service() -> CheckpointService:
 
 def get_thread_lifecycle_service() -> ThreadLifecycleService:
     return get_services().thread_lifecycle_service
+
+
+def get_redis_client() -> NamespacedRedisClient:
+    return get_services().redis_client

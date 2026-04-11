@@ -92,14 +92,14 @@ class TestProviderRouting:
     def test_get_provider_client_caches_instances(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
-            client1 = router.get_provider_client("github", "claude-3.5-sonnet")
-            client2 = router.get_provider_client("github", "claude-3.5-sonnet")
+            client1 = router.get_provider_client("github", "gpt-4.1")
+            client2 = router.get_provider_client("github", "gpt-4.1")
             assert client1 is client2
 
     def test_get_provider_client_different_models(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
-            client1 = router.get_provider_client("github", "claude-3.5-sonnet")
+            client1 = router.get_provider_client("github", "gpt-4.1")
             client2 = router.get_provider_client("github", "claude-3-opus")
             assert client1 is not client2
 
@@ -149,14 +149,14 @@ class TestModelValidation:
     def test_valid_models_for_github(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
-            for model in ["claude-3.5-sonnet", "claude-3-opus", "gpt-4"]:
+            for model in ["gpt-4.1", "claude-3-opus", "gpt-4.1"]:
                 client = router.get_provider_client("github", model)
                 assert client is not None
 
     def test_valid_models_for_openai(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "sk_test_key"}):
             router = MCPRouter()
-            for model in ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"]:
+            for model in ["gpt-4.1", "gpt-4-turbo", "gpt-3.5-turbo"]:
                 client = router.get_provider_client("openai", model)
                 assert client is not None
 

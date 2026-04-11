@@ -7,16 +7,17 @@ from ..models import StatusEnum
 from .event_emitter import EventEmitter
 
 
+from ..modules.shared import deps
+
+
 class StatusService:
     def __init__(self, store: Optional[Any] = None):
-        self._store = (
-            store
-            if store is not None
-            else RedisAdapter.from_env(
-                os.getenv("UPSTASH_REDIS_REST_URL", ""),
-                os.getenv("UPSTASH_REDIS_REST_TOKEN", ""),
-            )
-        )
+        if store is not None:
+            self._store = store
+        else:
+            # Use shared dependency which handles MockRedisAdapter fallback correctly
+            self._store = deps.get_cache()
+            
         self._events = EventEmitter(getattr(self._store, "_store", {}))
 
     def _status_key(self, tenant_id: str, run_id: str) -> str:

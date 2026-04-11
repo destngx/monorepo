@@ -15,7 +15,6 @@ import json
 import hashlib
 import threading
 from functools import wraps
-from .ai_provider import AIProvider, GitHubCopilotProvider, MockAIProvider
 from .ai_gateway_adapter import AIGatewayClient
 from .mcp import MockMCPServer
 
@@ -54,12 +53,12 @@ PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
             "claude-3-sonnet",
         ],
         "default_model": "gpt-4.1",
-        "allow_fallback": True,
+        "allow_fallback": False,
     },
     "openai": {
         "required_env": "OPENAI_API_KEY",
-        "models": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
-        "default_model": "gpt-4",
+        "models": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4.1"],
+        "default_model": "gpt-4.1",
         "allow_fallback": False,
     },
 }
@@ -107,8 +106,13 @@ def _tool_response_cache(func: Callable[..., Any]) -> Callable[..., Any]:
 class MCPRouter:
     """Routes MCP tool calls and manages provider selection."""
 
-    def __init__(self, mcp_server: Optional[MockMCPServer] = None):
+    def __init__(
+        self,
+        mcp_server: Optional[MockMCPServer] = None,
+        ai_gateway_client: Optional[LLMClient] = None,
+    ):
         self.mcp_server = mcp_server or MockMCPServer()
+        self.ai_gateway_client = ai_gateway_client
         self._provider_cache: Dict[str, LLMClient] = {}
         self._cache_lock = threading.Lock()
 
@@ -154,8 +158,9 @@ class MCPRouter:
 
         if not api_key:
             if fallback_enabled:
-                logger.warning(f"No {env_key} found; falling back to MockAIProvider")
-                return MockAIProvider()
+                from tests.mocks.gateway_mock import MockGatewayClient
+                logger.warning(f"No {env_key} found; falling back to MockGatewayClient")
+                return MockGatewayClient()
             else:
                 raise ProviderConfigError(
                     f"Missing required environment variable: {env_key}"
@@ -216,7 +221,7 @@ class MCPRouter:
 
         # Now all providers route through AI Gateway for unified tool calling
         logger.info(f"Routing provider {provider_name} through AI Gateway")
-        return cast(LLMClient, AIGatewayClient())
+        return self.ai_gateway_client or cast(LLMClient, AIGatewayClient())
 
     def get_tool_definitions(
         self, allowed_tools: Optional[List[str]] = None

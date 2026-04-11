@@ -18,9 +18,8 @@ import json
 import time
 import logging
 
-from .ai_provider import AIProvider, MockAIProvider
 from .ai_gateway_adapter import AIGatewayClient
-from .mcp_router import MCPRouter, ProviderConfigError, ToolExecutionError
+from .mcp_router import MCPRouter, ProviderConfigError, ToolExecutionError, LLMClient
 from .stagnation_detector import StagnationDetector
 from .redis_circuit_breaker import NamespacedRedisClient
 
@@ -42,10 +41,10 @@ class MockLangGraphExecutor:
 
     def __init__(
         self,
-        ai_provider: Optional[AIProvider] = None,
+        ai_provider: Optional[LLMClient] = None,
         mcp_router: Optional[MCPRouter] = None,
     ):
-        self.ai_provider: AIProvider = ai_provider or MockAIProvider()
+        self.ai_provider = ai_provider
         self.mcp_router = mcp_router or MCPRouter()
         self._current_run_id: Optional[str] = None
         self.execution_events: Dict[str, List[Dict[str, Any]]] = {}
@@ -158,20 +157,24 @@ class MockLangGraphExecutor:
                 "status": "completed",
                 "workflow_id": workflow_id,
                 "tenant_id": tenant_id,
-                "events": self.execution_events.get(run_id, []),
-                "final_state": state,
                 "hop_count": hop_count,
+                "events": self.execution_events.get(run_id, []),
+                "final_state": state["node_results"],
+                "workflow_state": state,
             }
 
         except Exception as e:
             self._log_event(run_id, "error", f"Execution failed: {str(e)}")
             return {
                 "run_id": run_id,
-                "status": "error",
+                "status": "failed",
                 "workflow_id": workflow_id,
                 "tenant_id": tenant_id,
-                "events": self.execution_events.get(run_id, []),
+                "hop_count": hop_count,
                 "error": str(e),
+                "events": self.execution_events.get(run_id, []),
+                "final_state": state["node_results"],
+                "workflow_state": state,
             }
 
     def set_current_run_id(self, run_id: str) -> None:
@@ -239,29 +242,36 @@ class MockLangGraphExecutor:
         max_tokens = config.get("max_tokens", 2000)
         allowed_tools = config.get("tools")
 
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        
         try:
-            if provider and provider != "default":
-                provider_client = self.mcp_router.get_provider_client(provider, model)
-                ai_response = provider_client.call(
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    model=model or "gpt-4",
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-            else:
-                ai_response = self.ai_provider.call(
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    model=model or "gpt-4",
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
+            # Always route through Gateway via mcp_router
+            provider_client = self.mcp_router.get_provider_client(provider or "openai", model)
+            response = provider_client.chat_completion(
+                messages=messages,
+                provider=provider or "openai",
+                model=model or "gpt-4.1",
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            
+            # Extract content from OpenAI-compatible structure
+            content = response["choices"][0]["message"].get("content", "")
+            tokens_used = response.get("usage", {}).get("total_tokens", 0)
+            
+            ai_response = {
+                "content": content,
+                "tokens_used": tokens_used,
+                "model": response.get("model", model),
+            }
         except ProviderConfigError as e:
             self._log_event(run_id, "error", f"Provider config error: {str(e)}")
             return {
                 "node_id": node_id,
-                "status": "error",
+                "status": "failed",
                 "result": {"error": str(e)},
                 "timestamp": datetime.utcnow().isoformat() + "Z",
                 "tokens_used": 0,
@@ -450,7 +460,7 @@ class RealLangGraphExecutor:
 
     def __init__(
         self,
-        ai_provider: Optional[AIProvider] = None,
+        ai_provider: Optional[LLMClient] = None,
         mcp_router: Optional[MCPRouter] = None,
         redis_client: Optional[NamespacedRedisClient] = None,
         default_timeout_seconds: int = 300,
@@ -459,12 +469,12 @@ class RealLangGraphExecutor:
         Initialize RealLangGraphExecutor.
 
         Args:
-            ai_provider: AI provider instance (defaults to MockAIProvider)
+            ai_provider: LLM provider client (optional, usually provided via mcp_router)
             mcp_router: MCP router for tool/provider routing
             redis_client: Redis client for circuit breaker
             default_timeout_seconds: Default execution timeout in seconds (default 300)
         """
-        self.ai_provider = ai_provider or MockAIProvider()
+        self.ai_provider = ai_provider
         self.mcp_router = mcp_router or MCPRouter()
         self.redis_client = redis_client
         self.default_timeout_seconds = default_timeout_seconds
@@ -659,7 +669,7 @@ class RealLangGraphExecutor:
                 "thread_id": thread_id,
                 "tenant_id": tenant_id,
                 "workflow_id": workflow_id,
-                "status": "error",
+                "status": "failed",
                 "error": str(e),
                 "events": self.execution_events.get(run_id, []),
                 "final_state": state,

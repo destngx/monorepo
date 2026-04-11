@@ -82,3 +82,4 @@ class AIGatewayClient:
         except Exception as exc:
             logger.error(f"Unexpected error during AI Gateway call: {exc}")
             raise
+

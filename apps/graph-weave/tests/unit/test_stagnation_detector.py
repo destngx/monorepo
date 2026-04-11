@@ -4,10 +4,11 @@ import time
 from datetime import datetime
 from src.adapters.stagnation_detector import StagnationDetector
 from src.adapters.langgraph_executor import RealLangGraphExecutor, MockLangGraphExecutor
-from src.adapters.ai_provider import MockAIProvider
+from tests.mocks.gateway_mock import MockGatewayClient
 from src.adapters.mcp_router import MCPRouter
 from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
 from src.adapters.cache import MockRedisAdapter
+
 
 
 class TestStagnationDetectorBasics:
@@ -114,14 +115,13 @@ class TestStagnationDetectorSummary:
 
 
 class TestRealLangGraphExecutorBasics:
-    def test_instantiation_with_defaults(self):
-        executor = RealLangGraphExecutor()
+    def test_instantiation_with_defaults(self, mock_mcp_router):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         assert executor.default_timeout_seconds == 300
-        assert executor.ai_provider is not None
         assert executor.mcp_router is not None
 
-    def test_instantiation_with_custom_timeout(self):
-        executor = RealLangGraphExecutor(default_timeout_seconds=600)
+    def test_instantiation_with_custom_timeout(self, mock_mcp_router):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router, default_timeout_seconds=600)
         assert executor.default_timeout_seconds == 600
 
 
@@ -146,8 +146,8 @@ class TestRealLangGraphExecutorEventEmission:
             ],
         }
 
-    def test_events_emitted_for_simple_workflow(self, simple_workflow):
-        executor = RealLangGraphExecutor()
+    def test_events_emitted_for_simple_workflow(self, mock_mcp_router, simple_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -162,8 +162,8 @@ class TestRealLangGraphExecutorEventEmission:
         assert "request.started" in event_types
         assert "request.completed" in event_types
 
-    def test_event_format_validation(self, simple_workflow):
-        executor = RealLangGraphExecutor()
+    def test_event_format_validation(self, mock_mcp_router, simple_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -214,8 +214,8 @@ class TestRealLangGraphExecutorStateAccumulation:
             ],
         }
 
-    def test_workflow_state_accumulation(self, multi_node_workflow):
-        executor = RealLangGraphExecutor()
+    def test_workflow_state_accumulation(self, mock_mcp_router, multi_node_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -226,7 +226,7 @@ class TestRealLangGraphExecutorStateAccumulation:
 
         workflow_state = result["workflow_state"]
         assert "input" in workflow_state
-        assert result["status"] in ["completed", "stagnated", "timeout", "error"]
+        assert result["status"] in ["completed", "stagnated", "timeout", "failed"]
 
 
 class TestRealLangGraphExecutorTimeout:
@@ -250,8 +250,8 @@ class TestRealLangGraphExecutorTimeout:
             ],
         }
 
-    def test_timeout_stops_execution(self, simple_workflow):
-        executor = RealLangGraphExecutor(default_timeout_seconds=1)
+    def test_timeout_stops_execution(self, mock_mcp_router, simple_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router, default_timeout_seconds=1)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -278,7 +278,7 @@ class TestRealLangGraphExecutorPerNodeConfig:
                     "type": "agent_node",
                     "config": {
                         "provider": "github",
-                        "model": "claude-3.5-sonnet",
+                        "model": "gpt-4.1",
                         "temperature": 0.5,
                         "max_tokens": 1000,
                         "system_prompt": "You are helpful",
@@ -293,8 +293,8 @@ class TestRealLangGraphExecutorPerNodeConfig:
             ],
         }
 
-    def test_provider_config_used(self, provider_workflow):
-        executor = RealLangGraphExecutor()
+    def test_provider_config_used(self, mock_mcp_router, provider_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -303,7 +303,7 @@ class TestRealLangGraphExecutorPerNodeConfig:
             input_data={"topic": "test"},
         )
 
-        assert result["status"] in ["completed", "error"]
+        assert result["status"] in ["completed", "failed"]
 
 
 class TestStagnationDetectionInWorkflow:
@@ -328,8 +328,8 @@ class TestStagnationDetectionInWorkflow:
             ],
         }
 
-    def test_stagnation_stops_execution(self, looping_workflow):
-        executor = RealLangGraphExecutor()
+    def test_stagnation_stops_execution(self, mock_mcp_router, looping_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -362,11 +362,11 @@ class TestCircuitBreakerKillFlag:
             ],
         }
 
-    def test_kill_flag_check_works(self, simple_workflow):
+    def test_kill_flag_check_works(self, mock_mcp_router, simple_workflow):
         fallback = FallbackStorage()
         redis_adapter = MockRedisAdapter()
         redis_client = NamespacedRedisClient(redis_adapter, fallback)
-        executor = RealLangGraphExecutor(redis_client=redis_client)
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router, redis_client=redis_client)
 
         result = executor.execute(
             run_id="test-run",
@@ -400,8 +400,8 @@ class TestEventOrdering:
             ],
         }
 
-    def test_request_started_before_completed(self, simple_workflow):
-        executor = RealLangGraphExecutor()
+    def test_request_started_before_completed(self, mock_mcp_router, simple_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -440,15 +440,14 @@ class TestErrorHandling:
             ],
         }
 
-    def test_missing_entry_node_handled(self):
+    def test_missing_entry_node_handled(self, mock_mcp_router):
         workflow = {
             "workflow_id": "test-workflow",
             "metadata": {"tenant_id": "test-tenant"},
             "nodes": [{"id": "exit", "type": "exit"}],
             "edges": [],
         }
-
-        executor = RealLangGraphExecutor()
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -457,7 +456,7 @@ class TestErrorHandling:
             input_data={},
         )
 
-        assert result["status"] == "error"
+        assert result["status"] == "failed"
 
 
 class TestConcurrentExecution:
@@ -481,8 +480,8 @@ class TestConcurrentExecution:
             ],
         }
 
-    def test_multiple_executions_independent(self, simple_workflow):
-        executor = RealLangGraphExecutor()
+    def test_multiple_executions_independent(self, mock_mcp_router, simple_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
 
         result1 = executor.execute(
             run_id="run-1",
@@ -519,7 +518,7 @@ class TestProviderSwitching:
                     "type": "agent_node",
                     "config": {
                         "provider": "github",
-                        "model": "claude-3.5-sonnet",
+                        "model": "gpt-4.1",
                         "system_prompt": "You are helpful",
                         "user_prompt_template": "Test",
                     },
@@ -529,7 +528,7 @@ class TestProviderSwitching:
                     "type": "agent_node",
                     "config": {
                         "provider": "openai",
-                        "model": "gpt-4",
+                        "model": "gpt-4.1",
                         "system_prompt": "You are helpful",
                         "user_prompt_template": "Test",
                     },
@@ -543,8 +542,8 @@ class TestProviderSwitching:
             ],
         }
 
-    def test_provider_switching_workflow(self, switching_workflow):
-        executor = RealLangGraphExecutor()
+    def test_provider_switching_workflow(self, mock_mcp_router, switching_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -553,7 +552,7 @@ class TestProviderSwitching:
             input_data={},
         )
 
-        assert result["status"] in ["completed", "error"]
+        assert result["status"] in ["completed", "failed"]
 
 
 class TestEdgeRouting:
@@ -596,8 +595,8 @@ class TestEdgeRouting:
             ],
         }
 
-    def test_edge_routing_works(self, conditional_workflow):
-        executor = RealLangGraphExecutor()
+    def test_edge_routing_works(self, mock_mcp_router, conditional_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -606,7 +605,7 @@ class TestEdgeRouting:
             input_data={"value": 3},
         )
 
-        assert result["status"] in ["completed", "error", "stagnated"]
+        assert result["status"] in ["completed", "failed", "stagnated"]
 
 
 class TestExecutionMetadata:
@@ -630,8 +629,8 @@ class TestExecutionMetadata:
             ],
         }
 
-    def test_execution_result_structure(self, simple_workflow):
-        executor = RealLangGraphExecutor()
+    def test_execution_result_structure(self, mock_mcp_router, simple_workflow):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",

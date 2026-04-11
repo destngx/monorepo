@@ -18,9 +18,11 @@ from .modules.shared.deps import (
     get_checkpoint_store,
     get_checkpoint_service,
     get_thread_lifecycle_service,
+    get_redis_client,
 )
-from .adapters.ai_provider import create_ai_provider
-from .adapters.langgraph_executor import MockLangGraphExecutor
+from .adapters.langgraph_executor import RealLangGraphExecutor
+from .adapters.mcp_router import MCPRouter
+from .adapters.ai_gateway_adapter import AIGatewayClient
 from .services.status_service import StatusService
 from .models import (
     ExecuteRequest,
@@ -39,46 +41,32 @@ from .models import (
 setup_logging(debug=GraphWeaveConfig.DEBUG)
 logger = get_logger(__name__)
 
-ai_provider = create_ai_provider()
-langgraph_executor = MockLangGraphExecutor(ai_provider=ai_provider)
+mcp_router = MCPRouter()
+langgraph_executor = RealLangGraphExecutor(
+    mcp_router=mcp_router,
+    redis_client=get_redis_client(),
+)
 execution_runs: dict[str, dict[str, Any]] = {}
 status_service = StatusService(execution_runs)
 
 
 def _background_execute_run(
     run_id: str,
+    thread_id: str,
     tenant_id: str,
     workflow_id: str,
     workflow: dict[str, Any],
     input_data: dict[str, Any],
-    checkpoint_store: Any,
-    cache: Any,
 ) -> None:
-    checkpoint_service = get_checkpoint_service()
-    thread_lifecycle_service = get_thread_lifecycle_service()
-    thread_lifecycle_service.add_active_thread(tenant_id, run_id, workflow_id)
-    status_service.transition_status(tenant_id, run_id, "validating")
-    time.sleep(0.01)
-    status_service.transition_status(tenant_id, run_id, "pending")
-    time.sleep(0.01)
-    status_service.transition_status(tenant_id, run_id, "running")
-    time.sleep(0.01)
-
-    langgraph_executor.set_current_run_id(run_id)
+    """Execute the workflow in a background thread using the real executor."""
     execution_result = langgraph_executor.execute(
+        run_id=run_id,
+        thread_id=thread_id,
+        tenant_id=tenant_id,
         workflow=workflow,
         input_data=input_data,
-        checkpoint_store=checkpoint_store,
-        cache=cache,
     )
-    checkpoint_service.save_checkpoint(
-        tenant_id,
-        run_id,
-        {
-            "node_id": execution_result.get("run_id"),
-            "workflow_state": execution_result.get("final_state", {}),
-        },
-    )
+    
     execution_runs[run_id] = execution_result
     status_service.transition_status(
         tenant_id,
@@ -86,7 +74,6 @@ def _background_execute_run(
         execution_result.get("status", "failed"),
         execution_result,
     )
-    thread_lifecycle_service.remove_active_thread(tenant_id, run_id)
 
 
 @asynccontextmanager
@@ -176,58 +163,34 @@ async def health():
         return health_status
 
     try:
-        from .adapters.ai_provider import GitHubCopilotProvider
+        gateway_url = os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")
         import httpx
-
-        gh_token = os.getenv("GITHUB_TOKEN")
-        if gh_token:
-            try:
-                provider = GitHubCopilotProvider(gh_token=gh_token)
-                token = provider.get_copilot_token()
-                if token:
-                    health_status["services"]["github_copilot"] = {"status": "healthy"}
-                else:
-                    health_status["services"]["github_copilot"] = {
-                        "status": "unavailable",
-                        "reason": "Failed to obtain token",
-                    }
-                    health_status["status"] = "degraded"
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code == 403:
-                    logger.info("GitHub account lacks Copilot access (expected)")
-                    health_status["services"]["github_copilot"] = {
-                        "status": "unavailable",
-                        "reason": "Account lacks Copilot subscription (403)",
-                    }
-                    health_status["status"] = "degraded"
-                else:
-                    logger.warning(f"GitHub Copilot health check failed: {e}")
-                    health_status["services"]["github_copilot"] = {
-                        "status": "unhealthy",
-                        "error": f"API error: {e}",
-                    }
-                    health_status["status"] = "degraded"
-            except httpx.HTTPError as e:
-                logger.warning(f"GitHub Copilot connection error: {e}")
-                health_status["services"]["github_copilot"] = {
-                    "status": "unreachable",
-                    "error": f"Connection error: {e}",
-                }
-                health_status["status"] = "degraded"
-            except Exception as e:
-                logger.warning(f"GitHub Copilot health check error: {e}")
-                health_status["services"]["github_copilot"] = {
-                    "status": "unhealthy",
-                    "error": str(e),
-                }
-                health_status["status"] = "degraded"
-        else:
-            logger.debug("GITHUB_TOKEN not set; GitHub Copilot provider unavailable")
-            health_status["services"]["github_copilot"] = {
-                "status": "unavailable",
-                "reason": "GITHUB_TOKEN not configured",
+        
+        # Check if gateway is reachable
+        try:
+            # We check the root or v1 endpoint for a 404/200/405 (anything that proves connectivity)
+            # Standard health check for the gateway
+            response = httpx.get(gateway_url, timeout=5.0)
+            health_status["services"]["ai_gateway"] = {
+                "status": "healthy",
+                "url": gateway_url,
+                "response_code": response.status_code
+            }
+        except httpx.HTTPError as e:
+            logger.warning(f"AI Gateway health check failed: {e}")
+            health_status["services"]["ai_gateway"] = {
+                "status": "unhealthy",
+                "error": str(e)
             }
             health_status["status"] = "degraded"
+            
+    except Exception as e:
+        logger.error(f"Unexpected error in AI Gateway health check: {e}")
+        health_status["services"]["ai_gateway"] = {
+            "status": "error",
+            "error": str(e)
+        }
+        health_status["status"] = "degraded"
 
     except Exception as e:
         logger.error(f"Unexpected error in GitHub Copilot health check: {e}")
@@ -290,12 +253,11 @@ async def execute(request: ExecuteRequest):
             target=_background_execute_run,
             args=(
                 run_id,
+                thread_id,
                 request.tenant_id,
                 request.workflow_id,
                 workflow,
                 request.input,
-                checkpoint_store,
-                cache,
             ),
             daemon=True,
         )
