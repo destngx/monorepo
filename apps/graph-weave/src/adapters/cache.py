@@ -89,6 +89,13 @@ class RedisAdapter(MockRedisAdapter):
     def from_env(cls, url: str, token: str) -> "RedisAdapter":
         if redis is None:
             raise RuntimeError("redis package is not installed")
+
+        # Handle Upstash REST URLs (convert https:// to rediss://)
+        if url.startswith("https://"):
+            url = "rediss://" + url[8:]
+        elif url.startswith("http://"):
+            url = "redis://" + url[7:]
+
         client = redis.Redis.from_url(url, password=token, decode_responses=True)
         return cls(client)
 
