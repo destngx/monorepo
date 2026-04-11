@@ -18,6 +18,7 @@ const githubCatalogURL = "https://models.github.ai/catalog/models"
 type GitHubProvider struct {
 	token  string
 	client *http.Client
+	ready  bool
 }
 
 func NewGitHub(token string) *GitHubProvider {
@@ -145,3 +146,27 @@ func (g *GitHubProvider) ListModels(ctx context.Context) (*types.ModelsResponse,
 func (g *GitHubProvider) IsConfigured() bool {
 	return g.token != ""
 }
+
+func (g *GitHubProvider) Ping(ctx context.Context) error {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodHead, githubBaseURL, nil)
+	if err != nil {
+		return err
+	}
+	for k, v := range g.headers() {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := g.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		return fmt.Errorf("github models service unavailable (status %d)", resp.StatusCode)
+	}
+	return nil
+}
+
+func (g *GitHubProvider) IsReady() bool { return g.ready }
+func (g *GitHubProvider) SetReady(r bool) { g.ready = r }

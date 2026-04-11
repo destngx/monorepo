@@ -18,7 +18,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "go run .",
+        "command": "go run github.com/air-verse/air@latest -c .air.toml",
         "cwd": "apps/ai-gateway"
       },
       "cache": false

@@ -1,6 +1,11 @@
 package config
 
-import "os"
+import (
+	"log"
+	"os"
+
+	"github.com/joho/godotenv"
+)
 
 type Config struct {
 	GitHubToken   string
@@ -11,6 +16,10 @@ type Config struct {
 }
 
 func Load() *Config {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, consuming environment variables directly")
+	}
+
 	ollamaBase := os.Getenv("OLLAMA_BASE_URL")
 	if ollamaBase == "" {
 		ollamaBase = "http://localhost:11434"

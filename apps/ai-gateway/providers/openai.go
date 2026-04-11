@@ -17,6 +17,7 @@ const openaiBaseURL = "https://api.openai.com/v1"
 type OpenAIProvider struct {
 	apiKey string
 	client *http.Client
+	ready  bool
 }
 
 func NewOpenAI(apiKey string) *OpenAIProvider {
@@ -97,3 +98,25 @@ func (o *OpenAIProvider) ListModels(ctx context.Context) (*types.ModelsResponse,
 func (o *OpenAIProvider) IsConfigured() bool {
 	return o.apiKey != ""
 }
+
+func (o *OpenAIProvider) Ping(ctx context.Context) error {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodHead, openaiBaseURL+"/models", nil)
+	if err != nil {
+		return err
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		return fmt.Errorf("openai service unavailable (status %d)", resp.StatusCode)
+	}
+	return nil
+}
+
+func (o *OpenAIProvider) IsReady() bool { return o.ready }
+func (o *OpenAIProvider) SetReady(r bool) { o.ready = r }

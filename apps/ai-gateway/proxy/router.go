@@ -29,11 +29,24 @@ func NewRegistry(cfg *config.Config) *Registry {
 
 func (r *Registry) register(p providers.Provider) {
 	r.providers[p.Name()] = p
+
+	// Phase 1: Token Check
 	if !p.IsConfigured() {
-		log.Printf("[WARN] Provider %q missing credentials; will return 404 on use", p.Name())
-	} else {
-		log.Printf("[INFO] Provider %q initialized", p.Name())
+		log.Printf("[SKIP] Provider %q: missing token", p.Name())
+		return
 	}
+
+	// Phase 2: Ping Check
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if err := p.Ping(ctx); err != nil {
+		log.Printf("[WARN] Provider %q: token OK but ping FAILED: %v; will return 404 on use", p.Name(), err)
+		return
+	}
+
+	p.SetReady(true)
+	log.Printf("[READY] Provider %q: token OK, ping OK", p.Name())
 }
 
 // Get returns the provider for the given name.

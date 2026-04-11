@@ -15,6 +15,7 @@ import (
 type OllamaProvider struct {
 	baseURL string
 	client  *http.Client
+	ready   bool
 }
 
 func NewOllama(baseURL string) *OllamaProvider {
@@ -93,3 +94,24 @@ func (o *OllamaProvider) ListModels(ctx context.Context) (*types.ModelsResponse,
 func (o *OllamaProvider) IsConfigured() bool {
 	return true // Ollama is local, always "configured"
 }
+
+func (o *OllamaProvider) Ping(ctx context.Context) error {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, o.baseURL+"/", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("ollama service returned status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (o *OllamaProvider) IsReady() bool { return o.ready }
+func (o *OllamaProvider) SetReady(r bool) { o.ready = r }

@@ -20,6 +20,7 @@ const anthropicAPIVersion = "2023-06-01"
 type AnthropicProvider struct {
 	apiKey string
 	client *http.Client
+	ready  bool
 }
 
 func NewAnthropic(apiKey string) *AnthropicProvider {
@@ -306,3 +307,30 @@ func (a *AnthropicProvider) ListModels(_ context.Context) (*types.ModelsResponse
 func (a *AnthropicProvider) IsConfigured() bool {
 	return a.apiKey != ""
 }
+
+func (a *AnthropicProvider) Ping(ctx context.Context) error {
+	// Anthropic doesn't have a simple GET ping; try HEAD on messages endpoint
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodHead, anthropicBaseURL+"/messages", nil)
+	if err != nil {
+		return err
+	}
+	for k, v := range a.headers() {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := a.client.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// 405 Method Not Allowed is acceptable for HEAD on a POST-only endpoint,
+	// it proves the server is reachable and understands the URL.
+	if resp.StatusCode >= 500 {
+		return fmt.Errorf("anthropic service unavailable (status %d)", resp.StatusCode)
+	}
+	return nil
+}
+
+func (a *AnthropicProvider) IsReady() bool { return a.ready }
+func (a *AnthropicProvider) SetReady(r bool) { a.ready = r }

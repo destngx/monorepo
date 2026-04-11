@@ -47,8 +47,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !provider.IsConfigured() {
-		writeError(w, http.StatusNotFound, "provider "+providerName+" not configured")
+	if !provider.IsReady() {
+		writeError(w, http.StatusNotFound, "provider "+providerName+" not ready (token or ping failed)")
 		return
 	}
 

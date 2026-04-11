@@ -24,4 +24,13 @@ type Provider interface {
 
 	// IsConfigured returns true if the provider has all required credentials.
 	IsConfigured() bool
+
+	// Ping verifies that the provider endpoint is reachable.
+	Ping(ctx context.Context) error
+
+	// IsReady returns true if the provider is both configured and reachable.
+	IsReady() bool
+
+	// SetReady manually updates the readiness status.
+	SetReady(bool)
 }
