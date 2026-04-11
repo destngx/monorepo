@@ -1,20 +1,29 @@
 """
-Mock LangGraph Executor for MOCK phase.
+Real LangGraph Executor with event emission and stagnation detection.
 
-Simulates real workflow execution by:
-1. Loading the workflow JSON (nodes and edges)
-2. Executing nodes sequentially
-3. Evaluating edge conditions to route to next node
-4. Calling MockAIProvider for agent_node execution
-5. Tracking execution state through CheckpointStore
+Implements:
+1. StateGraph execution loop with node traversal
+2. Event emission (node.started, node.completed, node.failed)
+3. Per-node configuration (provider, model, temperature, max_tokens, tools)
+4. Stagnation detection (max 20 hops)
+5. Timeout enforcement (300s)
+6. Circuit breaker kill flag checking
+7. State accumulation (merge all node outputs)
+8. Error handling and recovery
 """
 
 from typing import Any, Dict, Optional, List, TypedDict, cast, Mapping
 from datetime import datetime
 import json
-import copy
+import time
+import logging
 
 from .ai_provider import AIProvider, MockAIProvider
+from .mcp_router import MCPRouter, ProviderConfigError
+from .stagnation_detector import StagnationDetector
+from .redis_circuit_breaker import NamespacedRedisClient
+
+logger = logging.getLogger(__name__)
 
 
 class ExecutorState(TypedDict):
@@ -30,8 +39,13 @@ class ExecutorState(TypedDict):
 class MockLangGraphExecutor:
     """Executes workflows by traversing nodes and edges, calling AI provider for agent work."""
 
-    def __init__(self, ai_provider: Optional[AIProvider] = None):
+    def __init__(
+        self,
+        ai_provider: Optional[AIProvider] = None,
+        mcp_router: Optional[MCPRouter] = None,
+    ):
         self.ai_provider: AIProvider = ai_provider or MockAIProvider()
+        self.mcp_router = mcp_router or MCPRouter()
         self._current_run_id: Optional[str] = None
         self.execution_events: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -194,12 +208,49 @@ class MockLangGraphExecutor:
 
         user_prompt = self._interpolate_prompt(user_prompt_template, state)
 
-        ai_response = self.ai_provider.call(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-        )
+        provider = config.get("provider", "github")
+        model = config.get("model")
+        temperature = config.get("temperature", 0.7)
+        max_tokens = config.get("max_tokens", 2000)
+        allowed_tools = config.get("tools")
+
+        try:
+            if provider and provider != "default":
+                provider_client = self.mcp_router.get_provider_client(provider, model)
+                ai_response = provider_client.call(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    model=model or "gpt-4",
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            else:
+                ai_response = self.ai_provider.call(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    model=model or "gpt-4",
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+        except ProviderConfigError as e:
+            self._log_event(run_id, "error", f"Provider config error: {str(e)}")
+            return {
+                "node_id": node_id,
+                "status": "error",
+                "result": {"error": str(e)},
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "tokens_used": 0,
+            }
 
         content = str(ai_response.get("content", ""))
+
+        tool_calls = self.mcp_router.parse_tool_calls(content, allowed_tools)
+        if tool_calls:
+            self._log_event(
+                run_id,
+                "agent_tool_calls",
+                f"Agent {node_id} made {len(tool_calls)} tool calls",
+            )
 
         self._log_event(
             run_id,
@@ -218,6 +269,7 @@ class MockLangGraphExecutor:
             "result": result_data,
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "tokens_used": ai_response.get("tokens_used", 0),
+            "tool_calls": tool_calls,
         }
 
         state["last_result"] = result_data
@@ -349,3 +401,415 @@ class MockLangGraphExecutor:
             "message": message,
         }
         self.execution_events[run_id].append(event)
+
+
+class RealLangGraphExecutor:
+    """
+    Real LangGraph executor with full event emission, stagnation detection,
+    timeout enforcement, and circuit breaker support.
+
+    Implements:
+    - StateGraph execution loop with node traversal
+    - Event emission after each node (node.started, node.completed, node.failed)
+    - Per-node configuration (provider, model, temperature, max_tokens, tools)
+    - Stagnation detection (prevents infinite loops)
+    - Timeout enforcement (configurable, default 300s)
+    - Circuit breaker (checks kill flag after each node)
+    - State accumulation (merges all node outputs)
+    - Error handling and graceful failure
+    """
+
+    def __init__(
+        self,
+        ai_provider: Optional[AIProvider] = None,
+        mcp_router: Optional[MCPRouter] = None,
+        redis_client: Optional[NamespacedRedisClient] = None,
+        default_timeout_seconds: int = 300,
+    ):
+        """
+        Initialize RealLangGraphExecutor.
+
+        Args:
+            ai_provider: AI provider instance (defaults to MockAIProvider)
+            mcp_router: MCP router for tool/provider routing
+            redis_client: Redis client for circuit breaker
+            default_timeout_seconds: Default execution timeout in seconds (default 300)
+        """
+        self.ai_provider = ai_provider or MockAIProvider()
+        self.mcp_router = mcp_router or MCPRouter()
+        self.redis_client = redis_client
+        self.default_timeout_seconds = default_timeout_seconds
+        self.execution_events: Dict[str, List[Dict[str, Any]]] = {}
+
+    def execute(
+        self,
+        run_id: str,
+        thread_id: str,
+        tenant_id: str,
+        workflow: Dict[str, Any],
+        input_data: Dict[str, Any],
+        timeout_seconds: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute a real LangGraph workflow with full event emission and safeguards.
+
+        Args:
+            run_id: Unique execution ID
+            thread_id: Thread ID for checkpoint storage
+            tenant_id: Tenant ID for multi-tenancy
+            workflow: Workflow JSON definition
+            input_data: Initial input data
+            timeout_seconds: Optional timeout override
+
+        Returns:
+            Execution result with status, events, final state, and metadata
+        """
+        workflow_id = workflow.get("workflow_id", "unknown")
+        timeout = timeout_seconds or self.default_timeout_seconds
+        start_time = time.monotonic()
+        detector = StagnationDetector(
+            max_hops=workflow.get("limits", {}).get("max_hops", 20)
+        )
+
+        self.execution_events[run_id] = []
+
+        state: Dict[str, Any] = {
+            "input": input_data,
+            "step": 0,
+            "current_node": None,
+            "node_results": {},
+            "workflow_state": dict(input_data),
+            "status": None,
+            "hop_count": 0,
+            "errors": [],
+        }
+
+        try:
+            self._emit_event(
+                run_id,
+                "request.started",
+                {"tenant_id": tenant_id, "workflow_id": workflow_id},
+            )
+
+            current_node_id = self._find_entry_node(workflow)
+            if not current_node_id:
+                raise ValueError("No entry node found in workflow")
+
+            state["current_node"] = current_node_id
+            hop_count = 0
+
+            while True:
+                elapsed = time.monotonic() - start_time
+                if elapsed > timeout:
+                    self._emit_event(
+                        run_id, "execution.timeout", {"elapsed_seconds": elapsed}
+                    )
+                    state["status"] = "timeout"
+                    break
+
+                if self._check_kill_flag(run_id, tenant_id):
+                    self._emit_event(
+                        run_id, "execution.killed", {"elapsed_seconds": elapsed}
+                    )
+                    state["status"] = "killed"
+                    break
+
+                if detector.is_stagnated():
+                    self._emit_event(
+                        run_id,
+                        "execution.stagnated",
+                        {
+                            "visits": detector.get_summary(),
+                            "max_hops": detector.max_hops,
+                        },
+                    )
+                    state["status"] = "stagnated"
+                    break
+
+                hop_count += 1
+                detector.track_node_visit(current_node_id)
+
+                node = self._find_node(workflow, current_node_id)
+                if not node:
+                    raise ValueError(f"Node not found: {current_node_id}")
+
+                node_type = node.get("type")
+                state["current_node"] = current_node_id
+                state["step"] = hop_count
+
+                if node_type == "exit":
+                    self._emit_event(
+                        run_id,
+                        "node.completed",
+                        {"node_id": current_node_id, "node_type": "exit"},
+                    )
+                    break
+
+                self._emit_event(
+                    run_id,
+                    "node.started",
+                    {"node_id": current_node_id, "node_type": node_type},
+                )
+
+                try:
+                    if node_type == "agent_node":
+                        node_result = self._execute_agent_node(
+                            run_id, node, state, workflow
+                        )
+                    elif node_type == "entry":
+                        node_result = self._execute_entry_node(state, node)
+                    elif node_type == "branch":
+                        node_result = self._execute_branch_node(state, node)
+                    else:
+                        raise ValueError(f"Unknown node type: {node_type}")
+
+                    state["node_results"][current_node_id] = node_result
+                    state["workflow_state"].update(node_result)
+
+                    self._emit_event(
+                        run_id,
+                        "node.completed",
+                        {
+                            "node_id": current_node_id,
+                            "node_type": node_type,
+                            "result_keys": list(node_result.keys()),
+                        },
+                    )
+
+                except Exception as e:
+                    self._emit_event(
+                        run_id,
+                        "node.failed",
+                        {"node_id": current_node_id, "error": str(e)},
+                    )
+                    state["errors"].append(
+                        {
+                            "node_id": current_node_id,
+                            "error": str(e),
+                            "timestamp": datetime.utcnow().isoformat() + "Z",
+                        }
+                    )
+
+                next_node_id = self._route_by_edge(workflow, current_node_id, state)
+                if next_node_id is None or next_node_id == current_node_id:
+                    break
+
+                current_node_id = next_node_id
+
+            state["status"] = state.get("status") or "completed"
+            state["hop_count"] = hop_count
+
+            self._emit_event(
+                run_id,
+                "request.completed",
+                {
+                    "status": state["status"],
+                    "hop_count": hop_count,
+                    "elapsed_seconds": time.monotonic() - start_time,
+                },
+            )
+
+            return {
+                "run_id": run_id,
+                "thread_id": thread_id,
+                "tenant_id": tenant_id,
+                "workflow_id": workflow_id,
+                "status": state["status"],
+                "hop_count": hop_count,
+                "events": self.execution_events.get(run_id, []),
+                "final_state": state,
+                "workflow_state": state["workflow_state"],
+                "elapsed_seconds": time.monotonic() - start_time,
+            }
+
+        except Exception as e:
+            logger.exception(f"Execution error: {e}")
+            self._emit_event(run_id, "request.failed", {"error": str(e)})
+            return {
+                "run_id": run_id,
+                "thread_id": thread_id,
+                "tenant_id": tenant_id,
+                "workflow_id": workflow_id,
+                "status": "error",
+                "error": str(e),
+                "events": self.execution_events.get(run_id, []),
+                "final_state": state,
+            }
+
+    def _execute_entry_node(
+        self, state: Dict[str, Any], node: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return dict(state.get("input", {}))
+
+    def _execute_branch_node(
+        self, state: Dict[str, Any], node: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return {"branch_result": "true"}
+
+    def _execute_agent_node(
+        self,
+        run_id: str,
+        node: Dict[str, Any],
+        state: Dict[str, Any],
+        workflow: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        node_id = node.get("id")
+        config = node.get("config", {})
+
+        system_prompt = config.get("system_prompt", "You are a helpful assistant.")
+        user_prompt_template = config.get("user_prompt_template", "")
+        user_prompt = self._interpolate_prompt(user_prompt_template, state)
+
+        provider = config.get("provider", "github")
+        model = config.get("model", "gpt-4")
+        temperature = config.get("temperature", 0.7)
+        max_tokens = config.get("max_tokens", 2000)
+        allowed_tools = config.get("tools", [])
+
+        try:
+            if provider and provider != "default":
+                provider_client = self.mcp_router.get_provider_client(provider, model)
+                ai_response = provider_client.call(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+            else:
+                ai_response = self.ai_provider.call(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+
+            content = str(ai_response.get("content", ""))
+
+            try:
+                result_data = json.loads(content)
+            except json.JSONDecodeError:
+                result_data = {"raw_response": content}
+
+            return {
+                f"{node_id}_output": result_data,
+                f"{node_id}_status": "completed",
+            }
+
+        except ProviderConfigError as e:
+            raise ValueError(f"Provider configuration error: {e}")
+        except Exception as e:
+            raise ValueError(f"Agent node execution failed: {e}")
+
+    def _route_by_edge(
+        self,
+        workflow: Dict[str, Any],
+        current_node_id: str,
+        state: Dict[str, Any],
+    ) -> Optional[str]:
+        edges = workflow.get("edges", [])
+        matching_edges = [e for e in edges if e.get("from") == current_node_id]
+
+        if not matching_edges:
+            return self._find_exit_node(workflow)
+
+        for edge in matching_edges:
+            condition = edge.get("condition")
+            if not condition or self._evaluate_condition(condition, state):
+                return edge.get("to")
+
+        return matching_edges[0].get("to") if matching_edges else None
+
+    def _find_entry_node(self, workflow: Dict[str, Any]) -> Optional[str]:
+        for node in workflow.get("nodes", []):
+            if node.get("type") == "entry":
+                return node.get("id")
+        return None
+
+    def _find_exit_node(self, workflow: Dict[str, Any]) -> Optional[str]:
+        for node in workflow.get("nodes", []):
+            if node.get("type") == "exit":
+                return node.get("id")
+        return None
+
+    def _find_node(
+        self, workflow: Dict[str, Any], node_id: str
+    ) -> Optional[Dict[str, Any]]:
+        for node in workflow.get("nodes", []):
+            if node.get("id") == node_id:
+                return node
+        return None
+
+    def _evaluate_condition(self, condition: str, state: Dict[str, Any]) -> bool:
+        if not condition:
+            return True
+        try:
+            for op in ["==", "!=", ">=", "<=", ">", "<"]:
+                if op in condition:
+                    left, right = condition.split(op, 1)
+                    left_val = self._get_state_value(left.strip(), state)
+                    right_val = right.strip().strip("'\"")
+                    if op == "==":
+                        return left_val == right_val
+                    elif op == "!=":
+                        return left_val != right_val
+                    elif op == ">=":
+                        return float(left_val) >= float(right_val)
+                    elif op == "<=":
+                        return float(left_val) <= float(right_val)
+                    elif op == ">":
+                        return float(left_val) > float(right_val)
+                    elif op == "<":
+                        return float(left_val) < float(right_val)
+            return True
+        except Exception:
+            return False
+
+    def _get_state_value(self, path: str, state: Dict[str, Any]) -> Any:
+        if path.startswith("$."):
+            path = path[2:]
+        keys = path.split(".")
+        current = state
+        for key in keys:
+            if isinstance(current, dict):
+                current = current.get(key)
+            else:
+                return None
+        return current
+
+    def _interpolate_prompt(self, template: str, state: Dict[str, Any]) -> str:
+        result = template
+        for key, value in state.items():
+            placeholder = f"{{{key}}}"
+            if placeholder in result:
+                result = result.replace(placeholder, str(value))
+        return result
+
+    def _check_kill_flag(self, run_id: str, tenant_id: str) -> bool:
+        if not self.redis_client:
+            return False
+        try:
+            kill_key = f"kill:{tenant_id}:{run_id}"
+            return self.redis_client.exists(kill_key)
+        except Exception:
+            return False
+
+    def _emit_event(self, run_id: str, event_type: str, data: Dict[str, Any]) -> None:
+        if run_id not in self.execution_events:
+            self.execution_events[run_id] = []
+
+        event = {
+            "type": event_type,
+            "run_id": run_id,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "data": data,
+        }
+        self.execution_events[run_id].append(event)
+
+        if self.redis_client:
+            try:
+                event_key = f"event:{run_id}"
+                self.redis_client.rpush(event_key, json.dumps(event))
+            except Exception as e:
+                logger.warning(f"Failed to persist event to Redis: {e}")

@@ -43,8 +43,8 @@ class MockMCPServer:
 
         if tool_name == "calculate":
             operation = params.get("operation")
-            a = params.get("a")
-            b = params.get("b")
+            a = params.get("a", 0)
+            b = params.get("b", 0)
 
             if operation == "add":
                 return {"result": a + b}

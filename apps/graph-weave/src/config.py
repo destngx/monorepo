@@ -20,5 +20,21 @@ class GraphWeaveConfig:
 
     @staticmethod
     def validate() -> bool:
-        """Validate configuration is valid."""
+        """Validate required configuration is present."""
+        required_keys = [
+            "UPSTASH_REDIS_REST_URL",
+            "UPSTASH_REDIS_REST_TOKEN",
+        ]
+
+        missing = []
+        for key in required_keys:
+            value = getattr(GraphWeaveConfig, key, "")
+            if not value:
+                missing.append(key)
+
+        if missing:
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing)}"
+            )
+
         return True

@@ -5,3 +5,5 @@ pydantic
 pytest
 httpx
 redis
+jsonpath-ng
+requests

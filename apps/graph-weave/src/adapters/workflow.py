@@ -6,7 +6,9 @@ class MockWorkflowStore:
     def __init__(self):
         self._workflows: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-    def create(self, tenant_id: str, workflow: Dict[str, Any]) -> Dict[str, Any]:
+    def create(
+        self, tenant_id: str, workflow: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         if tenant_id not in self._workflows:
             self._workflows[tenant_id] = {}
 
