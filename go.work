@@ -1,3 +1,6 @@
 go 1.26
 
-use ./apps/wealth-management-engine
+use (
+	./apps/wealth-management-engine
+	./apps/ai-gateway
+)

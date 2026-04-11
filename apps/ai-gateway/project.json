@@ -1,0 +1,55 @@
+{
+  "name": "ai-gateway",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/ai-gateway",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mkdir -p dist && go build -o dist/ai-gateway main.go",
+        "cwd": "apps/ai-gateway"
+      },
+      "cache": true,
+      "inputs": ["default", "^default"],
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run .",
+        "cwd": "apps/ai-gateway"
+      },
+      "cache": false
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "mkdir -p \"$PWD/tmp/go-build-cache\" \"$PWD/tmp/go-mod-cache\" && GOCACHE=\"$PWD/tmp/go-build-cache\" GOMODCACHE=\"$PWD/tmp/go-mod-cache\" go test ./...",
+        "cwd": "apps/ai-gateway"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go vet ./...",
+        "cwd": "apps/ai-gateway"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "find . -name '*.go' -not -path './tmp/*' -exec gofmt -w {} +",
+        "cwd": "apps/ai-gateway"
+      }
+    },
+    "tidy": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go mod tidy",
+        "cwd": "apps/ai-gateway"
+      }
+    }
+  }
+}
