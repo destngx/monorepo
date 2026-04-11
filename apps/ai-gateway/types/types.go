@@ -12,6 +12,8 @@ type ChatRequest struct {
 	MaxTokens     *int           `json:"max_tokens,omitempty"`
 	Stop          any            `json:"stop,omitempty"`
 	N             *int           `json:"n,omitempty"`
+	Tools         []Tool         `json:"tools,omitempty"`
+	ToolChoice    any            `json:"tool_choice,omitempty"`
 }
 
 type StreamOptions struct {
@@ -19,8 +21,32 @@ type StreamOptions struct {
 }
 
 type Message struct {
-	Role    string `json:"role"` // "system" | "user" | "assistant"
-	Content string `json:"content"`
+	Role       string     `json:"role"` // "system" | "user" | "assistant" | "tool"
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+}
+
+type Tool struct {
+	Type     string             `json:"type"` // always "function"
+	Function FunctionDefinition `json:"function"`
+}
+
+type FunctionDefinition struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Parameters  any    `json:"parameters,omitempty"` // JSON Schema
+}
+
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"` // always "function"
+	Function FunctionCall `json:"function"`
+}
+
+type FunctionCall struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"` // JSON string
 }
 
 // ChatResponse is the OpenAI-compatible non-streaming response.
@@ -35,8 +61,27 @@ type ChatResponse struct {
 
 type Choice struct {
 	Index        int     `json:"index"`
-	Message      Message `json:"message"`
+	Message      Message `json:"message,omitempty"`
+	Delta        Delta   `json:"delta,omitempty"`
 	FinishReason string  `json:"finish_reason"`
+}
+
+type Delta struct {
+	Role      string          `json:"role,omitempty"`
+	Content   string          `json:"content,omitempty"`
+	ToolCalls []ToolCallChunk `json:"tool_calls,omitempty"`
+}
+
+type ToolCallChunk struct {
+	Index    int           `json:"index"`
+	ID       string        `json:"id,omitempty"`
+	Type     string        `json:"type,omitempty"`
+	Function FunctionChunk `json:"function,omitempty"`
+}
+
+type FunctionChunk struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
 }
 
 // Usage carries token counts — always populated in the gateway response.

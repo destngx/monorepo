@@ -6,6 +6,12 @@ This guide provides technical specifications for client applications integrating
 
 The gateway is typically accessed at: `http://localhost:8080/v1`
 
+**Why `/v1`?**
+This gateway uses the `/v1` path prefix for two main reasons:
+
+1.  **Drop-in Compatibility**: Most AI SDKs (like the `openai` Python/JS packages) expect the base URL to end with `/v1`. Following this convention allows the gateway to function as a seamless replacement for existing integrations.
+2.  **Versioning**: It provides a stable versioning contract. Any future breaking changes can be introduced under `/v2` without disrupting existing v1 clients.
+
 **Authentication:** Clients do not need to provide provider-specific API keys. These are managed by the gateway server via environment variables.
 
 ---
@@ -79,7 +85,42 @@ Converts text inputs into vector representations.
 }
 ```
 
-### 4. Service Health
+### 4. Tool / Function Calling
+
+`POST /v1/chat/completions`
+
+The gateway supports transparent passthrough of OpenAI-compatible tool definitions. It also handles the complex translation between OpenAI and Anthropic tool formats. This allows you to use frameworks like **LangGraph** or **Graph-weave** with any backend.
+
+**Example Request (with Tools):**
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "X-AI-Provider: github" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "What is the weather in London?"}],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get current weather",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {"type": "string"}
+            }
+          }
+        }
+      }
+    ]
+  }'
+```
+
+The gateway will return a standard OpenAI-compatible `tool_calls` object in the response.
+
+### 5. Service Health
 
 `GET /health`
 

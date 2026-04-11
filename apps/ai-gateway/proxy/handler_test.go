@@ -18,10 +18,14 @@ type MockProvider struct {
 	name       string
 	configured bool
 	ready      bool
+	chatResp   *types.ChatResponse
 }
 
 func (m *MockProvider) Name() string { return m.name }
 func (m *MockProvider) Chat(ctx context.Context, req types.ChatRequest) (*types.ChatResponse, error) {
+	if m.chatResp != nil {
+		return m.chatResp, nil
+	}
 	return &types.ChatResponse{
 		ID:      "mock-id",
 		Object:  "chat.completion",
@@ -162,6 +166,54 @@ func TestEmbeddingsHandler(t *testing.T) {
 		json.NewDecoder(rr.Body).Decode(&resp)
 		if len(resp.Data) != 1 || len(resp.Data[0].Embedding) != 2 {
 			t.Errorf("unexpected embeddings response: %+v", resp)
+		}
+	})
+}
+
+func TestToolCallHandler(t *testing.T) {
+	registry := NewRegistry(&config.Config{})
+	mock := &MockProvider{name: "mock", configured: true, ready: true}
+	registry.providers["mock"] = mock
+
+	handler := NewHandler(registry)
+
+	t.Run("Tool Call Response", func(t *testing.T) {
+		// Mock a tool call response
+		mock.chatResp = &types.ChatResponse{
+			Choices: []types.Choice{{
+				Message: types.Message{
+					Role: "assistant",
+					ToolCalls: []types.ToolCall{{
+						ID:   "call_123",
+						Type: "function",
+						Function: types.FunctionCall{
+							Name:      "get_weather",
+							Arguments: `{"location":"London"}`,
+						},
+					}},
+				},
+				FinishReason: "tool_calls",
+			}},
+		}
+
+		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4"})
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
+		req.Header.Set("X-AI-Provider", "mock")
+
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+
+		var resp types.ChatResponse
+		json.NewDecoder(rr.Body).Decode(&resp)
+		if len(resp.Choices[0].Message.ToolCalls) != 1 {
+			t.Errorf("expected 1 tool call, got %d", len(resp.Choices[0].Message.ToolCalls))
+		}
+		if resp.Choices[0].FinishReason != "tool_calls" {
+			t.Errorf("expected finish_reason tool_calls, got %s", resp.Choices[0].FinishReason)
 		}
 	})
 }

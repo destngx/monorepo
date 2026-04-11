@@ -42,11 +42,29 @@ type anthropicRequest struct {
 	Temperature *float64           `json:"temperature,omitempty"`
 	TopP        *float64           `json:"top_p,omitempty"`
 	StopSeqs    []string           `json:"stop_sequences,omitempty"`
+	Tools       []anthropicTool    `json:"tools,omitempty"`
+	ToolChoice  any                `json:"tool_choice,omitempty"`
+}
+
+type anthropicTool struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	InputSchema any    `json:"input_schema"`
 }
 
 type anthropicMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"` // Can be string or []interface{} (blocks)
+}
+
+type anthropicContent struct {
+	Type    string `json:"type"` // "text", "tool_use", or "tool_result"
+	Text    string `json:"text,omitempty"`
+	ID      string `json:"id,omitempty"`          // for tool_use
+	Name    string `json:"name,omitempty"`        // for tool_use
+	Input   any    `json:"input,omitempty"`       // for tool_use
+	ToolID  string `json:"tool_use_id,omitempty"` // for tool_result
+	Content string `json:"content,omitempty"`     // for tool_result
 }
 
 // anthropicResponse represents the Anthropic Messages API response format.
@@ -56,8 +74,11 @@ type anthropicResponse struct {
 	Role    string `json:"role"`
 	Model   string `json:"model"`
 	Content []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
+		Type  string `json:"type"`
+		Text  string `json:"text,omitempty"`
+		ID    string `json:"id,omitempty"`
+		Name  string `json:"name,omitempty"`
+		Input any    `json:"input,omitempty"`
 	} `json:"content"`
 	StopReason string `json:"stop_reason"`
 	Usage      struct {
@@ -80,6 +101,43 @@ func convertToAnthropicRequest(req types.ChatRequest) anthropicRequest {
 			system += m.Content
 			continue
 		}
+
+		if m.Role == "tool" {
+			// OpenAI tool role -> Anthropic tool_result block in a user message
+			messages = append(messages, anthropicMessage{
+				Role: "user",
+				Content: []anthropicContent{{
+					Type:    "tool_result",
+					ToolID:  m.ToolCallID,
+					Content: m.Content,
+				}},
+			})
+			continue
+		}
+
+		if m.Role == "assistant" && len(m.ToolCalls) > 0 {
+			// OpenAI assistant message with tool calls -> Anthropic assistant message with tool_use blocks
+			content := make([]anthropicContent, 0, len(m.ToolCalls)+1)
+			if m.Content != "" {
+				content = append(content, anthropicContent{Type: "text", Text: m.Content})
+			}
+			for _, tc := range m.ToolCalls {
+				var input any
+				json.Unmarshal([]byte(tc.Function.Arguments), &input)
+				content = append(content, anthropicContent{
+					Type:  "tool_use",
+					ID:    tc.ID,
+					Name:  tc.Function.Name,
+					Input: input,
+				})
+			}
+			messages = append(messages, anthropicMessage{
+				Role:    "assistant",
+				Content: content,
+			})
+			continue
+		}
+
 		messages = append(messages, anthropicMessage{
 			Role:    m.Role,
 			Content: m.Content,
@@ -98,6 +156,15 @@ func convertToAnthropicRequest(req types.ChatRequest) anthropicRequest {
 		Messages:    messages,
 		Temperature: req.Temperature,
 		TopP:        req.TopP,
+	}
+
+	// Convert tools
+	for _, t := range req.Tools {
+		ar.Tools = append(ar.Tools, anthropicTool{
+			Name:        t.Function.Name,
+			Description: t.Function.Description,
+			InputSchema: t.Function.Parameters,
+		})
 	}
 
 	// Convert stop sequences
@@ -156,16 +223,29 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 	}
 
 	// Convert Anthropic response back to OpenAI format
-	content := ""
+	var content string
+	var toolCalls []types.ToolCall
 	for _, c := range ar2.Content {
 		if c.Type == "text" {
 			content += c.Text
+		} else if c.Type == "tool_use" {
+			args, _ := json.Marshal(c.Input)
+			toolCalls = append(toolCalls, types.ToolCall{
+				ID:   c.ID,
+				Type: "function",
+				Function: types.FunctionCall{
+					Name:      c.Name,
+					Arguments: string(args),
+				},
+			})
 		}
 	}
 
 	finishReason := "stop"
 	if ar2.StopReason == "max_tokens" {
 		finishReason = "length"
+	} else if ar2.StopReason == "tool_use" {
+		finishReason = "tool_calls"
 	}
 
 	return &types.ChatResponse{
@@ -173,8 +253,12 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 		Object: "chat.completion",
 		Model:  ar2.Model,
 		Choices: []types.Choice{{
-			Index:        0,
-			Message:      types.Message{Role: "assistant", Content: content},
+			Index: 0,
+			Message: types.Message{
+				Role:      "assistant",
+				Content:   content,
+				ToolCalls: toolCalls,
+			},
 			FinishReason: finishReason,
 		}},
 		Usage: types.Usage{
@@ -236,18 +320,55 @@ func (a *AnthropicProvider) convertStreamToOpenAI(body io.Reader, w io.Writer) (
 
 		eventType, _ := event["type"].(string)
 		switch eventType {
-		case "content_block_delta":
-			delta, _ := event["delta"].(map[string]interface{})
-			text, _ := delta["text"].(string)
+		case "content_block_start":
+			index, _ := event["index"].(float64)
+			block, _ := event["content_block"].(map[string]interface{})
+			blockType, _ := block["type"].(string)
 
-			// Emit as OpenAI-compatible chunk
-			chunk := map[string]interface{}{
-				"object": "chat.completion.chunk",
-				"choices": []map[string]interface{}{{
-					"index": 0,
-					"delta": map[string]string{"content": text},
-				}},
+			if blockType == "tool_use" {
+				id, _ := block["id"].(string)
+				name, _ := block["name"].(string)
+				chunk := map[string]interface{}{
+					"object": "chat.completion.chunk",
+					"choices": []map[string]interface{}{{
+						"index": 0,
+						"delta": map[string]interface{}{
+							"tool_calls": []map[string]interface{}{{
+								"index":    int(index),
+								"id":       id,
+								"type":     "function",
+								"function": map[string]string{"name": name},
+							}},
+						},
+					}},
+				}
+				b, _ := json.Marshal(chunk)
+				io.WriteString(w, "data: "+string(b)+"\n\n")
 			}
+
+		case "content_block_delta":
+			index, _ := event["index"].(float64)
+			delta, _ := event["delta"].(map[string]interface{})
+			deltaType, _ := delta["type"].(string)
+
+			chunk := map[string]interface{}{
+				"object":  "chat.completion.chunk",
+				"choices": []map[string]interface{}{{"index": 0}},
+			}
+
+			if deltaType == "text_delta" {
+				text, _ := delta["text"].(string)
+				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]string{"content": text}
+			} else if deltaType == "input_json_delta" {
+				partial, _ := delta["partial_json"].(string)
+				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]interface{}{
+					"tool_calls": []map[string]interface{}{{
+						"index":    int(index),
+						"function": map[string]string{"arguments": partial},
+					}},
+				}
+			}
+
 			b, _ := json.Marshal(chunk)
 			if _, err := io.WriteString(w, "data: "+string(b)+"\n\n"); err != nil {
 				return usage, err

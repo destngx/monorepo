@@ -9,6 +9,7 @@ import (
 	"apps/ai-gateway/types"
 )
 
+// Handler is the primary entry point for the AI Gateway's chat completion interface.
 type Handler struct {
 	registry *Registry
 }
@@ -17,29 +18,22 @@ func NewHandler(registry *Registry) *Handler {
 	return &Handler{registry: registry}
 }
 
-// ServeHTTP routes /v1/chat/completions — fully OpenAI-compatible.
+// ServeHTTP handles the /v1/chat/completions endpoint.
+// It is fully OpenAI-compatible and serves as a universal interface for multiple AI providers.
 //
-// Required client header:
-//
-//	X-AI-Provider: github | openai | anthropic | ollama
-//
-// The model name in the request body is passed directly to the provider.
-// Examples:
-//
-//	GitHub:    "model": "openai/gpt-4.1"
-//	OpenAI:   "model": "gpt-4o"
-//	Anthropic: "model": "claude-3-5-sonnet-20241022"
-//	Ollama:   "model": "llama3.2"
+// Protocol Selection:
+// Clients must specify the target backend using the 'X-AI-Provider' header.
+// Supported values: "github" (default), "openai", "anthropic", "ollama".
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// 1. Resolve provider from header
+	// 1. Provider Resolution: Identify which backend provider to use for this request.
 	providerName := r.Header.Get("X-AI-Provider")
 	if providerName == "" {
-		providerName = "github" // sensible default
+		providerName = "github"
 	}
 	provider, err := h.registry.Get(providerName)
 	if err != nil {
@@ -47,19 +41,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 2. Readiness Check: Ensure the provider has a valid token and is reachable.
 	if !provider.IsReady() {
-		writeError(w, http.StatusNotFound, "provider "+providerName+" not ready (token or ping failed)")
+		writeError(w, http.StatusNotFound, "provider "+providerName+" not ready (token check or upstream ping failed)")
 		return
 	}
 
-	// 2. Decode request
+	// 3. Request Decoding: Standardize the incoming OpenAI-style payload.
 	var req types.ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
 	}
 
-	// 3. Route: streaming vs non-streaming
+	// 4. Mode Routing: Branch into either Synchronous (JSON) or Streaming (SSE) response modes.
 	if req.Stream {
 		h.handleStream(w, r, provider, req)
 	} else {
@@ -67,6 +62,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleSync manages standard Request-Response interactions.
+// It waits for the full upstream response before returning a single JSON object.
 func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request, p interface {
 	Chat(context.Context, types.ChatRequest) (*types.ChatResponse, error)
 }, req types.ChatRequest) {
@@ -79,6 +76,8 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request, p interface
 	json.NewEncoder(w).Encode(resp)
 }
 
+// handleStream manages long-lived Server-Sent Event (SSE) connections.
+// It proxies provider chunks to the client in real-time.
 func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, p interface {
 	ChatStream(context.Context, types.ChatRequest, io.Writer) (types.Usage, error)
 }, req types.ChatRequest) {
@@ -87,21 +86,19 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, p interfa
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
+	if _, ok := w.(http.Flusher); !ok {
+		writeError(w, http.StatusInternalServerError, "streaming not supported by response writer")
 		return
 	}
-	_ = flusher
 
 	_, err := p.ChatStream(r.Context(), req, w)
 	if err != nil {
-		// Stream already started — cannot change status code; write error as SSE
+		// If the stream has already started, we must communicate the error via an SSE data block.
 		w.Write([]byte("data: {\"error\": \"" + err.Error() + "\"}\n\n"))
 	}
 }
 
-// ModelsHandler handles GET /v1/models — proxies to the correct provider.
+// ModelsHandler exposes the /v1/models endpoint to list available capabilities for a provider.
 type ModelsHandler struct {
 	registry *Registry
 }
@@ -141,7 +138,7 @@ func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(models)
 }
 
-// EmbeddingsHandler handles POST /v1/embeddings.
+// EmbeddingsHandler handles the /v1/embeddings endpoint for vector generation.
 type EmbeddingsHandler struct {
 	registry *Registry
 }
@@ -187,6 +184,7 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// writeError provides a uniform JSON error response for all gateway endpoints.
 func writeError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

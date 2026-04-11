@@ -9,22 +9,28 @@ import (
 	"apps/ai-gateway/types"
 )
 
-// streamSSEAndCountTokens pipes SSE bytes to w and returns token usage.
-// It handles both providers that embed usage in the last chunk (OpenAI-style)
-// and those that return usage only on [DONE].
+// streamSSEAndCountTokens proxies Server-Sent Events (SSE) from a provider to a client
+// while simultaneously tracking and estimating token usage.
+//
+// Modern AI providers vary in how they report usage in streams:
+// 1. OpenAI/GitHub: Embed a usage object in the final data chunk.
+// 2. Others: Only signal completion with [DONE], providing no usage data.
+//
+// This function handles both cases by parsing incoming chunks for native usage data
+// and falling back to a character-based estimation if none is provided.
 func streamSSEAndCountTokens(body io.Reader, w io.Writer) (types.Usage, error) {
 	var usage types.Usage
 	var completionTokens int
 
 	scanner := bufio.NewScanner(body)
+	// Use a 64KB buffer to handle large JSON payloads in a single line
 	scanner.Buffer(make([]byte, 1024*64), 1024*64)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Parse only data lines for token extraction
+		// Pass through non-data lines (comments, heartbeats) directly
 		if !strings.HasPrefix(line, "data: ") {
-			// Forward non-data lines (like comments or empty lines)
 			if _, err := io.WriteString(w, line+"\n"); err != nil {
 				return usage, err
 			}
@@ -36,48 +42,55 @@ func streamSSEAndCountTokens(body io.Reader, w io.Writer) (types.Usage, error) {
 			break
 		}
 
-		// Forward data lines (except [DONE] which we handle at the end)
+		// Forward the raw data line to the client immediately for low latency
 		if _, err := io.WriteString(w, line+"\n"); err != nil {
 			return usage, err
 		}
 
-		// Flush if the writer supports it (http.ResponseWriter with Flusher)
+		// Flush ensure the client receives the chunk without buffering delays
 		if f, ok := w.(interface{ Flush() }); ok {
 			f.Flush()
 		}
 
-		// Parse the chunk to extract usage and count completion tokens
+		// Background: Parse the chunk to extract usage and count completion tokens
 		var chunk struct {
 			Choices []struct {
 				Delta struct {
-					Content string `json:"content"`
+					Content   string           `json:"content"`
+					ToolCalls []types.ToolCall `json:"tool_calls"`
 				} `json:"delta"`
 			} `json:"choices"`
 			Usage *types.Usage `json:"usage,omitempty"`
 		}
 
 		if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
+			// Ignore non-standard JSON or malformed chunks during count
 			continue
 		}
 
-		// Accumulate completion tokens from delta content length (approximate)
+		// Track generated content and tool arguments for token estimation
 		if len(chunk.Choices) > 0 {
-			completionTokens += estimateTokens(chunk.Choices[0].Delta.Content)
+			delta := chunk.Choices[0].Delta
+			completionTokens += estimateTokens(delta.Content)
+			for _, tc := range delta.ToolCalls {
+				completionTokens += estimateTokens(tc.Function.Arguments)
+			}
 		}
 
-		// Use exact usage if provider embeds it in stream (OpenAI does this on last chunk)
+		// Capture native usage data if the provider includes it (e.g. OpenAI)
 		if chunk.Usage != nil && chunk.Usage.TotalTokens > 0 {
 			usage = *chunk.Usage
 		}
 	}
 
-	// If provider didn't embed usage, use our estimate and inject it
+	// Finalization: Ensure usage data is always sent to the client
 	if usage.TotalTokens == 0 {
+		// Fallback to estimation for providers like Ollama or Anthropic
 		usage.CompletionTokens = completionTokens
 		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 		injectUsageChunk(w, usage)
 	} else {
-		// Upstream provided usage, but we still need to send the final [DONE]
+		// Signal [DONE] if it wasn't already handled by the usage chunk
 		io.WriteString(w, "data: [DONE]\n\n")
 		if f, ok := w.(interface{ Flush() }); ok {
 			f.Flush()
@@ -87,13 +100,12 @@ func streamSSEAndCountTokens(body io.Reader, w io.Writer) (types.Usage, error) {
 	return usage, scanner.Err()
 }
 
-// estimateTokens provides a rough ~4 chars/token estimate when exact counts
-// are unavailable (e.g., streaming providers that omit usage in chunks).
+// estimateTokens provides a conservative token count estimate (~4 chars per token).
+// This is used as a fallback when the upstream provider does not provide usage stats.
 func estimateTokens(text string) int {
 	if text == "" {
 		return 0
 	}
-	// Approximate: 1 token ≈ 4 characters (English text average)
 	count := len([]rune(text)) / 4
 	if count == 0 {
 		return 1
@@ -101,8 +113,7 @@ func estimateTokens(text string) int {
 	return count
 }
 
-// injectUsageChunk appends a synthetic SSE usage chunk after [DONE].
-// Used when the upstream omits usage data.
+// injectUsageChunk appends a synthetic OpenAI-compatible usage chunk to the stream.
 func injectUsageChunk(w io.Writer, usage types.Usage) {
 	chunk := map[string]interface{}{
 		"object":  "chat.completion.chunk",
@@ -117,7 +128,7 @@ func injectUsageChunk(w io.Writer, usage types.Usage) {
 	}
 }
 
-// MergeUsage combines two Usage structs (for multi-call aggregation).
+// MergeUsage accumulates usage stats across multiple tool-loop iterations.
 func MergeUsage(a, b types.Usage) types.Usage {
 	return types.Usage{
 		PromptTokens:     a.PromptTokens + b.PromptTokens,
