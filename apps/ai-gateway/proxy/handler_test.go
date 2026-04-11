@@ -66,7 +66,7 @@ func TestServeHTTP(t *testing.T) {
 	handler := NewHandler(registry)
 
 	t.Run("Unknown Provider", func(t *testing.T) {
-		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4"})
+		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4.1"})
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
 		req.Header.Set("X-AI-Provider", "unknown")
 
@@ -82,7 +82,7 @@ func TestServeHTTP(t *testing.T) {
 		mock.ready = false
 		defer func() { mock.ready = true }()
 
-		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4"})
+		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4.1"})
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
 		req.Header.Set("X-AI-Provider", "mock")
 
@@ -95,7 +95,7 @@ func TestServeHTTP(t *testing.T) {
 	})
 
 	t.Run("Successful Completion", func(t *testing.T) {
-		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4"})
+		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4.1"})
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
 		req.Header.Set("X-AI-Provider", "mock")
 
@@ -196,7 +196,7 @@ func TestToolCallHandler(t *testing.T) {
 			}},
 		}
 
-		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4"})
+		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4.1"})
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
 		req.Header.Set("X-AI-Provider", "mock")
 

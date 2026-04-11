@@ -1,10 +1,17 @@
 package proxy
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"log"
 	"net/http"
 	"time"
 )
+
+type contextKey string
+
+const requestIDKey contextKey = "requestID"
 
 // Chain applies middlewares in order.
 func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
@@ -14,18 +21,30 @@ func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.
 	return h
 }
 
-// Logger logs method, path, provider, status, and duration.
+// Logger logs method, path, provider, status, and duration, including a unique Request ID.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+
+		// Generate simple RequestID
+		tid := make([]byte, 4)
+		rand.Read(tid)
+		requestID := hex.EncodeToString(tid)
+
+		// Add to context
+		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
+		r = r.WithContext(ctx)
+
 		provider := r.Header.Get("X-AI-Provider")
 		if provider == "" {
 			provider = "github"
 		}
+
 		rw := &responseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
-		log.Printf("[%s] %s %s provider=%s status=%d duration=%s",
-			r.Method, r.URL.Path, r.RemoteAddr, provider, rw.status, time.Since(start))
+
+		log.Printf("[%s] %s %s [ID:%s] provider=%s status=%d duration=%s",
+			r.Method, r.URL.Path, r.RemoteAddr, requestID, provider, rw.status, time.Since(start))
 	})
 }
 

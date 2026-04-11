@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
+	"runtime/debug"
 
 	"apps/ai-gateway/types"
 )
@@ -37,20 +39,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	provider, err := h.registry.Get(providerName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// 2. Readiness Check: Ensure the provider has a valid token and is reachable.
 	if !provider.IsReady() {
-		writeError(w, http.StatusNotFound, "provider "+providerName+" not ready (token check or upstream ping failed)")
+		writeError(w, r, http.StatusNotFound, "provider "+providerName+" not ready (token check or upstream ping failed)")
 		return
 	}
 
 	// 3. Request Decoding: Standardize the incoming OpenAI-style payload.
 	var req types.ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		writeError(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
 	}
 
@@ -69,7 +71,7 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request, p interface
 }, req types.ChatRequest) {
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeError(w, r, http.StatusBadGateway, err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -87,14 +89,21 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, p interfa
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	if _, ok := w.(http.Flusher); !ok {
-		writeError(w, http.StatusInternalServerError, "streaming not supported by response writer")
+		writeError(w, r, http.StatusInternalServerError, "streaming not supported by response writer")
 		return
 	}
 
 	_, err := p.ChatStream(r.Context(), req, w)
 	if err != nil {
+		rid, _ := r.Context().Value(requestIDKey).(string)
+		log.Printf("[ID:%s] STREAM ERROR: %v", rid, err)
 		// If the stream has already started, we must communicate the error via an SSE data block.
-		w.Write([]byte("data: {\"error\": \"" + err.Error() + "\"}\n\n"))
+		errResp := map[string]interface{}{
+			"error": err.Error(),
+			"stack": string(debug.Stack()),
+		}
+		b, _ := json.Marshal(errResp)
+		w.Write([]byte("data: " + string(b) + "\n\n"))
 	}
 }
 
@@ -119,18 +128,18 @@ func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	provider, err := m.registry.Get(providerName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if !provider.IsConfigured() {
-		writeError(w, http.StatusNotFound, "provider "+providerName+" not configured")
+		writeError(w, r, http.StatusNotFound, "provider "+providerName+" not configured")
 		return
 	}
 
 	models, err := provider.ListModels(r.Context())
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeError(w, r, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -159,24 +168,24 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	provider, err := e.registry.Get(providerName)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if !provider.IsReady() {
-		writeError(w, http.StatusNotFound, "provider "+providerName+" not ready")
+		writeError(w, r, http.StatusNotFound, "provider "+providerName+" not ready")
 		return
 	}
 
 	var req types.EmbeddingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		writeError(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
 	}
 
 	resp, err := provider.Embeddings(r.Context(), req)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeError(w, r, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -184,9 +193,17 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// writeError provides a uniform JSON error response for all gateway endpoints.
-func writeError(w http.ResponseWriter, code int, msg string) {
+// writeError provides a uniform JSON error response including a stack trace for debugging.
+func writeError(w http.ResponseWriter, r *http.Request, code int, msg string) {
+	rid, _ := r.Context().Value(requestIDKey).(string)
+	log.Printf("[ID:%s] ERROR: code=%d msg=%s", rid, code, msg)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+
+	resp := map[string]interface{}{
+		"error": msg,
+		"stack": string(debug.Stack()),
+	}
+	json.NewEncoder(w).Encode(resp)
 }
