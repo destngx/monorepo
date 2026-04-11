@@ -32,10 +32,10 @@ func (g *GitHubProvider) Name() string { return "github" }
 
 func (g *GitHubProvider) headers() map[string]string {
 	return map[string]string{
-		"Authorization":       "Bearer " + g.token,
-		"Accept":              "application/vnd.github+json",
+		"Authorization":        "Bearer " + g.token,
+		"Accept":               "application/vnd.github+json",
 		"X-GitHub-Api-Version": "2026-03-10",
-		"Content-Type":        "application/json",
+		"Content-Type":         "application/json",
 	}
 }
 
@@ -131,7 +131,7 @@ func (g *GitHubProvider) ListModels(ctx context.Context) (*types.ModelsResponse,
 	models := make([]types.ModelInfo, 0, len(catalog))
 	for _, m := range catalog {
 		models = append(models, types.ModelInfo{
-			ID:      m.Name,
+			ID:      m.ID,
 			Object:  "model",
 			OwnedBy: m.Publisher,
 		})
@@ -168,5 +168,5 @@ func (g *GitHubProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (g *GitHubProvider) IsReady() bool { return g.ready }
+func (g *GitHubProvider) IsReady() bool   { return g.ready }
 func (g *GitHubProvider) SetReady(r bool) { g.ready = r }
