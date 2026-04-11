@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"fmt"
+	"log"
 
 	"apps/ai-gateway/config"
 	"apps/ai-gateway/providers"
@@ -12,28 +13,27 @@ type Registry struct {
 	providers map[string]providers.Provider
 }
 
-// NewRegistry initialises all configured providers.
-// A provider is registered only if its credentials are present.
+// NewRegistry initialises all providers.
+// It logs a warning if a provider is missing its configuration.
 func NewRegistry(cfg *config.Config) *Registry {
 	r := &Registry{providers: make(map[string]providers.Provider)}
 
-	if cfg.GitHubToken != "" {
-		p := providers.NewGitHub(cfg.GitHubToken)
-		r.providers[p.Name()] = p
-	}
-	if cfg.OpenAIKey != "" {
-		p := providers.NewOpenAI(cfg.OpenAIKey)
-		r.providers[p.Name()] = p
-	}
-	if cfg.AnthropicKey != "" {
-		p := providers.NewAnthropic(cfg.AnthropicKey)
-		r.providers[p.Name()] = p
-	}
-	// Ollama is always available (local, no key needed)
-	p := providers.NewOllama(cfg.OllamaBaseURL)
-	r.providers[p.Name()] = p
+	// Register all providers regardless of config
+	r.register(providers.NewGitHub(cfg.GitHubToken))
+	r.register(providers.NewOpenAI(cfg.OpenAIKey))
+	r.register(providers.NewAnthropic(cfg.AnthropicKey))
+	r.register(providers.NewOllama(cfg.OllamaBaseURL))
 
 	return r
+}
+
+func (r *Registry) register(p providers.Provider) {
+	r.providers[p.Name()] = p
+	if !p.IsConfigured() {
+		log.Printf("[WARN] Provider %q missing credentials; will return 404 on use", p.Name())
+	} else {
+		log.Printf("[INFO] Provider %q initialized", p.Name())
+	}
 }
 
 // Get returns the provider for the given name.

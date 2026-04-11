@@ -302,3 +302,7 @@ func (a *AnthropicProvider) ListModels(_ context.Context) (*types.ModelsResponse
 		Data:   knownModels,
 	}, nil
 }
+
+func (a *AnthropicProvider) IsConfigured() bool {
+	return a.apiKey != ""
+}

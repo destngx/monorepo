@@ -89,3 +89,7 @@ func (o *OllamaProvider) ListModels(ctx context.Context) (*types.ModelsResponse,
 	}
 	return &result, nil
 }
+
+func (o *OllamaProvider) IsConfigured() bool {
+	return true // Ollama is local, always "configured"
+}

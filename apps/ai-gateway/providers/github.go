@@ -141,3 +141,7 @@ func (g *GitHubProvider) ListModels(ctx context.Context) (*types.ModelsResponse,
 		Data:   models,
 	}, nil
 }
+
+func (g *GitHubProvider) IsConfigured() bool {
+	return g.token != ""
+}

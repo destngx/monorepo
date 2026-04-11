@@ -21,4 +21,7 @@ type Provider interface {
 
 	// ListModels returns the available models from the provider.
 	ListModels(ctx context.Context) (*types.ModelsResponse, error)
+
+	// IsConfigured returns true if the provider has all required credentials.
+	IsConfigured() bool
 }

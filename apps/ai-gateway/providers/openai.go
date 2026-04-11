@@ -93,3 +93,7 @@ func (o *OpenAIProvider) ListModels(ctx context.Context) (*types.ModelsResponse,
 	}
 	return &result, nil
 }
+
+func (o *OpenAIProvider) IsConfigured() bool {
+	return o.apiKey != ""
+}

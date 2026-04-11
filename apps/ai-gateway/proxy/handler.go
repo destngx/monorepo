@@ -47,6 +47,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !provider.IsConfigured() {
+		writeError(w, http.StatusNotFound, "provider "+providerName+" not configured")
+		return
+	}
+
 	// 2. Decode request
 	var req types.ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -118,6 +123,11 @@ func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	provider, err := m.registry.Get(providerName)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if !provider.IsConfigured() {
+		writeError(w, http.StatusNotFound, "provider "+providerName+" not configured")
 		return
 	}
 
