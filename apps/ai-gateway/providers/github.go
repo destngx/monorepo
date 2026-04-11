@@ -70,6 +70,7 @@ func (g *GitHubProvider) Chat(ctx context.Context, req types.ChatRequest) (*type
 
 func (g *GitHubProvider) ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error) {
 	req.Stream = true
+	req.StreamOptions = &types.StreamOptions{IncludeUsage: true}
 	body, _ := json.Marshal(req)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,

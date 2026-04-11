@@ -22,7 +22,21 @@ func streamSSEAndCountTokens(body io.Reader, w io.Writer) (types.Usage, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Forward every line to the client as-is (zero-copy passthrough)
+		// Parse only data lines for token extraction
+		if !strings.HasPrefix(line, "data: ") {
+			// Forward non-data lines (like comments or empty lines)
+			if _, err := io.WriteString(w, line+"\n"); err != nil {
+				return usage, err
+			}
+			continue
+		}
+
+		payload := strings.TrimPrefix(line, "data: ")
+		if payload == "[DONE]" {
+			break
+		}
+
+		// Forward data lines (except [DONE] which we handle at the end)
 		if _, err := io.WriteString(w, line+"\n"); err != nil {
 			return usage, err
 		}
@@ -30,15 +44,6 @@ func streamSSEAndCountTokens(body io.Reader, w io.Writer) (types.Usage, error) {
 		// Flush if the writer supports it (http.ResponseWriter with Flusher)
 		if f, ok := w.(interface{ Flush() }); ok {
 			f.Flush()
-		}
-
-		// Parse only data lines for token extraction
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-		payload := strings.TrimPrefix(line, "data: ")
-		if payload == "[DONE]" {
-			break
 		}
 
 		// Parse the chunk to extract usage and count completion tokens
@@ -66,10 +71,17 @@ func streamSSEAndCountTokens(body io.Reader, w io.Writer) (types.Usage, error) {
 		}
 	}
 
-	// If provider didn't embed usage, use our estimate
+	// If provider didn't embed usage, use our estimate and inject it
 	if usage.TotalTokens == 0 {
 		usage.CompletionTokens = completionTokens
-		// PromptTokens are estimated by callers or left at 0 for stream mode
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+		injectUsageChunk(w, usage)
+	} else {
+		// Upstream provided usage, but we still need to send the final [DONE]
+		io.WriteString(w, "data: [DONE]\n\n")
+		if f, ok := w.(interface{ Flush() }); ok {
+			f.Flush()
+		}
 	}
 
 	return usage, scanner.Err()

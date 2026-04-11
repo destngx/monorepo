@@ -54,6 +54,7 @@ func (o *OpenAIProvider) Chat(ctx context.Context, req types.ChatRequest) (*type
 
 func (o *OpenAIProvider) ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error) {
 	req.Stream = true
+	req.StreamOptions = &types.StreamOptions{IncludeUsage: true}
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		openaiBaseURL+"/chat/completions", bytes.NewReader(body))
@@ -118,5 +119,5 @@ func (o *OpenAIProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (o *OpenAIProvider) IsReady() bool { return o.ready }
+func (o *OpenAIProvider) IsReady() bool   { return o.ready }
 func (o *OpenAIProvider) SetReady(r bool) { o.ready = r }
