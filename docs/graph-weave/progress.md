@@ -2,12 +2,12 @@
 
 ## Phases
 
-| Phase | Status       | Goal                                                 | Linked components                                                                   |
-| ----- | ------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| SPEC  | ✅ completed | Fully stabilize spec documents before coding         | `[[specification/README]]`, `[[intent/README]]`, `[[delta-changes.md]]`             |
-| MOCK  | ✅ completed | Build working app with mocked responses and logic    | `[[specification/workflow-schema/README]]`, `[[specification/architecture/README]]` |
-| MVP   | ✅ completed | Implement the minimal executable real workflow stack | `[[specification/runtime/README]]`, `[[specification/data/README]]`                 |
-| FULL  | ⏳ pending   | Add guardrails, tenant isolation, RBAC, true scaling | `[[specification/runtime/README]]`, `[[specification/data/README]]`                 |
+| Phase | Status         | Goal                                                 | Linked components                                                                   |
+| ----- | -------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| SPEC  | ✅ completed   | Fully stabilize spec documents before coding         | `[[specification/README]]`, `[[intent/README]]`, `[[delta-changes.md]]`             |
+| MOCK  | ✅ completed   | Build working app with mocked responses and logic    | `[[specification/workflow-schema/README]]`, `[[specification/architecture/README]]` |
+| MVP   | ⏳ in progress | Implement the minimal executable real workflow stack | `[[specification/runtime/README]]`, `[[specification/data/README]]`                 |
+| FULL  | ⏳ pending     | Add guardrails, tenant isolation, RBAC, true scaling | `[[specification/runtime/README]]`, `[[specification/data/README]]`                 |
 
 ## MOCK Phase Status: ✅ COMPLETE
 
@@ -17,9 +17,9 @@
   - Achieved 100% test coverage for MOCK scope (205 tests passing).
   - All endpoints handle basic validation, error standardization, and mock logic.
 
-## MVP Phase Status: ✅ COMPLETE (Verified 2026-04-11)
+## MVP Phase Status: ⏳ IN PROGRESS (Pivoted to AI Gateway 2026-04-12)
 
-**Objective**: Replace mocks with real minimum implementations (real LangGraph, real Redis, real MCP). LLM provider defaults to GitHub Copilot (`claude-3.5-sonnet`) using `GITHUB_TOKEN`.
+**Objective**: Replace mocks with real minimum implementations (real LangGraph, real Redis, real MCP). LLM provider is now routed through the `ai-gateway` proxy to support multi-provider fallback and translation.
 
 **Task Refinements**: Split overly large tasks and then expanded the runtime hardening surface, resulting in 19 MVP tasks with documented dependencies and verification coverage.
 

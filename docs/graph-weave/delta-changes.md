@@ -74,6 +74,13 @@ This file is the incremental memory for GraphWeave. It preserves choices and con
   - **Verification Doc**: `[[GW-MVP-RUNTIME-210-VERIFICATION]]` — 9 verification approaches (unit, Nx, OAuth, enterprise, alt providers, error handling ×4, path correctness, credential logging check, runtime integration).
   - **Status**: ✅ Complete — script works, Nx target integrated, docs in sync.
 
+- 2026-04-12 — **AI Gateway Integration & MVP Pivot**:
+  - **Decision**: Re-opened MVP phase (status: ⏳ In Progress) to replace direct LLM provider calls with the `ai-gateway` application. This ensures unified tool-calling translation (Anthropic/OpenAI) and better observability from the start.
+  - **Task Refactor**: `[[GW-MVP-RUNTIME-202B]]` refactored to use `AIGatewayClient` instead of direct GitHub Copilot SDK.
+  - **Verification Update**: `[[GW-MVP-E2E-002]]` updated to verify proxy connectivity, header propagation (`X-AI-Provider`), and the tool "ping-pong" loop through the gateway.
+  - **Environment Change**: Replaced `GITHUB_TOKEN` with `AI_GATEWAY_URL` and `AI_GATEWAY_PROVIDER` in MVP requirements.
+  - **Documentation**: Updated `runtime/README.md` to mandate `ai-gateway` usage and include references to the [AI Gateway Integration Guide](file:///Users/destnguyxn/projects/monorepo/docs/ai-gateway/API_GUIDE.md).
+
 - **Post-MVP / FULL Phase Backlog**:
   - Update tests to match new factory behavior
   - Real GitHub Copilot token testing (requires account upgrade)

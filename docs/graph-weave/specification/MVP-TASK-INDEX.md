@@ -46,12 +46,12 @@
 - **Deliverables**: `src/adapters/langgraph_graph_builder.py`, `tests/test_langgraph_graph_builder.py` (12+ tests)
 - **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-202A.md]]`
 
-#### GW-MVP-RUNTIME-202B: LLM & MCP Tool Integration (1.5h)
+#### GW-MVP-RUNTIME-202B: LLM Proxy & MCP Tool Integration (1.5h)
 
-- **Objective**: GitHub Copilot AI integration with MCP tool routing (load_skill, search, verify)
+- **Objective**: AI integration via `ai-gateway` proxy with MCP tool routing (load_skill, search, verify)
 - **Blocked By**: DATA-201B
 - **Blocks**: RUNTIME-202C
-- **Deliverables**: `src/adapters/mcp_router.py`, `tests/test_mcp_router.py` (15+ tests)
+- **Deliverables**: `src/adapters/ai_gateway_adapter.py`, `src/adapters/mcp_router.py`, `tests/test_ai_gateway_adapter.py`
 - **File**: `[[runtime/tasks/MVP/GW-MVP-RUNTIME-202B.md]]`
 
 #### GW-MVP-RUNTIME-202C: Executor & Stagnation Detection (1h)
@@ -205,7 +205,8 @@ Critical Path: DATA-201A (1.5h) → DATA-201B (1.5h) → RUNTIME-202B (1.5h) →
 | -------------------------- | ----------------------------------------------------------------------------- | ----- |
 | `UPSTASH_REDIS_REST_URL`   | DATA-201A/B, RUNTIME-201/202A/B/C, RUNTIME-203, DATA-202/203, E2E-001/002/003 | MVP   |
 | `UPSTASH_REDIS_REST_TOKEN` | DATA-201A/B, RUNTIME-201/202A/B/C, RUNTIME-203, DATA-202/203, E2E-001/002/003 | MVP   |
-| `GITHUB_TOKEN`             | RUNTIME-202B, E2E-002 (GitHub Copilot AI provider access)                     | MVP   |
+| `AI_GATEWAY_URL`           | RUNTIME-202B, E2E-002 (AI Gateway Proxy Base URL)                             | MVP   |
+| `AI_GATEWAY_PROVIDER`      | RUNTIME-202B, E2E-002 (Provider to use via gateway: e.g., 'github', 'openai') | MVP   |
 
 **Reference**: `[[../README.md#environment-configuration-rules]]`
 

@@ -1,6 +1,6 @@
-# GW-MVP-RUNTIME-202B: LLM & MCP Tool Integration
+# GW-MVP-RUNTIME-202B: AI Gateway Proxy & MCP Tool Integration
 
-**Objective**: Integrate GitHub Copilot AI provider with MCP tool routing (load_skill, search, verify) for agent decision making.
+**Objective**: Integrate the `ai-gateway` proxy for LLM interactions and MCP tool routing. This decouples the runtime from specific provider SDKs and leverages the gateway's unified OpenAI-compatible API.
 
 **Phase**: [MVP]
 
@@ -14,164 +14,81 @@
 
 ### Functional
 
-- GitHub Copilot API integration (token-based authentication via GITHUB_TOKEN)
-- **Per-node provider routing**: support multiple LLM providers (GitHub Copilot, OpenAI, etc.)
-- **Per-node model override**: each agent_node can specify custom model
-- Per-node temperature and max_tokens override
-- System + user prompt formatting (from node config)
-- Tool call parsing from LLM responses
-- MCP tool routing: load_skill, search, verify (subset per node's tools list)
-- Tool response formatting for agent feedback
-- Streaming support (for token-level feedback)
-- Graceful handling of malformed tool calls
-- Retry on transient API failures
+- **Unified API Client**: Use a standard OpenAI-compatible client pointing to the `ai-gateway` base URL.
+- **Provider Header Propagation**: Inject the `X-AI-Provider` header into every request based on node configuration.
+- **Per-node model override**: Each `agent_node` can specify a custom model name recognized by the proxy backend.
+- **System + user prompt formatting**: Consistent with OpenAI message format.
+- **Tool call parsing**: Extract `tool_calls` from the gateway's OpenAI-compatible response.
+- **MCP tool routing**: Route recognized tools (`load_skill`, `search`, `verify`) to the local `MCPRouter`.
+- **Tool Result Loop**: Implement the multi-step "ping-pong" interaction (role: "tool", `tool_call_id`) as specified in the `AI_GATEWAY_GUIDE`.
+- **Streaming support**: Handle server-sent events (SSE) from the gateway.
 
 ### Non-Functional
 
-- LLM API calls <5s for typical queries (per provider)
-- Tool routing deterministic (same input → same tool call)
-- Memory efficient (no unnecessary context retention)
-- Tool response caching (same query → cached response)
-- Support for multiple providers simultaneously (different nodes can use different providers)
+- **Authentication Statelessness**: No provider-specific API keys stored in GraphWeave; authentication is handled by the gateway.
+- **Low Latency**: Gateway overhead should be <50ms p99.
+- **Retry Logic**: Handle 502/504 errors from the gateway with exponential backoff.
 
 ## Implementation Approach
 
-1. Create `src/adapters/mcp_router.py`:
-   - `MCPRouter` class:
-     - `load_skill(skill_name)` → MarkdownContent
-     - `search(query)` → SearchResults
-     - `verify(claim)` → VerificationResult
-   - Tool call handlers with error recovery
-   - Response formatting for LLM consumption
-   - Response caching decorator
-   - **Provider router**:
-     - `get_provider_client(provider_name, model_name)` → LLM client
-     - Support GitHub Copilot (github), OpenAI (openai), etc.
-     - Validate provider API keys loaded (from .env)
+1. **Create `src/adapters/ai_gateway_adapter.py`**:
+   - `AIGatewayClient` class:
+     - Initialize with `base_url` (e.g., `http://localhost:8080/v1`).
+     - `chat_completion(messages, tools, provider, model, ...)` method.
+     - Automatically injects `X-AI-Provider` and `Content-Type: application/json`.
+     - Handles streaming vs. sync response parsing.
 
-2. Update `src/adapters/langgraph_executor.py`:
-   - Agent node function now receives per-node config:
-     - `provider`, `model`, `temperature`, `max_tokens`, `tools`
-   - Route to appropriate LLM provider based on node config
-   - Format system + user prompts using node-specific templates
-   - Parse tool calls from LLM response
-   - Filter tool calls by node's allowed tools list
-   - Route through MCPRouter
-   - Retry on failure
-   - Accumulate results in state
+2. **Update `src/adapters/mcp_router.py`**:
+   - Maintain the tool execution logic for `load_skill`, `search`, and `verify`.
+   - Ensure output is formatted into the `content` string expected by the OpenAI `tool` role.
 
-3. Provider configuration:
-
-   ```python
-   PROVIDER_CONFIGS = {
-     "github": {
-       "required_env": "GITHUB_TOKEN",
-       "models": ["claude-3.5-sonnet", "claude-3-opus", ...],
-       "default_model": "claude-3.5-sonnet"
-     },
-     "openai": {
-       "required_env": "OPENAI_API_KEY",
-       "models": ["gpt-4", "gpt-4-turbo", ...],
-       "default_model": "gpt-4"
-     }
-   }
-   ```
-
-4. Implementation notes:
-   - Use GitHub Copilot SDK (via GITHUB_TOKEN authentication)
-   - Mock provider responses in tests (don't make real API calls)
-   - Tool results cached in Redis via RedisClient
-   - Streaming setup for token-level feedback (for future)
-   - Node-level tools list constrains which MCP tools can be called
+3. **Update `src/adapters/langgraph_executor.py`**:
+   - Agent nodes now use the `AIGatewayClient`.
+   - Implement the tool loop:
+     1. Send prompt + tools to Gateway.
+     2. If `tool_calls` returned:
+        a. Loop through tool calls, execute via `MCPRouter`.
+        b. Append assistant message (with `tool_calls`) and tool results (role: "tool") to history.
+        c. Re-submit to Gateway.
+     3. Return final content output.
 
 ## Acceptance Criteria
 
-- [ ] GitHub Copilot API integrated (not mock)
-- [ ] Tool calls parsed correctly from GitHub Copilot responses
-- [ ] MCP tools called for load_skill, search, verify
-- [ ] Tool responses formatted for agent feedback
-- [ ] Streaming support implemented
-- [ ] Error handling: malformed tool calls logged
-- [ ] All tests passing (15+ tests)
-- [ ] lsp_diagnostics clean
+- [ ] `AIGatewayClient` successfully routes calls through the proxy on `port 8080`.
+- [ ] `X-AI-Provider` header is correctly set from node configuration.
+- [ ] Tool calls are parsed correctly from the Gateway's translated response (e.g., even if backend is Anthropic).
+- [ ] Tool loop (ping-pong) completes successfully for complex multi-tool queries.
+- [ ] Error handling: 502/504 status codes from the gateway triggered retries.
+- [ ] Verification evidence: Successful routing to 'github' and 'anthropic' backends via gateway.
 
 ## Related Requirements
 
-- FR-RUNTIME-050 [MVP]: Agent must use real MCP tools for skill loading, search, verification
-- FR-RUNTIME-041 [MVP,FULL]: Level 1 skill frontmatter must always be loaded before routing
+- FR-RUNTIME-050 [MVP]: Use the `ai-gateway` proxy for all LLM-driven decision nodes.
+- FR-GATEWAY-001 [FULL]: Reference the `[[../../ai-gateway/API_GUIDE]]` for protocol compliance.
 
-## Deliverables
+## Environment Variables
 
-1. `src/adapters/mcp_router.py` (120 LOC)
-2. Update `src/adapters/langgraph_executor.py` (100 LOC)
-3. `tests/test_mcp_router.py` (200+ LOC, 15+ tests)
+| Variable              | Purpose                                                   |
+| --------------------- | --------------------------------------------------------- |
+| `AI_GATEWAY_URL`      | Base URL of the proxy (default: http://localhost:8080/v1) |
+| `DEFAULT_AI_PROVIDER` | Fallback backend if not specified in node config.         |
 
 ## Test Coverage (15+ tests)
 
 ### Unit Tests
 
-- [ ] MCPRouter.load_skill("research") returns markdown
-- [ ] MCPRouter.search("quantum computing") returns results
-- [ ] MCPRouter.verify("Earth is flat") returns verdict
-- [ ] Tool response formatting: markdown preserved
-- [ ] Tool response formatting: JSON cleaned
-- [ ] Prompt formatting: system prompt included
-- [ ] Prompt formatting: variables interpolated
-- [ ] Tool call parsing: extract tool_name and arguments
-- [ ] Tool call parsing: malformed response handled
-- [ ] **Provider routing: GitHub Copilot provider returns Copilot client**
-- [ ] **Provider routing: OpenAI provider returns OpenAI client**
-- [ ] **Provider API key validation: missing GITHUB_TOKEN raises error**
-- [ ] **Model validation: unknown model for provider raises error**
-- [ ] **Temperature validation: value outside [0,1] raises error**
-- [ ] **Tools list filtering: only allowed tools called**
+- [ ] `AIGatewayClient` generates correct headers for different providers.
+- [ ] `AIGatewayClient` formats tool results according to OpenAI spec (`tool_call_id`).
+- [ ] `MCPRouter` produces strings compatible with the gateway's "content" field.
 
-### Integration Tests (with LLM API keys)
+### Integration Tests (requires running ai-gateway)
 
-- [ ] LLM call succeeds with valid prompt via GitHub Copilot
-- [ ] LLM call succeeds with valid prompt via OpenAI
-- [ ] LLM response includes expected tool calls
-- [ ] Tool routing: load_skill called → SkillService invoked
-- [ ] Tool routing: search called → search service invoked
-- [ ] Tool routing: verify called → verification service invoked
-- [ ] Error handling: API rate limit caught and retried
-- [ ] Error handling: Invalid API key caught
-- [ ] **Provider switching: same workflow can use multiple providers in different nodes**
-- [ ] **Per-node temperature affects response consistency**
+- [ ] Connectivity check: Gateway `/health` is reachable.
+- [ ] Happy path: Single prompt to `github` provider via proxy returns text.
+- [ ] Tool path: "What is the weather?" triggers `get_weather` call through proxy.
+- [ ] Provider switching: Verify different nodes hit different backends via same gateway client.
 
-## Error Scenarios
+## Reference Documents
 
-- [ ] Invalid tool name in LLM response → logged, retry
-- [ ] Tool call missing required arguments → logged, agent retry
-- [ ] LLM API timeout (>10s) → retry once, then error
-- [ ] MCP service unavailable → tool fails gracefully
-- [ ] Malformed JSON in response → parsed safely
-- [ ] **Invalid provider name → error with supported providers list**
-- [ ] **Invalid model for provider → error with supported models list**
-
-## Environment Variables
-
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
-- `GITHUB_TOKEN` (GitHub Copilot authentication)
-- `OPENAI_API_KEY` (if using OpenAI provider)
-
-**Reference**: See `[[../../../../../../README.md#environment-configuration-rules]]` for configuration strategy.
-
-## Implementation Notes
-
-- Use GitHub Copilot SDK with GITHUB_TOKEN (token-based authentication)
-- Mock MCP services in tests (use fixtures)
-- Implement tool result caching (same query → cached response)
-- Response formatting: preserve markdown structure
-- This task depends on DATA-201A/B (Redis for caching)
-- This task blocks RUNTIME-202C (executor needs this)
-- Prerequisite for E2E-002 (agent execution testing)
-
-## Testing Strategy
-
-- Unit: Tool response formatting, prompt formatting, parsing
-- Integration: Real GitHub Copilot API (use test token), mock MCP services
-- Error scenarios: API failures, malformed responses, service unavailability
-- Caching: Verify same query returns cached result
-- Streaming: Setup only (full streaming in later phases)
+- [AI Gateway API Guide](file:///Users/destnguyxn/projects/monorepo/docs/ai-gateway/API_GUIDE.md)
+- [Tool Calling Guide](file:///Users/destnguyxn/projects/monorepo/docs/ai-gateway/tools/TOOL_CALLING_GUIDE.md)
