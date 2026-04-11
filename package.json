@@ -81,7 +81,7 @@
     "jest-util": "30.3.0",
     "lint-staged": "^15.0.0",
     "nx": "22.6.4",
-    "postcss": "8.5.8",
+    "postcss": "8.5.9",
     "prettier": "^3.0.0",
     "prettier-plugin-svelte": "^3.5.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
