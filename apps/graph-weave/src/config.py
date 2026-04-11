@@ -21,20 +21,13 @@ class GraphWeaveConfig:
     @staticmethod
     def validate() -> bool:
         """Validate required configuration is present."""
-        required_keys = [
-            "UPSTASH_REDIS_REST_URL",
-            "UPSTASH_REDIS_REST_TOKEN",
-        ]
-
-        missing = []
-        for key in required_keys:
-            value = getattr(GraphWeaveConfig, key, "")
-            if not value:
-                missing.append(key)
-
-        if missing:
+        # Redis is optional for local development/testing
+        # In production, UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN should be set
+        if (
+            GraphWeaveConfig.UPSTASH_REDIS_REST_URL
+            and not GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN
+        ):
             raise ValueError(
-                f"Missing required environment variables: {', '.join(missing)}"
+                "UPSTASH_REDIS_REST_TOKEN is required when UPSTASH_REDIS_REST_URL is set"
             )
-
         return True

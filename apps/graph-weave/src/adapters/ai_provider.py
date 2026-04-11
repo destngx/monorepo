@@ -5,11 +5,17 @@ Includes the existing deterministic mock provider and a GitHub Copilot-backed
 provider for the MVP integration path.
 """
 
-from typing import Protocol, TypedDict, cast
+from typing import Protocol, TypedDict, cast, Optional, Dict, Any
 import os
 import json
+import time
+import logging
+import threading
 
 import httpx
+
+
+logger = logging.getLogger(__name__)
 
 
 class AIProvider(Protocol):
@@ -41,12 +47,17 @@ class CopilotResponse(TypedDict):
     model: str
 
 
+class CopilotTokenCache(TypedDict):
+    token: str
+    expires_at: float
+
+
 class MockAIProvider:
     """Mock AI provider that returns deterministic responses based on prompt type and content."""
 
     def __init__(self):
         """Initialize the mock AI provider."""
-        self._call_count = 0
+        self._call_count: int = 0
 
     def call(
         self,
@@ -58,7 +69,6 @@ class MockAIProvider:
     ) -> dict[str, object]:
         self._call_count += 1
 
-        # Determine response type based on prompt keywords
         content = self._generate_response(system_prompt, user_prompt)
 
         return {
@@ -216,9 +226,50 @@ class MockAIProvider:
 
 
 class GitHubCopilotProvider:
-    def __init__(self, token: str, base_url: str = "https://api.githubcopilot.com"):
-        self.token: str = token
+    """GitHub Copilot provider with cached token management and retry logic."""
+
+    _token_lock: threading.Lock = threading.Lock()
+
+    def __init__(
+        self,
+        gh_token: str,
+        base_url: str = "https://api.githubcopilot.com",
+        max_retries: int = 2,
+    ):
+        self.gh_token: str = gh_token
         self.base_url: str = base_url.rstrip("/")
+        self.max_retries: int = max_retries
+        self._cached_token: Optional[CopilotTokenCache] = None
+
+    def get_copilot_token(self) -> str:
+        """Get or refresh GitHub Copilot token (cached for 5 mins)."""
+        now = time.time()
+
+        if self._cached_token and self._cached_token["expires_at"] > now + 300:
+            return self._cached_token["token"]
+
+        with self._token_lock:
+            if self._cached_token and self._cached_token["expires_at"] > now + 300:
+                return self._cached_token["token"]
+
+            logger.debug("Fetching new Copilot token from GitHub API")
+            response = httpx.get(
+                "https://api.github.com/copilot_internal/v2/token",
+                headers={
+                    "Authorization": f"token {self.gh_token}",
+                    "Accept": "application/json",
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            self._cached_token = {
+                "token": data["token"],
+                "expires_at": data["expires_at"],
+            }
+            logger.debug(f"Copilot token refreshed, expires at {data['expires_at']}")
+            return data["token"]
 
     def call(
         self,
@@ -228,34 +279,135 @@ class GitHubCopilotProvider:
         temperature: float = 0.7,
         max_tokens: int = 2000,
     ) -> dict[str, object]:
-        response = httpx.post(
-            f"{self.base_url}/chat/completions",
-            json={
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            },
-            headers={"Authorization": f"Bearer {self.token}"},
-            timeout=30,
-        )
-        _ = response.raise_for_status()
-        payload = cast(CopilotResponse, response.json())
+        """Call GitHub Copilot API with retry and error recovery."""
+        last_error: Optional[Exception] = None
 
-        choices = payload["choices"]
-        content = choices[0]["message"]["content"]
-        return {
-            "content": content,
-            "tokens_used": payload.get("usage", {}).get("total_tokens", 0),
-            "model": payload.get("model", model),
-        }
+        for attempt in range(self.max_retries):
+            try:
+                copilot_token = self.get_copilot_token()
+
+                payload: Dict[str, Any] = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                }
+                payload = {k: v for k, v in payload.items() if v is not None}
+
+                response = httpx.post(
+                    f"{self.base_url}/chat/completions",
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {copilot_token}",
+                        "Editor-Version": "vscode/1.80.0",
+                        "Editor-Plugin-Version": "copilot-chat/0.1.0",
+                    },
+                    timeout=30,
+                )
+
+                if response.status_code == 401:
+                    self._cached_token = None
+                    if attempt < self.max_retries - 1:
+                        logger.warning("Token expired (401); refreshing and retrying")
+                        continue
+                    raise httpx.HTTPStatusError(
+                        "Copilot token refresh failed",
+                        request=response.request,
+                        response=response,
+                    )
+
+                if response.status_code == 429:
+                    wait_time = 2**attempt
+                    if attempt < self.max_retries - 1:
+                        logger.warning(
+                            f"Rate limited; waiting {wait_time}s before retry"
+                        )
+                        time.sleep(wait_time)
+                        continue
+
+                response.raise_for_status()
+
+                data = cast(CopilotResponse, response.json())
+
+                if "choices" not in data or not data["choices"]:
+                    raise ValueError("Invalid API response: no choices returned")
+
+                content = data["choices"][0]["message"]["content"]
+                return {
+                    "content": content,
+                    "tokens_used": data.get("usage", {}).get("total_tokens", 0),
+                    "model": data.get("model", model),
+                }
+
+            except httpx.ConnectError as e:
+                last_error = e
+                if attempt < self.max_retries - 1:
+                    wait_time = 2**attempt
+                    logger.warning(
+                        f"Connection error (attempt {attempt + 1}/{self.max_retries}); "
+                        f"waiting {wait_time}s: {e}"
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(
+                        f"Failed to reach Copilot API after {self.max_retries} attempts"
+                    )
+                    raise ConnectionError(
+                        f"Failed to reach Copilot API after {self.max_retries} attempts"
+                    ) from e
+
+            except httpx.TimeoutException as e:
+                last_error = e
+                if attempt < self.max_retries - 1:
+                    logger.warning(
+                        f"Request timeout (attempt {attempt + 1}/{self.max_retries}); retrying"
+                    )
+                    continue
+                logger.error("Request timeout after all retries")
+                raise
+
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
+                logger.error(f"Invalid response from Copilot API: {e}", exc_info=True)
+                raise ValueError(f"Copilot API returned invalid response: {e}") from e
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("Unexpected state: no error or valid response")
 
 
 def create_ai_provider(use_github_provider: bool = False) -> AIProvider:
-    token = os.getenv("GITHUB_TOKEN")
-    if token:
-        return GitHubCopilotProvider(token=token)
-    raise RuntimeError("GITHUB_TOKEN is required for GitHub Copilot provider")
+    """
+    Create AI provider with fallback chain.
+
+    Priority:
+    1. GitHub Copilot (if GITHUB_TOKEN set, or use_github_provider=True)
+    2. Mock provider (fallback for testing/dev)
+
+    Args:
+        use_github_provider: Force GitHub provider (for health checks)
+
+    Returns:
+        AIProvider instance
+    """
+    gh_token = os.getenv("GITHUB_TOKEN")
+
+    # Use GitHub provider if token exists OR explicitly requested
+    if gh_token or use_github_provider:
+        if gh_token:
+            logger.info("Creating GitHubCopilotProvider (GITHUB_TOKEN found)")
+            try:
+                return GitHubCopilotProvider(gh_token=gh_token)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create GitHub provider: {e}, falling back to mock"
+                )
+                return MockAIProvider()
+        else:
+            logger.warning("GitHub provider requested but GITHUB_TOKEN not set")
+            return MockAIProvider()
+
+    logger.info("Creating MockAIProvider (no GitHub token, using mock mode)")
+    return MockAIProvider()

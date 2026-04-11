@@ -35,6 +35,13 @@
         "cwd": "apps/graph-weave"
       },
       "inputs": ["default", "{projectRoot}/tests/e2e/**/*"]
+    },
+    "setup-github-token": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".venv/bin/python scripts/setup_github_token.py",
+        "cwd": "apps/graph-weave"
+      }
     }
   }
 }

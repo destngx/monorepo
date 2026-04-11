@@ -76,6 +76,8 @@ class MockLangGraphExecutor:
         workflow_id = workflow.get("workflow_id", "unknown")
         tenant_id = workflow.get("metadata", {}).get("tenant_id", "unknown")
 
+        workflow = self._normalize_workflow(workflow)
+
         state: ExecutorState = {
             "input": input_data,
             "step": 0,
@@ -174,10 +176,32 @@ class MockLangGraphExecutor:
     def set_current_run_id(self, run_id: str) -> None:
         self._current_run_id = run_id
 
+    def _normalize_workflow(self, workflow: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize workflow to ensure nodes, edges, and limits are at top level.
+        Handles both nested (definition) and flat structures.
+        """
+        if "nodes" in workflow:
+            return workflow
+
+        definition = workflow.get("definition", {})
+        if "nodes" in definition:
+            workflow["nodes"] = definition.get("nodes", [])
+            workflow["edges"] = definition.get("edges", [])
+            workflow["limits"] = definition.get("limits", workflow.get("limits", {}))
+            workflow["entry_point"] = definition.get("entry_point")
+            workflow["exit_point"] = definition.get("exit_point")
+
+        return workflow
+
     def get_events(self, run_id: str) -> List[Dict[str, Any]]:
         return self.execution_events.get(run_id, [])
 
     def _find_entry_node(self, workflow: Dict[str, Any]) -> Optional[str]:
+        definition = workflow.get("definition", {})
+        entry_point = definition.get("entry_point")
+        if entry_point:
+            return entry_point
         for node in workflow.get("nodes", []):
             if node.get("type") == "entry":
                 return node.get("id")
@@ -315,6 +339,10 @@ class MockLangGraphExecutor:
         return next_node_id
 
     def _find_exit_node(self, workflow: Dict[str, Any]) -> Optional[str]:
+        definition = workflow.get("definition", {})
+        exit_point = definition.get("exit_point")
+        if exit_point:
+            return exit_point
         for node in workflow.get("nodes", []):
             if node.get("type") == "exit":
                 return node.get("id")

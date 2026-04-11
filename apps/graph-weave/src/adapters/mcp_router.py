@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Protocol, Callable, TypeVar, cast
 import os
 import json
 import hashlib
+import threading
 from functools import wraps
 from .ai_provider import AIProvider, GitHubCopilotProvider, MockAIProvider
 from .mcp import MockMCPServer
@@ -36,11 +37,13 @@ PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
         "required_env": "GITHUB_TOKEN",
         "models": ["claude-3.5-sonnet", "claude-3-opus", "gpt-4", "claude-3-sonnet"],
         "default_model": "claude-3.5-sonnet",
+        "allow_fallback": True,
     },
     "openai": {
         "required_env": "OPENAI_API_KEY",
         "models": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
         "default_model": "gpt-4",
+        "allow_fallback": False,
     },
 }
 
@@ -90,15 +93,20 @@ class MCPRouter:
     def __init__(self, mcp_server: Optional[MockMCPServer] = None):
         self.mcp_server = mcp_server or MockMCPServer()
         self._provider_cache: Dict[str, LLMClient] = {}
+        self._cache_lock = threading.Lock()
 
     def get_provider_client(
-        self, provider_name: str, model_name: Optional[str] = None
+        self,
+        provider_name: str,
+        model_name: Optional[str] = None,
+        allow_fallback: Optional[bool] = None,
     ) -> LLMClient:
         """Get or create provider client for given provider and model.
 
         Args:
             provider_name: Provider name (github, openai)
             model_name: Optional model name override
+            allow_fallback: Override fallback behavior (None = use config default)
 
         Returns:
             LLM client instance
@@ -116,10 +124,25 @@ class MCPRouter:
 
         env_key: str = cast(str, config["required_env"])
         api_key = os.getenv(env_key, "")
+
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        fallback_enabled = (
+            allow_fallback
+            if allow_fallback is not None
+            else config.get("allow_fallback", False)
+        )
+
         if not api_key:
-            raise ProviderConfigError(
-                f"Missing required environment variable: {env_key}"
-            )
+            if fallback_enabled:
+                logger.warning(f"No {env_key} found; falling back to MockAIProvider")
+                return MockAIProvider()
+            else:
+                raise ProviderConfigError(
+                    f"Missing required environment variable: {env_key}"
+                )
 
         model = model_name or cast(str, config["default_model"])
         supported_models: List[str] = cast(List[str], config["models"])
@@ -132,18 +155,57 @@ class MCPRouter:
 
         cache_key = f"{provider_name}:{model}"
 
-        if cache_key in self._provider_cache:
-            return self._provider_cache[cache_key]
+        with self._cache_lock:
+            if cache_key in self._provider_cache:
+                logger.debug(f"Cache hit: {cache_key}")
+                return self._provider_cache[cache_key]
+
+        logger.info(f"Creating provider instance: {provider_name}:{model}")
+        try:
+            client = self._instantiate_provider(provider_name, api_key, model)
+        except Exception as e:
+            logger.error(
+                f"Provider instantiation failed: {provider_name}:{model}", exc_info=True
+            )
+            raise ProviderConfigError(
+                f"Failed to create {provider_name} provider: {e}"
+            ) from e
+
+        with self._cache_lock:
+            self._provider_cache[cache_key] = client
+
+        logger.debug(f"Cached new provider: {cache_key}")
+        return client
+
+    def _instantiate_provider(
+        self, provider_name: str, api_key: str, model: str
+    ) -> LLMClient:
+        """Instantiate provider client with validation.
+
+        Args:
+            provider_name: Provider name
+            api_key: API key/token
+            model: Model name
+
+        Returns:
+            Instantiated provider client
+
+        Raises:
+            ProviderConfigError: If instantiation fails
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
 
         if provider_name == "github":
-            client = GitHubCopilotProvider(token=api_key)
+            logger.debug(f"Creating GitHubCopilotProvider for model {model}")
+            return GitHubCopilotProvider(gh_token=api_key)
         elif provider_name == "openai":
-            client = MockAIProvider()
+            logger.debug(f"Using MockAIProvider for openai (not yet implemented)")
+            return MockAIProvider()
         else:
-            client = MockAIProvider()
-
-        self._provider_cache[cache_key] = client
-        return client
+            logger.debug(f"Using MockAIProvider for unknown provider {provider_name}")
+            return MockAIProvider()
 
     @_tool_response_cache
     def load_skill(self, skill_name: str) -> Dict[str, Any]:

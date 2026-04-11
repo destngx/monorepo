@@ -161,7 +161,83 @@ async def validation_exception_handler(request, exc):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    """Health check for all external services."""
+    health_status = {"status": "ok", "services": {}}
+
+    cache = get_cache()
+    try:
+        cache.set("health_check", "ok")
+        cache.get("health_check")
+        health_status["services"]["redis"] = {"status": "healthy"}
+    except Exception as e:
+        logger.warning(f"Redis health check failed: {e}")
+        health_status["services"]["redis"] = {"status": "unhealthy", "error": str(e)}
+        health_status["status"] = "unhealthy"
+        return health_status
+
+    try:
+        from .adapters.ai_provider import GitHubCopilotProvider
+        import httpx
+
+        gh_token = os.getenv("GITHUB_TOKEN")
+        if gh_token:
+            try:
+                provider = GitHubCopilotProvider(gh_token=gh_token)
+                token = provider.get_copilot_token()
+                if token:
+                    health_status["services"]["github_copilot"] = {"status": "healthy"}
+                else:
+                    health_status["services"]["github_copilot"] = {
+                        "status": "unavailable",
+                        "reason": "Failed to obtain token",
+                    }
+                    health_status["status"] = "degraded"
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 403:
+                    logger.info("GitHub account lacks Copilot access (expected)")
+                    health_status["services"]["github_copilot"] = {
+                        "status": "unavailable",
+                        "reason": "Account lacks Copilot subscription (403)",
+                    }
+                    health_status["status"] = "degraded"
+                else:
+                    logger.warning(f"GitHub Copilot health check failed: {e}")
+                    health_status["services"]["github_copilot"] = {
+                        "status": "unhealthy",
+                        "error": f"API error: {e}",
+                    }
+                    health_status["status"] = "degraded"
+            except httpx.HTTPError as e:
+                logger.warning(f"GitHub Copilot connection error: {e}")
+                health_status["services"]["github_copilot"] = {
+                    "status": "unreachable",
+                    "error": f"Connection error: {e}",
+                }
+                health_status["status"] = "degraded"
+            except Exception as e:
+                logger.warning(f"GitHub Copilot health check error: {e}")
+                health_status["services"]["github_copilot"] = {
+                    "status": "unhealthy",
+                    "error": str(e),
+                }
+                health_status["status"] = "degraded"
+        else:
+            logger.debug("GITHUB_TOKEN not set; GitHub Copilot provider unavailable")
+            health_status["services"]["github_copilot"] = {
+                "status": "unavailable",
+                "reason": "GITHUB_TOKEN not configured",
+            }
+            health_status["status"] = "degraded"
+
+    except Exception as e:
+        logger.error(f"Unexpected error in GitHub Copilot health check: {e}")
+        health_status["services"]["github_copilot"] = {
+            "status": "error",
+            "error": str(e),
+        }
+        health_status["status"] = "degraded"
+
+    return health_status
 
 
 @app.get("/api/docs")

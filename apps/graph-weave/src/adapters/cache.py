@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+import json
 
 try:
     import redis
@@ -102,13 +103,17 @@ class RedisAdapter(MockRedisAdapter):
     def set(self, key: str, value: Any) -> None:
         super().set(key, value)
         if hasattr(self._client, "set"):
-            self._client.set(key, value)
+            serialized = json.dumps(value) if not isinstance(value, str) else value
+            self._client.set(key, serialized)
 
     def get(self, key: str) -> Optional[Any]:
         if hasattr(self._client, "get"):
             value = self._client.get(key)
             if value is not None:
-                return value
+                try:
+                    return json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    return value
         return super().get(key)
 
     def delete(self, key: str) -> None:
