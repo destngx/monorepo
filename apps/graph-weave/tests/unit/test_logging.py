@@ -1,7 +1,7 @@
 import pytest
 import logging
 from io import StringIO
-from src.logging import setup_logging, ColorFormatter, get_logger
+from src.app_logging import setup_logging, ColorFormatter, get_logger
 
 
 class TestColorizedLogging:
