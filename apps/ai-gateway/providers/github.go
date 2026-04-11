@@ -98,6 +98,35 @@ func (g *GitHubProvider) ChatStream(ctx context.Context, req types.ChatRequest, 
 	return usage, err
 }
 
+func (g *GitHubProvider) Embeddings(ctx context.Context, req types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		githubBaseURL+"/embeddings", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range g.headers() {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := g.client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github embeddings error %d: %s", resp.StatusCode, b)
+	}
+
+	var result types.EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // ListModels fetches the model catalog from GitHub Models API.
 func (g *GitHubProvider) ListModels(ctx context.Context) (*types.ModelsResponse, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, githubCatalogURL, nil)

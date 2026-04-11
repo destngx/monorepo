@@ -67,6 +67,30 @@ func (o *OllamaProvider) ChatStream(ctx context.Context, req types.ChatRequest, 
 }
 
 // ListModels fetches the locally available models from Ollama.
+func (o *OllamaProvider) Embeddings(ctx context.Context, req types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
+	body, _ := json.Marshal(req)
+	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
+		o.baseURL+"/v1/embeddings", bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ollama embeddings error %d: %s", resp.StatusCode, b)
+	}
+
+	var result types.EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (o *OllamaProvider) ListModels(ctx context.Context) (*types.ModelsResponse, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, o.baseURL+"/v1/models", nil)
 	if err != nil {
@@ -113,5 +137,5 @@ func (o *OllamaProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (o *OllamaProvider) IsReady() bool { return o.ready }
+func (o *OllamaProvider) IsReady() bool   { return o.ready }
 func (o *OllamaProvider) SetReady(r bool) { o.ready = r }

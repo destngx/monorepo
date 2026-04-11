@@ -14,10 +14,12 @@ func main() {
 	registry := proxy.NewRegistry(cfg)
 	handler := proxy.NewHandler(registry)
 	modelsHandler := proxy.NewModelsHandler(registry)
+	embeddingsHandler := proxy.NewEmbeddingsHandler(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/chat/completions", handler)
 	mux.Handle("/v1/models", modelsHandler)
+	mux.Handle("/v1/embeddings", embeddingsHandler)
 	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{

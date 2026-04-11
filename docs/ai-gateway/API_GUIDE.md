@@ -55,7 +55,31 @@ Follows the standard OpenAI Request Body format. Use the `"stream"` property to 
 
 Returns a list of models available from the provider specified in the `X-AI-Provider` header.
 
-### 3. Service Health
+### 3. Embeddings
+
+`POST /v1/embeddings`
+
+Converts text inputs into vector representations.
+
+**Example Request:**
+
+```json
+{
+  "model": "text-embedding-3-small",
+  "input": "Semantic search is powerful"
+}
+```
+
+**Example Request (Batch):**
+
+```json
+{
+  "model": "text-embedding-3-small",
+  "input": ["First sentence", "Second sentence"]
+}
+```
+
+### 4. Service Health
 
 `GET /health`
 

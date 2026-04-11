@@ -169,9 +169,9 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 	}
 
 	return &types.ChatResponse{
-		ID:      ar2.ID,
-		Object:  "chat.completion",
-		Model:   ar2.Model,
+		ID:     ar2.ID,
+		Object: "chat.completion",
+		Model:  ar2.Model,
 		Choices: []types.Choice{{
 			Index:        0,
 			Message:      types.Message{Role: "assistant", Content: content},
@@ -289,7 +289,11 @@ func (a *AnthropicProvider) convertStreamToOpenAI(body io.Reader, w io.Writer) (
 
 // ListModels returns a curated list of known Anthropic models.
 // Anthropic does not provide a public model listing API.
-func (a *AnthropicProvider) ListModels(_ context.Context) (*types.ModelsResponse, error) {
+func (a *AnthropicProvider) Embeddings(ctx context.Context, req types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
+	return nil, fmt.Errorf("embeddings not supported by anthropic")
+}
+
+func (a *AnthropicProvider) ListModels(ctx context.Context) (*types.ModelsResponse, error) {
 	knownModels := []types.ModelInfo{
 		{ID: "claude-sonnet-4-20250514", Object: "model", OwnedBy: "anthropic"},
 		{ID: "claude-haiku-4-20250514", Object: "model", OwnedBy: "anthropic"},
@@ -332,5 +336,5 @@ func (a *AnthropicProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (a *AnthropicProvider) IsReady() bool { return a.ready }
+func (a *AnthropicProvider) IsReady() bool   { return a.ready }
 func (a *AnthropicProvider) SetReady(r bool) { a.ready = r }

@@ -19,8 +19,11 @@ type Provider interface {
 	// It returns the accumulated usage after the stream ends.
 	ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error)
 
-	// ListModels returns the available models from the provider.
-	ListModels(ctx context.Context) (*types.ModelsResponse, error)
+	// ListModels returns the available models for this provider.
+	ListModels(context.Context) (*types.ModelsResponse, error)
+
+	// Embeddings generates vector representations for the given input.
+	Embeddings(context.Context, types.EmbeddingRequest) (*types.EmbeddingResponse, error)
 
 	// IsConfigured returns true if the provider has all required credentials.
 	IsConfigured() bool

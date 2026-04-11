@@ -141,6 +141,52 @@ func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(models)
 }
 
+// EmbeddingsHandler handles POST /v1/embeddings.
+type EmbeddingsHandler struct {
+	registry *Registry
+}
+
+func NewEmbeddingsHandler(registry *Registry) *EmbeddingsHandler {
+	return &EmbeddingsHandler{registry: registry}
+}
+
+func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	providerName := r.Header.Get("X-AI-Provider")
+	if providerName == "" {
+		providerName = "github"
+	}
+	provider, err := e.registry.Get(providerName)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if !provider.IsReady() {
+		writeError(w, http.StatusNotFound, "provider "+providerName+" not ready")
+		return
+	}
+
+	var req types.EmbeddingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	resp, err := provider.Embeddings(r.Context(), req)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 func writeError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

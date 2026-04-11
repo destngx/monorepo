@@ -71,6 +71,31 @@ func (o *OpenAIProvider) ChatStream(ctx context.Context, req types.ChatRequest, 
 }
 
 // ListModels fetches the model list from OpenAI API.
+func (o *OpenAIProvider) Embeddings(ctx context.Context, req types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
+	body, _ := json.Marshal(req)
+	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
+		openaiBaseURL+"/embeddings", bytes.NewReader(body))
+	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("openai embeddings error %d: %s", resp.StatusCode, b)
+	}
+
+	var result types.EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (o *OpenAIProvider) ListModels(ctx context.Context) (*types.ModelsResponse, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, openaiBaseURL+"/models", nil)
 	if err != nil {
