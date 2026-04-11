@@ -16,11 +16,22 @@ import hashlib
 import threading
 from functools import wraps
 from .ai_provider import AIProvider, GitHubCopilotProvider, MockAIProvider
+from .ai_gateway_adapter import AIGatewayClient
 from .mcp import MockMCPServer
 
 
 class LLMClient(Protocol):
     """Protocol for LLM provider clients."""
+
+    def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        provider: str,
+        model: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+    ) -> Dict[str, Any]: ...
 
     def call(
         self,
@@ -35,8 +46,14 @@ class LLMClient(Protocol):
 PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
     "github": {
         "required_env": "GITHUB_TOKEN",
-        "models": ["claude-3.5-sonnet", "claude-3-opus", "gpt-4", "claude-3-sonnet"],
-        "default_model": "claude-3.5-sonnet",
+        "models": [
+            "claude-3.5-sonnet",
+            "claude-3-opus",
+            "gpt-4",
+            "gpt-4.1",
+            "claude-3-sonnet",
+        ],
+        "default_model": "gpt-4.1",
         "allow_fallback": True,
     },
     "openai": {
@@ -197,16 +214,66 @@ class MCPRouter:
 
         logger = logging.getLogger(__name__)
 
-        if provider_name == "github":
-            logger.debug(f"Creating GitHubCopilotProvider for model {model}")
-            return GitHubCopilotProvider(gh_token=api_key)
-        elif provider_name == "openai":
-            logger.debug(f"Using MockAIProvider for openai (not yet implemented)")
-            return MockAIProvider()
-        else:
-            logger.debug(f"Using MockAIProvider for unknown provider {provider_name}")
-            return MockAIProvider()
+        # Now all providers route through AI Gateway for unified tool calling
+        logger.info(f"Routing provider {provider_name} through AI Gateway")
+        return cast(LLMClient, AIGatewayClient())
 
+    def get_tool_definitions(
+        self, allowed_tools: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get OpenAI-compatible tool definitions for the registered MCP tools.
+        
+        Args:
+            allowed_tools: Optional list of tools to include.
+            
+        Returns:
+            List of tool definitions.
+        """
+        tools = []
+        for tool in self.mcp_server.list_tools():
+            name = tool["name"]
+            if allowed_tools is None or name in allowed_tools:
+                tools.append(
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "description": tool["description"],
+                            "parameters": tool["inputSchema"],
+                        },
+                    }
+                )
+        return tools
+
+    def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a tool by name and arguments.
+        
+        Args:
+            name: Tool name.
+            arguments: Tool arguments.
+            
+        Returns:
+            Execution result.
+        """
+        if name not in VALID_TOOLS:
+            raise ToolExecutionError(f"Unknown tool: {name}")
+
+        try:
+            if name == "load_skill":
+                return self.load_skill(arguments.get("skill_name", ""))
+            elif name == "search":
+                return self.search(arguments.get("query", ""))
+            elif name == "verify":
+                return self.verify(arguments.get("claim", ""))
+            
+            # Fallback to direct MCP call if not handled by specific methods
+            return self.mcp_server.call_tool(name, arguments)
+            
+        except Exception as e:
+            logger.error(f"Error executing tool {name}: {e}")
+            raise ToolExecutionError(f"Tool {name} failed: {e}")
     @_tool_response_cache
     def load_skill(self, skill_name: str) -> Dict[str, Any]:
         """Load a skill and return its markdown content.
@@ -277,6 +344,7 @@ class MCPRouter:
             ToolExecutionError: If tool call fails
         """
         try:
+            # For MVP, focusing on standard mock response
             return {
                 "tool": "verify",
                 "claim": claim,

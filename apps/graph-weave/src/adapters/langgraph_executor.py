@@ -19,7 +19,8 @@ import time
 import logging
 
 from .ai_provider import AIProvider, MockAIProvider
-from .mcp_router import MCPRouter, ProviderConfigError
+from .ai_gateway_adapter import AIGatewayClient
+from .mcp_router import MCPRouter, ProviderConfigError, ToolExecutionError
 from .stagnation_detector import StagnationDetector
 from .redis_circuit_breaker import NamespacedRedisClient
 
@@ -695,34 +696,99 @@ class RealLangGraphExecutor:
         allowed_tools = config.get("tools", [])
 
         try:
-            if provider and provider != "default":
-                provider_client = self.mcp_router.get_provider_client(provider, model)
-                ai_response = provider_client.call(
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    model=model,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-            else:
-                ai_response = self.ai_provider.call(
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    model=model,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
+            # Use Gateway client for unified interaction
+            client = cast(AIGatewayClient, self.mcp_router.get_provider_client(provider, model))
+            
+            # Initial state for the tool loop
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            # Extract tool definitions from MCPRouter
+            tools = self.mcp_router.get_tool_definitions(allowed_tools)
+            
+            self._emit_event(run_id, "agent.request", {
+                "node_id": node_id,
+                "provider": provider,
+                "model": model,
+                "tool_count": len(tools)
+            })
 
-            content = str(ai_response.get("content", ""))
+            # The "Ping-Pong" Tool Loop
+            max_turns = 5
+            turns = 0
+            final_content = ""
+            total_tokens = 0
+            
+            while turns < max_turns:
+                turns += 1
+                
+                response = client.chat_completion(
+                    messages=messages,
+                    provider=provider,
+                    model=model,
+                    tools=tools if tools else None,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                
+                total_tokens += response.get("usage", {}).get("total_tokens", 0)
+                choice = response["choices"][0]
+                message = choice["message"]
+                
+                # Check for tool_calls in the structured response
+                tool_calls = message.get("tool_calls")
+                
+                if not tool_calls:
+                    final_content = message.get("content", "")
+                    break
+                
+                # Add assistant message (with tool_calls) to history
+                messages.append(message)
+                
+                self._emit_event(run_id, "agent.tool_calls", {
+                    "node_id": node_id,
+                    "count": len(tool_calls)
+                })
 
+                # Execute all requested tools
+                for tool_call in tool_calls:
+                    tool_id = tool_call["id"]
+                    tool_name = tool_call["function"]["name"]
+                    tool_args = json.loads(tool_call["function"]["arguments"])
+                    
+                    try:
+                        self._emit_event(run_id, "tool.started", {"tool": tool_name, "id": tool_id})
+                        tool_result = self.mcp_router.execute_tool(tool_name, tool_args)
+                        
+                        # Add tool result to history
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_id,
+                            "content": json.dumps(tool_result)
+                        })
+                        self._emit_event(run_id, "tool.completed", {"tool": tool_name, "id": tool_id})
+                    except Exception as e:
+                        logger.error(f"Tool {tool_name} failed: {e}")
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_id,
+                            "content": json.dumps({"error": str(e)})
+                        })
+                        self._emit_event(run_id, "tool.failed", {"tool": tool_name, "id": tool_id, "error": str(e)})
+
+            # Finalize node results
             try:
-                result_data = json.loads(content)
+                result_data = json.loads(final_content)
             except json.JSONDecodeError:
-                result_data = {"raw_response": content}
+                result_data = {"raw_response": final_content}
 
             return {
                 f"{node_id}_output": result_data,
                 f"{node_id}_status": "completed",
+                "tokens_used": total_tokens,
+                "turns": turns
             }
 
         except ProviderConfigError as e:

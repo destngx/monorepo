@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 from .config import GraphWeaveConfig
-from .logging import setup_logging, get_logger
+from .app_logging import setup_logging, get_logger
 from .modules.shared.deps import (
     init_services,
     get_cache,
