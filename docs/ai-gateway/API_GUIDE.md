@@ -85,6 +85,37 @@ Converts text inputs into vector representations.
 }
 ```
 
+- [Streaming (SSE)](./STREAMING.md)
+- [Synchronous (JSON)](./JSON_HANDLING.md)
+- [Tool/Function Calling](./tools/TOOL_CALLING_GUIDE.md)
+- [Rate Limiting](./RATE_LIMITING.md)
+
+---
+
+## Observability & Debugging
+
+### Request IDs
+
+Every request to the AI Gateway is assigned a unique **Request ID** (e.g., `[ID:a4b1]`). This ID appears in:
+
+1.  **Server Logs**: To correlate request summaries with specific error details.
+2.  **Error Responses**: Included in the `stack` trace field.
+
+### Error Format
+
+The Gateway provides a uniform JSON error response that includes diagnostic data.
+
+```json
+{
+  "error": "Short description of the error",
+  "stack": "Long string containing the Go stack trace and Request ID",
+  "status": 502
+}
+```
+
+- **429 Too Many Requests**: Triggered when the [Local Rate Limit](./RATE_LIMITING.md) is hit.
+- **502 Bad Gateway**: Triggered when the upstream provider fails.
+
 ### 4. Tool / Function Calling
 
 `POST /v1/chat/completions`

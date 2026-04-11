@@ -53,15 +53,25 @@ The gateway also tracks `tool_calls` in streams. It extracts the `arguments` del
 
 ---
 
-## Usage Injection
+## Error Handling in Streams
 
-For providers that do not support OpenAI's `stream_options: {"include_usage": true}`, the Gateway performs **Synthetic Injection**:
+Errors can occur at two stages of a stream:
 
-1. After receiving the final `[DONE]` signal from the provider, the Gateway holds the connection open for a millisecond.
-2. It constructs a final `openai-compatible` chunk containing the accumulated `usage` object.
-3. It emits this synthetic chunk followed by a final `[DONE]`.
+### 1. Connection Initialization
 
-This ensures that libraries like the OpenAI Python SDK can correctly populate the `.usage` field even for local Ollama models.
+If the [Rate Limit](./RATE_LIMITING.md) is exceeded before the stream begins, the Gateway returns a standard **HTTP 429** response.
+
+### 2. Mid-Stream Failure
+
+If the provider fails _after_ the stream has started, the Gateway cannot change the HTTP status code. Instead, it emits a final JSON data block containing the error:
+
+```json
+data: {"error": "upstream timeout", "stack": "...", "status": 502}
+```
+
+### Request ID Correlation
+
+A unique **Request ID** is injected into every stream log. Use this ID to match client-side errors with specific failure points in the server logs.
 
 ---
 

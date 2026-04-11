@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"runtime/debug"
 
+	"apps/ai-gateway/providers"
 	"apps/ai-gateway/types"
 )
 
@@ -71,7 +72,11 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request, p interface
 }, req types.ChatRequest) {
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
-		writeError(w, r, http.StatusBadGateway, err.Error())
+		if _, ok := err.(*providers.ErrRateLimitExceeded); ok {
+			writeError(w, r, http.StatusTooManyRequests, err.Error())
+		} else {
+			writeError(w, r, http.StatusBadGateway, err.Error())
+		}
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -97,10 +102,17 @@ func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, p interfa
 	if err != nil {
 		rid, _ := r.Context().Value(requestIDKey).(string)
 		log.Printf("[ID:%s] STREAM ERROR: %v", rid, err)
+
+		status := http.StatusBadGateway
+		if _, ok := err.(*providers.ErrRateLimitExceeded); ok {
+			status = http.StatusTooManyRequests
+		}
+
 		// If the stream has already started, we must communicate the error via an SSE data block.
 		errResp := map[string]interface{}{
-			"error": err.Error(),
-			"stack": string(debug.Stack()),
+			"error":  err.Error(),
+			"stack":  string(debug.Stack()),
+			"status": status,
 		}
 		b, _ := json.Marshal(errResp)
 		w.Write([]byte("data: " + string(b) + "\n\n"))
@@ -185,7 +197,11 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := provider.Embeddings(r.Context(), req)
 	if err != nil {
-		writeError(w, r, http.StatusBadGateway, err.Error())
+		if _, ok := err.(*providers.ErrRateLimitExceeded); ok {
+			writeError(w, r, http.StatusTooManyRequests, err.Error())
+		} else {
+			writeError(w, r, http.StatusBadGateway, err.Error())
+		}
 		return
 	}
 

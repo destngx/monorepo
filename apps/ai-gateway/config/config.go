@@ -3,9 +3,15 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
+
+type ProviderConfig struct {
+	RPM   int
+	Burst int
+}
 
 type Config struct {
 	GitHubToken   string
@@ -13,6 +19,11 @@ type Config struct {
 	AnthropicKey  string
 	OllamaBaseURL string
 	ListenAddr    string
+
+	GitHubRate    ProviderConfig
+	OpenAIRate    ProviderConfig
+	AnthropicRate ProviderConfig
+	OllamaRate    ProviderConfig
 }
 
 func Load() *Config {
@@ -39,11 +50,35 @@ func Load() *Config {
 	if addr == "" {
 		addr = ":8080"
 	}
+
 	return &Config{
 		GitHubToken:   os.Getenv("GITHUB_TOKEN"),
 		OpenAIKey:     os.Getenv("OPENAI_API_KEY"),
 		AnthropicKey:  os.Getenv("ANTHROPIC_API_KEY"),
 		OllamaBaseURL: ollamaBase,
 		ListenAddr:    addr,
+
+		GitHubRate:    loadProviderRate("GITHUB"),
+		OpenAIRate:    loadProviderRate("OPENAI"),
+		AnthropicRate: loadProviderRate("ANTHROPIC"),
+		OllamaRate:    loadProviderRate("OLLAMA"),
+	}
+}
+
+func loadProviderRate(prefix string) ProviderConfig {
+	rpm, _ := strconv.Atoi(os.Getenv(prefix + "_RATE_RPM"))
+	burst, _ := strconv.Atoi(os.Getenv(prefix + "_RATE_BURST"))
+
+	// Default burst to RPM / 10 if not specified, at least 1
+	if rpm > 0 && burst == 0 {
+		burst = rpm / 10
+		if burst < 1 {
+			burst = 1
+		}
+	}
+
+	return ProviderConfig{
+		RPM:   rpm,
+		Burst: burst,
 	}
 }

@@ -58,9 +58,10 @@ The Gateway provides a unified JSON error format regardless of the upstream prov
 
 ### Response Codes
 
-- **400 Bad Request**: Local validation failure (missing header, bad JSON).
-- **404 Not Found**: Configuration issue (provider exists but no API key provided) or ping failure.
-- **502 Bad Gateway**: Upstream failure (the AI Provider timed out or returned an error).
+- **429 Too Many Requests**: Triggered when the [Local Rate Limit](./RATE_LIMITING.md) is hit.
+- **502 Bad Gateway**: Triggered when the upstream provider fails.
+
+Every error includes a unique **Request ID** in the logs (and the `stack` field) for easy correlation.
 
 ---
 

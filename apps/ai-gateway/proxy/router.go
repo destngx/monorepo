@@ -21,10 +21,25 @@ func NewRegistry(cfg *config.Config) *Registry {
 	r := &Registry{providers: make(map[string]providers.Provider)}
 
 	// Register all providers regardless of config
-	r.register(providers.NewGitHub(cfg.GitHubToken))
-	r.register(providers.NewOpenAI(cfg.OpenAIKey))
-	r.register(providers.NewAnthropic(cfg.AnthropicKey))
-	r.register(providers.NewOllama(cfg.OllamaBaseURL))
+	r.register(providers.NewRateLimitedProvider(
+		providers.NewGitHub(cfg.GitHubToken),
+		cfg.GitHubRate.RPM, cfg.GitHubRate.Burst,
+	))
+
+	r.register(providers.NewRateLimitedProvider(
+		providers.NewOpenAI(cfg.OpenAIKey),
+		cfg.OpenAIRate.RPM, cfg.OpenAIRate.Burst,
+	))
+
+	r.register(providers.NewRateLimitedProvider(
+		providers.NewAnthropic(cfg.AnthropicKey),
+		cfg.AnthropicRate.RPM, cfg.AnthropicRate.Burst,
+	))
+
+	r.register(providers.NewRateLimitedProvider(
+		providers.NewOllama(cfg.OllamaBaseURL),
+		cfg.OllamaRate.RPM, cfg.OllamaRate.Burst,
+	))
 
 	return r
 }
