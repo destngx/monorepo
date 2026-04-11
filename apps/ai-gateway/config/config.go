@@ -16,8 +16,19 @@ type Config struct {
 }
 
 func Load() *Config {
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, consuming environment variables directly")
+	envPath := os.Getenv("ENV_PATH")
+	if envPath == "" {
+		envPath = ".env.local"
+	}
+
+	if err := godotenv.Load(envPath); err != nil {
+		if os.Getenv("ENV_PATH") != "" {
+			log.Printf("Warning: custom env file %q not found", envPath)
+		} else {
+			log.Println("No env file found, consuming environment variables directly")
+		}
+	} else {
+		log.Printf("Loaded environment from %q", envPath)
 	}
 
 	ollamaBase := os.Getenv("OLLAMA_BASE_URL")
