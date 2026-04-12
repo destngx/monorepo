@@ -3,7 +3,7 @@ tmp_dir = "tmp/air"
 
 [build]
 cmd = "go build -o ./tmp/air/engine main.go"
-bin = "./tmp/air/engine"
+entrypoint = "./tmp/air/engine"
 full_bin = "./tmp/air/engine"
 include_ext = ["go"]
 exclude_dir = ["tmp", "vendor"]
