@@ -48,7 +48,6 @@ PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
         "models": [
             "claude-3.5-sonnet",
             "claude-3-opus",
-            "gpt-4",
             "gpt-4.1",
             "claude-3-sonnet",
         ],

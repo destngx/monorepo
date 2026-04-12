@@ -11,10 +11,8 @@ def test_live_gateway_connectivity():
     gateway_url = os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")
     
     # Check if gateway is alive
-    try:
-        response = httpx.get(gateway_url, timeout=2.0)
-    except Exception:
-        pytest.skip(f"AI Gateway at {gateway_url} is not reachable")
+    response = httpx.get(gateway_url, timeout=5.0)
+    response.raise_for_status()
 
     client = AIGatewayClient(base_url=gateway_url)
     

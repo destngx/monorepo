@@ -29,7 +29,7 @@ def _load_dotenv_local():
 
 _load_dotenv_local()
 
-LIVE_E2E = os.getenv("GRAPH_WEAVE_LIVE_E2E", "false").lower() == "true"
+
 
 
 class FakeRedisClient:
@@ -59,7 +59,8 @@ def clear_workflow_store():
 
 @pytest.fixture(autouse=True)
 def mock_redis_services(monkeypatch, request):
-    if request.node.get_closest_marker("live") is not None:
+    # Only mock for unit tests. E2E tests run as real integrations.
+    if "tests/unit" not in str(request.node.fspath):
         return
     # Ensure URL is empty to trigger MockRedisAdapter in deps.py
     monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_URL", "")
@@ -85,8 +86,8 @@ def mock_redis_services(monkeypatch, request):
 
 @pytest.fixture(autouse=True)
 def mock_gateway_http(monkeypatch, request):
-    """Mocks all AI Gateway HTTP calls for E2E tests."""
-    if request.node.get_closest_marker("live") is not None:
+    """Mocks all AI Gateway HTTP calls for unit tests."""
+    if "tests/unit" not in str(request.node.fspath):
         return
 
     class FakeResponse:
