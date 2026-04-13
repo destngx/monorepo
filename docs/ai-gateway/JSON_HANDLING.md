@@ -21,11 +21,22 @@ sequenceDiagram
     Note over GW: 2. Decode & Normalize Schema
 
     GW->>P: Routed Request (Converted Body)
-    P-->>GW: Routed Response (JSON)
+    Note over GW: *Provider may enforce Stream=True
+    P-->>GW: Routed Response (JSON or SSE)
 
     Note over GW: 3. Convert back to OpenAI format
+    Note over GW: (Assembles chunks if forced to stream)
     GW->>C: Final Standardized JSON Response
 ```
+
+### Sync-to-Stream Fallback (Internal)
+
+Many modern providers (specifically GitHub Copilot and certain Anthropic-behind-proxy implementations) reject non-streaming requests for specific models. To ensure 100% compatibility for synchronous clients, the Gateway implements a **Transparent Fallback**:
+
+1.  The Gateway intercepts the `Chat` call and internally forces `stream: true`.
+2.  It opens an internal pipe to capture the resulting SSE stream.
+3.  An accumulator thread re-assembles the `content` deltas and `tool_calls` into a standard `ChatResponse` object.
+4.  If the upstream returns a direct JSON error instead of a stream, the Gateway falls back to a "Raw Body" parse to ensure error details are preserved.
 
 ---
 
@@ -74,6 +85,23 @@ In synchronous mode, Tool Calling is simpler than streaming:
 3. The Gateway translates these (if necessary) and returns them to the client.
 
 Because the Gateway is **Stateless**, the client application is responsible for receiving these tool calls, executing them, and sending the results back in a _new_ synchronous request.
+
+---
+
+## Edge Case Normalization
+
+When performing cross-provider mapping (e.g., Anthropic to OpenAI/Copilot), the Gateway implements several normalization strategies to ensure stability:
+
+- **Recursive Schema Sanitization (Gemini/Copilot)**: Providers like Gemini and GitHub Copilot are extremely strict about JSON Schema compliance. The Gateway recursively traverses every schema node to strip unsupported keys like `$schema`, `$id`, `default`, and **`additionalProperties`**.
+- **Intelligent Type Injection (De-Pollution)**: To prevent schema validation errors, the Gateway only adds `"type": "object"` or `"type": "array"` to nodes that contain structural indicators. It specifically avoids "polluting" container keys like `properties` with extraneous types.
+- **Tool Choice Mapping**:
+  - Anthropic's forced tool use (`"type": "any"`) is automatically translated to the OpenAI/Copilot equivalent (`"required"`).
+  - Specific named tool selection (`"type": "tool"`) is mapped to the OpenAI function selection format.
+  - This ensures that clients like the **Claude Code CLI** work seamlessly even when forcing specific tool selection.
+- **Rich Mapping Logs**: For every request, the Gateway logs the resolved mapping (e.g., `mapping=claude-3-opus -> gpt-4o`), making it easy to audit routing decisions across multi-model deployments.
+- **Buffer Management**: Sync calls share the same 64KB buffered scanner as streaming calls, allowing them to process extremely large generated payloads without truncation.
+
+These transformations are designed to be transparent to the client while maximizing compatibility with strict upstream backends.
 
 ---
 

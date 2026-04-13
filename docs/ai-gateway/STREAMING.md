@@ -53,6 +53,18 @@ The gateway also tracks `tool_calls` in streams. It extracts the `arguments` del
 
 ---
 
+## Client Compatibility & State Tracking
+
+Stream-based tools and CLIs (like **Claude Code**) are often very strict about partial JSON parsing. The Gateway implements several state-tracking mechanisms to prevent client-side "Drops":
+
+- **Mandatory Field Initialization**: In `message_start` events, the Gateway explicitly initializes required fields (e.g., `content: []`, `stop_reason: null`). This prevents strict JSON parsers from failing on missing fields.
+- **Strict Block Delimitation**: The Gateway uses a state machine (`textBlockStarted`, `activeToolIndex`) to ensure that Anthropic event streams are properly structured.
+  - Text blocks are opened with `content_block_start` the moment text is received.
+  - If a tool delta arrives while a text block is open, the text block is explicitly closed with `content_block_stop` before the tool block begins.
+- **Continuous Block Indexing**: The Gateway maintains a serial `blockIndex` that increments across every new content block (text or tool). This ensures that clients like **Claude Code** can accurately reconstruct the message sequence without index collisions.
+
+---
+
 ## Error Handling in Streams
 
 Errors can occur at two stages of a stream:
@@ -63,15 +75,22 @@ If the [Rate Limit](./RATE_LIMITING.md) is exceeded before the stream begins, th
 
 ### 2. Mid-Stream Failure
 
-If the provider fails _after_ the stream has started, the Gateway cannot change the HTTP status code. Instead, it emits a final JSON data block containing the error:
+If the provider fails _after_ the stream has started, the Gateway cannot change the HTTP status code. The handling depends on whether data has already been emitted:
 
-```json
-data: {"error": "upstream timeout", "stack": "...", "status": 502}
-```
+- **Before First Event**: If the upstream fails before any events are successfully converted, the Gateway emits a final Anthropic-style `error` event:
+  ```json
+  event: error
+  data: {"error": {"type": "api_error", "message": "Upstream timeout"}}
+  ```
+- **During Data Flow**: If events have already been emitted, the Gateway relies on the standard SSE termination (or an explicit `message_delta` with an error reason) to signal the failure.
 
 ### Request ID Correlation
 
 A unique **Request ID** is injected into every stream log. Use this ID to match client-side errors with specific failure points in the server logs.
+
+### Proxy Support (`X-Accel-Buffering`)
+
+For streams behind Nginx or Cloudflare, the Gateway sets `X-Accel-Buffering: no`. This disables downstream proxy buffering, ensuring that tokens reach the user as they are generated, rather than being batched into larger (higher latency) chunks. This is critical for real-time interactivity.
 
 ---
 

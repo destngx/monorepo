@@ -104,13 +104,18 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 
 ---
 
-### 3. Provider Translation (Anthropic Claude)
+### 3. Provider Translation (Anthropic & GitHub Copilot)
 
-Anthropic uses a block-based message format that differs significantly from OpenAI. The AI Gateway automatically handles:
+The AI Gateway performs deep schema normalization when mapping between Anthropic and OpenAI/GitHub Copilot formats:
 
-- **Conversion** of OpenAI-style tool definitions to Anthropic schemas.
+- **Recursive Schema Sanitization (Gemini/Copilot)**: Providers like Gemini and GitHub Copilot are extremely strict about JSON Schema compliance. The Gateway recursively traverses every schema node to strip unsupported keys like `$schema`, `$id`, `default`, and **`additionalProperties`**.
+- **Intelligent Type Injection (De-Pollution)**: To prevent schema validation errors, the Gateway only adds `"type": "object"` or `"type": "array"` to nodes that contain structural indicators. It specifically avoids "polluting" container keys like `properties` with extraneous types.
+- **Tool Choice Mapping**:
+  - Anthropic's forced tool use (`"type": "any"`) is automatically translated to the OpenAI/Copilot equivalent (`"required"`).
+  - Specific named tool selection (`"type": "tool"`) is mapped to the OpenAI function selection format.
+  - This ensures that clients like the **Claude Code CLI** work seamlessly even when forcing specific tool selection.
 - **Role Translation**: Maps OpenAI `assistant` (with tool calls) and `tool` (results) roles to Anthropic's compliant message blocks.
-- **Streaming Fragments**: Translates Anthropic's streaming tool delta events into standard OpenAI-compatible chunks.
+- **Streaming Fragments**: Translates Anthropic's streaming tool delta events into standard OpenAI-compatible chunks, ensuring real-time UI updates for tool arguments.
 
 ### 3. Integration with Orchestrators
 
