@@ -148,6 +148,36 @@ func (g *GitHubCopilotProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
+func (g *GitHubCopilotProvider) Usage(ctx context.Context) (any, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/copilot_internal/user", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Copilot uses the primary github token for user identification
+	req.Header.Set("Authorization", "token "+g.githubToken)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", githubCopilotUserAgent)
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github copilot usage error %d: %s", resp.StatusCode, b)
+	}
+
+	var usage types.CopilotUsageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
+		return nil, err
+	}
+
+	return usage, nil
+}
+
 func (g *GitHubCopilotProvider) IsReady() bool   { return g.ready }
 func (g *GitHubCopilotProvider) SetReady(r bool) { g.ready = r }
 

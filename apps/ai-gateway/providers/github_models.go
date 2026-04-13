@@ -208,5 +208,9 @@ func (g *GitHubProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
+func (g *GitHubProvider) Usage(ctx context.Context) (any, error) {
+	return nil, fmt.Errorf("usage API not supported for %s", g.Name())
+}
+
 func (g *GitHubProvider) IsReady() bool   { return g.ready }
 func (g *GitHubProvider) SetReady(r bool) { g.ready = r }

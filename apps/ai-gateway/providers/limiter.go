@@ -63,3 +63,8 @@ func (r *RateLimitedProvider) Embeddings(ctx context.Context, req types.Embeddin
 	}
 	return r.Provider.Embeddings(ctx, req)
 }
+
+func (r *RateLimitedProvider) Usage(ctx context.Context) (any, error) {
+	// We don't rate limit usage checks for now as they are often used for monitoring.
+	return r.Provider.Usage(ctx)
+}

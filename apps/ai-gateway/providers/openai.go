@@ -144,5 +144,9 @@ func (o *OpenAIProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
+func (o *OpenAIProvider) Usage(ctx context.Context) (any, error) {
+	return nil, fmt.Errorf("usage API not supported for %s", o.Name())
+}
+
 func (o *OpenAIProvider) IsReady() bool   { return o.ready }
 func (o *OpenAIProvider) SetReady(r bool) { o.ready = r }

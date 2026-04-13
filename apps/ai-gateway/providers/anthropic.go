@@ -402,5 +402,9 @@ func (a *AnthropicProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
+func (a *AnthropicProvider) Usage(ctx context.Context) (any, error) {
+	return nil, fmt.Errorf("usage API not supported for %s", a.Name())
+}
+
 func (a *AnthropicProvider) IsReady() bool   { return a.ready }
 func (a *AnthropicProvider) SetReady(r bool) { a.ready = r }

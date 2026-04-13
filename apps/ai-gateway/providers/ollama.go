@@ -137,5 +137,9 @@ func (o *OllamaProvider) Ping(ctx context.Context) error {
 	return nil
 }
 
+func (o *OllamaProvider) Usage(ctx context.Context) (any, error) {
+	return nil, fmt.Errorf("usage API not supported for %s", o.Name())
+}
+
 func (o *OllamaProvider) IsReady() bool   { return o.ready }
 func (o *OllamaProvider) SetReady(r bool) { o.ready = r }

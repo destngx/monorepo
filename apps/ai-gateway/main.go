@@ -16,12 +16,14 @@ func main() {
 	anthroHandler := proxy.NewAnthropicHandler(registry)
 	modelsHandler := proxy.NewModelsHandler(registry)
 	embeddingsHandler := proxy.NewEmbeddingsHandler(registry)
+	usageHandler := proxy.NewUsageHandler(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/chat/completions", openaiHandler)
 	mux.Handle("/v1/messages", anthroHandler)
 	mux.Handle("/v1/models", modelsHandler)
 	mux.Handle("/v1/embeddings", embeddingsHandler)
+	mux.Handle("/v1/usage", usageHandler)
 	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{

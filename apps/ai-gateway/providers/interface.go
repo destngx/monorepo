@@ -31,9 +31,11 @@ type Provider interface {
 	// Ping verifies that the provider endpoint is reachable.
 	Ping(ctx context.Context) error
 
+	// Usage returns provider-specific usage or quota information.
+	Usage(ctx context.Context) (any, error)
+
 	// IsReady returns true if the provider is both configured and reachable.
 	IsReady() bool
-
 	// SetReady manually updates the readiness status.
 	SetReady(bool)
 }
