@@ -2,7 +2,5 @@ go 1.26
 
 use (
 	./apps/ai-gateway
-	./apps/ai-gateway/tmp/go-mod-cache/github.com/joho/godotenv@v1.5.1
-	./apps/ai-gateway/tmp/go-mod-cache/golang.org/x/time@v0.15.0
 	./apps/wealth-management-engine
 )

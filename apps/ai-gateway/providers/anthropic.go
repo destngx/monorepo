@@ -32,66 +32,11 @@ func NewAnthropic(apiKey string) *AnthropicProvider {
 
 func (a *AnthropicProvider) Name() string { return "anthropic" }
 
-// anthropicRequest represents the Anthropic Messages API request format.
-type anthropicRequest struct {
-	Model       string             `json:"model"`
-	MaxTokens   int                `json:"max_tokens"`
-	System      string             `json:"system,omitempty"`
-	Messages    []anthropicMessage `json:"messages"`
-	Stream      bool               `json:"stream,omitempty"`
-	Temperature *float64           `json:"temperature,omitempty"`
-	TopP        *float64           `json:"top_p,omitempty"`
-	StopSeqs    []string           `json:"stop_sequences,omitempty"`
-	Tools       []anthropicTool    `json:"tools,omitempty"`
-	ToolChoice  any                `json:"tool_choice,omitempty"`
-}
-
-type anthropicTool struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	InputSchema any    `json:"input_schema"`
-}
-
-type anthropicMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"` // Can be string or []interface{} (blocks)
-}
-
-type anthropicContent struct {
-	Type    string `json:"type"` // "text", "tool_use", or "tool_result"
-	Text    string `json:"text,omitempty"`
-	ID      string `json:"id,omitempty"`          // for tool_use
-	Name    string `json:"name,omitempty"`        // for tool_use
-	Input   any    `json:"input,omitempty"`       // for tool_use
-	ToolID  string `json:"tool_use_id,omitempty"` // for tool_result
-	Content string `json:"content,omitempty"`     // for tool_result
-}
-
-// anthropicResponse represents the Anthropic Messages API response format.
-type anthropicResponse struct {
-	ID      string `json:"id"`
-	Type    string `json:"type"`
-	Role    string `json:"role"`
-	Model   string `json:"model"`
-	Content []struct {
-		Type  string `json:"type"`
-		Text  string `json:"text,omitempty"`
-		ID    string `json:"id,omitempty"`
-		Name  string `json:"name,omitempty"`
-		Input any    `json:"input,omitempty"`
-	} `json:"content"`
-	StopReason string `json:"stop_reason"`
-	Usage      struct {
-		InputTokens  int `json:"input_tokens"`
-		OutputTokens int `json:"output_tokens"`
-	} `json:"usage"`
-}
-
-// convertToAnthropicRequest transforms an OpenAI-compatible request into
+// ConvertToAnthropicRequest transforms an OpenAI-compatible request into
 // Anthropic's Messages API format. Extracts system messages separately.
-func convertToAnthropicRequest(req types.ChatRequest) anthropicRequest {
+func ConvertToAnthropicRequest(req types.ChatRequest) types.AnthropicRequest {
 	var system string
-	messages := make([]anthropicMessage, 0, len(req.Messages))
+	messages := make([]types.AnthropicMessage, 0, len(req.Messages))
 
 	for _, m := range req.Messages {
 		if m.Role == "system" {
@@ -104,9 +49,9 @@ func convertToAnthropicRequest(req types.ChatRequest) anthropicRequest {
 
 		if m.Role == "tool" {
 			// OpenAI tool role -> Anthropic tool_result block in a user message
-			messages = append(messages, anthropicMessage{
+			messages = append(messages, types.AnthropicMessage{
 				Role: "user",
-				Content: []anthropicContent{{
+				Content: []types.AnthropicContent{{
 					Type:    "tool_result",
 					ToolID:  m.ToolCallID,
 					Content: m.Content,
@@ -117,28 +62,28 @@ func convertToAnthropicRequest(req types.ChatRequest) anthropicRequest {
 
 		if m.Role == "assistant" && len(m.ToolCalls) > 0 {
 			// OpenAI assistant message with tool calls -> Anthropic assistant message with tool_use blocks
-			content := make([]anthropicContent, 0, len(m.ToolCalls)+1)
+			content := make([]types.AnthropicContent, 0, len(m.ToolCalls)+1)
 			if m.Content != "" {
-				content = append(content, anthropicContent{Type: "text", Text: m.Content})
+				content = append(content, types.AnthropicContent{Type: "text", Text: m.Content})
 			}
 			for _, tc := range m.ToolCalls {
 				var input any
 				json.Unmarshal([]byte(tc.Function.Arguments), &input)
-				content = append(content, anthropicContent{
+				content = append(content, types.AnthropicContent{
 					Type:  "tool_use",
 					ID:    tc.ID,
 					Name:  tc.Function.Name,
 					Input: input,
 				})
 			}
-			messages = append(messages, anthropicMessage{
+			messages = append(messages, types.AnthropicMessage{
 				Role:    "assistant",
 				Content: content,
 			})
 			continue
 		}
 
-		messages = append(messages, anthropicMessage{
+		messages = append(messages, types.AnthropicMessage{
 			Role:    m.Role,
 			Content: m.Content,
 		})
@@ -149,7 +94,7 @@ func convertToAnthropicRequest(req types.ChatRequest) anthropicRequest {
 		maxTokens = *req.MaxTokens
 	}
 
-	ar := anthropicRequest{
+	ar := types.AnthropicRequest{
 		Model:       req.Model,
 		MaxTokens:   maxTokens,
 		System:      system,
@@ -160,7 +105,7 @@ func convertToAnthropicRequest(req types.ChatRequest) anthropicRequest {
 
 	// Convert tools
 	for _, t := range req.Tools {
-		ar.Tools = append(ar.Tools, anthropicTool{
+		ar.Tools = append(ar.Tools, types.AnthropicTool{
 			Name:        t.Function.Name,
 			Description: t.Function.Description,
 			InputSchema: t.Function.Parameters,
@@ -193,7 +138,7 @@ func (a *AnthropicProvider) headers() map[string]string {
 }
 
 func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*types.ChatResponse, error) {
-	ar := convertToAnthropicRequest(req)
+	ar := ConvertToAnthropicRequest(req)
 	ar.Stream = false
 
 	body, _ := json.Marshal(ar)
@@ -217,7 +162,7 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 		return nil, fmt.Errorf("anthropic error %d: %s", resp.StatusCode, b)
 	}
 
-	var ar2 anthropicResponse
+	var ar2 types.AnthropicResponse
 	if err := json.NewDecoder(resp.Body).Decode(&ar2); err != nil {
 		return nil, err
 	}
@@ -270,7 +215,7 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 }
 
 func (a *AnthropicProvider) ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error) {
-	ar := convertToAnthropicRequest(req)
+	ar := ConvertToAnthropicRequest(req)
 	ar.Stream = true
 
 	body, _ := json.Marshal(ar)

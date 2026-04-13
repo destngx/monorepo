@@ -13,11 +13,13 @@ func main() {
 	cfg := config.Load()
 	registry := proxy.NewRegistry(cfg)
 	handler := proxy.NewHandler(registry)
+	anthroHandler := proxy.NewAnthropicHandler(registry)
 	modelsHandler := proxy.NewModelsHandler(registry)
 	embeddingsHandler := proxy.NewEmbeddingsHandler(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/chat/completions", handler)
+	mux.Handle("/v1/messages", anthroHandler)
 	mux.Handle("/v1/models", modelsHandler)
 	mux.Handle("/v1/embeddings", embeddingsHandler)
 	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
