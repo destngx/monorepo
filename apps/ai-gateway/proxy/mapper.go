@@ -2,6 +2,18 @@ package proxy
 
 import "strings"
 
+const (
+	ModelGPT41           = "gpt-4.1"
+	ModelClaudeHaiku45   = "claude-haiku-4.5"
+	ModelClaudeSonnet46  = "claude-sonnet-4.6"
+	ModelClaudeOpus46    = "claude-opus-4.6"
+	ModelClaudeMyrthos45 = "claude-myrthos-4.5"
+
+	PrefixClaude = "claude-"
+
+	KeySeparator = "|"
+)
+
 // RouteTarget defines the final destination for a request.
 type RouteTarget struct {
 	Provider string
@@ -18,7 +30,7 @@ type ModelMapper struct {
 func NewModelMapper() *ModelMapper {
 	m := &ModelMapper{
 		exact:         make(map[string]RouteTarget),
-		DefaultTarget: RouteTarget{Provider: "github-copilot", Model: "gpt-4.1"},
+		DefaultTarget: RouteTarget{Provider: ProviderGitHubCopilot, Model: ModelGPT41},
 	}
 
 	return m
@@ -26,7 +38,7 @@ func NewModelMapper() *ModelMapper {
 
 // AddExactForProvider adds an exact match that is only valid for a specific provider.
 func (m *ModelMapper) AddExactForProvider(provider, model string, target RouteTarget) {
-	m.exact[strings.ToLower(provider)+"|"+strings.ToLower(model)] = target
+	m.exact[strings.ToLower(provider)+KeySeparator+strings.ToLower(model)] = target
 }
 
 // Resolve identifies the target provider and model for an input provider/model pair.
@@ -39,7 +51,7 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 	mKey := strings.ToLower(model)
 
 	// 1. O(1) exact mapping check
-	if res, ok := m.exact[pKey+"|"+mKey]; ok {
+	if res, ok := m.exact[pKey+KeySeparator+mKey]; ok {
 		if res.Model == "" {
 			res.Model = model
 		}
@@ -47,9 +59,9 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 	}
 
 	// 2. Specific remapping for Claude models on GitHub Copilot (or if unspecified)
-	if (pKey == "" || pKey == "github-copilot") && strings.HasPrefix(mKey, "claude-") {
+	if (pKey == "" || pKey == ProviderGitHubCopilot) && strings.HasPrefix(mKey, PrefixClaude) {
 		return RouteTarget{
-			Provider: "github-copilot",
+			Provider: ProviderGitHubCopilot,
 			Model:    normalizeClaudeForCopilot(mKey),
 		}, false
 	}
@@ -60,16 +72,16 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 
 func normalizeClaudeForCopilot(lowered string) string {
 	if strings.Contains(lowered, "haiku") {
-		return "claude-haiku-4.5"
+		return ModelClaudeHaiku45
 	}
 	if strings.Contains(lowered, "sonnet") {
-		return "claude-sonnet-4.6"
+		return ModelClaudeSonnet46
 	}
 	if strings.Contains(lowered, "opus") {
-		return "claude-opus-4.6"
+		return ModelClaudeOpus46
 	}
 	if strings.Contains(lowered, "myrthos") {
-		return "claude-myrthos-4.5"
+		return ModelClaudeMyrthos45
 	}
-	return "gpt-4.1" // "grok-code-fast-1"
+	return ModelGPT41 // "grok-code-fast-1"
 }

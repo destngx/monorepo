@@ -14,6 +14,20 @@ import (
 	"apps/ai-gateway/types"
 )
 
+const (
+	LogFormatOpenAIRequest         = "[ID:%s] [VERBOSE 1] Received OpenAI Request: %s"
+	LogMsgOpenAIDecodingFinished   = "[ID:%s] [VERBOSE 2] Finished decoding request"
+	LogMsgOpenAIEnteringSync       = "[ID:%s] [VERBOSE 2] Entering handleSync"
+	LogFormatOpenAIProviderError   = "[ID:%s] [VERBOSE 1] Provider returned error: %v"
+	LogMsgOpenAIEnteringStream     = "[ID:%s] [VERBOSE 2] Entering handleStream"
+	LogFormatOpenAIStreamError     = "[ID:%s] STREAM ERROR: %v"
+	LogFormatEmbeddingsRequest     = "[ID:%s] [VERBOSE 1] Received Embeddings Request: %s"
+	LogMsgEnteringEmbeddings       = "[ID:%s] [VERBOSE 2] Entering Embeddings handler sync"
+	LogFormatProviderEmbedResponse = "[ID:%s] [VERBOSE 1] Provider Embeddings Response: %s"
+
+	PathModelsV1 = "/v1/models/"
+)
+
 // OpenAIHandler is the primary entry point for the AI Gateway's chat completion interface.
 type OpenAIHandler struct {
 	registry *Registry
@@ -31,7 +45,7 @@ func NewOpenAIHandler(registry *Registry) *OpenAIHandler {
 // Supported values: "github" (Copilot, default), "github-models", "openai", "anthropic", "ollama".
 func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, ErrMsgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -39,7 +53,7 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// We do this first so we can use the 'model' field for smart routing.
 	var req types.ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
+		writeError(w, r, http.StatusBadRequest, ErrMsgInvalidBody+err.Error())
 		return
 	}
 
@@ -47,10 +61,10 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if h.registry.Config.Verbose >= 1 {
 		reqBytes, _ := json.Marshal(req)
-		log.Printf("[ID:%s] [VERBOSE 1] Received OpenAI Request: %s", rid, string(reqBytes))
+		log.Printf(LogFormatOpenAIRequest, rid, string(reqBytes))
 	}
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Finished decoding request", rid)
+		log.Printf(LogMsgOpenAIDecodingFinished, rid)
 	}
 
 	// 2. Smart Routing: Determine which backend provider and model to use.
@@ -60,7 +74,7 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(), "not ready") {
 			status = http.StatusNotFound
 		}
-		writeError(w, r, status, "routing failed: "+err.Error())
+		writeError(w, r, status, ErrMsgRoutingFailed+err.Error())
 		return
 	}
 
@@ -79,18 +93,16 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleSync manages standard Request-Response interactions.
 // It waits for the full upstream response before returning a single JSON object.
-func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p interface {
-	Chat(context.Context, types.ChatRequest) (*types.ChatResponse, error)
-}, req types.ChatRequest) {
+func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p providers.Provider, req types.ChatRequest) {
 	rid, _ := r.Context().Value(requestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Entering handleSync", rid)
+		log.Printf(LogMsgOpenAIEnteringSync, rid)
 	}
 
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
 		if h.registry.Config.Verbose >= 1 {
-			log.Printf("[ID:%s] [VERBOSE 1] Provider returned error: %v", rid, err)
+			log.Printf(LogFormatOpenAIProviderError, rid, err)
 		}
 		if _, ok := err.(*providers.ErrRateLimitExceeded); ok {
 			writeError(w, r, http.StatusTooManyRequests, err.Error())
@@ -105,7 +117,7 @@ func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p int
 		log.Printf("[ID:%s] [VERBOSE 1] Provider Response: %s", rid, string(respBytes))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	json.NewEncoder(w).Encode(resp)
 }
 
@@ -114,19 +126,19 @@ func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p int
 func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p interface {
 	ChatStream(context.Context, types.ChatRequest, io.Writer) (types.Usage, error)
 }, req types.ChatRequest) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set(HeaderContentType, ContentTypeEventStream)
+	w.Header().Set(HeaderCacheControl, ValueNoCache)
+	w.Header().Set(HeaderConnection, ValueKeepAlive)
+	w.Header().Set(HeaderXAccelBuffering, ValueNo)
 
 	if _, ok := w.(http.Flusher); !ok {
-		writeError(w, r, http.StatusInternalServerError, "streaming not supported by response writer")
+		writeError(w, r, http.StatusInternalServerError, ErrMsgStreamNotSupp)
 		return
 	}
 
 	rid, _ := r.Context().Value(requestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Entering handleStream", rid)
+		log.Printf(LogMsgOpenAIEnteringStream, rid)
 	}
 
 	var writer io.Writer = w
@@ -136,7 +148,7 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p i
 
 	_, err := p.ChatStream(r.Context(), req, writer)
 	if err != nil {
-		log.Printf("[ID:%s] STREAM ERROR: %v", rid, err)
+		log.Printf(LogFormatOpenAIStreamError, rid, err)
 
 		status := http.StatusBadGateway
 		if _, ok := err.(*providers.ErrRateLimitExceeded); ok {
@@ -150,7 +162,7 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p i
 			"status": status,
 		}
 		b, _ := json.Marshal(errResp)
-		w.Write([]byte("data: " + string(b) + "\n\n"))
+		w.Write([]byte(SSEDataPrefix + string(b) + "\n\n"))
 	}
 }
 
@@ -165,16 +177,16 @@ func NewModelsHandler(registry *Registry) *ModelsHandler {
 
 func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, ErrMsgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	providerName := providerNameFromModelsPath(r.URL.Path)
 	if providerName == "" {
-		providerName = r.Header.Get("X-AI-Provider")
+		providerName = r.Header.Get(HeaderAIProvider)
 	}
 	if providerName == "" {
-		providerName = "github-copilot"
+		providerName = ProviderGitHubCopilot
 	}
 
 	provider, err := m.registry.Get(providerName)
@@ -194,15 +206,15 @@ func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	json.NewEncoder(w).Encode(models)
 }
 
 func providerNameFromModelsPath(path string) string {
-	if !strings.HasPrefix(path, "/v1/models/") {
+	if !strings.HasPrefix(path, PathModelsV1) {
 		return ""
 	}
-	providerName := strings.TrimPrefix(path, "/v1/models/")
+	providerName := strings.TrimPrefix(path, PathModelsV1)
 	if providerName == "" || strings.Contains(providerName, "/") {
 		return ""
 	}
@@ -220,13 +232,13 @@ func NewEmbeddingsHandler(registry *Registry) *EmbeddingsHandler {
 
 func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, ErrMsgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
-	providerName := r.Header.Get("X-AI-Provider")
+	providerName := r.Header.Get(HeaderAIProvider)
 	if providerName == "" {
-		providerName = "github"
+		providerName = ProviderGitHub
 	}
 	provider, err := e.registry.Get(providerName)
 	if err != nil {
@@ -248,10 +260,10 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rid, _ := r.Context().Value(requestIDKey).(string)
 	if e.registry.Config.Verbose >= 1 {
 		reqBytes, _ := json.Marshal(req)
-		log.Printf("[ID:%s] [VERBOSE 1] Received Embeddings Request: %s", rid, string(reqBytes))
+		log.Printf(LogFormatEmbeddingsRequest, rid, string(reqBytes))
 	}
 	if e.registry.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Entering Embeddings handler sync", rid)
+		log.Printf(LogMsgEnteringEmbeddings, rid)
 	}
 
 	resp, err := provider.Embeddings(r.Context(), req)
@@ -266,19 +278,19 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if e.registry.Config.Verbose >= 1 {
 		respBytes, _ := json.Marshal(resp)
-		log.Printf("[ID:%s] [VERBOSE 1] Provider Embeddings Response: %s", rid, string(respBytes))
+		log.Printf(LogFormatProviderEmbedResponse, rid, string(respBytes))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	json.NewEncoder(w).Encode(resp)
 }
 
 // writeError provides a uniform JSON error response including a stack trace for debugging.
 func writeError(w http.ResponseWriter, r *http.Request, code int, msg string) {
 	rid, _ := r.Context().Value(requestIDKey).(string)
-	log.Printf("[ID:%s] ERROR: code=%d msg=%s", rid, code, msg)
+	log.Printf(LogFormatError, rid, code, msg)
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	w.WriteHeader(code)
 
 	resp := map[string]interface{}{
@@ -295,7 +307,7 @@ type StreamLogWriter struct {
 }
 
 func (sw *StreamLogWriter) Write(p []byte) (n int, err error) {
-	log.Printf("[ID:%s] [VERBOSE 1] Stream chunk: %s", sw.rid, string(p))
+	log.Printf(LogFormatStreamChunk, sw.rid, string(p))
 	return sw.w.Write(p)
 }
 

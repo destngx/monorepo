@@ -16,6 +16,13 @@ const (
 	logMappingKey contextKey = "logMapping"
 )
 
+const (
+	LogFormatRequest = "[%s] %s %s [ID:%s] provider=%s status=%d duration=%s%s"
+	LogFormatPanic   = "panic recovered: %v"
+
+	ErrMsgInternalServer = "internal server error"
+)
+
 // Chain applies middlewares in order.
 func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
 	for i := len(middlewares) - 1; i >= 0; i-- {
@@ -38,9 +45,9 @@ func Logger(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 		r = r.WithContext(ctx)
 
-		provider := r.Header.Get("X-AI-Provider")
+		provider := r.Header.Get(HeaderAIProvider)
 		if provider == "" {
-			provider = "github"
+			provider = ProviderGitHub
 		}
 
 		rw := &responseWriter{ResponseWriter: w, status: 200}
@@ -52,7 +59,7 @@ func Logger(next http.Handler) http.Handler {
 			mappingStr = " mapping=" + mapping
 		}
 
-		log.Printf("[%s] %s %s [ID:%s] provider=%s status=%d duration=%s%s",
+		log.Printf(LogFormatRequest,
 			r.Method, r.URL.Path, r.RemoteAddr, requestID, provider, rw.status, time.Since(start), mappingStr)
 	})
 }
@@ -68,8 +75,8 @@ func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				log.Printf("panic recovered: %v", rec)
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				log.Printf(LogFormatPanic, rec)
+				http.Error(w, ErrMsgInternalServer, http.StatusInternalServerError)
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -79,9 +86,9 @@ func Recovery(next http.Handler) http.Handler {
 // CORS allows all local origins (suitable for local-only gateway).
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-AI-Provider, Authorization")
+		w.Header().Set(HeaderAllowOrigin, ValueAllowAll)
+		w.Header().Set(HeaderAllowMethods, ValueMethodsStandard)
+		w.Header().Set(HeaderAllowHeaders, ValueHeadersStandard)
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

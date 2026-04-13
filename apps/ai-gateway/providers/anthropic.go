@@ -14,8 +14,43 @@ import (
 	"apps/ai-gateway/types"
 )
 
-const anthropicBaseURL = "https://api.anthropic.com/v1"
-const anthropicAPIVersion = "2023-06-01"
+const (
+	anthropicBaseURL    = "https://api.anthropic.com/v1"
+	anthropicAPIVersion = "2023-06-01"
+
+	HeaderAPIKey           = "x-api-key"
+	HeaderAnthropicVersion = "anthropic-version"
+
+	RoleSystem    = "system"
+	RoleUser      = "user"
+	RoleAssistant = "assistant"
+	RoleTool      = "tool"
+
+	TypeMessage    = "message"
+	TypeText       = "text"
+	TypeToolUse    = "tool_use"
+	TypeToolResult = "tool_result"
+	TypeTextDelta  = "text_delta"
+	TypeInputJSON  = "input_json_delta"
+
+	StopReasonMaxTokens = "max_tokens"
+	StopReasonToolUse   = "tool_use"
+
+	FinishReasonLength    = "length"
+	FinishReasonToolCalls = "tool_calls"
+	FinishReasonStop      = "stop"
+
+	EventMessageStart      = "message_start"
+	EventMessageDelta      = "message_delta"
+	EventMessageStop       = "message_stop"
+	EventContentBlockStart = "content_block_start"
+	EventContentBlockDelta = "content_block_delta"
+
+	PathMessages = "/messages"
+
+	ObjectChatCompletion      = "chat.completion"
+	ObjectChatCompletionChunk = "chat.completion.chunk"
+)
 
 type AnthropicProvider struct {
 	apiKey string
@@ -39,7 +74,7 @@ func ConvertToAnthropicRequest(req types.ChatRequest) types.AnthropicRequest {
 	messages := make([]types.AnthropicMessage, 0, len(req.Messages))
 
 	for _, m := range req.Messages {
-		if m.Role == "system" {
+		if m.Role == RoleSystem {
 			if system != "" {
 				system += "\n\n"
 			}
@@ -47,12 +82,12 @@ func ConvertToAnthropicRequest(req types.ChatRequest) types.AnthropicRequest {
 			continue
 		}
 
-		if m.Role == "tool" {
+		if m.Role == RoleTool {
 			// OpenAI tool role -> Anthropic tool_result block in a user message
 			messages = append(messages, types.AnthropicMessage{
-				Role: "user",
+				Role: RoleUser,
 				Content: []types.AnthropicContent{{
-					Type:    "tool_result",
+					Type:    TypeToolResult,
 					ToolID:  m.ToolCallID,
 					Content: m.Content,
 				}},
@@ -60,24 +95,24 @@ func ConvertToAnthropicRequest(req types.ChatRequest) types.AnthropicRequest {
 			continue
 		}
 
-		if m.Role == "assistant" && len(m.ToolCalls) > 0 {
+		if m.Role == RoleAssistant && len(m.ToolCalls) > 0 {
 			// OpenAI assistant message with tool calls -> Anthropic assistant message with tool_use blocks
 			content := make([]types.AnthropicContent, 0, len(m.ToolCalls)+1)
 			if m.Content != "" {
-				content = append(content, types.AnthropicContent{Type: "text", Text: m.Content})
+				content = append(content, types.AnthropicContent{Type: TypeText, Text: m.Content})
 			}
 			for _, tc := range m.ToolCalls {
 				var input any
 				json.Unmarshal([]byte(tc.Function.Arguments), &input)
 				content = append(content, types.AnthropicContent{
-					Type:  "tool_use",
+					Type:  TypeToolUse,
 					ID:    tc.ID,
 					Name:  tc.Function.Name,
 					Input: input,
 				})
 			}
 			messages = append(messages, types.AnthropicMessage{
-				Role:    "assistant",
+				Role:    RoleAssistant,
 				Content: content,
 			})
 			continue
@@ -131,9 +166,9 @@ func ConvertToAnthropicRequest(req types.ChatRequest) types.AnthropicRequest {
 
 func (a *AnthropicProvider) headers() map[string]string {
 	return map[string]string{
-		"x-api-key":         a.apiKey,
-		"anthropic-version": anthropicAPIVersion,
-		"Content-Type":      "application/json",
+		HeaderAPIKey:           a.apiKey,
+		HeaderAnthropicVersion: anthropicAPIVersion,
+		HeaderContentType:      ContentTypeJSON,
 	}
 }
 
@@ -143,7 +178,7 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 
 	body, _ := json.Marshal(ar)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		anthropicBaseURL+"/messages", bytes.NewReader(body))
+		anthropicBaseURL+PathMessages, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -171,9 +206,9 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 	var content string
 	var toolCalls []types.ToolCall
 	for _, c := range ar2.Content {
-		if c.Type == "text" {
+		if c.Type == TypeText {
 			content += c.Text
-		} else if c.Type == "tool_use" {
+		} else if c.Type == TypeToolUse {
 			args, _ := json.Marshal(c.Input)
 			toolCalls = append(toolCalls, types.ToolCall{
 				ID:   c.ID,
@@ -186,21 +221,21 @@ func (a *AnthropicProvider) Chat(ctx context.Context, req types.ChatRequest) (*t
 		}
 	}
 
-	finishReason := "stop"
-	if ar2.StopReason == "max_tokens" {
-		finishReason = "length"
-	} else if ar2.StopReason == "tool_use" {
-		finishReason = "tool_calls"
+	finishReason := FinishReasonStop
+	if ar2.StopReason == StopReasonMaxTokens {
+		finishReason = FinishReasonLength
+	} else if ar2.StopReason == StopReasonToolUse {
+		finishReason = FinishReasonToolCalls
 	}
 
 	return &types.ChatResponse{
 		ID:     ar2.ID,
-		Object: "chat.completion",
+		Object: ObjectChatCompletion,
 		Model:  ar2.Model,
 		Choices: []types.Choice{{
 			Index: 0,
 			Message: types.Message{
-				Role:      "assistant",
+				Role:      RoleAssistant,
 				Content:   content,
 				ToolCalls: toolCalls,
 			},
@@ -220,7 +255,7 @@ func (a *AnthropicProvider) ChatStream(ctx context.Context, req types.ChatReques
 
 	body, _ := json.Marshal(ar)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		anthropicBaseURL+"/messages", bytes.NewReader(body))
+		anthropicBaseURL+PathMessages, bytes.NewReader(body))
 	if err != nil {
 		return types.Usage{}, err
 	}
@@ -253,10 +288,10 @@ func (a *AnthropicProvider) convertStreamToOpenAI(body io.Reader, w io.Writer) (
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if !strings.HasPrefix(line, "data: ") {
+		if !strings.HasPrefix(line, SSEDataPrefix) {
 			continue
 		}
-		payload := strings.TrimPrefix(line, "data: ")
+		payload := strings.TrimPrefix(line, SSEDataPrefix)
 
 		var event map[string]interface{}
 		if err := json.Unmarshal([]byte(payload), &event); err != nil {
@@ -265,16 +300,16 @@ func (a *AnthropicProvider) convertStreamToOpenAI(body io.Reader, w io.Writer) (
 
 		eventType, _ := event["type"].(string)
 		switch eventType {
-		case "content_block_start":
+		case EventContentBlockStart:
 			index, _ := event["index"].(float64)
 			block, _ := event["content_block"].(map[string]interface{})
 			blockType, _ := block["type"].(string)
 
-			if blockType == "tool_use" {
+			if blockType == TypeToolUse {
 				id, _ := block["id"].(string)
 				name, _ := block["name"].(string)
 				chunk := map[string]interface{}{
-					"object": "chat.completion.chunk",
+					"object": ObjectChatCompletionChunk,
 					"choices": []map[string]interface{}{{
 						"index": 0,
 						"delta": map[string]interface{}{
@@ -288,23 +323,23 @@ func (a *AnthropicProvider) convertStreamToOpenAI(body io.Reader, w io.Writer) (
 					}},
 				}
 				b, _ := json.Marshal(chunk)
-				io.WriteString(w, "data: "+string(b)+"\n\n")
+				io.WriteString(w, SSEDataPrefix+string(b)+"\n\n")
 			}
 
-		case "content_block_delta":
+		case EventContentBlockDelta:
 			index, _ := event["index"].(float64)
 			delta, _ := event["delta"].(map[string]interface{})
 			deltaType, _ := delta["type"].(string)
 
 			chunk := map[string]interface{}{
-				"object":  "chat.completion.chunk",
+				"object":  ObjectChatCompletionChunk,
 				"choices": []map[string]interface{}{{"index": 0}},
 			}
 
-			if deltaType == "text_delta" {
+			if deltaType == TypeTextDelta {
 				text, _ := delta["text"].(string)
 				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]string{"content": text}
-			} else if deltaType == "input_json_delta" {
+			} else if deltaType == TypeInputJSON {
 				partial, _ := delta["partial_json"].(string)
 				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]interface{}{
 					"tool_calls": []map[string]interface{}{{
@@ -322,14 +357,14 @@ func (a *AnthropicProvider) convertStreamToOpenAI(body io.Reader, w io.Writer) (
 				f.Flush()
 			}
 
-		case "message_delta":
+		case EventMessageDelta:
 			// Extract usage from the final message_delta event
 			u, _ := event["usage"].(map[string]interface{})
 			if outputTokens, ok := u["output_tokens"].(float64); ok {
 				usage.CompletionTokens = int(outputTokens)
 			}
 
-		case "message_start":
+		case EventMessageStart:
 			msg, _ := event["message"].(map[string]interface{})
 			if u, ok := msg["usage"].(map[string]interface{}); ok {
 				if inputTokens, ok := u["input_tokens"].(float64); ok {
@@ -337,9 +372,9 @@ func (a *AnthropicProvider) convertStreamToOpenAI(body io.Reader, w io.Writer) (
 				}
 			}
 
-		case "message_stop":
+		case EventMessageStop:
 			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-			io.WriteString(w, "data: [DONE]\n\n")
+			io.WriteString(w, SSEDataPrefix+SSEDone+"\n\n")
 			if f, ok := w.(interface{ Flush() }); ok {
 				f.Flush()
 			}

@@ -13,6 +13,31 @@ import (
 	"apps/ai-gateway/types"
 )
 
+const (
+	TypeAnthroAPIError = "api_error"
+
+	StopReasonEndTurn = "end_turn"
+
+	EventMessageStart      = "message_start"
+	EventMessageDelta      = "message_delta"
+	EventMessageStop       = "message_stop"
+	EventContentBlockStart = "content_block_start"
+	EventContentBlockDelta = "content_block_delta"
+	EventContentBlockStop  = "content_block_stop"
+	EventError             = "error"
+
+	LogFormatAnthroRequest       = "[ID:%s] [VERBOSE 1] Received Anthropic Request: %s"
+	LogMsgAnthroFinished         = "[ID:%s] [VERBOSE 2] Finished decoding Anthropic request"
+	LogMsgAnthroEnteringSync     = "[ID:%s] [VERBOSE 2] Entering Anthropic handleSync"
+	LogMsgAnthroEnteringStream   = "[ID:%s] [VERBOSE 2] Entering Anthropic handleStream"
+	LogFormatAnthroProviderError = "[ID:%s] [VERBOSE 1] Provider returned error: %v"
+	LogFormatAnthroResponse      = "[ID:%s] [VERBOSE 1] Provider Response (Anthropic format): %s"
+	LogFormatAnthroStreamError   = "[ID:%s] STREAM ERROR: %v"
+	LogFormatStreamConvErr       = "[ID:%s] STREAM CONVERT ERROR: %v"
+
+	ErrMsgInvalidAnthroBody = "invalid anthropic request body: "
+)
+
 type AnthropicHandler struct {
 	registry *Registry
 }
@@ -23,7 +48,7 @@ func NewAnthropicHandler(registry *Registry) *AnthropicHandler {
 
 func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, ErrMsgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -31,7 +56,7 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// We do this first so we can use the 'model' field for smart routing.
 	var anthroReq types.AnthropicRequest
 	if err := json.NewDecoder(r.Body).Decode(&anthroReq); err != nil {
-		writeError(w, r, http.StatusBadRequest, "invalid anthropic request body: "+err.Error())
+		writeError(w, r, http.StatusBadRequest, ErrMsgInvalidAnthroBody+err.Error())
 		return
 	}
 
@@ -39,10 +64,10 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if h.registry.Config.Verbose >= 1 {
 		reqBytes, _ := json.Marshal(anthroReq)
-		log.Printf("[ID:%s] [VERBOSE 1] Received Anthropic Request: %s", rid, string(reqBytes))
+		log.Printf(LogFormatAnthroRequest, rid, string(reqBytes))
 	}
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Finished decoding Anthropic request", rid)
+		log.Printf(LogMsgAnthroFinished, rid)
 	}
 
 	// 2. Smart Routing: Determine which backend provider and model to use.
@@ -52,7 +77,7 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(), "not ready") {
 			status = http.StatusNotFound
 		}
-		writeError(w, r, status, "routing failed: "+err.Error())
+		writeError(w, r, status, ErrMsgRoutingFailed+err.Error())
 		return
 	}
 
@@ -73,13 +98,13 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p providers.Provider, req types.ChatRequest) {
 	rid, _ := r.Context().Value(requestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Entering Anthropic handleSync", rid)
+		log.Printf(LogMsgAnthroEnteringSync, rid)
 	}
 
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
 		if h.registry.Config.Verbose >= 1 {
-			log.Printf("[ID:%s] [VERBOSE 1] Provider returned error: %v", rid, err)
+			log.Printf(LogFormatAnthroProviderError, rid, err)
 		}
 		writeError(w, r, http.StatusBadGateway, err.Error())
 		return
@@ -89,26 +114,26 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 
 	if h.registry.Config.Verbose >= 1 {
 		respBytes, _ := json.Marshal(anthroResp)
-		log.Printf("[ID:%s] [VERBOSE 1] Provider Response (Anthropic format): %s", rid, string(respBytes))
+		log.Printf(LogFormatAnthroResponse, rid, string(respBytes))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	json.NewEncoder(w).Encode(anthroResp)
 }
 
 func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p providers.Provider, req types.ChatRequest) {
 	rid, _ := r.Context().Value(requestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Entering Anthropic handleStream", rid)
+		log.Printf(LogMsgAnthroEnteringStream, rid)
 	}
 
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set(HeaderContentType, ContentTypeEventStream)
+	w.Header().Set(HeaderCacheControl, ValueNoCache)
+	w.Header().Set(HeaderConnection, ValueKeepAlive)
+	w.Header().Set(HeaderXAccelBuffering, ValueNo)
 
 	if _, ok := w.(http.Flusher); !ok {
-		writeError(w, r, http.StatusInternalServerError, "streaming not supported by response writer")
+		writeError(w, r, http.StatusInternalServerError, ErrMsgStreamNotSupp)
 		return
 	}
 
@@ -127,15 +152,15 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 
 	eventCount, convertErr := convertToAnthropicStream(pr, writer)
 	if convertErr != nil {
-		log.Printf("[ID:%s] STREAM CONVERT ERROR: %v", rid, convertErr)
+		log.Printf(LogFormatStreamConvErr, rid, convertErr)
 	}
 
 	if err := <-errCh; err != nil {
-		log.Printf("[ID:%s] STREAM ERROR: %v", rid, err)
+		log.Printf(LogFormatAnthroStreamError, rid, err)
 		if eventCount == 0 {
-			sendAnthroEvent(writer, "error", map[string]any{
+			sendAnthroEvent(writer, EventError, map[string]any{
 				"error": map[string]any{
-					"type":    "api_error",
+					"type":    TypeAnthroAPIError,
 					"message": err.Error(),
 				},
 			})
@@ -207,7 +232,7 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 
 		if systemText != "" {
 			req.Messages = append(req.Messages, types.Message{
-				Role:    "system",
+				Role:    RoleSystem,
 				Content: systemText,
 			})
 		}
@@ -223,14 +248,14 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 				if b, ok := block.(map[string]any); ok {
 					blockType, _ := b["type"].(string)
 					switch blockType {
-					case "text":
+					case TypeText:
 						if text, ok := b["text"].(string); ok {
 							if msg.Content != "" {
 								msg.Content += "\n"
 							}
 							msg.Content += text
 						}
-					case "tool_use":
+					case TypeToolUse:
 						id, _ := b["id"].(string)
 						name, _ := b["name"].(string)
 						input, _ := b["input"]
@@ -243,7 +268,7 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 								Arguments: string(inputJSON),
 							},
 						})
-					case "tool_result":
+					case TypeToolResult:
 						toolID, _ := b["tool_use_id"].(string)
 						contentStr := ""
 
@@ -268,7 +293,7 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 						}
 
 						req.Messages = append(req.Messages, types.Message{
-							Role:       "tool",
+							Role:       RoleTool,
 							ToolCallID: toolID,
 							Content:    contentStr,
 						})
@@ -279,7 +304,7 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 		}
 
 		// Improvement 3: Ensure content is never empty for OpenAI/Copilot
-		if msg.Content == "" && len(msg.ToolCalls) == 0 && msg.Role != "tool" {
+		if msg.Content == "" && len(msg.ToolCalls) == 0 && msg.Role != RoleTool {
 			msg.Content = "..."
 		}
 
@@ -314,8 +339,8 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 func convertToAnthropicResponse(resp *types.ChatResponse) types.AnthropicResponse {
 	ar := types.AnthropicResponse{
 		ID:      resp.ID,
-		Type:    "message",
-		Role:    "assistant",
+		Type:    TypeMessage,
+		Role:    RoleAssistant,
 		Model:   resp.Model,
 		Content: []types.AnthropicContent{},
 		Usage: types.AnthropicUsage{
@@ -328,7 +353,7 @@ func convertToAnthropicResponse(resp *types.ChatResponse) types.AnthropicRespons
 		msg := resp.Choices[0].Message
 		if msg.Content != "" {
 			ar.Content = append(ar.Content, types.AnthropicContent{
-				Type: "text",
+				Type: TypeText,
 				Text: msg.Content,
 			})
 		}
@@ -336,18 +361,18 @@ func convertToAnthropicResponse(resp *types.ChatResponse) types.AnthropicRespons
 			var input any
 			json.Unmarshal([]byte(tc.Function.Arguments), &input)
 			ar.Content = append(ar.Content, types.AnthropicContent{
-				Type:  "tool_use",
+				Type:  TypeToolUse,
 				ID:    tc.ID,
 				Name:  tc.Function.Name,
 				Input: input,
 			})
 		}
 
-		ar.StopReason = "end_turn"
-		if resp.Choices[0].FinishReason == "length" {
-			ar.StopReason = "max_tokens"
-		} else if resp.Choices[0].FinishReason == "tool_calls" {
-			ar.StopReason = "tool_use"
+		ar.StopReason = StopReasonEndTurn
+		if resp.Choices[0].FinishReason == FinishReasonLength {
+			ar.StopReason = StopReasonMaxTokens
+		} else if resp.Choices[0].FinishReason == FinishReasonToolCalls {
+			ar.StopReason = StopReasonToolUse
 		}
 	}
 
@@ -376,9 +401,9 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	ensureTextStarted := func() {
 		if !textBlockStarted {
 			blockIndex++
-			writeEvent("content_block_start", map[string]any{
+			writeEvent(EventContentBlockStart, map[string]any{
 				"index":         blockIndex,
-				"content_block": map[string]any{"type": "text", "text": ""},
+				"content_block": map[string]any{"type": TypeText, "text": ""},
 			})
 			textBlockStarted = true
 		}
@@ -386,20 +411,20 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 
 	ensureTextStopped := func() {
 		if textBlockStarted {
-			writeEvent("content_block_stop", map[string]any{"index": blockIndex})
+			writeEvent(EventContentBlockStop, map[string]any{"index": blockIndex})
 			textBlockStarted = false
 		}
 	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
+		if !strings.HasPrefix(line, SSEDataPrefix) {
 			continue
 		}
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
+		data := strings.TrimPrefix(line, SSEDataPrefix)
+		if data == SSEDone {
 			ensureTextStopped()
-			writeEvent("message_stop", map[string]any{})
+			writeEvent(EventMessageStop, map[string]any{})
 			break
 		}
 
@@ -411,11 +436,11 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		if first {
 			model, _ := chunk["model"].(string)
 			id, _ := chunk["id"].(string)
-			writeEvent("message_start", map[string]any{
+			writeEvent(EventMessageStart, map[string]any{
 				"message": map[string]any{
 					"id":            id,
-					"type":          "message",
-					"role":          "assistant",
+					"type":          TypeMessage,
+					"role":          RoleAssistant,
 					"model":         model,
 					"content":       []any{},
 					"stop_reason":   nil,
@@ -436,10 +461,10 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		// 1. Handle Text Content
 		if content, ok := delta["content"].(string); ok && content != "" {
 			ensureTextStarted()
-			writeEvent("content_block_delta", map[string]any{
+			writeEvent(EventContentBlockDelta, map[string]any{
 				"index": blockIndex,
 				"delta": map[string]any{
-					"type": "text_delta",
+					"type": TypeTextDelta,
 					"text": content,
 				},
 			})
@@ -456,16 +481,16 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 					name, _ := t["function"].(map[string]any)["name"].(string)
 
 					if activeToolIndex != -1 {
-						writeEvent("content_block_stop", map[string]any{"index": activeToolIndex})
+						writeEvent(EventContentBlockStop, map[string]any{"index": activeToolIndex})
 					}
 
 					blockIndex++
 					activeToolIndex = blockIndex
 
-					writeEvent("content_block_start", map[string]any{
+					writeEvent(EventContentBlockStart, map[string]any{
 						"index": activeToolIndex,
 						"content_block": map[string]any{
-							"type":  "tool_use",
+							"type":  TypeToolUse,
 							"id":    id,
 							"name":  name,
 							"input": map[string]any{},
@@ -473,10 +498,10 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 					})
 				} else if function, ok := t["function"].(map[string]any); ok {
 					if args, ok := function["arguments"].(string); ok {
-						writeEvent("content_block_delta", map[string]any{
+						writeEvent(EventContentBlockDelta, map[string]any{
 							"index": activeToolIndex,
 							"delta": map[string]any{
-								"type":         "input_json_delta",
+								"type":         TypeInputJSON,
 								"partial_json": args,
 							},
 						})
@@ -490,18 +515,18 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 			ensureTextStopped()
 
 			if activeToolIndex != -1 {
-				writeEvent("content_block_stop", map[string]any{"index": activeToolIndex})
+				writeEvent(EventContentBlockStop, map[string]any{"index": activeToolIndex})
 				activeToolIndex = -1
 			}
 
-			stopReason := "end_turn"
-			if finish == "length" {
-				stopReason = "max_tokens"
-			} else if finish == "tool_calls" {
-				stopReason = "tool_use"
+			stopReason := StopReasonEndTurn
+			if finish == FinishReasonLength {
+				stopReason = StopReasonMaxTokens
+			} else if finish == FinishReasonToolCalls {
+				stopReason = StopReasonToolUse
 			}
 
-			writeEvent("message_delta", map[string]any{
+			writeEvent(EventMessageDelta, map[string]any{
 				"delta": map[string]any{
 					"stop_reason": stopReason,
 				},

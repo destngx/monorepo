@@ -12,7 +12,9 @@ import (
 	"apps/ai-gateway/types"
 )
 
-const openaiBaseURL = "https://api.openai.com/v1"
+const (
+	openaiBaseURL = "https://api.openai.com/v1"
+)
 
 type OpenAIProvider struct {
 	apiKey string
@@ -32,9 +34,9 @@ func (o *OpenAIProvider) Name() string { return "openai" }
 func (o *OpenAIProvider) Chat(ctx context.Context, req types.ChatRequest) (*types.ChatResponse, error) {
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
-		openaiBaseURL+"/chat/completions", bytes.NewReader(body))
-	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
+		openaiBaseURL+PathChatCompletions, bytes.NewReader(body))
+	httpReq.Header.Set(HeaderAuthorization, TokenPrefixBearer+o.apiKey)
+	httpReq.Header.Set(HeaderContentType, ContentTypeJSON)
 
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
@@ -57,9 +59,9 @@ func (o *OpenAIProvider) ChatStream(ctx context.Context, req types.ChatRequest, 
 	req.StreamOptions = &types.StreamOptions{IncludeUsage: true}
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
-		openaiBaseURL+"/chat/completions", bytes.NewReader(body))
-	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
+		openaiBaseURL+PathChatCompletions, bytes.NewReader(body))
+	httpReq.Header.Set(HeaderAuthorization, TokenPrefixBearer+o.apiKey)
+	httpReq.Header.Set(HeaderContentType, ContentTypeJSON)
 
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
@@ -74,9 +76,9 @@ func (o *OpenAIProvider) ChatStream(ctx context.Context, req types.ChatRequest, 
 func (o *OpenAIProvider) Embeddings(ctx context.Context, req types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
-		openaiBaseURL+"/embeddings", bytes.NewReader(body))
-	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
+		openaiBaseURL+PathEmbeddings, bytes.NewReader(body))
+	httpReq.Header.Set(HeaderAuthorization, TokenPrefixBearer+o.apiKey)
+	httpReq.Header.Set(HeaderContentType, ContentTypeJSON)
 
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
@@ -97,11 +99,11 @@ func (o *OpenAIProvider) Embeddings(ctx context.Context, req types.EmbeddingRequ
 }
 
 func (o *OpenAIProvider) ListModels(ctx context.Context) (*types.ModelsResponse, error) {
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, openaiBaseURL+"/models", nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, openaiBaseURL+PathModels, nil)
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
+	httpReq.Header.Set(HeaderAuthorization, TokenPrefixBearer+o.apiKey)
 
 	resp, err := o.client.Do(httpReq)
 	if err != nil {
@@ -126,11 +128,11 @@ func (o *OpenAIProvider) IsConfigured() bool {
 }
 
 func (o *OpenAIProvider) Ping(ctx context.Context) error {
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodHead, openaiBaseURL+"/models", nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodHead, openaiBaseURL+PathModels, nil)
 	if err != nil {
 		return err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
+	httpReq.Header.Set(HeaderAuthorization, TokenPrefixBearer+o.apiKey)
 
 	resp, err := o.client.Do(httpReq)
 	if err != nil {

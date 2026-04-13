@@ -11,6 +11,19 @@ import (
 	"apps/ai-gateway/providers"
 )
 
+const (
+	LogPrefixSkip  = "[SKIP]"
+	LogPrefixWarn  = "[WARN]"
+	LogPrefixReady = "[READY]"
+
+	LogFormatVerbose2       = "[ID:%s] [VERBOSE 2] %s"
+	LogMsgResolvingRoute    = "Resolving route for inputModel: %q"
+	LogMsgSmartMapperResult = "Smart mapper result: mapped=%v targetProvider=%q targetModel=%q"
+
+	ErrUnknownProvider  = "unknown provider %q — registered: %v"
+	ErrProviderNotReady = "provider %q not ready"
+)
+
 // Registry maps provider names to their implementations.
 type Registry struct {
 	providers map[string]providers.Provider
@@ -61,7 +74,7 @@ func (r *Registry) register(p providers.Provider) {
 
 	// Phase 1: Token Check
 	if !p.IsConfigured() {
-		log.Printf("[SKIP] Provider %q: missing token", p.Name())
+		log.Printf(LogPrefixSkip+" Provider %q: missing token", p.Name())
 		return
 	}
 
@@ -70,19 +83,19 @@ func (r *Registry) register(p providers.Provider) {
 	defer cancel()
 
 	if err := p.Ping(ctx); err != nil {
-		log.Printf("[WARN] Provider %q: token OK but ping FAILED: %v; will return 404 on use", p.Name(), err)
+		log.Printf(LogPrefixWarn+" Provider %q: token OK but ping FAILED: %v; will return 404 on use", p.Name(), err)
 		return
 	}
 
 	p.SetReady(true)
-	log.Printf("[READY] Provider %q: token OK, ping OK", p.Name())
+	log.Printf(LogPrefixReady+" Provider %q: token OK, ping OK", p.Name())
 }
 
 // Get returns the provider for the given name.
 func (r *Registry) Get(name string) (providers.Provider, error) {
 	p, ok := r.providers[name]
 	if !ok {
-		return nil, fmt.Errorf("unknown provider %q — registered: %v", name, r.List())
+		return nil, fmt.Errorf(ErrUnknownProvider, name, r.List())
 	}
 	return p, nil
 }
@@ -101,22 +114,22 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (provi
 	rid, _ := httpReq.Context().Value(requestIDKey).(string)
 
 	if r.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Resolving route for inputModel: %q", rid, inputModel)
+		log.Printf(LogFormatVerbose2, rid, fmt.Sprintf(LogMsgResolvingRoute, inputModel))
 	}
 
-	providerName := httpReq.Header.Get("X-AI-Provider")
+	providerName := httpReq.Header.Get(HeaderAIProvider)
 	if providerName == "" {
 		providerName = r.Mapper.DefaultTarget.Provider
 	}
-	if providerName == "github" {
-		providerName = "github-copilot"
+	if providerName == ProviderGitHub {
+		providerName = ProviderGitHubCopilot
 	}
 
 	// 1. Check Smart Mapper using provider + model as the routing key.
 	target, mapped := r.Mapper.Resolve(providerName, inputModel)
 
 	if r.Config.Verbose >= 2 {
-		log.Printf("[ID:%s] [VERBOSE 2] Smart mapper result: mapped=%v targetProvider=%q targetModel=%q", rid, mapped, target.Provider, target.Model)
+		log.Printf(LogFormatVerbose2, rid, fmt.Sprintf(LogMsgSmartMapperResult, mapped, target.Provider, target.Model))
 	}
 
 	targetModel := target.Model
@@ -127,13 +140,13 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (provi
 	// 2. If the mapper did not override provider, use the requested provider.
 	providerName = target.Provider
 	if providerName == "" {
-		providerName = httpReq.Header.Get("X-AI-Provider")
+		providerName = httpReq.Header.Get(HeaderAIProvider)
 		if providerName == "" {
 			providerName = r.Mapper.DefaultTarget.Provider
 		}
 	}
-	if providerName == "github" {
-		providerName = "github-copilot"
+	if providerName == ProviderGitHub {
+		providerName = ProviderGitHubCopilot
 	}
 
 	p, err := r.Get(providerName)
@@ -142,7 +155,7 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (provi
 	}
 
 	if !p.IsReady() {
-		return nil, "", fmt.Errorf("provider %q not ready", providerName)
+		return nil, "", fmt.Errorf(ErrProviderNotReady, providerName)
 	}
 
 	return p, targetModel, nil

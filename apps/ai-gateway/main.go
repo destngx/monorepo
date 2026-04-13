@@ -9,6 +9,22 @@ import (
 	"apps/ai-gateway/proxy"
 )
 
+const (
+	PathChatCompletions = "/v1/chat/completions"
+	PathMessages        = "/v1/messages"
+	PathModels          = "/v1/models"
+	PathModelsSlash     = "/v1/models/"
+	PathEmbeddings      = "/v1/embeddings"
+	PathUsage           = "/v1/usage"
+	PathHealth          = "/health"
+
+	HeaderContentType = "Content-Type"
+	ContentTypeJSON   = "application/json"
+
+	LogFormatListening    = "AI Gateway listening on %s"
+	LogFormatRegProviders = "Registered providers: %v"
+)
+
 func main() {
 	cfg := config.Load()
 	registry := proxy.NewRegistry(cfg)
@@ -19,14 +35,14 @@ func main() {
 	usageHandler := proxy.NewUsageHandler(registry)
 
 	mux := http.NewServeMux()
-	mux.Handle("/v1/chat/completions", openaiHandler)
-	mux.Handle("/v1/messages", anthroHandler)
-	mux.Handle("/v1/models", modelsHandler)
-	mux.Handle("/v1/models/", modelsHandler)
-	mux.Handle("/v1/embeddings", embeddingsHandler)
-	mux.Handle("/v1/usage", usageHandler)
-	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+	mux.Handle(PathChatCompletions, openaiHandler)
+	mux.Handle(PathMessages, anthroHandler)
+	mux.Handle(PathModels, modelsHandler)
+	mux.Handle(PathModelsSlash, modelsHandler)
+	mux.Handle(PathEmbeddings, embeddingsHandler)
+	mux.Handle(PathUsage, usageHandler)
+	mux.Handle(PathHealth, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(HeaderContentType, ContentTypeJSON)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":    "ok",
 			"providers": registry.List(),
@@ -39,8 +55,8 @@ func main() {
 		proxy.CORS,
 	)
 
-	log.Printf("AI Gateway listening on %s", cfg.ListenAddr)
-	log.Printf("Registered providers: %v", registry.List())
+	log.Printf(LogFormatListening, cfg.ListenAddr)
+	log.Printf(LogFormatRegProviders, registry.List())
 	if err := http.ListenAndServe(cfg.ListenAddr, stack); err != nil {
 		log.Fatal(err)
 	}

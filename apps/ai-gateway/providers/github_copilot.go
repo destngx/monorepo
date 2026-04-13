@@ -17,11 +17,41 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-const githubCopilotBaseURL = "https://api.githubcopilot.com"
-const githubCopilotTokenURL = "https://api.github.com/copilot_internal/v2/token"
-const githubCopilotEditorVersion = "vscode/1.80.0"
-const githubCopilotPluginVersion = "copilot-chat/0.1.0"
-const githubCopilotUserAgent = "curl/8.7.1"
+const (
+	githubCopilotBaseURL       = "https://api.githubcopilot.com"
+	githubCopilotTokenURL      = "https://api.github.com/copilot_internal/v2/token"
+	githubCopilotUserURL       = "https://api.github.com/copilot_internal/user"
+	githubCopilotEditorVersion = "vscode/1.80.0"
+	githubCopilotPluginVersion = "copilot-chat/0.1.0"
+	githubCopilotUserAgent     = "curl/8.7.1"
+
+	ProviderGitHubCopilot = "github-copilot"
+
+	ModelGPT41         = "gpt-4.1"
+	ModelGPT4o         = "gpt-4o"
+	ModelGrokCodeFast1 = "grok-code-fast-1"
+	ModelGemini3Pro    = "gemini-3-pro-preview"
+	ModelClaudeHaiku45 = "claude-haiku-4.5"
+
+	LogPrefix = "[github-copilot] "
+
+	LogFormatChatStart      = LogPrefix + "chat start model=%q"
+	LogFormatStreamFallback = LogPrefix + "stream fallback error: %v"
+	LogFormatSyncAssembled  = LogPrefix + "assembled sync response took=%s"
+	LogFormatStreamStart    = LogPrefix + "stream start model=%q"
+	LogFormatPayloadBuild   = LogPrefix + "stream payload+session build took=%s"
+	LogFormatUpstreamCall   = LogPrefix + "upstream stream call took=%s status=%d"
+	LogFormatStreamTotal    = LogPrefix + "stream total took=%s"
+	LogFormatCacheHit       = LogPrefix + "session cache hit token=hit base_url=%q"
+	LogFormatCacheMiss      = LogPrefix + "session cache miss, fetching token"
+	LogFormatTokenFetch     = LogPrefix + "token fetch took=%s base_url=%q expires_at=%d"
+	LogFormatSessionReady   = LogPrefix + "session ready base_url=%q"
+	LogFormatPayloadMarshal = LogPrefix + "payload marshal took=%s"
+
+	ErrNotConfigured        = "github copilot not configured"
+	ErrNotSupportedEmbed    = "github copilot does not support embeddings"
+	ErrMissingTokenResponse = "github copilot token response missing token"
+)
 
 type GitHubCopilotProvider struct {
 	githubToken string
@@ -56,11 +86,11 @@ func NewGitHubCopilot(githubToken string, verbose int) *GitHubCopilotProvider {
 	}
 }
 
-func (g *GitHubCopilotProvider) Name() string { return "github-copilot" }
+func (g *GitHubCopilotProvider) Name() string { return ProviderGitHubCopilot }
 
 func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest) (*types.ChatResponse, error) {
 	start := time.Now()
-	g.vlogf(1, "[github-copilot] chat start model=%q", req.Model)
+	g.vlogf(1, LogFormatChatStart, req.Model)
 
 	// GitHub Copilot enforces stream=true on many models (e.g. Anthropic/OpenAI models on its edge).
 	// To support sync requests, we force stream=true upstream and assemble the SSE chunks into a single response.
@@ -72,7 +102,7 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 		defer pw.Close()
 		_, err := g.ChatStream(ctx, req, pw)
 		if err != nil {
-			g.vlogf(1, "[github-copilot] stream fallback error: %v", err)
+			g.vlogf(1, LogFormatStreamFallback, err)
 		}
 		errCh <- err
 	}()
@@ -93,8 +123,8 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 			}
 			continue
 		}
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
+		data := strings.TrimPrefix(line, SSEDataPrefix)
+		if data == SSEDone {
 			break
 		}
 
@@ -158,7 +188,7 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 	if rawBodyBuilder.Len() > 0 && contentBuilder.Len() == 0 && len(toolCallsMap) == 0 {
 		var directResp types.ChatResponse
 		if err := json.Unmarshal([]byte(rawBodyBuilder.String()), &directResp); err == nil && len(directResp.Choices) > 0 {
-			g.vlogf(1, "[github-copilot] assembled sync response took=%s", time.Since(start))
+			g.vlogf(1, LogFormatSyncAssembled, time.Since(start))
 			return &directResp, streamErr
 		}
 	}
@@ -225,20 +255,20 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 		},
 	}
 
-	g.vlogf(1, "[github-copilot] assembled sync response took=%s", time.Since(start))
+	g.vlogf(1, LogFormatSyncAssembled, time.Since(start))
 	return &result, nil
 }
 
 func (g *GitHubCopilotProvider) ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error) {
 	start := time.Now()
-	g.vlogf(1, "[github-copilot] stream start model=%q", req.Model)
+	g.vlogf(1, LogFormatStreamStart, req.Model)
 
 	payloadStart := time.Now()
 	httpReq, err := g.newChatRequest(ctx, req, true)
 	if err != nil {
 		return types.Usage{}, err
 	}
-	g.vlogf(2, "[github-copilot] stream payload+session build took=%s", time.Since(payloadStart))
+	g.vlogf(2, LogFormatPayloadBuild, time.Since(payloadStart))
 
 	callStart := time.Now()
 	resp, err := g.client.Do(httpReq)
@@ -246,7 +276,7 @@ func (g *GitHubCopilotProvider) ChatStream(ctx context.Context, req types.ChatRe
 		return types.Usage{}, err
 	}
 	defer resp.Body.Close()
-	g.vlogf(1, "[github-copilot] upstream stream call took=%s status=%d", time.Since(callStart), resp.StatusCode)
+	g.vlogf(1, LogFormatUpstreamCall, time.Since(callStart), resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
@@ -254,12 +284,12 @@ func (g *GitHubCopilotProvider) ChatStream(ctx context.Context, req types.ChatRe
 	}
 
 	usage, err := streamSSEAndCountTokens(resp.Body, w)
-	g.vlogf(1, "[github-copilot] stream total took=%s", time.Since(start))
+	g.vlogf(1, LogFormatStreamTotal, time.Since(start))
 	return usage, err
 }
 
 func (g *GitHubCopilotProvider) Embeddings(ctx context.Context, req types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
-	return nil, fmt.Errorf("github copilot does not support embeddings")
+	return nil, fmt.Errorf(ErrNotSupportedEmbed)
 }
 
 func (g *GitHubCopilotProvider) ListModels(ctx context.Context) (*types.ModelsResponse, error) {
@@ -268,11 +298,11 @@ func (g *GitHubCopilotProvider) ListModels(ctx context.Context) (*types.ModelsRe
 	return &types.ModelsResponse{
 		Object: "list",
 		Data: []types.ModelInfo{
-			{ID: "gpt-4.1", Object: "model", OwnedBy: "github-copilot"},
-			{ID: "gpt-4o", Object: "model", OwnedBy: "github-copilot"},
-			{ID: "grok-code-fast-1", Object: "model", OwnedBy: "github-copilot"},
-			{ID: "gemini-3-pro-preview", Object: "model", OwnedBy: "github-copilot"},
-			{ID: "claude-haiku-4.5", Object: "model", OwnedBy: "github-copilot"},
+			{ID: ModelGPT41, Object: "model", OwnedBy: ProviderGitHubCopilot},
+			{ID: ModelGPT4o, Object: "model", OwnedBy: ProviderGitHubCopilot},
+			{ID: ModelGrokCodeFast1, Object: "model", OwnedBy: ProviderGitHubCopilot},
+			{ID: ModelGemini3Pro, Object: "model", OwnedBy: ProviderGitHubCopilot},
+			{ID: ModelClaudeHaiku45, Object: "model", OwnedBy: ProviderGitHubCopilot},
 		},
 	}, nil
 }
@@ -283,21 +313,21 @@ func (g *GitHubCopilotProvider) IsConfigured() bool {
 
 func (g *GitHubCopilotProvider) Ping(ctx context.Context) error {
 	if !g.IsConfigured() {
-		return fmt.Errorf("github copilot not configured")
+		return fmt.Errorf(ErrNotConfigured)
 	}
 	return nil
 }
 
 func (g *GitHubCopilotProvider) Usage(ctx context.Context) (any, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/copilot_internal/user", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubCopilotUserURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	// Copilot uses the primary github token for user identification
-	req.Header.Set("Authorization", "token "+g.githubToken)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", githubCopilotUserAgent)
+	req.Header.Set(HeaderAuthorization, TokenPrefixToken+g.githubToken)
+	req.Header.Set(HeaderAccept, ContentTypeJSON)
+	req.Header.Set(HeaderUserAgent, githubCopilotUserAgent)
 
 	resp, err := g.client.Do(req)
 	if err != nil {
@@ -330,23 +360,23 @@ func (g *GitHubCopilotProvider) getCopilotSession(ctx context.Context) (string, 
 			baseURL = g.defaultBaseURL
 		}
 		g.mu.Unlock()
-		g.vlogf(2, "[github-copilot] session cache hit token=hit base_url=%q", baseURL)
+		g.vlogf(2, LogFormatCacheHit, baseURL)
 		return token, baseURL, nil
 	}
 	g.mu.Unlock()
 
 	sessionStart := time.Now()
 	v, err, _ := g.tokenGroup.Do("copilot-token", func() (any, error) {
-		g.vlogf(1, "[github-copilot] session cache miss, fetching token")
+		g.vlogf(1, LogFormatCacheMiss)
 		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, g.tokenURL, nil)
 		if err != nil {
 			return nil, err
 		}
-		httpReq.Header.Set("Authorization", "token "+g.githubToken)
-		httpReq.Header.Set("Accept", "application/json")
-		httpReq.Header.Set("User-Agent", githubCopilotUserAgent)
-		httpReq.Header.Set("Editor-Version", githubCopilotEditorVersion)
-		httpReq.Header.Set("Editor-Plugin-Version", githubCopilotPluginVersion)
+		httpReq.Header.Set(HeaderAuthorization, TokenPrefixToken+g.githubToken)
+		httpReq.Header.Set(HeaderAccept, ContentTypeJSON)
+		httpReq.Header.Set(HeaderUserAgent, githubCopilotUserAgent)
+		httpReq.Header.Set(HeaderEditorVersion, githubCopilotEditorVersion)
+		httpReq.Header.Set(HeaderEditorPluginVer, githubCopilotPluginVersion)
 
 		resp, err := g.client.Do(httpReq)
 		if err != nil {
@@ -364,7 +394,7 @@ func (g *GitHubCopilotProvider) getCopilotSession(ctx context.Context) (string, 
 			return nil, fmt.Errorf("failed to decode github copilot token: %w", err)
 		}
 		if tokenResp.Token == "" {
-			return nil, fmt.Errorf("github copilot token response missing token")
+			return nil, fmt.Errorf(ErrMissingTokenResponse)
 		}
 
 		baseURL := g.defaultBaseURL
@@ -377,7 +407,7 @@ func (g *GitHubCopilotProvider) getCopilotSession(ctx context.Context) (string, 
 		g.expiresAt = tokenResp.ExpiresAt
 		g.copilotAPIBase = baseURL
 		g.mu.Unlock()
-		g.vlogf(1, "[github-copilot] token fetch took=%s base_url=%q expires_at=%d", time.Since(sessionStart), baseURL, tokenResp.ExpiresAt)
+		g.vlogf(1, LogFormatTokenFetch, time.Since(sessionStart), baseURL, tokenResp.ExpiresAt)
 
 		return githubCopilotSession{
 			token:   tokenResp.Token,
@@ -388,7 +418,7 @@ func (g *GitHubCopilotProvider) getCopilotSession(ctx context.Context) (string, 
 		return "", "", err
 	}
 	session := v.(githubCopilotSession)
-	g.vlogf(2, "[github-copilot] session ready base_url=%q", session.baseURL)
+	g.vlogf(2, LogFormatSessionReady, session.baseURL)
 	return session.token, session.baseURL, nil
 }
 
@@ -403,21 +433,21 @@ func (g *GitHubCopilotProvider) newChatRequest(ctx context.Context, req types.Ch
 	if err != nil {
 		return nil, err
 	}
-	g.vlogf(2, "[github-copilot] payload marshal took=%s", time.Since(payloadStart))
+	g.vlogf(2, LogFormatPayloadMarshal, time.Since(payloadStart))
 
 	token, baseURL, err := g.getCopilotSession(ctx)
 	if err != nil {
 		return nil, err
 	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(payload))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+PathChatCompletions, bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+token)
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Editor-Version", githubCopilotEditorVersion)
-	httpReq.Header.Set("Editor-Plugin-Version", githubCopilotPluginVersion)
-	httpReq.Header.Set("User-Agent", githubCopilotUserAgent)
+	httpReq.Header.Set(HeaderAuthorization, TokenPrefixBearer+token)
+	httpReq.Header.Set(HeaderContentType, ContentTypeJSON)
+	httpReq.Header.Set(HeaderEditorVersion, githubCopilotEditorVersion)
+	httpReq.Header.Set(HeaderEditorPluginVer, githubCopilotPluginVersion)
+	httpReq.Header.Set(HeaderUserAgent, githubCopilotUserAgent)
 
 	return httpReq, nil
 }
