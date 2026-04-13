@@ -59,7 +59,7 @@ func (g *GitHubCopilotProvider) Name() string { return "github-copilot" }
 
 func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest) (*types.ChatResponse, error) {
 	start := time.Now()
-	g.vlogf(2, "[github-copilot] chat start model=%q", req.Model)
+	g.vlogf(1, "[github-copilot] chat start model=%q", req.Model)
 
 	payloadStart := time.Now()
 	httpReq, err := g.newChatRequest(ctx, req, false)
@@ -74,7 +74,7 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 		return nil, err
 	}
 	defer resp.Body.Close()
-	g.vlogf(2, "[github-copilot] upstream chat call took=%s status=%d", time.Since(callStart), resp.StatusCode)
+	g.vlogf(1, "[github-copilot] upstream chat call took=%s status=%d", time.Since(callStart), resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
@@ -85,13 +85,13 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
-	g.vlogf(2, "[github-copilot] chat total took=%s", time.Since(start))
+	g.vlogf(1, "[github-copilot] chat total took=%s", time.Since(start))
 	return &result, nil
 }
 
 func (g *GitHubCopilotProvider) ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error) {
 	start := time.Now()
-	g.vlogf(2, "[github-copilot] stream start model=%q", req.Model)
+	g.vlogf(1, "[github-copilot] stream start model=%q", req.Model)
 
 	payloadStart := time.Now()
 	httpReq, err := g.newChatRequest(ctx, req, true)
@@ -106,7 +106,7 @@ func (g *GitHubCopilotProvider) ChatStream(ctx context.Context, req types.ChatRe
 		return types.Usage{}, err
 	}
 	defer resp.Body.Close()
-	g.vlogf(2, "[github-copilot] upstream stream call took=%s status=%d", time.Since(callStart), resp.StatusCode)
+	g.vlogf(1, "[github-copilot] upstream stream call took=%s status=%d", time.Since(callStart), resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
@@ -114,7 +114,7 @@ func (g *GitHubCopilotProvider) ChatStream(ctx context.Context, req types.ChatRe
 	}
 
 	usage, err := streamSSEAndCountTokens(resp.Body, w)
-	g.vlogf(2, "[github-copilot] stream total took=%s", time.Since(start))
+	g.vlogf(1, "[github-copilot] stream total took=%s", time.Since(start))
 	return usage, err
 }
 
@@ -167,7 +167,7 @@ func (g *GitHubCopilotProvider) getCopilotSession(ctx context.Context) (string, 
 
 	sessionStart := time.Now()
 	v, err, _ := g.tokenGroup.Do("copilot-token", func() (any, error) {
-		g.vlogf(2, "[github-copilot] session cache miss, fetching token")
+		g.vlogf(1, "[github-copilot] session cache miss, fetching token")
 		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, g.tokenURL, nil)
 		if err != nil {
 			return nil, err
@@ -207,7 +207,7 @@ func (g *GitHubCopilotProvider) getCopilotSession(ctx context.Context) (string, 
 		g.expiresAt = tokenResp.ExpiresAt
 		g.copilotAPIBase = baseURL
 		g.mu.Unlock()
-		g.vlogf(2, "[github-copilot] token fetch took=%s base_url=%q expires_at=%d", time.Since(sessionStart), baseURL, tokenResp.ExpiresAt)
+		g.vlogf(1, "[github-copilot] token fetch took=%s base_url=%q expires_at=%d", time.Since(sessionStart), baseURL, tokenResp.ExpiresAt)
 
 		return githubCopilotSession{
 			token:   tokenResp.Token,

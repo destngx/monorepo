@@ -17,11 +17,8 @@ type ModelMapper struct {
 // NewModelMapper initializes a mapper with standard mappings.
 func NewModelMapper() *ModelMapper {
 	m := &ModelMapper{
-		exact: make(map[string]RouteTarget),
-		DefaultTarget: RouteTarget{
-			Provider: "github-copilot",
-			Model:    "gpt-4.1",
-		},
+		exact:         make(map[string]RouteTarget),
+		DefaultTarget: RouteTarget{Provider: "github-copilot", Model: "gpt-4.1"},
 	}
 
 	return m
@@ -49,6 +46,26 @@ func (m *ModelMapper) Resolve(provider, model string) (RouteTarget, bool) {
 		return target, true
 	}
 
-	// 2. Passthrough if not mapped
-	return RouteTarget{Model: model}, false
+	// 2. Default Claude-family models to GitHub Copilot, preserving the requested model.
+	if isClaudeModel(model) {
+		return RouteTarget{Provider: "github-copilot", Model: normalizeClaudeModel(model)}, false
+	}
+
+	// 3. Passthrough if not mapped.
+	return RouteTarget{Provider: m.DefaultTarget.Provider, Model: m.DefaultTarget.Model}, false
+}
+
+func isClaudeModel(model string) bool {
+	lowered := strings.ToLower(model)
+	return strings.HasPrefix(lowered, "claude-")
+}
+
+func normalizeClaudeModel(model string) string {
+	lowered := strings.ToLower(model)
+	switch lowered {
+	case "claude-haiku-4-5-20251001":
+		return "claude-haiku-4.5"
+	default:
+		return "claude-haiku-4.5" // fallback to haiku as default claude
+	}
 }

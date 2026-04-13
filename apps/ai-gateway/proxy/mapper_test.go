@@ -7,7 +7,7 @@ import (
 func TestModelMapper_Resolve(t *testing.T) {
 	m := NewModelMapper()
 	m.AddExactForProvider("github-copilot", "claude-3-5-sonnet-20241022", RouteTarget{"github-copilot", "claude-3-5-sonnet-20241022"})
-	m.AddExactForProvider("github-copilot", "claude-haiku-4-5-20251001", RouteTarget{"github-copilot", "claude-haiku-4-5-20251001"})
+	m.AddExactForProvider("github-copilot", "claude-haiku-4-5-20251001", RouteTarget{"github-copilot", "claude-haiku-4.5"})
 	m.AddExactForProvider("github-copilot", "claude-3-opus-20240229", RouteTarget{"github-copilot", "claude-3-opus-20240229"})
 	m.AddExactForProvider("github-copilot", "claude-v2", RouteTarget{"github-copilot", "claude-v2"})
 
@@ -20,11 +20,11 @@ func TestModelMapper_Resolve(t *testing.T) {
 		mapped   bool
 	}{
 		{"github-copilot", "Exact pair Sonnet", "claude-3-5-sonnet-20241022", "github-copilot", "claude-3-5-sonnet-20241022", true},
-		{"github-copilot", "Exact pair Haiku", "claude-haiku-4-5-20251001", "github-copilot", "claude-haiku-4-5-20251001", true},
+		{"github-copilot", "Exact pair Haiku", "claude-haiku-4-5-20251001", "github-copilot", "claude-haiku-4.5", true},
 		{"github-copilot", "Exact pair Opus", "claude-3-opus-20240229", "github-copilot", "claude-3-opus-20240229", true},
 		{"github-copilot", "Exact pair Claude v2", "claude-v2", "github-copilot", "claude-v2", true},
-		{"openai", "Unknown model passthrough", "my-custom-model", "", "my-custom-model", false},
-		{"openai", "GitHub pair should not match other provider", "claude-v2", "", "claude-v2", false},
+		{"openai", "Unknown model defaults to gpt-4.1", "my-custom-model", "github-copilot", "gpt-4.1", false},
+		{"openai", "Claude model defaults to GitHub Copilot", "claude-v2", "github-copilot", "claude-v2", false},
 		{"github-copilot", "Empty model default", "", "github-copilot", "gpt-4.1", false},
 	}
 
