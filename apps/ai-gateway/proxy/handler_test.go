@@ -63,7 +63,7 @@ func TestServeHTTP(t *testing.T) {
 	mock := &MockProvider{name: "mock", configured: true, ready: true}
 	registry.providers["mock"] = mock
 
-	handler := NewHandler(registry)
+	handler := NewOpenAIHandler(registry)
 
 	t.Run("Unknown Provider", func(t *testing.T) {
 		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4.1"})
@@ -175,7 +175,7 @@ func TestToolCallHandler(t *testing.T) {
 	mock := &MockProvider{name: "mock", configured: true, ready: true}
 	registry.providers["mock"] = mock
 
-	handler := NewHandler(registry)
+	handler := NewOpenAIHandler(registry)
 
 	t.Run("Tool Call Response", func(t *testing.T) {
 		// Mock a tool call response

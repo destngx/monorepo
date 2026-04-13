@@ -24,6 +24,8 @@ type Config struct {
 	OpenAIRate    ProviderConfig
 	AnthropicRate ProviderConfig
 	OllamaRate    ProviderConfig
+
+	Verbose int
 }
 
 func Load() *Config {
@@ -51,12 +53,16 @@ func Load() *Config {
 		addr = ":8080"
 	}
 
+	verboseStr := os.Getenv("VERBOSE")
+	verbose, _ := strconv.Atoi(verboseStr)
+
 	return &Config{
 		GitHubToken:   os.Getenv("GITHUB_TOKEN"),
 		OpenAIKey:     os.Getenv("OPENAI_API_KEY"),
 		AnthropicKey:  os.Getenv("ANTHROPIC_API_KEY"),
 		OllamaBaseURL: ollamaBase,
 		ListenAddr:    addr,
+		Verbose:       verbose,
 
 		GitHubRate:    loadProviderRate("GITHUB"),
 		OpenAIRate:    loadProviderRate("OPENAI"),

@@ -15,6 +15,7 @@ import (
 type Registry struct {
 	providers map[string]providers.Provider
 	Mapper    *ModelMapper
+	Config    *config.Config
 }
 
 // NewRegistry initialises all providers.
@@ -23,6 +24,7 @@ func NewRegistry(cfg *config.Config) *Registry {
 	r := &Registry{
 		providers: make(map[string]providers.Provider),
 		Mapper:    NewModelMapper(),
+		Config:    cfg,
 	}
 
 	// Register all providers regardless of config
@@ -91,8 +93,18 @@ func (r *Registry) List() []string {
 
 // ResolveRoute determines the actual provider and model for a request.
 func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (providers.Provider, string, error) {
+	rid, _ := httpReq.Context().Value(requestIDKey).(string)
+
+	if r.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Resolving route for inputModel: %q", rid, inputModel)
+	}
+
 	// 1. Check Smart Mapper
 	target, mapped := r.Mapper.Resolve(inputModel)
+
+	if r.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Smart mapper result: mapped=%v targetProvider=%q targetModel=%q", rid, mapped, target.Provider, target.Model)
+	}
 
 	providerName := target.Provider
 	targetModel := target.Model

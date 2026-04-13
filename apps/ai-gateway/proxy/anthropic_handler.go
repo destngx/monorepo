@@ -35,10 +35,24 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rid, _ := r.Context().Value(requestIDKey).(string)
+
+	if h.registry.Config.Verbose >= 1 {
+		reqBytes, _ := json.Marshal(anthroReq)
+		log.Printf("[ID:%s] [VERBOSE 1] Received Anthropic Request: %s", rid, string(reqBytes))
+	}
+	if h.registry.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Finished decoding Anthropic request", rid)
+	}
+
 	// 2. Smart Routing: Determine which backend provider and model to use.
 	provider, targetModel, err := h.registry.ResolveRoute(r, anthroReq.Model)
 	if err != nil {
-		writeError(w, r, http.StatusBadRequest, "routing failed: "+err.Error())
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "not ready") {
+			status = http.StatusNotFound
+		}
+		writeError(w, r, status, "routing failed: "+err.Error())
 		return
 	}
 
@@ -54,18 +68,37 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p providers.Provider, req types.ChatRequest) {
+	rid, _ := r.Context().Value(requestIDKey).(string)
+	if h.registry.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Entering Anthropic handleSync", rid)
+	}
+
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
+		if h.registry.Config.Verbose >= 1 {
+			log.Printf("[ID:%s] [VERBOSE 1] Provider returned error: %v", rid, err)
+		}
 		writeError(w, r, http.StatusBadGateway, err.Error())
 		return
 	}
 
 	anthroResp := convertToAnthropicResponse(resp)
+
+	if h.registry.Config.Verbose >= 1 {
+		respBytes, _ := json.Marshal(anthroResp)
+		log.Printf("[ID:%s] [VERBOSE 1] Provider Response (Anthropic format): %s", rid, string(respBytes))
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(anthroResp)
 }
 
 func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p providers.Provider, req types.ChatRequest) {
+	rid, _ := r.Context().Value(requestIDKey).(string)
+	if h.registry.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Entering Anthropic handleStream", rid)
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -79,7 +112,12 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 		}
 	}()
 
-	convertToAnthropicStream(pr, w)
+	var writer io.Writer = w
+	if h.registry.Config.Verbose >= 1 {
+		writer = &StreamLogWriter{w: w, rid: rid}
+	}
+
+	convertToAnthropicStream(pr, writer)
 }
 
 func convertFromAnthropicRequest(ar types.AnthropicRequest) types.ChatRequest {
@@ -91,11 +129,32 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest) types.ChatRequest {
 		MaxTokens:   &ar.MaxTokens,
 	}
 
-	if ar.System != "" {
-		req.Messages = append(req.Messages, types.Message{
-			Role:    "system",
-			Content: ar.System,
-		})
+	if ar.System != nil {
+		systemText := ""
+		switch v := ar.System.(type) {
+		case string:
+			systemText = v
+		case []any:
+			for _, block := range v {
+				if b, ok := block.(map[string]any); ok {
+					if t, ok := b["type"].(string); ok && t == "text" {
+						if txt, ok := b["text"].(string); ok {
+							if systemText != "" {
+								systemText += "\n"
+							}
+							systemText += txt
+						}
+					}
+				}
+			}
+		}
+
+		if systemText != "" {
+			req.Messages = append(req.Messages, types.Message{
+				Role:    "system",
+				Content: systemText,
+			})
+		}
 	}
 
 	for _, m := range ar.Messages {

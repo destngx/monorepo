@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"runtime/debug"
+	"strings"
 
 	"apps/ai-gateway/providers"
 	"apps/ai-gateway/types"
@@ -41,10 +42,24 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rid, _ := r.Context().Value(requestIDKey).(string)
+
+	if h.registry.Config.Verbose >= 1 {
+		reqBytes, _ := json.Marshal(req)
+		log.Printf("[ID:%s] [VERBOSE 1] Received OpenAI Request: %s", rid, string(reqBytes))
+	}
+	if h.registry.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Finished decoding request", rid)
+	}
+
 	// 2. Smart Routing: Determine which backend provider and model to use.
 	provider, targetModel, err := h.registry.ResolveRoute(r, req.Model)
 	if err != nil {
-		writeError(w, r, http.StatusBadRequest, "routing failed: "+err.Error())
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "not ready") {
+			status = http.StatusNotFound
+		}
+		writeError(w, r, status, "routing failed: "+err.Error())
 		return
 	}
 	req.Model = targetModel
@@ -62,8 +77,16 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p interface {
 	Chat(context.Context, types.ChatRequest) (*types.ChatResponse, error)
 }, req types.ChatRequest) {
+	rid, _ := r.Context().Value(requestIDKey).(string)
+	if h.registry.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Entering handleSync", rid)
+	}
+
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
+		if h.registry.Config.Verbose >= 1 {
+			log.Printf("[ID:%s] [VERBOSE 1] Provider returned error: %v", rid, err)
+		}
 		if _, ok := err.(*providers.ErrRateLimitExceeded); ok {
 			writeError(w, r, http.StatusTooManyRequests, err.Error())
 		} else {
@@ -71,6 +94,12 @@ func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p int
 		}
 		return
 	}
+
+	if h.registry.Config.Verbose >= 1 {
+		respBytes, _ := json.Marshal(resp)
+		log.Printf("[ID:%s] [VERBOSE 1] Provider Response: %s", rid, string(respBytes))
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
@@ -90,9 +119,18 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p i
 		return
 	}
 
-	_, err := p.ChatStream(r.Context(), req, w)
+	rid, _ := r.Context().Value(requestIDKey).(string)
+	if h.registry.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Entering handleStream", rid)
+	}
+
+	var writer io.Writer = w
+	if h.registry.Config.Verbose >= 1 {
+		writer = &StreamLogWriter{w: w, rid: rid}
+	}
+
+	_, err := p.ChatStream(r.Context(), req, writer)
 	if err != nil {
-		rid, _ := r.Context().Value(requestIDKey).(string)
 		log.Printf("[ID:%s] STREAM ERROR: %v", rid, err)
 
 		status := http.StatusBadGateway
@@ -187,6 +225,15 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rid, _ := r.Context().Value(requestIDKey).(string)
+	if e.registry.Config.Verbose >= 1 {
+		reqBytes, _ := json.Marshal(req)
+		log.Printf("[ID:%s] [VERBOSE 1] Received Embeddings Request: %s", rid, string(reqBytes))
+	}
+	if e.registry.Config.Verbose >= 2 {
+		log.Printf("[ID:%s] [VERBOSE 2] Entering Embeddings handler sync", rid)
+	}
+
 	resp, err := provider.Embeddings(r.Context(), req)
 	if err != nil {
 		if _, ok := err.(*providers.ErrRateLimitExceeded); ok {
@@ -195,6 +242,11 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, r, http.StatusBadGateway, err.Error())
 		}
 		return
+	}
+
+	if e.registry.Config.Verbose >= 1 {
+		respBytes, _ := json.Marshal(resp)
+		log.Printf("[ID:%s] [VERBOSE 1] Provider Embeddings Response: %s", rid, string(respBytes))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -214,4 +266,21 @@ func writeError(w http.ResponseWriter, r *http.Request, code int, msg string) {
 		"stack": string(debug.Stack()),
 	}
 	json.NewEncoder(w).Encode(resp)
+}
+
+// StreamLogWriter wraps an io.Writer to log stream chunks.
+type StreamLogWriter struct {
+	w   io.Writer
+	rid string
+}
+
+func (sw *StreamLogWriter) Write(p []byte) (n int, err error) {
+	log.Printf("[ID:%s] [VERBOSE 1] Stream chunk: %s", sw.rid, string(p))
+	return sw.w.Write(p)
+}
+
+func (sw *StreamLogWriter) Flush() {
+	if f, ok := sw.w.(http.Flusher); ok {
+		f.Flush()
+	}
 }
