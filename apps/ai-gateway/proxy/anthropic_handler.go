@@ -162,8 +162,10 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 	if ar.ToolChoice != nil {
 		if m, ok := ar.ToolChoice.(map[string]any); ok {
 			if t, ok := m["type"].(string); ok {
-				if t == "auto" || t == "any" {
+				if t == "auto" {
 					req.ToolChoice = t
+				} else if t == "any" {
+					req.ToolChoice = "required"
 				} else if t == "tool" {
 					name, _ := m["name"].(string)
 					req.ToolChoice = map[string]any{
@@ -175,7 +177,11 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 				}
 			}
 		} else if s, ok := ar.ToolChoice.(string); ok {
-			req.ToolChoice = s
+			if s == "any" {
+				req.ToolChoice = "required"
+			} else {
+				req.ToolChoice = s
+			}
 		}
 	}
 
