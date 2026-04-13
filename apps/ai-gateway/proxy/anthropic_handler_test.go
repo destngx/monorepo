@@ -26,7 +26,7 @@ func TestConvertFromAnthropicRequest(t *testing.T) {
 		},
 	}
 
-	req := convertFromAnthropicRequest(anthroReq)
+	req := convertFromAnthropicRequest(anthroReq, "anthropic")
 
 	if req.Model != "claude-3-opus" {
 		t.Errorf("expected model claude-3-opus, got %s", req.Model)
@@ -61,7 +61,7 @@ func TestConvertFromAnthropicRequest_WithArraySystem(t *testing.T) {
 		},
 	}
 
-	req := convertFromAnthropicRequest(anthroReq)
+	req := convertFromAnthropicRequest(anthroReq, "anthropic")
 
 	// Should have system message + user message
 	if len(req.Messages) != 2 {

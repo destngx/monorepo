@@ -11,7 +11,10 @@ import (
 
 type contextKey string
 
-const requestIDKey contextKey = "requestID"
+const (
+	requestIDKey  contextKey = "requestID"
+	logMappingKey contextKey = "logMapping"
+)
 
 // Chain applies middlewares in order.
 func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
@@ -43,9 +46,21 @@ func Logger(next http.Handler) http.Handler {
 		rw := &responseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
 
-		log.Printf("[%s] %s %s [ID:%s] provider=%s status=%d duration=%s",
-			r.Method, r.URL.Path, r.RemoteAddr, requestID, provider, rw.status, time.Since(start))
+		mapping, _ := r.Context().Value(logMappingKey).(string)
+		mappingStr := ""
+		if mapping != "" {
+			mappingStr = " mapping=" + mapping
+		}
+
+		log.Printf("[%s] %s %s [ID:%s] provider=%s status=%d duration=%s%s",
+			r.Method, r.URL.Path, r.RemoteAddr, requestID, provider, rw.status, time.Since(start), mappingStr)
 	})
+}
+
+// SetLogMapping attaches model mapping metadata to the request context.
+func SetLogMapping(r *http.Request, mapping string) *http.Request {
+	ctx := context.WithValue(r.Context(), logMappingKey, mapping)
+	return r.WithContext(ctx)
 }
 
 // Recovery catches panics and returns 500.

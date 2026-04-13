@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -61,31 +62,149 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 	start := time.Now()
 	g.vlogf(1, "[github-copilot] chat start model=%q", req.Model)
 
-	payloadStart := time.Now()
-	httpReq, err := g.newChatRequest(ctx, req, false)
-	if err != nil {
-		return nil, err
-	}
-	g.vlogf(2, "[github-copilot] payload+session build took=%s", time.Since(payloadStart))
+	// GitHub Copilot enforces stream=true on many models (e.g. Anthropic/OpenAI models on its edge).
+	// To support sync requests, we force stream=true upstream and assemble the SSE chunks into a single response.
+	req.Stream = true
 
-	callStart := time.Now()
-	resp, err := g.client.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	g.vlogf(1, "[github-copilot] upstream chat call took=%s status=%d", time.Since(callStart), resp.StatusCode)
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		_, err := g.ChatStream(ctx, req, pw)
+		if err != nil {
+			g.vlogf(1, "[github-copilot] stream fallback error: %v", err)
+		}
+	}()
 
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("github copilot error %d: %s", resp.StatusCode, b)
+	scanner := bufio.NewScanner(pr)
+	var contentBuilder strings.Builder
+	toolCallsMap := make(map[int]*types.ToolCall)
+	var finalUsage types.Usage
+	var lastChunk map[string]any
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			break
+		}
+
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content   string `json:"content"`
+					ToolCalls []struct {
+						Index    int    `json:"index"`
+						ID       string `json:"id"`
+						Type     string `json:"type"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
+				} `json:"delta"`
+			} `json:"choices"`
+			Usage *types.Usage `json:"usage"`
+		}
+
+		if err := json.Unmarshal([]byte(data), &chunk); err == nil {
+			if len(chunk.Choices) > 0 {
+				delta := chunk.Choices[0].Delta
+				contentBuilder.WriteString(delta.Content)
+
+				for _, tc := range delta.ToolCalls {
+					if existing, ok := toolCallsMap[tc.Index]; ok {
+						existing.Function.Arguments += tc.Function.Arguments
+					} else {
+						toolCallsMap[tc.Index] = &types.ToolCall{
+							ID:   tc.ID,
+							Type: tc.Type,
+							Function: types.FunctionCall{
+								Name:      tc.Function.Name,
+								Arguments: tc.Function.Arguments,
+							},
+						}
+						if toolCallsMap[tc.Index].Type == "" {
+							toolCallsMap[tc.Index].Type = "function"
+						}
+					}
+				}
+			}
+			if chunk.Usage != nil {
+				finalUsage = *chunk.Usage
+			}
+		}
+
+		if len(data) > 0 {
+			json.Unmarshal([]byte(data), &lastChunk)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 
 	var result types.ChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+	if lastChunk != nil {
+		if id, ok := lastChunk["id"].(string); ok {
+			result.ID = id
+		}
+		if m, ok := lastChunk["model"].(string); ok {
+			result.Model = m
+		}
 	}
-	g.vlogf(1, "[github-copilot] chat total took=%s", time.Since(start))
+	if result.ID == "" {
+		result.ID = "chatcmpl-copilot-assembled"
+	}
+	if result.Model == "" {
+		result.Model = req.Model
+	}
+
+	result.Usage = finalUsage
+
+	var targetToolCalls []types.ToolCall
+	if len(toolCallsMap) > 0 {
+		maxIdx := -1
+		for k := range toolCallsMap {
+			if k > maxIdx {
+				maxIdx = k
+			}
+		}
+		for i := 0; i <= maxIdx; i++ {
+			if tc, ok := toolCallsMap[i]; ok {
+				targetToolCalls = append(targetToolCalls, *tc)
+			}
+		}
+	}
+
+	finishReason := "stop"
+	if lastChunk != nil {
+		if choices, ok := lastChunk["choices"].([]any); ok && len(choices) > 0 {
+			if c, ok := choices[0].(map[string]any); ok {
+				if fr, ok := c["finish_reason"].(string); ok && fr != "" {
+					finishReason = fr
+				}
+			}
+		}
+	}
+	if len(targetToolCalls) > 0 {
+		finishReason = "tool_calls"
+	}
+
+	result.Choices = []types.Choice{
+		{
+			Message: types.Message{
+				Role:      "assistant",
+				Content:   contentBuilder.String(),
+				ToolCalls: targetToolCalls,
+			},
+			FinishReason: finishReason,
+		},
+	}
+
+	g.vlogf(1, "[github-copilot] assembled sync response took=%s", time.Since(start))
 	return &result, nil
 }
 

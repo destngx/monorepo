@@ -24,7 +24,7 @@ func TestModelMapper_Resolve(t *testing.T) {
 		{"github-copilot", "Exact pair Opus", "claude-3-opus-20240229", "github-copilot", "claude-3-opus-20240229", true},
 		{"github-copilot", "Exact pair Claude v2", "claude-v2", "github-copilot", "claude-v2", true},
 		{"openai", "Unknown model defaults to gpt-4.1", "my-custom-model", "github-copilot", "gpt-4.1", false},
-		{"openai", "Claude model defaults to GitHub Copilot", "claude-v2", "github-copilot", "claude-v2", false},
+		{"openai", "Claude model defaults to GitHub Copilot", "claude-v2", "github-copilot", "claude-haiku-4.5", false},
 		{"github-copilot", "Empty model default", "", "github-copilot", "gpt-4.1", false},
 	}
 

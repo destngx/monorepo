@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -62,6 +63,10 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, status, "routing failed: "+err.Error())
 		return
 	}
+
+	// Improvement 5: Rich Mapping Logs
+	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", req.Model, targetModel))
+
 	req.Model = targetModel
 
 	// 4. Mode Routing: Branch into either Synchronous (JSON) or Streaming (SSE) response modes.
