@@ -6,7 +6,8 @@ import (
 	"net/http"
 
 	"apps/ai-gateway/config"
-	"apps/ai-gateway/proxy"
+	"apps/ai-gateway/internal/service"
+	httptransport "apps/ai-gateway/internal/transport/http"
 )
 
 const (
@@ -27,12 +28,12 @@ const (
 
 func main() {
 	cfg := config.Load()
-	registry := proxy.NewRegistry(cfg)
-	openaiHandler := proxy.NewOpenAIHandler(registry)
-	anthroHandler := proxy.NewAnthropicHandler(registry)
-	modelsHandler := proxy.NewModelsHandler(registry)
-	embeddingsHandler := proxy.NewEmbeddingsHandler(registry)
-	usageHandler := proxy.NewUsageHandler(registry)
+	registry := service.NewRegistry(cfg)
+	openaiHandler := httptransport.NewOpenAIHandler(registry)
+	anthroHandler := httptransport.NewAnthropicHandler(registry)
+	modelsHandler := httptransport.NewModelsHandler(registry)
+	embeddingsHandler := httptransport.NewEmbeddingsHandler(registry)
+	usageHandler := httptransport.NewUsageHandler(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle(PathChatCompletions, openaiHandler)
@@ -49,10 +50,12 @@ func main() {
 		})
 	}))
 
-	stack := proxy.Chain(mux,
-		proxy.Recovery,
-		proxy.Logger,
-		proxy.CORS,
+	stack := httptransport.Chain(mux,
+		httptransport.Recovery,
+		httptransport.Logger,
+		func(next http.Handler) http.Handler {
+			return httptransport.CORS(next, "*", "GET, POST, OPTIONS", "Content-Type, X-AI-Provider, Authorization")
+		},
 	)
 
 	log.Printf(LogFormatListening, cfg.ListenAddr)
