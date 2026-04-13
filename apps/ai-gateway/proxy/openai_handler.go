@@ -164,10 +164,14 @@ func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	providerName := r.Header.Get("X-AI-Provider")
+	providerName := providerNameFromModelsPath(r.URL.Path)
 	if providerName == "" {
-		providerName = "github"
+		providerName = r.Header.Get("X-AI-Provider")
 	}
+	if providerName == "" {
+		providerName = "github-copilot"
+	}
+
 	provider, err := m.registry.Get(providerName)
 	if err != nil {
 		writeError(w, r, http.StatusBadRequest, err.Error())
@@ -187,6 +191,17 @@ func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models)
+}
+
+func providerNameFromModelsPath(path string) string {
+	if !strings.HasPrefix(path, "/v1/models/") {
+		return ""
+	}
+	providerName := strings.TrimPrefix(path, "/v1/models/")
+	if providerName == "" || strings.Contains(providerName, "/") {
+		return ""
+	}
+	return providerName
 }
 
 // EmbeddingsHandler handles the /v1/embeddings endpoint for vector generation.

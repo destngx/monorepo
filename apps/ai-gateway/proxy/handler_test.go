@@ -51,10 +51,11 @@ func (m *MockProvider) Embeddings(ctx context.Context, req types.EmbeddingReques
 		},
 	}, nil
 }
-func (m *MockProvider) IsConfigured() bool             { return m.configured }
-func (m *MockProvider) Ping(ctx context.Context) error { return nil }
-func (m *MockProvider) IsReady() bool                  { return m.ready }
-func (m *MockProvider) SetReady(r bool)                { m.ready = r }
+func (m *MockProvider) Usage(ctx context.Context) (any, error) { return map[string]any{}, nil }
+func (m *MockProvider) IsConfigured() bool                     { return m.configured }
+func (m *MockProvider) Ping(ctx context.Context) error         { return nil }
+func (m *MockProvider) IsReady() bool                          { return m.ready }
+func (m *MockProvider) SetReady(r bool)                        { m.ready = r }
 
 func TestServeHTTP(t *testing.T) {
 	registry := NewRegistry(&config.Config{}) // Empty config
@@ -126,8 +127,7 @@ func TestModelsHandler(t *testing.T) {
 	handler := NewModelsHandler(registry)
 
 	t.Run("List Models", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
-		req.Header.Set("X-AI-Provider", "mock")
+		req := httptest.NewRequest(http.MethodGet, "/v1/models/mock", nil)
 
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -140,6 +140,17 @@ func TestModelsHandler(t *testing.T) {
 		json.NewDecoder(rr.Body).Decode(&resp)
 		if len(resp.Data) != 1 || resp.Data[0].ID != "mock-model" {
 			t.Errorf("unexpected models response: %+v", resp)
+		}
+	})
+
+	t.Run("Path Models Provider", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/models/github-copilot", nil)
+
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
 		}
 	})
 }
