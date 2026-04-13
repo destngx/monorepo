@@ -105,14 +105,19 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	if _, ok := w.(http.Flusher); !ok {
+		writeError(w, r, http.StatusInternalServerError, "streaming not supported by response writer")
+		return
+	}
 
 	pr, pw := io.Pipe()
+	errCh := make(chan error, 1)
 	go func() {
 		defer pw.Close()
 		_, err := p.ChatStream(r.Context(), req, pw)
-		if err != nil {
-			log.Printf("Anthropic proxy stream error: %v", err)
-		}
+		errCh <- err
 	}()
 
 	var writer io.Writer = w
@@ -120,7 +125,25 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 		writer = &StreamLogWriter{w: w, rid: rid}
 	}
 
-	convertToAnthropicStream(pr, writer)
+	eventCount, convertErr := convertToAnthropicStream(pr, writer)
+	if convertErr != nil {
+		log.Printf("[ID:%s] STREAM CONVERT ERROR: %v", rid, convertErr)
+	}
+
+	if err := <-errCh; err != nil {
+		log.Printf("[ID:%s] STREAM ERROR: %v", rid, err)
+		if eventCount == 0 {
+			sendAnthroEvent(writer, "error", map[string]any{
+				"error": map[string]any{
+					"type":    "api_error",
+					"message": err.Error(),
+				},
+			})
+			if flusher, ok := writer.(interface{ Flush() }); ok {
+				flusher.Flush()
+			}
+		}
+	}
 }
 
 func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string) types.ChatRequest {
@@ -284,10 +307,11 @@ func convertFromAnthropicRequest(ar types.AnthropicRequest, providerName string)
 
 func convertToAnthropicResponse(resp *types.ChatResponse) types.AnthropicResponse {
 	ar := types.AnthropicResponse{
-		ID:    resp.ID,
-		Type:  "message",
-		Role:  "assistant",
-		Model: resp.Model,
+		ID:      resp.ID,
+		Type:    "message",
+		Role:    "assistant",
+		Model:   resp.Model,
+		Content: []types.AnthropicContent{},
 		Usage: types.AnthropicUsage{
 			InputTokens:  resp.Usage.PromptTokens,
 			OutputTokens: resp.Usage.CompletionTokens,
@@ -324,21 +348,30 @@ func convertToAnthropicResponse(resp *types.ChatResponse) types.AnthropicRespons
 	return ar
 }
 
-func convertToAnthropicStream(r io.Reader, w io.Writer) {
+func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 1024*64), 1024*64)
 	flusher, _ := w.(http.Flusher)
+	emitted := 0
 
 	var (
 		first            = true
 		textBlockStarted = false
-		lastToolIndex    = 0
+		blockIndex       = -1
+		activeToolIndex  = -1
 	)
+
+	writeEvent := func(eventType string, data any) {
+		sendAnthroEvent(w, eventType, data)
+		emitted++
+	}
 
 	// Helper to ensure text block is open/closed
 	ensureTextStarted := func() {
 		if !textBlockStarted {
-			sendAnthroEvent(w, "content_block_start", map[string]any{
-				"index":         0,
+			blockIndex++
+			writeEvent("content_block_start", map[string]any{
+				"index":         blockIndex,
 				"content_block": map[string]any{"type": "text", "text": ""},
 			})
 			textBlockStarted = true
@@ -347,7 +380,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 
 	ensureTextStopped := func() {
 		if textBlockStarted {
-			sendAnthroEvent(w, "content_block_stop", map[string]any{"index": 0})
+			writeEvent("content_block_stop", map[string]any{"index": blockIndex})
 			textBlockStarted = false
 		}
 	}
@@ -360,7 +393,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 		data := strings.TrimPrefix(line, "data: ")
 		if data == "[DONE]" {
 			ensureTextStopped()
-			sendAnthroEvent(w, "message_stop", map[string]any{})
+			writeEvent("message_stop", map[string]any{})
 			break
 		}
 
@@ -372,13 +405,16 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 		if first {
 			model, _ := chunk["model"].(string)
 			id, _ := chunk["id"].(string)
-			sendAnthroEvent(w, "message_start", map[string]any{
+			writeEvent("message_start", map[string]any{
 				"message": map[string]any{
-					"id":    id,
-					"type":  "message",
-					"role":  "assistant",
-					"model": model,
-					"usage": map[string]int{"input_tokens": 0},
+					"id":            id,
+					"type":          "message",
+					"role":          "assistant",
+					"model":         model,
+					"content":       []any{},
+					"stop_reason":   nil,
+					"stop_sequence": nil,
+					"usage":         map[string]int{"input_tokens": 0},
 				},
 			})
 			first = false
@@ -394,8 +430,8 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 		// 1. Handle Text Content
 		if content, ok := delta["content"].(string); ok && content != "" {
 			ensureTextStarted()
-			sendAnthroEvent(w, "content_block_delta", map[string]any{
-				"index": 0,
+			writeEvent("content_block_delta", map[string]any{
+				"index": blockIndex,
 				"delta": map[string]any{
 					"type": "text_delta",
 					"text": content,
@@ -413,12 +449,15 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 				if id, ok := t["id"].(string); ok {
 					name, _ := t["function"].(map[string]any)["name"].(string)
 
-					// If we were in a different tool, we don't necessarily stop it here
-					// (Anthropic supports parallel blocks), but usually they are sequential in stream.
-					lastToolIndex++
+					if activeToolIndex != -1 {
+						writeEvent("content_block_stop", map[string]any{"index": activeToolIndex})
+					}
 
-					sendAnthroEvent(w, "content_block_start", map[string]any{
-						"index": lastToolIndex,
+					blockIndex++
+					activeToolIndex = blockIndex
+
+					writeEvent("content_block_start", map[string]any{
+						"index": activeToolIndex,
 						"content_block": map[string]any{
 							"type":  "tool_use",
 							"id":    id,
@@ -428,10 +467,8 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 					})
 				} else if function, ok := t["function"].(map[string]any); ok {
 					if args, ok := function["arguments"].(string); ok {
-						// Map OpenAI tool index to our sequential Anthropic index
-						// For now we assume they correlate or we just use lastToolIndex if it's the active one
-						sendAnthroEvent(w, "content_block_delta", map[string]any{
-							"index": lastToolIndex,
+						writeEvent("content_block_delta", map[string]any{
+							"index": activeToolIndex,
 							"delta": map[string]any{
 								"type":         "input_json_delta",
 								"partial_json": args,
@@ -446,9 +483,9 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 		if finish, ok := choice["finish_reason"].(string); ok && finish != "" {
 			ensureTextStopped()
 
-			// Close any active tool blocks
-			for i := 1; i <= lastToolIndex; i++ {
-				sendAnthroEvent(w, "content_block_stop", map[string]any{"index": i})
+			if activeToolIndex != -1 {
+				writeEvent("content_block_stop", map[string]any{"index": activeToolIndex})
+				activeToolIndex = -1
 			}
 
 			stopReason := "end_turn"
@@ -458,7 +495,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 				stopReason = "tool_use"
 			}
 
-			sendAnthroEvent(w, "message_delta", map[string]any{
+			writeEvent("message_delta", map[string]any{
 				"delta": map[string]any{
 					"stop_reason": stopReason,
 				},
@@ -470,6 +507,8 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) {
 			flusher.Flush()
 		}
 	}
+
+	return emitted, scanner.Err()
 }
 
 func sendAnthroEvent(w io.Writer, eventType string, data any) {

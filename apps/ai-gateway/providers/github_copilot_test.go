@@ -59,6 +59,56 @@ func TestGitHubCopilotPayloadFixesToolSchema(t *testing.T) {
 	}
 }
 
+func TestGitHubCopilotPayloadDoesNotInjectTypeIntoPropertiesMap(t *testing.T) {
+	req := types.ChatRequest{
+		Model: "claude-haiku-4.5",
+		Messages: []types.Message{
+			{Role: "user", Content: "hello"},
+		},
+		Tools: []types.Tool{
+			{
+				Type: "function",
+				Function: types.FunctionDefinition{
+					Name: "ask_user",
+					Parameters: map[string]any{
+						"$schema": "https://json-schema.org/draft/2020-12/schema",
+						"type":    "object",
+						"properties": map[string]any{
+							"answers": map[string]any{
+								"type": "object",
+								"additionalProperties": map[string]any{
+									"type": "string",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	payload, err := githubCopilotPayload(req)
+	if err != nil {
+		t.Fatalf("githubCopilotPayload() error = %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+
+	tool := decoded["tools"].([]any)[0].(map[string]any)
+	params := tool["function"].(map[string]any)["parameters"].(map[string]any)
+	properties := params["properties"].(map[string]any)
+
+	if _, ok := properties["type"]; ok {
+		t.Fatalf("expected properties container to remain a plain map, got unexpected type key: %+v", properties)
+	}
+	if _, ok := params["$schema"]; ok {
+		t.Fatalf("expected $schema to be stripped from copilot payload, got %+v", params)
+	}
+}
+
 func TestGitHubCopilotProviderChatUsesTokenExchange(t *testing.T) {
 	var authHeaders []string
 	mux := http.NewServeMux()
@@ -215,5 +265,37 @@ func TestGitHubCopilotProviderDeduplicatesTokenFetch(t *testing.T) {
 
 	if tokenCalls != 1 {
 		t.Fatalf("expected token exchange to be called once, got %d", tokenCalls)
+	}
+}
+
+func TestGitHubCopilotProviderChatPropagatesUpstreamError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/copilot_internal/v2/token"):
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"token":"copilot-token","expires_at":4102444800}`))
+		case strings.HasSuffix(r.URL.Path, "/chat/completions"):
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	provider := NewGitHubCopilot("gh-token", 2)
+	provider.client = server.Client()
+	provider.defaultBaseURL = server.URL
+	provider.copilotAPIBase = server.URL
+	provider.tokenURL = server.URL + "/copilot_internal/v2/token"
+
+	_, err := provider.Chat(context.Background(), types.ChatRequest{
+		Model:    "claude-haiku-4.5",
+		Messages: []types.Message{{Role: "user", Content: "hello"}},
+	})
+	if err == nil {
+		t.Fatal("expected Chat() to return upstream error")
+	}
+	if !strings.Contains(err.Error(), "github copilot error 400") {
+		t.Fatalf("expected upstream 400 error, got %v", err)
 	}
 }

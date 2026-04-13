@@ -67,16 +67,20 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 	req.Stream = true
 
 	pr, pw := io.Pipe()
+	errCh := make(chan error, 1)
 	go func() {
 		defer pw.Close()
 		_, err := g.ChatStream(ctx, req, pw)
 		if err != nil {
 			g.vlogf(1, "[github-copilot] stream fallback error: %v", err)
 		}
+		errCh <- err
 	}()
 
 	scanner := bufio.NewScanner(pr)
+	scanner.Buffer(make([]byte, 1024*64), 1024*64)
 	var contentBuilder strings.Builder
+	var rawBodyBuilder strings.Builder
 	toolCallsMap := make(map[int]*types.ToolCall)
 	var finalUsage types.Usage
 	var lastChunk map[string]any
@@ -84,6 +88,9 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {
+			if strings.TrimSpace(line) != "" {
+				rawBodyBuilder.WriteString(line)
+			}
 			continue
 		}
 		data := strings.TrimPrefix(line, "data: ")
@@ -144,6 +151,20 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+
+	streamErr := <-errCh
+
+	if rawBodyBuilder.Len() > 0 && contentBuilder.Len() == 0 && len(toolCallsMap) == 0 {
+		var directResp types.ChatResponse
+		if err := json.Unmarshal([]byte(rawBodyBuilder.String()), &directResp); err == nil && len(directResp.Choices) > 0 {
+			g.vlogf(1, "[github-copilot] assembled sync response took=%s", time.Since(start))
+			return &directResp, streamErr
+		}
+	}
+
+	if streamErr != nil {
+		return nil, streamErr
 	}
 
 	var result types.ChatResponse
@@ -468,22 +489,34 @@ type copilotFunctionDefinition struct {
 }
 
 func sanitizeCopilotParameters(v any) any {
+	return sanitizeCopilotParametersNode(v, true)
+}
+
+func sanitizeCopilotParametersNode(v any, normalizeSelf bool) any {
 	switch node := v.(type) {
 	case map[string]any:
+		if !normalizeSelf {
+			out := make(map[string]any, len(node))
+			for key, value := range node {
+				if value == nil {
+					continue
+				}
+				out[key] = sanitizeCopilotParametersNode(value, true)
+			}
+			return out
+		}
+
 		out := make(map[string]any, len(node))
 		for key, value := range node {
 			if value == nil {
 				continue
 			}
-			out[key] = sanitizeCopilotParameters(value)
-		}
-		if typeValue, ok := out["type"].(string); !ok || strings.EqualFold(typeValue, "none") {
-			if _, hasType := out["type"]; !hasType {
-				out["type"] = "object"
-			} else if strings.EqualFold(typeValue, "none") {
-				out["type"] = "object"
+			if shouldDropCopilotSchemaKey(key) {
+				continue
 			}
+			out[key] = sanitizeCopilotParametersNode(value, !isCopilotSchemaContainerKey(key))
 		}
+		normalizeCopilotSchemaMap(out)
 		return out
 	case []any:
 		out := make([]any, 0, len(node))
@@ -491,10 +524,52 @@ func sanitizeCopilotParameters(v any) any {
 			if value == nil {
 				continue
 			}
-			out = append(out, sanitizeCopilotParameters(value))
+			out = append(out, sanitizeCopilotParametersNode(value, true))
 		}
 		return out
 	default:
 		return v
 	}
+}
+
+func shouldDropCopilotSchemaKey(key string) bool {
+	switch key {
+	case "$schema", "$id", "default":
+		return true
+	default:
+		return false
+	}
+}
+
+func isCopilotSchemaContainerKey(key string) bool {
+	switch key {
+	case "properties", "patternProperties", "$defs", "definitions", "dependentSchemas":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeCopilotSchemaMap(schema map[string]any) {
+	if typeValue, ok := schema["type"].(string); ok {
+		if strings.EqualFold(typeValue, "none") {
+			schema["type"] = "object"
+		}
+		return
+	}
+
+	switch {
+	case hasSchemaKey(schema, "properties"),
+		hasSchemaKey(schema, "required"),
+		hasSchemaKey(schema, "additionalProperties"),
+		hasSchemaKey(schema, "propertyNames"):
+		schema["type"] = "object"
+	case hasSchemaKey(schema, "items"):
+		schema["type"] = "array"
+	}
+}
+
+func hasSchemaKey(schema map[string]any, key string) bool {
+	_, ok := schema[key]
+	return ok
 }
