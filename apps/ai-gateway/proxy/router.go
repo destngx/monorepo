@@ -29,6 +29,11 @@ func NewRegistry(cfg *config.Config) *Registry {
 
 	// Register all providers regardless of config
 	r.register(providers.NewRateLimitedProvider(
+		providers.NewGitHubCopilot(cfg.GitHubToken),
+		cfg.GitHubRate.RPM, cfg.GitHubRate.Burst,
+	))
+
+	r.register(providers.NewRateLimitedProvider(
 		providers.NewGitHub(cfg.GitHubToken),
 		cfg.GitHubRate.RPM, cfg.GitHubRate.Burst,
 	))
@@ -99,25 +104,36 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (provi
 		log.Printf("[ID:%s] [VERBOSE 2] Resolving route for inputModel: %q", rid, inputModel)
 	}
 
-	// 1. Check Smart Mapper
-	target, mapped := r.Mapper.Resolve(inputModel)
+	providerName := httpReq.Header.Get("X-AI-Provider")
+	if providerName == "" {
+		providerName = r.Mapper.DefaultTarget.Provider
+	}
+	if providerName == "github" {
+		providerName = "github-copilot"
+	}
+
+	// 1. Check Smart Mapper using provider + model as the routing key.
+	target, mapped := r.Mapper.Resolve(providerName, inputModel)
 
 	if r.Config.Verbose >= 2 {
 		log.Printf("[ID:%s] [VERBOSE 2] Smart mapper result: mapped=%v targetProvider=%q targetModel=%q", rid, mapped, target.Provider, target.Model)
 	}
 
-	providerName := target.Provider
 	targetModel := target.Model
+	if targetModel == "" {
+		targetModel = r.Mapper.DefaultTarget.Model
+	}
 
-	// 2. If not mapped, resolve provider via header or default
-	if !mapped {
+	// 2. If the mapper did not override provider, use the requested provider.
+	providerName = target.Provider
+	if providerName == "" {
 		providerName = httpReq.Header.Get("X-AI-Provider")
 		if providerName == "" {
 			providerName = r.Mapper.DefaultTarget.Provider
 		}
-		if targetModel == "" {
-			targetModel = r.Mapper.DefaultTarget.Model
-		}
+	}
+	if providerName == "github" {
+		providerName = "github-copilot"
 	}
 
 	p, err := r.Get(providerName)

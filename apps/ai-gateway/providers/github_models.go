@@ -28,7 +28,7 @@ func NewGitHub(token string) *GitHubProvider {
 	}
 }
 
-func (g *GitHubProvider) Name() string { return "github" }
+func (g *GitHubProvider) Name() string { return "github-models" }
 
 func (g *GitHubProvider) headers() map[string]string {
 	return map[string]string{

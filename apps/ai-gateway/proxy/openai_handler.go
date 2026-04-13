@@ -27,7 +27,7 @@ func NewOpenAIHandler(registry *Registry) *OpenAIHandler {
 //
 // Protocol Selection:
 // Clients must specify the target backend using the 'X-AI-Provider' header.
-// Supported values: "github" (default), "openai", "anthropic", "ollama".
+// Supported values: "github" (Copilot, default), "github-models", "openai", "anthropic", "ollama".
 func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
