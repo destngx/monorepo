@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"apps/ai-gateway/types"
+	"golang.org/x/sync/singleflight"
 )
 
 const githubCopilotBaseURL = "https://api.githubcopilot.com"
@@ -24,6 +26,7 @@ type GitHubCopilotProvider struct {
 	githubToken string
 	client      *http.Client
 	ready       bool
+	verbose     int
 
 	mu             sync.Mutex
 	cachedToken    string
@@ -31,6 +34,7 @@ type GitHubCopilotProvider struct {
 	copilotAPIBase string
 	defaultBaseURL string
 	tokenURL       string
+	tokenGroup     singleflight.Group
 }
 
 type githubCopilotTokenResponse struct {
@@ -41,28 +45,36 @@ type githubCopilotTokenResponse struct {
 	} `json:"endpoints"`
 }
 
-func NewGitHubCopilot(githubToken string) *GitHubCopilotProvider {
+func NewGitHubCopilot(githubToken string, verbose int) *GitHubCopilotProvider {
 	return &GitHubCopilotProvider{
 		githubToken:    githubToken,
 		client:         &http.Client{Timeout: 120 * time.Second},
 		defaultBaseURL: githubCopilotBaseURL,
 		tokenURL:       githubCopilotTokenURL,
+		verbose:        verbose,
 	}
 }
 
 func (g *GitHubCopilotProvider) Name() string { return "github-copilot" }
 
 func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest) (*types.ChatResponse, error) {
+	start := time.Now()
+	g.vlogf(2, "[github-copilot] chat start model=%q", req.Model)
+
+	payloadStart := time.Now()
 	httpReq, err := g.newChatRequest(ctx, req, false)
 	if err != nil {
 		return nil, err
 	}
+	g.vlogf(2, "[github-copilot] payload+session build took=%s", time.Since(payloadStart))
 
+	callStart := time.Now()
 	resp, err := g.client.Do(httpReq)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	g.vlogf(2, "[github-copilot] upstream chat call took=%s status=%d", time.Since(callStart), resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
@@ -73,27 +85,37 @@ func (g *GitHubCopilotProvider) Chat(ctx context.Context, req types.ChatRequest)
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
 	}
+	g.vlogf(2, "[github-copilot] chat total took=%s", time.Since(start))
 	return &result, nil
 }
 
 func (g *GitHubCopilotProvider) ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error) {
+	start := time.Now()
+	g.vlogf(2, "[github-copilot] stream start model=%q", req.Model)
+
+	payloadStart := time.Now()
 	httpReq, err := g.newChatRequest(ctx, req, true)
 	if err != nil {
 		return types.Usage{}, err
 	}
+	g.vlogf(2, "[github-copilot] stream payload+session build took=%s", time.Since(payloadStart))
 
+	callStart := time.Now()
 	resp, err := g.client.Do(httpReq)
 	if err != nil {
 		return types.Usage{}, err
 	}
 	defer resp.Body.Close()
+	g.vlogf(2, "[github-copilot] upstream stream call took=%s status=%d", time.Since(callStart), resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
 		return types.Usage{}, fmt.Errorf("github copilot error %d: %s", resp.StatusCode, b)
 	}
 
-	return streamSSEAndCountTokens(resp.Body, w)
+	usage, err := streamSSEAndCountTokens(resp.Body, w)
+	g.vlogf(2, "[github-copilot] stream total took=%s", time.Since(start))
+	return usage, err
 }
 
 func (g *GitHubCopilotProvider) Embeddings(ctx context.Context, req types.EmbeddingRequest) (*types.EmbeddingResponse, error) {
@@ -129,58 +151,79 @@ func (g *GitHubCopilotProvider) Ping(ctx context.Context) error {
 func (g *GitHubCopilotProvider) IsReady() bool   { return g.ready }
 func (g *GitHubCopilotProvider) SetReady(r bool) { g.ready = r }
 
-func (g *GitHubCopilotProvider) getCopilotToken(ctx context.Context) (string, error) {
+func (g *GitHubCopilotProvider) getCopilotSession(ctx context.Context) (string, string, error) {
 	g.mu.Lock()
 	if g.cachedToken != "" && g.expiresAt > time.Now().Unix()+300 {
 		token := g.cachedToken
+		baseURL := g.copilotAPIBase
+		if baseURL == "" {
+			baseURL = g.defaultBaseURL
+		}
 		g.mu.Unlock()
-		return token, nil
+		g.vlogf(2, "[github-copilot] session cache hit token=hit base_url=%q", baseURL)
+		return token, baseURL, nil
 	}
 	g.mu.Unlock()
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, g.tokenURL, nil)
+	sessionStart := time.Now()
+	v, err, _ := g.tokenGroup.Do("copilot-token", func() (any, error) {
+		g.vlogf(2, "[github-copilot] session cache miss, fetching token")
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, g.tokenURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Authorization", "token "+g.githubToken)
+		httpReq.Header.Set("Accept", "application/json")
+		httpReq.Header.Set("User-Agent", githubCopilotUserAgent)
+		httpReq.Header.Set("Editor-Version", githubCopilotEditorVersion)
+		httpReq.Header.Set("Editor-Plugin-Version", githubCopilotPluginVersion)
+
+		resp, err := g.client.Do(httpReq)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("github copilot token error %d: %s", resp.StatusCode, b)
+		}
+
+		var tokenResp githubCopilotTokenResponse
+		if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+			return nil, fmt.Errorf("failed to decode github copilot token: %w", err)
+		}
+		if tokenResp.Token == "" {
+			return nil, fmt.Errorf("github copilot token response missing token")
+		}
+
+		baseURL := g.defaultBaseURL
+		if tokenResp.Endpoints.API != "" {
+			baseURL = tokenResp.Endpoints.API
+		}
+
+		g.mu.Lock()
+		g.cachedToken = tokenResp.Token
+		g.expiresAt = tokenResp.ExpiresAt
+		g.copilotAPIBase = baseURL
+		g.mu.Unlock()
+		g.vlogf(2, "[github-copilot] token fetch took=%s base_url=%q expires_at=%d", time.Since(sessionStart), baseURL, tokenResp.ExpiresAt)
+
+		return githubCopilotSession{
+			token:   tokenResp.Token,
+			baseURL: baseURL,
+		}, nil
+	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	httpReq.Header.Set("Authorization", "token "+g.githubToken)
-	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("User-Agent", githubCopilotUserAgent)
-	httpReq.Header.Set("Editor-Version", githubCopilotEditorVersion)
-	httpReq.Header.Set("Editor-Plugin-Version", githubCopilotPluginVersion)
-
-	resp, err := g.client.Do(httpReq)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("github copilot token error %d: %s", resp.StatusCode, b)
-	}
-
-	var tokenResp githubCopilotTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return "", fmt.Errorf("failed to decode github copilot token: %w", err)
-	}
-	if tokenResp.Token == "" {
-		return "", fmt.Errorf("github copilot token response missing token")
-	}
-
-	g.mu.Lock()
-	g.cachedToken = tokenResp.Token
-	g.expiresAt = tokenResp.ExpiresAt
-	if tokenResp.Endpoints.API != "" {
-		g.copilotAPIBase = tokenResp.Endpoints.API
-	} else {
-		g.copilotAPIBase = g.defaultBaseURL
-	}
-	g.mu.Unlock()
-
-	return tokenResp.Token, nil
+	session := v.(githubCopilotSession)
+	g.vlogf(2, "[github-copilot] session ready base_url=%q", session.baseURL)
+	return session.token, session.baseURL, nil
 }
 
 func (g *GitHubCopilotProvider) newChatRequest(ctx context.Context, req types.ChatRequest, stream bool) (*http.Request, error) {
+	payloadStart := time.Now()
 	if stream {
 		req.Stream = true
 		req.StreamOptions = &types.StreamOptions{IncludeUsage: true}
@@ -190,13 +233,12 @@ func (g *GitHubCopilotProvider) newChatRequest(ctx context.Context, req types.Ch
 	if err != nil {
 		return nil, err
 	}
+	g.vlogf(2, "[github-copilot] payload marshal took=%s", time.Since(payloadStart))
 
-	token, err := g.getCopilotToken(ctx)
+	token, baseURL, err := g.getCopilotSession(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	baseURL := g.apiBaseURL()
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/chat/completions", bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
@@ -210,80 +252,100 @@ func (g *GitHubCopilotProvider) newChatRequest(ctx context.Context, req types.Ch
 	return httpReq, nil
 }
 
-func (g *GitHubCopilotProvider) apiBaseURL() string {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.copilotAPIBase != "" {
-		return g.copilotAPIBase
+type githubCopilotSession struct {
+	token   string
+	baseURL string
+}
+
+func (g *GitHubCopilotProvider) vlogf(level int, format string, args ...any) {
+	if g.verbose < level {
+		return
 	}
-	return g.defaultBaseURL
+	log.Printf(format, args...)
 }
 
 func githubCopilotPayload(req types.ChatRequest) ([]byte, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
+	payload := copilotChatRequest{
+		Model:         req.Model,
+		Messages:      req.Messages,
+		Stream:        req.Stream,
+		StreamOptions: req.StreamOptions,
+		Temperature:   req.Temperature,
+		TopP:          req.TopP,
+		MaxTokens:     req.MaxTokens,
+		Stop:          req.Stop,
+		N:             req.N,
+		Tools:         make([]copilotTool, 0, len(req.Tools)),
+		ToolChoice:    req.ToolChoice,
 	}
 
-	var payload map[string]any
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, err
+	for _, tool := range req.Tools {
+		payload.Tools = append(payload.Tools, copilotTool{
+			Type: tool.Type,
+			Function: copilotFunctionDefinition{
+				Name:        tool.Function.Name,
+				Description: tool.Function.Description,
+				Parameters:  sanitizeCopilotParameters(tool.Function.Parameters),
+			},
+		})
 	}
-
-	pruneNilValues(payload)
-	fixCopilotToolSchema(payload)
 
 	return json.Marshal(payload)
 }
 
-func pruneNilValues(v any) any {
-	switch node := v.(type) {
-	case map[string]any:
-		for key, value := range node {
-			if value == nil {
-				delete(node, key)
-				continue
-			}
-			node[key] = pruneNilValues(value)
-		}
-		return node
-	case []any:
-		for i, value := range node {
-			node[i] = pruneNilValues(value)
-		}
-		return node
-	default:
-		return v
-	}
+type copilotChatRequest struct {
+	Model         string               `json:"model"`
+	Messages      []types.Message      `json:"messages"`
+	Stream        bool                 `json:"stream"`
+	StreamOptions *types.StreamOptions `json:"stream_options,omitempty"`
+	Temperature   *float64             `json:"temperature,omitempty"`
+	TopP          *float64             `json:"top_p,omitempty"`
+	MaxTokens     *int                 `json:"max_tokens,omitempty"`
+	Stop          any                  `json:"stop,omitempty"`
+	N             *int                 `json:"n,omitempty"`
+	Tools         []copilotTool        `json:"tools,omitempty"`
+	ToolChoice    any                  `json:"tool_choice,omitempty"`
 }
 
-func fixCopilotToolSchema(payload map[string]any) {
-	tools, ok := payload["tools"].([]any)
-	if !ok {
-		return
-	}
+type copilotTool struct {
+	Type     string                    `json:"type"`
+	Function copilotFunctionDefinition `json:"function"`
+}
 
-	for _, rawTool := range tools {
-		tool, ok := rawTool.(map[string]any)
-		if !ok {
-			continue
+type copilotFunctionDefinition struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Parameters  any    `json:"parameters,omitempty"`
+}
+
+func sanitizeCopilotParameters(v any) any {
+	switch node := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(node))
+		for key, value := range node {
+			if value == nil {
+				continue
+			}
+			out[key] = sanitizeCopilotParameters(value)
 		}
-		fn, ok := tool["function"].(map[string]any)
-		if !ok {
-			continue
+		if typeValue, ok := out["type"].(string); !ok || strings.EqualFold(typeValue, "none") {
+			if _, hasType := out["type"]; !hasType {
+				out["type"] = "object"
+			} else if strings.EqualFold(typeValue, "none") {
+				out["type"] = "object"
+			}
 		}
-		params, ok := fn["parameters"].(map[string]any)
-		if !ok {
-			continue
+		return out
+	case []any:
+		out := make([]any, 0, len(node))
+		for _, value := range node {
+			if value == nil {
+				continue
+			}
+			out = append(out, sanitizeCopilotParameters(value))
 		}
-		typeValue, hasType := params["type"]
-		if !hasType {
-			params["type"] = "object"
-			continue
-		}
-		typeString, ok := typeValue.(string)
-		if ok && strings.EqualFold(typeString, "none") {
-			params["type"] = "object"
-		}
+		return out
+	default:
+		return v
 	}
 }

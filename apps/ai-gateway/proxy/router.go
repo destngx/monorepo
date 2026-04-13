@@ -29,7 +29,7 @@ func NewRegistry(cfg *config.Config) *Registry {
 
 	// Register all providers regardless of config
 	r.register(providers.NewRateLimitedProvider(
-		providers.NewGitHubCopilot(cfg.GitHubToken),
+		providers.NewGitHubCopilot(cfg.GitHubToken, cfg.Verbose),
 		cfg.GitHubRate.RPM, cfg.GitHubRate.Burst,
 	))
 

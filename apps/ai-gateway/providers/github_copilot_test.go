@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -94,7 +95,7 @@ func TestGitHubCopilotProviderChatUsesTokenExchange(t *testing.T) {
 		w.Write([]byte(`{"id":"copilot-id","object":"chat.completion","model":"claude-haiku-4.5","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
 	})
 
-	provider := NewGitHubCopilot("gh-token")
+	provider := NewGitHubCopilot("gh-token", 2)
 	provider.client = server.Client()
 	provider.defaultBaseURL = server.URL
 	provider.copilotAPIBase = server.URL
@@ -139,7 +140,7 @@ func TestGitHubCopilotProviderCachesToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewGitHubCopilot("gh-token")
+	provider := NewGitHubCopilot("gh-token", 2)
 	provider.client = server.Client()
 	provider.defaultBaseURL = server.URL
 	provider.copilotAPIBase = server.URL
@@ -156,6 +157,60 @@ func TestGitHubCopilotProviderCachesToken(t *testing.T) {
 	}
 	if _, err := provider.Chat(context.Background(), req); err != nil {
 		t.Fatalf("second Chat() error = %v", err)
+	}
+
+	if tokenCalls != 1 {
+		t.Fatalf("expected token exchange to be called once, got %d", tokenCalls)
+	}
+}
+
+func TestGitHubCopilotProviderDeduplicatesTokenFetch(t *testing.T) {
+	var tokenCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/copilot_internal/v2/token"):
+			tokenCalls++
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"token":"copilot-token","expires_at":4102444800}`))
+		case strings.HasSuffix(r.URL.Path, "/chat/completions"):
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"id":"copilot-id","object":"chat.completion","model":"gpt-4.1","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	provider := NewGitHubCopilot("gh-token", 2)
+	provider.client = server.Client()
+	provider.defaultBaseURL = server.URL
+	provider.copilotAPIBase = server.URL
+	provider.tokenURL = server.URL + "/copilot_internal/v2/token"
+	provider.cachedToken = ""
+	provider.expiresAt = 0
+
+	req := types.ChatRequest{
+		Model:    "gpt-4.1",
+		Messages: []types.Message{{Role: "user", Content: "hello"}},
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := provider.Chat(context.Background(), req)
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("Chat() error = %v", err)
+		}
 	}
 
 	if tokenCalls != 1 {
