@@ -30,42 +30,46 @@ func (m *ModelMapper) AddExactForProvider(provider, model string, target RouteTa
 }
 
 // Resolve identifies the target provider and model for an input provider/model pair.
-func (m *ModelMapper) Resolve(provider, model string) (RouteTarget, bool) {
-	if model == "" {
+func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExact bool) {
+	if provider == "" && model == "" {
 		return m.DefaultTarget, false
 	}
 
-	providerKey := strings.ToLower(provider)
-	lowered := strings.ToLower(model)
+	pKey := strings.ToLower(provider)
+	mKey := strings.ToLower(model)
 
-	// 1. Check exact provider/model match cache (O(1))
-	if target, ok := m.exact[providerKey+"|"+lowered]; ok {
-		if target.Model == "" {
-			target.Model = model
+	// 1. O(1) exact mapping check
+	if res, ok := m.exact[pKey+"|"+mKey]; ok {
+		if res.Model == "" {
+			res.Model = model
 		}
-		return target, true
+		return res, true
 	}
 
-	// 2. Default Claude-family models to GitHub Copilot, preserving the requested model.
-	if isClaudeModel(model) {
-		return RouteTarget{Provider: "github-copilot", Model: normalizeClaudeModel(model)}, false
+	// 2. Specific remapping for Claude models on GitHub Copilot (or if unspecified)
+	if (pKey == "" || pKey == "github-copilot") && strings.HasPrefix(mKey, "claude-") {
+		return RouteTarget{
+			Provider: "github-copilot",
+			Model:    normalizeClaudeForCopilot(mKey),
+		}, false
 	}
 
-	// 3. Passthrough if not mapped.
-	return RouteTarget{Provider: m.DefaultTarget.Provider, Model: m.DefaultTarget.Model}, false
+	// 3. Default to transparent passthrough
+	return RouteTarget{Provider: provider, Model: model}, false
 }
 
-func isClaudeModel(model string) bool {
-	lowered := strings.ToLower(model)
-	return strings.HasPrefix(lowered, "claude-")
-}
-
-func normalizeClaudeModel(model string) string {
-	lowered := strings.ToLower(model)
-	switch lowered {
-	case "claude-haiku-4-5-20251001":
+func normalizeClaudeForCopilot(lowered string) string {
+	if strings.Contains(lowered, "haiku") {
 		return "claude-haiku-4.5"
-	default:
-		return "claude-haiku-4.5" // fallback to haiku as default claude
 	}
+	if strings.Contains(lowered, "sonnet") {
+		return "claude-sonnet-4.6"
+	}
+	if strings.Contains(lowered, "opus") {
+		return "claude-opus-4.6"
+	}
+	if strings.Contains(lowered, "myrthos") {
+		return "claude-myrthos-4.5"
+	}
+	return "gpt-4.1" // "grok-code-fast-1"
 }

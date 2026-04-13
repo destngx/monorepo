@@ -76,14 +76,14 @@ func TestServeHTTP(t *testing.T) {
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusOK {
-			t.Errorf("expected status 200, got %d", rr.Code)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", rr.Code)
 		}
 	})
 
 	t.Run("Unready Provider", func(t *testing.T) {
-		githubCopilot.ready = false
-		defer func() { githubCopilot.ready = true }()
+		mock.ready = false
+		defer func() { mock.ready = true }()
 
 		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4.1"})
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
@@ -216,7 +216,7 @@ func TestToolCallHandler(t *testing.T) {
 
 		reqBody, _ := json.Marshal(types.ChatRequest{Model: "gpt-4.1"})
 		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(reqBody))
-		req.Header.Set("X-AI-Provider", "mock")
+		req.Header.Set("X-AI-Provider", "github-copilot")
 
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
