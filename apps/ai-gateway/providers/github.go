@@ -40,6 +40,11 @@ func (g *GitHubProvider) headers() map[string]string {
 }
 
 func (g *GitHubProvider) Chat(ctx context.Context, req types.ChatRequest) (*types.ChatResponse, error) {
+	// Auto-crop for gpt-4.1 to avoid 413 errors (8k token limit)
+	if req.Model == "gpt-4.1" {
+		req = types.CropRequest(req, 5000)
+	}
+
 	body, _ := json.Marshal(req)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		githubBaseURL+"/chat/completions", bytes.NewReader(body))
@@ -69,6 +74,11 @@ func (g *GitHubProvider) Chat(ctx context.Context, req types.ChatRequest) (*type
 }
 
 func (g *GitHubProvider) ChatStream(ctx context.Context, req types.ChatRequest, w io.Writer) (types.Usage, error) {
+	// Auto-crop for gpt-4.1 to avoid 413 errors (8k token limit)
+	if req.Model == "gpt-4.1" {
+		req = types.CropRequest(req, 4000)
+	}
+
 	req.Stream = true
 	req.StreamOptions = &types.StreamOptions{IncludeUsage: true}
 	body, _ := json.Marshal(req)
