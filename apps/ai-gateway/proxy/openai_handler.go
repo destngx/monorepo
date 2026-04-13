@@ -12,13 +12,13 @@ import (
 	"apps/ai-gateway/types"
 )
 
-// Handler is the primary entry point for the AI Gateway's chat completion interface.
-type Handler struct {
+// OpenAIHandler is the primary entry point for the AI Gateway's chat completion interface.
+type OpenAIHandler struct {
 	registry *Registry
 }
 
-func NewHandler(registry *Registry) *Handler {
-	return &Handler{registry: registry}
+func NewOpenAIHandler(registry *Registry) *OpenAIHandler {
+	return &OpenAIHandler{registry: registry}
 }
 
 // ServeHTTP handles the /v1/chat/completions endpoint.
@@ -27,35 +27,27 @@ func NewHandler(registry *Registry) *Handler {
 // Protocol Selection:
 // Clients must specify the target backend using the 'X-AI-Provider' header.
 // Supported values: "github" (default), "openai", "anthropic", "ollama".
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// 1. Provider Resolution: Identify which backend provider to use for this request.
-	providerName := r.Header.Get("X-AI-Provider")
-	if providerName == "" {
-		providerName = "github"
-	}
-	provider, err := h.registry.Get(providerName)
-	if err != nil {
-		writeError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// 2. Readiness Check: Ensure the provider has a valid token and is reachable.
-	if !provider.IsReady() {
-		writeError(w, r, http.StatusNotFound, "provider "+providerName+" not ready (token check or upstream ping failed)")
-		return
-	}
-
-	// 3. Request Decoding: Standardize the incoming OpenAI-style payload.
+	// 1. Request Decoding: Standardize the incoming OpenAI-style payload.
+	// We do this first so we can use the 'model' field for smart routing.
 	var req types.ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, r, http.StatusBadRequest, "invalid request body: "+err.Error())
 		return
 	}
+
+	// 2. Smart Routing: Determine which backend provider and model to use.
+	provider, targetModel, err := h.registry.ResolveRoute(r, req.Model)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "routing failed: "+err.Error())
+		return
+	}
+	req.Model = targetModel
 
 	// 4. Mode Routing: Branch into either Synchronous (JSON) or Streaming (SSE) response modes.
 	if req.Stream {
@@ -67,7 +59,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleSync manages standard Request-Response interactions.
 // It waits for the full upstream response before returning a single JSON object.
-func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request, p interface {
+func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p interface {
 	Chat(context.Context, types.ChatRequest) (*types.ChatResponse, error)
 }, req types.ChatRequest) {
 	resp, err := p.Chat(r.Context(), req)
@@ -85,7 +77,7 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request, p interface
 
 // handleStream manages long-lived Server-Sent Event (SSE) connections.
 // It proxies provider chunks to the client in real-time.
-func (h *Handler) handleStream(w http.ResponseWriter, r *http.Request, p interface {
+func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p interface {
 	ChatStream(context.Context, types.ChatRequest, io.Writer) (types.Usage, error)
 }, req types.ChatRequest) {
 	w.Header().Set("Content-Type", "text/event-stream")

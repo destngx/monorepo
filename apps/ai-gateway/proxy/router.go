@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"apps/ai-gateway/config"
@@ -13,12 +14,16 @@ import (
 // Registry maps provider names to their implementations.
 type Registry struct {
 	providers map[string]providers.Provider
+	Mapper    *ModelMapper
 }
 
 // NewRegistry initialises all providers.
 // It logs a warning if a provider is missing its configuration.
 func NewRegistry(cfg *config.Config) *Registry {
-	r := &Registry{providers: make(map[string]providers.Provider)}
+	r := &Registry{
+		providers: make(map[string]providers.Provider),
+		Mapper:    NewModelMapper(),
+	}
 
 	// Register all providers regardless of config
 	r.register(providers.NewRateLimitedProvider(
@@ -82,4 +87,35 @@ func (r *Registry) List() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// ResolveRoute determines the actual provider and model for a request.
+func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (providers.Provider, string, error) {
+	// 1. Check Smart Mapper
+	target, mapped := r.Mapper.Resolve(inputModel)
+
+	providerName := target.Provider
+	targetModel := target.Model
+
+	// 2. If not mapped, resolve provider via header or default
+	if !mapped {
+		providerName = httpReq.Header.Get("X-AI-Provider")
+		if providerName == "" {
+			providerName = r.Mapper.DefaultTarget.Provider
+		}
+		if targetModel == "" {
+			targetModel = r.Mapper.DefaultTarget.Model
+		}
+	}
+
+	p, err := r.Get(providerName)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if !p.IsReady() {
+		return nil, "", fmt.Errorf("provider %q not ready", providerName)
+	}
+
+	return p, targetModel, nil
 }

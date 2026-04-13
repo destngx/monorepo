@@ -27,28 +27,24 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	providerName := r.Header.Get("X-AI-Provider")
-	if providerName == "" {
-		providerName = "github"
-	}
-	provider, err := h.registry.Get(providerName)
-	if err != nil {
-		writeError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if !provider.IsReady() {
-		writeError(w, r, http.StatusNotFound, "provider "+providerName+" not ready")
-		return
-	}
-
+	// 1. Request Decoding: Standardize the incoming Anthropic-style payload.
+	// We do this first so we can use the 'model' field for smart routing.
 	var anthroReq types.AnthropicRequest
 	if err := json.NewDecoder(r.Body).Decode(&anthroReq); err != nil {
 		writeError(w, r, http.StatusBadRequest, "invalid anthropic request body: "+err.Error())
 		return
 	}
 
+	// 2. Smart Routing: Determine which backend provider and model to use.
+	provider, targetModel, err := h.registry.ResolveRoute(r, anthroReq.Model)
+	if err != nil {
+		writeError(w, r, http.StatusBadRequest, "routing failed: "+err.Error())
+		return
+	}
+
+	// 3. Translation: Convert Anthropic format to internal OpenAI format.
 	req := convertFromAnthropicRequest(anthroReq)
+	req.Model = targetModel
 
 	if anthroReq.Stream {
 		h.handleStream(w, r, provider, req)
