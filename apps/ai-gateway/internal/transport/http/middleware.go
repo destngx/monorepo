@@ -18,8 +18,7 @@ const (
 	errMsgInternalServer = "internal server error"
 )
 
-const HeaderAIProvider = "X-AI-Provider"
-const ProviderGitHub = "github"
+const HeaderAIProvider = domain.HeaderAIProvider
 
 // Chain applies middlewares in order.
 func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
@@ -45,7 +44,7 @@ func Logger(next http.Handler) http.Handler {
 
 		provider := r.Header.Get(HeaderAIProvider)
 		if provider == "" {
-			provider = ProviderGitHub
+			provider = domain.ProviderGitHubCopilot
 		}
 
 		rw := &ResponseWriter{ResponseWriter: w, status: 200}

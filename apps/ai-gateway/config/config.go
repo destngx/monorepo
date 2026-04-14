@@ -24,8 +24,10 @@ type Config struct {
 	OpenAIRate    ProviderConfig
 	AnthropicRate ProviderConfig
 	OllamaRate    ProviderConfig
+	BedrockRate   ProviderConfig
 
-	Verbose int
+	BedrockRegion string
+	Verbose       int
 }
 
 func Load() *Config {
@@ -68,7 +70,17 @@ func Load() *Config {
 		OpenAIRate:    loadProviderRate("OPENAI"),
 		AnthropicRate: loadProviderRate("ANTHROPIC"),
 		OllamaRate:    loadProviderRate("OLLAMA"),
+		BedrockRate:   loadProviderRate("BEDROCK"),
+
+		BedrockRegion: getEnv("BEDROCK_REGION", "ap-southeast-1"),
 	}
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
 
 func loadProviderRate(prefix string) ProviderConfig {

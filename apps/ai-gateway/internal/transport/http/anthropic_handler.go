@@ -365,9 +365,10 @@ func convertToAnthropicResponse(resp *domain.ChatResponse) anthropic.Response {
 		}
 
 		ar.StopReason = stopReasonEndTurn
-		if resp.Choices[0].FinishReason == "length" {
+		switch resp.Choices[0].FinishReason {
+		case "length":
 			ar.StopReason = "max_tokens"
-		} else if resp.Choices[0].FinishReason == "tool_calls" {
+		case "tool_calls":
 			ar.StopReason = "tool_use"
 		}
 	}
@@ -511,9 +512,10 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 			}
 
 			stopReason := stopReasonEndTurn
-			if finish == "length" {
+			switch finish {
+			case "length":
 				stopReason = "max_tokens"
-			} else if finish == "tool_calls" {
+			case "tool_calls":
 				stopReason = "tool_use"
 			}
 

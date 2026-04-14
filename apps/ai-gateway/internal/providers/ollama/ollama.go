@@ -26,14 +26,14 @@ func New(baseURL string) *Provider {
 	}
 }
 
-func (p *Provider) Name() string { return "ollama" }
+func (p *Provider) Name() string { return domain.ProviderOllama }
 
 // Ollama v0.x supports the OpenAI-compatible endpoint at /v1/chat/completions
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		p.baseURL+"/v1/chat/completions", bytes.NewReader(body))
-	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Type", domain.ContentTypeJSON)
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {
@@ -58,7 +58,7 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		p.baseURL+"/v1/chat/completions", bytes.NewReader(body))
-	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Type", domain.ContentTypeJSON)
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {
@@ -74,7 +74,7 @@ func (p *Provider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) 
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		p.baseURL+"/v1/embeddings", bytes.NewReader(body))
-	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Type", domain.ContentTypeJSON)
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {

@@ -22,7 +22,7 @@ const (
 	headerGitHubApiVersion = "X-GitHub-Api-Version"
 	headerContentType      = "Content-Type"
 
-	contentTypeJSON   = "application/json"
+	contentTypeJSON   = domain.ContentTypeJSON
 	tokenPrefixBearer = "Bearer "
 )
 
@@ -39,7 +39,7 @@ func New(token string) *Provider {
 	}
 }
 
-func (p *Provider) Name() string { return "github-models" }
+func (p *Provider) Name() string { return domain.ProviderGitHubModels }
 
 func (p *Provider) headers() map[string]string {
 	return map[string]string{

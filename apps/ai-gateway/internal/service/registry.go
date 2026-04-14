@@ -129,13 +129,11 @@ func (r *Registry) List() []string {
 func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (shared.Provider, string, error) {
 	rid, _ := httpReq.Context().Value(domain.RequestIDKey).(string)
 
-	const HeaderAIProvider = "X-AI-Provider"
-
 	if r.Config.Verbose >= 2 {
 		log.Printf(logFormatVerbose2, rid, fmt.Sprintf(logMsgResolvingRoute, inputModel))
 	}
 
-	providerName := httpReq.Header.Get(HeaderAIProvider)
+	providerName := httpReq.Header.Get(domain.HeaderAIProvider)
 	if providerName == "" {
 		providerName = r.Mapper.DefaultTarget.Provider
 	}
@@ -155,7 +153,7 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 	// 2. If the mapper did not override provider, use the requested provider.
 	providerName = target.Provider
 	if providerName == "" {
-		providerName = httpReq.Header.Get(HeaderAIProvider)
+		providerName = httpReq.Header.Get(domain.HeaderAIProvider)
 		if providerName == "" {
 			providerName = r.Mapper.DefaultTarget.Provider
 		}

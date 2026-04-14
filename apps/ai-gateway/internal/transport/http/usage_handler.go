@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"apps/ai-gateway/internal/domain"
 	"apps/ai-gateway/internal/service"
 )
 
@@ -22,12 +23,9 @@ func (h *UsageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	providerName := r.Header.Get("X-AI-Provider")
+	providerName := r.Header.Get(domain.HeaderAIProvider)
 	if providerName == "" {
-		providerName = "github-copilot"
-	}
-	if providerName == "github" {
-		providerName = "github-copilot"
+		providerName = domain.ProviderGitHubCopilot
 	}
 
 	provider, err := h.registry.Get(providerName)
@@ -47,6 +45,6 @@ func (h *UsageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", domain.ContentTypeJSON)
 	json.NewEncoder(w).Encode(usage)
 }

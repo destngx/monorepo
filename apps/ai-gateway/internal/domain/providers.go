@@ -7,4 +7,7 @@ const (
 	ProviderOpenAI        = "openai"
 	ProviderAnthropic     = "anthropic"
 	ProviderOllama        = "ollama"
+
+	HeaderAIProvider = "X-AI-Provider"
+	ContentTypeJSON  = "application/json"
 )

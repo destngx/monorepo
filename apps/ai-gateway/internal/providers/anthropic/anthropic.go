@@ -21,7 +21,7 @@ const (
 	headerAPIKey           = "x-api-key"
 	headerAnthropicVersion = "anthropic-version"
 	headerContentType      = "Content-Type"
-	contentTypeJSON        = "application/json"
+	contentTypeJSON        = domain.ContentTypeJSON
 
 	roleSystem    = "system"
 	roleUser      = "user"
@@ -70,7 +70,7 @@ func New(apiKey string) *Provider {
 	}
 }
 
-func (p *Provider) Name() string { return "anthropic" }
+func (p *Provider) Name() string { return domain.ProviderAnthropic }
 
 // ConvertToAnthropicRequest transforms an OpenAI-compatible request into
 // Anthropic's Messages API format. Extracts system messages separately.

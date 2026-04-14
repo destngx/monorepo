@@ -1,20 +1,12 @@
 package service
 
-import "strings"
+import (
+	"apps/ai-gateway/internal/domain"
+	"strings"
+)
 
 const (
-	ModelGPT41           = "gpt-4.1"
-	ModelClaudeHaiku45   = "claude-haiku-4.5"
-	ModelClaudeSonnet46  = "claude-sonnet-4.6"
-	ModelClaudeOpus46    = "claude-opus-4.6"
-	ModelClaudeMyrthos45 = "claude-myrthos-4.5"
-
-	PrefixClaude = "claude-"
-
 	KeySeparator = "|"
-
-	ProviderGitHubCopilot = "github-copilot"
-	ProviderGitHub        = "github"
 )
 
 // RouteTarget defines the final destination for a request.
@@ -33,7 +25,7 @@ type ModelMapper struct {
 func NewModelMapper() *ModelMapper {
 	m := &ModelMapper{
 		exact:         make(map[string]RouteTarget),
-		DefaultTarget: RouteTarget{Provider: ProviderGitHubCopilot, Model: ModelGPT41},
+		DefaultTarget: RouteTarget{Provider: domain.ProviderGitHubCopilot, Model: domain.ModelGPT41},
 	}
 
 	return m
@@ -62,9 +54,9 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 	}
 
 	// 2. Specific remapping for Claude models on GitHub Copilot (or if unspecified)
-	if (pKey == "" || pKey == ProviderGitHubCopilot) && strings.HasPrefix(mKey, PrefixClaude) {
+	if (pKey == "" || pKey == domain.ProviderGitHubCopilot) && strings.HasPrefix(mKey, domain.PrefixClaude) {
 		return RouteTarget{
-			Provider: ProviderGitHubCopilot,
+			Provider: domain.ProviderGitHubCopilot,
 			Model:    normalizeClaudeForCopilot(mKey),
 		}, false
 	}
@@ -75,16 +67,16 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 
 func normalizeClaudeForCopilot(lowered string) string {
 	if strings.Contains(lowered, "haiku") {
-		return ModelClaudeHaiku45
+		return domain.ModelClaudeHaiku
 	}
 	if strings.Contains(lowered, "sonnet") {
-		return ModelClaudeSonnet46
+		return domain.ModelClaudeSonnet
 	}
 	if strings.Contains(lowered, "opus") {
-		return ModelClaudeOpus46
+		return domain.ModelClaudeOpus
 	}
 	if strings.Contains(lowered, "myrthos") {
-		return ModelClaudeMyrthos45
+		return domain.ModelClaudeMythos
 	}
-	return ModelGPT41 // "grok-code-fast-1"
+	return domain.ModelGPT41 // "grok-code-fast-1"
 }

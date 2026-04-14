@@ -42,7 +42,7 @@ const (
 	headerEditorVersion   = "Editor-Version"
 	headerEditorPluginVer = "Editor-Plugin-Version"
 
-	contentTypeJSON   = "application/json"
+	contentTypeJSON   = domain.ContentTypeJSON
 	tokenPrefixBearer = "Bearer "
 	tokenPrefixToken  = "token "
 
@@ -80,7 +80,7 @@ func New(githubToken string, verbose int) *Provider {
 	}
 }
 
-func (p *Provider) Name() string { return "github-copilot" }
+func (p *Provider) Name() string { return domain.ProviderGitHubCopilot }
 
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
 	start := time.Now()

@@ -18,7 +18,7 @@ const (
 
 	headerAuthorization = "Authorization"
 	headerContentType   = "Content-Type"
-	contentTypeJSON     = "application/json"
+	contentTypeJSON     = domain.ContentTypeJSON
 	tokenPrefixBearer   = "Bearer "
 
 	pathChatCompletions = "/chat/completions"
@@ -39,7 +39,7 @@ func New(apiKey string) *Provider {
 	}
 }
 
-func (p *Provider) Name() string { return "openai" }
+func (p *Provider) Name() string { return domain.ProviderOpenAI }
 
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
 	body, _ := json.Marshal(req)
