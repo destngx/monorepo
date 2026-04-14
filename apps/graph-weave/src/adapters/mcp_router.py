@@ -16,6 +16,8 @@ import hashlib
 import threading
 from src.app_logging import get_logger
 from functools import wraps
+
+logger = get_logger(__name__)
 from .ai_gateway_adapter import AIGatewayClient
 from .mcp import MockMCPServer
 
@@ -190,7 +192,6 @@ class MCPRouter:
         Raises:
             ProviderConfigError: If instantiation fails
         """
-        logger = get_logger(__name__)
 
         # Now all providers route through AI Gateway for unified tool calling
         logger.info(f"Routing provider {provider_name} through AI Gateway")
