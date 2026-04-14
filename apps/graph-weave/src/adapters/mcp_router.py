@@ -14,6 +14,7 @@ import os
 import json
 import hashlib
 import threading
+from src.app_logging import get_logger
 from functools import wraps
 from .ai_gateway_adapter import AIGatewayClient
 from .mcp import MockMCPServer
@@ -43,8 +44,7 @@ class LLMClient(Protocol):
 
 
 PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
-    "github": {
-        "required_env": "GITHUB_TOKEN",
+    "github-copilot": {
         "models": [
             "claude-3.5-sonnet",
             "claude-3-opus",
@@ -141,30 +141,6 @@ class MCPRouter:
             )
 
         config = PROVIDER_CONFIGS[provider_name]
-
-        env_key: str = cast(str, config["required_env"])
-        api_key = os.getenv(env_key, "")
-
-        import logging
-
-        logger = logging.getLogger(__name__)
-
-        fallback_enabled = (
-            allow_fallback
-            if allow_fallback is not None
-            else config.get("allow_fallback", False)
-        )
-
-        if not api_key:
-            if fallback_enabled:
-                from tests.mocks.gateway_mock import MockGatewayClient
-                logger.warning(f"No {env_key} found; falling back to MockGatewayClient")
-                return MockGatewayClient()
-            else:
-                raise ProviderConfigError(
-                    f"Missing required environment variable: {env_key}"
-                )
-
         model = model_name or cast(str, config["default_model"])
         supported_models: List[str] = cast(List[str], config["models"])
         if model not in supported_models:
@@ -183,7 +159,7 @@ class MCPRouter:
 
         logger.info(f"Creating provider instance: {provider_name}:{model}")
         try:
-            client = self._instantiate_provider(provider_name, api_key, model)
+            client = self._instantiate_provider(provider_name, model)
         except Exception as e:
             logger.error(
                 f"Provider instantiation failed: {provider_name}:{model}", exc_info=True
@@ -199,7 +175,7 @@ class MCPRouter:
         return client
 
     def _instantiate_provider(
-        self, provider_name: str, api_key: str, model: str
+        self, provider_name: str, model: str
     ) -> LLMClient:
         """Instantiate provider client with validation.
 
@@ -214,9 +190,7 @@ class MCPRouter:
         Raises:
             ProviderConfigError: If instantiation fails
         """
-        import logging
-
-        logger = logging.getLogger(__name__)
+        logger = get_logger(__name__)
 
         # Now all providers route through AI Gateway for unified tool calling
         logger.info(f"Routing provider {provider_name} through AI Gateway")

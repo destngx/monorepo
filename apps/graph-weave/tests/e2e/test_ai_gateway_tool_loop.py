@@ -61,7 +61,7 @@ class TestAIGatewayToolLoop:
             "config": {
                 "system_prompt": "You are a technical analyst.",
                 "user_prompt_template": "Analyze {topic}",
-                "provider": "github",
+                "provider": "github-copilot",
                 "model": "gpt-4.1",
                 "tools": ["search"]
             }

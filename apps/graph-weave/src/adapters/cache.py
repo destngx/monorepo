@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import json
 
 try:
@@ -26,6 +26,41 @@ class MockRedisAdapter:
 
     def clear(self) -> None:
         self._store.clear()
+
+    def rpush(self, key: str, value: Any) -> int:
+        if key not in self._store:
+            self._store[key] = []
+        self._store[key].append(value)
+        return len(self._store[key])
+
+    def lpush(self, key: str, value: Any) -> int:
+        if key not in self._store:
+            self._store[key] = []
+        self._store[key].insert(0, value)
+        return len(self._store[key])
+
+    def lrange(self, key: str, start: int, end: int) -> List[Any]:
+        items = self._store.get(key, [])
+        if not isinstance(items, list):
+            return []
+        if end == -1:
+            return items[start:]
+        return items[start : end + 1]
+
+    def ltrim(self, key: str, start: int, end: int) -> bool:
+        if key in self._store and isinstance(self._store[key], list):
+            if end == -1:
+                self._store[key] = self._store[key][start:]
+            else:
+                self._store[key] = self._store[key][start : end + 1]
+            return True
+        return False
+
+    def ttl(self, key: str) -> int:
+        return -1 if key in self._store else -2
+
+    def close(self) -> None:
+        pass
 
     def _build_versioned_key(
         self, namespace: str, tenant_id: str, skill_id: str, version: str
@@ -100,11 +135,12 @@ class RedisAdapter(MockRedisAdapter):
         client = redis.Redis.from_url(url, password=token, decode_responses=True)
         return cls(client)
 
-    def set(self, key: str, value: Any) -> None:
-        super().set(key, value)
+    def set(self, key: str, value: Any, ex: Optional[int] = None, **kwargs) -> None:
+        super().set(key, value, ex=ex, **kwargs)
         if hasattr(self._client, "set"):
-            serialized = json.dumps(value) if not isinstance(value, str) else value
-            self._client.set(key, serialized)
+            # Ensure booleans are serialized as strings ('true'/'false') because real redis client fails on bool
+            serialized = json.dumps(value) if not isinstance(value, (str, int, float)) or isinstance(value, bool) else value
+            self._client.set(key, serialized, ex=ex)
 
     def get(self, key: str) -> Optional[Any]:
         if hasattr(self._client, "get"):
@@ -125,3 +161,38 @@ class RedisAdapter(MockRedisAdapter):
         if hasattr(self._client, "exists"):
             return bool(self._client.exists(key))
         return super().exists(key)
+
+    def rpush(self, key: str, value: Any) -> int:
+        super().rpush(key, value)
+        if hasattr(self._client, "rpush"):
+            serialized = json.dumps(value) if not isinstance(value, (str, int, float, bool)) else value
+            return self._client.rpush(key, serialized)
+        return len(self._store.get(key, []))
+
+    def lpush(self, key: str, value: Any) -> int:
+        super().lpush(key, value)
+        if hasattr(self._client, "lpush"):
+            serialized = json.dumps(value) if not isinstance(value, (str, int, float, bool)) else value
+            return self._client.lpush(key, serialized)
+        return len(self._store.get(key, []))
+
+    def lrange(self, key: str, start: int, end: int) -> List[Any]:
+        if hasattr(self._client, "lrange"):
+            items = self._client.lrange(key, start, end)
+            return [json.loads(i) if isinstance(i, str) and (i.startswith("{") or i.startswith("[")) else i for i in items]
+        return super().lrange(key, start, end)
+
+    def ltrim(self, key: str, start: int, end: int) -> bool:
+        super().ltrim(key, start, end)
+        if hasattr(self._client, "ltrim"):
+            return bool(self._client.ltrim(key, start, end))
+        return True
+
+    def ttl(self, key: str) -> int:
+        if hasattr(self._client, "ttl"):
+            return self._client.ttl(key)
+        return super().ttl(key)
+
+    def close(self) -> None:
+        if hasattr(self._client, "close"):
+            self._client.close()

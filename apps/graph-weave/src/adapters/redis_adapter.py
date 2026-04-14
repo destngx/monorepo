@@ -11,13 +11,14 @@ Implements core Redis operations using Upstash REST API with:
 import time
 import json
 import logging
+from src.app_logging import get_logger
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 from functools import wraps
 import requests
 
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RedisError(Exception):
@@ -117,33 +118,22 @@ class UpstashRedisClient:
         )
         logger.info("UpstashRedisClient initialized")
 
-    def _request(
-        self, method: str, path: str, payload: Optional[dict[str, Any]] = None
-    ) -> dict[str, Any]:
+    def _execute(self, command: List[Any]) -> Any:
         """
-        Make HTTP request to Upstash REST API.
+        Execute Redis command via Upstash REST API.
 
         Args:
-            method: HTTP method (GET, POST, etc)
-            path: API path (e.g., "/get/mykey")
-            payload: Optional JSON payload
+            command: List of command and arguments (e.g., ["SET", "key", "value"])
 
         Returns:
-            Parsed JSON response
+            Command result
 
         Raises:
             RedisError: On API errors
             RedisTimeoutError: On timeout
         """
-        url = f"{self.url}{path}"
-
         try:
-            if method == "GET":
-                response = self._session.get(url, timeout=5)
-            elif method == "POST":
-                response = self._session.post(url, json=payload, timeout=5)
-            else:
-                raise ValueError(f"Unsupported method: {method}")
+            response = self._session.post(self.url, json=command, timeout=5)
 
             # Check for HTTP errors
             if response.status_code >= 500:
@@ -160,7 +150,8 @@ class UpstashRedisClient:
 
             # Parse successful response
             try:
-                return response.json()
+                result = response.json()
+                return result.get("result")
             except json.JSONDecodeError:
                 raise RedisError(f"Invalid JSON response: {response.text}")
 
@@ -168,6 +159,25 @@ class UpstashRedisClient:
             raise RedisTimeoutError("Request timed out")
         except requests.ConnectionError as e:
             raise RedisConnectionError(f"Connection failed: {str(e)}")
+
+    def _serialize(self, value: Any) -> Any:
+        """Serialize complex types to JSON strings."""
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return json.dumps(value)
+
+    def _deserialize(self, value: Any) -> Any:
+        """Deserialize JSON strings to Python objects if possible."""
+        if isinstance(value, str):
+            # Check if it looks like JSON
+            if (value.startswith("{") and value.endswith("}")) or (
+                value.startswith("[") and value.endswith("]")
+            ):
+                try:
+                    return json.loads(value)
+                except json.JSONDecodeError:
+                    return value
+        return value
 
     @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
     def get(self, key: str) -> Optional[Any]:
@@ -187,9 +197,8 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request("GET", f"/get/{key}")
-            # Upstash returns {"result": value} or {"result": null}
-            return result.get("result")
+            result = self._execute(["GET", key])
+            return self._deserialize(result)
         except RedisError:
             raise
 
@@ -213,13 +222,12 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            # Upstash SET endpoint
-            payload = {"value": value}
+            cmd = ["SET", key, self._serialize(value)]
             if ex:
-                payload["ex"] = ex
+                cmd.extend(["EX", str(ex)])
 
-            result = self._request("POST", f"/set/{key}", payload)
-            return result.get("result") == "OK"
+            result = self._execute(cmd)
+            return result == "OK"
         except RedisError:
             raise
 
@@ -241,8 +249,8 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request("POST", f"/del/{key}", {})
-            return result.get("result", 0) > 0
+            result = self._execute(["DEL", key])
+            return result > 0 if result is not None else False
         except RedisError:
             raise
 
@@ -264,8 +272,8 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request("POST", f"/exists/{key}", {})
-            return result.get("result", 0) > 0
+            result = self._execute(["EXISTS", key])
+            return result > 0 if result is not None else False
         except RedisError:
             raise
 
@@ -290,8 +298,8 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request("POST", f"/ttl/{key}", {})
-            return result.get("result", -2)
+            result = self._execute(["TTL", key])
+            return result if result is not None else -2
         except RedisError:
             raise
 
@@ -314,8 +322,8 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request("POST", f"/rpush/{key}", {"value": value})
-            return result.get("result", 0)
+            result = self._execute(["RPUSH", key, self._serialize(value)])
+            return result if result is not None else 0
         except RedisError:
             raise
 
@@ -338,8 +346,8 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request("POST", f"/lpush/{key}", {"value": value})
-            return result.get("result", 0)
+            result = self._execute(["LPUSH", key, self._serialize(value)])
+            return result if result is not None else 0
         except RedisError:
             raise
 
@@ -363,8 +371,9 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request("GET", f"/lrange/{key}/{start}/{end}")
-            return result.get("result", [])
+            result = self._execute(["LRANGE", key, start, end])
+            items = result if result is not None else []
+            return [self._deserialize(item) for item in items]
         except RedisError:
             raise
 
@@ -388,10 +397,8 @@ class UpstashRedisClient:
             raise ValueError("Key cannot be empty")
 
         try:
-            result = self._request(
-                "POST", f"/ltrim/{key}", {"start": start, "end": end}
-            )
-            return result.get("result") == "OK"
+            result = self._execute(["LTRIM", key, start, end])
+            return result == "OK"
         except RedisError:
             raise
 
@@ -413,10 +420,14 @@ class UpstashRedisClient:
             return {}
 
         try:
-            result = self._request("POST", "/mget", {"keys": keys})
+            result = self._execute(["MGET"] + keys)
             # Upstash returns array, we map back to dict
-            values = result.get("result", [])
-            return {key: value for key, value in zip(keys, values) if value is not None}
+            values = result if result is not None else []
+            return {
+                key: self._deserialize(value)
+                for key, value in zip(keys, values)
+                if value is not None
+            }
         except RedisError:
             raise
 

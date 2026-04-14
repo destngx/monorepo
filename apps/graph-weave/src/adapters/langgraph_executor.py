@@ -13,17 +13,18 @@ Implements:
 """
 
 from typing import Any, Dict, Optional, List, TypedDict, cast, Mapping
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import time
 import logging
+from src.app_logging import get_logger
 
 from .ai_gateway_adapter import AIGatewayClient
 from .mcp_router import MCPRouter, ProviderConfigError, ToolExecutionError, LLMClient
 from .stagnation_detector import StagnationDetector
 from .redis_circuit_breaker import NamespacedRedisClient
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ExecutorState(TypedDict):
@@ -236,7 +237,7 @@ class MockLangGraphExecutor:
 
         user_prompt = self._interpolate_prompt(user_prompt_template, state)
 
-        provider = config.get("provider", "github")
+        provider = config.get("provider", "github-copilot")
         model = config.get("model")
         temperature = config.get("temperature", 0.7)
         max_tokens = config.get("max_tokens", 2000)
@@ -458,6 +459,8 @@ class RealLangGraphExecutor:
     - Error handling and graceful failure
     """
 
+    _logger = get_logger(__name__)
+
     def __init__(
         self,
         ai_provider: Optional[LLMClient] = None,
@@ -511,6 +514,9 @@ class RealLangGraphExecutor:
         )
 
         self.execution_events[run_id] = []
+
+        # Normalize workflow format
+        workflow = self._normalize_workflow(workflow)
 
         state: Dict[str, Any] = {
             "input": input_data,
@@ -625,7 +631,7 @@ class RealLangGraphExecutor:
                         {
                             "node_id": current_node_id,
                             "error": str(e),
-                            "timestamp": datetime.utcnow().isoformat() + "Z",
+                            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         }
                     )
 
@@ -662,7 +668,8 @@ class RealLangGraphExecutor:
             }
 
         except Exception as e:
-            logger.exception(f"Execution error: {e}")
+            self._logger.exception(f"Execution error: {e}")
+            state["status"] = "failed"
             self._emit_event(run_id, "request.failed", {"error": str(e)})
             return {
                 "run_id": run_id,
@@ -699,7 +706,7 @@ class RealLangGraphExecutor:
         user_prompt_template = config.get("user_prompt_template", "")
         user_prompt = self._interpolate_prompt(user_prompt_template, state)
 
-        provider = config.get("provider", "github")
+        provider = config.get("provider", "github-copilot")
         model = config.get("model", "gpt-4")
         temperature = config.get("temperature", 0.7)
         max_tokens = config.get("max_tokens", 2000)
@@ -780,7 +787,7 @@ class RealLangGraphExecutor:
                         })
                         self._emit_event(run_id, "tool.completed", {"tool": tool_name, "id": tool_id})
                     except Exception as e:
-                        logger.error(f"Tool {tool_name} failed: {e}")
+                        self._logger.error(f"Tool {tool_name} failed: {e}")
                         messages.append({
                             "role": "tool",
                             "tool_call_id": tool_id,
@@ -845,6 +852,19 @@ class RealLangGraphExecutor:
                 return node
         return None
 
+    def _normalize_workflow(self, workflow: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize workflow format to ensure 'nodes' and 'edges' are available."""
+        if "definition" in workflow:
+            definition = workflow["definition"]
+            # Create a copy to avoid mutating original
+            normalized = workflow.copy()
+            normalized["nodes"] = definition.get("nodes", [])
+            normalized["edges"] = definition.get("edges", [])
+            normalized["entry_point"] = definition.get("entry_point")
+            normalized["exit_point"] = definition.get("exit_point")
+            return normalized
+        return workflow
+
     def _evaluate_condition(self, condition: str, state: Dict[str, Any]) -> bool:
         if not condition:
             return True
@@ -906,7 +926,7 @@ class RealLangGraphExecutor:
         event = {
             "type": event_type,
             "run_id": run_id,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "data": data,
         }
         self.execution_events[run_id].append(event)
@@ -916,4 +936,4 @@ class RealLangGraphExecutor:
                 event_key = f"event:{run_id}"
                 self.redis_client.rpush(event_key, json.dumps(event))
             except Exception as e:
-                logger.warning(f"Failed to persist event to Redis: {e}")
+                self._logger.warning(f"Failed to persist event to Redis: {e}")

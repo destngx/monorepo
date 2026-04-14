@@ -1,9 +1,10 @@
 import os
 import logging
+from src.app_logging import get_logger
 from typing import Dict, Any, List, Optional, Union
 import httpx
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class AIGatewayClient:
     """

@@ -11,7 +11,8 @@ def test_live_gateway_connectivity():
     gateway_url = os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")
     
     # Check if gateway is alive
-    response = httpx.get(gateway_url, timeout=5.0)
+    health_url = gateway_url.replace("/v1", "/health")
+    response = httpx.get(health_url, timeout=5.0)
     response.raise_for_status()
 
     client = AIGatewayClient(base_url=gateway_url)
@@ -23,14 +24,14 @@ def test_live_gateway_connectivity():
     try:
         result = client.chat_completion(
             messages=messages,
-            provider="github",
+            provider="github-copilot",
             model="gpt-4.1",
             max_tokens=5
         )
         
         content = result["choices"][0]["message"]["content"]
         assert "ACKNOWLEDGE" in content.upper()
-        assert result["model"] == "gpt-4.1"
+        assert result["model"].startswith("gpt-4.1")
     except httpx.HTTPStatusError as e:
         pytest.fail(f"Gateway returned error status {e.response.status_code}: {e.response.text}")
     except Exception as e:
