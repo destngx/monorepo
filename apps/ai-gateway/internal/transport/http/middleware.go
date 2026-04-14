@@ -4,19 +4,38 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"apps/ai-gateway/internal/domain"
+	"github.com/fatih/color"
 )
 
 const (
-	logFormatRequest = "[%s] %s %s [ID:%s] provider=%s status=%d duration=%s%s"
-	logFormatPanic   = "panic recovered: %v"
-
 	errMsgInternalServer = "internal server error"
 )
+
+var (
+	methodColors = map[string]func(string, ...any) string{
+		"GET":    color.CyanString,
+		"POST":   color.GreenString,
+		"PUT":    color.YellowString,
+		"DELETE": color.RedString,
+	}
+)
+
+func statusColor(code int) func(string, ...any) string {
+	switch {
+	case code >= 500:
+		return color.RedString
+	case code >= 400:
+		return color.YellowString
+	default:
+		return color.GreenString
+	}
+}
 
 const HeaderAIProvider = domain.HeaderAIProvider
 
@@ -51,13 +70,24 @@ func Logger(next http.Handler) http.Handler {
 		next.ServeHTTP(rw, r)
 
 		mapping, _ := r.Context().Value(domain.LogMappingKey).(string)
-		mappingStr := ""
-		if mapping != "" {
-			mappingStr = " mapping=" + mapping
+
+		method := r.Method
+		if c, ok := methodColors[method]; ok {
+			method = c(method)
 		}
 
-		log.Printf(logFormatRequest,
-			r.Method, r.URL.Path, r.RemoteAddr, requestID, provider, rw.status, time.Since(start), mappingStr)
+		status := fmt.Sprintf("%d", rw.status)
+		status = statusColor(rw.status)(status)
+
+		slog.Info("Request",
+			"method", method,
+			"path", r.URL.Path,
+			"status", status,
+			"provider", provider,
+			"duration", time.Since(start),
+			"mapping", mapping,
+			"rid", requestID,
+		)
 	})
 }
 
@@ -72,7 +102,7 @@ func Recovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				log.Printf(logFormatPanic, rec)
+				slog.Error("panic recovered", "error", rec)
 				http.Error(w, errMsgInternalServer, http.StatusInternalServerError)
 			}
 		}()

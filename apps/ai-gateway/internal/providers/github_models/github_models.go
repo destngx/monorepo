@@ -87,7 +87,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
 	// Auto-crop for gpt-4.1 to avoid 413 errors (8k token limit)
 	if req.Model == "gpt-4.1" {
-		req = shared.CropRequest(req, 4000)
+		req = shared.CropRequest(req, 8000)
 	}
 
 	req.Stream = true

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -63,11 +63,10 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 
 	if h.registry.Config.Verbose >= 1 {
-		reqBytes, _ := json.Marshal(anthroReq)
-		log.Printf(logFormatAnthroRequest, rid, string(reqBytes))
+		slog.Debug("Received Anthropic Request", "rid", rid, "body", anthroReq)
 	}
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf(logMsgAnthroFinished, rid)
+		slog.Debug("Finished decoding Anthropic request", "rid", rid)
 	}
 
 	provider, targetModel, err := h.registry.ResolveRoute(r, anthroReq.Model)
@@ -95,13 +94,13 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf(logMsgAnthroEnteringSync, rid)
+		slog.Debug("Entering Anthropic handleSync", "rid", rid)
 	}
 
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
 		if h.registry.Config.Verbose >= 1 {
-			log.Printf(logFormatAnthroProviderError, rid, err)
+			slog.Warn("Provider returned error", "rid", rid, "error", err)
 		}
 		WriteError(w, r, http.StatusBadGateway, err.Error())
 		return
@@ -110,8 +109,7 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 	anthroResp := convertToAnthropicResponse(resp)
 
 	if h.registry.Config.Verbose >= 1 {
-		respBytes, _ := json.Marshal(anthroResp)
-		log.Printf(logFormatAnthroResponse, rid, string(respBytes))
+		slog.Debug("Provider Response (Anthropic format)", "rid", rid, "response", anthroResp)
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -121,7 +119,7 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf(logMsgAnthroEnteringStream, rid)
+		slog.Debug("Entering Anthropic handleStream", "rid", rid)
 	}
 
 	w.Header().Set(headerContentType, contentTypeEventStream)
@@ -149,11 +147,11 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 
 	eventCount, convertErr := convertToAnthropicStream(pr, writer)
 	if convertErr != nil {
-		log.Printf(logFormatStreamConvErr, rid, convertErr)
+		slog.Error("Stream convert error", "rid", rid, "error", convertErr)
 	}
 
 	if err := <-errCh; err != nil {
-		log.Printf(logFormatAnthroStreamError, rid, err)
+		slog.Error("Anthropic stream error", "rid", rid, "error", err)
 		if eventCount == 0 {
 			sendAnthroEvent(writer, eventError, map[string]any{
 				"error": map[string]any{

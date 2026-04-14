@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -19,14 +19,6 @@ import (
 )
 
 const (
-	logPrefixSkip  = "[SKIP]"
-	logPrefixWarn  = "[WARN]"
-	logPrefixReady = "[READY]"
-
-	logFormatVerbose2       = "[ID:%s] [VERBOSE 2] %s"
-	logMsgResolvingRoute    = "Resolving route for inputModel: %q"
-	logMsgSmartMapperResult = "Smart mapper result: mapped=%v targetProvider=%q targetModel=%q"
-
 	errUnknownProvider  = "unknown provider %q — registered: %v"
 	errProviderNotReady = "provider %q not ready"
 )
@@ -79,7 +71,7 @@ func NewRegistry(cfg *config.Config) *Registry {
 			cfg.BedrockRate.RPM, cfg.BedrockRate.Burst,
 		))
 	} else {
-		log.Printf(logPrefixWarn+" Provider %q: failed to initialize: %v", "bedrock", err)
+		slog.Warn("Failed to initialize Bedrock", "error", err)
 	}
 
 	return r
@@ -90,7 +82,7 @@ func (r *Registry) register(p shared.Provider) {
 
 	// Phase 1: Token Check
 	if !p.IsConfigured() {
-		log.Printf(logPrefixSkip+" Provider %q: missing token", p.Name())
+		slog.Warn("Provider missing configuration", "provider", p.Name())
 		return
 	}
 
@@ -99,12 +91,12 @@ func (r *Registry) register(p shared.Provider) {
 	defer cancel()
 
 	if err := p.Ping(ctx); err != nil {
-		log.Printf(logPrefixWarn+" Provider %q: token OK but ping FAILED: %v; will return 404 on use", p.Name(), err)
+		slog.Warn("Provider ping failed", "provider", p.Name(), "error", err)
 		return
 	}
 
 	p.SetReady(true)
-	log.Printf(logPrefixReady+" Provider %q: token OK, ping OK", p.Name())
+	slog.Info("Provider ready", "provider", p.Name())
 }
 
 // Get returns the provider for the given name.
@@ -130,7 +122,7 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 	rid, _ := httpReq.Context().Value(domain.RequestIDKey).(string)
 
 	if r.Config.Verbose >= 2 {
-		log.Printf(logFormatVerbose2, rid, fmt.Sprintf(logMsgResolvingRoute, inputModel))
+		slog.Debug("Resolving route", "rid", rid, "inputModel", inputModel)
 	}
 
 	providerName := httpReq.Header.Get(domain.HeaderAIProvider)
@@ -142,7 +134,7 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 	target, mapped := r.Mapper.Resolve(providerName, inputModel)
 
 	if r.Config.Verbose >= 2 {
-		log.Printf(logFormatVerbose2, rid, fmt.Sprintf(logMsgSmartMapperResult, mapped, target.Provider, target.Model))
+		slog.Debug("Smart mapper result", "rid", rid, "mapped", mapped, "targetProvider", target.Provider, "targetModel", target.Model)
 	}
 
 	targetModel := target.Model

@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"apps/ai-gateway/config"
+	"apps/ai-gateway/internal/logger"
 	"apps/ai-gateway/internal/service"
 	httptransport "apps/ai-gateway/internal/transport/http"
 )
@@ -28,6 +30,8 @@ const (
 
 func main() {
 	cfg := config.Load()
+	logger.Init(cfg.LogLevel, cfg.EnableColor)
+
 	registry := service.NewRegistry(cfg)
 	openaiHandler := httptransport.NewOpenAIHandler(registry)
 	anthroHandler := httptransport.NewAnthropicHandler(registry)
@@ -58,9 +62,10 @@ func main() {
 		},
 	)
 
-	log.Printf(LogFormatListening, cfg.ListenAddr)
-	log.Printf(LogFormatRegProviders, registry.List())
+	slog.Info(LogFormatListening, "addr", cfg.ListenAddr)
+	slog.Info(LogFormatRegProviders, "providers", registry.List())
 	if err := http.ListenAndServe(cfg.ListenAddr, stack); err != nil {
-		log.Fatal(err)
+		slog.Error("server failed", "error", err)
+		os.Exit(1)
 	}
 }

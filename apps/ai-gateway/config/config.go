@@ -28,6 +28,8 @@ type Config struct {
 
 	BedrockRegion string
 	Verbose       int
+	LogLevel      string
+	EnableColor   bool
 }
 
 func Load() *Config {
@@ -58,6 +60,9 @@ func Load() *Config {
 	verboseStr := os.Getenv("VERBOSE")
 	verbose, _ := strconv.Atoi(verboseStr)
 
+	logLevel := getEnv("LOG_LEVEL", "info")
+	enableColor := getEnv("LOG_COLOR", "true") != "false"
+
 	return &Config{
 		GitHubToken:   os.Getenv("GITHUB_TOKEN"),
 		OpenAIKey:     os.Getenv("OPENAI_API_KEY"),
@@ -65,6 +70,8 @@ func Load() *Config {
 		OllamaBaseURL: ollamaBase,
 		ListenAddr:    addr,
 		Verbose:       verbose,
+		LogLevel:      logLevel,
+		EnableColor:   enableColor,
 
 		GitHubRate:    loadProviderRate("GITHUB"),
 		OpenAIRate:    loadProviderRate("OPENAI"),

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -15,16 +15,6 @@ import (
 )
 
 const (
-	logFormatOpenAIRequest         = "[ID:%s] [VERBOSE 1] Received OpenAI Request: %s"
-	logMsgOpenAIDecodingFinished   = "[ID:%s] [VERBOSE 2] Finished decoding request"
-	logMsgOpenAIEnteringSync       = "[ID:%s] [VERBOSE 2] Entering handleSync"
-	logFormatOpenAIProviderError   = "[ID:%s] [VERBOSE 1] Provider returned error: %v"
-	logMsgOpenAIEnteringStream     = "[ID:%s] [VERBOSE 2] Entering handleStream"
-	logFormatOpenAIStreamError     = "[ID:%s] STREAM ERROR: %v"
-	logFormatEmbeddingsRequest     = "[ID:%s] [VERBOSE 1] Received Embeddings Request: %s"
-	logMsgEnteringEmbeddings       = "[ID:%s] [VERBOSE 2] Entering Embeddings handler sync"
-	logFormatProviderEmbedResponse = "[ID:%s] [VERBOSE 1] Provider Embeddings Response: %s"
-
 	pathModelsV1 = "/v1/models/"
 
 	headerContentType     = "Content-Type"
@@ -45,9 +35,6 @@ const (
 	errMsgRoutingFailed    = "routing failed: "
 	errMsgStreamNotSupp    = "streaming not supported by response writer"
 	errMsgInvalidBody      = "invalid request body: "
-
-	logFormatError       = "[ID:%s] ERROR: code=%d msg=%s"
-	logFormatStreamChunk = "[ID:%s] [VERBOSE 1] Stream chunk: %s"
 )
 
 // OpenAIHandler is the primary entry point for the AI Gateway's chat completion interface.
@@ -75,11 +62,10 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 
 	if h.registry.Config.Verbose >= 1 {
-		reqBytes, _ := json.Marshal(req)
-		log.Printf(logFormatOpenAIRequest, rid, string(reqBytes))
+		slog.Debug("Received OpenAI Request", "rid", rid, "body", req)
 	}
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf(logMsgOpenAIDecodingFinished, rid)
+		slog.Debug("Finished decoding request", "rid", rid)
 	}
 
 	provider, targetModel, err := h.registry.ResolveRoute(r, req.Model)
@@ -105,13 +91,13 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf(logMsgOpenAIEnteringSync, rid)
+		slog.Debug("Entering OpenAI handleSync", "rid", rid)
 	}
 
 	resp, err := p.Chat(r.Context(), req)
 	if err != nil {
 		if h.registry.Config.Verbose >= 1 {
-			log.Printf(logFormatOpenAIProviderError, rid, err)
+			slog.Warn("Provider returned error", "rid", rid, "error", err)
 		}
 		if _, ok := err.(*shared.ErrRateLimitExceeded); ok {
 			WriteError(w, r, http.StatusTooManyRequests, err.Error())
@@ -122,8 +108,7 @@ func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p sha
 	}
 
 	if h.registry.Config.Verbose >= 1 {
-		respBytes, _ := json.Marshal(resp)
-		log.Printf("[ID:%s] [VERBOSE 1] Provider Response: %s", rid, string(respBytes))
+		slog.Debug("Provider Response", "rid", rid, "response", resp)
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -143,7 +128,7 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p s
 
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
-		log.Printf(logMsgOpenAIEnteringStream, rid)
+		slog.Debug("Entering OpenAI handleStream", "rid", rid)
 	}
 
 	var writer io.Writer = w
@@ -153,7 +138,7 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p s
 
 	_, err := p.ChatStream(r.Context(), req, writer)
 	if err != nil {
-		log.Printf(logFormatOpenAIStreamError, rid, err)
+		slog.Error("OpenAI stream error", "rid", rid, "error", err)
 
 		status := http.StatusBadGateway
 		if _, ok := err.(*shared.ErrRateLimitExceeded); ok {
@@ -263,11 +248,10 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if e.registry.Config.Verbose >= 1 {
-		reqBytes, _ := json.Marshal(req)
-		log.Printf(logFormatEmbeddingsRequest, rid, string(reqBytes))
+		slog.Debug("Received Embeddings Request", "rid", rid, "body", req)
 	}
 	if e.registry.Config.Verbose >= 2 {
-		log.Printf(logMsgEnteringEmbeddings, rid)
+		slog.Debug("Entering Embeddings handler sync", "rid", rid)
 	}
 
 	resp, err := provider.Embeddings(r.Context(), req)
@@ -281,8 +265,7 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if e.registry.Config.Verbose >= 1 {
-		respBytes, _ := json.Marshal(resp)
-		log.Printf(logFormatProviderEmbedResponse, rid, string(respBytes))
+		slog.Debug("Provider Embedding Response", "rid", rid, "response", resp)
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)
@@ -292,7 +275,7 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // WriteError provides a uniform JSON error response including a stack trace for debugging.
 func WriteError(w http.ResponseWriter, r *http.Request, code int, msg string) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
-	log.Printf(logFormatError, rid, code, msg)
+	slog.Error("HTTP Error", "rid", rid, "status", code, "message", msg)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	w.WriteHeader(code)
@@ -311,7 +294,7 @@ type StreamLogWriter struct {
 }
 
 func (sw *StreamLogWriter) Write(p []byte) (n int, err error) {
-	log.Printf(logFormatStreamChunk, sw.rid, string(p))
+	slog.Debug("Stream chunk", "rid", sw.rid, "content", string(p))
 	return sw.w.Write(p)
 }
 
