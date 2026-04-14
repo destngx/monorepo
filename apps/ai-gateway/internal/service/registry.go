@@ -30,6 +30,11 @@ type Registry struct {
 	Config    *config.Config
 }
 
+// Providers returns all registered providers.
+func (r *Registry) Providers() map[string]shared.Provider {
+	return r.providers
+}
+
 // NewRegistry initialises all providers.
 // It logs a warning if a provider is missing its configuration.
 func NewRegistry(cfg *config.Config) *Registry {

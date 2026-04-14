@@ -1,10 +1,24 @@
+// @title AI Gateway API
+// @version 1.0
+// @description Multi-provider AI Gateway. Proxies requests to OpenAI, Anthropic, GitHub Copilot, Ollama, Bedrock.
+// @contact.name Maintainer
+// @contact.email your@email.com
+// @license.name MIT
+// @BasePath /
+// @accept json
+// @produce json
+
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
+
+	// Swagger UI and docs
+	"apps/ai-gateway/docs"
+
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"apps/ai-gateway/config"
 	"apps/ai-gateway/internal/logger"
@@ -15,7 +29,6 @@ import (
 const (
 	PathChatCompletions = "/v1/chat/completions"
 	PathMessages        = "/v1/messages"
-	PathModels          = "/v1/models"
 	PathModelsSlash     = "/v1/models/"
 	PathEmbeddings      = "/v1/embeddings"
 	PathUsage           = "/v1/usage"
@@ -32,27 +45,31 @@ func main() {
 	cfg := config.Load()
 	logger.Init(cfg.LogLevel, cfg.EnableColor)
 
+	// Make Swagger host dynamic
+	docs.SwaggerInfo.Host = ""
+
 	registry := service.NewRegistry(cfg)
 	openaiHandler := httptransport.NewOpenAIHandler(registry)
 	anthroHandler := httptransport.NewAnthropicHandler(registry)
 	modelsHandler := httptransport.NewModelsHandler(registry)
 	embeddingsHandler := httptransport.NewEmbeddingsHandler(registry)
 	usageHandler := httptransport.NewUsageHandler(registry)
+	providersHandler := httptransport.NewProvidersHandler(registry)
+	healthHandler := httptransport.NewHealthHandler(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle(PathChatCompletions, openaiHandler)
 	mux.Handle(PathMessages, anthroHandler)
-	mux.Handle(PathModels, modelsHandler)
 	mux.Handle(PathModelsSlash, modelsHandler)
 	mux.Handle(PathEmbeddings, embeddingsHandler)
 	mux.Handle(PathUsage, usageHandler)
-	mux.Handle(PathHealth, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set(HeaderContentType, ContentTypeJSON)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":    "ok",
-			"providers": registry.List(),
-		})
-	}))
+
+	mux.Handle("/providers", providersHandler)
+
+	// Swagger documentation
+	mux.Handle("/docs/", httpSwagger.WrapHandler)
+
+	mux.Handle(PathHealth, healthHandler)
 
 	stack := httptransport.Chain(mux,
 		httptransport.Recovery,

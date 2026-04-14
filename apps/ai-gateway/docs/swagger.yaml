@@ -1,0 +1,460 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  anthropic.Content:
+    properties:
+      content:
+        description: for tool_result
+        type: string
+      id:
+        description: for tool_use
+        type: string
+      input:
+        description: for tool_use
+      is_error:
+        description: for tool_result
+        type: boolean
+      name:
+        description: for tool_use
+        type: string
+      text:
+        description: for text
+        type: string
+      tool_use_id:
+        description: for tool_result
+        type: string
+      type:
+        description: '"text", "tool_use", or "tool_result"'
+        type: string
+    type: object
+  anthropic.Message:
+    properties:
+      content:
+        description: Can be string or []Content
+      role:
+        type: string
+    type: object
+  anthropic.Request:
+    properties:
+      max_tokens:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/anthropic.Message'
+        type: array
+      model:
+        type: string
+      stop_sequences:
+        items:
+          type: string
+        type: array
+      stream:
+        type: boolean
+      system: {}
+      temperature:
+        type: number
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/anthropic.Tool'
+        type: array
+      top_p:
+        type: number
+    type: object
+  anthropic.Response:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/anthropic.Content'
+        type: array
+      id:
+        type: string
+      model:
+        type: string
+      role:
+        description: '"assistant"'
+        type: string
+      stop_reason:
+        type: string
+      stop_sequence:
+        type: string
+      type:
+        description: '"message"'
+        type: string
+      usage:
+        $ref: '#/definitions/anthropic.Usage'
+    type: object
+  anthropic.Tool:
+    properties:
+      description:
+        type: string
+      input_schema: {}
+      name:
+        type: string
+    type: object
+  anthropic.Usage:
+    properties:
+      input_tokens:
+        type: integer
+      output_tokens:
+        type: integer
+    type: object
+  domain.ChatDelta:
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+      tool_calls:
+        items:
+          $ref: '#/definitions/domain.ToolCallChunk'
+        type: array
+    type: object
+  domain.ChatRequest:
+    properties:
+      max_tokens:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/domain.Message'
+        type: array
+      model:
+        type: string
+      "n":
+        type: integer
+      stop: {}
+      stream:
+        type: boolean
+      stream_options:
+        $ref: '#/definitions/domain.StreamOptions'
+      temperature:
+        type: number
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/domain.Tool'
+        type: array
+      top_p:
+        type: number
+    type: object
+  domain.ChatResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/domain.Choice'
+        type: array
+      created:
+        type: integer
+      id:
+        type: string
+      model:
+        type: string
+      object:
+        type: string
+      usage:
+        $ref: '#/definitions/domain.Usage'
+    type: object
+  domain.Choice:
+    properties:
+      delta:
+        $ref: '#/definitions/domain.ChatDelta'
+      finish_reason:
+        type: string
+      index:
+        type: integer
+      message:
+        $ref: '#/definitions/domain.Message'
+    type: object
+  domain.EmbeddingData:
+    properties:
+      embedding:
+        items:
+          type: number
+        type: array
+      index:
+        type: integer
+      object:
+        type: string
+    type: object
+  domain.EmbeddingRequest:
+    properties:
+      input:
+        description: Can be string or []string
+      model:
+        example: text-embedding-3-small
+        type: string
+    type: object
+  domain.EmbeddingResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/domain.EmbeddingData'
+        type: array
+      model:
+        type: string
+      object:
+        type: string
+      usage:
+        $ref: '#/definitions/domain.Usage'
+    type: object
+  domain.FunctionCall:
+    properties:
+      arguments:
+        description: JSON string
+        type: string
+      name:
+        type: string
+    type: object
+  domain.FunctionChunk:
+    properties:
+      arguments:
+        type: string
+      name:
+        type: string
+    type: object
+  domain.FunctionDefinition:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parameters:
+        description: JSON Schema
+    type: object
+  domain.Message:
+    properties:
+      content:
+        type: string
+      role:
+        description: '"system" | "user" | "assistant" | "tool"'
+        type: string
+      tool_call_id:
+        type: string
+      tool_calls:
+        items:
+          $ref: '#/definitions/domain.ToolCall'
+        type: array
+    type: object
+  domain.StreamOptions:
+    properties:
+      include_usage:
+        type: boolean
+    type: object
+  domain.Tool:
+    properties:
+      function:
+        $ref: '#/definitions/domain.FunctionDefinition'
+      type:
+        description: always "function"
+        type: string
+    type: object
+  domain.ToolCall:
+    properties:
+      function:
+        $ref: '#/definitions/domain.FunctionCall'
+      id:
+        type: string
+      type:
+        description: always "function"
+        type: string
+    type: object
+  domain.ToolCallChunk:
+    properties:
+      function:
+        $ref: '#/definitions/domain.FunctionChunk'
+      id:
+        type: string
+      index:
+        type: integer
+      type:
+        type: string
+    type: object
+  domain.Usage:
+    properties:
+      completion_tokens:
+        type: integer
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  httptransport.ProviderInfo:
+    properties:
+      configured:
+        type: boolean
+      name:
+        type: string
+      ready:
+        type: boolean
+    type: object
+info:
+  contact:
+    email: your@email.com
+    name: Maintainer
+  description: Multi-provider AI Gateway. Proxies requests to OpenAI, Anthropic, GitHub
+    Copilot, Ollama, Bedrock.
+  license:
+    name: MIT
+  title: AI Gateway API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Health check and list of registered providers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'status: ok, providers: list'
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Gateway Health
+      tags:
+      - health
+  /providers:
+    get:
+      description: Returns all registered providers with config and ready status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/httptransport.ProviderInfo'
+            type: array
+      summary: List providers
+      tags:
+      - providers
+  /v1/chat/completions:
+    post:
+      consumes:
+      - application/json
+      description: Entry point for the AI Gateway's chat completion interface (OpenAI
+        compatible).
+      parameters:
+      - description: Chat Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ChatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "405":
+          description: method not allowed
+          schema:
+            type: string
+        "502":
+          description: Bad Gateway
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Chat completions
+      tags:
+      - completions
+  /v1/embeddings:
+    post:
+      consumes:
+      - application/json
+      description: Vector generation endpoint.
+      parameters:
+      - description: Embedding Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EmbeddingRequest'
+      - description: Provider name override
+        in: header
+        name: X-AI-Provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.EmbeddingResponse'
+      summary: Embeddings
+      tags:
+      - embeddings
+  /v1/messages:
+    post:
+      consumes:
+      - application/json
+      description: Anthropic-compatible messages endpoint.
+      parameters:
+      - description: Anthropic Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/anthropic.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/anthropic.Response'
+      summary: Anthropic Messages
+      tags:
+      - completions
+  /v1/models/{provider}:
+    get:
+      description: List available capabilities/models for a provider.
+      parameters:
+      - description: Provider name (e.g., openai, anthropic)
+        in: path
+        name: provider
+        type: string
+      - description: Provider name if not in path
+        in: header
+        name: X-AI-Provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: List models
+      tags:
+      - models
+  /v1/usage:
+    get:
+      description: Get usage statistics for a specific provider.
+      parameters:
+      - description: Provider name override
+        in: header
+        name: X-AI-Provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Usage'
+      summary: Usage
+      tags:
+      - usage
+produces:
+- application/json
+swagger: "2.0"

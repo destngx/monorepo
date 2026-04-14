@@ -48,6 +48,14 @@ func NewAnthropicHandler(registry *service.Registry) *AnthropicHandler {
 	return &AnthropicHandler{registry: registry}
 }
 
+// @Summary Anthropic Messages
+// @Description Anthropic-compatible messages endpoint.
+// @Tags completions
+// @Accept json
+// @Produce json
+// @Param body body anthropic.Request true "Anthropic Request"
+// @Success 200 {object} anthropic.Response
+// @Router /v1/messages [post]
 func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, errMsgMethodNotAllowed, http.StatusMethodNotAllowed)

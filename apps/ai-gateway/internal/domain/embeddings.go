@@ -2,7 +2,7 @@ package domain
 
 // EmbeddingRequest is the OpenAI-compatible request for /v1/embeddings.
 type EmbeddingRequest struct {
-	Model string `json:"model"`
+	Model string `json:"model" example:"text-embedding-3-small"`
 	Input any    `json:"input"` // Can be string or []string
 }
 

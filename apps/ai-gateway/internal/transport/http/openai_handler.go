@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	pathModelsV1 = "/v1/models/"
+	pathChatCompletions = "/v1/chat/completions"
+	pathModelsV1        = "/v1/models/"
 
 	headerContentType     = "Content-Type"
 	headerCacheControl    = "Cache-Control"
@@ -47,6 +48,17 @@ func NewOpenAIHandler(registry *service.Registry) *OpenAIHandler {
 }
 
 // ServeHTTP handles the /v1/chat/completions endpoint.
+// @Summary Chat completions
+// @Description Entry point for the AI Gateway's chat completion interface (OpenAI compatible).
+// @Tags completions
+// @Accept json
+// @Produce json
+// @Param body body domain.ChatRequest true "Chat Request"
+// @Success 200 {object} domain.ChatResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 405 {string} string "method not allowed"
+// @Failure 502 {object} map[string]interface{}
+// @Router /v1/chat/completions [post]
 func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, errMsgMethodNotAllowed, http.StatusMethodNotAllowed)
@@ -164,6 +176,14 @@ func NewModelsHandler(registry *service.Registry) *ModelsHandler {
 	return &ModelsHandler{registry: registry}
 }
 
+// @Summary List models
+// @Description List available capabilities/models for a provider.
+// @Tags models
+// @Produce json
+// @Param provider path string false "Provider name (e.g., openai, anthropic)"
+// @Param X-AI-Provider header string false "Provider name if not in path"
+// @Success 200 {array} string
+// @Router /v1/models/{provider} [get]
 func (m *ModelsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, errMsgMethodNotAllowed, http.StatusMethodNotAllowed)
@@ -219,6 +239,15 @@ func NewEmbeddingsHandler(registry *service.Registry) *EmbeddingsHandler {
 	return &EmbeddingsHandler{registry: registry}
 }
 
+// @Summary Embeddings
+// @Description Vector generation endpoint.
+// @Tags embeddings
+// @Accept json
+// @Produce json
+// @Param body body domain.EmbeddingRequest true "Embedding Request"
+// @Param X-AI-Provider header string false "Provider name override"
+// @Success 200 {object} domain.EmbeddingResponse
+// @Router /v1/embeddings [post]
 func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, errMsgMethodNotAllowed, http.StatusMethodNotAllowed)
@@ -227,7 +256,7 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	providerName := r.Header.Get(HeaderAIProvider)
 	if providerName == "" {
-		providerName = "github"
+		providerName = domain.ProviderGitHubModels
 	}
 	provider, err := e.registry.Get(providerName)
 	if err != nil {

@@ -1,11 +1,13 @@
 package domain
 
 const (
-	ModelGPT41        = "gpt-4.1"
-	ModelClaudeHaiku  = "claude-haiku-4.5"
-	ModelClaudeSonnet = "claude-sonnet-4.6"
-	ModelClaudeOpus   = "claude-opus-4.6"
-	ModelClaudeMythos = "claude-mythos-4.5"
+	ModelDefault          = "gpt-4.1"
+	ModelGPT41            = "gpt-4.1"
+	ModelClaudeHaiku      = "claude-haiku-4.5"
+	ModelClaudeSonnet     = "claude-sonnet-4.6"
+	ModelClaudeOpus       = "claude-opus-4.6"
+	ModelClaudeMythos     = "claude-mythos-4.5"
+	ModelEmbeddingDefault = "text-embedding-3-small"
 
 	PrefixClaude = "claude-"
 )

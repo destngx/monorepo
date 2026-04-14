@@ -17,6 +17,13 @@ func NewUsageHandler(registry *service.Registry) *UsageHandler {
 	return &UsageHandler{registry: registry}
 }
 
+// @Summary Usage
+// @Description Get usage statistics for a specific provider.
+// @Tags usage
+// @Produce json
+// @Param X-AI-Provider header string false "Provider name override"
+// @Success 200 {object} domain.Usage
+// @Router /v1/usage [get]
 func (h *UsageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

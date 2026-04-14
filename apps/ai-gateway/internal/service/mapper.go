@@ -75,8 +75,8 @@ func normalizeClaudeForCopilot(lowered string) string {
 	if strings.Contains(lowered, "opus") {
 		return domain.ModelClaudeOpus
 	}
-	if strings.Contains(lowered, "myrthos") {
+	if strings.Contains(lowered, "mythos") {
 		return domain.ModelClaudeMythos
 	}
-	return domain.ModelGPT41 // "grok-code-fast-1"
+	return domain.ModelDefault // or use "grok-code-fast-1"
 }
