@@ -10,6 +10,7 @@ import (
 	"apps/ai-gateway/config"
 	"apps/ai-gateway/internal/domain"
 	"apps/ai-gateway/internal/providers/anthropic"
+	"apps/ai-gateway/internal/providers/bedrock"
 	"apps/ai-gateway/internal/providers/github_copilot"
 	"apps/ai-gateway/internal/providers/github_models"
 	"apps/ai-gateway/internal/providers/ollama"
@@ -72,6 +73,15 @@ func NewRegistry(cfg *config.Config) *Registry {
 		cfg.OllamaRate.RPM, cfg.OllamaRate.Burst,
 	))
 
+	if bp, err := bedrock.New(context.Background(), cfg.BedrockRegion); err == nil {
+		r.register(shared.NewRateLimitedProvider(
+			bp,
+			cfg.BedrockRate.RPM, cfg.BedrockRate.Burst,
+		))
+	} else {
+		log.Printf(logPrefixWarn+" Provider %q: failed to initialize: %v", "bedrock", err)
+	}
+
 	return r
 }
 
@@ -129,9 +139,6 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 	if providerName == "" {
 		providerName = r.Mapper.DefaultTarget.Provider
 	}
-	if providerName == ProviderGitHub {
-		providerName = ProviderGitHubCopilot
-	}
 
 	// 1. Check Smart Mapper using provider + model as the routing key.
 	target, mapped := r.Mapper.Resolve(providerName, inputModel)
@@ -152,9 +159,6 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 		if providerName == "" {
 			providerName = r.Mapper.DefaultTarget.Provider
 		}
-	}
-	if providerName == ProviderGitHub {
-		providerName = ProviderGitHubCopilot
 	}
 
 	p, err := r.Get(providerName)
