@@ -71,6 +71,40 @@ const docTemplate = `{
                 }
             }
         },
+        "/tokenize": {
+            "post": {
+                "description": "Tokenize string text using tiktoken (cl100k_base) and return stats",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "utilities"
+                ],
+                "summary": "Tokenize text",
+                "parameters": [
+                    {
+                        "description": "Text to tokenize",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.TokenizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.TokenizeResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/chat/completions": {
             "post": {
                 "description": "Entry point for the AI Gateway's chat completion interface (OpenAI compatible).",
@@ -622,6 +656,43 @@ const docTemplate = `{
             "properties": {
                 "include_usage": {
                     "type": "boolean"
+                }
+            }
+        },
+        "domain.TokenizeRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "example": "Hello, world!"
+                }
+            }
+        },
+        "domain.TokenizeResponse": {
+            "type": "object",
+            "properties": {
+                "stats": {
+                    "$ref": "#/definitions/domain.TokenizeStats"
+                },
+                "tokens": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "domain.TokenizeStats": {
+            "type": "object",
+            "properties": {
+                "byte_count": {
+                    "type": "integer"
+                },
+                "character_count": {
+                    "type": "integer"
+                },
+                "token_count": {
+                    "type": "integer"
                 }
             }
         },

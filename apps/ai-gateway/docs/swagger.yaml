@@ -241,6 +241,30 @@ definitions:
       include_usage:
         type: boolean
     type: object
+  domain.TokenizeRequest:
+    properties:
+      text:
+        example: Hello, world!
+        type: string
+    type: object
+  domain.TokenizeResponse:
+    properties:
+      stats:
+        $ref: '#/definitions/domain.TokenizeStats'
+      tokens:
+        items:
+          type: string
+        type: array
+    type: object
+  domain.TokenizeStats:
+    properties:
+      byte_count:
+        type: integer
+      character_count:
+        type: integer
+      token_count:
+        type: integer
+    type: object
   domain.Tool:
     properties:
       function:
@@ -328,6 +352,28 @@ paths:
       summary: List providers
       tags:
       - providers
+  /tokenize:
+    post:
+      consumes:
+      - application/json
+      description: Tokenize string text using tiktoken (cl100k_base) and return stats
+      parameters:
+      - description: Text to tokenize
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.TokenizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.TokenizeResponse'
+      summary: Tokenize text
+      tags:
+      - utilities
   /v1/chat/completions:
     post:
       consumes:

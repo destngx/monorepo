@@ -56,6 +56,7 @@ func main() {
 	usageHandler := httptransport.NewUsageHandler(registry)
 	providersHandler := httptransport.NewProvidersHandler(registry)
 	healthHandler := httptransport.NewHealthHandler(registry)
+	tokenizeHandler := httptransport.NewTokenizeHandler(registry)
 
 	mux := http.NewServeMux()
 	mux.Handle(PathChatCompletions, openaiHandler)
@@ -63,6 +64,7 @@ func main() {
 	mux.Handle(PathModelsSlash, modelsHandler)
 	mux.Handle(PathEmbeddings, embeddingsHandler)
 	mux.Handle(PathUsage, usageHandler)
+	mux.Handle("/tokenize", tokenizeHandler)
 
 	mux.Handle("/providers", providersHandler)
 
