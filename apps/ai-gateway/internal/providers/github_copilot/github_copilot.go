@@ -50,6 +50,9 @@ const (
 	sseDone       = "[DONE]"
 
 	pathChatCompletions = "/chat/completions"
+
+	// GitHub Copilot API limits (https://github.com/github/copilot-cli/issues/509)
+	maxToolCallsPerMessage = 128
 )
 
 type Provider struct {
@@ -456,9 +459,13 @@ func (p *Provider) vlogf(level int, format string, args ...any) {
 }
 
 func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
+	// GitHub Copilot API enforces a hard limit of 128 tool_calls per message.
+	// Batch messages with oversized tool_calls arrays to comply with this constraint.
+	messages := p.batchMessagesWithOversizedToolCalls(req.Messages)
+
 	payload := copilotChatRequest{
 		Model:         req.Model,
-		Messages:      req.Messages,
+		Messages:      messages,
 		Stream:        req.Stream,
 		StreamOptions: req.StreamOptions,
 		Temperature:   req.Temperature,
@@ -482,6 +489,48 @@ func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
 	}
 
 	return json.Marshal(payload)
+}
+
+// batchMessagesWithOversizedToolCalls splits messages containing more than maxToolCallsPerMessage
+// tool_calls into multiple messages to comply with GitHub Copilot API limits.
+// Each batch message preserves the original message metadata and role.
+func (p *Provider) batchMessagesWithOversizedToolCalls(messages []domain.Message) []domain.Message {
+	var result []domain.Message
+
+	for _, msg := range messages {
+		if len(msg.ToolCalls) <= maxToolCallsPerMessage {
+			// Message is within limits; pass through unchanged.
+			result = append(result, msg)
+			continue
+		}
+
+		// Message exceeds tool_calls limit; batch it into multiple messages.
+		batches := chunkToolCalls(msg.ToolCalls, maxToolCallsPerMessage)
+		p.vlogf(1, "[github-copilot] batching oversized tool_calls: original=%d calls split into %d batches", len(msg.ToolCalls), len(batches))
+
+		for batchIdx, batch := range batches {
+			batchMsg := msg
+			batchMsg.ToolCalls = batch
+			// Optionally annotate batch metadata for observability (not transmitted).
+			p.vlogf(2, "[github-copilot] batch %d/%d: %d tool_calls", batchIdx+1, len(batches), len(batch))
+			result = append(result, batchMsg)
+		}
+	}
+
+	return result
+}
+
+// chunkToolCalls divides a tool_calls slice into chunks of at most size maxSize.
+func chunkToolCalls(toolCalls []domain.ToolCall, maxSize int) [][]domain.ToolCall {
+	if maxSize <= 0 {
+		return nil
+	}
+	var chunks [][]domain.ToolCall
+	for i := 0; i < len(toolCalls); i += maxSize {
+		end := min(i+maxSize, len(toolCalls))
+		chunks = append(chunks, toolCalls[i:end])
+	}
+	return chunks
 }
 
 type copilotChatRequest struct {
