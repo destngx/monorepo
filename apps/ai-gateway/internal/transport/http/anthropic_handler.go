@@ -88,6 +88,7 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, targetModel))
+	r = SetLogModel(r, anthroReq.Model)
 
 	req := convertFromAnthropicRequest(anthroReq, provider.Name())
 	req.Model = targetModel

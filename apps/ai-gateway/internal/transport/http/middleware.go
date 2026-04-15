@@ -47,7 +47,7 @@ func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.
 	return h
 }
 
-// Logger logs method, path, provider, status, and duration, including a unique Request ID.
+// Logger logs method, path, provider, model, status, and duration, including a unique Request ID.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -70,6 +70,7 @@ func Logger(next http.Handler) http.Handler {
 		next.ServeHTTP(rw, r)
 
 		mapping, _ := r.Context().Value(domain.LogMappingKey).(string)
+		model, _ := r.Context().Value(domain.LogModelKey).(string)
 
 		method := r.Method
 		if c, ok := methodColors[method]; ok {
@@ -84,6 +85,7 @@ func Logger(next http.Handler) http.Handler {
 			"path", r.URL.Path,
 			"status", status,
 			"provider", provider,
+			"model", model,
 			"duration", time.Since(start),
 			"mapping", mapping,
 			"rid", requestID,
@@ -94,6 +96,12 @@ func Logger(next http.Handler) http.Handler {
 // SetLogMapping attaches model mapping metadata to the request context.
 func SetLogMapping(r *http.Request, mapping string) *http.Request {
 	ctx := context.WithValue(r.Context(), domain.LogMappingKey, mapping)
+	return r.WithContext(ctx)
+}
+
+// SetLogModel attaches the resolved model metadata to the request context.
+func SetLogModel(r *http.Request, model string) *http.Request {
+	ctx := context.WithValue(r.Context(), domain.LogModelKey, model)
 	return r.WithContext(ctx)
 }
 
