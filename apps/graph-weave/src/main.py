@@ -59,14 +59,37 @@ def _background_execute_run(
     input_data: dict[str, Any],
 ) -> None:
     """Execute the workflow in a background thread using the real executor."""
-    execution_result = langgraph_executor.execute(
-        run_id=run_id,
-        thread_id=thread_id,
-        tenant_id=tenant_id,
-        workflow=workflow,
-        input_data=input_data,
-    )
-    
+    try:
+        logger.info(
+            f"[BG EXEC] Starting background execution: run_id={run_id}, workflow_id={workflow_id}"
+        )
+        execution_result = langgraph_executor.execute(
+            run_id=run_id,
+            thread_id=thread_id,
+            tenant_id=tenant_id,
+            workflow=workflow,
+            input_data=input_data,
+        )
+        logger.info(
+            f"[BG EXEC] Execution completed: run_id={run_id}, status={execution_result.get('status')}"
+        )
+    except Exception as e:
+        logger.error(
+            f"[BG EXEC] Execution failed: run_id={run_id}, error={str(e)}",
+            exc_info=True,
+        )
+        execution_result = {
+            "run_id": run_id,
+            "thread_id": thread_id,
+            "workflow_id": workflow_id,
+            "tenant_id": tenant_id,
+            "status": "failed",
+            "error": str(e),
+            "events": [],
+            "final_state": None,
+            "hop_count": 0,
+        }
+
     execution_runs[run_id] = execution_result
     status_service.transition_status(
         tenant_id,
@@ -165,7 +188,7 @@ async def health():
     try:
         gateway_url = os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")
         import httpx
-        
+
         # Check if gateway is reachable
         try:
             # We check the root or v1 endpoint for a 404/200/405 (anything that proves connectivity)
@@ -174,22 +197,19 @@ async def health():
             health_status["services"]["ai_gateway"] = {
                 "status": "healthy",
                 "url": gateway_url,
-                "response_code": response.status_code
+                "response_code": response.status_code,
             }
         except httpx.HTTPError as e:
             logger.warning(f"AI Gateway health check failed: {e}")
             health_status["services"]["ai_gateway"] = {
                 "status": "unhealthy",
-                "error": str(e)
+                "error": str(e),
             }
             health_status["status"] = "degraded"
-            
+
     except Exception as e:
         logger.error(f"Unexpected error in AI Gateway health check: {e}")
-        health_status["services"]["ai_gateway"] = {
-            "status": "error",
-            "error": str(e)
-        }
+        health_status["services"]["ai_gateway"] = {"status": "error", "error": str(e)}
         health_status["status"] = "degraded"
 
     except Exception as e:

@@ -7,17 +7,23 @@ This test validates the financial research workflow that:
 3. Returns partial results when stagnation is detected
 """
 
-import time
 import pytest
-from fastapi.testclient import TestClient
+import os
+import pytest
+import httpx
 
-from src.main import app
-from src.modules.shared.deps import get_workflow_store
+from .helpers import (
+    wait_for_terminal_status,
+    debug_log,
+    ensure_clean_workflow,
+    create_workflow_via_api,
+)
 
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    api_url = os.getenv("GRAPH_WEAVE_API_URL", "http://localhost:8001")
+    return httpx.Client(base_url=api_url)
 
 
 @pytest.fixture
@@ -55,6 +61,28 @@ def financial_research_workflow():
                         "agent_name": "web_search_agent",
                         "description": "Fetch earnings and transcripts from web",
                         "skill_dependency": "web-search",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a financial research specialist. Search the web for earnings reports and financial news. Use the web_search tool to find relevant financial data.",
+                        "user_prompt_template": "Research ticker {ticker}: {query}. Use the web_search tool to find earnings reports, press releases, and financial news.",
+                        "tools": [
+                            {
+                                "name": "web_search",
+                                "description": "Search the web for financial information and earnings data",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "query": {"type": "string"},
+                                        "ticker": {"type": "string"},
+                                        "data_type": {
+                                            "type": "string",
+                                            "enum": ["earnings", "news", "transcripts"],
+                                        },
+                                    },
+                                    "required": ["query"],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -64,6 +92,25 @@ def financial_research_workflow():
                         "agent_name": "sql_agent",
                         "description": "Query warehouse for historical performance",
                         "skill_dependency": "sql-agent",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a data analyst. Query the data warehouse for historical financial performance. Use the sql_executor tool to run queries.",
+                        "user_prompt_template": "Query financial data for {ticker}. Get historical performance for the past {period}. Use the sql_executor tool to query the warehouse.",
+                        "tools": [
+                            {
+                                "name": "sql_executor",
+                                "description": "Execute SQL queries against the financial data warehouse",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "query": {"type": "string"},
+                                        "database": {"type": "string"},
+                                        "timeout_seconds": {"type": "integer"},
+                                    },
+                                    "required": ["query", "database"],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -72,6 +119,36 @@ def financial_research_workflow():
                     "config": {
                         "agent_name": "synthesizer",
                         "description": "Synthesize research and SQL results",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a financial synthesis specialist. Combine external research with internal data warehouse results. Use the synthesis_generator tool to create comprehensive reports.",
+                        "user_prompt_template": "Synthesize research findings for {ticker}. Combine web research results with SQL warehouse data. Use the synthesis_generator tool to create a comprehensive report.",
+                        "tools": [
+                            {
+                                "name": "synthesis_generator",
+                                "description": "Generate synthesis report combining research and SQL data",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "web_research_data": {"type": "string"},
+                                        "sql_data": {"type": "string"},
+                                        "ticker": {"type": "string"},
+                                        "report_format": {
+                                            "type": "string",
+                                            "enum": [
+                                                "executive_summary",
+                                                "detailed_report",
+                                            ],
+                                        },
+                                    },
+                                    "required": [
+                                        "web_research_data",
+                                        "sql_data",
+                                        "ticker",
+                                    ],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -115,27 +192,8 @@ def financial_research_workflow():
     }
 
 
-def wait_for_terminal_status(client, run_id, timeout=3.0):
-    """Wait for workflow execution to reach terminal status"""
-    deadline = time.monotonic() + timeout
-    last_data = None
-    while time.monotonic() < deadline:
-        response = client.get(f"/execute/{run_id}/status")
-        assert response.status_code == 200
-        last_data = response.json()
-        if last_data.get("status") in ["completed", "failed", "cancelled"]:
-            return last_data
-        time.sleep(0.01)
-    return last_data
-
-
 class TestFinancialResearchE2E:
     """E2E tests for Financial Research Pipeline use case"""
-
-    def setup_method(self):
-        """Set up test workflow"""
-        store = get_workflow_store()
-        store.clear()
 
     def test_uc_fin_001_combine_external_and_internal_data(
         self, client, financial_research_workflow
@@ -147,9 +205,18 @@ class TestFinancialResearchE2E:
         When: The workflow executes web search and SQL queries
         Then: Results should be synthesized into a coherent research summary
         """
-        store = get_workflow_store()
-        store.create("hedge-fund-research", financial_research_workflow)
+        debug_log("TEST", "Starting test_uc_fin_001_combine_external_and_internal_data")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(
+            client, "hedge-fund-research", financial_research_workflow
+        )
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with financial research request")
         # Submit research request
         response = client.post(
             "/execute",
@@ -168,17 +235,23 @@ class TestFinancialResearchE2E:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "queued"
+        debug_log(
+            "EXEC", f"Run created: run_id={data['run_id']}, status={data['status']}"
+        )
 
+        debug_log("POLL", "Starting workflow execution polling")
         # Wait for completion
-        final = wait_for_terminal_status(client, data["run_id"])
+        final = wait_for_terminal_status(client, data["run_id"], timeout=5.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ UC-FIN-001: External and internal data combined")
         print(f"  - Run ID: {data['run_id']}")
         print(f"  - Status: {final['status']}")
         if final.get("final_state"):
             print(f"  - Final state keys: {list(final['final_state'].keys())}")
+        debug_log("TEST", "✓ test_uc_fin_001_combine_external_and_internal_data PASSED")
 
     def test_uc_fin_002_detect_repeated_intent_and_stop(
         self, client, financial_research_workflow
@@ -190,9 +263,18 @@ class TestFinancialResearchE2E:
         When: The same intent repeats three times
         Then: The workflow must exit safely rather than loop forever
         """
-        store = get_workflow_store()
-        store.create("hedge-fund-research", financial_research_workflow)
+        debug_log("TEST", "Starting test_uc_fin_002_detect_repeated_intent_and_stop")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(
+            client, "hedge-fund-research", financial_research_workflow
+        )
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with repeated intent scenario")
         # Submit request with repeated intent scenario
         response = client.post(
             "/execute",
@@ -210,10 +292,13 @@ class TestFinancialResearchE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}, will test repeated intent")
 
+        debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         # Verify stagnation was detected or workflow halted safely
         if final.get("final_state"):
@@ -229,6 +314,7 @@ class TestFinancialResearchE2E:
         print(
             f"  - Stagnation detected: {final.get('final_state', {}).get('stagnation_detected', 'N/A')}"
         )
+        debug_log("TEST", "✓ test_uc_fin_002_detect_repeated_intent_and_stop PASSED")
 
     def test_uc_fin_003_return_partial_results_on_stagnation(
         self, client, financial_research_workflow
@@ -240,9 +326,20 @@ class TestFinancialResearchE2E:
         When: Stagnation threshold is reached
         Then: The workflow should return the last successful summary with a stagnation flag
         """
-        store = get_workflow_store()
-        store.create("hedge-fund-research", financial_research_workflow)
+        debug_log(
+            "TEST", "Starting test_uc_fin_003_return_partial_results_on_stagnation"
+        )
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(
+            client, "hedge-fund-research", financial_research_workflow
+        )
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with partial success scenario")
         # Submit request with partial success scenario
         response = client.post(
             "/execute",
@@ -260,10 +357,13 @@ class TestFinancialResearchE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}, testing partial results")
 
+        debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         # Verify partial results flag or stagnation signal
         if final.get("final_state"):
@@ -279,6 +379,9 @@ class TestFinancialResearchE2E:
         print(
             f"  - Partial results: {final.get('final_state', {}).get('partial_results', 'N/A')}"
         )
+        debug_log(
+            "TEST", "✓ test_uc_fin_003_return_partial_results_on_stagnation PASSED"
+        )
 
     def test_nfr_stagnation_threshold_configurable(
         self, client, financial_research_workflow
@@ -290,9 +393,18 @@ class TestFinancialResearchE2E:
         When: The threshold is set to a higher value
         Then: The workflow should tolerate more iterations before exiting
         """
-        store = get_workflow_store()
-        store.create("hedge-fund-research", financial_research_workflow)
+        debug_log("TEST", "Starting test_nfr_stagnation_threshold_configurable")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(
+            client, "hedge-fund-research", financial_research_workflow
+        )
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with higher stagnation threshold")
         # Submit request with higher threshold
         response = client.post(
             "/execute",
@@ -310,16 +422,20 @@ class TestFinancialResearchE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}, custom_threshold=5")
 
+        debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ NFR: Stagnation threshold is configurable")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
         print(f"  - Custom threshold applied: 5")
+        debug_log("TEST", "✓ test_nfr_stagnation_threshold_configurable PASSED")
 
     def test_sql_and_web_search_isolation(self, client, financial_research_workflow):
         """
@@ -329,9 +445,18 @@ class TestFinancialResearchE2E:
         When: Both agents execute independently
         Then: Failures in one path should not cascade to the other
         """
-        store = get_workflow_store()
-        store.create("hedge-fund-research", financial_research_workflow)
+        debug_log("TEST", "Starting test_sql_and_web_search_isolation")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(
+            client, "hedge-fund-research", financial_research_workflow
+        )
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute to test SQL and web search isolation")
         # Submit request
         response = client.post(
             "/execute",
@@ -349,16 +474,25 @@ class TestFinancialResearchE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}, testing isolation")
 
+        debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         # Verify paths executed independently
+        web_search_executed = False
+        sql_executed = False
         if final.get("final_state"):
             events = final.get("final_state", {}).get("events", [])
             web_search_executed = any("web_research" in str(e) for e in events)
             sql_executed = any("sql_lookup" in str(e) for e in events)
+            debug_log(
+                "EXEC",
+                f"Isolation check: web_search={web_search_executed}, sql={sql_executed}",
+            )
 
         print(f"\n✓ SQL and web search remain isolated")
         print(f"  - Run ID: {run_id}")
@@ -366,6 +500,7 @@ class TestFinancialResearchE2E:
         print(
             f"  - Web search executed: {web_search_executed if final.get('final_state') else 'N/A'}"
         )
+        debug_log("TEST", "✓ test_sql_and_web_search_isolation PASSED")
 
     def test_repeated_join_failures_trigger_exit(
         self, client, financial_research_workflow
@@ -377,9 +512,18 @@ class TestFinancialResearchE2E:
         When: The workflow encounters repeated JOIN failures
         Then: It should detect stagnation and exit gracefully
         """
-        store = get_workflow_store()
-        store.create("hedge-fund-research", financial_research_workflow)
+        debug_log("TEST", "Starting test_repeated_join_failures_trigger_exit")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(
+            client, "hedge-fund-research", financial_research_workflow
+        )
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with JOIN failure scenario")
         # Submit request with JOIN failure scenario
         response = client.post(
             "/execute",
@@ -397,10 +541,13 @@ class TestFinancialResearchE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}, will simulate JOIN errors")
 
+        debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         # Verify stagnation exit
         if final.get("final_state"):
@@ -414,6 +561,7 @@ class TestFinancialResearchE2E:
         print(
             f"  - Stagnation from JOIN errors: {final.get('final_state', {}).get('stagnation_detected', 'N/A')}"
         )
+        debug_log("TEST", "✓ test_repeated_join_failures_trigger_exit PASSED")
 
     def test_extraction_loop_detection(self, client, financial_research_workflow):
         """
@@ -423,9 +571,18 @@ class TestFinancialResearchE2E:
         When: The extraction agent repeats the same operation
         Then: The workflow should exit with a partial result
         """
-        store = get_workflow_store()
-        store.create("hedge-fund-research", financial_research_workflow)
+        debug_log("TEST", "Starting test_extraction_loop_detection")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(
+            client, "hedge-fund-research", financial_research_workflow
+        )
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with extraction loop scenario")
         # Submit request with extraction loop scenario
         response = client.post(
             "/execute",
@@ -443,10 +600,15 @@ class TestFinancialResearchE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log(
+            "EXEC", f"Run created: run_id={run_id}, will simulate extraction loop"
+        )
 
+        debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         # Verify loop detection
         if final.get("final_state"):
@@ -462,3 +624,4 @@ class TestFinancialResearchE2E:
         print(
             f"  - Loop exit: {final.get('final_state', {}).get('extraction_loop_detected', 'N/A')}"
         )
+        debug_log("TEST", "✓ test_extraction_loop_detection PASSED")

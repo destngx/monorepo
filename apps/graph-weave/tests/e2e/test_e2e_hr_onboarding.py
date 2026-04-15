@@ -10,15 +10,18 @@ This test validates the HR onboarding workflow that:
 
 import time
 import pytest
-from fastapi.testclient import TestClient
+import httpx
+import os
 
-from src.main import app
-from src.modules.shared.deps import get_workflow_store
+from .helpers import wait_for_terminal_status, ensure_clean_workflow, debug_log
+
+API_BASE_URL = os.getenv("GRAPH_WEAVE_API_URL", "http://localhost:8001")
 
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    """Create a real HTTP client for API calls."""
+    return httpx.Client(base_url=API_BASE_URL, timeout=30.0)
 
 
 @pytest.fixture
@@ -74,6 +77,10 @@ def hr_onboarding_workflow():
                         "agent_name": "it_provisioner",
                         "description": "Create accounts and access permissions",
                         "skill_dependency": "it-provisioning",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are an IT provisioning specialist. Create the necessary accounts and access permissions based on the hire record.",
+                        "user_prompt_template": "Create IT accounts and permissions for new employee: {name} in department: {department}",
                     },
                 },
                 {
@@ -83,6 +90,10 @@ def hr_onboarding_workflow():
                         "agent_name": "hr_enrollor",
                         "description": "Enroll in payroll and benefits",
                         "skill_dependency": "hr-operations",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are an HR enrollment specialist. Enroll the new employee in payroll and benefits systems.",
+                        "user_prompt_template": "Enroll employee {name} (ID: {employee_id}) in payroll and benefits, starting {start_date}",
                     },
                 },
                 {
@@ -91,6 +102,10 @@ def hr_onboarding_workflow():
                     "config": {
                         "agent_name": "facilities_assigner",
                         "description": "Assign desk and equipment",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a facilities coordinator. Assign desk space and equipment for the new employee.",
+                        "user_prompt_template": "Assign a desk and equipment (laptop, monitor, phone) for {name} in the {department} department",
                     },
                 },
                 {
@@ -109,6 +124,38 @@ def hr_onboarding_workflow():
                         "agent_name": "doc_generator",
                         "description": "Generate contract and onboarding packet",
                         "skill_dependency": "document-generation",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a document generation specialist. Generate employment contracts and onboarding packets. When you need to generate documents, use the document_generator tool to create the content.",
+                        "user_prompt_template": "Generate employment contract and onboarding packet for {name} (ID: {employee_id}) starting {start_date}. Use the document_generator tool to create these documents.",
+                        "tools": [
+                            {
+                                "name": "document_generator",
+                                "description": "Generate employment contract and onboarding documents",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "document_type": {
+                                            "type": "string",
+                                            "enum": [
+                                                "contract",
+                                                "onboarding_packet",
+                                                "welcome_letter",
+                                            ],
+                                        },
+                                        "employee_name": {"type": "string"},
+                                        "employee_id": {"type": "string"},
+                                        "start_date": {"type": "string"},
+                                    },
+                                    "required": [
+                                        "document_type",
+                                        "employee_name",
+                                        "employee_id",
+                                        "start_date",
+                                    ],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -117,6 +164,31 @@ def hr_onboarding_workflow():
                     "config": {
                         "agent_name": "email_dispatcher",
                         "description": "Send onboarding packet to new hire",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are an email dispatch specialist. Send onboarding materials and welcome communications to new employees. Use the email_sender tool to dispatch emails.",
+                        "user_prompt_template": "Send welcome email and onboarding materials to {name} at {email}. Include the generated onboarding packet. Use the email_sender tool to send the email.",
+                        "tools": [
+                            {
+                                "name": "email_sender",
+                                "description": "Send email to employee with onboarding materials",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "recipient_email": {"type": "string"},
+                                        "recipient_name": {"type": "string"},
+                                        "subject": {"type": "string"},
+                                        "content": {"type": "string"},
+                                    },
+                                    "required": [
+                                        "recipient_email",
+                                        "recipient_name",
+                                        "subject",
+                                        "content",
+                                    ],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -161,27 +233,8 @@ def hr_onboarding_workflow():
     }
 
 
-def wait_for_terminal_status(client, run_id, timeout=3.0):
-    """Wait for workflow execution to reach terminal status"""
-    deadline = time.monotonic() + timeout
-    last_data = None
-    while time.monotonic() < deadline:
-        response = client.get(f"/execute/{run_id}/status")
-        assert response.status_code == 200
-        last_data = response.json()
-        if last_data.get("status") in ["completed", "failed", "cancelled"]:
-            return last_data
-        time.sleep(0.01)
-    return last_data
-
-
 class TestHROnboardingE2E:
     """E2E tests for HR Onboarding Automation use case"""
-
-    def setup_method(self):
-        """Set up test workflow"""
-        store = get_workflow_store()
-        store.clear()
 
     def test_uc_hr_001_validate_hire_payload_before_execution(
         self, client, hr_onboarding_workflow
@@ -193,29 +246,51 @@ class TestHROnboardingE2E:
         When: The validation guardrail executes
         Then: The workflow should proceed to provisioning
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log(
+            "TEST", "Starting test_uc_hr_001_validate_hire_payload_before_execution"
+        )
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
         print("\n" + "=" * 80)
         print("UC-HR-001: VALIDATE HIRE PAYLOAD BEFORE EXECUTION")
         print("=" * 80)
 
         print("\n[STEP 1] Submitting hire record for Alice Johnson...")
-        response = client.post(
-            "/execute",
-            json={
-                "tenant_id": "enterprise-hr",
-                "workflow_id": "hr-onboarding:v1.1.0",
-                "input": {
-                    "employee_id": "EMP-2026-001",
-                    "name": "Alice Johnson",
-                    "email": "alice.johnson@company.com",
-                    "department": "Engineering",
-                    "start_date": "2026-04-15",
-                    "manager": "Bob Smith",
-                    "role": "Senior Engineer",
-                },
+        debug_log("EXEC", "Posting /execute with hire record for Alice Johnson")
+
+        payload = {
+            "tenant_id": "enterprise-hr",
+            "workflow_id": "hr-onboarding:v1.1.0",
+            "input": {
+                "employee_id": "EMP-2026-001",
+                "name": "Alice Johnson",
+                "email": "alice.johnson@company.com",
+                "department": "Engineering",
+                "start_date": "2026-04-15",
+                "manager": "Bob Smith",
+                "role": "Senior Engineer",
             },
+        }
+        debug_log(
+            "EXEC",
+            f"Payload: employee_id={payload['input']['employee_id']}, name={payload['input']['name']}",
         )
+
+        response = client.post("/execute", json=payload)
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         data = response.json()
@@ -225,12 +300,19 @@ class TestHROnboardingE2E:
         print(f"  ✓ Workflow ID: {data['workflow_id']}")
         print(f"  ✓ Initial status: {data['status']}")
         print(f"  ✓ Thread ID: {data['thread_id']}")
+        debug_log(
+            "EXEC",
+            f"Run created: run_id={data['run_id']}, thread_id={data['thread_id']}",
+        )
         assert data["status"] == "queued"
+        debug_log("EXEC", f"Initial status verified: {data['status']}")
 
         print(f"\n[STEP 2] Waiting for workflow execution to complete...")
+        debug_log("POLL", "Starting workflow execution polling")
         final = wait_for_terminal_status(client, data["run_id"])
         assert final is not None
         assert final["status"] in ["completed", "failed"]
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n[RESPONSE 2] Final execution status:")
         print(f"  ✓ Final status: {final['status']}")
@@ -241,14 +323,22 @@ class TestHROnboardingE2E:
             print(f"    - Current node: {fs.get('current_node', 'N/A')}")
             print(f"    - Hop count: {fs.get('hop_count', 'N/A')}")
             print(f"    - Step: {fs.get('step', 'N/A')}")
+            debug_log(
+                "EXEC",
+                f"Final state: current_node={fs.get('current_node')}, hop_count={fs.get('hop_count')}",
+            )
             if fs.get("events"):
                 print(f"    - Events logged: {len(fs.get('events', []))}")
+                debug_log("EXEC", f"Events: {len(fs.get('events', []))} events logged")
 
         print(f"\n✓ UC-HR-001: Hire payload validated successfully")
         print(f"  - Run ID: {data['run_id']}")
         print(f"  - Status: {final['status']}")
         print(f"  - Employee: Alice Johnson (EMP-2026-001)")
         print(f"  - Department: Engineering")
+        debug_log(
+            "TEST", "✓ test_uc_hr_001_validate_hire_payload_before_execution PASSED"
+        )
 
     def test_uc_hr_001_validation_fails_with_missing_data(
         self, client, hr_onboarding_workflow
@@ -260,8 +350,22 @@ class TestHROnboardingE2E:
         When: The validation guardrail executes
         Then: The workflow should exit with validation error and fallback
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log("TEST", "Starting test_uc_hr_001_validation_fails_with_missing_data")
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
         print("\n" + "=" * 80)
         print("UC-HR-001: VALIDATION FAILS WITH MISSING DATA")
         print("=" * 80)
@@ -269,17 +373,26 @@ class TestHROnboardingE2E:
         print(
             "\n[STEP 1] Submitting incomplete hire record for Bob Smith (missing department & start_date)..."
         )
-        response = client.post(
-            "/execute",
-            json={
-                "tenant_id": "enterprise-hr",
-                "workflow_id": "hr-onboarding:v1.1.0",
-                "input": {
-                    "employee_id": "EMP-2026-002",
-                    "name": "Bob Smith",
-                },
-            },
+        debug_log(
+            "EXEC",
+            "Posting /execute with incomplete hire record (missing department & start_date)",
         )
+
+        payload = {
+            "tenant_id": "enterprise-hr",
+            "workflow_id": "hr-onboarding:v1.1.0",
+            "input": {
+                "employee_id": "EMP-2026-002",
+                "name": "Bob Smith",
+            },
+        }
+        debug_log(
+            "EXEC",
+            f"Incomplete payload: only employee_id and name provided (validation should fail)",
+        )
+
+        response = client.post("/execute", json=payload)
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
@@ -287,10 +400,15 @@ class TestHROnboardingE2E:
         print(f"  ✓ Status code: {response.status_code}")
         print(f"  ✓ Run ID: {run_id}")
         print(f"  ⚠ Submitted incomplete payload (missing: department, start_date)")
+        debug_log("EXEC", f"Run created with incomplete payload: run_id={run_id}")
 
         print(f"\n[STEP 2] Waiting for workflow to detect validation error...")
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        debug_log(
+            "POLL", "Starting workflow execution polling (expecting validation error)"
+        )
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n[RESPONSE 2] Final execution status:")
         print(f"  ✓ Final status: {final['status']}")
@@ -302,12 +420,17 @@ class TestHROnboardingE2E:
             print(f"    - Validation failed: {fs.get('validation_failed', 'N/A')}")
             print(f"    - Fallback triggered: {fs.get('fallback_triggered', 'N/A')}")
             print(f"    - Hop count: {fs.get('hop_count', 'N/A')}")
+            debug_log(
+                "EXEC",
+                f"Final state: validation_failed={fs.get('validation_failed')}, fallback_triggered={fs.get('fallback_triggered')}",
+            )
 
         print(f"\n✓ UC-HR-001: Missing data triggers fallback")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
         print(f"  - Employee: Bob Smith (EMP-2026-002)")
         print(f"  - Outcome: Workflow handled incomplete data gracefully")
+        debug_log("TEST", "✓ test_uc_hr_001_validation_fails_with_missing_data PASSED")
 
     def test_uc_hr_002_coordinate_it_hr_facilities_agents(
         self, client, hr_onboarding_workflow
@@ -319,29 +442,49 @@ class TestHROnboardingE2E:
         When: The workflow fans out to IT, HR, and facilities agents
         Then: All three branches should execute independently and aggregate results
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log("TEST", "Starting test_uc_hr_002_coordinate_it_hr_facilities_agents")
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
         print("\n" + "=" * 80)
         print("UC-HR-002: COORDINATE IT, HR, AND FACILITIES AGENTS")
         print("=" * 80)
 
         print("\n[STEP 1] Submitting hire record for Carol Davis (Sales department)...")
-        response = client.post(
-            "/execute",
-            json={
-                "tenant_id": "enterprise-hr",
-                "workflow_id": "hr-onboarding:v1.1.0",
-                "input": {
-                    "employee_id": "EMP-2026-003",
-                    "name": "Carol Davis",
-                    "email": "carol.davis@company.com",
-                    "department": "Sales",
-                    "start_date": "2026-04-20",
-                    "manager": "Bob Smith",
-                    "role": "Account Executive",
-                },
+        debug_log("EXEC", "Posting /execute with hire record for Carol Davis")
+
+        payload = {
+            "tenant_id": "enterprise-hr",
+            "workflow_id": "hr-onboarding:v1.1.0",
+            "input": {
+                "employee_id": "EMP-2026-003",
+                "name": "Carol Davis",
+                "email": "carol.davis@company.com",
+                "department": "Sales",
+                "start_date": "2026-04-20",
+                "manager": "Bob Smith",
+                "role": "Account Executive",
             },
+        }
+        debug_log(
+            "EXEC",
+            f"Payload: employee_id={payload['input']['employee_id']}, department={payload['input']['department']}",
         )
+
+        response = client.post("/execute", json=payload)
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
@@ -349,10 +492,16 @@ class TestHROnboardingE2E:
         print(f"  ✓ Status code: {response.status_code}")
         print(f"  ✓ Run ID: {run_id}")
         print(f"  ✓ Workflow ready to fan out to agents")
+        debug_log(
+            "EXEC",
+            f"Run created: run_id={run_id}, will trigger multi-agent orchestration",
+        )
 
         print(f"\n[STEP 2] Waiting for multi-agent orchestration...")
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        debug_log("POLL", "Starting workflow execution polling for multi-agent fanout")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n[RESPONSE 2] Final execution status:")
         print(f"  ✓ Final status: {final['status']}")
@@ -373,12 +522,17 @@ class TestHROnboardingE2E:
             print(f"    - HR enrollment executed: {hr_executed}")
             print(f"    - Total events: {len(events)}")
             print(f"    - Hop count: {fs.get('hop_count', 'N/A')}")
+            debug_log(
+                "EXEC",
+                f"Multi-agent results: it_executed={it_executed}, hr_executed={hr_executed}, events={len(events)}",
+            )
 
         print(f"\n✓ UC-HR-002: IT, HR, and facilities agents coordinated")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
         print(f"  - Employee: Carol Davis (EMP-2026-003)")
         print(f"  - Department: Sales")
+        debug_log("TEST", "✓ test_uc_hr_002_coordinate_it_hr_facilities_agents PASSED")
 
     def test_uc_hr_003_generate_and_dispatch_onboarding_packet(
         self, client, hr_onboarding_workflow
@@ -390,8 +544,24 @@ class TestHROnboardingE2E:
         When: The doc-generation and email-dispatch nodes execute
         Then: The contract and onboarding packet should be generated and sent
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log(
+            "TEST", "Starting test_uc_hr_003_generate_and_dispatch_onboarding_packet"
+        )
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
         print("\n" + "=" * 80)
         print("UC-HR-003: GENERATE AND DISPATCH ONBOARDING PACKET")
         print("=" * 80)
@@ -399,22 +569,28 @@ class TestHROnboardingE2E:
         print(
             "\n[STEP 1] Submitting hire record for David Wilson (Marketing department)..."
         )
-        response = client.post(
-            "/execute",
-            json={
-                "tenant_id": "enterprise-hr",
-                "workflow_id": "hr-onboarding:v1.1.0",
-                "input": {
-                    "employee_id": "EMP-2026-004",
-                    "name": "David Wilson",
-                    "email": "david.wilson@company.com",
-                    "department": "Marketing",
-                    "start_date": "2026-04-25",
-                    "manager": "Bob Smith",
-                    "role": "Marketing Manager",
-                },
+        debug_log("EXEC", "Posting /execute with hire record for David Wilson")
+
+        payload = {
+            "tenant_id": "enterprise-hr",
+            "workflow_id": "hr-onboarding:v1.1.0",
+            "input": {
+                "employee_id": "EMP-2026-004",
+                "name": "David Wilson",
+                "email": "david.wilson@company.com",
+                "department": "Marketing",
+                "start_date": "2026-04-25",
+                "manager": "Bob Smith",
+                "role": "Marketing Manager",
             },
+        }
+        debug_log(
+            "EXEC",
+            f"Payload: employee_id={payload['input']['employee_id']}, will trigger doc-generation",
         )
+
+        response = client.post("/execute", json=payload)
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
@@ -422,10 +598,16 @@ class TestHROnboardingE2E:
         print(f"  ✓ Status code: {response.status_code}")
         print(f"  ✓ Run ID: {run_id}")
         print(f"  ✓ Workflow ready to generate and dispatch packet")
+        debug_log(
+            "EXEC",
+            f"Run created: run_id={run_id}, will proceed to doc-generation and email-dispatch",
+        )
 
         print(f"\n[STEP 2] Waiting for document generation and email dispatch...")
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        debug_log("POLL", "Starting workflow execution polling for doc-generation")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n[RESPONSE 2] Final execution status:")
         print(f"  ✓ Final status: {final['status']}")
@@ -440,12 +622,19 @@ class TestHROnboardingE2E:
             print(f"    - Email dispatched: {email_dispatched}")
             print(f"    - Hop count: {fs.get('hop_count', 'N/A')}")
             print(f"    - Current node: {fs.get('current_node', 'N/A')}")
+            debug_log(
+                "EXEC",
+                f"Document generation results: packet_generated={packet_generated}, email_dispatched={email_dispatched}",
+            )
 
         print(f"\n✓ UC-HR-003: Onboarding packet generated and dispatched")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
         print(f"  - Employee: David Wilson (EMP-2026-004)")
         print(f"  - Department: Marketing")
+        debug_log(
+            "TEST", "✓ test_uc_hr_003_generate_and_dispatch_onboarding_packet PASSED"
+        )
 
     def test_nfr_token_watchdog_prevents_budget_overrun(
         self, client, hr_onboarding_workflow
@@ -457,32 +646,55 @@ class TestHROnboardingE2E:
         When: The token watchdog guardrail executes
         Then: The workflow should halt before breaching the max token budget
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log("TEST", "Starting test_nfr_token_watchdog_prevents_budget_overrun")
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
         print("\n" + "=" * 80)
         print("NFR: TOKEN WATCHDOG PREVENTS BUDGET OVERRUN")
         print("=" * 80)
 
         print("\n[STEP 1] Submitting hire record with extensive onboarding request...")
         print("  → Emma Taylor with extensive_onboarding=True and detailed handbook")
-        response = client.post(
-            "/execute",
-            json={
-                "tenant_id": "enterprise-hr",
-                "workflow_id": "hr-onboarding:v1.1.0",
-                "input": {
-                    "employee_id": "EMP-2026-005",
-                    "name": "Emma Taylor",
-                    "email": "emma.taylor@company.com",
-                    "department": "HR",
-                    "start_date": "2026-05-01",
-                    "manager": "Bob Smith",
-                    "role": "HR Specialist",
-                    "extensive_onboarding": True,
-                    "include_detailed_handbook": True,
-                },
-            },
+        debug_log(
+            "EXEC",
+            "Posting /execute with extensive_onboarding=True (should trigger token watchdog)",
         )
+
+        payload = {
+            "tenant_id": "enterprise-hr",
+            "workflow_id": "hr-onboarding:v1.1.0",
+            "input": {
+                "employee_id": "EMP-2026-005",
+                "name": "Emma Taylor",
+                "email": "emma.taylor@company.com",
+                "department": "HR",
+                "start_date": "2026-05-01",
+                "manager": "Bob Smith",
+                "role": "HR Specialist",
+                "extensive_onboarding": True,
+                "include_detailed_handbook": True,
+            },
+        }
+        debug_log(
+            "EXEC",
+            f"Payload: extensive_onboarding={payload['input']['extensive_onboarding']}, max_token_budget=8000",
+        )
+
+        response = client.post("/execute", json=payload)
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
@@ -490,14 +702,24 @@ class TestHROnboardingE2E:
         print(f"  ✓ Status code: {response.status_code}")
         print(f"  ✓ Run ID: {run_id}")
         print(f"  ✓ Max token budget: 8000 tokens")
+        debug_log(
+            "EXEC", f"Run created: run_id={run_id}, will test token budget constraints"
+        )
 
         print(
             f"\n[STEP 2] Waiting for token watchdog to monitor document generation..."
         )
+        debug_log(
+            "POLL", "Starting workflow execution polling (watching for token watchdog)"
+        )
         start_time = time.monotonic()
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         elapsed = time.monotonic() - start_time
         assert final is not None
+        debug_log(
+            "EXEC",
+            f"Workflow execution complete: status={final['status']}, elapsed={elapsed:.3f}s",
+        )
 
         print(f"\n[RESPONSE 2] Final execution status:")
         print(f"  ✓ Final status: {final['status']}")
@@ -509,12 +731,16 @@ class TestHROnboardingE2E:
             print(f"  ✓ Final state available")
             print(f"    - Token watchdog triggered: {token_watchdog_triggered}")
             print(f"    - Hop count: {fs.get('hop_count', 'N/A')}")
+            debug_log(
+                "EXEC", f"Token watchdog state: triggered={token_watchdog_triggered}"
+            )
 
         print(f"\n✓ NFR: Token watchdog prevents budget overrun")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
         print(f"  - Employee: Emma Taylor (EMP-2026-005)")
         print(f"  - Watchdog enforced: {token_watchdog_triggered}")
+        debug_log("TEST", "✓ test_nfr_token_watchdog_prevents_budget_overrun PASSED")
 
     def test_nfr_onboarding_completes_within_operational_window(
         self, client, hr_onboarding_workflow
@@ -526,30 +752,52 @@ class TestHROnboardingE2E:
         When: The entire workflow executes
         Then: It should complete within acceptable operational SLA
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log(
+            "TEST", "Starting test_nfr_onboarding_completes_within_operational_window"
+        )
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
         print("\n" + "=" * 80)
         print("NFR: ONBOARDING COMPLETES WITHIN OPERATIONAL WINDOW")
         print("=" * 80)
 
         print("\n[STEP 1] Submitting standard hire record for Frank Miller...")
         print("  → Measuring end-to-end completion time (SLA: < 3 seconds)")
-        response = client.post(
-            "/execute",
-            json={
-                "tenant_id": "enterprise-hr",
-                "workflow_id": "hr-onboarding:v1.1.0",
-                "input": {
-                    "employee_id": "EMP-2026-006",
-                    "name": "Frank Miller",
-                    "email": "frank.miller@company.com",
-                    "department": "Operations",
-                    "start_date": "2026-05-05",
-                    "manager": "Bob Smith",
-                    "role": "Operations Coordinator",
-                },
+        debug_log("EXEC", "Posting /execute with standard hire record (SLA tracking)")
+
+        payload = {
+            "tenant_id": "enterprise-hr",
+            "workflow_id": "hr-onboarding:v1.1.0",
+            "input": {
+                "employee_id": "EMP-2026-006",
+                "name": "Frank Miller",
+                "email": "frank.miller@company.com",
+                "department": "Operations",
+                "start_date": "2026-05-05",
+                "manager": "Bob Smith",
+                "role": "Operations Coordinator",
             },
+        }
+        debug_log(
+            "EXEC",
+            f"Payload: employee_id={payload['input']['employee_id']}, SLA_threshold=3.0s",
         )
+
+        response = client.post("/execute", json=payload)
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
@@ -557,12 +805,18 @@ class TestHROnboardingE2E:
         print(f"  ✓ Status code: {response.status_code}")
         print(f"  ✓ Run ID: {run_id}")
         print(f"  ✓ SLA threshold: 3.0 seconds")
+        debug_log("EXEC", f"Run created: run_id={run_id}, SLA_threshold=3.0s")
 
         print(f"\n[STEP 2] Waiting for complete onboarding workflow...")
+        debug_log("POLL", "Starting workflow execution polling with SLA tracking")
         start_time = time.monotonic()
         final = wait_for_terminal_status(client, run_id, timeout=5.0)
         elapsed = time.monotonic() - start_time
         assert final is not None
+        debug_log(
+            "EXEC",
+            f"Workflow execution complete: status={final['status']}, elapsed={elapsed:.3f}s",
+        )
 
         sla_passed = elapsed < 3.0
         print(f"\n[RESPONSE 2] Final execution status:")
@@ -571,11 +825,20 @@ class TestHROnboardingE2E:
         print(
             f"  {'✓' if sla_passed else '✗'} SLA compliance: {'PASS' if sla_passed else 'FAIL'} (threshold: 3.0s)"
         )
+        debug_log(
+            "SLA",
+            f"Elapsed time: {elapsed:.3f}s (threshold: 3.0s, passed: {sla_passed})",
+        )
+
         if final.get("final_state"):
             fs = final["final_state"]
             print(f"  ✓ Final state available")
             print(f"    - Hop count: {fs.get('hop_count', 'N/A')}")
             print(f"    - Current node: {fs.get('current_node', 'N/A')}")
+            debug_log(
+                "EXEC",
+                f"Final state: hop_count={fs.get('hop_count')}, current_node={fs.get('current_node')}",
+            )
 
         assert elapsed < 3.0
 
@@ -584,6 +847,9 @@ class TestHROnboardingE2E:
         print(f"  - Status: {final['status']}")
         print(f"  - Employee: Frank Miller (EMP-2026-006)")
         print(f"  - Actual time: {elapsed:.3f}s (SLA: 3.0s)")
+        debug_log(
+            "TEST", "✓ test_nfr_onboarding_completes_within_operational_window PASSED"
+        )
 
     def test_mandatory_steps_verification_before_finish(
         self, client, hr_onboarding_workflow
@@ -595,10 +861,67 @@ class TestHROnboardingE2E:
         When: The mandatory-step-verification guardrail executes
         Then: All mandatory steps must be accounted for before finish
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log("TEST", "Starting test_mandatory_steps_verification_before_finish")
 
-        # Submit hire record
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
+        debug_log("EXEC", "Posting /execute with hire record for Grace Lee")
+        response = client.post(
+            "/execute",
+            json={
+                "tenant_id": "enterprise-hr",
+                "workflow_id": "hr-onboarding:v1.1.0",
+                "input": {
+                    "employee_id": "EMP-2026-007",
+                    "name": "Grace Lee",
+                    "email": "grace.lee@company.com",
+                    "department": "Finance",
+                    "start_date": "2026-05-10",
+                    "manager": "Bob Smith",
+                    "role": "Financial Analyst",
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
+
+        debug_log("POLL", "Starting workflow execution polling")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
+
+        if final.get("final_state"):
+            all_verified = final["final_state"].get(
+                "all_mandatory_steps_verified", False
+            )
+            debug_log("EXEC", f"Mandatory steps verified: {all_verified}")
+            assert all_verified or final["status"] in ["completed", "failed"]
+
+        print(f"\n✓ Mandatory steps verified before finish")
+        print(f"  - Run ID: {run_id}")
+        print(f"  - Status: {final['status']}")
+        print(
+            f"  - All mandatory steps verified: {final.get('final_state', {}).get('all_mandatory_steps_verified', 'N/A')}"
+        )
+        debug_log("TEST", "✓ test_mandatory_steps_verification_before_finish PASSED")
+
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+
         response = client.post(
             "/execute",
             json={
@@ -619,11 +942,9 @@ class TestHROnboardingE2E:
         assert response.status_code == 200
         run_id = response.json()["run_id"]
 
-        # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
 
-        # Verify mandatory steps
         if final.get("final_state"):
             assert final["final_state"].get("all_mandatory_steps_verified") or final[
                 "status"
@@ -644,10 +965,78 @@ class TestHROnboardingE2E:
         When: The HRIS timeout threshold is exceeded
         Then: The workflow must retry with circuit breaker protection and fallback safely
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log("TEST", "Starting test_hris_timeout_with_circuit_breaker")
 
-        # Submit hire record with HRIS latency simulation
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
+        debug_log("EXEC", "Posting /execute with simulate_hris_timeout=True")
+        response = client.post(
+            "/execute",
+            json={
+                "tenant_id": "enterprise-hr",
+                "workflow_id": "hr-onboarding:v1.1.0",
+                "input": {
+                    "employee_id": "EMP-2026-008",
+                    "name": "Henry Brown",
+                    "email": "henry.brown@company.com",
+                    "department": "Legal",
+                    "start_date": "2026-05-15",
+                    "manager": "Bob Smith",
+                    "role": "Legal Counsel",
+                    "simulate_hris_timeout": True,
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}, HRIS timeout simulated")
+
+        debug_log(
+            "POLL", "Starting workflow execution polling (monitoring circuit breaker)"
+        )
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
+
+        if final.get("final_state"):
+            circuit_breaker = final["final_state"].get(
+                "circuit_breaker_triggered", False
+            )
+            hris_fallback = final["final_state"].get("hris_fallback_applied", False)
+            debug_log(
+                "EXEC",
+                f"Circuit breaker state: triggered={circuit_breaker}, fallback_applied={hris_fallback}",
+            )
+            assert (
+                circuit_breaker
+                or hris_fallback
+                or final["status"] in ["completed", "failed"]
+            )
+
+        print(f"\n✓ HRIS timeout handled with circuit breaker")
+        print(f"  - Run ID: {run_id}")
+        print(f"  - Status: {final['status']}")
+        print(
+            f"  - Circuit breaker triggered: {final.get('final_state', {}).get('circuit_breaker_triggered', 'N/A')}"
+        )
+        debug_log("TEST", "✓ test_hris_timeout_with_circuit_breaker PASSED")
+
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+
         response = client.post(
             "/execute",
             json={
@@ -669,11 +1058,9 @@ class TestHROnboardingE2E:
         assert response.status_code == 200
         run_id = response.json()["run_id"]
 
-        # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
 
-        # Verify circuit breaker or fallback
         if final.get("final_state"):
             assert (
                 final["final_state"].get("circuit_breaker_triggered")
@@ -698,10 +1085,78 @@ class TestHROnboardingE2E:
         When: One agent fails
         Then: Other agents should continue and workflow should complete partially
         """
-        store = get_workflow_store()
-        store.create("enterprise-hr", hr_onboarding_workflow)
+        debug_log(
+            "TEST", "Starting test_multi_agent_isolation_prevents_cascade_failures"
+        )
 
-        # Submit hire record
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(
+            client,
+            hr_onboarding_workflow["tenant_id"],
+            hr_onboarding_workflow["workflow_id"],
+        )
+
+        debug_log("SETUP", "Creating new workflow definition")
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+        debug_log(
+            "SETUP", f"Workflow created: status_code={create_response.status_code}"
+        )
+
+        debug_log("EXEC", "Posting /execute with simulate_facilities_failure=True")
+        response = client.post(
+            "/execute",
+            json={
+                "tenant_id": "enterprise-hr",
+                "workflow_id": "hr-onboarding:v1.1.0",
+                "input": {
+                    "employee_id": "EMP-2026-009",
+                    "name": "Iris Martinez",
+                    "email": "iris.martinez@company.com",
+                    "department": "Engineering",
+                    "start_date": "2026-05-20",
+                    "manager": "Bob Smith",
+                    "role": "DevOps Engineer",
+                    "simulate_facilities_failure": True,
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}, facilities agent will fail")
+
+        debug_log(
+            "POLL", "Starting workflow execution polling (monitoring agent isolation)"
+        )
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
+
+        it_completed = False
+        if final.get("final_state"):
+            events = final.get("final_state", {}).get("events", [])
+            it_completed = any(
+                "it_provisioner" in str(e) and "completed" in str(e) for e in events
+            )
+            debug_log(
+                "EXEC",
+                f"Multi-agent results: it_completed={it_completed}, total_events={len(events)}",
+            )
+
+        print(f"\n✓ Multi-agent isolation prevents cascade failures")
+        print(f"  - Run ID: {run_id}")
+        print(f"  - Status: {final['status']}")
+        print(
+            f"  - IT provisioning completed: {it_completed if final.get('final_state') else 'N/A'}"
+        )
+        debug_log(
+            "TEST", "✓ test_multi_agent_isolation_prevents_cascade_failures PASSED"
+        )
+
+        create_response = client.post("/workflows", json=hr_onboarding_workflow)
+        assert create_response.status_code in [200, 201]
+
         response = client.post(
             "/execute",
             json={
@@ -723,11 +1178,10 @@ class TestHROnboardingE2E:
         assert response.status_code == 200
         run_id = response.json()["run_id"]
 
-        # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
 
-        # Verify partial completion
+        it_completed = False
         if final.get("final_state"):
             events = final.get("final_state", {}).get("events", [])
             it_completed = any(

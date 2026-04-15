@@ -9,18 +9,18 @@ def test_live_gateway_connectivity():
     Skips if the gateway is not running localy or URL is not set.
     """
     gateway_url = os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")
-    
+
     # Check if gateway is alive
     health_url = gateway_url.replace("/v1", "/health")
     response = httpx.get(health_url, timeout=5.0)
     response.raise_for_status()
 
     client = AIGatewayClient(base_url=gateway_url)
-    
+
     # Minimal chat completion to verify proxying
     # Use gpt-4.1 as configured in previous steps
     messages = [{"role": "user", "content": "Respond with the word 'ACKNOWLEDGE'"}]
-    
+
     try:
         result = client.chat_completion(
             messages=messages,
@@ -28,7 +28,7 @@ def test_live_gateway_connectivity():
             model="gpt-4.1",
             max_tokens=5
         )
-        
+
         content = result["choices"][0]["message"]["content"]
         assert "ACKNOWLEDGE" in content.upper()
         assert result["model"].startswith("gpt-4.1")

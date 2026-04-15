@@ -10,7 +10,6 @@ from src.adapters.cache import MockRedisAdapter
 collect_ignore_glob = ["test_*.py"]
 
 
-os.environ.setdefault("GITHUB_TOKEN", "gho_test_token")
 
 
 def _load_dotenv_local():

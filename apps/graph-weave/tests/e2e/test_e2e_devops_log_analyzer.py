@@ -8,17 +8,22 @@ This test validates the incident analysis workflow that:
 4. Redacts sensitive values from the final incident report
 """
 
-import time
+import os
 import pytest
-from fastapi.testclient import TestClient
+import httpx
 
-from src.main import app
-from src.modules.shared.deps import get_workflow_store
+from .helpers import (
+    debug_log,
+    wait_for_terminal_status,
+    ensure_clean_workflow,
+    create_workflow_via_api,
+)
 
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    api_url = os.getenv("GRAPH_WEAVE_API_URL", "http://localhost:8001")
+    return httpx.Client(base_url=api_url)
 
 
 @pytest.fixture
@@ -56,6 +61,34 @@ def devops_log_analyzer_workflow():
                         "agent_name": "log_analyzer",
                         "description": "Cluster logs and detect anomalies",
                         "skill_dependency": "observability",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a DevOps log analysis specialist. Analyze logs and detect anomalies. Use the log_analyzer tool to cluster and analyze logs.",
+                        "user_prompt_template": "Analyze logs and detect anomalies: {logs}. Cluster similar log patterns and identify root causes. Use the log_analyzer tool.",
+                        "tools": [
+                            {
+                                "name": "log_analyzer",
+                                "description": "Analyze and cluster logs to detect anomalies",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "logs": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                        "clustering_strategy": {
+                                            "type": "string",
+                                            "enum": [
+                                                "pattern",
+                                                "severity",
+                                                "timestamp",
+                                            ],
+                                        },
+                                    },
+                                    "required": ["logs", "clustering_strategy"],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -65,6 +98,31 @@ def devops_log_analyzer_workflow():
                         "agent_name": "metrics_correlator",
                         "description": "Correlate metrics spikes and recent alerts",
                         "skill_dependency": "kubernetes",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a metrics correlation specialist. Correlate metrics spikes with alerts. Use the metrics_correlator tool to identify metric anomalies and correlations.",
+                        "user_prompt_template": "Correlate metrics and alerts: {alerts}. Identify spikes and correlate them with log anomalies. Use the metrics_correlator tool.",
+                        "tools": [
+                            {
+                                "name": "metrics_correlator",
+                                "description": "Correlate metrics spikes with alerts",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "metrics": {
+                                            "type": "array",
+                                            "items": {"type": "object"},
+                                        },
+                                        "alerts": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                        "time_window": {"type": "string"},
+                                    },
+                                    "required": ["metrics", "alerts", "time_window"],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -109,27 +167,8 @@ def devops_log_analyzer_workflow():
     }
 
 
-def wait_for_terminal_status(client, run_id, timeout=3.0):
-    """Wait for workflow execution to reach terminal status"""
-    deadline = time.monotonic() + timeout
-    last_data = None
-    while time.monotonic() < deadline:
-        response = client.get(f"/execute/{run_id}/status")
-        assert response.status_code == 200
-        last_data = response.json()
-        if last_data.get("status") in ["completed", "failed", "cancelled"]:
-            return last_data
-        time.sleep(0.01)
-    return last_data
-
-
 class TestDevOpsLogAnalyzerE2E:
     """E2E tests for DevOps Log Analyzer use case"""
-
-    def setup_method(self):
-        """Set up test workflow"""
-        store = get_workflow_store()
-        store.clear()
 
     def test_uc_ops_001_summarize_log_anomalies_and_alerts(
         self, client, devops_log_analyzer_workflow
@@ -141,10 +180,16 @@ class TestDevOpsLogAnalyzerE2E:
         When: The workflow executes
         Then: It should produce a concise incident summary with root-cause clues
         """
-        store = get_workflow_store()
-        store.create("devops-team", devops_log_analyzer_workflow)
+        debug_log("TEST", "Starting test_uc_ops_001_summarize_log_anomalies_and_alerts")
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "devops-team", "incident-analyzer:v1.0.5")
+
+        debug_log("SETUP", "Creating DevOps Log Analyzer workflow via API")
+        create_workflow_via_api(client, "devops-team", devops_log_analyzer_workflow)
 
         # Submit incident analysis request
+        debug_log("EXEC", "Posting /execute with incident analysis request")
         response = client.post(
             "/execute",
             json={
@@ -186,12 +231,17 @@ class TestDevOpsLogAnalyzerE2E:
 
         assert response.status_code == 200
         data = response.json()
+        debug_log(
+            "EXEC", f"Run created: run_id={data['run_id']}, status={data['status']}"
+        )
         assert data["status"] == "queued"
 
         # Wait for completion
-        final = wait_for_terminal_status(client, data["run_id"])
+        debug_log("POLL", "Starting workflow execution polling")
+        final = wait_for_terminal_status(client, data["run_id"], timeout=5.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
+        debug_log("EXEC", f"Workflow complete: status={final['status']}")
 
         print(f"\n✓ UC-OPS-001: Incident summary generated")
         print(f"  - Run ID: {data['run_id']}")
@@ -209,10 +259,18 @@ class TestDevOpsLogAnalyzerE2E:
         When: The stagnation detector identifies repeated intent
         Then: The workflow should exit safely rather than loop infinitely
         """
-        store = get_workflow_store()
-        store.create("devops-team", devops_log_analyzer_workflow)
+        debug_log(
+            "TEST", "Starting test_uc_ops_002_detect_alert_storms_and_repeated_retries"
+        )
+
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "devops-team", "incident-analyzer:v1.0.5")
+
+        debug_log("SETUP", "Creating DevOps Log Analyzer workflow via API")
+        create_workflow_via_api(client, "devops-team", devops_log_analyzer_workflow)
 
         # Submit request with alert storm scenario
+        debug_log("EXEC", "Posting /execute with alert storm scenario")
         response = client.post(
             "/execute",
             json={
@@ -270,10 +328,15 @@ class TestDevOpsLogAnalyzerE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        debug_log(
+            "POLL", "Starting workflow execution polling for alert storm detection"
+        )
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow complete: status={final['status']}")
 
         # Verify stagnation was detected or workflow halted safely
         if final.get("final_state"):
@@ -301,9 +364,17 @@ class TestDevOpsLogAnalyzerE2E:
         When: The output guardrail processes the incident report
         Then: Sensitive values should be redacted before export (Slack, PagerDuty)
         """
-        store = get_workflow_store()
-        store.create("devops-team", devops_log_analyzer_workflow)
+        debug_log(
+            "TEST", "Starting test_uc_ops_003_redact_sensitive_values_from_output"
+        )
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "devops-team", "incident-analyzer:v1.0.5")
+
+        debug_log("SETUP", "Creating DevOps Log Analyzer workflow via API")
+        create_workflow_via_api(client, "devops-team", devops_log_analyzer_workflow)
+
+        debug_log("EXEC", "Posting /execute with sensitive data redaction scenario")
         response = client.post(
             "/execute",
             json={
@@ -331,13 +402,19 @@ class TestDevOpsLogAnalyzerE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id)
+        debug_log(
+            "POLL", "Starting workflow execution polling for redaction verification"
+        )
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow complete: status={final['status']}")
 
         if final.get("final_state"):
             state = final["final_state"]
             assert isinstance(state, dict)
+            debug_log("EXEC", f"Final state verified: type={type(state).__name__}")
 
         print(f"\n✓ UC-OPS-003: Output redacted safely")
         print(f"  - Run ID: {run_id}")
@@ -354,11 +431,20 @@ class TestDevOpsLogAnalyzerE2E:
         When: The workflow executes with normal observability and Kubernetes skills
         Then: The final report should be available within the expected latency window (< 3 seconds)
         """
-        store = get_workflow_store()
-        store.create("devops-team", devops_log_analyzer_workflow)
+        debug_log(
+            "TEST", "Starting test_incident_summary_available_within_latency_window"
+        )
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "devops-team", "incident-analyzer:v1.0.5")
+
+        debug_log("SETUP", "Creating DevOps Log Analyzer workflow via API")
+        create_workflow_via_api(client, "devops-team", devops_log_analyzer_workflow)
+
+        debug_log("EXEC", "Starting latency measurement")
         start_time = time.monotonic()
 
+        debug_log("EXEC", "Posting /execute for incident analysis")
         response = client.post(
             "/execute",
             json={
@@ -385,13 +471,20 @@ class TestDevOpsLogAnalyzerE2E:
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        debug_log("POLL", "Starting workflow execution polling with latency tracking")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         elapsed = time.monotonic() - start_time
+        debug_log(
+            "EXEC",
+            f"Workflow complete: status={final['status']}, elapsed={elapsed:.3f}s",
+        )
 
         assert final is not None
         assert final["status"] in ["completed", "failed"]
         assert elapsed < 3.5, f"Incident analysis took {elapsed:.2f}s, exceeds 3.5s SLA"
+        debug_log("SLA", f"SLA check passed: {elapsed:.3f}s < 3.5s")
 
         print(f"\n✓ NFR: Incident summary available within latency window")
         print(f"  - Run ID: {run_id}")
@@ -408,9 +501,15 @@ class TestDevOpsLogAnalyzerE2E:
         When: The workflow executes
         Then: State should flow from log-analysis -> metrics-correlation -> stagnation-check -> redact-sensitive
         """
-        store = get_workflow_store()
-        store.create("devops-team", devops_log_analyzer_workflow)
+        debug_log("TEST", "Starting test_workflow_execution_state_propagation")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "devops-team", "incident-analyzer:v1.0.5")
+
+        debug_log("SETUP", "Creating DevOps Log Analyzer workflow via API")
+        create_workflow_via_api(client, "devops-team", devops_log_analyzer_workflow)
+
+        debug_log("EXEC", "Posting /execute for state propagation verification")
         response = client.post(
             "/execute",
             json={
@@ -438,14 +537,21 @@ class TestDevOpsLogAnalyzerE2E:
         assert response.status_code == 200
         data = response.json()
         run_id = data["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id)
+        debug_log("POLL", "Starting workflow execution polling for state propagation")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow complete: status={final['status']}")
 
         events = final.get("events", [])
         if events:
             event_types = [e.get("node_id") for e in events]
             assert len(event_types) > 0
+            debug_log(
+                "EXEC",
+                f"State propagation verified: {len(event_types)} node traversals recorded",
+            )
 
         print(f"\n✓ Workflow execution state propagation verified")
         print(f"  - Run ID: {run_id}")

@@ -48,18 +48,16 @@ class LLMClient(Protocol):
 PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
     "github-copilot": {
         "models": [
-            "claude-3.5-sonnet",
-            "claude-3-opus",
             "gpt-4.1",
-            "claude-3-sonnet",
+            "gpt-4o",
         ],
-        "default_model": "gpt-4.1",
+        "default_model": "gpt-4o",
         "allow_fallback": False,
     },
     "openai": {
         "required_env": "OPENAI_API_KEY",
-        "models": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4.1"],
-        "default_model": "gpt-4.1",
+        "models": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4.1", "gpt-4o"],
+        "default_model": "gpt-4o",
         "allow_fallback": False,
     },
 }
@@ -144,17 +142,8 @@ class MCPRouter:
 
         config = PROVIDER_CONFIGS[provider_name]
 
-        # --- Enforce required env tokens for each provider ---
-        if provider_name == "github-copilot":
-            if "GITHUB_TOKEN" not in os.environ:
-                raise ProviderConfigError(
-                    "GITHUB_TOKEN environment variable is required for github-copilot provider."
-                )
-        if provider_name == "openai":
-            if "OPENAI_API_KEY" not in os.environ:
-                raise ProviderConfigError(
-                    "OPENAI_API_KEY environment variable is required for openai provider."
-                )
+        # Note: Provider credentials (GITHUB_TOKEN, OPENAI_API_KEY) are managed
+        # by the AI Gateway proxy. The engine does not require them locally.
 
         model = model_name or cast(str, config["default_model"])
         supported_models: List[str] = cast(List[str], config["models"])

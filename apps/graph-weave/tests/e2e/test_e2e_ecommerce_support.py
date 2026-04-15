@@ -9,15 +9,22 @@ This test validates the support workflow that:
 
 import time
 import pytest
-from fastapi.testclient import TestClient
+import os
+import pytest
+import httpx
 
-from src.main import app
-from src.modules.shared.deps import get_workflow_store
+from .helpers import (
+    wait_for_terminal_status,
+    debug_log,
+    ensure_clean_workflow,
+    create_workflow_via_api,
+)
 
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    api_url = os.getenv("GRAPH_WEAVE_API_URL", "http://localhost:8001")
+    return httpx.Client(base_url=api_url)
 
 
 @pytest.fixture
@@ -60,6 +67,28 @@ def ecommerce_support_workflow():
                     "config": {
                         "agent_name": "shipping_order_lookup",
                         "description": "Handle order status and shipping queries",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are an e-commerce shipping specialist. Look up order status and handle shipping queries. Use the order_lookup tool to retrieve order information.",
+                        "user_prompt_template": "Handle shipping query: {query}. Look up order status using order ID: {order_id}. Use the order_lookup tool.",
+                        "tools": [
+                            {
+                                "name": "order_lookup",
+                                "description": "Look up order status and shipping information",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "order_id": {"type": "string"},
+                                        "customer_id": {"type": "string"},
+                                        "fields": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                    },
+                                    "required": ["order_id"],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -68,6 +97,25 @@ def ecommerce_support_workflow():
                     "config": {
                         "agent_name": "billing_refund_handler",
                         "description": "Handle billing and refund decisions",
+                        "provider": "github-copilot",
+                        "model": "gpt-4o",
+                        "system_prompt": "You are a billing and refund specialist. Handle refund requests and billing inquiries. Use the refund_handler tool to process refunds.",
+                        "user_prompt_template": "Handle billing query: {query}. Process refund for order: {order_id} if applicable. Use the refund_handler tool.",
+                        "tools": [
+                            {
+                                "name": "refund_handler",
+                                "description": "Handle refund processing and billing decisions",
+                                "input_schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "order_id": {"type": "string"},
+                                        "refund_reason": {"type": "string"},
+                                        "refund_amount": {"type": "number"},
+                                    },
+                                    "required": ["order_id", "refund_reason"],
+                                },
+                            }
+                        ],
                     },
                 },
                 {
@@ -120,24 +168,7 @@ def ecommerce_support_workflow():
     }
 
 
-def wait_for_terminal_status(client, run_id, timeout=3.0):
-    deadline = time.monotonic() + timeout
-    last_data = None
-    while time.monotonic() < deadline:
-        response = client.get(f"/execute/{run_id}/status")
-        assert response.status_code == 200
-        last_data = response.json()
-        if last_data.get("status") in ["completed", "failed", "cancelled"]:
-            return last_data
-        time.sleep(0.01)
-    return last_data
-
-
 class TestEcommerceCustomerSupportE2E:
-    def setup_method(self):
-        store = get_workflow_store()
-        store.clear()
-
     def test_uc_ecom_001_validate_customer_input_before_routing(
         self, client, ecommerce_support_workflow
     ):
@@ -148,9 +179,18 @@ class TestEcommerceCustomerSupportE2E:
         When: The input guardrail processes it
         Then: It should pass validation and proceed to routing
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log(
+            "TEST", "Starting test_uc_ecom_001_validate_customer_input_before_routing"
+        )
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with valid customer input")
         response = client.post(
             "/execute",
             json={
@@ -163,18 +203,28 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         data = response.json()
+        debug_log(
+            "EXEC",
+            f"Run created: run_id={data['run_id']}, initial_status={data['status']}",
+        )
         assert data["status"] == "queued"
 
-        final = wait_for_terminal_status(client, data["run_id"])
+        debug_log("POLL", "Starting workflow execution polling")
+        final = wait_for_terminal_status(client, data["run_id"], timeout=5.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ UC-ECOM-001: Customer input validated successfully")
         print(f"  - Run ID: {data['run_id']}")
         print(f"  - Status: {final['status']}")
+        debug_log(
+            "TEST", "✓ test_uc_ecom_001_validate_customer_input_before_routing PASSED"
+        )
 
     def test_uc_ecom_001_malicious_input_blocked(
         self, client, ecommerce_support_workflow
@@ -184,9 +234,16 @@ class TestEcommerceCustomerSupportE2E:
         When: The input guardrail validates it
         Then: The request should be blocked before routing
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log("TEST", "Starting test_uc_ecom_001_malicious_input_blocked")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with malicious input")
         response = client.post(
             "/execute",
             json={
@@ -199,20 +256,23 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id, timeout=2.0)
+        debug_log("POLL", "Starting workflow execution polling")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ UC-ECOM-001: Malicious input blocked")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
+        debug_log("TEST", "✓ test_uc_ecom_001_malicious_input_blocked PASSED")
 
-    def test_uc_ecom_002_order_lookup_path(
-        self, client, ecommerce_support_workflow
-    ):
+    def test_uc_ecom_002_order_lookup_path(self, client, ecommerce_support_workflow):
         """
         UC-ECOM-002: The workflow must support order lookup, refund handling, and safe fallback.
 
@@ -220,9 +280,16 @@ class TestEcommerceCustomerSupportE2E:
         When: The workflow routes to shipping/order lookup
         Then: The shipping agent should return order status information
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log("TEST", "Starting test_uc_ecom_002_order_lookup_path")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute for order lookup request")
         response = client.post(
             "/execute",
             json={
@@ -235,29 +302,39 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id)
+        debug_log("POLL", "Starting workflow execution polling for order lookup")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ UC-ECOM-002: Order lookup path executed")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
+        debug_log("TEST", "✓ test_uc_ecom_002_order_lookup_path PASSED")
 
-    def test_uc_ecom_002_refund_handling_path(
-        self, client, ecommerce_support_workflow
-    ):
+    def test_uc_ecom_002_refund_handling_path(self, client, ecommerce_support_workflow):
         """
         Given: A customer requesting a refund for a lost package
         When: The workflow routes to billing/refund handler
         Then: The billing agent should evaluate refund eligibility and process if allowed
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log("TEST", "Starting test_uc_ecom_002_refund_handling_path")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute for refund request")
         response = client.post(
             "/execute",
             json={
@@ -270,17 +347,22 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id)
+        debug_log("POLL", "Starting workflow execution polling for refund handling")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ UC-ECOM-002: Refund handling path executed")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
+        debug_log("TEST", "✓ test_uc_ecom_002_refund_handling_path PASSED")
 
     def test_uc_ecom_002_refund_loop_detection(
         self, client, ecommerce_support_workflow
@@ -290,9 +372,19 @@ class TestEcommerceCustomerSupportE2E:
         When: The stagnation detector activates after 3 identical intents
         Then: The workflow should exit safely with the last good answer
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log("TEST", "Starting test_uc_ecom_002_refund_loop_detection")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log(
+            "EXEC",
+            "Posting /execute with trigger_loop=True to test stagnation detection",
+        )
         response = client.post(
             "/execute",
             json={
@@ -306,16 +398,23 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id, timeout=2.0)
+        debug_log(
+            "POLL", "Starting workflow execution polling for refund loop detection"
+        )
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ UC-ECOM-002: Refund loop detected and halted")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
+        debug_log("TEST", "✓ test_uc_ecom_002_refund_loop_detection PASSED")
 
     def test_uc_ecom_003_output_redaction_for_pii(
         self, client, ecommerce_support_workflow
@@ -327,9 +426,16 @@ class TestEcommerceCustomerSupportE2E:
         When: The output guardrail processes it
         Then: PII and policy violations should be redacted before streaming
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log("TEST", "Starting test_uc_ecom_003_output_redaction_for_pii")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute for output redaction test")
         response = client.post(
             "/execute",
             json={
@@ -342,20 +448,26 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id)
+        debug_log("POLL", "Starting workflow execution polling for output redaction")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         if final.get("final_state"):
             output_str = str(final["final_state"])
+            debug_log("EXEC", f"Checking output for PII redaction")
             assert "credit_card" not in output_str or "[REDACTED]" in output_str
 
         print(f"\n✓ UC-ECOM-003: Output redacted for PII")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
+        debug_log("TEST", "✓ test_uc_ecom_003_output_redaction_for_pii PASSED")
 
     def test_response_within_user_visible_latency_budget(
         self, client, ecommerce_support_workflow
@@ -367,11 +479,19 @@ class TestEcommerceCustomerSupportE2E:
         When: The workflow executes
         Then: Response should complete within 3 seconds (typical user wait time)
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log("TEST", "Starting test_response_within_user_visible_latency_budget")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Starting latency benchmark timer")
         start = time.monotonic()
 
+        debug_log("EXEC", "Posting /execute for latency measurement")
         response = client.post(
             "/execute",
             json={
@@ -384,12 +504,19 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log("EXEC", f"Run created: run_id={run_id}")
 
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        debug_log("POLL", "Starting workflow execution polling with latency tracking")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         elapsed = time.monotonic() - start
+        debug_log(
+            "EXEC",
+            f"Workflow execution complete: status={final['status']}, elapsed={elapsed:.3f}s",
+        )
 
         assert final is not None
         assert final["status"] in ["completed", "failed"]
@@ -398,6 +525,7 @@ class TestEcommerceCustomerSupportE2E:
         print(f"\n✓ NFR: Response latency within SLA")
         print(f"  - Run ID: {run_id}")
         print(f"  - Elapsed: {elapsed:.3f}s (SLA: < 3.5s)")
+        debug_log("TEST", "✓ test_response_within_user_visible_latency_budget PASSED")
 
     def test_safe_fallback_on_provider_timeout(
         self, client, ecommerce_support_workflow
@@ -407,9 +535,16 @@ class TestEcommerceCustomerSupportE2E:
         When: The circuit breaker activates
         Then: The workflow should fall back safely with retry handling
         """
-        store = get_workflow_store()
-        store.create("retail-saas", ecommerce_support_workflow)
+        debug_log("TEST", "Starting test_safe_fallback_on_provider_timeout")
 
+        debug_log("SETUP", "Cleaning up existing workflow")
+        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+
+        debug_log("SETUP", "Creating workflow definition via API")
+        create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
+        debug_log("SETUP", "Workflow created successfully")
+
+        debug_log("EXEC", "Posting /execute with simulate_timeout=True")
         response = client.post(
             "/execute",
             json={
@@ -423,13 +558,20 @@ class TestEcommerceCustomerSupportE2E:
                 },
             },
         )
+        debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
 
         assert response.status_code == 200
         run_id = response.json()["run_id"]
+        debug_log(
+            "EXEC", f"Run created: run_id={run_id}, will test circuit breaker fallback"
+        )
 
-        final = wait_for_terminal_status(client, run_id, timeout=3.0)
+        debug_log("POLL", "Starting workflow execution polling for circuit breaker")
+        final = wait_for_terminal_status(client, run_id, timeout=5.0)
         assert final is not None
+        debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n✓ Safe fallback on provider timeout")
         print(f"  - Run ID: {run_id}")
         print(f"  - Status: {final['status']}")
+        debug_log("TEST", "✓ test_safe_fallback_on_provider_timeout PASSED")
