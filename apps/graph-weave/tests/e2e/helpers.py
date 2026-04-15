@@ -73,7 +73,7 @@ def wait_for_terminal_status(client, run_id, timeout=5.0, debug=True):
                     )
                 return last_data
 
-            time.sleep(5.0)  # Poll every 5 seconds
+            time.sleep(1.0)  # Poll more frequently to keep e2e runtime bounded
         except Exception as e:
             debug_log("POLL", f"Poll #{poll_count}: Exception - {str(e)}", "ERROR")
             raise

@@ -121,7 +121,7 @@ class MockLangGraphExecutor:
                     state["current_node"] = current_node_id
                     break
 
-                if node_type == "agent_node":
+                if node_type in {"agent_node", "agent"}:
                     result = self._execute_agent_node(
                         run_id, node, state, workflow, checkpoint_store
                     )
@@ -600,7 +600,7 @@ class RealLangGraphExecutor:
                 )
 
                 try:
-                    if node_type == "agent_node":
+                    if node_type in {"agent_node", "agent"}:
                         node_result = self._execute_agent_node(
                             run_id, node, state, workflow
                         )

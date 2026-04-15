@@ -275,7 +275,7 @@ class GraphBuilder:
 
             if node_type == "entry":
                 nodes_by_id[node_id] = build_entry_node({})
-            elif node_type == "agent_node":
+            elif node_type in {"agent_node", "agent"}:
                 config = WorkflowParser.extract_node_config(node_dict)
                 system_prompt = node_dict.get("system_prompt", "You are helpful.")
                 user_template = node_dict.get("user_prompt_template", "")
