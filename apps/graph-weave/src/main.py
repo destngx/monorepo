@@ -63,6 +63,17 @@ def _background_execute_run(
         logger.info(
             f"[BG EXEC] Starting background execution: run_id={run_id}, workflow_id={workflow_id}"
         )
+        
+        # Immediate transition to 'running'
+        status_service.transition_status(
+            tenant_id,
+            run_id,
+            "running",
+            {"workflow_id": workflow_id, "thread_id": thread_id}
+        )
+        # Update local memory too
+        if run_id in execution_runs:
+            execution_runs[run_id]["status"] = "running"
         execution_result = langgraph_executor.execute(
             run_id=run_id,
             thread_id=thread_id,

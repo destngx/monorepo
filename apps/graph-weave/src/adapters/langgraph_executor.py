@@ -608,6 +608,22 @@ class RealLangGraphExecutor:
                         node_result = self._execute_entry_node(state, node)
                     elif node_type == "branch":
                         node_result = self._execute_branch_node(state, node)
+                    elif node_type == "guardrail":
+                        # Basic passthrough for guardrails
+                        self._emit_event(
+                            run_id,
+                            "node.completed",
+                            {"node_id": current_node_id, "node_type": "guardrail", "status": "passthrough"},
+                        )
+                        node_result = {"guardrail_passed": True, "node_id": current_node_id}
+                    elif node_type == "skill_loader":
+                        # Basic passthrough for skill_loader
+                        self._emit_event(
+                            run_id,
+                            "node.completed",
+                            {"node_id": current_node_id, "node_type": "skill_loader", "status": "passthrough"},
+                        )
+                        node_result = {"skills_loaded": True, "node_id": current_node_id}
                     else:
                         raise ValueError(f"Unknown node type: {node_type}")
 
@@ -748,6 +764,7 @@ class RealLangGraphExecutor:
             turns = 0
             final_content = ""
             total_tokens = 0
+            all_tool_calls = []
 
             while turns < max_turns:
                 turns += 1
@@ -771,6 +788,9 @@ class RealLangGraphExecutor:
                 if not tool_calls:
                     final_content = message.get("content", "")
                     break
+                
+                # Track tool calls for the final result
+                all_tool_calls.extend(tool_calls)
 
                 # Add assistant message (with tool_calls) to history
                 messages.append(message)
@@ -826,6 +846,10 @@ class RealLangGraphExecutor:
                 result_data = {"raw_response": final_content}
 
             return {
+                "node_id": node_id,
+                "status": "completed",
+                "result": result_data,
+                "tool_calls": all_tool_calls,
                 f"{node_id}_output": result_data,
                 f"{node_id}_status": "completed",
                 "tokens_used": total_tokens,

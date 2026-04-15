@@ -21,14 +21,14 @@ def debug_log(step, message, level="INFO"):
     print(f"{prefix} {message}")
 
 
-def wait_for_terminal_status(client, run_id, timeout=5.0, debug=True):
+def wait_for_terminal_status(client, run_id, timeout=60.0, debug=True):
     """
     Wait for workflow execution to reach terminal status.
 
     Args:
         client: HTTP client instance for API calls (httpx.Client or TestClient)
         run_id: Workflow run ID to monitor
-        timeout: Maximum time to wait in seconds (default: 5.0)
+        timeout: Maximum time to wait in seconds (default: 30.0)
         debug: Enable debug logging (default: True)
 
     Returns:
@@ -81,10 +81,12 @@ def wait_for_terminal_status(client, run_id, timeout=5.0, debug=True):
     if debug:
         debug_log(
             "POLL",
-            f"Timeout reached after {poll_count} polls, returning last_data",
-            "WARN",
+            f"Timeout reached after {poll_count} polls without terminal status",
+            "ERROR",
         )
-    return last_data
+    raise AssertionError(
+        f"Workflow run {run_id} failed to reach terminal status within {timeout}s. Last status: {status}"
+    )
 
 
 def ensure_clean_workflow(client, tenant_id, workflow_id, debug=True):
