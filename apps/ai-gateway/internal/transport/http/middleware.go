@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"apps/ai-gateway/internal/domain"
+	"apps/ai-gateway/internal/service"
 	"github.com/fatih/color"
 )
 
@@ -97,6 +98,39 @@ func Logger(next http.Handler) http.Handler {
 			"rid", requestID,
 		)
 	})
+}
+
+// Metrics captures request metrics and records them to the collector.
+func Metrics(collector *service.MetricsCollector) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+
+			// Inject mutable payload pointer BEFORE handler runs
+			payload := &domain.MetricsPayload{}
+			ctx := context.WithValue(r.Context(), domain.MetricsPayloadKey, payload)
+
+			rw := &ResponseWriter{ResponseWriter: w, status: 200}
+			next.ServeHTTP(rw, r.WithContext(ctx))
+
+			// AFTER handler returns — read the populated pointer.
+			// Only record if an AI provider was actually used (set by handlers).
+			if payload.Provider != "" {
+				collector.Record(domain.RequestRecord{
+					Timestamp:  start,
+					Route:      r.URL.Path,
+					Provider:   payload.Provider,
+					Model:      payload.Model,
+					InputModel: payload.InputModel,
+					Stream:     payload.Stream,
+					StatusCode: rw.status,
+					DurationMs: time.Since(start).Milliseconds(),
+					Usage:      payload.Usage,
+					Error:      payload.Error,
+				})
+			}
+		})
+	}
 }
 
 // SetLogMapping attaches model mapping metadata to the request context.

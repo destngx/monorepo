@@ -66,7 +66,7 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 }
 
 func normalizeClaudeForCopilot(lowered string) string {
-	// TODO: create env to trigger free tier GithubCopilot model
+	// TODO: create env to trigger free tier GithubCopilot model, keep current for claude code cli usage
 	// if strings.Contains(lowered, "haiku") {
 	// 	return domain.ModelClaudeHaiku
 	// }

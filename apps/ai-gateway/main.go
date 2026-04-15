@@ -11,9 +11,13 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	// Swagger UI and docs
 	"apps/ai-gateway/docs"
@@ -27,12 +31,15 @@ import (
 )
 
 const (
-	PathChatCompletions = "/v1/chat/completions"
-	PathMessages        = "/v1/messages"
-	PathModelsSlash     = "/v1/models/"
-	PathEmbeddings      = "/v1/embeddings"
-	PathUsage           = "/v1/usage"
-	PathHealth          = "/health"
+	PathChatCompletions  = "/v1/chat/completions"
+	PathMessages         = "/v1/messages"
+	PathModelsSlash      = "/v1/models/"
+	PathEmbeddings       = "/v1/embeddings"
+	PathUsage            = "/v1/usage"
+	PathHealth           = "/health"
+	PathMetrics          = "/metrics"
+	PathMetricsDashboard = "/metrics/dashboard"
+	PathMetricsReset     = "/metrics/reset"
 
 	HeaderContentType = "Content-Type"
 	ContentTypeJSON   = "application/json"
@@ -58,6 +65,25 @@ func main() {
 	healthHandler := httptransport.NewHealthHandler(registry)
 	tokenizeHandler := httptransport.NewTokenizeHandler(registry)
 
+	// Metrics initialization
+	collector := service.NewMetricsCollector(cfg.MetricsBufferSize, "tmp/metrics.json", time.Duration(cfg.MetricsSaveInterval)*time.Second)
+	collector.LoadFromDisk()
+	go collector.StartPersistence(context.Background())
+
+	metricsHandler := httptransport.NewMetricsHandler(collector)
+	dashboardHandler := httptransport.NewDashboardHandler()
+	resetHandler := httptransport.NewMetricsResetHandler(collector)
+
+	// Graceful shutdown flush
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		slog.Info("Shutting down... flushing metrics")
+		collector.Flush()
+		os.Exit(0)
+	}()
+
 	mux := http.NewServeMux()
 	mux.Handle(PathChatCompletions, openaiHandler)
 	mux.Handle(PathMessages, anthroHandler)
@@ -72,10 +98,14 @@ func main() {
 	mux.Handle("/docs/", httpSwagger.WrapHandler)
 
 	mux.Handle(PathHealth, healthHandler)
+	mux.Handle(PathMetrics, metricsHandler)
+	mux.Handle(PathMetricsDashboard, dashboardHandler)
+	mux.Handle(PathMetricsReset, resetHandler)
 
 	stack := httptransport.Chain(mux,
 		httptransport.Recovery,
 		httptransport.Logger,
+		httptransport.Metrics(collector),
 		func(next http.Handler) http.Handler {
 			return httptransport.CORS(next, "*", "GET, POST, OPTIONS", "Content-Type, X-AI-Provider, Authorization")
 		},

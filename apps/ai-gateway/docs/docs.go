@@ -48,6 +48,69 @@ const docTemplate = `{
                 }
             }
         },
+        "/metrics": {
+            "get": {
+                "description": "Returns an aggregated summary of gateway usage, including requests, errors, tokens, and latency by provider/model.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Get gateway metrics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.MetricsSummary"
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics/dashboard": {
+            "get": {
+                "description": "Returns the self-contained HTML/JS monitoring dashboard.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Metrics dashboard",
+                "responses": {
+                    "200": {
+                        "description": "HTML Dashboard",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics/reset": {
+            "post": {
+                "description": "Clears all in-memory metrics counters and buffers.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Reset gateway metrics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/providers": {
             "get": {
                 "description": "Returns all registered providers with config and ready status",
@@ -648,6 +711,111 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.ToolCall"
                     }
+                }
+            }
+        },
+        "domain.MetricsSummary": {
+            "type": "object",
+            "properties": {
+                "avg_duration_ms": {
+                    "type": "number"
+                },
+                "by_model": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/domain.RouteStats"
+                    }
+                },
+                "by_provider": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/domain.RouteStats"
+                    }
+                },
+                "by_route": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/domain.RouteStats"
+                    }
+                },
+                "recent_requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.RequestSnapshot"
+                    }
+                },
+                "total_errors": {
+                    "type": "integer"
+                },
+                "total_requests": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                },
+                "uptime_secs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.RequestSnapshot": {
+            "type": "object",
+            "properties": {
+                "completion_tokens": {
+                    "type": "integer"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "prompt_tokens": {
+                    "type": "integer"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "route": {
+                    "type": "string"
+                },
+                "status_code": {
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.RouteStats": {
+            "type": "object",
+            "properties": {
+                "avg_duration_ms": {
+                    "type": "number"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "p95_duration_ms": {
+                    "type": "integer"
+                },
+                "total_completion_tokens": {
+                    "type": "integer"
+                },
+                "total_prompt_tokens": {
+                    "type": "integer"
+                },
+                "total_tokens": {
+                    "type": "integer"
                 }
             }
         },

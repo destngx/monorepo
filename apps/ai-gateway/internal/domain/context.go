@@ -8,6 +8,7 @@ type RequestLogMeta struct {
 }
 
 const (
-	RequestIDKey ContextKey = "requestID"
-	LogMetaKey   ContextKey = "logMeta"
+	RequestIDKey      ContextKey = "requestID"
+	LogMetaKey        ContextKey = "logMeta"
+	MetricsPayloadKey ContextKey = "metricsPayload"
 )

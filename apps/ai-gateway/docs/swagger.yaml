@@ -236,6 +236,75 @@ definitions:
           $ref: '#/definitions/domain.ToolCall'
         type: array
     type: object
+  domain.MetricsSummary:
+    properties:
+      avg_duration_ms:
+        type: number
+      by_model:
+        additionalProperties:
+          $ref: '#/definitions/domain.RouteStats'
+        type: object
+      by_provider:
+        additionalProperties:
+          $ref: '#/definitions/domain.RouteStats'
+        type: object
+      by_route:
+        additionalProperties:
+          $ref: '#/definitions/domain.RouteStats'
+        type: object
+      recent_requests:
+        items:
+          $ref: '#/definitions/domain.RequestSnapshot'
+        type: array
+      total_errors:
+        type: integer
+      total_requests:
+        type: integer
+      total_tokens:
+        type: integer
+      uptime_secs:
+        type: integer
+    type: object
+  domain.RequestSnapshot:
+    properties:
+      completion_tokens:
+        type: integer
+      duration_ms:
+        type: integer
+      error:
+        type: string
+      model:
+        type: string
+      prompt_tokens:
+        type: integer
+      provider:
+        type: string
+      route:
+        type: string
+      status_code:
+        type: integer
+      timestamp:
+        type: string
+      total_tokens:
+        type: integer
+    type: object
+  domain.RouteStats:
+    properties:
+      avg_duration_ms:
+        type: number
+      count:
+        type: integer
+      errors:
+        type: integer
+      p95_duration_ms:
+        type: integer
+      total_completion_tokens:
+        type: integer
+      total_prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
   domain.StreamOptions:
     properties:
       include_usage:
@@ -337,6 +406,48 @@ paths:
       summary: Gateway Health
       tags:
       - health
+  /metrics:
+    get:
+      description: Returns an aggregated summary of gateway usage, including requests,
+        errors, tokens, and latency by provider/model.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.MetricsSummary'
+      summary: Get gateway metrics
+      tags:
+      - monitoring
+  /metrics/dashboard:
+    get:
+      description: Returns the self-contained HTML/JS monitoring dashboard.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML Dashboard
+          schema:
+            type: string
+      summary: Metrics dashboard
+      tags:
+      - monitoring
+  /metrics/reset:
+    post:
+      description: Clears all in-memory metrics counters and buffers.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Reset gateway metrics
+      tags:
+      - monitoring
   /providers:
     get:
       description: Returns all registered providers with config and ready status

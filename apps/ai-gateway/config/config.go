@@ -30,6 +30,9 @@ type Config struct {
 	Verbose       int
 	LogLevel      string
 	EnableColor   bool
+
+	MetricsBufferSize   int
+	MetricsSaveInterval int // seconds
 }
 
 func Load() *Config {
@@ -80,7 +83,19 @@ func Load() *Config {
 		BedrockRate:   loadProviderRate("BEDROCK"),
 
 		BedrockRegion: getEnv("BEDROCK_REGION", "us-east-1"),
+
+		MetricsBufferSize:   getEnvInt("METRICS_BUFFER_SIZE", 2000),
+		MetricsSaveInterval: getEnvInt("METRICS_SAVE_INTERVAL_SECS", 60),
 	}
+}
+
+func getEnvInt(key string, fallback int) int {
+	if value, ok := os.LookupEnv(key); ok {
+		if i, err := strconv.Atoi(value); err == nil {
+			return i
+		}
+	}
+	return fallback
 }
 
 func getEnv(key, fallback string) string {

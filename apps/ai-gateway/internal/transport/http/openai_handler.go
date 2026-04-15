@@ -95,13 +95,13 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req.Model = targetModel
 
 	if req.Stream {
-		h.handleStream(w, r, provider, req)
+		h.handleStream(w, r, provider, req, req.Model)
 	} else {
-		h.handleSync(w, r, provider, req)
+		h.handleSync(w, r, provider, req, req.Model)
 	}
 }
 
-func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest) {
+func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
 		slog.Debug("Entering OpenAI handleSync", "rid", rid)
@@ -117,8 +117,11 @@ func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p sha
 		} else {
 			WriteError(w, r, http.StatusBadGateway, err.Error())
 		}
+		setMetrics(r, p.Name(), req.Model, inputModel, domain.Usage{}, req.Stream, err)
 		return
 	}
+
+	setMetrics(r, p.Name(), req.Model, inputModel, resp.Usage, req.Stream, nil)
 
 	if h.registry.Config.Verbose >= 1 {
 		slog.Debug("Provider Response", "rid", rid, "response", resp)
@@ -128,7 +131,7 @@ func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p sha
 	json.NewEncoder(w).Encode(resp)
 }
 
-func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest) {
+func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
 	w.Header().Set(headerContentType, contentTypeEventStream)
 	w.Header().Set(headerCacheControl, valueNoCache)
 	w.Header().Set(headerConnection, valueKeepAlive)
@@ -149,7 +152,7 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p s
 		writer = &StreamLogWriter{w: w, rid: rid}
 	}
 
-	_, err := p.ChatStream(r.Context(), req, writer)
+	usage, err := p.ChatStream(r.Context(), req, writer)
 	if err != nil {
 		slog.Error("OpenAI stream error", "rid", rid, "error", err)
 
@@ -165,7 +168,12 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p s
 		}
 		b, _ := json.Marshal(errResp)
 		w.Write([]byte(sseDataPrefix + string(b) + "\n\n"))
+
+		setMetrics(r, p.Name(), req.Model, inputModel, domain.Usage{}, req.Stream, err)
+		return
 	}
+
+	setMetrics(r, p.Name(), req.Model, inputModel, usage, req.Stream, nil)
 }
 
 // ModelsHandler exposes the /v1/models endpoint to list available capabilities for a provider.
@@ -286,6 +294,7 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := provider.Embeddings(r.Context(), req)
 	if err != nil {
+		setMetrics(r, provider.Name(), req.Model, req.Model, domain.Usage{}, false, err)
 		if _, ok := err.(*shared.ErrRateLimitExceeded); ok {
 			WriteError(w, r, http.StatusTooManyRequests, err.Error())
 		} else {
@@ -297,6 +306,8 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e.registry.Config.Verbose >= 1 {
 		slog.Debug("Provider Embedding Response", "rid", rid, "response", resp)
 	}
+
+	setMetrics(r, provider.Name(), req.Model, req.Model, resp.Usage, false, nil)
 
 	w.Header().Set(headerContentType, contentTypeJSON)
 	json.NewEncoder(w).Encode(resp)
@@ -331,5 +342,20 @@ func (sw *StreamLogWriter) Write(p []byte) (n int, err error) {
 func (sw *StreamLogWriter) Flush() {
 	if f, ok := sw.w.(http.Flusher); ok {
 		f.Flush()
+	}
+}
+
+func setMetrics(r *http.Request, provider, model, inputModel string, usage domain.Usage, stream bool, err error) {
+	payload, ok := r.Context().Value(domain.MetricsPayloadKey).(*domain.MetricsPayload)
+	if !ok || payload == nil {
+		return
+	}
+	payload.Provider = provider
+	payload.Model = model
+	payload.InputModel = inputModel
+	payload.Usage = usage
+	payload.Stream = stream
+	if err != nil {
+		payload.Error = err.Error()
 	}
 }

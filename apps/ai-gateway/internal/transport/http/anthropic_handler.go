@@ -94,13 +94,13 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req.Model = targetModel
 
 	if anthroReq.Stream {
-		h.handleStream(w, r, provider, req)
+		h.handleStream(w, r, provider, req, anthroReq.Model)
 	} else {
-		h.handleSync(w, r, provider, req)
+		h.handleSync(w, r, provider, req, anthroReq.Model)
 	}
 }
 
-func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest) {
+func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
 		slog.Debug("Entering Anthropic handleSync", "rid", rid)
@@ -112,8 +112,11 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 			slog.Warn("Provider returned error", "rid", rid, "error", err)
 		}
 		WriteError(w, r, http.StatusBadGateway, err.Error())
+		setMetrics(r, p.Name(), req.Model, inputModel, domain.Usage{}, req.Stream, err)
 		return
 	}
+
+	setMetrics(r, p.Name(), req.Model, inputModel, resp.Usage, req.Stream, nil)
 
 	anthroResp := convertToAnthropicResponse(resp)
 
@@ -125,7 +128,7 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 	json.NewEncoder(w).Encode(anthroResp)
 }
 
-func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest) {
+func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
 		slog.Debug("Entering Anthropic handleStream", "rid", rid)
@@ -145,8 +148,9 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 	errCh := make(chan error, 1)
 	go func() {
 		defer pw.Close()
-		_, err := p.ChatStream(r.Context(), req, pw)
+		usage, err := p.ChatStream(r.Context(), req, pw)
 		errCh <- err
+		setMetrics(r, p.Name(), req.Model, inputModel, usage, req.Stream, err)
 	}()
 
 	var writer io.Writer = w

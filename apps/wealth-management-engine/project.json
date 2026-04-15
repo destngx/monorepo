@@ -33,14 +33,14 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "mkdir -p \"$PWD/tmp/go-build-cache\" \"$PWD/tmp/go-mod-cache\" && GOCACHE=\"$PWD/tmp/go-build-cache\" GOMODCACHE=\"$PWD/tmp/go-mod-cache\" go test ./...",
+        "command": "mkdir -p ../../tmp/go-cache && GOCACHE=$PWD/../../tmp/go-cache/build GOMODCACHE=$PWD/../../tmp/go-cache/mod go test ./...",
         "cwd": "apps/wealth-management-engine"
       }
     },
     "test-e2e": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "mkdir -p \"$PWD/tmp/go-build-cache\" \"$PWD/tmp/go-mod-cache\" && RUN_LIVE_API_TESTS=true GOCACHE=\"$PWD/tmp/go-build-cache\" GOMODCACHE=\"$PWD/tmp/go-mod-cache\" go test ./... -run '^TestE2E' -v",
+        "command": "mkdir -p ../../tmp/go-cache && RUN_LIVE_API_TESTS=true GOCACHE=$PWD/../../tmp/go-cache/build GOMODCACHE=$PWD/../../tmp/go-cache/mod go test ./... -run '^TestE2E' -v",
         "cwd": "apps/wealth-management-engine"
       }
     },
