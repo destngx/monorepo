@@ -66,17 +66,18 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 }
 
 func normalizeClaudeForCopilot(lowered string) string {
-	if strings.Contains(lowered, "haiku") {
-		return domain.ModelClaudeHaiku
-	}
-	if strings.Contains(lowered, "sonnet") {
-		return domain.ModelClaudeSonnet
-	}
-	if strings.Contains(lowered, "opus") {
-		return domain.ModelClaudeOpus
-	}
-	if strings.Contains(lowered, "mythos") {
-		return domain.ModelClaudeMythos
-	}
+	// TODO: create env to trigger free tier GithubCopilot model
+	// if strings.Contains(lowered, "haiku") {
+	// 	return domain.ModelClaudeHaiku
+	// }
+	// if strings.Contains(lowered, "sonnet") {
+	// 	return domain.ModelClaudeSonnet
+	// }
+	// if strings.Contains(lowered, "opus") {
+	// 	return domain.ModelClaudeOpus
+	// }
+	// if strings.Contains(lowered, "mythos") {
+	// 	return domain.ModelClaudeMythos
+	// }
 	return domain.ModelDefault // or use "grok-code-fast-1"
 }
