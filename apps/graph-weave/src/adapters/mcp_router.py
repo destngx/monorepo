@@ -126,7 +126,7 @@ class MCPRouter:
         """Get or create provider client for given provider and model.
 
         Args:
-            provider_name: Provider name (github, openai)
+            provider_name: Provider name (github-copilot, openai)
             model_name: Optional model name override
             allow_fallback: Override fallback behavior (None = use config default)
 
@@ -143,6 +143,19 @@ class MCPRouter:
             )
 
         config = PROVIDER_CONFIGS[provider_name]
+
+        # --- Enforce required env tokens for each provider ---
+        if provider_name == "github-copilot":
+            if "GITHUB_TOKEN" not in os.environ:
+                raise ProviderConfigError(
+                    "GITHUB_TOKEN environment variable is required for github-copilot provider."
+                )
+        if provider_name == "openai":
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ProviderConfigError(
+                    "OPENAI_API_KEY environment variable is required for openai provider."
+                )
+
         model = model_name or cast(str, config["default_model"])
         supported_models: List[str] = cast(List[str], config["models"])
         if model not in supported_models:
@@ -176,9 +189,7 @@ class MCPRouter:
         logger.debug(f"Cached new provider: {cache_key}")
         return client
 
-    def _instantiate_provider(
-        self, provider_name: str, model: str
-    ) -> LLMClient:
+    def _instantiate_provider(self, provider_name: str, model: str) -> LLMClient:
         """Instantiate provider client with validation.
 
         Args:
@@ -202,10 +213,10 @@ class MCPRouter:
     ) -> List[Dict[str, Any]]:
         """
         Get OpenAI-compatible tool definitions for the registered MCP tools.
-        
+
         Args:
             allowed_tools: Optional list of tools to include.
-            
+
         Returns:
             List of tool definitions.
         """
@@ -228,11 +239,11 @@ class MCPRouter:
     def execute_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a tool by name and arguments.
-        
+
         Args:
             name: Tool name.
             arguments: Tool arguments.
-            
+
         Returns:
             Execution result.
         """
@@ -246,13 +257,14 @@ class MCPRouter:
                 return self.search(arguments.get("query", ""))
             elif name == "verify":
                 return self.verify(arguments.get("claim", ""))
-            
+
             # Fallback to direct MCP call if not handled by specific methods
             return self.mcp_server.call_tool(name, arguments)
-            
+
         except Exception as e:
             logger.error(f"Error executing tool {name}: {e}")
             raise ToolExecutionError(f"Tool {name} failed: {e}")
+
     @_tool_response_cache
     def load_skill(self, skill_name: str) -> Dict[str, Any]:
         """Load a skill and return its markdown content.

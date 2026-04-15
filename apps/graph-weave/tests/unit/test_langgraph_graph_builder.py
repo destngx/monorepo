@@ -155,7 +155,7 @@ class TestWorkflowParserExtractNodeConfig:
     def test_extract_node_config_all_providers_valid_models(self):
         """All providers should have valid models."""
         for provider, models in [
-            ("github", "gpt-4.1"),
+            ("github-copilot", "gpt-4.1"),
             ("openai", "gpt-4.1"),
             ("anthropic", "claude-3-opus"),
         ]:

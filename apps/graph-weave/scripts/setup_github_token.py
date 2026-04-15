@@ -134,7 +134,7 @@ def main():
 
     providers = {
         "1": (
-            "github",
+            "github-copilot",
             "GitHub Copilot (GPT-4o, o1, Grok - Free with Pro/Teams/Enterprise)",
         ),
         "2": ("openai", "OpenAI"),
@@ -154,7 +154,7 @@ def main():
 
     provider_type, _ = providers[choice]
 
-    if provider_type == "github":
+    if provider_type == "github-copilot":
         print("\nSelect GitHub deployment type:")
         print("  1. GitHub.com (Public)")
         print("  2. GitHub Enterprise")

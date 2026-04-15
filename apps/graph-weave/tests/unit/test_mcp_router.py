@@ -77,10 +77,10 @@ class TestMCPRouterToolMethods:
 class TestProviderRouting:
     """Test provider routing functionality."""
 
-    def test_get_provider_client_github_with_token(self):
+    def test_get_provider_client_github_copilot_with_token(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
-            client = router.get_provider_client("github")
+            client = router.get_provider_client("github-copilot")
             assert client is not None
 
     def test_get_provider_client_openai_with_token(self):
@@ -92,26 +92,26 @@ class TestProviderRouting:
     def test_get_provider_client_caches_instances(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
-            client1 = router.get_provider_client("github", "gpt-4.1")
-            client2 = router.get_provider_client("github", "gpt-4.1")
+            client1 = router.get_provider_client("github-copilot", "gpt-4.1")
+            client2 = router.get_provider_client("github-copilot", "gpt-4.1")
             assert client1 is client2
 
     def test_get_provider_client_different_models(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
-            client1 = router.get_provider_client("github", "gpt-4.1")
-            client2 = router.get_provider_client("github", "claude-3-opus")
+            client1 = router.get_provider_client("github-copilot", "gpt-4.1")
+            client2 = router.get_provider_client("github-copilot", "claude-3-opus")
             assert client1 is not client2
 
 
 class TestProviderAPIKeyValidation:
     """Test provider API key validation."""
 
-    def test_missing_github_token_raises_error(self):
+    def test_missing_github_copilot_token_raises_error(self):
         with patch.dict(os.environ, {}, clear=True):
             router = MCPRouter()
             with pytest.raises(ProviderConfigError) as exc_info:
-                router.get_provider_client("github")
+                router.get_provider_client("github-copilot")
             assert "GITHUB_TOKEN" in str(exc_info.value)
 
     def test_missing_openai_api_key_raises_error(self):
@@ -132,11 +132,11 @@ class TestProviderAPIKeyValidation:
 class TestModelValidation:
     """Test model validation for providers."""
 
-    def test_unknown_model_for_github_raises_error(self):
+    def test_unknown_model_for_github_copilot_raises_error(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
             with pytest.raises(ProviderConfigError) as exc_info:
-                router.get_provider_client("github", "unknown-model")
+                router.get_provider_client("github-copilot", "unknown-model")
             assert "Invalid model" in str(exc_info.value)
 
     def test_unknown_model_for_openai_raises_error(self):
@@ -146,11 +146,15 @@ class TestModelValidation:
                 router.get_provider_client("openai", "unknown-model")
             assert "Invalid model" in str(exc_info.value)
 
-    def test_valid_models_for_github(self):
+    def test_valid_models_for_github_copilot(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
-            for model in ["gpt-4.1", "claude-3-opus", "gpt-4.1"]:
-                client = router.get_provider_client("github", model)
+            for model in [
+                "gpt-4.1",
+                "claude-3-opus",
+                "gpt-4.1",
+            ]:  # github-copilot models (formerly 'github' models)
+                client = router.get_provider_client("github-copilot", model)
                 assert client is not None
 
     def test_valid_models_for_openai(self):
@@ -392,16 +396,16 @@ class TestErrorScenarios:
                 router.get_provider_client("nonexistent")
             error_msg = str(exc_info.value)
             assert "nonexistent" in error_msg
-            assert "github" in error_msg or "openai" in error_msg
+            assert "github-copilot" in error_msg or "openai" in error_msg
 
     def test_invalid_model_in_error_message(self):
         with patch.dict(os.environ, {"GITHUB_TOKEN": "gho_test_token"}):
             router = MCPRouter()
             with pytest.raises(ProviderConfigError) as exc_info:
-                router.get_provider_client("github", "bad-model")
+                router.get_provider_client("github-copilot", "bad-model")
             error_msg = str(exc_info.value)
             assert "bad-model" in error_msg
-            assert "github" in error_msg
+            assert "github-copilot" in error_msg
 
     def test_tool_call_validation_non_dict(self):
         router = MCPRouter()

@@ -10,7 +10,6 @@ from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackSt
 from src.adapters.cache import MockRedisAdapter
 
 
-
 class TestStagnationDetectorBasics:
     def test_instantiation_with_default_max_hops(self):
         detector = StagnationDetector()
@@ -121,7 +120,9 @@ class TestRealLangGraphExecutorBasics:
         assert executor.mcp_router is not None
 
     def test_instantiation_with_custom_timeout(self, mock_mcp_router):
-        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router, default_timeout_seconds=600)
+        executor = RealLangGraphExecutor(
+            mcp_router=mock_mcp_router, default_timeout_seconds=600
+        )
         assert executor.default_timeout_seconds == 600
 
 
@@ -251,7 +252,9 @@ class TestRealLangGraphExecutorTimeout:
         }
 
     def test_timeout_stops_execution(self, mock_mcp_router, simple_workflow):
-        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router, default_timeout_seconds=1)
+        executor = RealLangGraphExecutor(
+            mcp_router=mock_mcp_router, default_timeout_seconds=1
+        )
         result = executor.execute(
             run_id="test-run",
             thread_id="test-thread",
@@ -277,7 +280,7 @@ class TestRealLangGraphExecutorPerNodeConfig:
                     "id": "node_1",
                     "type": "agent_node",
                     "config": {
-                        "provider": "github",
+                        "provider": "github-copilot",
                         "model": "gpt-4.1",
                         "temperature": 0.5,
                         "max_tokens": 1000,
@@ -366,7 +369,9 @@ class TestCircuitBreakerKillFlag:
         fallback = FallbackStorage()
         redis_adapter = MockRedisAdapter()
         redis_client = NamespacedRedisClient(redis_adapter, fallback)
-        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router, redis_client=redis_client)
+        executor = RealLangGraphExecutor(
+            mcp_router=mock_mcp_router, redis_client=redis_client
+        )
 
         result = executor.execute(
             run_id="test-run",
@@ -517,7 +522,7 @@ class TestProviderSwitching:
                     "id": "github_node",
                     "type": "agent_node",
                     "config": {
-                        "provider": "github",
+                        "provider": "github-copilot",
                         "model": "gpt-4.1",
                         "system_prompt": "You are helpful",
                         "user_prompt_template": "Test",

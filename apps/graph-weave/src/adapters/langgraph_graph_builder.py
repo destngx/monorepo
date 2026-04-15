@@ -26,9 +26,9 @@ class AgentNodeFunc(Protocol):
     config: "NodeConfig"
 
 
-VALID_PROVIDERS = {"github", "openai", "anthropic"}
+VALID_PROVIDERS = {"github-copilot", "openai", "anthropic"}
 PROVIDER_MODELS = {
-    "github": ["claude-3.5-sonnet", "claude-3-opus", "gpt-4.1"],
+    "github-copilot": ["claude-3.5-sonnet", "claude-3-opus", "gpt-4.1"],
     "openai": ["gpt-4.1", "gpt-3.5-turbo"],
     "anthropic": ["claude-3-opus", "claude-3-sonnet"],
 }

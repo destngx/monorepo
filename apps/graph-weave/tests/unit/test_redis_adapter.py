@@ -111,7 +111,7 @@ class TestUpstashRedisClientErrorHandling:
         mock_response.json.side_effect = json.JSONDecodeError("test", "doc", 0)
 
         mock_session = Mock()
-        mock_session.get.return_value = mock_response
+        mock_session.post.return_value = mock_response
         mock_session_class.return_value = mock_session
 
         client = UpstashRedisClient("https://test.upstash.io", "test_token")
@@ -130,7 +130,7 @@ class TestUpstashRedisClientErrorHandling:
         mock_response.text = "Forbidden"
 
         mock_session = Mock()
-        mock_session.get.return_value = mock_response
+        mock_session.post.return_value = mock_response
         mock_session_class.return_value = mock_session
 
         client = UpstashRedisClient("https://test.upstash.io", "test_token")
@@ -139,14 +139,14 @@ class TestUpstashRedisClientErrorHandling:
             client.get("test_key")
 
         # Should only call once (no retries for 4xx)
-        assert mock_session.get.call_count == 1
+        assert mock_session.post.call_count == 1
         client.close()
 
     @patch("src.adapters.redis_adapter.requests.Session")
     def test_timeout_error_wrapped_as_redis_timeout_error(self, mock_session_class):
         """Timeout errors are wrapped as RedisTimeoutError."""
         mock_session = Mock()
-        mock_session.get.side_effect = __import__("requests").Timeout("timeout")
+        mock_session.post.side_effect = __import__("requests").Timeout("timeout")
         mock_session_class.return_value = mock_session
 
         client = UpstashRedisClient("https://test.upstash.io", "test_token")
@@ -162,7 +162,7 @@ class TestUpstashRedisClientErrorHandling:
     ):
         """Connection errors are wrapped as RedisConnectionError."""
         mock_session = Mock()
-        mock_session.get.side_effect = __import__("requests").ConnectionError(
+        mock_session.post.side_effect = __import__("requests").ConnectionError(
             "connection failed"
         )
         mock_session_class.return_value = mock_session
@@ -250,7 +250,6 @@ class TestRetryWithBackoffDecorator:
         # Allow some tolerance for system scheduling
         assert gap1 >= 40  # ~50ms
         assert gap2 >= 80  # ~100ms
-
 
 
 # ============================================================================
