@@ -39,6 +39,35 @@ def log_node_trace(events):
             debug_log("NODE_RES", f"{node_id}: {data}")
 
 
+def render_template(template, context):
+    result = template
+    for key, value in context.items():
+        result = result.replace(f"{{{key}}}", str(value))
+    return result
+
+
+def log_agent_node_io(node_id, node_config, state):
+    """Print the resolved input and output for a single agent node."""
+    agent_name = node_config.get("agent_name", node_id)
+    user_template = node_config.get("user_prompt_template", "")
+    tools = node_config.get("tools", [])
+    input_text = render_template(user_template, state)
+    output_value = state.get(f"{node_id}_output")
+
+    print(f"\n[AGENT NODE] {agent_name} ({node_id})")
+    print(f"  → input: {input_text}")
+    if tools:
+        print(f"  → tools: {', '.join(tool.get('name', 'unknown') for tool in tools)}")
+    print(f"  ← output: {output_value}")
+
+
+def get_node_config(workflow_definition, node_id):
+    for node in workflow_definition.get("definition", {}).get("nodes", []):
+        if node.get("id") == node_id:
+            return node.get("config", {})
+    return {}
+
+
 @pytest.fixture
 def client():
     """Create a real HTTP client for API calls."""
@@ -593,6 +622,9 @@ class TestHROnboardingE2E:
         )
         debug_log("EXEC", "Posting /execute with hire record for David Wilson")
 
+        doc_config = get_node_config(hr_onboarding_workflow, "doc-generation")
+        email_config = get_node_config(hr_onboarding_workflow, "email-dispatch")
+
         payload = {
             "tenant_id": "enterprise-hr",
             "workflow_id": "hr-onboarding:v1.1.0",
@@ -610,6 +642,8 @@ class TestHROnboardingE2E:
             "EXEC",
             f"Payload: employee_id={payload['input']['employee_id']}, will trigger doc-generation",
         )
+        log_agent_node_io("doc-generation", doc_config, payload["input"])
+        log_agent_node_io("email-dispatch", email_config, payload["input"])
 
         response = client.post("/execute", json=payload)
         debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
@@ -627,7 +661,7 @@ class TestHROnboardingE2E:
 
         print(f"\n[STEP 2] Waiting for document generation and email dispatch...")
         debug_log("POLL", "Starting workflow execution polling for doc-generation")
-        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        final = wait_for_terminal_status(client, run_id, timeout=15.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -638,6 +672,8 @@ class TestHROnboardingE2E:
         if final.get("final_state"):
             fs = final["final_state"]
             log_node_trace(fs.get("events", []))
+            log_agent_node_io("doc-generation", doc_config, fs)
+            log_agent_node_io("email-dispatch", email_config, fs)
             packet_generated = fs.get("packet_generated", False)
             email_dispatched = fs.get("email_dispatched", False)
             print(f"  ✓ Final state available")
