@@ -79,7 +79,7 @@ func Load() *Config {
 		OllamaRate:    loadProviderRate("OLLAMA"),
 		BedrockRate:   loadProviderRate("BEDROCK"),
 
-		BedrockRegion: getEnv("BEDROCK_REGION", "ap-southeast-1"),
+		BedrockRegion: getEnv("BEDROCK_REGION", "us-east-1"),
 	}
 }
 

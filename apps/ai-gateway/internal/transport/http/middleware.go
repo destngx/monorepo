@@ -59,6 +59,7 @@ func Logger(next http.Handler) http.Handler {
 
 		// Add to context
 		ctx := context.WithValue(r.Context(), domain.RequestIDKey, requestID)
+		ctx = context.WithValue(ctx, domain.LogMetaKey, &domain.RequestLogMeta{})
 		r = r.WithContext(ctx)
 
 		provider := r.Header.Get(HeaderAIProvider)
@@ -69,8 +70,13 @@ func Logger(next http.Handler) http.Handler {
 		rw := &ResponseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
 
-		mapping, _ := r.Context().Value(domain.LogMappingKey).(string)
-		model, _ := r.Context().Value(domain.LogModelKey).(string)
+		meta, _ := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta)
+		mapping := ""
+		model := ""
+		if meta != nil {
+			mapping = meta.Mapping
+			model = meta.Model
+		}
 
 		method := r.Method
 		if c, ok := methodColors[method]; ok {
@@ -95,14 +101,18 @@ func Logger(next http.Handler) http.Handler {
 
 // SetLogMapping attaches model mapping metadata to the request context.
 func SetLogMapping(r *http.Request, mapping string) *http.Request {
-	ctx := context.WithValue(r.Context(), domain.LogMappingKey, mapping)
-	return r.WithContext(ctx)
+	if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil {
+		meta.Mapping = mapping
+	}
+	return r
 }
 
 // SetLogModel attaches the resolved model metadata to the request context.
 func SetLogModel(r *http.Request, model string) *http.Request {
-	ctx := context.WithValue(r.Context(), domain.LogModelKey, model)
-	return r.WithContext(ctx)
+	if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil {
+		meta.Model = model
+	}
+	return r
 }
 
 // Recovery catches panics and returns 500.

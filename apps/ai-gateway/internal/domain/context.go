@@ -2,8 +2,12 @@ package domain
 
 type ContextKey string
 
+type RequestLogMeta struct {
+	Mapping string
+	Model   string
+}
+
 const (
-	RequestIDKey  ContextKey = "requestID"
-	LogMappingKey ContextKey = "logMapping"
-	LogModelKey   ContextKey = "logModel"
+	RequestIDKey ContextKey = "requestID"
+	LogMetaKey   ContextKey = "logMeta"
 )
