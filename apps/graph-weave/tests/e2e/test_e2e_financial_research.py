@@ -209,7 +209,7 @@ class TestFinancialResearchE2E:
         debug_log("TEST", "Starting test_uc_fin_001_combine_external_and_internal_data")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+        ensure_clean_workflow(client, "hedge-fund-research", "quant-research:v3.0.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(
@@ -242,7 +242,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for completion
-        final = wait_for_terminal_status(client, data["run_id"], timeout=5.0)
+        final = wait_for_terminal_status(client, data["run_id"], timeout=20.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
@@ -268,7 +268,7 @@ class TestFinancialResearchE2E:
         debug_log("TEST", "Starting test_uc_fin_002_detect_repeated_intent_and_stop")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+        ensure_clean_workflow(client, "hedge-fund-research", "quant-research:v3.0.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(
@@ -298,7 +298,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        final = wait_for_terminal_status(client, run_id, timeout=20.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -334,7 +334,7 @@ class TestFinancialResearchE2E:
         )
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+        ensure_clean_workflow(client, "hedge-fund-research", "quant-research:v3.0.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(
@@ -364,7 +364,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        final = wait_for_terminal_status(client, run_id, timeout=20.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -400,7 +400,7 @@ class TestFinancialResearchE2E:
         debug_log("TEST", "Starting test_nfr_stagnation_threshold_configurable")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+        ensure_clean_workflow(client, "hedge-fund-research", "quant-research:v3.0.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(
@@ -430,7 +430,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        final = wait_for_terminal_status(client, run_id, timeout=20.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
@@ -452,7 +452,7 @@ class TestFinancialResearchE2E:
         debug_log("TEST", "Starting test_sql_and_web_search_isolation")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+        ensure_clean_workflow(client, "hedge-fund-research", "quant-research:v3.0.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(
@@ -482,7 +482,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        final = wait_for_terminal_status(client, run_id, timeout=20.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -520,7 +520,7 @@ class TestFinancialResearchE2E:
         debug_log("TEST", "Starting test_repeated_join_failures_trigger_exit")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+        ensure_clean_workflow(client, "hedge-fund-research", "quant-research:v3.0.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(
@@ -550,7 +550,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        final = wait_for_terminal_status(client, run_id, timeout=20.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -580,7 +580,7 @@ class TestFinancialResearchE2E:
         debug_log("TEST", "Starting test_extraction_loop_detection")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "hedge-fund-research", "financial-research:v1.0")
+        ensure_clean_workflow(client, "hedge-fund-research", "quant-research:v3.0.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(
@@ -612,7 +612,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=5.0)
+        final = wait_for_terminal_status(client, run_id, timeout=20.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 

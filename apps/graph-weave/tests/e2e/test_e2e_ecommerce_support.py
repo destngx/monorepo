@@ -185,7 +185,7 @@ class TestEcommerceCustomerSupportE2E:
         )
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
@@ -238,7 +238,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("TEST", "Starting test_uc_ecom_001_malicious_input_blocked")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
@@ -284,7 +284,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("TEST", "Starting test_uc_ecom_002_order_lookup_path")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
@@ -329,7 +329,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("TEST", "Starting test_uc_ecom_002_refund_handling_path")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
@@ -376,7 +376,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("TEST", "Starting test_uc_ecom_002_refund_loop_detection")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
@@ -430,7 +430,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("TEST", "Starting test_uc_ecom_003_output_redaction_for_pii")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
@@ -484,7 +484,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("TEST", "Starting test_response_within_user_visible_latency_budget")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)
@@ -540,7 +540,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("TEST", "Starting test_safe_fallback_on_provider_timeout")
 
         debug_log("SETUP", "Cleaning up existing workflow")
-        ensure_clean_workflow(client, "retail-saas", "support-router:v1.0")
+        ensure_clean_workflow(client, "retail-saas", "customer-support:v2.1.0")
 
         debug_log("SETUP", "Creating workflow definition via API")
         create_workflow_via_api(client, "retail-saas", ecommerce_support_workflow)

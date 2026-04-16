@@ -10,11 +10,10 @@ Provides:
 """
 
 from typing import Any, Dict, List, Optional, Protocol, Callable, TypeVar, cast
-import os
 import json
 import hashlib
 import threading
-from src.app_logging import get_logger
+from ..app_logging import get_logger
 from functools import wraps
 
 logger = get_logger(__name__)
@@ -44,23 +43,6 @@ class LLMClient(Protocol):
         max_tokens: int,
     ) -> Dict[str, Any]: ...
 
-
-PROVIDER_CONFIGS: Dict[str, Dict[str, Any]] = {
-    "github-copilot": {
-        "models": [
-            "gpt-4.1",
-            "gpt-4o",
-        ],
-        "default_model": "gpt-4o",
-        "allow_fallback": False,
-    },
-    "openai": {
-        "required_env": "OPENAI_API_KEY",
-        "models": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-4.1", "gpt-4o"],
-        "default_model": "gpt-4o",
-        "allow_fallback": False,
-    },
-}
 
 VALID_TOOLS = {"load_skill", "search", "verify"}
 
@@ -124,78 +106,35 @@ class MCPRouter:
         """Get or create provider client for given provider and model.
 
         Args:
-            provider_name: Provider name (github-copilot, openai)
+            provider_name: Provider name (github-copilot, openai, etc.)
             model_name: Optional model name override
-            allow_fallback: Override fallback behavior (None = use config default)
+            allow_fallback: Ignored (handled by Gateway)
 
         Returns:
             LLM client instance
-
-        Raises:
-            ProviderConfigError: If provider not found or config invalid
         """
-        if provider_name not in PROVIDER_CONFIGS:
-            supported = ", ".join(PROVIDER_CONFIGS.keys())
-            raise ProviderConfigError(
-                f"Unknown provider: {provider_name}. Supported: {supported}"
-            )
-
-        config = PROVIDER_CONFIGS[provider_name]
-
-        # Note: Provider credentials (GITHUB_TOKEN, OPENAI_API_KEY) are managed
-        # by the AI Gateway proxy. The engine does not require them locally.
-
-        model = model_name or cast(str, config["default_model"])
-        supported_models: List[str] = cast(List[str], config["models"])
-        if model not in supported_models:
-            supported_models_str = ", ".join(supported_models)
-            raise ProviderConfigError(
-                f"Invalid model '{model}' for provider '{provider_name}'. "
-                f"Supported: {supported_models_str}"
-            )
-
-        cache_key = f"{provider_name}:{model}"
-
-        with self._cache_lock:
-            if cache_key in self._provider_cache:
-                logger.debug(f"Cache hit: {cache_key}")
-                return self._provider_cache[cache_key]
-
-        logger.info(f"Creating provider instance: {provider_name}:{model}")
-        try:
-            client = self._instantiate_provider(provider_name, model)
-        except Exception as e:
-            logger.error(
-                f"Provider instantiation failed: {provider_name}:{model}", exc_info=True
-            )
-            raise ProviderConfigError(
-                f"Failed to create {provider_name} provider: {e}"
-            ) from e
-
-        with self._cache_lock:
-            self._provider_cache[cache_key] = client
-
-        logger.debug(f"Cached new provider: {cache_key}")
-        return client
+        # AI Gateway handles provider/model validation and routing.
+        # We just return the unified client.
+        return self._instantiate_provider(provider_name, model_name or "default")
 
     def _instantiate_provider(self, provider_name: str, model: str) -> LLMClient:
-        """Instantiate provider client with validation.
-
-        Args:
-            provider_name: Provider name
-            api_key: API key/token
-            model: Model name
+        """Instantiate or return the AI Gateway client.
 
         Returns:
-            Instantiated provider client
-
-        Raises:
-            ProviderConfigError: If instantiation fails
+            Instantiated provider client (AI Gateway)
         """
+        if self.ai_gateway_client:
+            return self.ai_gateway_client
 
-        # Now all providers route through AI Gateway for unified tool calling
-        logger.info(f"Routing provider {provider_name} through AI Gateway")
-        return self.ai_gateway_client or cast(LLMClient, AIGatewayClient())
+        cache_key = "ai-gateway-default"
+        with self._cache_lock:
+            if cache_key in self._provider_cache:
+                return self._provider_cache[cache_key]
+
+            logger.info("Initializing AIGatewayClient for MCP routing")
+            client = AIGatewayClient()
+            self._provider_cache[cache_key] = cast(LLMClient, client)
+            return self._provider_cache[cache_key]
 
     def get_tool_definitions(
         self, allowed_tools: Optional[List[str]] = None
@@ -434,48 +373,6 @@ class MCPRouter:
             if placeholder in result:
                 result = result.replace(placeholder, str(value))
         return result
-
-    def validate_temperature(self, temperature: float) -> bool:
-        """Validate temperature parameter.
-
-        Args:
-            temperature: Temperature value
-
-        Returns:
-            True if valid (0 <= temperature <= 1)
-
-        Raises:
-            ProviderConfigError: If invalid
-        """
-        if not isinstance(temperature, (int, float)):
-            raise ProviderConfigError(
-                f"Temperature must be numeric, got {type(temperature)}"
-            )
-        if not (0 <= temperature <= 1):
-            raise ProviderConfigError(
-                f"Temperature must be in [0, 1], got {temperature}"
-            )
-        return True
-
-    def validate_max_tokens(self, max_tokens: int) -> bool:
-        """Validate max_tokens parameter.
-
-        Args:
-            max_tokens: Max tokens value
-
-        Returns:
-            True if valid (>= 1)
-
-        Raises:
-            ProviderConfigError: If invalid
-        """
-        if not isinstance(max_tokens, int):
-            raise ProviderConfigError(
-                f"max_tokens must be integer, got {type(max_tokens)}"
-            )
-        if max_tokens < 1:
-            raise ProviderConfigError(f"max_tokens must be >= 1, got {max_tokens}")
-        return True
 
     def filter_allowed_tools(
         self, all_tools: List[str], allowed_tools: Optional[List[str]] = None
