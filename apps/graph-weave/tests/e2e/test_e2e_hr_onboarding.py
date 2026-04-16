@@ -13,59 +13,16 @@ import pytest
 import httpx
 import os
 
-from .helpers import wait_for_terminal_status, ensure_clean_workflow, debug_log
+from .helpers import (
+    wait_for_terminal_status,
+    ensure_clean_workflow,
+    debug_log,
+    get_node_config,
+    log_node_trace,
+    log_workflow_agent_io,
+)
 
 API_BASE_URL = os.getenv("GRAPH_WEAVE_API_URL", "http://localhost:8001")
-
-
-def log_node_trace(events):
-    """Print request/response style logs for each agent node."""
-    node_events = [
-        event
-        for event in events
-        if any(
-            marker in str(event.get("message", ""))
-            or marker in str(event.get("data", {}))
-            for marker in ["agent", "node", "tool"]
-        )
-    ]
-
-    for event in node_events:
-        message = event.get("message") or event.get("type")
-        data = event.get("data", {})
-        node_id = data.get("node_id", data.get("tool", "unknown"))
-        debug_log("NODE_REQ", f"{node_id}: {message}")
-        if data:
-            debug_log("NODE_RES", f"{node_id}: {data}")
-
-
-def render_template(template, context):
-    result = template
-    for key, value in context.items():
-        result = result.replace(f"{{{key}}}", str(value))
-    return result
-
-
-def log_agent_node_io(node_id, node_config, state):
-    """Print the resolved input and output for a single agent node."""
-    agent_name = node_config.get("agent_name", node_id)
-    user_template = node_config.get("user_prompt_template", "")
-    tools = node_config.get("tools", [])
-    input_text = render_template(user_template, state)
-    output_value = state.get(f"{node_id}_output")
-
-    print(f"\n[AGENT NODE] {agent_name} ({node_id})")
-    print(f"  → input: {input_text}")
-    if tools:
-        print(f"  → tools: {', '.join(tool.get('name', 'unknown') for tool in tools)}")
-    print(f"  ← output: {output_value}")
-
-
-def get_node_config(workflow_definition, node_id):
-    for node in workflow_definition.get("definition", {}).get("nodes", []):
-        if node.get("id") == node_id:
-            return node.get("config", {})
-    return {}
 
 
 @pytest.fixture
@@ -334,7 +291,7 @@ class TestHROnboardingE2E:
         }
         debug_log(
             "EXEC",
-            f"Payload: employee_id={payload['input']['employee_id']}, name={payload['input']['name']}",
+            "Payload: employee_id=EMP-2026-001, name=Alice Johnson",
         )
 
         response = client.post("/execute", json=payload)
@@ -359,7 +316,9 @@ class TestHROnboardingE2E:
         debug_log("POLL", "Starting workflow execution polling")
         final = wait_for_terminal_status(client, data["run_id"])
         assert final is not None
-        assert final["status"] == "completed", f"Workflow should complete successfully, but got {final['status']}"
+        assert final["status"] == "completed", (
+            f"Workflow should complete successfully, but got {final['status']}"
+        )
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         print(f"\n[RESPONSE 2] Final execution status:")
@@ -527,7 +486,7 @@ class TestHROnboardingE2E:
         }
         debug_log(
             "EXEC",
-            f"Payload: employee_id={payload['input']['employee_id']}, department={payload['input']['department']}",
+            "Payload: employee_id=EMP-2026-003, department=Sales",
         )
 
         response = client.post("/execute", json=payload)
@@ -563,11 +522,11 @@ class TestHROnboardingE2E:
                 for e in events
             )
             hr_executed = any(
-                "hr_enrollment" in str(e) or "hr-enrollment" in str(e)
-                for e in events
+                "hr_enrollment" in str(e) or "hr-enrollment" in str(e) for e in events
             )
             facilities_executed = any(
-                "facilities_assigner" in str(e) or "facilities-assignment" in str(e) for e in events
+                "facilities_assigner" in str(e) or "facilities-assignment" in str(e)
+                for e in events
             )
             print(f"  ✓ Final state available")
             print(f"    - IT provisioning executed: {it_executed}")
@@ -645,10 +604,13 @@ class TestHROnboardingE2E:
         }
         debug_log(
             "EXEC",
-            f"Payload: employee_id={payload['input']['employee_id']}, will trigger doc-generation",
+            "Payload: employee_id=EMP-2026-004, will trigger doc-generation",
         )
-        log_agent_node_io("doc-generation", doc_config, payload["input"])
-        log_agent_node_io("email-dispatch", email_config, payload["input"])
+        log_workflow_agent_io(
+            hr_onboarding_workflow,
+            payload["input"],
+            node_ids=["doc-generation", "email-dispatch"],
+        )
 
         response = client.post("/execute", json=payload)
         debug_log("EXEC", f"POST /execute response: status_code={response.status_code}")
@@ -675,19 +637,24 @@ class TestHROnboardingE2E:
         if final.get("final_state"):
             fs = final["final_state"]
             log_node_trace(final.get("events", []))
-            
-            # Use new user-provided logging helpers
-            log_agent_node_io("doc-generation", doc_config, fs)
-            log_agent_node_io("email-dispatch", email_config, fs)
-            
+            log_workflow_agent_io(
+                hr_onboarding_workflow,
+                fs,
+                node_ids=["doc-generation", "email-dispatch"],
+            )
+
             # Intelligent extraction of results from node_results
             node_results = fs.get("node_results", {})
             doc_res = node_results.get("doc-generation", {})
             email_res = node_results.get("email-dispatch", {})
-            
-            packet_generated = doc_res.get("status") == "completed" or "doc-generation" in str(node_results)
-            email_dispatched = email_res.get("status") == "completed" or "email-dispatch" in str(node_results)
-            
+
+            packet_generated = doc_res.get(
+                "status"
+            ) == "completed" or "doc-generation" in str(node_results)
+            email_dispatched = email_res.get(
+                "status"
+            ) == "completed" or "email-dispatch" in str(node_results)
+
             # Extract content for printing from standardized results
             sample_packet = "N/A"
             doc_data = doc_res.get("result", {})
@@ -696,8 +663,10 @@ class TestHROnboardingE2E:
                 args = tool_calls[0].get("args", {})
                 sample_packet = f"Document: {args.get('document_type', 'onboarding_packet')}\n      ID: {args.get('employee_id')}\n      Name: {args.get('employee_name')}"
             elif isinstance(doc_data, dict) and doc_data:
-                sample_packet = doc_data.get("content", doc_data.get("raw_response", "Packet content generated"))
-            
+                sample_packet = doc_data.get(
+                    "content", doc_data.get("raw_response", "Packet content generated")
+                )
+
             sample_email = "N/A"
             email_data = email_res.get("result", {})
             tool_calls = email_res.get("tool_calls", [])
@@ -705,27 +674,33 @@ class TestHROnboardingE2E:
                 args = tool_calls[0].get("args", {})
                 sample_email = f"Subject: {args.get('subject')}\n      To: {args.get('recipient_email')}\n      Body: {args.get('content', '')[:120]}..."
             elif isinstance(email_data, dict) and email_data:
-                sample_email = email_data.get("body", email_data.get("raw_response", "Welcome email dispatched"))
+                sample_email = email_data.get(
+                    "body", email_data.get("raw_response", "Welcome email dispatched")
+                )
             print(f"  ✓ Final state available")
             print(f"    - Hop count: {fs.get('hop_count', 'N/A')}")
-            
+
             print(f"\n    [ONBOARDING PACKET GENERATION]")
             print(f"    - Status: {'✓ GENERATED' if packet_generated else '✗ FAILED'}")
             if packet_generated:
                 print(f"    - Content Details:\n      {sample_packet}")
-            
+
             print(f"\n    [EMAIL DISPATCH]")
             print(f"    - Status: {'✓ DISPATCHED' if email_dispatched else '✗ FAILED'}")
             if email_dispatched:
                 print(f"    - Email Details:\n      {sample_email}")
-                
+
             debug_log(
                 "EXEC",
                 f"Document generation results: packet_generated={packet_generated}, email_dispatched={email_dispatched}",
             )
-            
-            assert packet_generated or "doc-generation" in str(node_results), "Packet should be generated"
-            assert email_dispatched or "email-dispatch" in str(node_results), "Email should be dispatched"
+
+            assert packet_generated or "doc-generation" in str(node_results), (
+                "Packet should be generated"
+            )
+            assert email_dispatched or "email-dispatch" in str(node_results), (
+                "Email should be dispatched"
+            )
 
         print(f"\n✓ UC-HR-003: Onboarding packet generated and dispatched")
         print(f"  - Run ID: {run_id}")
@@ -790,7 +765,7 @@ class TestHROnboardingE2E:
         }
         debug_log(
             "EXEC",
-            f"Payload: extensive_onboarding={payload['input']['extensive_onboarding']}, max_token_budget=8000",
+            "Payload: extensive_onboarding=True, max_token_budget=8000",
         )
 
         response = client.post("/execute", json=payload)
@@ -893,7 +868,7 @@ class TestHROnboardingE2E:
         }
         debug_log(
             "EXEC",
-            f"Payload: employee_id={payload['input']['employee_id']}, SLA_threshold=3.0s",
+            "Payload: employee_id=EMP-2026-006, SLA_threshold=3.0s",
         )
 
         response = client.post("/execute", json=payload)
@@ -940,7 +915,7 @@ class TestHROnboardingE2E:
                 f"Final state: hop_count={fs.get('hop_count')}, current_node={fs.get('current_node')}",
             )
 
-        assert elapsed < 30.0 # Relaxed SLA for functional verification
+        assert elapsed < 30.0  # Relaxed SLA for functional verification
 
         print(f"\n✓ NFR: Onboarding completes within operational window (< 3s)")
         print(f"  - Run ID: {run_id}")
@@ -1011,7 +986,7 @@ class TestHROnboardingE2E:
             log_node_trace(final["final_state"].get("events", []))
             debug_log("EXEC", f"Mandatory steps verified: {all_verified}")
             assert final["status"] == "completed"
-            assert all_verified or True # Basic passthrough always returns True now
+            assert all_verified or True  # Basic passthrough always returns True now
 
         print(f"\n✓ Mandatory steps verified before finish")
         print(f"  - Run ID: {run_id}")

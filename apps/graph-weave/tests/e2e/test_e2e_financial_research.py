@@ -17,6 +17,7 @@ from .helpers import (
     debug_log,
     ensure_clean_workflow,
     create_workflow_via_api,
+    log_workflow_agent_io,
 )
 
 
@@ -250,6 +251,7 @@ class TestFinancialResearchE2E:
         print(f"  - Run ID: {data['run_id']}")
         print(f"  - Status: {final['status']}")
         if final.get("final_state"):
+            log_workflow_agent_io(financial_research_workflow, final["final_state"])
             print(f"  - Final state keys: {list(final['final_state'].keys())}")
         debug_log("TEST", "✓ test_uc_fin_001_combine_external_and_internal_data PASSED")
 
@@ -302,6 +304,7 @@ class TestFinancialResearchE2E:
 
         # Verify stagnation was detected or workflow halted safely
         if final.get("final_state"):
+            log_workflow_agent_io(financial_research_workflow, final["final_state"])
             assert (
                 final["final_state"].get("stagnation_detected")
                 or final["final_state"].get("repeated_intent_detected")
@@ -367,6 +370,7 @@ class TestFinancialResearchE2E:
 
         # Verify partial results flag or stagnation signal
         if final.get("final_state"):
+            log_workflow_agent_io(financial_research_workflow, final["final_state"])
             assert (
                 final["final_state"].get("partial_results")
                 or final["final_state"].get("stagnation_flag")
@@ -486,6 +490,7 @@ class TestFinancialResearchE2E:
         web_search_executed = False
         sql_executed = False
         if final.get("final_state"):
+            log_workflow_agent_io(financial_research_workflow, final["final_state"])
             events = final.get("final_state", {}).get("events", [])
             web_search_executed = any("web_research" in str(e) for e in events)
             sql_executed = any("sql_lookup" in str(e) for e in events)
@@ -551,6 +556,7 @@ class TestFinancialResearchE2E:
 
         # Verify stagnation exit
         if final.get("final_state"):
+            log_workflow_agent_io(financial_research_workflow, final["final_state"])
             assert final["final_state"].get("stagnation_detected") or final[
                 "status"
             ] in ["completed", "failed"]
@@ -612,6 +618,7 @@ class TestFinancialResearchE2E:
 
         # Verify loop detection
         if final.get("final_state"):
+            log_workflow_agent_io(financial_research_workflow, final["final_state"])
             assert (
                 final["final_state"].get("extraction_loop_detected")
                 or final["final_state"].get("stagnation_detected")

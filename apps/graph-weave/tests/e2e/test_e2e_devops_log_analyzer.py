@@ -9,6 +9,7 @@ This test validates the incident analysis workflow that:
 """
 
 import os
+import time
 import pytest
 import httpx
 
@@ -17,6 +18,7 @@ from .helpers import (
     wait_for_terminal_status,
     ensure_clean_workflow,
     create_workflow_via_api,
+    log_workflow_agent_io,
 )
 
 
@@ -247,6 +249,7 @@ class TestDevOpsLogAnalyzerE2E:
         print(f"  - Run ID: {data['run_id']}")
         print(f"  - Status: {final['status']}")
         if final.get("final_state"):
+            log_workflow_agent_io(devops_log_analyzer_workflow, final["final_state"])
             print(f"  - Final state keys: {list(final['final_state'].keys())}")
 
     def test_uc_ops_002_detect_alert_storms_and_repeated_retries(
@@ -340,6 +343,7 @@ class TestDevOpsLogAnalyzerE2E:
 
         # Verify stagnation was detected or workflow halted safely
         if final.get("final_state"):
+            log_workflow_agent_io(devops_log_analyzer_workflow, final["final_state"])
             # Should have a stagnation signal or alert_storm flag
             assert (
                 final["final_state"].get("stagnation_detected")
@@ -412,6 +416,7 @@ class TestDevOpsLogAnalyzerE2E:
         debug_log("EXEC", f"Workflow complete: status={final['status']}")
 
         if final.get("final_state"):
+            log_workflow_agent_io(devops_log_analyzer_workflow, final["final_state"])
             state = final["final_state"]
             assert isinstance(state, dict)
             debug_log("EXEC", f"Final state verified: type={type(state).__name__}")

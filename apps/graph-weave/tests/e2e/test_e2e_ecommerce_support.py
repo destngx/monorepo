@@ -18,6 +18,7 @@ from .helpers import (
     debug_log,
     ensure_clean_workflow,
     create_workflow_via_api,
+    log_workflow_agent_io,
 )
 
 
@@ -460,6 +461,7 @@ class TestEcommerceCustomerSupportE2E:
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
         if final.get("final_state"):
+            log_workflow_agent_io(ecommerce_support_workflow, final["final_state"])
             output_str = str(final["final_state"])
             debug_log("EXEC", f"Checking output for PII redaction")
             assert "credit_card" not in output_str or "[REDACTED]" in output_str

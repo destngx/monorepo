@@ -21,6 +21,107 @@ def debug_log(step, message, level="INFO"):
     print(f"{prefix} {message}")
 
 
+def render_template(template, context):
+    result = template
+    for key, value in context.items():
+        result = result.replace(f"{{{key}}}", str(value))
+    return result
+
+
+def get_node_config(workflow_definition, node_id):
+    for node in workflow_definition.get("definition", {}).get("nodes", []):
+        if node.get("id") == node_id:
+            return node.get("config", {})
+    return {}
+
+
+def log_node_trace(events):
+    """Print request/response style logs for each agent node."""
+    node_events = [
+        event
+        for event in events
+        if any(
+            marker in str(event.get("message", ""))
+            or marker in str(event.get("data", {}))
+            for marker in ["agent", "node", "tool"]
+        )
+    ]
+
+    for event in node_events:
+        message = event.get("message") or event.get("type")
+        data = event.get("data", {})
+        node_id = data.get("node_id", data.get("tool", "unknown"))
+        debug_log("NODE_REQ", f"{node_id}: {message}")
+        if data:
+            debug_log("NODE_RES", f"{node_id}: {data}")
+
+
+def _execution_input(state):
+    if not isinstance(state, dict):
+        return {}
+
+    for key in ("input", "inputs", "request", "payload", "execution_input"):
+        value = state.get(key)
+        if isinstance(value, dict):
+            return value
+
+    if "node_results" not in state and "events" not in state:
+        return state
+
+    return {}
+
+
+def log_agent_node_io(node_id, node_config, state):
+    """Print the resolved input, tool usage, and output for a single agent node."""
+    agent_name = node_config.get("agent_name", node_id)
+    user_template = node_config.get("user_prompt_template", "")
+    tools = node_config.get("tools", [])
+    execution_input = _execution_input(state)
+    input_text = render_template(user_template, execution_input)
+
+    print(f"\n[AGENT NODE] {agent_name} ({node_id})")
+    print(f"  → input: {input_text}")
+    if tools:
+        print(f"  → tools: {', '.join(tool.get('name', 'unknown') for tool in tools)}")
+
+    node_results = state.get("node_results", {}) if isinstance(state, dict) else {}
+    node_result = (
+        node_results.get(node_id, {}) if isinstance(node_results, dict) else {}
+    )
+    if isinstance(node_result, dict) and node_result:
+        tool_calls = node_result.get("tool_calls", [])
+        if tool_calls:
+            print("  → tool usage:")
+            for tool_call in tool_calls:
+                tool_name = tool_call.get("name") or tool_call.get("tool") or "unknown"
+                tool_args = tool_call.get("args", tool_call.get("arguments", {}))
+                print(f"      - {tool_name}: {tool_args}")
+
+        output_value = node_result.get("result", node_result.get("output", node_result))
+        print(f"  ← output: {output_value}")
+        return
+
+    output_value = state.get(f"{node_id}_output") if isinstance(state, dict) else None
+    print(f"  ← output: {output_value if output_value is not None else 'N/A'}")
+
+
+def log_workflow_agent_io(workflow_definition, state, node_ids=None):
+    agent_nodes = [
+        node
+        for node in workflow_definition.get("definition", {}).get("nodes", [])
+        if node.get("type") == "agent"
+        and (node_ids is None or node.get("id") in set(node_ids))
+    ]
+
+    if not agent_nodes:
+        debug_log("AGENT", "No agent nodes found for workflow", "WARN")
+        return
+
+    print(f"\n[AGENT WORKFLOW] {workflow_definition.get('workflow_id', 'unknown')}")
+    for node in agent_nodes:
+        log_agent_node_io(node.get("id", "unknown"), node.get("config", {}), state)
+
+
 def wait_for_terminal_status(client, run_id, timeout=60.0, debug=True):
     """
     Wait for workflow execution to reach terminal status.
@@ -45,6 +146,7 @@ def wait_for_terminal_status(client, run_id, timeout=60.0, debug=True):
     deadline = time.monotonic() + timeout
     last_data = None
     poll_count = 0
+    status = "unknown"
 
     while time.monotonic() < deadline:
         poll_count += 1
@@ -85,7 +187,7 @@ def wait_for_terminal_status(client, run_id, timeout=60.0, debug=True):
             "ERROR",
         )
     raise AssertionError(
-        f"Workflow run {run_id} failed to reach terminal status within {timeout}s. Last status: {status}"
+        f"Workflow run {run_id} failed to reach terminal status within {timeout}s. Last status: {last_data.get('status') if isinstance(last_data, dict) else status}"
     )
 
 
