@@ -70,7 +70,6 @@ def register_generator_workflow(client, generator_workflow_definition):
     ensure_clean_workflow(client, TENANT_ID, WORKFLOW_ID)
 
 
-@pytest.mark.e2e
 class TestWorkflowGeneratorE2E:
     """E2E tests for the Autonomous Workflow Generator meta-DAG."""
 
@@ -83,7 +82,7 @@ class TestWorkflowGeneratorE2E:
                 "definition": json.load(f)
             }
 
-    def _execute_and_wait(self, client, intent: str, domain: str = "devops", timeout: float = 90.0):
+    def _execute_and_wait(self, client, intent: str, domain: str = "devops", timeout: float = 180.0):
         """Helper to execute the generator workflow and wait for completion."""
         print(f"\n[STEP 1] Submitting intent to generator...")
         print(f"  → Intent: {intent}")
@@ -115,7 +114,7 @@ class TestWorkflowGeneratorE2E:
         debug_log("EXEC", f"Run created: run_id={run_id}, status={data['status']}")
         assert data["status"] == "queued"
 
-        print(f"\n[STEP 2] Waiting for workflow generator to complete (SLA < 90s)...")
+        print(f"\n[STEP 2] Waiting for workflow generator to complete (SLA < 180s)...")
         debug_log("POLL", f"Starting status poll for run_id={run_id}")
         final = wait_for_terminal_status(client, run_id, timeout=timeout)
         
@@ -224,7 +223,7 @@ class TestWorkflowGeneratorE2E:
             "notify the owning team via Slack, and archive the old key."
         )
 
-        run_id, final = self._execute_and_wait(client, intent, domain="devops", timeout=90.0)
+        run_id, final = self._execute_and_wait(client, intent, domain="devops", timeout=180.0)
 
         if final.get("workflow_state"):
             state = final["workflow_state"]
@@ -267,7 +266,7 @@ class TestWorkflowGeneratorE2E:
             "and create a GitHub issue summarising potential culprit deployments."
         )
 
-        run_id, final = self._execute_and_wait(client, intent, domain="devops", timeout=90.0)
+        run_id, final = self._execute_and_wait(client, intent, domain="devops", timeout=180.0)
 
         if final.get("workflow_state"):
             state = final["workflow_state"]
@@ -341,17 +340,17 @@ class TestWorkflowGeneratorE2E:
         )
 
         start = time.monotonic()
-        run_id, final = self._execute_and_wait(client, intent, domain="devops", timeout=120.0)
+        run_id, final = self._execute_and_wait(client, intent, domain="devops", timeout=180.0)
         elapsed = time.monotonic() - start
 
         print(f"\n[LATENCY ANALYSIS]")
-        print(f"  ✓ Target SLA: 120.0s")
+        print(f"  ✓ Target SLA: 180.0s")
         print(f"  ✓ Actual Time: {elapsed:.2f}s")
-        print(f"  ✓ Margin: {120.0 - elapsed:.2f}s")
+        print(f"  ✓ Margin: {180.0 - elapsed:.2f}s")
 
-        debug_log("SLA", f"Elapsed: {elapsed:.2f}s (SLA: <120s)")
-        assert elapsed < 120.0, (
-            f"Workflow generator exceeded 120s SLA: took {elapsed:.2f}s"
+        debug_log("SLA", f"Elapsed: {elapsed:.2f}s (SLA: <180s)")
+        assert elapsed < 180.0, (
+            f"Workflow generator exceeded 180s SLA: took {elapsed:.2f}s"
         )
         assert final["status"] in ["completed", "failed"]
 

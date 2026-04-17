@@ -242,7 +242,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for completion
-        final = wait_for_terminal_status(client, data["run_id"], timeout=20.0)
+        final = wait_for_terminal_status(client, data["run_id"], timeout=180.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
@@ -298,7 +298,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=20.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -364,7 +364,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=20.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -430,7 +430,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=20.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         assert final["status"] in ["completed", "failed"]
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
@@ -482,7 +482,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=20.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -550,7 +550,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=20.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 
@@ -612,7 +612,7 @@ class TestFinancialResearchE2E:
 
         debug_log("POLL", "Starting workflow execution polling")
         # Wait for execution
-        final = wait_for_terminal_status(client, run_id, timeout=20.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         debug_log("EXEC", f"Workflow execution complete: status={final['status']}")
 

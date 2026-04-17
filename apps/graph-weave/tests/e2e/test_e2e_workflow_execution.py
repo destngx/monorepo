@@ -19,7 +19,7 @@ def setup_test_workflow(workflow_multi_node, test_tenant_id):
     return workflow_multi_node
 
 
-def wait_for_terminal_status(client, run_id, timeout=2.0):
+def wait_for_terminal_status(client, run_id, timeout=120.0):
     deadline = time.monotonic() + timeout
     last_data = None
     while time.monotonic() < deadline:

@@ -123,7 +123,7 @@ def log_workflow_agent_io(workflow_definition, state, node_ids=None):
         log_agent_node_io(node.get("id", "unknown"), node.get("config", {}), state)
 
 
-def wait_for_terminal_status(client, run_id, timeout=60.0, debug=True):
+def wait_for_terminal_status(client, run_id, timeout=180.0, debug=True):
     """
     Wait for workflow execution to reach terminal status.
 

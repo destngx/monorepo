@@ -724,6 +724,7 @@ class RealLangGraphExecutor:
                 "error": str(e),
                 "events": self.execution_events.get(run_id, []),
                 "final_state": state,
+                "workflow_state": state.get("workflow_state", {}),
             }
 
     def _execute_entry_node(

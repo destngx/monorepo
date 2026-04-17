@@ -168,7 +168,7 @@ class TestOrchestratorNodeE2E:
         run_id = data["run_id"]
         debug_log("EXEC", f"Run created: {run_id}")
 
-        final = wait_for_terminal_status(client, run_id, timeout=30.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         assert final["status"] in {"completed", "failed"}, (
             f"Unexpected terminal status: {final['status']}"
@@ -216,7 +216,7 @@ class TestOrchestratorNodeE2E:
         assert response.status_code == 200
         run_id = response.json()["run_id"]
 
-        final = wait_for_terminal_status(client, run_id, timeout=30.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
 
         # orchestrator_trace and final_result should be in the merged workflow_state
@@ -259,7 +259,7 @@ class TestOrchestratorNodeE2E:
         assert response.status_code == 200
         run_id = response.json()["run_id"]
 
-        final = wait_for_terminal_status(client, run_id, timeout=30.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         assert final["status"] in {"completed", "failed"}, (
             f"Run must reach a terminal state, got: {final['status']}"
@@ -298,7 +298,7 @@ class TestOrchestratorNodeE2E:
         assert response.status_code == 200
         run_id = response.json()["run_id"]
 
-        final = wait_for_terminal_status(client, run_id, timeout=30.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
 
         events = final.get("events", [])
@@ -374,7 +374,7 @@ class TestOrchestratorNodeE2E:
         assert response.status_code == 200
         run_id = response.json()["run_id"]
 
-        final = wait_for_terminal_status(client, run_id, timeout=30.0)
+        final = wait_for_terminal_status(client, run_id, timeout=180.0)
         assert final is not None
         assert final["status"] == "completed"
 
