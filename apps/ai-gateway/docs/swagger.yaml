@@ -256,6 +256,8 @@ definitions:
         items:
           $ref: '#/definitions/domain.RequestSnapshot'
         type: array
+      time_series:
+        $ref: '#/definitions/domain.TimeSeriesUsage'
       total_errors:
         type: integer
       total_requests:
@@ -309,6 +311,21 @@ definitions:
     properties:
       include_usage:
         type: boolean
+    type: object
+  domain.TimeSeriesUsage:
+    properties:
+      daily:
+        items:
+          $ref: '#/definitions/domain.UsagePoint'
+        type: array
+      monthly:
+        items:
+          $ref: '#/definitions/domain.UsagePoint'
+        type: array
+      weekly:
+        items:
+          $ref: '#/definitions/domain.UsagePoint'
+        type: array
     type: object
   domain.TokenizeRequest:
     properties:
@@ -370,6 +387,14 @@ definitions:
       prompt_tokens:
         type: integer
       total_tokens:
+        type: integer
+    type: object
+  domain.UsagePoint:
+    properties:
+      label:
+        description: e.g. "2024-04-15"
+        type: string
+      tokens:
         type: integer
     type: object
   httptransport.ProviderInfo:

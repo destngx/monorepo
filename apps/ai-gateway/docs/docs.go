@@ -744,6 +744,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.RequestSnapshot"
                     }
                 },
+                "time_series": {
+                    "$ref": "#/definitions/domain.TimeSeriesUsage"
+                },
                 "total_errors": {
                     "type": "integer"
                 },
@@ -824,6 +827,29 @@ const docTemplate = `{
             "properties": {
                 "include_usage": {
                     "type": "boolean"
+                }
+            }
+        },
+        "domain.TimeSeriesUsage": {
+            "type": "object",
+            "properties": {
+                "daily": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.UsagePoint"
+                    }
+                },
+                "monthly": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.UsagePoint"
+                    }
+                },
+                "weekly": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.UsagePoint"
+                    }
                 }
             }
         },
@@ -918,6 +944,18 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "total_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.UsagePoint": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "description": "e.g. \"2024-04-15\"",
+                    "type": "string"
+                },
+                "tokens": {
                     "type": "integer"
                 }
             }
