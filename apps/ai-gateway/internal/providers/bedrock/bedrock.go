@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"apps/ai-gateway/internal/domain"
+	"apps/ai-gateway/internal/providers/shared"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
@@ -51,6 +52,7 @@ func New(ctx context.Context, region string) (*Provider, error) {
 func (p *Provider) Name() string { return domain.ProviderBedrock }
 
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
+	req = shared.NormalizeTools(req)
 	input, err := p.convertToBedrockRequest(req)
 	if err != nil {
 		return nil, err
@@ -65,6 +67,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 }
 
 func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
+	req = shared.NormalizeTools(req)
 	input, err := p.convertToBedrockStreamRequest(req)
 	if err != nil {
 		return domain.Usage{}, err
@@ -253,7 +256,7 @@ func (p *Provider) convertToOpenAIResponse(output *bedrockruntime.ConverseOutput
 				toolCalls = append(toolCalls, domain.ToolCall{
 					ID:   *tu.Value.ToolUseId,
 					Type: "function",
-					Function: domain.FunctionCall{
+					Function: &domain.FunctionCall{
 						Name:      *tu.Value.Name,
 						Arguments: string(inputBytes),
 					},

@@ -95,6 +95,9 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 	start := time.Now()
 	p.vlogf(1, "[github-copilot] chat start model=%q", req.Model)
 
+	// Auto-normalize tools for non-Anthropic providers
+	req = shared.NormalizeTools(req)
+
 	// GitHub Copilot enforces stream=true on many models (e.g. Anthropic/OpenAI models on its edge).
 	// To support sync requests, we force stream=true upstream and assemble the SSE chunks into a single response.
 	req.Stream = true
@@ -161,7 +164,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 						toolCallsMap[tc.Index] = &domain.ToolCall{
 							ID:   tc.ID,
 							Type: tc.Type,
-							Function: domain.FunctionCall{
+							Function: &domain.FunctionCall{
 								Name:      tc.Function.Name,
 								Arguments: tc.Function.Arguments,
 							},
@@ -267,6 +270,7 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	p.vlogf(1, "[github-copilot] stream start model=%q", req.Model)
 
 	payloadStart := time.Now()
+	req = shared.NormalizeTools(req)
 	httpReq, err := p.newChatRequest(ctx, req, true)
 	if err != nil {
 		return domain.Usage{}, err
@@ -537,6 +541,9 @@ func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
 	}
 
 	for _, tool := range req.Tools {
+		if tool.Function == nil {
+			continue
+		}
 		payload.Tools = append(payload.Tools, copilotTool{
 			Type: tool.Type,
 			Function: copilotFunctionDefinition{

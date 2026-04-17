@@ -15,9 +15,10 @@ type Request struct {
 }
 
 type Tool struct {
-	Name        string `json:"name"`
+	Name        string `json:"name,omitempty"`
+	Type        string `json:"type,omitempty"`
 	Description string `json:"description,omitempty"`
-	InputSchema any    `json:"input_schema"`
+	InputSchema any    `json:"input_schema,omitempty"`
 }
 
 type Message struct {
@@ -26,13 +27,13 @@ type Message struct {
 }
 
 type Content struct {
-	Type    string `json:"type"`                  // "text", "tool_use", or "tool_result"
+	Type    string `json:"type"`                  // "text", "tool_use", "server_tool_use", "web_search_tool_result", etc.
 	Text    string `json:"text,omitempty"`        // for text
-	ID      string `json:"id,omitempty"`          // for tool_use
-	Name    string `json:"name,omitempty"`        // for tool_use
-	Input   any    `json:"input,omitempty"`       // for tool_use
-	ToolID  string `json:"tool_use_id,omitempty"` // for tool_result
-	Content string `json:"content,omitempty"`     // for tool_result
+	ID      string `json:"id,omitempty"`          // for tool_use/server_tool_use
+	Name    string `json:"name,omitempty"`        // for tool_use/server_tool_use
+	Input   any    `json:"input,omitempty"`       // for tool_use/server_tool_use
+	ToolID  string `json:"tool_use_id,omitempty"` // for tool_result/web_search_tool_result
+	Content any    `json:"content,omitempty"`     // for tool_result (string or []any)
 	IsError bool   `json:"is_error,omitempty"`    // for tool_result
 }
 

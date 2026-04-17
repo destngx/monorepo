@@ -93,14 +93,26 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req := convertFromAnthropicRequest(anthroReq, provider.Name())
 	req.Model = targetModel
 
-	if anthroReq.Stream {
+	// Check if native tools are present to decide on streaming
+	hasNativeTools := false
+	for _, t := range req.Tools {
+		if t.Type != domain.ToolTypeFunction && t.Type != "" {
+			hasNativeTools = true
+			break
+		}
+	}
+
+	if anthroReq.Stream && !hasNativeTools {
 		h.handleStream(w, r, provider, req, anthroReq.Model)
 	} else {
-		h.handleSync(w, r, provider, req, anthroReq.Model)
+		// If streaming was requested but native tools are present,
+		// we force sync mode to allow the interceptor to perform its loop.
+		// However, we must still return a stream to the client if they asked for it.
+		h.handleSync(w, r, provider, req, anthroReq.Model, anthroReq.Stream)
 	}
 }
 
-func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
+func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string, wasStream bool) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
 		slog.Debug("Entering Anthropic handleSync", "rid", rid)
@@ -118,14 +130,25 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 
 	setMetrics(r, p.Name(), req.Model, inputModel, resp.Usage, req.Stream, nil)
 
-	anthroResp := convertToAnthropicResponse(resp)
-
-	if h.registry.Config.Verbose >= 1 {
-		slog.Debug("Provider Response (Anthropic format)", "rid", rid, "response", anthroResp)
+	// Intercept built-in tools (web_search, code_execution) and mock response if needed
+	if intercepted, newResp, err := h.interceptNativeTools(r, resp); intercepted {
+		if err != nil {
+			WriteError(w, r, http.StatusBadGateway, "Interception loop failed: "+err.Error())
+			return
+		}
+		resp = newResp
 	}
 
-	w.Header().Set(headerContentType, contentTypeJSON)
-	json.NewEncoder(w).Encode(anthroResp)
+	if wasStream {
+		h.writeAnthroStreamResponse(w, resp)
+	} else {
+		anthroResp := convertToAnthropicResponse(resp)
+		if h.registry.Config.Verbose >= 1 {
+			slog.Debug("Provider Response (Anthropic format)", "rid", rid, "response", anthroResp)
+		}
+		w.Header().Set(headerContentType, contentTypeJSON)
+		json.NewEncoder(w).Encode(anthroResp)
+	}
 }
 
 func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
@@ -272,7 +295,7 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 						msg.ToolCalls = append(msg.ToolCalls, domain.ToolCall{
 							ID:   id,
 							Type: "function",
-							Function: domain.FunctionCall{
+							Function: &domain.FunctionCall{
 								Name:      name,
 								Arguments: string(inputJSON),
 							},
@@ -321,14 +344,26 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 	}
 
 	for _, t := range ar.Tools {
+		toolType := t.Type
+		if toolType == "" {
+			toolType = domain.ToolTypeFunction
+		}
+
+		if toolType != domain.ToolTypeFunction {
+			req.Tools = append(req.Tools, domain.Tool{
+				Type: toolType,
+			})
+			continue
+		}
+
 		params := t.InputSchema
 		if isGemini {
 			params = shared.CleanJSONSchema(params)
 		}
 
 		req.Tools = append(req.Tools, domain.Tool{
-			Type: "function",
-			Function: domain.FunctionDefinition{
+			Type: domain.ToolTypeFunction,
+			Function: &domain.FunctionDefinition{
 				Name:        t.Name,
 				Description: t.Description,
 				Parameters:  params,
@@ -358,19 +393,39 @@ func convertToAnthropicResponse(resp *domain.ChatResponse) anthropic.Response {
 
 	if len(resp.Choices) > 0 {
 		msg := resp.Choices[0].Message
+
+		// 1. Handle custom content blocks (e.g. server_tool_use, web_search_tool_result)
+		for _, custom := range msg.CustomContent {
+			var anthroContent anthropic.Content
+			if b, err := json.Marshal(custom); err == nil {
+				if err := json.Unmarshal(b, &anthroContent); err == nil {
+					ar.Content = append(ar.Content, anthroContent)
+				}
+			}
+		}
+
+		// 2. Handle standard text content
 		if msg.Content != "" {
 			ar.Content = append(ar.Content, anthropic.Content{
 				Type: "text",
 				Text: msg.Content,
 			})
 		}
+
+		// 3. Handle standard tool calls
 		for _, tc := range msg.ToolCalls {
 			var input any
 			json.Unmarshal([]byte(tc.Function.Arguments), &input)
+
+			name := tc.Function.Name
+			if tc.Type != domain.ToolTypeFunction && tc.Type != "" && name == "" {
+				name = tc.Type
+			}
+
 			ar.Content = append(ar.Content, anthropic.Content{
 				Type:  "tool_use",
 				ID:    tc.ID,
-				Name:  tc.Function.Name,
+				Name:  name,
 				Input: input,
 			})
 		}
@@ -544,6 +599,193 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	}
 
 	return emitted, scanner.Err()
+}
+
+func (h *AnthropicHandler) interceptNativeTools(r *http.Request, resp *domain.ChatResponse) (bool, *domain.ChatResponse, error) {
+	if len(resp.Choices) == 0 {
+		return false, resp, nil
+	}
+
+	msg := resp.Choices[0].Message
+	hasNativeTool := false
+	for _, tc := range msg.ToolCalls {
+		// Detect native tools by type or name prefix
+		loweredName := strings.ToLower(tc.Function.Name)
+		loweredType := strings.ToLower(tc.Type)
+		if strings.HasPrefix(loweredType, "web_search") || strings.HasPrefix(loweredType, "code_execution") ||
+			strings.HasPrefix(loweredName, "web_search") || strings.HasPrefix(loweredName, "code_execution") ||
+			strings.HasPrefix(loweredName, "anthropic_") {
+			hasNativeTool = true
+			break
+		}
+	}
+
+	if !hasNativeTool {
+		return false, resp, nil
+	}
+
+	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
+	slog.Info("Intercepting native tool call with hardcoded message", "rid", rid)
+
+	mockResp := *resp
+
+	// Create native content blocks that emulate a search happening and providing advice.
+	// Anthropic's native search tool blocks must be in the same choice content array.
+	var customBlocks []any
+	for _, tc := range msg.ToolCalls {
+		loweredName := strings.ToLower(tc.Function.Name)
+		loweredType := strings.ToLower(tc.Type)
+		isSearch := strings.HasPrefix(loweredType, "web_search") || strings.HasPrefix(loweredName, "web_search")
+		isCode := strings.HasPrefix(loweredType, "code_execution") || strings.HasPrefix(loweredName, "code_execution")
+
+		if isSearch {
+			// Emulate search invocation and empty result
+			var input any
+			json.Unmarshal([]byte(tc.Function.Arguments), &input)
+
+			customBlocks = append(customBlocks, map[string]any{
+				"type":  "server_tool_use",
+				"id":    tc.ID,
+				"name":  "web_search",
+				"input": input,
+			})
+			customBlocks = append(customBlocks, map[string]any{
+				"type":        "web_search_tool_result",
+				"tool_use_id": tc.ID,
+				"content": []any{
+					map[string]any{
+						"type": "text",
+						"text": "ERROR: Native web search is disabled. try to use web search mcp or ask user manually provide details",
+					},
+				},
+				"is_error": true,
+			})
+		} else if isCode {
+			// Similar for code execution if needed in the future
+			customBlocks = append(customBlocks, map[string]any{
+				"type":  "server_tool_use",
+				"id":    tc.ID,
+				"name":  "code_execution",
+				"input": map[string]any{"code": tc.Function.Arguments},
+			})
+		}
+	}
+
+	mockResp.Choices = []domain.Choice{
+		{
+			Index: 0,
+			Message: domain.Message{
+				Role:    domain.RoleAssistant,
+				Content: "try to use web search mcp or ask user manually provide details",
+				// CustomContent allows passing these blocks directly to the conversion layer
+				CustomContent: customBlocks,
+			},
+			FinishReason: "stop",
+		},
+	}
+
+	return true, &mockResp, nil
+}
+
+func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp *domain.ChatResponse) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, _ := w.(http.Flusher)
+
+	// 1. message_start
+	sendAnthroEvent(w, eventMessageStart, map[string]any{
+		"message": map[string]any{
+			"id":    resp.ID,
+			"type":  "message",
+			"role":  "assistant",
+			"model": resp.Model,
+			"usage": map[string]int{
+				"input_tokens":  resp.Usage.PromptTokens,
+				"output_tokens": 0,
+			},
+		},
+	})
+	if flusher != nil {
+		flusher.Flush()
+	}
+
+	if len(resp.Choices) > 0 {
+		msg := resp.Choices[0].Message
+		blockIdx := 0
+
+		// 1. Handle custom content blocks (server-side tools etc)
+		for _, custom := range msg.CustomContent {
+			sendAnthroEvent(w, eventContentBlockStart, map[string]any{
+				"index":         blockIdx,
+				"content_block": custom,
+			})
+			sendAnthroEvent(w, eventContentBlockStop, map[string]any{"index": blockIdx})
+			blockIdx++
+		}
+
+		// 2. content_block_start + delta + stop (for text)
+		if msg.Content != "" {
+			sendAnthroEvent(w, eventContentBlockStart, map[string]any{
+				"index":         blockIdx,
+				"content_block": map[string]any{"type": "text", "text": ""},
+			})
+			sendAnthroEvent(w, eventContentBlockDelta, map[string]any{
+				"index": blockIdx,
+				"delta": map[string]any{"type": "text_delta", "text": msg.Content},
+			})
+			sendAnthroEvent(w, eventContentBlockStop, map[string]any{"index": blockIdx})
+			blockIdx++
+		}
+
+		// 3. tool use blocks if any
+		for _, tc := range msg.ToolCalls {
+			var input any
+			json.Unmarshal([]byte(tc.Function.Arguments), &input)
+
+			name := tc.Function.Name
+			if name == "" {
+				name = tc.Type
+			}
+
+			sendAnthroEvent(w, eventContentBlockStart, map[string]any{
+				"index": blockIdx,
+				"content_block": map[string]any{
+					"type":  "tool_use",
+					"id":    tc.ID,
+					"name":  name,
+					"input": input,
+				},
+			})
+			sendAnthroEvent(w, eventContentBlockStop, map[string]any{"index": blockIdx})
+			blockIdx++
+		}
+
+		// 4. message_delta (stop_reason)
+		stopReason := stopReasonEndTurn
+		switch resp.Choices[0].FinishReason {
+		case "length":
+			stopReason = "max_tokens"
+		case "tool_calls":
+			stopReason = "tool_use"
+		}
+
+		sendAnthroEvent(w, eventMessageDelta, map[string]any{
+			"delta": map[string]any{
+				"stop_reason": stopReason,
+			},
+			"usage": map[string]any{
+				"output_tokens": resp.Usage.CompletionTokens,
+			},
+		})
+	}
+
+	// 5. message_stop
+	sendAnthroEvent(w, eventMessageStop, map[string]any{})
+	if flusher != nil {
+		flusher.Flush()
+	}
 }
 
 func sendAnthroEvent(w io.Writer, eventType string, data any) {

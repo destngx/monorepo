@@ -7,6 +7,12 @@ const (
 	RoleTool      = "tool"
 )
 
+const (
+	ToolTypeFunction      = "function"
+	ToolTypeWebSearch     = "web_search"
+	ToolTypeCodeExecution = "code_execution"
+)
+
 // ChatRequest is the OpenAI-compatible inbound request structure.
 // Clients always send this format, regardless of provider.
 type ChatRequest struct {
@@ -30,15 +36,16 @@ type StreamOptions struct {
 }
 
 type Message struct {
-	Role       string     `json:"role"` // "system" | "user" | "assistant" | "tool"
-	Content    string     `json:"content"`
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string     `json:"tool_call_id,omitempty"`
+	Role          string     `json:"role"` // "system" | "user" | "assistant" | "tool"
+	Content       string     `json:"content"`
+	ToolCalls     []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID    string     `json:"tool_call_id,omitempty"`
+	CustomContent []any      `json:"custom_content,omitempty"`
 }
 
 type Tool struct {
-	Type     string             `json:"type"` // always "function"
-	Function FunctionDefinition `json:"function"`
+	Type     string              `json:"type"` // "function", "web_search", "code_execution"
+	Function *FunctionDefinition `json:"function,omitempty"`
 }
 
 type FunctionDefinition struct {
@@ -48,9 +55,9 @@ type FunctionDefinition struct {
 }
 
 type ToolCall struct {
-	ID       string       `json:"id"`
-	Type     string       `json:"type"` // always "function"
-	Function FunctionCall `json:"function"`
+	ID       string        `json:"id"`
+	Type     string        `json:"type"` // "function", "web_search", "code_execution"
+	Function *FunctionCall `json:"function,omitempty"`
 }
 
 type FunctionCall struct {

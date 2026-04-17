@@ -2,114 +2,42 @@
 
 ## Overview
 
-Nx monorepo with mixed stacks:
+Nx monorepo with mixed stacks for wealth management, market data, and AI orchestration.
 
-- TypeScript/Next.js apps and shared libs
-- Go backend engine for wealth-management
-- Python backend for market data (`vnstock-server`)
+- **Goal**: Unified platform for financial intelligence and automated portfolio orchestration.
+- **Stack**: Go (Backend/Gateway), SvelteKit (Dashboard), Python (Market Data/Agent Graphs), TypeScript (Libs).
 
-Primary active backend migration target is `apps/wealth-management-engine` (Go, Hexagonal architecture).
+## Knowledge Discovery (Progressive Disclosure)
 
-## Current Focus Areas
+Claude Code and other agentic harnesses use **Progressive Disclosure**. Read the specific documentation for the project area you are working on before starting tasks:
 
-| Area                      | Location                                            | Stack            | Status                 |
-| ------------------------- | --------------------------------------------------- | ---------------- | ---------------------- |
-| Wealth engine backend     | `apps/wealth-management-engine`                     | Go + Fiber + MCP | Active                 |
-| Wealth dashboard frontend | `apps/wealth-management-dashboard`                  | SvelteKit        | Active                 |
-| Legacy wealth app         | `apps/wealth-management` + `libs/wealth-management` | Next.js + React  | Reference/legacy track |
-| Market data backend       | `apps/vnstock-server`                               | Python + vnstock | Active                 |
+### 🏛️ Engineering Standards
 
-## Key Structure
+- **Wealth Management**: [AGENTS.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/AGENTS.md) (Go Hexagonal / SvelteKit FSD)
+- **AI Gateway**: [AGENTS.md](file:///Users/ez2/projects/personal/monorepo/docs/ai-gateway/AGENTS.md) (Clean Architecture / Provider Patterns)
+- **Graph Weave**: [AGENTS.md](file:///Users/ez2/projects/personal/monorepo/docs/graph-weave/AGENTS.md) (LangGraph / MCP Orchestration)
+- **Market Data**: [AGENTS.md](file:///Users/ez2/projects/personal/monorepo/docs/vnstock-server/AGENTS.md) (Python / Caching Policies)
 
-```text
-monorepo/
-├── apps/
-│   ├── wealth-management-engine/      # Go backend (ports/adapters)
-│   ├── wealth-management-dashboard/   # SvelteKit frontend
-│   ├── wealth-management/             # Legacy Next.js app
-│   ├── vnstock-server/                # Python backend
-│   ├── cloudinary-photos-app/
-│   └── portfolio-landpage/
-├── libs/
-├── docs/
-│   ├── tasks/
-│   └── wealth-management/
-├── go.work
-├── go.work.sum
-├── nx.json
-└── package.json
-```
+### 🚀 Roadmap & Tasks
 
-## Documentation Conventions
+- **Active Tasks**: [Sprint README](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/tasks/README.md)
+- **Product Vision**: [Product README](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/README.md)
 
-- Sprint docs are folder-based under `docs/wealth-management/tasks/`:
-  - `SPRINT_1/README.md`, `SPRINT_2/README.md`, etc.
-  - Each task is a standalone file: `WM-xxx.md`.
-- Global standards and standing conventions live in:
-  - `docs/wealth-management/tasks/README.md` (source of truth for sprint process/conventions).
-- OpenAPI docs are generated at runtime from the registered Fiber routes and honor the incoming host/protocol so `/api/docs` stays accessible without a static server URL.
-
-## Engineering Conventions (Must Follow)
+## Engineering Conventions (Universal)
 
 ### Runtime and Tooling
 
-- Use `bun run` for root scripts.
-- Use `bunx nx ...` for Nx tasks.
-- Use `uv` for Python workflows (prefer via Nx scripts when available).
-- Volta pins Node at major `22` in root `package.json`.
-
-### Wealth Engine (Go)
-
-- Architecture: strict Hexagonal (`domain/`, `port/`, `service/`, `adapter/`).
-- `port` holds interfaces/contracts; `adapter` holds implementations.
-- Domain naming:
-  - Prefer business naming (`accounts`, not `accounts_sheet`).
-  - Keep storage/provider details out of domain type names.
-- Adapter naming:
-  - `adapter/cache` (not `adapter/redis`)
-  - `adapter/config` (not `adapter/env`)
-  - `adapter/db/...` for database backends (Google Sheets is one backend)
-  - `adapter/market/...` for market providers (`vnstock` is one implementation)
-- MCP server is always enabled on engine startup.
-- Go test target is executed example:
-  - `bunx nx run wealth-management-engine:test`
-- Root `bun` scripts `test:go`, `test:e2e`, and `format:go` wrap the respective Nx targets so Go tooling can be invoked via `bun run ...`.
-
-### Test and Delivery Workflow
-
-- Default workflow: TDD + BDD.
-- Prefer real provider behavior tests for AI provider integrations where practical.
-- Repo-local temp cache usage for Go tasks under `apps/wealth-management-engine/tmp/` (avoid root `/tmp` for project scripts).
+- **Bun**: Use `bun run` and `bunx nx` for package management and task execution.
+- **Python**: Use `uv` for Python environment management.
+- **Workflow**: Default to **TDD + BDD**. Always verify changes with unit or integration tests.
 
 ### Security and Env
 
-- `.env.local` is runtime input only.
-- Never print or read secrets from `.env.local`.
-- Never commit credential files.
-
-## Useful Commands
-
-```bash
-# Nx
-bunx nx show projects
-bunx nx run-many -t lint
-bunx nx run-many -t test
-
-# Wealth engine
-bunx nx serve wealth-management-engine
-bunx nx run wealth-management-engine:test
-
-# Wealth dashboard
-bunx nx serve wealth-management-dashboard
-
-# Python backend (if mapped in Nx, prefer Nx target)
-uv run pytest apps/vnstock-server
-```
+- `.env.local` is for runtime input ONLY. Never commit, print, or log secrets.
+- Use `./tmp` for temporary files; avoid root `/tmp`.
 
 ## Anti-Patterns
 
-- Do not use `npm`, `yarn`, or `pnpm` commands in this workspace, `bun` and `bunx` are the only supported CLI tools for package management and task execution.
-- Do not bypass ports with cross-layer direct calls in Go engine.
-- Do not patch workspace linking with ad-hoc TS path hacks.
-- Do not swallow errors silently.
-- Do not hardcode provider-specific logic into general domain contracts.
+- **No NPM/Yarn/PNPM**: Use `bun` exclusively in this workspace.
+- **No Error Swallowing**: Always handle or wrap errors properly.
+- **Check Docs First**: Review the corresponding `docs/*/AGENTS.md` before implementing architectural changes.

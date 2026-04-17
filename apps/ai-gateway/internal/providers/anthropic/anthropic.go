@@ -145,11 +145,24 @@ func (p *Provider) ConvertToAnthropicRequest(req domain.ChatRequest) Request {
 
 	// Convert tools
 	for _, t := range req.Tools {
-		ar.Tools = append(ar.Tools, Tool{
-			Name:        t.Function.Name,
-			Description: t.Function.Description,
-			InputSchema: t.Function.Parameters,
-		})
+		// Handle built-in tools (web_search, code_execution, etc.)
+		if t.Type != domain.ToolTypeFunction && t.Type != "" {
+			ar.Tools = append(ar.Tools, Tool{
+				Type: t.Type,
+				Name: t.Type, // For built-in tools, name is often the same as type or versioned
+			})
+			continue
+		}
+
+		// Handle standard function tools
+		if t.Function != nil {
+			ar.Tools = append(ar.Tools, Tool{
+				Type:        "function",
+				Name:        t.Function.Name,
+				Description: t.Function.Description,
+				InputSchema: t.Function.Parameters,
+			})
+		}
 	}
 
 	// Convert stop sequences
@@ -211,14 +224,15 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 	var content string
 	var toolCalls []domain.ToolCall
 	for _, c := range ar2.Content {
-		if c.Type == typeText {
+		switch c.Type {
+		case typeText:
 			content += c.Text
-		} else if c.Type == typeToolUse {
+		case typeToolUse:
 			args, _ := json.Marshal(c.Input)
 			toolCalls = append(toolCalls, domain.ToolCall{
 				ID:   c.ID,
 				Type: "function",
-				Function: domain.FunctionCall{
+				Function: &domain.FunctionCall{
 					Name:      c.Name,
 					Arguments: string(args),
 				},
@@ -227,9 +241,10 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 	}
 
 	finishReason := finishReasonStop
-	if ar2.StopReason == stopReasonMaxTokens {
+	switch ar2.StopReason {
+	case stopReasonMaxTokens:
 		finishReason = finishReasonLength
-	} else if ar2.StopReason == stopReasonToolUse {
+	case stopReasonToolUse:
 		finishReason = finishReasonToolCalls
 	}
 
@@ -349,10 +364,11 @@ func (p *Provider) convertStreamToOpenAI(body io.Reader, w io.Writer) (domain.Us
 				"choices": []map[string]interface{}{{"index": 0}},
 			}
 
-			if deltaType == typeTextDelta {
+			switch deltaType {
+			case typeTextDelta:
 				text, _ := delta["text"].(string)
 				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]string{"content": text}
-			} else if deltaType == typeInputJSON {
+			case typeInputJSON:
 				partial, _ := delta["partial_json"].(string)
 				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]interface{}{
 					"tool_calls": []map[string]interface{}{{

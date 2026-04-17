@@ -42,6 +42,7 @@ func New(apiKey string) *Provider {
 func (p *Provider) Name() string { return domain.ProviderOpenAI }
 
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
+	req = shared.NormalizeTools(req)
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		baseURL+pathChatCompletions, bytes.NewReader(body))
@@ -69,6 +70,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
 	req.Stream = true
 	req.StreamOptions = &domain.StreamOptions{IncludeUsage: true}
+	req = shared.NormalizeTools(req)
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		baseURL+pathChatCompletions, bytes.NewReader(body))
