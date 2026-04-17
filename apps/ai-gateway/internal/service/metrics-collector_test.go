@@ -124,3 +124,53 @@ func TestMetricsCollector_Persistence(t *testing.T) {
 		t.Errorf("Expected duration 42, got %d", summary.RecentRequests[0].DurationMs)
 	}
 }
+
+func TestMetricsCollector_DoubleCountingRegression(t *testing.T) {
+	path := "test_metrics_regression.json"
+	defer os.Remove(path)
+
+	collector := NewMetricsCollector(10, path, 0)
+	now := time.Now()
+	r1 := domain.RequestRecord{
+		Timestamp:  now,
+		Route:      "/t",
+		Provider:   "p",
+		Model:      "m",
+		StatusCode: 200,
+		Usage:      domain.Usage{TotalTokens: 100},
+	}
+	collector.Record(r1)
+	collector.Flush()
+
+	summary1 := collector.Summary()
+	monthKey := now.UTC().Format("2006-01")
+	tokensBefore := int64(0)
+	for _, p := range summary1.TimeSeries.Monthly {
+		if p.Label == monthKey {
+			tokensBefore = p.Tokens
+		}
+	}
+	if tokensBefore != 100 {
+		t.Fatalf("Expected 100 tokens in monthly series, got %d", tokensBefore)
+	}
+
+	// Load into a new collector
+	collector2 := NewMetricsCollector(10, path, 0)
+	collector2.LoadFromDisk()
+
+	summary2 := collector2.Summary()
+	if summary2.TotalTokens != 100 {
+		t.Errorf("Expected TotalTokens 100, got %d", summary2.TotalTokens)
+	}
+
+	tokensAfter := int64(0)
+	for _, p := range summary2.TimeSeries.Monthly {
+		if p.Label == monthKey {
+			tokensAfter = p.Tokens
+		}
+	}
+
+	if tokensAfter != 100 {
+		t.Errorf("Double counting detected! Monthly tokens expected 100, got %d", tokensAfter)
+	}
+}

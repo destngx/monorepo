@@ -97,12 +97,18 @@ func NewMetricsCollector(bufferSize int, persistPath string, saveInterval time.D
 
 // Record captures a single request's data.
 func (c *MetricsCollector) Record(r domain.RequestRecord) {
-	c.totalRequests.Add(1)
-	if r.StatusCode >= 400 {
-		c.totalErrors.Add(1)
+	c.recordInternal(r, false)
+}
+
+func (c *MetricsCollector) recordInternal(r domain.RequestRecord, isReplay bool) {
+	if !isReplay {
+		c.totalRequests.Add(1)
+		if r.StatusCode >= 400 {
+			c.totalErrors.Add(1)
+		}
+		c.totalTokens.Add(int64(r.Usage.TotalTokens))
+		c.totalDuration.Add(r.DurationMs)
 	}
-	c.totalTokens.Add(int64(r.Usage.TotalTokens))
-	c.totalDuration.Add(r.DurationMs)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -126,18 +132,20 @@ func (c *MetricsCollector) Record(r domain.RequestRecord) {
 	c.updateDimension(c.byProvider, provider, r)
 	c.updateDimension(c.byModel, model, r)
 
-	// Update time-series buckets
-	now := r.Timestamp.UTC() // Use request timestamp for historical consistency
-	dayKey := now.Format("2006-01-02")
-	_, week := now.ISOWeek()
-	weekKey := fmt.Sprintf("%d-W%02d", now.Year(), week)
-	monthKey := now.Format("2006-01")
+	if !isReplay {
+		// Update time-series buckets
+		now := r.Timestamp.UTC() // Use request timestamp for historical consistency
+		dayKey := now.Format("2006-01-02")
+		_, week := now.ISOWeek()
+		weekKey := fmt.Sprintf("%d-W%02d", now.Year(), week)
+		monthKey := now.Format("2006-01")
 
-	c.dailyTokens[dayKey] += int64(r.Usage.TotalTokens)
-	c.weeklyTokens[weekKey] += int64(r.Usage.TotalTokens)
-	c.monthlyTokens[monthKey] += int64(r.Usage.TotalTokens)
+		c.dailyTokens[dayKey] += int64(r.Usage.TotalTokens)
+		c.weeklyTokens[weekKey] += int64(r.Usage.TotalTokens)
+		c.monthlyTokens[monthKey] += int64(r.Usage.TotalTokens)
 
-	c.pruneBuckets()
+		c.pruneBuckets()
+	}
 }
 
 func (c *MetricsCollector) sanitize(allowed map[string]bool, val string) string {
@@ -457,9 +465,8 @@ func (c *MetricsCollector) LoadFromDisk() {
 		// Note: Record will update time-series again, but since we reloaded them,
 		// we should be careful. However, replaying requests will correctly populate
 		// the dimensional stats which aren't explicitly saved.
-		// To avoid double-counting in time-series, we could temporary disable them
-		// or just clear them before replay.
-		c.Record(dto.RecentRequests[i])
+		// We use recordInternal(..., true) to signal replay mode which skips time-series/atomic updates.
+		c.recordInternal(dto.RecentRequests[i], true)
 	}
 
 	// Override totals with the persisted values
