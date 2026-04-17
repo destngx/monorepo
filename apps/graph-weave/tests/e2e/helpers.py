@@ -44,6 +44,7 @@ def log_node_trace(events):
             marker in str(event.get("message", ""))
             or marker in str(event.get("data", {}))
             for marker in ["agent", "node", "tool"]
+            for marker in ["agent", "node", "tool"]
         )
     ]
 
@@ -109,7 +110,7 @@ def log_workflow_agent_io(workflow_definition, state, node_ids=None):
     agent_nodes = [
         node
         for node in workflow_definition.get("definition", {}).get("nodes", [])
-        if node.get("type") == "agent"
+        if node.get("type") in ["agent", "agent_node"]
         and (node_ids is None or node.get("id") in set(node_ids))
     ]
 

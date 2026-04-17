@@ -1,0 +1,311 @@
+{
+  "name": "workflow-generator",
+  "version": "1.0.0",
+  "description": "Meta-workflow that converts a natural language intent into a validated GraphWeave workflow DAG. Uses GraphWeave's own engine to build GraphWeave workflows.",
+  "metadata": {
+    "author": "platform-eng",
+    "created_at": "2026-04-16T00:00:00Z",
+    "tags": ["meta", "generator", "dag-builder", "devops"]
+  },
+  "limits": {
+    "max_hops": 12,
+    "max_tokens": 500000,
+    "timeout_seconds": 120,
+    "stagnation_window": 3,
+    "stagnation_threshold": 2
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "type": "entry",
+      "display_name": "Intent Input",
+      "description": "Accepts the natural language intent and generation context",
+      "config": {
+        "properties": {
+          "intent": {
+            "type": "string",
+            "description": "Natural language description of what the workflow should do"
+          },
+          "domain": {
+            "type": "string",
+            "description": "Optional domain hint, e.g. devops, finance, hr",
+            "default": "devops"
+          },
+          "correction_attempts": {
+            "type": "integer",
+            "description": "Internal counter for self-correction loop (start at 0)",
+            "default": 0
+          }
+        },
+        "required": ["intent"]
+      }
+    },
+    {
+      "id": "planner",
+      "type": "agent_node",
+      "display_name": "Planner Agent",
+      "description": "Decomposes the user intent into an ordered list of workflow steps",
+      "config": {
+        "system_prompt": "You are a workflow architect specializing in DevOps and SRE automation. Your job is to decompose a natural language intent into a concise, ordered list of discrete workflow steps.\n\nRules:\n- Each step must be a single, atomic action (e.g. 'Fetch EKS logs', 'Analyze log anomalies', 'Post alert to Slack')\n- The first step is always data collection/input processing\n- The last step is always a notification or output step\n- Keep the list between 3 and 6 steps maximum\n- Do NOT include 'entry' or 'exit' steps — they are added automatically\n\nReturn ONLY a JSON object with this exact structure:\n{\n  \"steps\": [\n    {\"id\": \"snake_case_id\", \"purpose\": \"one sentence description of what this step does\"}\n  ]\n}",
+        "user_prompt_template": "Decompose this intent into workflow steps:\n\nIntent: {intent}\nDomain: {domain}\n\nReturn a JSON object with a 'steps' array.",
+        "input_mapping": {
+          "intent": "$.entry.intent",
+          "domain": "$.entry.domain"
+        },
+        "output_key": "plan",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "purpose"]
+              },
+              "minItems": 2,
+              "maxItems": 6
+            }
+          },
+          "required": ["steps"]
+        }
+      },
+      "guardrails": {
+        "input": {
+          "max_tokens": 2000,
+          "blocked_patterns": ["ignore instructions", "system prompt", "jailbreak"]
+        },
+        "output": {
+          "required_format": "json",
+          "schema_validation": true
+        }
+      },
+      "retry_config": {
+        "max_attempts": 2,
+        "on_error": "retry",
+        "timeout_seconds": 30
+      }
+    },
+    {
+      "id": "node_builder",
+      "type": "agent_node",
+      "display_name": "Node Builder Agent",
+      "description": "Generates the full JSON nodes array from the plan, strictly adhering to the GraphWeave workflow schema",
+      "config": {
+        "system_prompt": "You are a GraphWeave workflow JSON expert. You generate precise, schema-compliant 'nodes' arrays for GraphWeave workflows.\n\nGraphWeave Node Schema Rules:\n- Every node MUST have: id (string, unique, snake_case), type, display_name, config\n- Node types: entry | exit | agent_node | branch\n- agent_node config MUST contain: system_prompt, user_prompt_template, input_mapping (object of key->JSONPath), output_key (string)\n- branch node config MUST contain: condition_expression (JSONPath string)\n- entry node config MUST contain: properties (JSON Schema object of input fields), required (array)\n- exit node config MUST contain: output_mapping (object of key->JSONPath)\n- ALWAYS include an 'entry' node as the first node and an 'exit' node as the last node\n- For agent_node, use JSONPath like '$.previous_output_key.field' in input_mapping\n- The initial inputs come from '$.entry.{field_name}'\n- Use a domain-appropriate system_prompt for each agent_node\n\nReturn ONLY a JSON object:\n{\n  \"nodes\": [ ...full node definitions... ]\n}",
+        "user_prompt_template": "Generate a GraphWeave 'nodes' array for this workflow plan.\n\nOriginal Intent: {intent}\nDomain: {domain}\n\nPlan steps to implement (build agent_node for each):\n{plan_steps}\n\nRemember:\n1. Start with an 'entry' node accepting the user's input fields\n2. Build an 'agent_node' for each plan step\n3. End with an 'exit' node with output_mapping to surface the key results\n4. Every agent_node must have system_prompt, user_prompt_template, input_mapping, and output_key\n\nReturn JSON with a 'nodes' array.",
+        "input_mapping": {
+          "intent": "$.entry.intent",
+          "domain": "$.entry.domain",
+          "plan_steps": "$.plan.steps"
+        },
+        "output_key": "nodes_definition",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "minItems": 3
+            }
+          },
+          "required": ["nodes"]
+        }
+      },
+      "guardrails": {
+        "input": {
+          "max_tokens": 10000,
+          "blocked_patterns": ["ignore instructions"]
+        },
+        "output": {
+          "required_format": "json",
+          "schema_validation": true
+        }
+      },
+      "retry_config": {
+        "max_attempts": 2,
+        "on_error": "retry",
+        "timeout_seconds": 60
+      }
+    },
+    {
+      "id": "edge_router",
+      "type": "agent_node",
+      "display_name": "Edge Router Agent",
+      "description": "Generates the edges array connecting all nodes in the correct execution order",
+      "config": {
+        "system_prompt": "You are a GraphWeave workflow routing expert. You generate the 'edges' array that connects workflow nodes together.\n\nGraphWeave Edge Schema Rules:\n- Every edge MUST have: from (node id), to (node id)\n- Optional: condition (JSONPath expression string), config.label (string)\n- The first edge connects 'entry' to the first processing node\n- The last edge connects the final processing node to 'exit'\n- For simple linear workflows, edges have no condition (always taken)\n- For conditional routing (branch nodes), edges from the branch node MUST have conditions\n- Conditions use JSONPath: e.g. '$.some_output.status == \"success\"'\n- Also output entry_point (id of the first node, always 'entry') and exit_point (id of the last node, always 'exit')\n\nReturn ONLY a JSON object:\n{\n  \"edges\": [ ...edge definitions... ],\n  \"entry_point\": \"entry\",\n  \"exit_point\": \"exit\"\n}",
+        "user_prompt_template": "Generate the GraphWeave 'edges' array to connect these nodes in logical execution order.\n\nIntent: {intent}\n\nNodes defined (in order):\n{nodes_list}\n\nCreate edges that:\n1. Connect entry -> first processing node\n2. Connect each processing node to the next in logical order\n3. Connect last processing node -> exit\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
+        "input_mapping": {
+          "intent": "$.entry.intent",
+          "nodes_list": "$.nodes_definition.nodes"
+        },
+        "output_key": "routing",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "edges": {
+              "type": "array",
+              "minItems": 2
+            },
+            "entry_point": {
+              "type": "string"
+            },
+            "exit_point": {
+              "type": "string"
+            }
+          },
+          "required": ["edges", "entry_point", "exit_point"]
+        }
+      },
+      "guardrails": {
+        "input": {
+          "max_tokens": 8000,
+          "blocked_patterns": ["ignore instructions"]
+        },
+        "output": {
+          "required_format": "json",
+          "schema_validation": true
+        }
+      },
+      "retry_config": {
+        "max_attempts": 2,
+        "on_error": "retry",
+        "timeout_seconds": 45
+      }
+    },
+    {
+      "id": "assembler",
+      "type": "agent_node",
+      "display_name": "Workflow Assembler & Validator",
+      "description": "Assembles the final workflow JSON, runs a structural sanity check, and outputs the result",
+      "config": {
+        "system_prompt": "You are a GraphWeave workflow validator. You receive the nodes and edges generated by previous agents and assemble them into a complete, valid workflow JSON.\n\nYou must:\n1. Combine the nodes array and edges array into a single workflow JSON object\n2. Verify that every edge references node IDs that actually exist in the nodes array\n3. Verify entry_point and exit_point nodes exist\n4. Verify no edge contains a 'from' or 'to' referencing a non-existent node id\n5. Output a 'is_valid' boolean and a list of 'errors' if any\n\nThe assembled workflow must follow this top-level structure:\n{\n  \"name\": \"kebab-case-name\",\n  \"version\": \"1.0.0\",\n  \"description\": \"...\",\n  \"metadata\": {\"author\": \"workflow-generator\", \"created_at\": \"<ISO8601>\", \"tags\": []},\n  \"limits\": {\"max_hops\": 10, \"max_tokens\": 200000, \"timeout_seconds\": 300},\n  \"nodes\": [...],\n  \"edges\": [...]\n}\n\nReturn ONLY a JSON object:\n{\n  \"is_valid\": true|false,\n  \"errors\": [],\n  \"generated_workflow\": { ...complete workflow JSON... }\n}",
+        "user_prompt_template": "Assemble and validate this workflow.\n\nOriginal Intent: {intent}\n\nNodes:\n{nodes_definition}\n\nEdges and Routing:\n{routing}\n\nAssemble into a complete workflow JSON, validate structural integrity, and return the result.",
+        "input_mapping": {
+          "intent": "$.entry.intent",
+          "nodes_definition": "$.nodes_definition.nodes",
+          "routing": "$.routing"
+        },
+        "output_key": "assembly_result",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "is_valid": {
+              "type": "boolean"
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "generated_workflow": {
+              "type": "object"
+            }
+          },
+          "required": ["is_valid", "generated_workflow"]
+        }
+      },
+      "guardrails": {
+        "input": {
+          "max_tokens": 20000,
+          "blocked_patterns": ["ignore instructions"]
+        },
+        "output": {
+          "required_format": "json",
+          "schema_validation": true
+        }
+      },
+      "retry_config": {
+        "max_attempts": 2,
+        "on_error": "retry",
+        "timeout_seconds": 60
+      }
+    },
+    {
+      "id": "validation_gate",
+      "type": "branch",
+      "display_name": "Validation Gate",
+      "description": "Routes to exit if workflow is valid, or back to planner for self-correction",
+      "config": {
+        "condition_expression": "$.assembly_result.is_valid"
+      }
+    },
+    {
+      "id": "exit",
+      "type": "exit",
+      "display_name": "Generated Workflow Output",
+      "description": "Returns the validated workflow JSON ready for POST /workflows",
+      "config": {
+        "output_mapping": {
+          "generated_workflow": "$.assembly_result.generated_workflow",
+          "validation_errors": "$.assembly_result.errors",
+          "plan": "$.plan.steps",
+          "is_valid": "$.assembly_result.is_valid"
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "entry",
+      "to": "planner",
+      "config": {
+        "label": "Decompose intent into steps"
+      }
+    },
+    {
+      "from": "planner",
+      "to": "node_builder",
+      "config": {
+        "label": "Build node definitions"
+      }
+    },
+    {
+      "from": "node_builder",
+      "to": "edge_router",
+      "config": {
+        "label": "Generate routing edges"
+      }
+    },
+    {
+      "from": "edge_router",
+      "to": "assembler",
+      "config": {
+        "label": "Assemble and validate"
+      }
+    },
+    {
+      "from": "assembler",
+      "to": "validation_gate",
+      "config": {
+        "label": "Check structural validity"
+      }
+    },
+    {
+      "from": "validation_gate",
+      "to": "exit",
+      "condition": "$.assembly_result.is_valid == true",
+      "config": {
+        "label": "Valid DAG — emit result"
+      }
+    },
+    {
+      "from": "validation_gate",
+      "to": "planner",
+      "condition": "$.assembly_result.is_valid == false",
+      "config": {
+        "label": "Self-correct — retry from planner"
+      }
+    }
+  ],
+  "entry_point": "entry",
+  "exit_point": "exit"
+}

@@ -1,5 +1,20 @@
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+import json
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Directory where built-in workflows are bundled
+PREDEFINED_WORKFLOWS_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "resources", "workflows"
+)
+
+# Registry of pre-defined workflow IDs to their resource filenames
+PREDEFINED_WORKFLOWS = {
+    "workflow-generator:v1.0.0": "workflow-generator:v1.0.0.json",
+}
 
 
 class MockWorkflowStore:
@@ -32,8 +47,47 @@ class MockWorkflowStore:
 
     def get(self, tenant_id: str, workflow_id: str) -> Optional[Dict[str, Any]]:
         if tenant_id not in self._workflows:
-            return None
-        return self._workflows[tenant_id].get(workflow_id)
+            self._workflows[tenant_id] = {}
+
+        # 1. Check in-memory cache
+        workflow = self._workflows[tenant_id].get(workflow_id)
+        if workflow:
+            return workflow
+
+        # 2. Check if it's a pre-defined workflow (Lazy Load)
+        if workflow_id in PREDEFINED_WORKFLOWS:
+            resource_file = PREDEFINED_WORKFLOWS[workflow_id]
+            resource_path = os.path.join(PREDEFINED_WORKFLOWS_DIR, resource_file)
+
+            if os.path.exists(resource_path):
+                try:
+                    logger.info(f"Lazy-loading pre-defined workflow '{workflow_id}' for tenant '{tenant_id}'")
+                    with open(resource_path, "r") as f:
+                        definition = json.load(f)
+                    
+                    # Create the workflow record in memory (simulating registration)
+                    timestamp = datetime.utcnow().isoformat() + "Z"
+                    workflow_data = {
+                        "tenant_id": tenant_id,
+                        "workflow_id": workflow_id,
+                        "name": definition.get("name", "Pre-defined Workflow"),
+                        "version": definition.get("version", "1.0.0"),
+                        "description": definition.get("description", ""),
+                        "owner": "system",
+                        "tags": definition.get("metadata", {}).get("tags", []) + ["pre-defined"],
+                        "definition": definition,
+                        "status": "active",
+                        "created_at": timestamp,
+                        "updated_at": timestamp,
+                    }
+                    self._workflows[tenant_id][workflow_id] = workflow_data
+                    return workflow_data
+                except Exception as e:
+                    logger.error(f"Failed to lazy-load pre-defined workflow '{workflow_id}': {e}")
+            else:
+                logger.warning(f"Pre-defined workflow resource not found: {resource_path}")
+
+        return None
 
     def update(
         self, tenant_id: str, workflow_id: str, updates: Dict[str, Any]

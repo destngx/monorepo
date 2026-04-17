@@ -105,7 +105,7 @@ Every node is a discrete work unit inside the workflow graph. The node type dete
 ```json
 {
   "id": "string (unique within workflow)",
-  "type": "enum: entry | exit | agent_node | human_decision | branch",
+  "type": "enum: entry | exit | agent_node | human_decision | branch | orchestrator",
   "display_name": "string (optional)",
   "description": "string (optional)",
 
@@ -217,6 +217,43 @@ Executes an LLM agent with system and user prompts. The agent autonomously decid
 2. **Clear instructions**: Specify what agent should do and what format to return
 3. **Context inclusion**: Include relevant details that agent needs to succeed
 4. **Output schema**: Tell agent what fields to include in response
+
+### Node Type: `orchestrator` [GW-FEAT-ORCH]
+
+Executes a dynamic **ReAct (Reason + Act) loop** within a single node. Unlike a standard `agent_node` which executes a fixed turn, an `orchestrator` can iterate multiple times, calling tools sequentially to gather information before finally yielding control back to the DAG.
+
+```json
+{
+  "id": "investigate_incident",
+  "type": "orchestrator",
+  "display_name": "Dynamic Investigator",
+  "description": "Orchestrates multi-step investigation using allowed skills",
+
+  "config": {
+    "system_prompt": "You are an expert SRE. Investigate the alert using tools. When you have found the root cause, return a JSON object with 'root_cause' and 'action' keys.",
+    "allowed_skills": ["search", "load_skill", "grafana_query"],
+    "max_iterations": 10,
+    "provider": "github-copilot",
+    "model": "gpt-4.1",
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "root_cause": { "type": "string" },
+        "action": { "type": "string" }
+      },
+      "required": ["root_cause"]
+    }
+  }
+}
+```
+
+**Key Behaviors**:
+
+1. **Multi-Tool Loop**: The agent can call multiple tools in sequence (e.g., `search` -> `load_skill` -> `search` again).
+2. **Internal Memory**: Maintains a short-term memory window (last 20 messages) of thoughts and tool results.
+3. **Structured Trace**: Always outputs `orchestrator_trace` (array of all thoughts/actions) and `final_result` to the workflow state.
+4. **Safety Bounding**: Respects `max_iterations`. If it doesn't terminate by the limit, it exits with a `max_iterations_exceeded` error in the result.
+5. **Streaming**: Emits `orchestrator.thought` and `orchestrator.tool_called` events for real-time visibility.
 
 ### Node Type: `branch`
 

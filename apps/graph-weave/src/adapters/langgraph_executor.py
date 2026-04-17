@@ -18,6 +18,8 @@ import json
 import time
 import logging
 from src.app_logging import get_logger
+from src.models import OrchestratorConfig
+from src.modules.orchestrator_react import OrchestratorReAct
 
 from .ai_gateway_adapter import AIGatewayClient
 from .mcp_router import MCPRouter, ProviderConfigError, ToolExecutionError, LLMClient
@@ -586,11 +588,28 @@ class RealLangGraphExecutor:
                 state["step"] = hop_count
 
                 if node_type == "exit":
+                    # GW-FEAT-GEN-003: Apply output_mapping if present
+                    config = node.get("config", {})
+                    mapping = config.get("output_mapping", {})
+                    if mapping:
+                        final_output = {}
+                        for key, path in mapping.items():
+                            val = self._get_state_value(path, state)
+                            final_output[key] = val
+                        # Finalize the workflow_state with the mapping results
+                        state["workflow_state"] = final_output
+                    
                     self._emit_event(
                         run_id,
-                        "node.completed",
-                        {"node_id": current_node_id, "node_type": "exit"},
+                        "workflow.completed",
+                        {
+                            "run_id": run_id,
+                            "workflow_id": workflow_id,
+                            "status": "completed",
+                            "final_state_keys": list(state["workflow_state"].keys()),
+                        },
                     )
+                    state["status"] = "completed"
                     break
 
                 self._emit_event(
@@ -624,6 +643,10 @@ class RealLangGraphExecutor:
                             {"node_id": current_node_id, "node_type": "skill_loader", "status": "passthrough"},
                         )
                         node_result = {"skills_loaded": True, "node_id": current_node_id}
+                    elif node_type == "orchestrator":
+                        node_result = self._execute_orchestrator_node(
+                            run_id, node, state, workflow
+                        )
                     else:
                         raise ValueError(f"Unknown node type: {node_type}")
 
@@ -725,10 +748,23 @@ class RealLangGraphExecutor:
 
         system_prompt = config.get("system_prompt", "You are a helpful assistant.")
         user_prompt_template = config.get("user_prompt_template", "")
+        
+        # Support input_mapping if present, otherwise use workflow_state
+        input_mapping = config.get("input_mapping", {})
+        if input_mapping:
+            # If mapping is specified, slice the state
+            agent_input_context = {}
+            for key, path in input_mapping.items():
+                agent_input_context[key] = self._get_state_value(path, state)
+        else:
+            # Fallback to entire workflow_state
+            agent_input_context = dict(state["workflow_state"])
+        
+        # Resolve prompts using the FULL state (allowing {step}, {current_node}, or {$.plan})
         user_prompt = self._interpolate_prompt(user_prompt_template, state)
-
+        
         provider = config.get("provider", "github-copilot")
-        model = config.get("model", "gpt-4")
+        model = config.get("model", "gpt-4.1")
         temperature = config.get("temperature", 0.7)
         max_tokens = config.get("max_tokens", 2000)
         allowed_tools = config.get("tools", [])
@@ -747,6 +783,9 @@ class RealLangGraphExecutor:
 
             # Extract tool definitions from MCPRouter
             tools = self.mcp_router.get_tool_definitions(allowed_tools)
+
+            # Use agent_input_context for the actual agent call
+            mcp_context = agent_input_context
 
             self._emit_event(
                 run_id,
@@ -845,6 +884,10 @@ class RealLangGraphExecutor:
             except json.JSONDecodeError:
                 result_data = {"raw_response": final_content}
 
+            # Support output_key: wrap result if specified
+            output_key = config.get("output_key")
+            actual_result = {output_key: result_data} if output_key else result_data
+
             return {
                 "node_id": node_id,
                 "status": "completed",
@@ -854,12 +897,77 @@ class RealLangGraphExecutor:
                 f"{node_id}_status": "completed",
                 "tokens_used": total_tokens,
                 "turns": turns,
+                **actual_result,
             }
 
         except ProviderConfigError as e:
             raise ValueError(f"Provider configuration error: {e}")
         except Exception as e:
             raise ValueError(f"Agent node execution failed: {e}")
+
+    def _execute_orchestrator_node(
+        self,
+        run_id: str,
+        node: Dict[str, Any],
+        state: Dict[str, Any],
+        workflow: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Delegate to OrchestratorReAct for the internal ReAct loop.
+
+        The result is a structured dict with 'orchestrator_trace' and 'final_result'
+        which the executor merges into workflow_state via the normal node-result path.
+        """
+        node_id = node.get("id")
+        raw_config = node.get("config", {})
+
+        try:
+            config = OrchestratorConfig(**raw_config)
+        except Exception as e:
+            raise ValueError(f"Invalid orchestrator config on node '{node_id}': {e}")
+
+        # 1. Resolve input_mapping if present, otherwise use workflow_state
+        input_mapping = config.input_mapping
+        if input_mapping:
+            # If mapping is specified, slice the state
+            orchestrator_context = {}
+            for key, path in input_mapping.items():
+                orchestrator_context[key] = self._get_state_value(path, state)
+        else:
+            # Fallback to entire workflow_state
+            orchestrator_context = dict(state.get("workflow_state", {}))
+
+        # 2. Resolve prompts using the FULL state (allowing {step}, {current_node}, or {$.plan})
+        config.system_prompt = self._interpolate_prompt(config.system_prompt, state)
+        
+        user_prompt = None
+        if config.user_prompt_template:
+            user_prompt = self._interpolate_prompt(config.user_prompt_template, state)
+
+        react = OrchestratorReAct(
+            client=self.mcp_router.get_provider_client(
+                config.provider or "github-copilot",
+                config.model or "gpt-4.1",
+            ),
+            mcp_router=self.mcp_router,
+            emit=lambda etype, data: self._emit_event(run_id, etype, data),
+        )
+
+        result = react.run(
+            run_id=run_id,
+            node_id=node_id,
+            config=config,
+            workflow_state=orchestrator_context,
+            user_prompt=user_prompt,
+        )
+
+        # Expose final_result at a top-level key so downstream edge conditions
+        # can reference it as $.orchestrator_result
+        return {
+            **result,
+            "orchestrator_result": result.get("final_result", {}),
+            "node_id": node_id,
+        }
 
     def _route_by_edge(
         self,
@@ -941,21 +1049,51 @@ class RealLangGraphExecutor:
     def _get_state_value(self, path: str, state: Dict[str, Any]) -> Any:
         if path.startswith("$."):
             path = path[2:]
+            
         keys = path.split(".")
+        
+        # 1. Try finding in workflow_state first (application data pool)
+        workflow_state = state.get("workflow_state", {})
+        current = workflow_state
+        found = True
+        for key in keys:
+            if isinstance(current, dict) and key in current:
+                current = current.get(key)
+            else:
+                found = False
+                break
+        
+        if found:
+            return current
+            
+        # 2. Fallback: Look in the main executor state (for 'step', 'current_node', etc)
         current = state
         for key in keys:
-            if isinstance(current, dict):
+            if isinstance(current, dict) and key in current:
                 current = current.get(key)
             else:
                 return None
+        
         return current
 
     def _interpolate_prompt(self, template: str, state: Dict[str, Any]) -> str:
+        if not template:
+            return ""
+            
+        import re
         result = template
-        for key, value in state.items():
-            placeholder = f"{{{key}}}"
-            if placeholder in result:
-                result = result.replace(placeholder, str(value))
+        # Find all {path.to.key} or {simple_key} placeholders
+        for match in re.finditer(r"{([^}]+)}", template):
+            path = match.group(1)
+            value = self._get_state_value(path, state)
+            
+            # If value is a complex object, use JSON serialization for the prompt
+            if isinstance(value, (dict, list)):
+                val_str = json.dumps(value, indent=2)
+            else:
+                val_str = str(value) if value is not None else ""
+                
+            result = result.replace(f"{{{path}}}", val_str)
         return result
 
     def _check_kill_flag(self, run_id: str, tenant_id: str) -> bool:

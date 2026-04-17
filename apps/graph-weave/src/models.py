@@ -8,27 +8,27 @@ from .validation import validate_resource_id, validate_optional_uuid
 
 class ExecuteRequest(BaseModel):
     tenant_id: str = Field(
-        ...,
-        description="Tenant identifier (e.g., hedge_fund_research_desk)",
-        json_schema_extra={"example": "hedge_fund_research_desk"},
+        default="default",
+        description="Tenant identifier (e.g., default)",
+        json_schema_extra={"example": "default"},
         min_length=1,
         max_length=128,
     )
     workflow_id: str = Field(
         ...,
-        description="Workflow identifier with optional version (e.g., quant-research:v3.0.0)",
-        json_schema_extra={"example": "quant-research:v3.0.0"},
+        description="Workflow identifier with optional version (e.g., workflow-generator:v1.0.0)",
+        json_schema_extra={"example": "workflow-generator:v1.0.0"},
         min_length=1,
         max_length=128,
     )
     input: Dict[str, Any] = Field(
         ...,
-        description="Workflow input data. Example: search query, SQL parameters, or research objectives",
+        description="Workflow input data. Example: intent, domain, or research objectives",
         json_schema_extra={
             "example": {
-                "query": "Q3 earnings and performance metrics",
-                "stagnation_threshold": 3,
-                "data_sources": ["web_search", "sql_warehouse"],
+                "intent": "When an EKS pod enters CrashLoopBackOff state, fetch logs and alert Slack.",
+                "domain": "devops",
+                "correction_attempts": 0,
             }
         },
     )
@@ -73,12 +73,12 @@ class ExecuteResponse(BaseModel):
     workflow_id: str = Field(
         ...,
         description="Workflow identifier echo from request",
-        json_schema_extra={"example": "quant-research:v3.0.0"},
+        json_schema_extra={"example": "workflow-generator:v1.0.0"},
     )
     tenant_id: str = Field(
         ...,
         description="Tenant identifier echo from request",
-        json_schema_extra={"example": "hedge_fund_research_desk"},
+        json_schema_extra={"example": "default"},
     )
 
     @field_validator("run_id", mode="before")
@@ -112,9 +112,9 @@ class CancelResponse(BaseModel):
 
 class InvalidateRequest(BaseModel):
     tenant_id: str = Field(
-        ...,
+        default="default",
         description="Tenant identifier",
-        json_schema_extra={"example": "hedge_fund_research_desk"},
+        json_schema_extra={"example": "default"},
         min_length=1,
         max_length=128,
     )
@@ -167,7 +167,7 @@ class InvalidateResponse(BaseModel):
     tenant_id: str = Field(
         ...,
         description="Tenant identifier echo from request",
-        json_schema_extra={"example": "hedge_fund_research_desk"},
+        json_schema_extra={"example": "default"},
     )
     skill_id: str = Field(
         ...,
@@ -189,6 +189,76 @@ class InvalidateResponse(BaseModel):
         return v
 
 
+# Orchestrator Node Models
+
+
+class TraceEntry(BaseModel):
+    """A single step in the orchestrator's ReAct trace."""
+
+    type: str = Field(
+        ...,
+        description="Entry type: 'thought', 'action', 'observation'",
+        json_schema_extra={"example": "thought"},
+    )
+    iteration: int = Field(..., description="Zero-based iteration index")
+    content: Any = Field(..., description="Raw text (thought) or tool result (observation)")
+    tool_name: Optional[str] = Field(None, description="Tool name when type is 'action'")
+    tool_args: Optional[Dict[str, Any]] = Field(None, description="Tool arguments when type is 'action'")
+
+
+class OrchestratorConfig(BaseModel):
+    """Configuration for an orchestrator node in a workflow definition."""
+
+    system_prompt: str = Field(
+        ...,
+        description="LLM persona and task context for the ReAct loop",
+        min_length=1,
+    )
+    allowed_skills: List[str] = Field(
+        ...,
+        description="MCP skill names made available to the orchestrator",
+        min_length=1,
+    )
+    max_iterations: int = Field(
+        10,
+        description="Maximum ReAct iterations before circuit breaker exits (1–50)",
+        ge=1,
+        le=50,
+    )
+    output_schema: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Optional JSON Schema to validate the final_result output object",
+    )
+    provider: Optional[str] = Field(
+        None,
+        description="LLM provider (e.g. 'github-copilot', 'openai'). Falls back to executor default.",
+        json_schema_extra={"example": "github-copilot"},
+    )
+    model: Optional[str] = Field(
+        None,
+        description="Model name override. Falls back to executor default.",
+        json_schema_extra={"example": "gpt-4.1"},
+    )
+    input_mapping: Optional[Dict[str, str]] = Field(
+        None,
+        description="Maps global state paths to local keys for the orchestrator context",
+    )
+    user_prompt_template: Optional[str] = Field(
+        None,
+        description="Optional starting goal or user instructions for the ReAct loop",
+    )
+
+    @field_validator("allowed_skills")
+    @classmethod
+    def validate_allowed_skills(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("allowed_skills must contain at least one skill name")
+        for skill in v:
+            if not skill or not isinstance(skill, str) or not skill.strip():
+                raise ValueError("each entry in allowed_skills must be a non-empty string")
+        return [s.strip() for s in v]
+
+
 # Workflow Management Models
 
 
@@ -196,7 +266,7 @@ def validate_workflow_id_format(v: str) -> str:
     """Validate workflow_id format: name:vX.Y.Z"""
     if not re.match(r"^[a-z][a-z0-9_-]*:v\d+\.\d+\.\d+$", v):
         raise ValueError(
-            f"workflow_id must be in format 'name:vX.Y.Z' (e.g., quant-research:v3.0.0), got '{v}'"
+            f"workflow_id must be in format 'name:vX.Y.Z' (e.g., workflow-generator:v1.0.0), got '{v}'"
         )
     return v
 
@@ -205,7 +275,7 @@ def validate_semantic_version(v: str) -> str:
     """Validate semantic versioning X.Y.Z"""
     if not re.match(r"^\d+\.\d+\.\d+$", v):
         raise ValueError(
-            f"version must be semantic versioning X.Y.Z (e.g., 3.0.0), got '{v}'"
+            f"version must be semantic versioning X.Y.Z (e.g., 1.0.0), got '{v}'"
         )
     return v
 
@@ -214,30 +284,30 @@ class WorkflowCreate(BaseModel):
     """Request model for creating a new workflow"""
 
     tenant_id: str = Field(
-        ...,
-        description="Tenant identifier (e.g., hedge_fund_research_desk)",
-        json_schema_extra={"example": "hedge_fund_research_desk"},
+        default="default",
+        description="Tenant identifier (e.g., default)",
+        json_schema_extra={"example": "default"},
         min_length=1,
         max_length=128,
     )
     workflow_id: str = Field(
         ...,
-        description="Workflow identifier in format 'name:vX.Y.Z' (e.g., quant-research:v3.0.0)",
-        json_schema_extra={"example": "quant-research:v3.0.0"},
+        description="Workflow identifier in format 'name:vX.Y.Z' (e.g., workflow-generator:v1.0.0)",
+        json_schema_extra={"example": "workflow-generator:v1.0.0"},
         min_length=1,
         max_length=128,
     )
     name: str = Field(
         ...,
         description="Human-readable workflow name",
-        json_schema_extra={"example": "Quantitative Research Pipeline"},
+        json_schema_extra={"example": "Workflow Generator"},
         min_length=1,
         max_length=256,
     )
     version: str = Field(
         ...,
         description="Semantic versioning X.Y.Z (must match version in workflow_id)",
-        json_schema_extra={"example": "3.0.0"},
+        json_schema_extra={"example": "1.0.0"},
     )
     description: Optional[str] = Field(
         None,
@@ -323,23 +393,23 @@ class WorkflowResponse(BaseModel):
 
     workflow_id: str = Field(
         ...,
-        description="Workflow identifier (e.g., quant-research:v3.0.0)",
-        json_schema_extra={"example": "quant-research:v3.0.0"},
+        description="Workflow identifier (e.g., workflow-generator:v1.0.0)",
+        json_schema_extra={"example": "workflow-generator:v1.0.0"},
     )
     tenant_id: str = Field(
         ...,
         description="Tenant identifier",
-        json_schema_extra={"example": "hedge_fund_research_desk"},
+        json_schema_extra={"example": "default"},
     )
     name: str = Field(
         ...,
         description="Human-readable workflow name",
-        json_schema_extra={"example": "Quantitative Research Pipeline"},
+        json_schema_extra={"example": "Workflow Generator"},
     )
     version: str = Field(
         ...,
         description="Semantic version",
-        json_schema_extra={"example": "3.0.0"},
+        json_schema_extra={"example": "1.0.0"},
     )
     description: Optional[str] = Field(
         None,
@@ -412,7 +482,7 @@ class WorkflowListResponse(BaseModel):
     tenant_id: str = Field(
         ...,
         description="Tenant identifier",
-        json_schema_extra={"example": "hedge_fund_research_desk"},
+        json_schema_extra={"example": "default"},
     )
     workflows: List[WorkflowSummary] = Field(
         default_factory=list,

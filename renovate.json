@@ -21,14 +21,14 @@
   "packageRules": [
     {
       "matchManagers": ["gomod"],
-      "matchPaths": ["go.work", "apps/wealth-management-engine/**"],
+      "matchPaths": ["go.work", "apps/**/**"],
       "groupName": "go backend dependencies",
       "groupSlug": "go-backend",
       "postUpdateOptions": ["gomodTidy"]
     },
     {
       "matchManagers": ["pip_requirements"],
-      "matchPaths": ["apps/vnstock-server/**"],
+      "matchPaths": ["apps/**/**"],
       "groupName": "python backend dependencies",
       "groupSlug": "python-backend"
     },

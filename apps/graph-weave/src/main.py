@@ -335,6 +335,7 @@ async def get_execution_status(run_id: str):
         "tenant_id": result.get("tenant_id"),
         "events": result.get("events", []),
         "final_state": result.get("final_state"),
+        "workflow_state": result.get("workflow_state"),
         "hop_count": result.get("hop_count"),
     }
 
