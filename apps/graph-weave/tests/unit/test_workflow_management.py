@@ -89,10 +89,13 @@ class TestWorkflowCreateEndpoint:
         response = client.post("/workflows", json=sample_create_request)
         assert response.status_code == 422
 
-    def test_create_workflow_missing_tenant_id(self, client, sample_create_request):
-        del sample_create_request["tenant_id"]
+    def test_create_workflow_empty_tenant_id(self, client, sample_create_request):
+        """Reject workflow creation with empty tenant_id."""
+        sample_create_request["tenant_id"] = ""
         response = client.post("/workflows", json=sample_create_request)
         assert response.status_code == 422
+
+
 
     def test_create_workflow_missing_required_definition_fields(
         self, client, sample_create_request

@@ -54,11 +54,15 @@ def setup_workflow():
 class TestExecuteEndpointAuth:
     """Test authentication and authorization for execution."""
 
-    def test_execute_missing_tenant_id(self, client):
-        """Reject execution without tenant_id."""
+    def test_execute_empty_tenant_id(self, client):
+        """Reject execution with empty tenant_id."""
         response = client.post(
             "/execute",
-            json={"workflow_id": "test-workflow:v1.0.0", "input": {}},
+            json={
+                "tenant_id": "",
+                "workflow_id": "test-workflow:v1.0.0",
+                "input": {},
+            },
         )
         assert response.status_code == 422
 
