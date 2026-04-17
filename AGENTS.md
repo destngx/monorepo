@@ -71,7 +71,7 @@ monorepo/
   - `adapter/db/...` for database backends (Google Sheets is one backend)
   - `adapter/market/...` for market providers (`vnstock` is one implementation)
 - MCP server is always enabled on engine startup.
-- Go test target is executed via:
+- Go test target is executed example:
   - `bunx nx run wealth-management-engine:test`
 - Root `bun` scripts `test:go`, `test:e2e`, and `format:go` wrap the respective Nx targets so Go tooling can be invoked via `bun run ...`.
 
@@ -84,7 +84,7 @@ monorepo/
 ### Security and Env
 
 - `.env.local` is runtime input only.
-- Never print or document secrets from `.env.local`.
+- Never print or read secrets from `.env.local`.
 - Never commit credential files.
 
 ## Useful Commands
@@ -108,7 +108,7 @@ uv run pytest apps/vnstock-server
 
 ## Anti-Patterns
 
-- Do not use `npm`, `yarn`, or `pnpm` commands in this workspace.
+- Do not use `npm`, `yarn`, or `pnpm` commands in this workspace, `bun` and `bunx` are the only supported CLI tools for package management and task execution.
 - Do not bypass ports with cross-layer direct calls in Go engine.
 - Do not patch workspace linking with ad-hoc TS path hacks.
 - Do not swallow errors silently.
