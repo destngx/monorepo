@@ -25,7 +25,7 @@ type ModelMapper struct {
 func NewModelMapper() *ModelMapper {
 	m := &ModelMapper{
 		exact:         make(map[string]RouteTarget),
-		DefaultTarget: RouteTarget{Provider: domain.ProviderGitHubCopilot, Model: domain.ModelGPT41},
+		DefaultTarget: RouteTarget{Provider: domain.ProviderGitHubCopilot, Model: domain.ModelGPT5Mini},
 	}
 
 	return m

@@ -14,11 +14,12 @@ type ProviderConfig struct {
 }
 
 type Config struct {
-	GitHubToken   string
-	OpenAIKey     string
-	AnthropicKey  string
-	OllamaBaseURL string
-	ListenAddr    string
+	GitHubToken       string
+	GitHubAccountType string
+	OpenAIKey         string
+	AnthropicKey      string
+	OllamaBaseURL     string
+	ListenAddr        string
 
 	GitHubRate    ProviderConfig
 	OpenAIRate    ProviderConfig
@@ -67,14 +68,15 @@ func Load() *Config {
 	enableColor := getEnv("LOG_COLOR", "true") != "false"
 
 	return &Config{
-		GitHubToken:   os.Getenv("GITHUB_TOKEN"),
-		OpenAIKey:     os.Getenv("OPENAI_API_KEY"),
-		AnthropicKey:  os.Getenv("ANTHROPIC_API_KEY"),
-		OllamaBaseURL: ollamaBase,
-		ListenAddr:    addr,
-		Verbose:       verbose,
-		LogLevel:      logLevel,
-		EnableColor:   enableColor,
+		GitHubToken:       os.Getenv("GITHUB_TOKEN"),
+		GitHubAccountType: getEnv("GITHUB_ACCOUNT_TYPE", "business"),
+		OpenAIKey:         os.Getenv("OPENAI_API_KEY"),
+		AnthropicKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		OllamaBaseURL:     ollamaBase,
+		ListenAddr:        addr,
+		Verbose:           verbose,
+		LogLevel:          logLevel,
+		EnableColor:       enableColor,
 
 		GitHubRate:    loadProviderRate("GITHUB"),
 		OpenAIRate:    loadProviderRate("OPENAI"),

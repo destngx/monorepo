@@ -10,17 +10,19 @@ const (
 // ChatRequest is the OpenAI-compatible inbound request structure.
 // Clients always send this format, regardless of provider.
 type ChatRequest struct {
-	Model         string         `json:"model"`
-	Messages      []Message      `json:"messages"`
-	Stream        bool           `json:"stream"`
-	StreamOptions *StreamOptions `json:"stream_options,omitempty"`
-	Temperature   *float64       `json:"temperature,omitempty"`
-	TopP          *float64       `json:"top_p,omitempty"`
-	MaxTokens     *int           `json:"max_tokens,omitempty"`
-	Stop          any            `json:"stop,omitempty"`
-	N             *int           `json:"n,omitempty"`
-	Tools         []Tool         `json:"tools,omitempty"`
-	ToolChoice    any            `json:"tool_choice,omitempty"`
+	Model               string         `json:"model"`
+	Messages            []Message      `json:"messages"`
+	Stream              bool           `json:"stream"`
+	StreamOptions       *StreamOptions `json:"stream_options,omitempty"`
+	Temperature         *float64       `json:"temperature,omitempty"`
+	TopP                *float64       `json:"top_p,omitempty"`
+	MaxTokens           *int           `json:"max_tokens,omitempty"`
+	Stop                any            `json:"stop,omitempty"`
+	N                   *int           `json:"n,omitempty"`
+	Tools               []Tool         `json:"tools,omitempty"`
+	ToolChoice          any            `json:"tool_choice,omitempty"`
+	ReasoningEffort     string         `json:"reasoning_effort,omitempty"`
+	MaxCompletionTokens *int           `json:"max_completion_tokens,omitempty"`
 }
 
 type StreamOptions struct {

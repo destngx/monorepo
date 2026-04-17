@@ -15,6 +15,7 @@ import (
 
 	"apps/ai-gateway/internal/domain"
 	"apps/ai-gateway/internal/providers/shared"
+
 	"golang.org/x/sync/singleflight"
 )
 
@@ -27,6 +28,7 @@ const (
 	userAgent     = "curl/8.7.1"
 
 	// Model constants
+	ModelGPT5Mini      = "gpt-5-mini"
 	ModelGPT41         = "gpt-4.1"
 	ModelGPT4o         = "gpt-4o"
 	ModelGrokCodeFast1 = "grok-code-fast-1"
@@ -50,6 +52,7 @@ const (
 	sseDone       = "[DONE]"
 
 	pathChatCompletions = "/chat/completions"
+	pathModels          = "/models"
 
 	// GitHub Copilot API limits (https://github.com/github/copilot-cli/issues/509)
 	maxToolCallsPerMessage = 128
@@ -57,6 +60,7 @@ const (
 
 type Provider struct {
 	githubToken string
+	accountType string
 	client      *http.Client
 	ready       bool
 	verbose     int
@@ -76,10 +80,12 @@ type tokenResponse struct {
 	} `json:"endpoints"`
 }
 
-func New(githubToken string, verbose int) *Provider {
+func New(githubToken, accountType string, verbose int) *Provider {
 	return &Provider{
 		githubToken: githubToken,
+		accountType: accountType,
 		client:      &http.Client{Timeout: 120 * time.Second},
+		verbose:     verbose,
 	}
 }
 
@@ -290,16 +296,47 @@ func (p *Provider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) 
 }
 
 func (p *Provider) ListModels(ctx context.Context) (*domain.ModelsResponse, error) {
-	return &domain.ModelsResponse{
-		Object: "list",
-		Data: []domain.ModelInfo{
-			{ID: ModelGPT41, Object: "model", OwnedBy: "github-copilot"},
-			{ID: ModelGPT4o, Object: "model", OwnedBy: "github-copilot"},
-			{ID: ModelGrokCodeFast1, Object: "model", OwnedBy: "github-copilot"},
-			{ID: ModelGemini3Pro, Object: "model", OwnedBy: "github-copilot"},
-			{ID: ModelClaudeHaiku45, Object: "model", OwnedBy: "github-copilot"},
-		},
-	}, nil
+	token, apiBase, err := p.getCopilotSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	url := apiBase + pathModels
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set(headerAuthorization, tokenPrefixBearer+token)
+	req.Header.Set(headerAccept, contentTypeJSON)
+	req.Header.Set(headerEditorVersion, editorVersion)
+	req.Header.Set(headerEditorPluginVer, pluginVersion)
+	req.Header.Set(headerUserAgent, userAgent)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github copilot models error %d: %s", resp.StatusCode, b)
+	}
+
+	var result domain.ModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode github copilot models: %w", err)
+	}
+
+	// Ensure OwnedBy is set for consistency if missing in response
+	for i := range result.Data {
+		if result.Data[i].OwnedBy == "" {
+			result.Data[i].OwnedBy = "github-copilot"
+		}
+	}
+
+	return &result, nil
 }
 
 func (p *Provider) IsConfigured() bool {
@@ -391,7 +428,7 @@ func (p *Provider) getCopilotSession(ctx context.Context) (string, string, error
 			return nil, fmt.Errorf("github copilot token response missing token")
 		}
 
-		apiBase := baseURL
+		apiBase := p.getCopilotBaseURL()
 		if tr.Endpoints.API != "" {
 			apiBase = tr.Endpoints.API
 		}
@@ -419,6 +456,21 @@ func (p *Provider) getCopilotSession(ctx context.Context) (string, string, error
 type sessionData struct {
 	token   string
 	baseURL string
+}
+
+func isReasoningModel(model string) bool {
+	m := strings.ToLower(model)
+	return strings.HasPrefix(m, "o1") ||
+		strings.HasPrefix(m, "o3") ||
+		strings.HasPrefix(m, "gpt-5") ||
+		strings.Contains(m, "reasoning")
+}
+
+func (p *Provider) getCopilotBaseURL() string {
+	if p.accountType == "" || p.accountType == "individual" {
+		return baseURL
+	}
+	return fmt.Sprintf("https://api.%s.githubcopilot.com", p.accountType)
 }
 
 func (p *Provider) newChatRequest(ctx context.Context, req domain.ChatRequest, stream bool) (*http.Request, error) {
@@ -463,18 +515,25 @@ func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
 	// Batch messages with oversized tool_calls arrays to comply with this constraint.
 	messages := p.batchMessagesWithOversizedToolCalls(req.Messages)
 
+	reasoningEffort := req.ReasoningEffort
+	if reasoningEffort == "" && isReasoningModel(req.Model) {
+		reasoningEffort = "high"
+	}
+
 	payload := copilotChatRequest{
-		Model:         req.Model,
-		Messages:      messages,
-		Stream:        req.Stream,
-		StreamOptions: req.StreamOptions,
-		Temperature:   req.Temperature,
-		TopP:          req.TopP,
-		MaxTokens:     req.MaxTokens,
-		Stop:          req.Stop,
-		N:             req.N,
-		Tools:         make([]copilotTool, 0, len(req.Tools)),
-		ToolChoice:    req.ToolChoice,
+		Model:               req.Model,
+		Messages:            messages,
+		Stream:              req.Stream,
+		StreamOptions:       req.StreamOptions,
+		Temperature:         req.Temperature,
+		TopP:                req.TopP,
+		MaxTokens:           req.MaxTokens,
+		Stop:                req.Stop,
+		N:                   req.N,
+		Tools:               make([]copilotTool, 0, len(req.Tools)),
+		ToolChoice:          req.ToolChoice,
+		ReasoningEffort:     reasoningEffort,
+		MaxCompletionTokens: req.MaxCompletionTokens,
 	}
 
 	for _, tool := range req.Tools {
@@ -495,25 +554,57 @@ func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
 // tool_calls into multiple messages to comply with GitHub Copilot API limits.
 // Each batch message preserves the original message metadata and role.
 func (p *Provider) batchMessagesWithOversizedToolCalls(messages []domain.Message) []domain.Message {
+	// Build a map of tool_call_id -> tool message for interleaving.
+	// This ensures that when we split an assistant message, we can immediately
+	// follow each split with its corresponding tool responses.
+	toolResponses := make(map[string]domain.Message)
+	for _, msg := range messages {
+		if msg.Role == domain.RoleTool && msg.ToolCallID != "" {
+			toolResponses[msg.ToolCallID] = msg
+		}
+	}
+
 	var result []domain.Message
+	consumedToolMessages := make(map[string]bool)
 
 	for _, msg := range messages {
-		if len(msg.ToolCalls) <= maxToolCallsPerMessage {
-			// Message is within limits; pass through unchanged.
+		// If it's a tool message that was already interleaved, skip it in its original position.
+		if msg.Role == domain.RoleTool && consumedToolMessages[msg.ToolCallID] {
+			continue
+		}
+
+		if msg.Role != domain.RoleAssistant || len(msg.ToolCalls) <= maxToolCallsPerMessage {
 			result = append(result, msg)
 			continue
 		}
 
-		// Message exceeds tool_calls limit; batch it into multiple messages.
+		// Message exceeds tool_calls limit; batch it into multiple assistant messages
+		// and interleave corresponding tool responses immediately after each batch.
 		batches := chunkToolCalls(msg.ToolCalls, maxToolCallsPerMessage)
-		p.vlogf(1, "[github-copilot] batching oversized tool_calls: original=%d calls split into %d batches", len(msg.ToolCalls), len(batches))
+		p.vlogf(1, "[github-copilot] batching oversized tool_calls and interleaving: original=%d calls split into %d batches", len(msg.ToolCalls), len(batches))
 
 		for batchIdx, batch := range batches {
 			batchMsg := msg
 			batchMsg.ToolCalls = batch
-			// Optionally annotate batch metadata for observability (not transmitted).
-			p.vlogf(2, "[github-copilot] batch %d/%d: %d tool_calls", batchIdx+1, len(batches), len(batch))
+
+			// OpenAI/Copilot protocol expects content only in the first message of a turn
+			// if tool_calls are present, or as a single combined message. When splitting,
+			// we keep the content on the first batch to avoid repeating the assistant's
+			// preamble in every split chunk.
+			if batchIdx > 0 {
+				batchMsg.Content = ""
+			}
+
 			result = append(result, batchMsg)
+
+			// Interleave corresponding tool responses for this specific batch.
+			// This maintains the required sequence: Assistant(callsX) -> Tool(resultsX)
+			for _, tc := range batch {
+				if resp, ok := toolResponses[tc.ID]; ok {
+					result = append(result, resp)
+					consumedToolMessages[tc.ID] = true
+				}
+			}
 		}
 	}
 
@@ -534,17 +625,19 @@ func chunkToolCalls(toolCalls []domain.ToolCall, maxSize int) [][]domain.ToolCal
 }
 
 type copilotChatRequest struct {
-	Model         string                `json:"model"`
-	Messages      []domain.Message      `json:"messages"`
-	Stream        bool                  `json:"stream"`
-	StreamOptions *domain.StreamOptions `json:"stream_options,omitempty"`
-	Temperature   *float64              `json:"temperature,omitempty"`
-	TopP          *float64              `json:"top_p,omitempty"`
-	MaxTokens     *int                  `json:"max_tokens,omitempty"`
-	Stop          any                   `json:"stop,omitempty"`
-	N             *int                  `json:"n,omitempty"`
-	Tools         []copilotTool         `json:"tools,omitempty"`
-	ToolChoice    any                   `json:"tool_choice,omitempty"`
+	Model               string                `json:"model"`
+	Messages            []domain.Message      `json:"messages"`
+	Stream              bool                  `json:"stream"`
+	StreamOptions       *domain.StreamOptions `json:"stream_options,omitempty"`
+	Temperature         *float64              `json:"temperature,omitempty"`
+	TopP                *float64              `json:"top_p,omitempty"`
+	MaxTokens           *int                  `json:"max_tokens,omitempty"`
+	Stop                any                   `json:"stop,omitempty"`
+	N                   *int                  `json:"n,omitempty"`
+	Tools               []copilotTool         `json:"tools,omitempty"`
+	ToolChoice          any                   `json:"tool_choice,omitempty"`
+	ReasoningEffort     string                `json:"reasoning_effort,omitempty"`
+	MaxCompletionTokens *int                  `json:"max_completion_tokens,omitempty"`
 }
 
 type copilotTool struct {
