@@ -88,10 +88,41 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, targetModel))
 	r = SetLogModel(r, anthroReq.Model)
 
+	if hasUnsupported, _ := detectUnsupportedNativeTools(anthroReq, provider.Name()); hasUnsupported {
+		if anthroReq.Stream {
+			w.Header().Set(headerContentType, contentTypeEventStream)
+			w.Header().Set(headerCacheControl, valueNoCache)
+			w.Header().Set(headerConnection, valueKeepAlive)
+			w.Header().Set(headerXAccelBuffering, valueNo)
+			w.WriteHeader(http.StatusOK)
+
+			errorResponse := map[string]any{
+				"type": "error",
+				"error": map[string]any{
+					"type":    "unsupported_native_tool",
+					"message": "Gateway blocked Anthropic-native tool execution for a non-Anthropic target model. Please use a provider MCP tool such as Tavily or Exa or Brave or Perplexity for web search instead.",
+				},
+			}
+			sendAnthroEvent(w, eventError, errorResponse)
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		} else {
+			w.Header().Set(headerContentType, contentTypeJSON)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]any{
+				"type": "error",
+				"error": map[string]any{
+					"type":    "unsupported_native_tool",
+					"message": "Gateway blocked Anthropic-native tool execution for a non-Anthropic target model. Please use a provider MCP tool such as Tavily or Exa or Brave or Perplexity for web search instead.",
+				},
+			})
+		}
+		return
+	}
+
 	req := convertFromAnthropicRequest(anthroReq, provider.Name())
 	req.Model = targetModel
-
-	stripNativeTools(&req, provider.Name())
 
 	if anthroReq.Stream {
 		h.handleStream(w, r, provider, req, anthroReq.Model)
@@ -100,42 +131,48 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func stripNativeTools(req *domain.ChatRequest, providerName string) {
+func detectUnsupportedNativeTools(req anthropic.Request, providerName string) (bool, string) {
 	if providerName == domain.ProviderAnthropic {
-		return
+		return false, ""
 	}
 
-	var newTools []domain.Tool
-	var stripped []string
+	validFunctionToolNames := make(map[string]bool)
+
 	for _, t := range req.Tools {
-		// Matches any version of web_search or code_execution, as well as native anthropic ones
-		loweredType := strings.ToLower(t.Type)
-		if strings.HasPrefix(loweredType, "web_search") || strings.HasPrefix(loweredType, "code_execution") || strings.HasPrefix(loweredType, "anthropic") {
-			stripped = append(stripped, t.Type)
-		} else {
-			newTools = append(newTools, t)
+		toolType := strings.ToLower(t.Type)
+		if toolType == "" || toolType == domain.ToolTypeFunction {
+			validFunctionToolNames[t.Name] = true
+			continue
 		}
+		return true, fmt.Sprintf("non-function tool type '%s' is not supported", t.Type)
 	}
 
-	if len(stripped) > 0 {
-		req.Tools = newTools
-		hint := "Note: Native web search and code execution tools are not available through this proxy. If the user needs live/current information, suggest using a web search MCP tool or ask the user to provide the details manually. Do NOT attempt to call web_search or code_execution functions."
-
-		foundSystem := false
-		for i, m := range req.Messages {
-			if m.Role == domain.RoleSystem {
-				req.Messages[i].Content += "\n\n" + hint
-				foundSystem = true
-				break
+	if req.ToolChoice != nil {
+		if m, ok := req.ToolChoice.(map[string]any); ok {
+			if t, ok := m["type"].(string); ok && t == "tool" {
+				if name, ok := m["name"].(string); ok {
+					if !validFunctionToolNames[name] {
+						return true, fmt.Sprintf("tool_choice targets unmapped or native tool '%s'", name)
+					}
+				}
 			}
 		}
-
-		if !foundSystem {
-			req.Messages = append([]domain.Message{{Role: domain.RoleSystem, Content: hint}}, req.Messages...)
-		}
-
-		slog.Info("Stripped native tools", "tools", stripped)
 	}
+
+	for _, msg := range req.Messages {
+		if blocks, ok := msg.Content.([]any); ok {
+			for _, block := range blocks {
+				if b, ok := block.(map[string]any); ok {
+					bType, _ := b["type"].(string)
+					if bType != "text" && bType != "tool_use" && bType != "tool_result" {
+						return true, fmt.Sprintf("native message content block type '%s' is not supported", bType)
+					}
+				}
+			}
+		}
+	}
+
+	return false, ""
 }
 
 func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string, wasStream bool) {
@@ -305,18 +342,6 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 							}
 							msg.Content += text
 						}
-					case "server_tool_use":
-						if name, ok := b["name"].(string); ok {
-							if msg.Content != "" {
-								msg.Content += "\n"
-							}
-							msg.Content += fmt.Sprintf("[Used native tool: %s]", name)
-						}
-					case "web_search_tool_result":
-						if msg.Content != "" {
-							msg.Content += "\n"
-						}
-						msg.Content += "[Received native tool result]"
 					case "tool_use":
 						id, _ := b["id"].(string)
 						name, _ := b["name"].(string)

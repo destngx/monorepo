@@ -104,6 +104,12 @@ func (r *Registry) register(p shared.Provider) {
 	slog.Info("Provider ready", "provider", p.Name())
 }
 
+// RegisterForTest allows injecting mock providers during unit tests.
+func (r *Registry) RegisterForTest(p shared.Provider) {
+	r.providers[p.Name()] = p
+	p.SetReady(true)
+}
+
 // Get returns the provider for the given name.
 func (r *Registry) Get(name string) (shared.Provider, error) {
 	p, ok := r.providers[name]
