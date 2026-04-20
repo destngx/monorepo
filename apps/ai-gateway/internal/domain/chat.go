@@ -36,11 +36,10 @@ type StreamOptions struct {
 }
 
 type Message struct {
-	Role          string     `json:"role"` // "system" | "user" | "assistant" | "tool"
-	Content       string     `json:"content"`
-	ToolCalls     []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID    string     `json:"tool_call_id,omitempty"`
-	CustomContent []any      `json:"custom_content,omitempty"`
+	Role       string     `json:"role"` // "system" | "user" | "assistant" | "tool"
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
 }
 
 type Tool struct {

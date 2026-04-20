@@ -33,7 +33,7 @@ type Content struct {
 	Name    string `json:"name,omitempty"`        // for tool_use/server_tool_use
 	Input   any    `json:"input,omitempty"`       // for tool_use/server_tool_use
 	ToolID  string `json:"tool_use_id,omitempty"` // for tool_result/web_search_tool_result
-	Content any    `json:"content,omitempty"`     // for tool_result (string or []any)
+	Content string `json:"content,omitempty"`     // for tool_result
 	IsError bool   `json:"is_error,omitempty"`    // for tool_result
 }
 

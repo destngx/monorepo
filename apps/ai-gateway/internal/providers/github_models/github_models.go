@@ -51,9 +51,7 @@ func (p *Provider) headers() map[string]string {
 }
 
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
-	// Auto-crop to avoid 413 errors (8k token limit)
 	req = shared.CropRequest(req, 5000)
-	req = shared.NormalizeTools(req)
 
 	body, _ := json.Marshal(req)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
@@ -84,9 +82,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 }
 
 func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
-	// Auto-crop to avoid 413 errors (8k token limit)
 	req = shared.CropRequest(req, 8000)
-	req = shared.NormalizeTools(req)
 
 	req.Stream = true
 	req.StreamOptions = &domain.StreamOptions{IncludeUsage: true}

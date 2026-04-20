@@ -74,10 +74,8 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 
 	if h.registry.Config.Verbose >= 1 {
-		slog.Debug("Received OpenAI Request", "rid", rid, "body", req)
-	}
-	if h.registry.Config.Verbose >= 2 {
-		slog.Debug("Finished decoding request", "rid", rid)
+		body, _ := json.MarshalIndent(req, "", "  ")
+		slog.Info("FULL OPENAI REQUEST", "rid", rid, "body", string(body))
 	}
 
 	provider, targetModel, err := h.registry.ResolveRoute(r, req.Model)
@@ -124,7 +122,8 @@ func (h *OpenAIHandler) handleSync(w http.ResponseWriter, r *http.Request, p sha
 	setMetrics(r, p.Name(), req.Model, inputModel, resp.Usage, req.Stream, nil)
 
 	if h.registry.Config.Verbose >= 1 {
-		slog.Debug("Provider Response", "rid", rid, "response", resp)
+		body, _ := json.MarshalIndent(resp, "", "  ")
+		slog.Info("FULL OPENAI RESPONSE", "rid", rid, "body", string(body))
 	}
 
 	w.Header().Set(headerContentType, contentTypeJSON)

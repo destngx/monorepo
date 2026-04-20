@@ -30,7 +30,6 @@ func (p *Provider) Name() string { return domain.ProviderOllama }
 
 // Ollama v0.x supports the OpenAI-compatible endpoint at /v1/chat/completions
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
-	req = shared.NormalizeTools(req)
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		p.baseURL+"/v1/chat/completions", bytes.NewReader(body))
@@ -56,7 +55,6 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 
 func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
 	req.Stream = true
-	req = shared.NormalizeTools(req)
 	body, _ := json.Marshal(req)
 	httpReq, _ := http.NewRequestWithContext(ctx, http.MethodPost,
 		p.baseURL+"/v1/chat/completions", bytes.NewReader(body))

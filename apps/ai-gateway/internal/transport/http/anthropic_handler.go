@@ -71,10 +71,8 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 
 	if h.registry.Config.Verbose >= 1 {
-		slog.Debug("Received Anthropic Request", "rid", rid, "body", anthroReq)
-	}
-	if h.registry.Config.Verbose >= 2 {
-		slog.Debug("Finished decoding Anthropic request", "rid", rid)
+		body, _ := json.MarshalIndent(anthroReq, "", "  ")
+		slog.Info("FULL ANTHROPIC REQUEST", "rid", rid, "body", string(body))
 	}
 
 	provider, targetModel, err := h.registry.ResolveRoute(r, anthroReq.Model)
@@ -93,22 +91,50 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	req := convertFromAnthropicRequest(anthroReq, provider.Name())
 	req.Model = targetModel
 
-	// Check if native tools are present to decide on streaming
-	hasNativeTools := false
+	stripNativeTools(&req, provider.Name())
+
+	if anthroReq.Stream {
+		h.handleStream(w, r, provider, req, anthroReq.Model)
+	} else {
+		h.handleSync(w, r, provider, req, anthroReq.Model, anthroReq.Stream)
+	}
+}
+
+func stripNativeTools(req *domain.ChatRequest, providerName string) {
+	if providerName == domain.ProviderAnthropic {
+		return
+	}
+
+	var newTools []domain.Tool
+	var stripped []string
 	for _, t := range req.Tools {
-		if t.Type != domain.ToolTypeFunction && t.Type != "" {
-			hasNativeTools = true
-			break
+		// Matches any version of web_search or code_execution, as well as native anthropic ones
+		loweredType := strings.ToLower(t.Type)
+		if strings.HasPrefix(loweredType, "web_search") || strings.HasPrefix(loweredType, "code_execution") || strings.HasPrefix(loweredType, "anthropic") {
+			stripped = append(stripped, t.Type)
+		} else {
+			newTools = append(newTools, t)
 		}
 	}
 
-	if anthroReq.Stream && !hasNativeTools {
-		h.handleStream(w, r, provider, req, anthroReq.Model)
-	} else {
-		// If streaming was requested but native tools are present,
-		// we force sync mode to allow the interceptor to perform its loop.
-		// However, we must still return a stream to the client if they asked for it.
-		h.handleSync(w, r, provider, req, anthroReq.Model, anthroReq.Stream)
+	if len(stripped) > 0 {
+		req.Tools = newTools
+		hint := "Note: Native web search and code execution tools are not available through this proxy. If the user needs live/current information, suggest using a web search MCP tool or ask the user to provide the details manually. Do NOT attempt to call web_search or code_execution functions."
+
+		foundSystem := false
+		for i, m := range req.Messages {
+			if m.Role == domain.RoleSystem {
+				req.Messages[i].Content += "\n\n" + hint
+				foundSystem = true
+				break
+			}
+		}
+
+		if !foundSystem {
+			req.Messages = append([]domain.Message{{Role: domain.RoleSystem, Content: hint}}, req.Messages...)
+		}
+
+		slog.Info("Stripped native tools", "tools", stripped)
 	}
 }
 
@@ -130,21 +156,13 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 
 	setMetrics(r, p.Name(), req.Model, inputModel, resp.Usage, req.Stream, nil)
 
-	// Intercept built-in tools (web_search, code_execution) and mock response if needed
-	if intercepted, newResp, err := h.interceptNativeTools(r, resp); intercepted {
-		if err != nil {
-			WriteError(w, r, http.StatusBadGateway, "Interception loop failed: "+err.Error())
-			return
-		}
-		resp = newResp
-	}
-
 	if wasStream {
 		h.writeAnthroStreamResponse(w, resp)
 	} else {
 		anthroResp := convertToAnthropicResponse(resp)
 		if h.registry.Config.Verbose >= 1 {
-			slog.Debug("Provider Response (Anthropic format)", "rid", rid, "response", anthroResp)
+			body, _ := json.MarshalIndent(anthroResp, "", "  ")
+			slog.Info("FULL ANTHROPIC RESPONSE", "rid", rid, "body", string(body))
 		}
 		w.Header().Set(headerContentType, contentTypeJSON)
 		json.NewEncoder(w).Encode(anthroResp)
@@ -287,6 +305,18 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 							}
 							msg.Content += text
 						}
+					case "server_tool_use":
+						if name, ok := b["name"].(string); ok {
+							if msg.Content != "" {
+								msg.Content += "\n"
+							}
+							msg.Content += fmt.Sprintf("[Used native tool: %s]", name)
+						}
+					case "web_search_tool_result":
+						if msg.Content != "" {
+							msg.Content += "\n"
+						}
+						msg.Content += "[Received native tool result]"
 					case "tool_use":
 						id, _ := b["id"].(string)
 						name, _ := b["name"].(string)
@@ -350,10 +380,7 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 		}
 
 		if toolType != domain.ToolTypeFunction {
-			req.Tools = append(req.Tools, domain.Tool{
-				Type: toolType,
-			})
-			continue
+			continue // Skip native tools, they will be stripped or handled by the proxy
 		}
 
 		params := t.InputSchema
@@ -393,16 +420,6 @@ func convertToAnthropicResponse(resp *domain.ChatResponse) anthropic.Response {
 
 	if len(resp.Choices) > 0 {
 		msg := resp.Choices[0].Message
-
-		// 1. Handle custom content blocks (e.g. server_tool_use, web_search_tool_result)
-		for _, custom := range msg.CustomContent {
-			var anthroContent anthropic.Content
-			if b, err := json.Marshal(custom); err == nil {
-				if err := json.Unmarshal(b, &anthroContent); err == nil {
-					ar.Content = append(ar.Content, anthroContent)
-				}
-			}
-		}
 
 		// 2. Handle standard text content
 		if msg.Content != "" {
@@ -601,92 +618,6 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	return emitted, scanner.Err()
 }
 
-func (h *AnthropicHandler) interceptNativeTools(r *http.Request, resp *domain.ChatResponse) (bool, *domain.ChatResponse, error) {
-	if len(resp.Choices) == 0 {
-		return false, resp, nil
-	}
-
-	msg := resp.Choices[0].Message
-	hasNativeTool := false
-	for _, tc := range msg.ToolCalls {
-		// Detect native tools by type or name prefix
-		loweredName := strings.ToLower(tc.Function.Name)
-		loweredType := strings.ToLower(tc.Type)
-		if strings.HasPrefix(loweredType, "web_search") || strings.HasPrefix(loweredType, "code_execution") ||
-			strings.HasPrefix(loweredName, "web_search") || strings.HasPrefix(loweredName, "code_execution") ||
-			strings.HasPrefix(loweredName, "anthropic_") {
-			hasNativeTool = true
-			break
-		}
-	}
-
-	if !hasNativeTool {
-		return false, resp, nil
-	}
-
-	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
-	slog.Info("Intercepting native tool call with hardcoded message", "rid", rid)
-
-	mockResp := *resp
-
-	// Create native content blocks that emulate a search happening and providing advice.
-	// Anthropic's native search tool blocks must be in the same choice content array.
-	var customBlocks []any
-	for _, tc := range msg.ToolCalls {
-		loweredName := strings.ToLower(tc.Function.Name)
-		loweredType := strings.ToLower(tc.Type)
-		isSearch := strings.HasPrefix(loweredType, "web_search") || strings.HasPrefix(loweredName, "web_search")
-		isCode := strings.HasPrefix(loweredType, "code_execution") || strings.HasPrefix(loweredName, "code_execution")
-
-		if isSearch {
-			// Emulate search invocation and empty result
-			var input any
-			json.Unmarshal([]byte(tc.Function.Arguments), &input)
-
-			customBlocks = append(customBlocks, map[string]any{
-				"type":  "server_tool_use",
-				"id":    tc.ID,
-				"name":  "web_search",
-				"input": input,
-			})
-			customBlocks = append(customBlocks, map[string]any{
-				"type":        "web_search_tool_result",
-				"tool_use_id": tc.ID,
-				"content": []any{
-					map[string]any{
-						"type": "text",
-						"text": "ERROR: Native web search is disabled. try to use web search mcp or ask user manually provide details",
-					},
-				},
-				"is_error": true,
-			})
-		} else if isCode {
-			// Similar for code execution if needed in the future
-			customBlocks = append(customBlocks, map[string]any{
-				"type":  "server_tool_use",
-				"id":    tc.ID,
-				"name":  "code_execution",
-				"input": map[string]any{"code": tc.Function.Arguments},
-			})
-		}
-	}
-
-	mockResp.Choices = []domain.Choice{
-		{
-			Index: 0,
-			Message: domain.Message{
-				Role:    domain.RoleAssistant,
-				Content: "try to use web search mcp or ask user manually provide details",
-				// CustomContent allows passing these blocks directly to the conversion layer
-				CustomContent: customBlocks,
-			},
-			FinishReason: "stop",
-		},
-	}
-
-	return true, &mockResp, nil
-}
-
 func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp *domain.ChatResponse) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -714,16 +645,6 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 	if len(resp.Choices) > 0 {
 		msg := resp.Choices[0].Message
 		blockIdx := 0
-
-		// 1. Handle custom content blocks (server-side tools etc)
-		for _, custom := range msg.CustomContent {
-			sendAnthroEvent(w, eventContentBlockStart, map[string]any{
-				"index":         blockIdx,
-				"content_block": custom,
-			})
-			sendAnthroEvent(w, eventContentBlockStop, map[string]any{"index": blockIdx})
-			blockIdx++
-		}
 
 		// 2. content_block_start + delta + stop (for text)
 		if msg.Content != "" {

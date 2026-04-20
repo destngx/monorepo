@@ -4,7 +4,6 @@ import (
 	"apps/ai-gateway/internal/domain"
 	"log"
 	"reflect"
-	"strings"
 )
 
 // CropRequest ensures that a ChatRequest stays within token limits by pruning older messages.
@@ -146,46 +145,4 @@ func CleanJSONSchema(schema any) any {
 	default:
 		return schema
 	}
-}
-
-// NormalizeTools ensures that all tools in the request are compatible with standard
-// OpenAI-style providers by converting native tools to dummy functions.
-func NormalizeTools(req domain.ChatRequest) domain.ChatRequest {
-	for i, t := range req.Tools {
-		if t.Type != domain.ToolTypeFunction && t.Type != "" {
-			name := t.Type
-			desc := "Built-in capability (monitored by gateway)"
-
-			// Use standard names and descriptions for known native tools
-			if strings.HasPrefix(t.Type, "web_search") {
-				name = "web_search"
-				desc = "Search the web for real-time information"
-			} else if strings.HasPrefix(t.Type, "code_execution") {
-				name = "code_execution"
-				desc = "Execute code in a sandboxed environment"
-			}
-
-			req.Tools[i].Type = domain.ToolTypeFunction
-			req.Tools[i].Function = &domain.FunctionDefinition{
-				Name:        name,
-				Description: desc,
-				Parameters: map[string]any{
-					"type":       "object",
-					"properties": map[string]any{},
-				},
-			}
-
-			// Add parameters for known native tools to guide the model
-			if name == "web_search" {
-				req.Tools[i].Function.Parameters = map[string]any{
-					"type": "object",
-					"properties": map[string]any{
-						"query": map[string]any{"type": "string", "description": "The search query"},
-					},
-					"required": []string{"query"},
-				}
-			}
-		}
-	}
-	return req
 }
