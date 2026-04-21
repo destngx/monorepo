@@ -219,7 +219,7 @@ def ensure_clean_workflow(client, tenant_id, workflow_id, debug=True):
             f"/workflows/{workflow_id}", params={"tenant_id": tenant_id}
         )
 
-        if delete_response.status_code == 200:
+        if delete_response.status_code in [200, 204]:
             if debug:
                 debug_log("CLEANUP", f"✓ Deleted existing workflow: {workflow_id}")
             print(f"  ✓ Deleted existing workflow: {workflow_id}")

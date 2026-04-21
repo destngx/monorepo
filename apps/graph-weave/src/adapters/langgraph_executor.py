@@ -237,7 +237,8 @@ class MockLangGraphExecutor:
         system_prompt = config.get("system_prompt", "")
         user_prompt_template = config.get("user_prompt_template", "")
 
-        user_prompt = self._interpolate_prompt(user_prompt_template, state)
+        # Resolve prompts using the FULL state + the local mapped context
+        user_prompt = self._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
 
         provider = config.get("provider", "github-copilot")
         model = config.get("model")
@@ -312,6 +313,11 @@ class MockLangGraphExecutor:
             "tokens_used": ai_response.get("tokens_used", 0),
             "tool_calls": tool_calls,
         }
+
+        # GW-FEAT-GEN-004: Ensure result is also packed into output_key for state propagation
+        output_key = config.get("output_key")
+        if output_key:
+            result[output_key] = result_data
 
         state["last_result"] = result_data
 
@@ -414,26 +420,119 @@ class MockLangGraphExecutor:
             return False
 
     def _get_state_value(self, path: str, state: Mapping[str, Any]) -> Any:
+        """
+        Extract a value from the state based on a JSONPath-like string.
+        Logic order:
+        1. Node results (if path starts with a node_id, e.g., 'entry.intent')
+        2. workflow_state (the application data pool)
+        3. Root state (metadata like 'step', 'hop_count')
+        """
+        if not path:
+            return None
         if path.startswith("$."):
             path = path[2:]
 
         keys = path.split(".")
-        current = state
+        first_key = keys[0]
 
+        # 1. Try finding in node_results first (e.g. $.entry.query)
+        node_results = state.get("node_results", {})
+        if first_key in node_results:
+            current = node_results[first_key]
+            if len(keys) == 1:
+                return current
+            
+            found = True
+            for key in keys[1:]:
+                if isinstance(current, dict) and key in current:
+                    current = current.get(key)
+                else:
+                    found = False
+                    break
+            if found:
+                return current
+
+        # 2. Try finding in workflow_state next (flat pool)
+        workflow_state = state.get("workflow_state", {})
+        if first_key in workflow_state:
+            current = workflow_state
+            found = True
+            for key in keys:
+                if isinstance(current, dict) and key in current:
+                    current = current.get(key)
+                else:
+                    found = False
+                    break
+            if found:
+                return current
+
+        # 3. Fallback: Root state
+        current = state
         for key in keys:
-            if isinstance(current, dict):
+            if isinstance(current, dict) and key in current:
                 current = current.get(key)
             else:
                 return None
 
         return current
 
-    def _interpolate_prompt(self, template: str, state: Mapping[str, Any]) -> str:
+    def _interpolate_prompt(
+        self,
+        template: str,
+        state: Mapping[str, Any],
+        local_context: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Interpolate variables into the prompt template.
+        Supports:
+        1. Local context (from input_mapping) - HIGHEST PRIORITY
+        2. Root-level state keys like {step}, {hop_count}
+        3. workflow_state keys like {query}, {subquestions}
+        4. JSONPath-like keys starting with $.
+        
+        Includes 'Smart Content Extraction': if a value is a dict with 'raw_response' or 'result',
+        it uses the content of that key instead of the full JSON object.
+        """
+        import re
         result = template
-        for key, value in state.items():
-            placeholder = f"{{{key}}}"
-            if placeholder in result:
-                result = result.replace(placeholder, str(value))
+        
+        # Support both {var} and {{var}}
+        # This regex matches the content inside any number of curly braces
+        placeholders = re.findall(r"\{+([^{}]+)\}+", template)
+        
+        # Merge context: local_context > workflow_state > root state
+        context = dict(state.get("workflow_state", {}))
+        context.update({k: v for k, v in state.items() if k != "workflow_state"})
+        if local_context:
+            context.update(local_context)
+        
+        for p in placeholders:
+            val = None
+            if p.startswith("$."):
+                val = self._get_state_value(p, state)
+            else:
+                # Try direct lookup in merged context
+                val = context.get(p)
+            
+            if val is not None:
+                # GW-FEAT-GEN-005: Smart Content Extraction
+                # If we have a dict that looks like an agent result, extract the content
+                if isinstance(val, dict):
+                    if "raw_response" in val:
+                        val = val["raw_response"]
+                    elif "result" in val:
+                        val = val["result"]
+                
+                # Convert complex objects to pretty JSON strings if they are still dicts/lists
+                if isinstance(val, (dict, list)):
+                    val_str = json.dumps(val, indent=2)
+                else:
+                    val_str = str(val)
+                
+                # Replace ALL variations: {{p}} and {p}
+                result = result.replace(f"{{{{{p}}}}}", val_str)
+                result = result.replace(f"{{{p}}}", val_str)
+                
         return result
 
     def _log_event(self, run_id: str, event_type: str, message: str) -> None:
@@ -612,10 +711,25 @@ class RealLangGraphExecutor:
                     state["status"] = "completed"
                     break
 
+                # GW-FEAT-GEN-002: Capture resolved input for the node
+                resolved_input = {}
+                if node_type in {"agent_node", "agent", "orchestrator"}:
+                    config = node.get("config", {})
+                    input_mapping = config.get("input_mapping", {})
+                    if input_mapping:
+                        for key, path in input_mapping.items():
+                            resolved_input[key] = self._get_state_value(path, state)
+                elif node_type == "entry":
+                    resolved_input = state.get("input", {})
+
                 self._emit_event(
                     run_id,
                     "node.started",
-                    {"node_id": current_node_id, "node_type": node_type},
+                    {
+                        "node_id": current_node_id,
+                        "node_type": node_type,
+                        "input_data": resolved_input
+                    },
                 )
 
                 try:
@@ -659,6 +773,7 @@ class RealLangGraphExecutor:
                         {
                             "node_id": current_node_id,
                             "node_type": node_type,
+                            "result": node_result,
                             "result_keys": list(node_result.keys()),
                         },
                     )
@@ -679,7 +794,7 @@ class RealLangGraphExecutor:
                         }
                     )
 
-                next_node_id = self._route_by_edge(workflow, current_node_id, state)
+                next_node_id = self._route_by_edge(run_id, workflow, current_node_id, state)
                 if next_node_id is None or next_node_id == current_node_id:
                     break
 
@@ -761,8 +876,9 @@ class RealLangGraphExecutor:
             # Fallback to entire workflow_state
             agent_input_context = dict(state["workflow_state"])
         
-        # Resolve prompts using the FULL state (allowing {step}, {current_node}, or {$.plan})
-        user_prompt = self._interpolate_prompt(user_prompt_template, state)
+        # Resolve prompts using the FULL state + the local mapped context
+        # This ensures {user_query} from input_mapping is used instead of just global {query}
+        user_prompt = self._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
         
         provider = config.get("provider", "github-copilot")
         model = config.get("model", "gpt-4.1")
@@ -826,7 +942,7 @@ class RealLangGraphExecutor:
                 tool_calls = message.get("tool_calls")
 
                 if not tool_calls:
-                    final_content = message.get("content", "")
+                    final_content = self._clean_filler(message.get("content", ""))
                     break
                 
                 # Track tool calls for the final result
@@ -889,7 +1005,7 @@ class RealLangGraphExecutor:
             output_key = config.get("output_key")
             actual_result = {output_key: result_data} if output_key else result_data
 
-            return {
+            node_result_payload = {
                 "node_id": node_id,
                 "status": "completed",
                 "result": result_data,
@@ -898,8 +1014,12 @@ class RealLangGraphExecutor:
                 f"{node_id}_status": "completed",
                 "tokens_used": total_tokens,
                 "turns": turns,
-                **actual_result,
             }
+            
+            if isinstance(actual_result, dict):
+                node_result_payload.update(actual_result)
+                
+            return node_result_payload
 
         except ProviderConfigError as e:
             raise ValueError(f"Provider configuration error: {e}")
@@ -972,6 +1092,7 @@ class RealLangGraphExecutor:
 
     def _route_by_edge(
         self,
+        run_id: str,
         workflow: Dict[str, Any],
         current_node_id: str,
         state: Dict[str, Any],
@@ -982,12 +1103,31 @@ class RealLangGraphExecutor:
         if not matching_edges:
             return self._find_exit_node(workflow)
 
+        target_node_id = None
+        routing_edge = None
         for edge in matching_edges:
             condition = edge.get("condition")
             if not condition or self._evaluate_condition(condition, state):
-                return edge.get("to")
+                target_node_id = edge.get("to")
+                routing_edge = edge
+                break
 
-        return matching_edges[0].get("to") if matching_edges else None
+        if not target_node_id and matching_edges:
+            target_node_id = matching_edges[0].get("to")
+            routing_edge = matching_edges[0]
+
+        if target_node_id:
+            self._emit_event(
+                run_id,
+                "edge_route",
+                {
+                    "from": current_node_id,
+                    "to": target_node_id,
+                    "condition": routing_edge.get("condition") if routing_edge else None,
+                },
+            )
+
+        return target_node_id
 
     def _find_entry_node(self, workflow: Dict[str, Any]) -> Optional[str]:
         for node in workflow.get("nodes", []):
@@ -1048,53 +1188,123 @@ class RealLangGraphExecutor:
             return False
 
     def _get_state_value(self, path: str, state: Dict[str, Any]) -> Any:
+        """
+        Extract a value from the state based on a JSONPath-like string.
+        Logic order:
+        1. Node results (if path starts with a node_id, e.g., 'entry.intent')
+        2. workflow_state (the application data pool)
+        3. Root state (metadata like 'step', 'hop_count')
+        """
+        if not path:
+            return None
         if path.startswith("$."):
             path = path[2:]
-            
+
         keys = path.split(".")
-        
-        # 1. Try finding in workflow_state first (application data pool)
-        workflow_state = state.get("workflow_state", {})
-        current = workflow_state
-        found = True
-        for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current.get(key)
-            else:
-                found = False
-                break
-        
-        if found:
-            return current
+        first_key = keys[0]
+
+        # 1. Try finding in node_results first (e.g. $.entry.query)
+        node_results = state.get("node_results", {})
+        if first_key in node_results:
+            current = node_results[first_key]
+            if len(keys) == 1:
+                return current
             
-        # 2. Fallback: Look in the main executor state (for 'step', 'current_node', etc)
+            found = True
+            for key in keys[1:]:
+                if isinstance(current, dict) and key in current:
+                    current = current.get(key)
+                else:
+                    found = False
+                    break
+            if found:
+                return current
+
+        # 2. Try finding in workflow_state next (flat pool)
+        workflow_state = state.get("workflow_state", {})
+        if first_key in workflow_state:
+            current = workflow_state
+            found = True
+            for key in keys:
+                if isinstance(current, dict) and key in current:
+                    current = current.get(key)
+                else:
+                    found = False
+                    break
+            if found:
+                return current
+
+        # 3. Fallback: Root state
         current = state
         for key in keys:
             if isinstance(current, dict) and key in current:
                 current = current.get(key)
             else:
                 return None
-        
+
         return current
 
-    def _interpolate_prompt(self, template: str, state: Dict[str, Any]) -> str:
+    def _interpolate_prompt(
+        self,
+        template: str,
+        state: Dict[str, Any],
+        local_context: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Interpolate variables into the prompt template.
+        Supports:
+        1. Local context (from input_mapping) - HIGHEST PRIORITY
+        2. Root-level state keys like {step}, {hop_count}
+        3. workflow_state keys like {query}, {subquestions}
+        4. JSONPath-like keys starting with $.
+
+        Includes 'Smart Content Extraction': if a value is a dict with 'raw_response' or 'result',
+        it uses the content of that key instead of the full JSON object.
+        """
         if not template:
             return ""
-            
+
         import re
         result = template
-        # Find all {path.to.key} or {simple_key} placeholders
-        for match in re.finditer(r"{([^}]+)}", template):
-            path = match.group(1)
-            value = self._get_state_value(path, state)
-            
-            # If value is a complex object, use JSON serialization for the prompt
-            if isinstance(value, (dict, list)):
-                val_str = json.dumps(value, indent=2)
+
+        # Support both {var} and {{var}}
+        placeholders = re.findall(r"\{+([^{}]+)\}+", template)
+
+        # Merge context: local_context > workflow_state > root state
+        context = dict(state.get("workflow_state", {}))
+        context.update({k: v for k, v in state.items() if k != "workflow_state"})
+        if local_context:
+            context.update(local_context)
+
+        for p in placeholders:
+            val = None
+            if p.startswith("$."):
+                val = self._get_state_value(p, state)
             else:
-                val_str = str(value) if value is not None else ""
-                
-            result = result.replace(f"{{{path}}}", val_str)
+                # Try direct lookup in merged context
+                val = context.get(p)
+
+            if val is not None:
+                # GW-FEAT-GEN-005: Smart Content Extraction
+                if isinstance(val, dict):
+                    if "raw_response" in val:
+                        val = val["raw_response"]
+                    elif "result" in val:
+                        val = val["result"]
+
+                # Convert complex objects to pretty JSON strings if they are still dicts/lists
+                if isinstance(val, (dict, list)):
+                    try:
+                        val_str = json.dumps(val, indent=2)
+                    except (TypeError, ValueError):
+                        val_str = str(val)
+                else:
+                    val_str = str(val)
+
+                # Replace ALL variations: {{p}} and {p}
+                result = result.replace(f"{{{{{p}}}}}", val_str)
+                result = result.replace(f"{{{p}}}", val_str)
+
         return result
 
     def _check_kill_flag(self, run_id: str, tenant_id: str) -> bool:
@@ -1124,3 +1334,40 @@ class RealLangGraphExecutor:
                 self.redis_client.rpush(event_key, json.dumps(event))
             except Exception as e:
                 self._logger.warning(f"Failed to persist event to Redis: {e}")
+    def _clean_filler(self, text: str) -> str:
+        """
+        Strip common LLM conversational filler and greetings from a response.
+        """
+        if not text:
+            return ""
+        
+        # Remove common markdown code block wrappers
+        text = text.strip()
+        if text.startswith("```"):
+            lines = text.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+
+        # Remove common greetings and conversational lead-ins
+        fillers = [
+            "Hello!", "Certainly!", "Here is the result:", "Sure,", "I am an AI",
+            "How can I assist", "I'd be happy to", "The requested output is:",
+            "Here's the JSON", "As an AI assistant", "I have generated"
+        ]
+        
+        lines = text.split("\n")
+        cleaned_lines = []
+        for line in lines:
+            trimmed = line.strip()
+            is_filler = False
+            for f in fillers:
+                if trimmed.lower().startswith(f.lower()):
+                    is_filler = True
+                    break
+            if not is_filler:
+                cleaned_lines.append(line)
+        
+        return "\n".join(cleaned_lines).strip()

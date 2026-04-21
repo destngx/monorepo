@@ -20,7 +20,7 @@ class AIGatewayClient:
             base_url: The base URL for the AI Gateway (e.g., http://localhost:8080/v1)
         """
         self.base_url = (base_url or os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")).rstrip("/")
-        self.timeout = float(os.getenv("AI_GATEWAY_TIMEOUT", "60.0"))
+        self.timeout = float(os.getenv("AI_GATEWAY_TIMEOUT", "120.0"))
 
     def chat_completion(
         self,
