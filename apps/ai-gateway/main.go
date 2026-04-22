@@ -33,6 +33,7 @@ import (
 const (
 	PathChatCompletions  = "/v1/chat/completions"
 	PathMessages         = "/v1/messages"
+	PathModels           = "/v1/models"
 	PathModelsSlash      = "/v1/models/"
 	PathEmbeddings       = "/v1/embeddings"
 	PathUsage            = "/v1/usage"
@@ -87,6 +88,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle(PathChatCompletions, openaiHandler)
 	mux.Handle(PathMessages, anthroHandler)
+	mux.Handle(PathModels, modelsHandler)
 	mux.Handle(PathModelsSlash, modelsHandler)
 	mux.Handle(PathEmbeddings, embeddingsHandler)
 	mux.Handle(PathUsage, usageHandler)

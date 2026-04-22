@@ -1,11 +1,19 @@
 package config
 
 import (
+	"encoding/json"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
+)
+
+const (
+	openAIOAuthPathEnv = "OPENAI_OAUTH_PATH"
+	codexAuthPathEnv   = "CODEX_AUTH_PATH"
 )
 
 type ProviderConfig struct {
@@ -13,10 +21,18 @@ type ProviderConfig struct {
 	Burst int
 }
 
+type OpenAIOAuth struct {
+	AccountID    string `json:"account_id"`
+	IDToken      string `json:"id_token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
 type Config struct {
 	GitHubToken       string
 	GitHubAccountType string
 	OpenAIKey         string
+	OpenAIOAuth       *OpenAIOAuth
 	AnthropicKey      string
 	OllamaBaseURL     string
 	ListenAddr        string
@@ -71,6 +87,7 @@ func Load() *Config {
 		GitHubToken:       os.Getenv("GITHUB_TOKEN"),
 		GitHubAccountType: getEnv("GITHUB_ACCOUNT_TYPE", "business"),
 		OpenAIKey:         os.Getenv("OPENAI_API_KEY"),
+		OpenAIOAuth:       ReloadOpenAIOAuth(),
 		AnthropicKey:      os.Getenv("ANTHROPIC_API_KEY"),
 		OllamaBaseURL:     ollamaBase,
 		ListenAddr:        addr,
@@ -105,6 +122,109 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+type codexAuth struct {
+	AuthMode     string      `json:"auth_mode,omitempty"`
+	OpenAIAPIKey *string     `json:"OPENAI_API_KEY"`
+	OAuthToken   string      `json:"oauth_token,omitempty"`
+	AccessToken  string      `json:"access_token,omitempty"`
+	Token        string      `json:"token,omitempty"`
+	Tokens       OpenAIOAuth `json:"tokens"`
+	LastRefresh  string      `json:"last_refresh,omitempty"`
+}
+
+func ReloadOpenAIOAuth() *OpenAIOAuth {
+	oauth, _ := ReloadOpenAIOAuthSource()
+	return oauth
+}
+
+func ReloadOpenAIOAuthSource() (*OpenAIOAuth, string) {
+	paths := []string{}
+	if override := os.Getenv(openAIOAuthPathEnv); override != "" {
+		paths = append(paths, override)
+	}
+	if override := os.Getenv(codexAuthPathEnv); override != "" {
+		paths = append(paths, override)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, ""
+	}
+
+	paths = append(paths,
+		filepath.Join(home, ".codex", "auth.json"),
+		filepath.Join(home, ".code", "auth.json"),
+	)
+
+	seen := make(map[string]struct{}, len(paths))
+	for _, authPath := range paths {
+		if _, ok := seen[authPath]; ok {
+			continue
+		}
+		seen[authPath] = struct{}{}
+
+		data, err := os.ReadFile(authPath)
+		if err != nil {
+			continue
+		}
+
+		var auth codexAuth
+		if err := json.Unmarshal(data, &auth); err != nil {
+			continue
+		}
+		if auth.Tokens.AccessToken == "" {
+			auth.Tokens.AccessToken = firstNonEmpty(auth.OAuthToken, auth.AccessToken, auth.Token)
+		}
+
+		if auth.Tokens.AccessToken != "" || auth.Tokens.RefreshToken != "" || auth.Tokens.IDToken != "" {
+			return &auth.Tokens, authPath
+		}
+	}
+	return nil, ""
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func SaveOpenAIOAuthSource(authPath string, tokens *OpenAIOAuth) error {
+	data, err := os.ReadFile(authPath)
+	if err != nil {
+		return err
+	}
+
+	var auth codexAuth
+	if err := json.Unmarshal(data, &auth); err != nil {
+		return err
+	}
+
+	if tokens.AccountID != "" {
+		auth.Tokens.AccountID = tokens.AccountID
+	}
+	if tokens.IDToken != "" {
+		auth.Tokens.IDToken = tokens.IDToken
+	}
+	if tokens.AccessToken != "" {
+		auth.Tokens.AccessToken = tokens.AccessToken
+	}
+	if tokens.RefreshToken != "" {
+		auth.Tokens.RefreshToken = tokens.RefreshToken
+	}
+	auth.LastRefresh = time.Now().UTC().Format(time.RFC3339Nano)
+
+	updated, err := json.MarshalIndent(auth, "", "  ")
+	if err != nil {
+		return err
+	}
+	updated = append(updated, '\n')
+	return os.WriteFile(authPath, updated, 0600)
 }
 
 func loadProviderRate(prefix string) ProviderConfig {

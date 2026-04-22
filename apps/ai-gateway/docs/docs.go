@@ -371,18 +371,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "description": "for tool_use",
+                    "description": "for tool_use/server_tool_use",
                     "type": "string"
                 },
                 "input": {
-                    "description": "for tool_use"
+                    "description": "for tool_use/server_tool_use"
                 },
                 "is_error": {
                     "description": "for tool_result",
                     "type": "boolean"
                 },
                 "name": {
-                    "description": "for tool_use",
+                    "description": "for tool_use/server_tool_use",
                     "type": "string"
                 },
                 "text": {
@@ -390,11 +390,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tool_use_id": {
-                    "description": "for tool_result",
+                    "description": "for tool_result/web_search_tool_result",
                     "type": "string"
                 },
                 "type": {
-                    "description": "\"text\", \"tool_use\", or \"tool_result\"",
+                    "description": "\"text\", \"tool_use\", \"server_tool_use\", \"web_search_tool_result\", etc.",
                     "type": "string"
                 }
             }
@@ -493,6 +493,9 @@ const docTemplate = `{
                 "input_schema": {},
                 "name": {
                     "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -527,6 +530,9 @@ const docTemplate = `{
         "domain.ChatRequest": {
             "type": "object",
             "properties": {
+                "max_completion_tokens": {
+                    "type": "integer"
+                },
                 "max_tokens": {
                     "type": "integer"
                 },
@@ -541,6 +547,9 @@ const docTemplate = `{
                 },
                 "n": {
                     "type": "integer"
+                },
+                "reasoning_effort": {
+                    "type": "string"
                 },
                 "stop": {},
                 "stream": {
@@ -897,7 +906,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.FunctionDefinition"
                 },
                 "type": {
-                    "description": "always \"function\"",
+                    "description": "\"function\", \"web_search\", \"code_execution\"",
                     "type": "string"
                 }
             }
@@ -912,7 +921,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
-                    "description": "always \"function\"",
+                    "description": "\"function\", \"web_search\", \"code_execution\"",
                     "type": "string"
                 }
             }

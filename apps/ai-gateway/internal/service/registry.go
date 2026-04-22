@@ -56,7 +56,7 @@ func NewRegistry(cfg *config.Config) *Registry {
 	))
 
 	r.register(shared.NewRateLimitedProvider(
-		openai.New(cfg.OpenAIKey),
+		openai.New(cfg.OpenAIKey, cfg.OpenAIOAuth),
 		cfg.OpenAIRate.RPM, cfg.OpenAIRate.Burst,
 	))
 
@@ -91,6 +91,42 @@ func (r *Registry) register(p shared.Provider) {
 		return
 	}
 
+	if refresher, ok := p.(interface{ RefreshReadyWithContext(context.Context) bool }); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if refresher.RefreshReadyWithContext(ctx) {
+			p.SetReady(true)
+			if summarizer, ok := p.(interface{ ReadySummary() string }); ok {
+				slog.Info("Provider ready", "provider", p.Name(), "auth", summarizer.ReadySummary())
+			} else {
+				slog.Info("Provider ready", "provider", p.Name())
+			}
+			return
+		}
+	} else if refresher, ok := p.(interface{ RefreshReady(context.Context) bool }); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if refresher.RefreshReady(ctx) {
+			p.SetReady(true)
+			if summarizer, ok := p.(interface{ ReadySummary() string }); ok {
+				slog.Info("Provider ready", "provider", p.Name(), "auth", summarizer.ReadySummary())
+			} else {
+				slog.Info("Provider ready", "provider", p.Name())
+			}
+			return
+		}
+	} else if refresher, ok := p.(interface{ RefreshReady() bool }); ok {
+		if refresher.RefreshReady() {
+			p.SetReady(true)
+			if summarizer, ok := p.(interface{ ReadySummary() string }); ok {
+				slog.Info("Provider ready", "provider", p.Name(), "auth", summarizer.ReadySummary())
+			} else {
+				slog.Info("Provider ready", "provider", p.Name())
+			}
+			return
+		}
+	}
+
 	// Phase 2: Ping Check
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -101,7 +137,11 @@ func (r *Registry) register(p shared.Provider) {
 	}
 
 	p.SetReady(true)
-	slog.Info("Provider ready", "provider", p.Name())
+	if summarizer, ok := p.(interface{ ReadySummary() string }); ok {
+		slog.Info("Provider ready", "provider", p.Name(), "auth", summarizer.ReadySummary())
+	} else {
+		slog.Info("Provider ready", "provider", p.Name())
+	}
 }
 
 // RegisterForTest allows injecting mock providers during unit tests.
@@ -168,6 +208,25 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 	}
 
 	if !p.IsReady() {
+		if refresher, ok := p.(interface{ RefreshReadyWithContext(context.Context) bool }); ok {
+			ctx, cancel := context.WithTimeout(httpReq.Context(), 2*time.Second)
+			defer cancel()
+			if refresher.RefreshReadyWithContext(ctx) {
+				p.SetReady(true)
+				return p, targetModel, nil
+			}
+		} else if refresher, ok := p.(interface{ RefreshReady(context.Context) bool }); ok {
+			ctx, cancel := context.WithTimeout(httpReq.Context(), 2*time.Second)
+			defer cancel()
+			if refresher.RefreshReady(ctx) {
+				p.SetReady(true)
+				return p, targetModel, nil
+			}
+		} else if refresher, ok := p.(interface{ RefreshReady() bool }); ok && refresher.RefreshReady() {
+			p.SetReady(true)
+			return p, targetModel, nil
+		}
+
 		return nil, "", fmt.Errorf(errProviderNotReady, providerName)
 	}
 

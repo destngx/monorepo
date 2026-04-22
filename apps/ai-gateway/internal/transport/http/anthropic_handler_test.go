@@ -33,7 +33,12 @@ func (m *MockTestProvider) ChatStream(ctx context.Context, req domain.ChatReques
 	return domain.Usage{}, nil
 }
 func (m *MockTestProvider) ListModels(context.Context) (*domain.ModelsResponse, error) {
-	return nil, nil
+	return &domain.ModelsResponse{
+		Object: "list",
+		Data: []domain.ModelInfo{
+			{ID: "mock-model", Object: "model", OwnedBy: m.name},
+		},
+	}, nil
 }
 func (m *MockTestProvider) Embeddings(context.Context, domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	return nil, nil

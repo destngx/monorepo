@@ -68,3 +68,17 @@ func (r *RateLimitedProvider) Usage(ctx context.Context) (any, error) {
 	// We don't rate limit usage checks for now as they are often used for monitoring.
 	return r.Provider.Usage(ctx)
 }
+
+func (r *RateLimitedProvider) RefreshReady() bool {
+	if refresher, ok := r.Provider.(interface{ RefreshReady() bool }); ok {
+		return refresher.RefreshReady()
+	}
+	return false
+}
+
+func (r *RateLimitedProvider) RefreshReadyWithContext(ctx context.Context) bool {
+	if refresher, ok := r.Provider.(interface{ RefreshReady(context.Context) bool }); ok {
+		return refresher.RefreshReady(ctx)
+	}
+	return r.RefreshReady()
+}
