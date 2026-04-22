@@ -56,7 +56,7 @@
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
     "@swc-node/register": "1.11.1",
     "@swc/cli": "0.8.1",
-    "@swc/core": "1.15.26",
+    "@swc/core": "1.15.30",
     "@swc/jest": "0.2.39",
     "@tailwindcss/vite": "^4.2.2",
     "@theunderscorer/nx-semantic-release": "^2.7.1",
