@@ -41,11 +41,57 @@ const (
 )
 
 type AnthropicHandler struct {
-	registry *service.Registry
+	registry         *service.Registry
+	routeInterceptor AnthropicRouteInterceptor
 }
 
+type AnthropicRoute struct {
+	Provider        shared.Provider
+	Model           string
+	ReasoningEffort string
+}
+
+type AnthropicRouteInterceptor func(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error)
+
 func NewAnthropicHandler(registry *service.Registry) *AnthropicHandler {
-	return &AnthropicHandler{registry: registry}
+	return &AnthropicHandler{
+		registry:         registry,
+		routeInterceptor: newAnthropicRouteInterceptor(registry),
+	}
+}
+
+func newAnthropicRouteInterceptor(registry *service.Registry) AnthropicRouteInterceptor {
+	switch strings.ToLower(strings.TrimSpace(registry.Config.AnthropicRoute)) {
+	case "openai-gpt-5.4-mini-low":
+		openAIProvider, err := registry.Get(domain.ProviderOpenAI)
+		if err != nil {
+			slog.Warn("Anthropic route unavailable; using default route", "route", registry.Config.AnthropicRoute, "error", err)
+			return DefaultAnthropicRouteInterceptor
+		}
+		return OpenAIGPT54MiniLowRouteInterceptor(openAIProvider)
+	default:
+		return DefaultAnthropicRouteInterceptor
+	}
+}
+
+func DefaultAnthropicRouteInterceptor(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error) {
+	if route.Provider.Name() == domain.ProviderGitHubCopilot && route.Model == domain.ModelGPT5Mini {
+		route.ReasoningEffort = domain.ReasoningEffortHigh
+	}
+	return route, nil
+}
+
+func OpenAIGPT54MiniLowRouteInterceptor(openAIProvider shared.Provider) AnthropicRouteInterceptor {
+	return func(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error) {
+		route.Provider = openAIProvider
+		route.Model = domain.ModelGPT54Mini
+		route.ReasoningEffort = domain.ReasoningEffortLow
+		return route, nil
+	}
+}
+
+func (h *AnthropicHandler) SetRouteInterceptor(interceptor AnthropicRouteInterceptor) {
+	h.routeInterceptor = interceptor
 }
 
 // @Summary Anthropic Messages
@@ -85,10 +131,22 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, targetModel))
+	route := AnthropicRoute{
+		Provider: provider,
+		Model:    targetModel,
+	}
+	if h.routeInterceptor != nil {
+		route, err = h.routeInterceptor(r, anthroReq, route)
+		if err != nil {
+			WriteError(w, r, http.StatusBadRequest, errMsgRoutingFailed+err.Error())
+			return
+		}
+	}
+
+	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, route.Model))
 	r = SetLogModel(r, anthroReq.Model)
 
-	if hasUnsupported, _ := detectUnsupportedNativeTools(anthroReq, provider.Name()); hasUnsupported {
+	if hasUnsupported, _ := detectUnsupportedNativeTools(anthroReq, route.Provider.Name()); hasUnsupported {
 		if anthroReq.Stream {
 			w.Header().Set(headerContentType, contentTypeEventStream)
 			w.Header().Set(headerCacheControl, valueNoCache)
@@ -121,14 +179,25 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := convertFromAnthropicRequest(anthroReq, provider.Name())
-	req.Model = targetModel
+	req := convertFromAnthropicRequest(anthroReq, route.Provider.Name())
+	req.Model = route.Model
+	req.ReasoningEffort = route.ReasoningEffort
+	normalizeRequestForRoute(&req, anthroReq, route)
 
 	if anthroReq.Stream {
-		h.handleStream(w, r, provider, req, anthroReq.Model)
+		h.handleStream(w, r, route.Provider, req, anthroReq.Model)
 	} else {
-		h.handleSync(w, r, provider, req, anthroReq.Model, anthroReq.Stream)
+		h.handleSync(w, r, route.Provider, req, anthroReq.Model, anthroReq.Stream)
 	}
+}
+
+func normalizeRequestForRoute(req *domain.ChatRequest, anthroReq anthropic.Request, route AnthropicRoute) {
+	if route.Provider.Name() != domain.ProviderOpenAI {
+		return
+	}
+
+	req.MaxTokens = nil
+	req.MaxCompletionTokens = nil
 }
 
 func detectUnsupportedNativeTools(req anthropic.Request, providerName string) (bool, string) {

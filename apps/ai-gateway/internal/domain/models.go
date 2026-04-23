@@ -3,6 +3,7 @@ package domain
 const (
 	ModelDefault          = "gpt-5-mini"
 	ModelGPT5Mini         = "gpt-5-mini"
+	ModelGPT54Mini        = "gpt-5.4-mini"
 	ModelGPT41            = "gpt-4.1"
 	ModelClaudeHaiku      = "claude-haiku-4.5"
 	ModelClaudeSonnet     = "claude-sonnet-4.6"
@@ -11,6 +12,11 @@ const (
 	ModelEmbeddingDefault = "text-embedding-3-small"
 
 	PrefixClaude = "claude-"
+)
+
+const (
+	ReasoningEffortLow  = "low"
+	ReasoningEffortHigh = "high"
 )
 
 // ModelInfo represents a single model in OpenAI-compatible list format.

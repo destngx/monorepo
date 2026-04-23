@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,10 +39,11 @@ const (
 	tokenPrefixBearer   = "Bearer "
 	authURL             = "https://auth.openai.com/oauth/token"
 
-	pathChatCompletions = "/chat/completions"
-	pathCodexResponses  = "/codex/responses"
-	pathModels          = "/models"
-	pathEmbeddings      = "/embeddings"
+	pathChatCompletions  = "/chat/completions"
+	pathCodexResponses   = "/codex/responses"
+	pathModels           = "/models"
+	pathEmbeddings       = "/embeddings"
+	pathUsageCompletions = "/organization/usage/completions"
 
 	envOpenAIOAuthClientID = "OPENAI_OAUTH_CLIENT_ID"
 	envOpenAICodexVersion  = "OPENAI_CODEX_VERSION"
@@ -791,7 +795,224 @@ func isInsufficientQuota(body []byte) bool {
 }
 
 func (p *Provider) Usage(ctx context.Context) (any, error) {
-	return nil, fmt.Errorf("usage API not supported for %s", p.Name())
+	if p.apiKey == "" {
+		return loadLatestCodexUsageSnapshot()
+	}
+
+	values := url.Values{}
+	values.Set("start_time", strconv.FormatInt(time.Now().AddDate(0, 0, -7).Unix(), 10))
+	values.Set("bucket_width", "1d")
+	values.Set("limit", "7")
+
+	resp, err := p.doOpenAIRequest(ctx, http.MethodGet, pathUsageCompletions+"?"+values.Encode(), nil, "")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("openai usage error %d: %s", resp.StatusCode, b)
+	}
+
+	var usage any
+	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
+		return nil, fmt.Errorf("failed to decode openai usage: %w", err)
+	}
+	return usage, nil
+}
+
+type codexUsageSnapshot struct {
+	Provider   string `json:"provider"`
+	AuthMode   string `json:"auth_mode"`
+	Source     string `json:"source"`
+	UpdatedAt  string `json:"updated_at"`
+	Display    any    `json:"display,omitempty"`
+	Limits     any    `json:"limits,omitempty"`
+	RateLimits any    `json:"rate_limits"`
+	TokenUsage any    `json:"token_usage,omitempty"`
+}
+
+type codexUsageDisplay struct {
+	FiveHour string `json:"5h_limit,omitempty"`
+	Weekly   string `json:"weekly_limit,omitempty"`
+}
+
+type codexLimitDisplay struct {
+	Label         string  `json:"label"`
+	WindowMinutes int     `json:"window_minutes"`
+	UsedPercent   float64 `json:"used_percent"`
+	LeftPercent   float64 `json:"left_percent"`
+	ResetsAt      int64   `json:"resets_at,omitempty"`
+	ResetText     string  `json:"reset_text,omitempty"`
+	Text          string  `json:"text"`
+}
+
+func loadLatestCodexUsageSnapshot() (codexUsageSnapshot, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return codexUsageSnapshot{}, err
+	}
+
+	sessionsRoot := filepath.Join(home, ".codex", "sessions")
+	var latest codexUsageSnapshot
+	var latestAt time.Time
+
+	err = filepath.WalkDir(sessionsRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".jsonl") {
+			return nil
+		}
+
+		snapshot, ts, err := latestCodexUsageSnapshotInFile(path)
+		if err != nil || ts.IsZero() || (!latestAt.IsZero() && !ts.After(latestAt)) {
+			return nil
+		}
+
+		latest = snapshot
+		latestAt = ts
+		return nil
+	})
+	if err != nil {
+		return codexUsageSnapshot{}, err
+	}
+	if latestAt.IsZero() {
+		return codexUsageSnapshot{}, fmt.Errorf("codex usage snapshot not found in %s", sessionsRoot)
+	}
+
+	return latest, nil
+}
+
+func latestCodexUsageSnapshotInFile(path string) (codexUsageSnapshot, time.Time, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return codexUsageSnapshot{}, time.Time{}, err
+	}
+	defer file.Close()
+
+	var latest codexUsageSnapshot
+	var latestAt time.Time
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var event struct {
+			Timestamp string `json:"timestamp"`
+			Type      string `json:"type"`
+			Payload   struct {
+				Type       string `json:"type"`
+				Info       any    `json:"info,omitempty"`
+				RateLimits any    `json:"rate_limits,omitempty"`
+			} `json:"payload"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+			continue
+		}
+		if event.Type != "event_msg" || event.Payload.Type != "token_count" || event.Payload.RateLimits == nil {
+			continue
+		}
+
+		ts, err := time.Parse(time.RFC3339Nano, event.Timestamp)
+		if err != nil || (!latestAt.IsZero() && !ts.After(latestAt)) {
+			continue
+		}
+
+		latestAt = ts
+		display, limits := formatCodexUsageLimits(event.Payload.RateLimits)
+		latest = codexUsageSnapshot{
+			Provider:   domain.ProviderOpenAI,
+			AuthMode:   "oauth",
+			Source:     "codex_session",
+			UpdatedAt:  event.Timestamp,
+			Display:    display,
+			Limits:     limits,
+			RateLimits: event.Payload.RateLimits,
+			TokenUsage: event.Payload.Info,
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return codexUsageSnapshot{}, time.Time{}, err
+	}
+	return latest, latestAt, nil
+}
+
+func formatCodexUsageLimits(rateLimits any) (codexUsageDisplay, map[string]codexLimitDisplay) {
+	limits := make(map[string]codexLimitDisplay)
+	limitMap, ok := rateLimits.(map[string]any)
+	if !ok {
+		return codexUsageDisplay{}, limits
+	}
+
+	if primary, ok := limitMap["primary"].(map[string]any); ok {
+		limits["5h"] = formatCodexLimit("5h limit", primary)
+	}
+	if secondary, ok := limitMap["secondary"].(map[string]any); ok {
+		limits["weekly"] = formatCodexLimit("Weekly limit", secondary)
+	}
+
+	display := codexUsageDisplay{}
+	if limit, ok := limits["5h"]; ok {
+		display.FiveHour = limit.Text
+	}
+	if limit, ok := limits["weekly"]; ok {
+		display.Weekly = limit.Text
+	}
+	return display, limits
+}
+
+func formatCodexLimit(label string, limit map[string]any) codexLimitDisplay {
+	usedPercent := numberFromMap(limit, "used_percent")
+	leftPercent := clampPercent(100 - usedPercent)
+	resetAt := int64(numberFromMap(limit, "resets_at"))
+	windowMinutes := int(numberFromMap(limit, "window_minutes"))
+	resetText := formatCodexResetText(resetAt, windowMinutes)
+
+	text := fmt.Sprintf("%s: %.0f%% left", label, leftPercent)
+	if resetText != "" {
+		text += " (resets " + resetText + ")"
+	}
+
+	return codexLimitDisplay{
+		Label:         label,
+		WindowMinutes: windowMinutes,
+		UsedPercent:   usedPercent,
+		LeftPercent:   leftPercent,
+		ResetsAt:      resetAt,
+		ResetText:     resetText,
+		Text:          text,
+	}
+}
+
+func numberFromMap(values map[string]any, key string) float64 {
+	switch value := values[key].(type) {
+	case float64:
+		return value
+	case int:
+		return float64(value)
+	case int64:
+		return float64(value)
+	case json.Number:
+		n, _ := value.Float64()
+		return n
+	default:
+		return 0
+	}
+}
+
+func clampPercent(value float64) float64 {
+	return math.Max(0, math.Min(100, value))
+}
+
+func formatCodexResetText(resetAt int64, windowMinutes int) string {
+	if resetAt == 0 {
+		return ""
+	}
+
+	reset := time.Unix(resetAt, 0).Local()
+	if windowMinutes >= 10080 {
+		return reset.Format("15:04 on 2 Jan")
+	}
+	return reset.Format("15:04")
 }
 
 func (p *Provider) IsReady() bool   { return p.ready }

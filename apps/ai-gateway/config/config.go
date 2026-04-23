@@ -34,6 +34,7 @@ type Config struct {
 	OpenAIKey         string
 	OpenAIOAuth       *OpenAIOAuth
 	AnthropicKey      string
+	AnthropicRoute    string
 	OllamaBaseURL     string
 	ListenAddr        string
 
@@ -89,6 +90,7 @@ func Load() *Config {
 		OpenAIKey:         os.Getenv("OPENAI_API_KEY"),
 		OpenAIOAuth:       ReloadOpenAIOAuth(),
 		AnthropicKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		AnthropicRoute:    getEnv("ANTHROPIC_ROUTE", "default"),
 		OllamaBaseURL:     ollamaBase,
 		ListenAddr:        addr,
 		Verbose:           verbose,
