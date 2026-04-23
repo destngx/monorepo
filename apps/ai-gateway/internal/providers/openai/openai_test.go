@@ -4,8 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -75,32 +73,53 @@ func TestUsageFetchesOpenAIOrganizationUsage(t *testing.T) {
 }
 
 func TestUsageReturnsCodexSnapshotForOAuth(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	sessionDir := filepath.Join(home, ".codex", "sessions", "2026", "04", "23")
-	if err := os.MkdirAll(sessionDir, 0700); err != nil {
-		t.Fatalf("mkdir session dir: %v", err)
-	}
-	sessionPath := filepath.Join(sessionDir, "rollout.jsonl")
-	content := strings.Join([]string{
-		`{"timestamp":"2026-04-23T01:00:00Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"primary":{"used_percent":10,"window_minutes":300},"secondary":{"used_percent":2,"window_minutes":10080},"plan_type":"plus"}}}`,
-		`{"timestamp":"2026-04-23T02:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"total_tokens":123}},"rate_limits":{"primary":{"used_percent":12,"window_minutes":300,"resets_at":1776932940},"secondary":{"used_percent":14,"window_minutes":10080,"resets_at":1777445040},"plan_type":"plus"}}}`,
-	}, "\n")
-	if err := os.WriteFile(sessionPath, []byte(content), 0600); err != nil {
-		t.Fatalf("write session: %v", err)
-	}
+	var captured *http.Request
+	t.Setenv("OPENAI_OAUTH_PATH", "/nonexistent/openai-auth.json")
+	t.Setenv("CODEX_AUTH_PATH", "/nonexistent/codex-auth.json")
+	t.Setenv("HOME", t.TempDir())
 
 	p := New("", &config.OpenAIOAuth{AccessToken: "oauth-token"})
+	p.client = &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			captured = r
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body: io.NopCloser(strings.NewReader(`{
+					"rate_limit": {
+						"primary_window": {"used_percent": 12, "limit_window_seconds": 18000, "reset_at": 1776932940},
+						"secondary_window": {"used_percent": 14, "limit_window_seconds": 604800, "reset_at": 1777445040}
+					},
+					"plan_type": "plus"
+				}`)),
+			}, nil
+		}),
+	}
 
 	usage, err := p.Usage(context.Background())
 	if err != nil {
 		t.Fatalf("usage error: %v", err)
 	}
+	if captured == nil {
+		t.Fatalf("expected request to be captured")
+	}
+	if captured.URL.Path != "/backend-api/wham/usage" {
+		t.Fatalf("expected path %s, got %s", "/backend-api/wham/usage", captured.URL.Path)
+	}
+	if captured.Header.Get(headerAuthorization) != tokenPrefixBearer+"oauth-token" {
+		t.Fatalf("expected oauth bearer authorization header")
+	}
+	if captured.Header.Get(headerUserAgent) != codexUserAgent {
+		t.Fatalf("expected codex user agent header")
+	}
+	if captured.Header.Get(headerOriginator) != codexOriginator {
+		t.Fatalf("expected codex originator header")
+	}
 	snapshot, ok := usage.(codexUsageSnapshot)
 	if !ok {
 		t.Fatalf("expected codex usage snapshot, got %T", usage)
 	}
-	if snapshot.Provider != "openai" || snapshot.AuthMode != "oauth" || snapshot.Source != "codex_session" {
+	if snapshot.Provider != "openai" || snapshot.AuthMode != "oauth" || snapshot.Source != "codex_endpoint" {
 		t.Fatalf("unexpected snapshot metadata: %+v", snapshot)
 	}
 	limits, ok := snapshot.RateLimits.(map[string]any)
