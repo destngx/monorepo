@@ -3,7 +3,7 @@ import httpx
 import time
 import uuid
 
-GRAPHWEAVE_HOST = "localhost:8001"
+GRAPHWEAVE_HOST = "ezmacmini:8001"
 AI_PROVIDER_HOST = "ezmacmini:8080"
 BASE_URL = f"http://{GRAPHWEAVE_HOST}"
 

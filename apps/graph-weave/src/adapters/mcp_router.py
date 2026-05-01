@@ -25,7 +25,7 @@ from .mcp import MockMCPServer
 
 
 
-VALID_TOOLS = {"load_skill", "search", "verify", "bash"}
+VALID_TOOLS = {"load_skill", "search", "verify", "bash", "fs"}
 
 
 class MCPRouterError(Exception):
@@ -84,6 +84,12 @@ class MCPRouter:
         allowed_paths = [workspace_root] + [p.strip() for p in extra_paths if p.strip()]
         
         self.bash_tool = BashTool(allowed_paths=allowed_paths)
+        
+        from .fs_tool import FileSystemTool
+        fs_allowed_paths = os.getenv("FS_TOOL_ALLOWED_PATHS", workspace_root).split(",")
+        fs_allowed_paths = [p.strip() for p in fs_allowed_paths if p.strip()]
+        fs_trash_path = os.getenv("FS_TOOL_TRASH_PATH")
+        self.fs_tool = FileSystemTool(allowed_paths=fs_allowed_paths, trash_path=fs_trash_path)
 
 
 
@@ -141,6 +147,9 @@ class MCPRouter:
                 return self.verify(arguments.get("claim", ""))
             elif name == "bash":
                 return self.bash(arguments.get("command", ""), arguments.get("cwd"))
+            elif name == "fs":
+                operation = arguments.pop("operation", "")
+                return self.fs(operation, **arguments)
 
             # Fallback to direct MCP call if not handled by specific methods
             return self.mcp_server.call_tool(name, arguments)
@@ -259,6 +268,37 @@ class MCPRouter:
             }
         except Exception as e:
             raise ToolExecutionError(f"Failed to execute bash command '{command}': {str(e)}")
+
+    def fs(self, operation: str, **kwargs) -> Dict[str, Any]:
+        """Execute a file system operation using the FileSystemTool.
+        
+        Args:
+            operation: Operation to perform (list_files, read_file, etc.)
+            **kwargs: Arguments for the specific operation.
+            
+        Returns:
+            Tool response with result or error.
+        """
+        try:
+            if not hasattr(self.fs_tool, operation):
+                return {
+                    "tool": "fs",
+                    "operation": operation,
+                    "status": "error",
+                    "error": f"Unknown FS operation: {operation}"
+                }
+                
+            method = getattr(self.fs_tool, operation)
+            result = method(**kwargs)
+            
+            return {
+                "tool": "fs",
+                "operation": operation,
+                "status": "success" if result.get("success", False) else "error",
+                **result
+            }
+        except Exception as e:
+            raise ToolExecutionError(f"Failed to execute fs operation '{operation}': {str(e)}")
 
     def parse_tool_calls(
         self, response_text: str, allowed_tools: Optional[List[str]] = None
