@@ -62,6 +62,29 @@ class MockRedisAdapter:
     def close(self) -> None:
         pass
 
+    def hset(self, key: str, field: str, value: Any) -> int:
+        if key not in self._store or not isinstance(self._store[key], dict):
+            self._store[key] = {}
+        self._store[key][field] = value
+        return 1
+
+    def hget(self, key: str, field: str) -> Optional[Any]:
+        if key in self._store and isinstance(self._store[key], dict):
+            return self._store[key].get(field)
+        return None
+
+    def hdel(self, key: str, field: str) -> int:
+        if key in self._store and isinstance(self._store[key], dict):
+            if field in self._store[key]:
+                del self._store[key][field]
+                return 1
+        return 0
+
+    def hgetall(self, key: str) -> Dict[str, Any]:
+        if key in self._store and isinstance(self._store[key], dict):
+            return dict(self._store[key])
+        return {}
+
     def _build_versioned_key(
         self, namespace: str, tenant_id: str, skill_id: str, version: str
     ) -> str:
@@ -196,3 +219,38 @@ class RedisAdapter(MockRedisAdapter):
     def close(self) -> None:
         if hasattr(self._client, "close"):
             self._client.close()
+
+    def hset(self, key: str, field: str, value: Any) -> int:
+        super().hset(key, field, value)
+        if hasattr(self._client, "hset"):
+            serialized = json.dumps(value) if not isinstance(value, (str, int, float)) or isinstance(value, bool) else value
+            return self._client.hset(key, field, serialized)
+        return 1
+
+    def hget(self, key: str, field: str) -> Optional[Any]:
+        if hasattr(self._client, "hget"):
+            value = self._client.hget(key, field)
+            if value is not None:
+                try:
+                    return json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    return value
+        return super().hget(key, field)
+
+    def hdel(self, key: str, field: str) -> int:
+        super().hdel(key, field)
+        if hasattr(self._client, "hdel"):
+            return self._client.hdel(key, field)
+        return 0
+
+    def hgetall(self, key: str) -> Dict[str, Any]:
+        if hasattr(self._client, "hgetall"):
+            items = self._client.hgetall(key)
+            result = {}
+            for k, v in items.items():
+                try:
+                    result[k] = json.loads(v)
+                except (json.JSONDecodeError, TypeError):
+                    result[k] = v
+            return result
+        return super().hgetall(key)

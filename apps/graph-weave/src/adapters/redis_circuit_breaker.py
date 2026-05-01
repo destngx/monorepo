@@ -131,6 +131,33 @@ class FallbackStorage:
         with self._lock:
             self._store.clear()
 
+    def hset(self, key: str, field: str, value: Any) -> int:
+        with self._lock:
+            if key not in self._store or not isinstance(self._store[key], dict):
+                self._store[key] = {}
+            self._store[key][field] = value
+            return 1
+
+    def hget(self, key: str, field: str) -> Optional[Any]:
+        with self._lock:
+            if key in self._store and isinstance(self._store[key], dict):
+                return self._store[key].get(field)
+            return None
+
+    def hdel(self, key: str, field: str) -> int:
+        with self._lock:
+            if key in self._store and isinstance(self._store[key], dict):
+                if field in self._store[key]:
+                    del self._store[key][field]
+                    return 1
+            return 0
+
+    def hgetall(self, key: str) -> Dict[str, Any]:
+        with self._lock:
+            if key in self._store and isinstance(self._store[key], dict):
+                return dict(self._store[key])
+            return {}
+
 
 class CircuitBreaker:
     """Circuit breaker for Redis availability."""
@@ -229,6 +256,10 @@ class NamespacedRedisClient:
     @staticmethod
     def event_key(event_id: str, tenant_id: str) -> str:
         return f"event:{tenant_id}:{event_id}"
+
+    @staticmethod
+    def schedule_key(tenant_id: str) -> str:
+        return f"schedules:{tenant_id}"
 
     def _get_ttl(self, key: str) -> Optional[int]:
         for key_type, ttl in TTL_CONFIG.items():
@@ -345,6 +376,50 @@ class NamespacedRedisClient:
             return self.fallback_storage.ttl(key)
 
         return self._execute_with_fallback("TTL", redis_ttl, fallback_ttl)
+
+    def hset(self, key: str, field: str, value: Any) -> int:
+        def redis_hset():
+            if hasattr(self.redis_client, "hset"):
+                return self.redis_client.hset(key, field, value)
+            return 0
+
+        def fallback_hset():
+            return self.fallback_storage.hset(key, field, value)
+
+        return self._execute_with_fallback("HSET", redis_hset, fallback_hset)
+
+    def hget(self, key: str, field: str) -> Optional[Any]:
+        def redis_hget():
+            if hasattr(self.redis_client, "hget"):
+                return self.redis_client.hget(key, field)
+            return None
+
+        def fallback_hget():
+            return self.fallback_storage.hget(key, field)
+
+        return self._execute_with_fallback("HGET", redis_hget, fallback_hget)
+
+    def hdel(self, key: str, field: str) -> int:
+        def redis_hdel():
+            if hasattr(self.redis_client, "hdel"):
+                return self.redis_client.hdel(key, field)
+            return 0
+
+        def fallback_hdel():
+            return self.fallback_storage.hdel(key, field)
+
+        return self._execute_with_fallback("HDEL", redis_hdel, fallback_hdel)
+
+    def hgetall(self, key: str) -> Dict[str, Any]:
+        def redis_hgetall():
+            if hasattr(self.redis_client, "hgetall"):
+                return self.redis_client.hgetall(key)
+            return {}
+
+        def fallback_hgetall():
+            return self.fallback_storage.hgetall(key)
+
+        return self._execute_with_fallback("HGETALL", redis_hgetall, fallback_hgetall)
 
     def get_health(self) -> Dict[str, Any]:
         is_closed = self.circuit_breaker.state == CircuitBreakerState.CLOSED

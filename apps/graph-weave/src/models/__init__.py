@@ -15,6 +15,13 @@ from .workflow import (
     WorkflowListResponse,
     UpdateWorkflowRequest,
 )
+from .schedule import (
+    ScheduleCreate,
+    ScheduleUpdate,
+    ScheduleResponse,
+    ScheduleSummary,
+    ScheduleListResponse,
+)
 
 __all__ = [
     "StatusEnum",
@@ -32,4 +39,9 @@ __all__ = [
     "WorkflowSummary",
     "WorkflowListResponse",
     "UpdateWorkflowRequest",
+    "ScheduleCreate",
+    "ScheduleUpdate",
+    "ScheduleResponse",
+    "ScheduleSummary",
+    "ScheduleListResponse",
 ]

@@ -7,3 +7,5 @@ httpx
 redis
 jsonpath-ng
 requests
+apscheduler
+croniter
