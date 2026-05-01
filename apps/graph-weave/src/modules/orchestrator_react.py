@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from src.app_logging import get_logger
 from src.models import OrchestratorConfig, TraceEntry
+from src.adapters.ai_provider import LLMClient
 
 logger = get_logger(__name__)
 
@@ -35,7 +36,7 @@ class OrchestratorReAct:
 
     def __init__(
         self,
-        client: Any,          # LLMClient — kept as Any to avoid circular import
+        client: LLMClient,
         mcp_router: Any,      # MCPRouter
         emit: Callable[[str, Dict[str, Any]], None],
         max_context_messages: int = 20,

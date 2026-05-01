@@ -89,31 +89,6 @@ class TestMCPRouterToolMethods:
         assert result1 == result2
 
 
-class TestProviderRouting:
-    """Test provider routing functionality."""
-
-    def test_get_provider_client_github_copilot_with_token(self):
-        router = MCPRouter()
-        client = router.get_provider_client("github-copilot")
-        assert client is not None
-
-    def test_get_provider_client_openai_with_token(self):
-        router = MCPRouter()
-        client = router.get_provider_client("openai")
-        assert client is not None
-
-    def test_get_provider_client_caches_instances(self):
-        router = MCPRouter()
-        client1 = router.get_provider_client("github-copilot", "gpt-4.1")
-        client2 = router.get_provider_client("github-copilot", "gpt-4.1")
-        assert client1 is client2
-
-    def test_get_provider_client_returns_unified_instance(self):
-        router = MCPRouter()
-        client1 = router.get_provider_client("github-copilot", "gpt-4.1")
-        client2 = router.get_provider_client("openai", "gpt-4o")
-        # Now returns the same AIGatewayClient instance
-        assert client1 is client2
 
 
 

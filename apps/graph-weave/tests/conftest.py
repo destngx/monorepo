@@ -130,11 +130,9 @@ def mock_gateway_http(monkeypatch, request):
 
 @pytest.fixture
 def mock_mcp_router():
-    """Provides a mocked MCPRouter with a MockGatewayClient."""
+    """Provides a mocked MCPRouter."""
     from src.adapters.mcp_router import MCPRouter
-    from tests.mocks.gateway_mock import MockGatewayClient
-    client = MockGatewayClient()
-    return MCPRouter(ai_gateway_client=client)
+    return MCPRouter()
 
 
 @pytest.fixture

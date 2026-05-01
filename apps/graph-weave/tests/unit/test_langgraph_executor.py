@@ -13,7 +13,7 @@ class TestMockLangGraphExecutorInstantiation:
     def test_instantiation_with_custom_provider(self, mock_mcp_router):
         provider = MockGatewayClient()
         executor = MockLangGraphExecutor(ai_provider=provider)
-        assert executor.ai_provider is provider
+        assert executor.ai_provider_factory.ai_gateway_client is provider
 
 
 class TestMockLangGraphExecutorNodeFinding:

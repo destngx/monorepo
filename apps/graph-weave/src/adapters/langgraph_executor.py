@@ -21,8 +21,8 @@ from src.app_logging import get_logger
 from src.models import OrchestratorConfig
 from src.modules.orchestrator_react import OrchestratorReAct
 
-from .ai_gateway_adapter import AIGatewayClient
-from .mcp_router import MCPRouter, ProviderConfigError, ToolExecutionError, LLMClient
+from .ai_provider import AIProviderFactory, LLMClient
+from .mcp_router import MCPRouter, ProviderConfigError, ToolExecutionError
 from .stagnation_detector import StagnationDetector
 from .redis_circuit_breaker import NamespacedRedisClient
 
@@ -47,7 +47,7 @@ class MockLangGraphExecutor:
         ai_provider: Optional[LLMClient] = None,
         mcp_router: Optional[MCPRouter] = None,
     ):
-        self.ai_provider = ai_provider
+        self.ai_provider_factory = AIProviderFactory(ai_gateway_client=ai_provider)
         self.mcp_router = mcp_router or MCPRouter()
         self._current_run_id: Optional[str] = None
         self.execution_events: Dict[str, List[Dict[str, Any]]] = {}
@@ -238,6 +238,12 @@ class MockLangGraphExecutor:
         user_prompt_template = config.get("user_prompt_template", "")
 
         # Resolve prompts using the FULL state + the local mapped context
+        input_mapping = config.get("input_mapping", {})
+        agent_input_context = {}
+        if input_mapping:
+            for key, path in input_mapping.items():
+                agent_input_context[key] = self._get_state_value(path, state)
+
         user_prompt = self._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
 
         provider = config.get("provider", "github-copilot")
@@ -252,8 +258,8 @@ class MockLangGraphExecutor:
         ]
 
         try:
-            # Always route through Gateway via mcp_router
-            provider_client = self.mcp_router.get_provider_client(
+            # Always route through Gateway via ai_provider_factory
+            provider_client = self.ai_provider_factory.get_provider_client(
                 provider or "openai", model
             )
             response = provider_client.chat_completion(
@@ -264,6 +270,8 @@ class MockLangGraphExecutor:
                 max_tokens=max_tokens,
                 tools=allowed_tools,
             )
+
+
 
             # Extract content from OpenAI-compatible structure
             content = response["choices"][0]["message"].get("content", "")
@@ -576,12 +584,12 @@ class RealLangGraphExecutor:
         Initialize RealLangGraphExecutor.
 
         Args:
-            ai_provider: LLM provider client (optional, usually provided via mcp_router)
-            mcp_router: MCP router for tool/provider routing
+            ai_provider: LLM provider client (optional, usually provided via ai_provider_factory)
+            mcp_router: MCP router for tool routing
             redis_client: Redis client for circuit breaker
             default_timeout_seconds: Default execution timeout in seconds (default 300)
         """
-        self.ai_provider = ai_provider
+        self.ai_provider_factory = AIProviderFactory(ai_gateway_client=ai_provider)
         self.mcp_router = mcp_router or MCPRouter()
         self.redis_client = redis_client
         self.default_timeout_seconds = default_timeout_seconds
@@ -888,9 +896,8 @@ class RealLangGraphExecutor:
 
         try:
             # Use Gateway client for unified interaction
-            client = cast(
-                AIGatewayClient, self.mcp_router.get_provider_client(provider, model)
-            )
+            client = self.ai_provider_factory.get_provider_client(provider, model)
+
 
             # Initial state for the tool loop
             messages = [
@@ -1066,7 +1073,7 @@ class RealLangGraphExecutor:
             user_prompt = self._interpolate_prompt(config.user_prompt_template, state)
 
         react = OrchestratorReAct(
-            client=self.mcp_router.get_provider_client(
+            client=self.ai_provider_factory.get_provider_client(
                 config.provider or "github-copilot",
                 config.model or "gpt-4.1",
             ),

@@ -21,27 +21,8 @@ from .ai_gateway_adapter import AIGatewayClient
 from .mcp import MockMCPServer
 
 
-class LLMClient(Protocol):
-    """Protocol for LLM provider clients."""
+# Provider routing (GitHub Copilot, OpenAI) is now handled by AIProviderFactory
 
-    def chat_completion(
-        self,
-        messages: List[Dict[str, str]],
-        provider: str,
-        model: str,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 2000,
-    ) -> Dict[str, Any]: ...
-
-    def call(
-        self,
-        system_prompt: str,
-        user_prompt: str,
-        model: str,
-        temperature: float,
-        max_tokens: int,
-    ) -> Dict[str, Any]: ...
 
 
 VALID_TOOLS = {"load_skill", "search", "verify", "bash"}
@@ -90,13 +71,9 @@ class MCPRouter:
     def __init__(
         self,
         mcp_server: Optional[MockMCPServer] = None,
-        ai_gateway_client: Optional[LLMClient] = None,
     ):
         from .bash_tool import BashTool
         self.mcp_server = mcp_server or MockMCPServer()
-        self.ai_gateway_client = ai_gateway_client
-        self._provider_cache: Dict[str, LLMClient] = {}
-        self._cache_lock = threading.Lock()
         
         # Initialize BashTool with configurable allowed paths
         import os
@@ -108,56 +85,22 @@ class MCPRouter:
         
         self.bash_tool = BashTool(allowed_paths=allowed_paths)
 
-    def get_provider_client(
-        self,
-        provider_name: str,
-        model_name: Optional[str] = None,
-        allow_fallback: Optional[bool] = None,
-    ) -> LLMClient:
-        """Get or create provider client for given provider and model.
 
-        Args:
-            provider_name: Provider name (github-copilot, openai, etc.)
-            model_name: Optional model name override
-            allow_fallback: Ignored (handled by Gateway)
-
-        Returns:
-            LLM client instance
-        """
-        # AI Gateway handles provider/model validation and routing.
-        # We just return the unified client.
-        return self._instantiate_provider(provider_name, model_name or "default")
-
-    def _instantiate_provider(self, provider_name: str, model: str) -> LLMClient:
-        """Instantiate or return the AI Gateway client.
-
-        Returns:
-            Instantiated provider client (AI Gateway)
-        """
-        if self.ai_gateway_client:
-            return self.ai_gateway_client
-
-        cache_key = "ai-gateway-default"
-        with self._cache_lock:
-            if cache_key in self._provider_cache:
-                return self._provider_cache[cache_key]
-
-            logger.info("Initializing AIGatewayClient for MCP routing")
-            client = AIGatewayClient()
-            self._provider_cache[cache_key] = cast(LLMClient, client)
-            return self._provider_cache[cache_key]
 
     def get_tool_definitions(
         self, allowed_tools: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Get OpenAI-compatible tool definitions for the registered MCP tools.
+        Retrieves OpenAI-compatible tool definitions for the registered MCP tools.
+        These definitions include function names, descriptions, and parameter schemas,
+        which are sent to the LLM to enable tool calling.
 
         Args:
-            allowed_tools: Optional list of tools to include.
+            allowed_tools: Optional list of tools to include. If None, all tools 
+                         registered in the MCP server are returned.
 
         Returns:
-            List of tool definitions.
+            List of tool definitions in the 'function' format.
         """
         tools = []
         for tool in self.mcp_server.list_tools():
@@ -320,17 +263,19 @@ class MCPRouter:
     def parse_tool_calls(
         self, response_text: str, allowed_tools: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
-        """Parse tool calls from LLM response text.
+        """
+        Parses potential tool calls from the LLM's raw response text.
+        Supports both direct JSON objects and Markdown-wrapped 'tool_call' blocks.
 
         Args:
-            response_text: LLM response text
-            allowed_tools: List of allowed tool names (None = all tools allowed)
+            response_text: The raw string response from the LLM.
+            allowed_tools: Optional list of allowed tool names to filter for.
 
         Returns:
-            List of parsed tool calls with name and arguments
+            A list of parsed tool call dictionaries, each containing 'tool' and 'arguments'.
 
         Raises:
-            ToolExecutionError: If response cannot be parsed
+            ToolExecutionError: If a found tool call is structurally invalid.
         """
         tool_calls = []
 
