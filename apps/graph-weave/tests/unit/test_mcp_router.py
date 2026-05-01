@@ -53,6 +53,23 @@ class TestMCPRouterToolMethods:
         assert "verdict" in result
         assert "confidence" in result
 
+    @patch("src.adapters.bash_tool.BashTool.execute_bash")
+    def test_bash_returns_execution_result(self, mock_execute):
+        mock_execute.return_value = {
+            "success": True,
+            "stdout": "hello",
+            "stderr": "",
+            "exit_code": 0,
+            "cwd": "/tmp"
+        }
+        router = MCPRouter()
+        result = router.bash("echo hello", cwd="/tmp")
+        assert result["tool"] == "bash"
+        assert result["command"] == "echo hello"
+        assert result["status"] == "success"
+        assert result["stdout"] == "hello"
+        assert result["exit_code"] == 0
+
     def test_load_skill_caching(self):
         router = MCPRouter()
         result1 = router.load_skill("research")

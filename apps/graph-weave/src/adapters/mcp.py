@@ -29,6 +29,18 @@ class MockMCPServer:
                     "required": ["query"],
                 },
             },
+            "bash": {
+                "name": "bash",
+                "description": "Executes a bash command.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string", "description": "The bash command to run."},
+                        "cwd": {"type": "string", "description": "Optional working directory."}
+                    },
+                    "required": ["command"],
+                },
+            },
         }
 
     def list_tools(self) -> List[Dict[str, Any]]:
@@ -58,5 +70,9 @@ class MockMCPServer:
         elif tool_name == "search":
             query = params.get("query")
             return {"results": [f"Result for: {query}"]}
+
+        elif tool_name == "bash":
+            command = params.get("command")
+            return {"stdout": f"Mock output for {command}", "stderr": "", "exit_code": 0}
 
         return None

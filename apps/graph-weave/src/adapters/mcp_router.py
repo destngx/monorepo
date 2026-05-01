@@ -44,7 +44,7 @@ class LLMClient(Protocol):
     ) -> Dict[str, Any]: ...
 
 
-VALID_TOOLS = {"load_skill", "search", "verify"}
+VALID_TOOLS = {"load_skill", "search", "verify", "bash"}
 
 
 class MCPRouterError(Exception):
@@ -92,10 +92,21 @@ class MCPRouter:
         mcp_server: Optional[MockMCPServer] = None,
         ai_gateway_client: Optional[LLMClient] = None,
     ):
+        from .bash_tool import BashTool
         self.mcp_server = mcp_server or MockMCPServer()
         self.ai_gateway_client = ai_gateway_client
         self._provider_cache: Dict[str, LLMClient] = {}
         self._cache_lock = threading.Lock()
+        
+        # Initialize BashTool with configurable allowed paths
+        import os
+        workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+        
+        # Support adding extra paths via environment variable (comma-separated)
+        extra_paths = os.getenv("BASH_TOOL_ALLOWED_PATHS", "").split(",")
+        allowed_paths = [workspace_root] + [p.strip() for p in extra_paths if p.strip()]
+        
+        self.bash_tool = BashTool(allowed_paths=allowed_paths)
 
     def get_provider_client(
         self,
@@ -185,6 +196,8 @@ class MCPRouter:
                 return self.search(arguments.get("query", ""))
             elif name == "verify":
                 return self.verify(arguments.get("claim", ""))
+            elif name == "bash":
+                return self.bash(arguments.get("command", ""), arguments.get("cwd"))
 
             # Fallback to direct MCP call if not handled by specific methods
             return self.mcp_server.call_tool(name, arguments)
@@ -274,6 +287,35 @@ class MCPRouter:
             }
         except Exception as e:
             raise ToolExecutionError(f"Failed to verify claim '{claim}': {str(e)}")
+
+    def bash(self, command: str, cwd: Optional[str] = None) -> Dict[str, Any]:
+        """Execute a bash command using the BashTool.
+        
+        Args:
+            command: Command string to execute
+            cwd: Optional current working directory
+            
+        Returns:
+            Tool response with stdout/stderr or error
+            
+        Raises:
+            ToolExecutionError: If execution fundamentally fails
+        """
+        try:
+            result = self.bash_tool.execute_bash(command, cwd=cwd)
+            # Standardize tool response format
+            return {
+                "tool": "bash",
+                "command": command,
+                "cwd": result.get("cwd", cwd),
+                "status": "success" if result["success"] else "error",
+                "exit_code": result.get("exit_code", -1),
+                "stdout": result.get("stdout", ""),
+                "stderr": result.get("stderr", ""),
+                "error": result.get("error", None)
+            }
+        except Exception as e:
+            raise ToolExecutionError(f"Failed to execute bash command '{command}': {str(e)}")
 
     def parse_tool_calls(
         self, response_text: str, allowed_tools: Optional[List[str]] = None
