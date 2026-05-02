@@ -86,8 +86,9 @@ class MCPRouter:
         self.bash_tool = BashTool(allowed_paths=allowed_paths)
         
         from .fs_tool import FileSystemTool
-        fs_allowed_paths = os.getenv("FS_TOOL_ALLOWED_PATHS", workspace_root).split(",")
-        fs_allowed_paths = [p.strip() for p in fs_allowed_paths if p.strip()]
+        default_fs_path = os.path.expanduser("~/projects")
+        fs_allowed_paths = os.getenv("FS_TOOL_ALLOWED_PATHS", default_fs_path).split(",")
+        fs_allowed_paths = [os.path.abspath(p.strip()) for p in fs_allowed_paths if p.strip()]
         fs_trash_path = os.getenv("FS_TOOL_TRASH_PATH")
         self.fs_tool = FileSystemTool(allowed_paths=fs_allowed_paths, trash_path=fs_trash_path)
 
