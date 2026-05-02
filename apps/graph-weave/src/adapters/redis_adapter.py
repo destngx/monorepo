@@ -431,6 +431,136 @@ class UpstashRedisClient:
         except RedisError:
             raise
 
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def hset(self, key: str, field: str, value: Any) -> int:
+        """
+        Set field in hash at key to value.
+
+        Args:
+            key: Redis key
+            field: Hash field
+            value: Value to set (will be JSON serialized)
+
+        Returns:
+            1 if field is new, 0 if field was updated
+
+        Raises:
+            RedisError: On Redis errors
+        """
+        if not key or not field:
+            raise ValueError("Key and field cannot be empty")
+
+        try:
+            result = self._execute(["HSET", key, field, self._serialize(value)])
+            return result if result is not None else 0
+        except RedisError:
+            raise
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def hsetnx(self, key: str, field: str, value: Any) -> int:
+        """
+        Set field in hash at key to value only if field does not exist.
+
+        Args:
+            key: Redis key
+            field: Hash field
+            value: Value to set (will be JSON serialized)
+
+        Returns:
+            1 if field was set, 0 if field already exists
+
+        Raises:
+            RedisError: On Redis errors
+        """
+        if not key or not field:
+            raise ValueError("Key and field cannot be empty")
+
+        try:
+            result = self._execute(["HSETNX", key, field, self._serialize(value)])
+            return result if result is not None else 0
+        except RedisError:
+            raise
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def hget(self, key: str, field: str) -> Optional[Any]:
+        """
+        Get value for field in hash at key.
+
+        Args:
+            key: Redis key
+            field: Hash field
+
+        Returns:
+            Value if exists, None otherwise
+
+        Raises:
+            RedisError: On Redis errors
+        """
+        if not key or not field:
+            raise ValueError("Key and field cannot be empty")
+
+        try:
+            result = self._execute(["HGET", key, field])
+            return self._deserialize(result)
+        except RedisError:
+            raise
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def hgetall(self, key: str) -> Dict[str, Any]:
+        """
+        Get all fields and values in hash at key.
+
+        Args:
+            key: Redis key
+
+        Returns:
+            Dictionary of fields and values
+
+        Raises:
+            RedisError: On Redis errors
+        """
+        if not key:
+            raise ValueError("Key cannot be empty")
+
+        try:
+            result = self._execute(["HGETALL", key])
+            # Upstash returns [field1, value1, field2, value2, ...]
+            if not result:
+                return {}
+            
+            res_dict = {}
+            for i in range(0, len(result), 2):
+                field = result[i]
+                value = result[i+1]
+                res_dict[field] = self._deserialize(value)
+            return res_dict
+        except RedisError:
+            raise
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def hdel(self, key: str, field: str) -> int:
+        """
+        Delete field from hash at key.
+
+        Args:
+            key: Redis key
+            field: Hash field
+
+        Returns:
+            1 if field was deleted, 0 otherwise
+
+        Raises:
+            RedisError: On Redis errors
+        """
+        if not key or not field:
+            raise ValueError("Key and field cannot be empty")
+
+        try:
+            result = self._execute(["HDEL", key, field])
+            return result if result is not None else 0
+        except RedisError:
+            raise
+
     def close(self):
         """Close the session."""
         self._session.close()

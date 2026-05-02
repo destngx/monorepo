@@ -7,7 +7,7 @@ from src.adapters.cache import RedisAdapter, MockRedisAdapter
 from src.config import GraphWeaveConfig
 from src.services.checkpoint_service import CheckpointService
 from src.services.thread_lifecycle_service import ThreadLifecycleService
-from src.adapters.workflow import MockWorkflowStore
+from src.adapters.workflow import MockWorkflowStore, RedisWorkflowStore
 from src.adapters.checkpoint import MockCheckpointStore
 from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
 from src.adapters.langgraph_executor import RealLangGraphExecutor
@@ -34,7 +34,10 @@ class Services:
             redis_client=self.cache,
             fallback_storage=FallbackStorage()
         )
-        self.workflow_store = MockWorkflowStore()
+        if isinstance(self.cache, MockRedisAdapter):
+            self.workflow_store = MockWorkflowStore()
+        else:
+            self.workflow_store = RedisWorkflowStore(self.redis_client)
         self.checkpoint_service = CheckpointService(self.redis_client)
         self.thread_lifecycle_service = ThreadLifecycleService(self.redis_client)
         
@@ -83,7 +86,7 @@ def get_cache() -> RedisAdapter:
     return get_services().cache
 
 
-def get_workflow_store() -> MockWorkflowStore:
+def get_workflow_store():
     return get_services().workflow_store
 
 

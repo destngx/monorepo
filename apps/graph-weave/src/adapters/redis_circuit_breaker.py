@@ -138,6 +138,15 @@ class FallbackStorage:
             self._store[key][field] = value
             return 1
 
+    def hsetnx(self, key: str, field: str, value: Any) -> int:
+        with self._lock:
+            if key not in self._store or not isinstance(self._store[key], dict):
+                self._store[key] = {}
+            if field in self._store[key]:
+                return 0
+            self._store[key][field] = value
+            return 1
+
     def hget(self, key: str, field: str) -> Optional[Any]:
         with self._lock:
             if key in self._store and isinstance(self._store[key], dict):
@@ -379,20 +388,25 @@ class NamespacedRedisClient:
 
     def hset(self, key: str, field: str, value: Any) -> int:
         def redis_hset():
-            if hasattr(self.redis_client, "hset"):
-                return self.redis_client.hset(key, field, value)
-            return 0
+            return self.redis_client.hset(key, field, value)
 
         def fallback_hset():
             return self.fallback_storage.hset(key, field, value)
 
         return self._execute_with_fallback("HSET", redis_hset, fallback_hset)
 
+    def hsetnx(self, key: str, field: str, value: Any) -> int:
+        def redis_hsetnx():
+            return self.redis_client.hsetnx(key, field, value)
+
+        def fallback_hsetnx():
+            return self.fallback_storage.hsetnx(key, field, value)
+
+        return self._execute_with_fallback("HSETNX", redis_hsetnx, fallback_hsetnx)
+
     def hget(self, key: str, field: str) -> Optional[Any]:
         def redis_hget():
-            if hasattr(self.redis_client, "hget"):
-                return self.redis_client.hget(key, field)
-            return None
+            return self.redis_client.hget(key, field)
 
         def fallback_hget():
             return self.fallback_storage.hget(key, field)
@@ -401,9 +415,7 @@ class NamespacedRedisClient:
 
     def hdel(self, key: str, field: str) -> int:
         def redis_hdel():
-            if hasattr(self.redis_client, "hdel"):
-                return self.redis_client.hdel(key, field)
-            return 0
+            return self.redis_client.hdel(key, field)
 
         def fallback_hdel():
             return self.fallback_storage.hdel(key, field)
@@ -412,9 +424,7 @@ class NamespacedRedisClient:
 
     def hgetall(self, key: str) -> Dict[str, Any]:
         def redis_hgetall():
-            if hasattr(self.redis_client, "hgetall"):
-                return self.redis_client.hgetall(key)
-            return {}
+            return self.redis_client.hgetall(key)
 
         def fallback_hgetall():
             return self.fallback_storage.hgetall(key)

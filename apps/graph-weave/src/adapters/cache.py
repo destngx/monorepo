@@ -68,6 +68,14 @@ class MockRedisAdapter:
         self._store[key][field] = value
         return 1
 
+    def hsetnx(self, key: str, field: str, value: Any) -> int:
+        if key not in self._store or not isinstance(self._store[key], dict):
+            self._store[key] = {}
+        if field in self._store[key]:
+            return 0
+        self._store[key][field] = value
+        return 1
+
     def hget(self, key: str, field: str) -> Optional[Any]:
         if key in self._store and isinstance(self._store[key], dict):
             return self._store[key].get(field)
@@ -225,6 +233,15 @@ class RedisAdapter(MockRedisAdapter):
         if hasattr(self._client, "hset"):
             serialized = json.dumps(value) if not isinstance(value, (str, int, float)) or isinstance(value, bool) else value
             return self._client.hset(key, field, serialized)
+        return 1
+
+    def hsetnx(self, key: str, field: str, value: Any) -> int:
+        res = super().hsetnx(key, field, value)
+        if res == 0:
+            return 0
+        if hasattr(self._client, "hsetnx"):
+            serialized = json.dumps(value) if not isinstance(value, (str, int, float)) or isinstance(value, bool) else value
+            return self._client.hsetnx(key, field, serialized)
         return 1
 
     def hget(self, key: str, field: str) -> Optional[Any]:
