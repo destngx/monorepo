@@ -41,6 +41,27 @@ class MockMCPServer:
                     "required": ["command"],
                 },
             },
+            "fs": {
+                "name": "fs",
+                "description": "File system operations (list_files, read_file, write_file, etc.)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "operation": {
+                            "type": "string",
+                            "enum": ["list_files", "search_files", "read_file", "write_file", "move_file", "copy_file", "delete_file", "make_directory", "get_file_info"]
+                        },
+                        "path": {"type": "string"},
+                        "content": {"type": "string"},
+                        "pattern": {"type": "string"},
+                        "replacement": {"type": "string"},
+                        "source": {"type": "string"},
+                        "destination": {"type": "string"},
+                        "recursive": {"type": "boolean"}
+                    },
+                    "required": ["operation"]
+                }
+            },
         }
 
     def list_tools(self) -> List[Dict[str, Any]]:

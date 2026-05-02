@@ -32,7 +32,7 @@ PROVIDER_MODELS = {
     "openai": ["gpt-4.1", "gpt-3.5-turbo"],
     "anthropic": ["claude-3-opus", "claude-3-sonnet"],
 }
-VALID_TOOLS = {"load_skill", "search", "verify"}
+VALID_TOOLS = {"load_skill", "search", "verify", "bash", "fs"}
 
 
 @dataclass
