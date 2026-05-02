@@ -8,7 +8,7 @@ from src.config import GraphWeaveConfig
 from src.services.checkpoint_service import CheckpointService
 from src.services.thread_lifecycle_service import ThreadLifecycleService
 from src.adapters.workflow import MockWorkflowStore, RedisWorkflowStore
-from src.adapters.checkpoint import MockCheckpointStore
+from src.adapters.checkpoint import MockCheckpointStore, RedisCheckpointStore
 from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
 from src.adapters.langgraph_executor import RealLangGraphExecutor
 from src.adapters.mcp_router import MCPRouter
@@ -39,13 +39,20 @@ class Services:
         else:
             self.workflow_store = RedisWorkflowStore(self.redis_client)
         self.checkpoint_service = CheckpointService(self.redis_client)
+        if isinstance(self.cache, MockRedisAdapter):
+            self.checkpoint_store = MockCheckpointStore()
+        else:
+            self.checkpoint_store = RedisCheckpointStore(self.redis_client)
+
         self.thread_lifecycle_service = ThreadLifecycleService(self.redis_client)
         
         self.mcp_router = MCPRouter()
         self.executor = RealLangGraphExecutor(
             mcp_router=self.mcp_router,
-            redis_client=self.redis_client
+            redis_client=self.redis_client,
+            checkpoint_service=self.checkpoint_service
         )
+
         self.schedule_store = RedisScheduleStore(self.redis_client)
         
         # Execution handler for the scheduler
@@ -90,8 +97,9 @@ def get_workflow_store():
     return get_services().workflow_store
 
 
-def get_checkpoint_store() -> MockCheckpointStore:
-    return MockCheckpointStore()
+def get_checkpoint_store():
+    return get_services().checkpoint_store
+
 
 
 def get_checkpoint_service() -> CheckpointService:

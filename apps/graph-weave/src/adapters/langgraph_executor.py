@@ -578,6 +578,7 @@ class RealLangGraphExecutor:
         ai_provider: Optional[LLMClient] = None,
         mcp_router: Optional[MCPRouter] = None,
         redis_client: Optional[NamespacedRedisClient] = None,
+        checkpoint_service: Optional[Any] = None,
         default_timeout_seconds: int = 300,
     ):
         """
@@ -587,13 +588,16 @@ class RealLangGraphExecutor:
             ai_provider: LLM provider client (optional, usually provided via ai_provider_factory)
             mcp_router: MCP router for tool routing
             redis_client: Redis client for circuit breaker
+            checkpoint_service: Service for persisting checkpoints
             default_timeout_seconds: Default execution timeout in seconds (default 300)
         """
         self.ai_provider_factory = AIProviderFactory(ai_gateway_client=ai_provider)
         self.mcp_router = mcp_router or MCPRouter()
         self.redis_client = redis_client
+        self.checkpoint_service = checkpoint_service
         self.default_timeout_seconds = default_timeout_seconds
         self.execution_events: Dict[str, List[Dict[str, Any]]] = {}
+
 
     def execute(
         self,
@@ -775,6 +779,14 @@ class RealLangGraphExecutor:
                     state["node_results"][current_node_id] = node_result
                     state["workflow_state"].update(node_result)
 
+                    # Persist checkpoint after each node completion
+                    if self.checkpoint_service:
+                        self.checkpoint_service.save_checkpoint(
+                            tenant_id=tenant_id,
+                            thread_id=thread_id,
+                            workflow_state=state["workflow_state"]
+                        )
+
                     self._emit_event(
                         run_id,
                         "node.completed",
@@ -785,6 +797,7 @@ class RealLangGraphExecutor:
                             "result_keys": list(node_result.keys()),
                         },
                     )
+
 
                 except Exception as e:
                     self._emit_event(
@@ -868,13 +881,18 @@ class RealLangGraphExecutor:
         workflow: Dict[str, Any],
     ) -> Dict[str, Any]:
         node_id = node.get("id")
+        # GW-FIX: Support both top-level and nested config
         config = node.get("config", {})
+        
+        def get_field(name, default=None):
+            # Prioritize nested config, then node root, then default
+            return config.get(name) or node.get(name) or default
 
-        system_prompt = config.get("system_prompt", "You are a helpful assistant.")
-        user_prompt_template = config.get("user_prompt_template", "")
+        system_prompt = get_field("system_prompt", "You are a helpful assistant.")
+        user_prompt_template = get_field("user_prompt_template", "")
         
         # Support input_mapping if present, otherwise use workflow_state
-        input_mapping = config.get("input_mapping", {})
+        input_mapping = get_field("input_mapping", {})
         if input_mapping:
             # If mapping is specified, slice the state
             agent_input_context = {}
@@ -882,17 +900,17 @@ class RealLangGraphExecutor:
                 agent_input_context[key] = self._get_state_value(path, state)
         else:
             # Fallback to entire workflow_state
-            agent_input_context = dict(state["workflow_state"])
+            agent_input_context = dict(state.get("workflow_state", {}))
         
         # Resolve prompts using the FULL state + the local mapped context
-        # This ensures {user_query} from input_mapping is used instead of just global {query}
         user_prompt = self._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
+        system_prompt = self._interpolate_prompt(system_prompt, state, local_context=agent_input_context)
         
-        provider = config.get("provider", "github-copilot")
-        model = config.get("model", "gpt-4.1")
-        temperature = config.get("temperature", 0.7)
-        max_tokens = config.get("max_tokens", 2000)
-        allowed_tools = config.get("tools", [])
+        provider = get_field("provider", "github-copilot")
+        model = get_field("model", "gpt-4.1")
+        temperature = get_field("temperature", 0.7)
+        max_tokens = get_field("max_tokens", 2000)
+        allowed_tools = get_field("tools", [])
 
         try:
             # Use Gateway client for unified interaction
@@ -1047,7 +1065,12 @@ class RealLangGraphExecutor:
         which the executor merges into workflow_state via the normal node-result path.
         """
         node_id = node.get("id")
+        # GW-FIX: Support both top-level and nested config
         raw_config = node.get("config", {})
+        if not raw_config:
+            # If no 'config' key, use the node itself (excluding non-config fields if possible, 
+            # but OrchestratorConfig will ignore extra fields anyway)
+            raw_config = node
 
         try:
             config = OrchestratorConfig(**raw_config)
