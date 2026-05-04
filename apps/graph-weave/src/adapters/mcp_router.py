@@ -387,6 +387,7 @@ class MCPRouter:
 
     def format_prompt(self, template: str, context: Dict[str, Any]) -> str:
         """Format a prompt template with variable interpolation.
+        Supports dot notation for nested objects (e.g. {metadata.title}).
 
         Args:
             template: Prompt template with {variable} placeholders
@@ -395,12 +396,20 @@ class MCPRouter:
         Returns:
             Formatted prompt string
         """
-        result = template
-        for key, value in context.items():
-            placeholder = f"{{{key}}}"
-            if placeholder in result:
-                result = result.replace(placeholder, str(value))
-        return result
+        import re
+        
+        def resolver(match):
+            path = match.group(1)
+            keys = path.split('.')
+            current = context
+            for key in keys:
+                if isinstance(current, dict) and key in current:
+                    current = current[key]
+                else:
+                    return f"{{{path}}}" # Return original if not found
+            return str(current)
+
+        return re.sub(r'\{([a-zA-Z0-9_.]+)\}', resolver, template)
 
     def filter_allowed_tools(
         self, all_tools: List[str], allowed_tools: Optional[List[str]] = None

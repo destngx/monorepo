@@ -120,7 +120,7 @@ class BashTool:
             }
 
         target_cwd = cwd if cwd is not None else os.getcwd()
-        abs_cwd = os.path.abspath(target_cwd)
+        abs_cwd = os.path.abspath(os.path.expanduser(target_cwd))
         
         if not self._is_path_allowed(abs_cwd):
             return {

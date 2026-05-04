@@ -242,14 +242,6 @@ async def validation_exception_handler(request, exc):
             "status_code": 422,
         },
     )
-    try:
-        GraphWeaveConfig.validate()
-        logger.info("Configuration validation passed")
-    except ValueError as e:
-        logger.warning(f"Configuration note: {e}")
-
-    init_services()
-    logger.info("Services initialized")
 
 
 @app.get("/health")

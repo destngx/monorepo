@@ -909,7 +909,7 @@ class RealLangGraphExecutor:
         provider = get_field("provider", "github-copilot")
         model = get_field("model", "gpt-4.1")
         temperature = get_field("temperature", 0.7)
-        max_tokens = get_field("max_tokens", 2000)
+        max_tokens = get_field("max_tokens", 4000)
         allowed_tools = get_field("tools", [])
 
         try:
@@ -986,11 +986,26 @@ class RealLangGraphExecutor:
                 for tool_call in tool_calls:
                     tool_id = tool_call["id"]
                     tool_name = tool_call["function"]["name"]
-                    tool_args = json.loads(tool_call["function"]["arguments"])
+                    tool_args_raw = tool_call["function"]["arguments"]
+                    # Interpolate tool arguments to resolve any placeholders
+                    tool_args_interpolated = self._interpolate_prompt(tool_args_raw, state, local_context=agent_input_context)
+                    try:
+                        tool_args = json.loads(tool_args_interpolated)
+                    except json.JSONDecodeError:
+                        # Fallback to raw if interpolation caused invalid JSON or if it was already valid
+                        tool_args = json.loads(tool_args_raw)
+
+                    # Inject cwd from node config if this is a bash tool
+                    if tool_name == "bash" and "cwd" in config:
+                        # Only inject if the LLM didn't already provide it
+                        if "cwd" not in tool_args:
+                            tool_args["cwd"] = config["cwd"]
 
                     try:
                         self._emit_event(
-                            run_id, "tool.started", {"tool": tool_name, "id": tool_id}
+                            run_id, 
+                            "tool.started", 
+                            {"tool": tool_name, "id": tool_id, "input": tool_args}
                         )
                         tool_result = self.mcp_router.execute_tool(tool_name, tool_args)
 
@@ -1003,7 +1018,9 @@ class RealLangGraphExecutor:
                             }
                         )
                         self._emit_event(
-                            run_id, "tool.completed", {"tool": tool_name, "id": tool_id}
+                            run_id, 
+                            "tool.completed", 
+                            {"tool": tool_name, "id": tool_id, "result": tool_result}
                         )
                     except Exception as e:
                         self._logger.error(f"Tool {tool_name} failed: {e}")
@@ -1021,10 +1038,28 @@ class RealLangGraphExecutor:
                         )
 
             # Finalize node results
+            # Finalize node results
+            self._logger.info(f"Node {node_id} raw content: {final_content}")
+            
+            # Clean markdown code blocks if present
+            cleaned_content = final_content
+            if isinstance(cleaned_content, str) and "```json" in cleaned_content:
+                import re
+                json_match = re.search(r"```json\s*(.*?)\s*```", cleaned_content, re.DOTALL)
+                if json_match:
+                    cleaned_content = json_match.group(1)
+            elif isinstance(cleaned_content, str) and "```" in cleaned_content:
+                import re
+                json_match = re.search(r"```\s*(.*?)\s*```", cleaned_content, re.DOTALL)
+                if json_match:
+                    cleaned_content = json_match.group(1)
+
             try:
-                result_data = json.loads(final_content)
+                result_data = json.loads(cleaned_content)
+                self._logger.info(f"Node {node_id} parsed JSON successfully")
             except json.JSONDecodeError:
                 result_data = {"raw_response": final_content}
+                self._logger.warning(f"Node {node_id} failed to parse JSON, falling back to raw_response")
 
             # Support output_key: wrap result if specified
             output_key = config.get("output_key")
@@ -1160,15 +1195,39 @@ class RealLangGraphExecutor:
         return target_node_id
 
     def _find_entry_node(self, workflow: Dict[str, Any]) -> Optional[str]:
+        # 1. Check explicit entry_point key
+        entry_point = workflow.get("entry_point")
+        if entry_point:
+            return entry_point
+            
+        # 2. Check node types
         for node in workflow.get("nodes", []):
             if node.get("type") == "entry":
                 return node.get("id")
+                
+        # 3. Check for node named "entry"
+        for node in workflow.get("nodes", []):
+            if node.get("id") == "entry":
+                return "entry"
+                
         return None
 
     def _find_exit_node(self, workflow: Dict[str, Any]) -> Optional[str]:
+        # 1. Check explicit exit_point key
+        exit_point = workflow.get("exit_point")
+        if exit_point:
+            return exit_point
+            
+        # 2. Check node types
         for node in workflow.get("nodes", []):
             if node.get("type") == "exit":
                 return node.get("id")
+                
+        # 3. Check for node named "exit"
+        for node in workflow.get("nodes", []):
+            if node.get("id") == "exit":
+                return "exit"
+                
         return None
 
     def _find_node(
@@ -1310,6 +1369,24 @@ class RealLangGraphExecutor:
             val = None
             if p.startswith("$."):
                 val = self._get_state_value(p, state)
+            elif "." in p:
+                # Support dot notation for nested objects (e.g. metadata.title)
+                # Try dot-notation traversal first, then fall back to flat key
+                keys = p.split('.')
+                current = context
+                found = True
+                for key in keys:
+                    if isinstance(current, dict) and key in current:
+                        current = current[key]
+                    else:
+                        found = False
+                        break
+                
+                if found and current is not None:
+                    val = current
+                else:
+                    # Fallback: try flat key from local_context (input_mapping)
+                    val = context.get(p)
             else:
                 # Try direct lookup in merged context
                 val = context.get(p)

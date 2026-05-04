@@ -1,0 +1,169 @@
+{
+  "name": "process-inbox-file",
+  "version": "1.0.0",
+  "description": "Processes a preprocessed inbox file, classifies its content, creates source cards and drafts, updates the original, and aggregates results.",
+  "metadata": {
+    "author": "workflow-generator",
+    "created_at": "2024-06-04T00:00:00Z",
+    "tags": []
+  },
+  "limits": {
+    "max_hops": 10,
+    "max_tokens": 200000,
+    "timeout_seconds": 300
+  },
+  "nodes": [
+    {
+      "id": "entry",
+      "type": "entry",
+      "input_schema": {
+        "file_path": "string",
+        "file_content": "string",
+        "existing_tags": {
+          "type": "array",
+          "items": "string",
+          "default": []
+        }
+      }
+    },
+    {
+      "id": "collect_inbox_file_data",
+      "type": "agent_node",
+      "system_prompt": "You are a data ingestion agent. Collect the input file_path, file_content, and existing_tags for downstream processing.",
+      "user_prompt_template": "Collect the following inputs:\n- file_path: {file_path}\n- file_content: {file_content}\n- existing_tags: {existing_tags}",
+      "input_mapping": {
+        "file_path": "$.entry.file_path",
+        "file_content": "$.entry.file_content",
+        "existing_tags": "$.entry.existing_tags"
+      },
+      "output_key": "inbox_file_data"
+    },
+    {
+      "id": "classify_and_extract_metadata",
+      "type": "agent_node",
+      "system_prompt": "Analyze the provided file_content and extract structured metadata as JSON with the following keys: source_type (one of [article, book, video, paper, fleeting, journal]), title, authors (array), url (string, empty if none), published_at (YYYY-MM-DD, empty if unknown), summary (3-5 bullet points), claims (array), tags (3-5 lowercase strings).",
+      "user_prompt_template": "Analyze the following content and extract metadata:\n\n{file_content}\n\nReturn JSON: {\"source_type\": ..., \"title\": ..., \"authors\": [...], \"url\": \"\", \"published_at\": \"\", \"summary\": [...], \"claims\": [...], \"tags\": [...]}",
+      "input_mapping": {
+        "file_content": "$.inbox_file_data.file_content"
+      },
+      "output_key": "metadata"
+    },
+    {
+      "id": "conditionally_create_source_card",
+      "type": "agent_node",
+      "system_prompt": "You are a tool-use agent. You MUST NOT hallucinate tool results. Use the provided tool bash to perform the action and wait for the real result. Create a source card by running the script unless source_type is 'fleeting' or 'journal'. If source_type is 'fleeting' or 'journal', skip and set source_card_path to null. If the script fails, set source_card_path to null and continue.",
+      "user_prompt_template": "If source_type is 'fleeting' or 'journal', skip and output null. Otherwise, run:\nbash Persona/90_meta/02_scripts/agent/create_source_card.sh --id src-{published_at}-{index} --source-kind {source_type} --title {title} --url {url} --authors {authors} --published-at {published_at} --summary {summary} --claims {claims} --tags {tags}\nReturn the resulting path or null if skipped/failed.",
+      "input_mapping": {
+        "source_type": "$.metadata.source_type",
+        "title": "$.metadata.title",
+        "authors": "$.metadata.authors",
+        "url": "$.metadata.url",
+        "published_at": "$.metadata.published_at",
+        "summary": "$.metadata.summary",
+        "claims": "$.metadata.claims",
+        "tags": "$.metadata.tags"
+      },
+      "output_key": "source_card",
+      "config": {
+        "tools": ["bash"],
+        "cwd": "~/projects/obsidian-vaults"
+      }
+    },
+    {
+      "id": "create_draft_entry",
+      "type": "agent_node",
+      "system_prompt": "You are a tool-use agent. You MUST NOT hallucinate tool results. Use the provided tool bash to perform the action and wait for the real result. Create a draft entry using the extracted metadata and source_card_path if available. If the script fails, set status to 'failed' and stop.",
+      "user_prompt_template": "Run:\nbash Persona/90_meta/02_scripts/agent/create_draft.sh --title {title} --origin-type {source_type} --source-refs {source_card_path} --summary {summary} --claims {claims} --tags {tags}\nReturn the resulting draft_path. If the script fails, return status as 'failed'.",
+      "input_mapping": {
+        "title": "$.metadata.title",
+        "source_type": "$.metadata.source_type",
+        "source_card_path": "$.source_card.source_card_path",
+        "summary": "$.metadata.summary",
+        "claims": "$.metadata.claims",
+        "tags": "$.metadata.tags"
+      },
+      "output_key": "draft",
+      "config": {
+        "tools": ["bash"],
+        "cwd": "~/projects/obsidian-vaults"
+      }
+    },
+    {
+      "id": "update_original_file_status",
+      "type": "agent_node",
+      "system_prompt": "You are a tool-use agent. You MUST NOT hallucinate tool results. Use the provided tool bash to perform the action and wait for the real result. Update the original file using summary, tags, source_card_path, and draft_path. If the script fails, set status to 'failed' and stop.",
+      "user_prompt_template": "Run:\nbash Persona/90_meta/02_scripts/agent/update_original.sh --file {file_path} --summary {summary_0} --tags {tags} --source-card {source_card_path} --draft {draft_path}\nReturn the status: 'processed' if successful, otherwise 'failed'.",
+      "input_mapping": {
+        "file_path": "$.inbox_file_data.file_path",
+        "summary_0": "$.metadata.summary[0]",
+        "tags": "$.metadata.tags",
+        "source_card_path": "$.source_card.source_card_path",
+        "draft_path": "$.draft.draft_path"
+      },
+      "output_key": "update_status",
+      "config": {
+        "tools": ["bash"],
+        "cwd": "~/projects/obsidian-vaults"
+      }
+    },
+    {
+      "id": "output_processing_results",
+      "type": "agent_node",
+      "system_prompt": "Aggregate and output the final status, source_card_path, draft_path, summary, tags, and claims from the previous steps.",
+      "user_prompt_template": "Output the following JSON:\n{\"status\": {status}, \"source_card_path\": {source_card_path}, \"draft_path\": {draft_path}, \"summary\": {summary}, \"tags\": {tags}, \"claims\": {claims}}",
+      "input_mapping": {
+        "status": "$.update_status.status",
+        "source_card_path": "$.source_card.source_card_path",
+        "draft_path": "$.draft.draft_path",
+        "summary": "$.metadata.summary",
+        "tags": "$.metadata.tags",
+        "claims": "$.metadata.claims"
+      },
+      "output_key": "final_output"
+    },
+    {
+      "id": "exit",
+      "type": "exit",
+      "output_mapping": {
+        "status": "$.final_output.status",
+        "source_card_path": "$.final_output.source_card_path",
+        "draft_path": "$.final_output.draft_path",
+        "summary": "$.final_output.summary",
+        "tags": "$.final_output.tags",
+        "claims": "$.final_output.claims"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "entry",
+      "to": "collect_inbox_file_data"
+    },
+    {
+      "from": "collect_inbox_file_data",
+      "to": "classify_and_extract_metadata"
+    },
+    {
+      "from": "classify_and_extract_metadata",
+      "to": "conditionally_create_source_card"
+    },
+    {
+      "from": "conditionally_create_source_card",
+      "to": "create_draft_entry"
+    },
+    {
+      "from": "create_draft_entry",
+      "to": "update_original_file_status"
+    },
+    {
+      "from": "update_original_file_status",
+      "to": "output_processing_results"
+    },
+    {
+      "from": "output_processing_results",
+      "to": "exit"
+    }
+  ],
+  "entry_point": "entry",
+  "exit_point": "exit"
+}

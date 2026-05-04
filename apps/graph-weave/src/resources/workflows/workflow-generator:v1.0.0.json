@@ -99,14 +99,15 @@
       "display_name": "Node Builder Agent",
       "description": "Generates the full JSON nodes array from the plan, strictly adhering to the GraphWeave workflow schema",
       "config": {
-        "system_prompt": "You are a GraphWeave workflow JSON expert. Generate a 'nodes' array using snake_case (underscores) for all IDs. NEVER use hyphens. Every agent_node MUST have: system_prompt, user_prompt_template, input_mapping, and output_key. Follow the input schema defined in the 'entry' node exactly.",
-        "user_prompt_template": "Generate a GraphWeave 'nodes' array for this workflow plan.\n\nOriginal Intent: {intent}\nDomain: {domain}\n\nPlan steps to implement (build agent_node for each):\n{plan_steps}\n\nRemember:\n1. Start with an 'entry' node. ALWAYS name the primary user input field 'query' (e.g. $.entry.query) for consistency.\n2. Build an 'agent_node' for each plan step.\n3. End with an 'exit' node with output_mapping to surface the key results.\n4. Every agent_node must have system_prompt, user_prompt_template, input_mapping, and output_key.\n5. Intermediate research agents MUST be instructed to output clean, parseable JSON only, without conversational preambles or markdown backticks inside their raw response, as their output will be directly consumed by downstream agents.\n\nReturn JSON with a 'nodes' array.",
+        "system_prompt": "You are a GraphWeave workflow JSON expert. Generate a 'nodes' array using snake_case (underscores) for all IDs. NEVER use hyphens. Every agent_node MUST have: system_prompt, user_prompt_template, input_mapping, and output_key. Follow the input schema defined in the 'entry' node exactly.\n\nCRITICAL PROMPT ENGINEERING RULES for generated nodes:\n1. If a node uses a tool (e.g. bash, fs), its system_prompt MUST start with: \"You are a tool-use agent. You MUST NOT hallucinate tool results. Use the provided tool [tool_name] to perform the action and wait for the real result.\"\n2. For variable interpolation in user_prompt_template OR in tool commands, use SINGLE BRACES {variable_name}. NEVER use double braces {{}}.\n3. Every agent_node that performs a script call MUST include \"tools\": [\"bash\"] in its config.\n4. If the domain is \"pkm\", ensure all bash nodes include \"cwd\": \"~/projects/obsidian-vaults\" in their config to correctly resolve vault paths.\n5. Generate PURE JSON ONLY. Do not include comments (//).\n6. Values in input_mapping MUST be valid JSONPaths starting with $.<output_key> (e.g., $.metadata.title). Do NOT include the node_id in the JSONPath. DO NOT use pipes (|), filters, functions (e.g., random()), or ternary operators.\n\nOUTPUT FORMAT:\nYou MUST return a JSON OBJECT with a \"nodes\" key containing the array of nodes. NEVER return a raw array directly.",
+        "user_prompt_template": "Generate a GraphWeave 'nodes' array for this workflow plan.\n\nOriginal Intent: {intent}\nDomain: {domain}\n\nPlan steps to implement (build agent_node for each):\n{plan_steps}\n\nCRITICAL REMEMBER:\n1. Start with an 'entry' node. The input schema fields are directly under $.entry (e.g., $.entry.file_path). Do not wrap them in 'query'.\n2. Build an 'agent_node' for each plan step.\n3. End with an 'exit' node with output_mapping to surface the key results.\n4. Every agent_node must have system_prompt, user_prompt_template, input_mapping, and output_key.\n5. For nodes that call scripts: system_prompt must be extremely forceful about using the 'bash' tool and NOT hallucinating.\n6. For interpolation in templates OR tool commands, use GraphWeave {path.to.var} syntax. Example: {title}. NEVER use Bash variables like $metadata.title or $var. The executor will resolve {var} before running bash.\n7. If a step involves calling a bash script or doing file system work, you MUST include the corresponding tools (e.g. \"bash\", \"fs\") in its config.\n8. For PKM workflows (obsidian), set the node's config \"cwd\" to \"~/projects/obsidian-vaults\".\n9. Do NOT use complex logic in input_mapping. Use simple JSONPaths starting with the previous node's output_key (e.g. \"$.metadata.title\").\n\nReturn a JSON object: { \"nodes\": [...] }",
         "input_mapping": {
           "intent": "$.entry.intent",
           "domain": "$.entry.domain",
           "plan_steps": "$.plan.steps"
         },
         "output_key": "nodes_definition",
+        "max_tokens": 8000,
         "output_schema": {
           "type": "object",
           "properties": {
@@ -147,6 +148,7 @@
           "nodes_list": "$.nodes_definition.nodes"
         },
         "output_key": "routing",
+        "max_tokens": 4000,
         "output_schema": {
           "type": "object",
           "properties": {
@@ -194,6 +196,7 @@
           "routing": "$.routing"
         },
         "output_key": "assembly_result",
+        "max_tokens": 12000,
         "output_schema": {
           "type": "object",
           "properties": {
