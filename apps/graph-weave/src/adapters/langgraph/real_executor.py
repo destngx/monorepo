@@ -50,6 +50,7 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
         input_data: Dict[str, Any],
         timeout_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
+        self._logger.info(f"Executing workflow: {workflow.get('name')} {workflow.get('version')}")
         workflow_id = workflow.get("workflow_id", "unknown")
         timeout = timeout_seconds or self.default_timeout_seconds
         start_time = time.monotonic()
@@ -106,7 +107,8 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
                 # 4. Execute Node
                 try:
-                    node_result = self._dispatch_node_execution(run_id, node, state, workflow)
+                    node_result = self.agent_handler.executor._dispatch_node_execution(run_id, node, state, workflow)
+                    self._logger.debug(f"Node {current_node_id} result keys: {list(node_result.keys())}")
                     state["node_results"][current_node_id] = node_result
                     state["workflow_state"].update(node_result)
 
@@ -117,6 +119,11 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
                 except Exception as e:
                     self._handle_node_failure(run_id, current_node_id, state, e)
+                    # Stop execution if node is not optional (default)
+                    node_config = node.get("config", {})
+                    if not node_config.get("optional", False):
+                        state["status"] = "failed"
+                        break
 
                 # 5. Route to Next Node
                 next_node_id = self._route_by_edge(run_id, workflow, current_node_id, state)
@@ -149,11 +156,13 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
     def _handle_exit_node(self, run_id: str, workflow_id: str, node: Dict[str, Any], state: Dict[str, Any]) -> None:
         config = node.get("config", {})
-        mapping = config.get("output_mapping", {})
+        mapping = node.get("output_mapping") or config.get("output_mapping", {})
         if mapping:
             final_output = {}
             for key, path in mapping.items():
-                final_output[key] = self._get_state_value(path, state)
+                val = self._get_state_value(path, state)
+                self._logger.debug(f"Mapping {key} -> {path} resolved to: {type(val).__name__}")
+                final_output[key] = val
             state["workflow_state"] = final_output
         
         self._emit_event(run_id, "workflow.completed", {"run_id": run_id, "workflow_id": workflow_id, "status": "completed", "final_state_keys": list(state["workflow_state"].keys())})
@@ -163,7 +172,7 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
         node_type = node.get("type")
         if node_type in {"agent_node", "agent", "orchestrator"}:
             config = node.get("config", {})
-            input_mapping = config.get("input_mapping", {})
+            input_mapping = node.get("input_mapping") or config.get("input_mapping", {})
             if input_mapping:
                 resolved = {}
                 for key, path in input_mapping.items():
@@ -191,6 +200,7 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
             raise ValueError(f"Unknown node type: {node_type}")
 
     def _handle_node_failure(self, run_id: str, node_id: str, state: Dict[str, Any], error: Exception) -> None:
+        self._logger.error(f"Node {node_id} failed: {error}", exc_info=True)
         self._emit_event(run_id, "node.failed", {"node_id": node_id, "error": str(error)})
         state["errors"].append({
             "node_id": node_id,

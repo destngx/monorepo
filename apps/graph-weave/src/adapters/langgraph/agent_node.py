@@ -133,11 +133,13 @@ class AgentNodeHandler:
                     cleaned_content = json_match.group(1)
 
             try:
-                result_data = json.loads(cleaned_content)
+                result_data = json.loads(cleaned_content or final_content)
+                print(f"[AGENT] Parsed JSON from {node_id}", flush=True)
             except json.JSONDecodeError:
                 result_data = {"raw_response": final_content}
+                print(f"[AGENT] Failed to parse JSON from {node_id}, using raw_response", flush=True)
 
-            output_key = config.get("output_key")
+            output_key = get_field("output_key")
             actual_result = {output_key: result_data} if output_key else result_data
 
             node_result_payload = {
