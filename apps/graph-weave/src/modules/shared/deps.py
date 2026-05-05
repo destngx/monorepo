@@ -3,12 +3,12 @@ Shared dependencies for modules.
 """
 
 from typing import Optional
-from src.adapters.cache import RedisAdapter, MockRedisAdapter
+from src.adapters.cache import RedisAdapter, MockRedisAdapter, PersistentMockRedisAdapter
 from src.config import GraphWeaveConfig
 from src.services.checkpoint_service import CheckpointService
 from src.services.thread_lifecycle_service import ThreadLifecycleService
-from src.adapters.workflow import MockWorkflowStore, RedisWorkflowStore
-from src.adapters.checkpoint import MockCheckpointStore, RedisCheckpointStore
+from src.adapters.workflow import RedisWorkflowStore
+from src.adapters.checkpoint import RedisCheckpointStore
 from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
 from src.adapters.langgraph_executor import RealLangGraphExecutor
 from src.adapters.mcp_router import MCPRouter
@@ -22,9 +22,9 @@ class Services:
             not GraphWeaveConfig.UPSTASH_REDIS_REST_URL
             or not GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN
         ):
-            # Default to MockRedisAdapter for local dev/testing if env vars are missing
-            # This prevents RuntimeError during module import (test collection)
-            self.cache = MockRedisAdapter()
+            # Default to PersistentMockRedisAdapter for local dev/testing if env vars are missing
+            # This ensures data survives restarts even without a real Redis.
+            self.cache = PersistentMockRedisAdapter("./tmp/graph-weave-persistence.json")
         else:
             self.cache = RedisAdapter.from_env(
                 GraphWeaveConfig.UPSTASH_REDIS_REST_URL,
@@ -34,15 +34,9 @@ class Services:
             redis_client=self.cache,
             fallback_storage=FallbackStorage()
         )
-        if isinstance(self.cache, MockRedisAdapter):
-            self.workflow_store = MockWorkflowStore()
-        else:
-            self.workflow_store = RedisWorkflowStore(self.redis_client)
+        self.workflow_store = RedisWorkflowStore(self.redis_client)
         self.checkpoint_service = CheckpointService(self.redis_client)
-        if isinstance(self.cache, MockRedisAdapter):
-            self.checkpoint_store = MockCheckpointStore()
-        else:
-            self.checkpoint_store = RedisCheckpointStore(self.redis_client)
+        self.checkpoint_store = RedisCheckpointStore(self.redis_client)
 
         self.thread_lifecycle_service = ThreadLifecycleService(self.redis_client)
         
@@ -89,8 +83,7 @@ def get_services() -> Services:
     return _services
 
 
-def get_cache() -> RedisAdapter:
-    return get_services().cache
+
 
 
 def get_workflow_store():

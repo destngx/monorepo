@@ -93,6 +93,72 @@ class MockRedisAdapter:
             return dict(self._store[key])
         return {}
 
+
+class PersistentMockRedisAdapter(MockRedisAdapter):
+    def __init__(self, filepath: str):
+        super().__init__()
+        self._filepath = filepath
+        self._load()
+
+    def _load(self):
+        import os
+        if os.path.exists(self._filepath):
+            try:
+                with open(self._filepath, "r") as f:
+                    self._store = json.load(f)
+            except Exception as e:
+                # Use print or a simple logger if available
+                pass
+
+    def _save(self):
+        import os
+        try:
+            os.makedirs(os.path.dirname(self._filepath), exist_ok=True)
+            with open(self._filepath, "w") as f:
+                json.dump(self._store, f)
+        except Exception as e:
+            pass
+
+    def set(self, key: str, value: Any, ex: Optional[int] = None, **kwargs) -> None:
+        super().set(key, value, ex, **kwargs)
+        self._save()
+
+    def delete(self, key: str) -> None:
+        super().delete(key)
+        self._save()
+
+    def rpush(self, key: str, value: Any) -> int:
+        res = super().rpush(key, value)
+        self._save()
+        return res
+
+    def lpush(self, key: str, value: Any) -> int:
+        res = super().lpush(key, value)
+        self._save()
+        return res
+
+    def ltrim(self, key: str, start: int, end: int) -> bool:
+        res = super().ltrim(key, start, end)
+        self._save()
+        return res
+
+    def hset(self, key: str, field: str, value: Any) -> int:
+        res = super().hset(key, field, value)
+        self._save()
+        return res
+
+    def hsetnx(self, key: str, field: str, value: Any) -> int:
+        res = super().hsetnx(key, field, value)
+        if res == 1:
+            self._save()
+        return res
+
+    def hdel(self, key: str, field: str) -> int:
+        res = super().hdel(key, field)
+        if res == 1:
+            self._save()
+        return res
+
     def _build_versioned_key(
         self, namespace: str, tenant_id: str, skill_id: str, version: str
     ) -> str:
