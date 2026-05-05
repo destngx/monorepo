@@ -1,6 +1,9 @@
 import pytest
 import json
 from src.adapters.langgraph_executor import MockLangGraphExecutor
+from src.adapters.checkpoint import RedisCheckpointStore
+from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
 from tests.mocks.gateway_mock import MockGatewayClient
 
 
@@ -337,10 +340,9 @@ class TestMockLangGraphExecutorFullExecution:
     ):
         executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
 
-        from src.adapters.checkpoint import MockCheckpointStore
-        from src.adapters.cache import MockRedisAdapter
-
-        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+        client = NamespacedRedisClient(cache, FallbackStorage())
+        checkpoint_store = RedisCheckpointStore(client)
         cache = MockRedisAdapter()
 
         with pytest.raises(ValueError):
@@ -353,10 +355,9 @@ class TestMockLangGraphExecutorFullExecution:
         run_id = "test-run-full"
         executor.set_current_run_id(run_id)
 
-        from src.adapters.checkpoint import MockCheckpointStore
-        from src.adapters.cache import MockRedisAdapter
-
-        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+        client = NamespacedRedisClient(cache, FallbackStorage())
+        checkpoint_store = RedisCheckpointStore(client)
         cache = MockRedisAdapter()
 
         result = executor.execute(
@@ -380,10 +381,9 @@ class TestMockLangGraphExecutorFullExecution:
         run_id = "test-run-terminal"
         executor.set_current_run_id(run_id)
 
-        from src.adapters.checkpoint import MockCheckpointStore
-        from src.adapters.cache import MockRedisAdapter
-
-        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+        client = NamespacedRedisClient(cache, FallbackStorage())
+        checkpoint_store = RedisCheckpointStore(client)
         cache = MockRedisAdapter()
 
         result = executor.execute(
@@ -420,10 +420,9 @@ class TestMockLangGraphExecutorFullExecution:
             ],
         }
 
-        from src.adapters.checkpoint import MockCheckpointStore
-        from src.adapters.cache import MockRedisAdapter
-
-        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+        client = NamespacedRedisClient(cache, FallbackStorage())
+        checkpoint_store = RedisCheckpointStore(client)
         cache = MockRedisAdapter()
 
         result = executor.execute(workflow, test_input_data, checkpoint_store, cache)
@@ -435,10 +434,9 @@ class TestMockLangGraphExecutorFullExecution:
         run_id = "test-run-entry"
         executor.set_current_run_id(run_id)
 
-        from src.adapters.checkpoint import MockCheckpointStore
-        from src.adapters.cache import MockRedisAdapter
-
-        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+        client = NamespacedRedisClient(cache, FallbackStorage())
+        checkpoint_store = RedisCheckpointStore(client)
         cache = MockRedisAdapter()
 
         executor.execute(workflow_multi_node, test_input_data, checkpoint_store, cache)
@@ -453,10 +451,9 @@ class TestMockLangGraphExecutorFullExecution:
         run_id = "test-run-exit"
         executor.set_current_run_id(run_id)
 
-        from src.adapters.checkpoint import MockCheckpointStore
-        from src.adapters.cache import MockRedisAdapter
-
-        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+        client = NamespacedRedisClient(cache, FallbackStorage())
+        checkpoint_store = RedisCheckpointStore(client)
         cache = MockRedisAdapter()
 
         executor.execute(workflow_multi_node, test_input_data, checkpoint_store, cache)
@@ -481,10 +478,9 @@ class TestMockLangGraphExecutorFullExecution:
             "edges": [],
         }
 
-        from src.adapters.checkpoint import MockCheckpointStore
-        from src.adapters.cache import MockRedisAdapter
-
-        checkpoint_store = MockCheckpointStore()
+        cache = MockRedisAdapter()
+        client = NamespacedRedisClient(cache, FallbackStorage())
+        checkpoint_store = RedisCheckpointStore(client)
         cache = MockRedisAdapter()
 
         result = executor.execute(workflow, test_input_data, checkpoint_store, cache)

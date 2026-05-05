@@ -2,12 +2,7 @@ import pytest
 import json
 import time
 from datetime import datetime
-from src.adapters.stagnation_detector import StagnationDetector
-from src.adapters.langgraph_executor import RealLangGraphExecutor, MockLangGraphExecutor
-from tests.mocks.gateway_mock import MockGatewayClient
-from src.adapters.mcp_router import MCPRouter
-from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
-from src.adapters.cache import MockRedisAdapter
+
 
 
 class TestStagnationDetectorBasics:

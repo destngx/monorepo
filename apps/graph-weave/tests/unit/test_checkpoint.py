@@ -1,11 +1,15 @@
 import pytest
 import json
-from src.adapters.checkpoint import MockCheckpointStore
+from src.adapters.checkpoint import RedisCheckpointStore
+from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
 
 
 @pytest.fixture
 def checkpoint_store():
-    return MockCheckpointStore()
+    cache = MockRedisAdapter()
+    client = NamespacedRedisClient(cache, FallbackStorage())
+    return RedisCheckpointStore(client)
 
 
 class TestCheckpointStorage:

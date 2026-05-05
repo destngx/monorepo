@@ -3,13 +3,11 @@ import json
 import os
 from pathlib import Path
 import httpx
-from src.adapters.workflow import MockWorkflowStore
+from src.adapters.workflow import RedisWorkflowStore
 from src.modules.shared import deps
 from src.adapters.cache import MockRedisAdapter
 
 collect_ignore_glob = ["test_*.py"]
-
-
 
 
 def _load_dotenv_local():
@@ -27,8 +25,6 @@ def _load_dotenv_local():
 
 
 _load_dotenv_local()
-
-
 
 
 class FakeRedisClient:
@@ -49,18 +45,13 @@ class FakeRedisClient:
 
 
 @pytest.fixture(autouse=True)
-def clear_workflow_store():
-    store = MockWorkflowStore()
-    store.clear()
-    yield
-    store.clear()
-
-
-@pytest.fixture(autouse=True)
 def mock_redis_services(monkeypatch, request):
+    """Mocks Redis services for unit tests and ensures a clean state."""
     # Only mock for unit tests. E2E tests run as real integrations.
     if "tests/unit" not in str(request.node.fspath):
+        yield
         return
+
     # Ensure URL is empty to trigger MockRedisAdapter in deps.py
     monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_URL", "")
     monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_TOKEN", "")
@@ -69,8 +60,12 @@ def mock_redis_services(monkeypatch, request):
     deps._services = None
     services = deps.get_services()
     
-    # Double check services are using mock
-    assert isinstance(services.cache, MockRedisAdapter)
+    # Ensure it's using the non-persistent mock for tests
+    if not isinstance(services.cache, MockRedisAdapter):
+        services.cache = MockRedisAdapter()
+        
+    # Clear the cache before the test
+    services.cache.clear()
     
     from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
     services.redis_client = NamespacedRedisClient(
@@ -80,7 +75,16 @@ def mock_redis_services(monkeypatch, request):
     
     services.checkpoint_service = deps.CheckpointService(services.redis_client)
     services.thread_lifecycle_service = deps.ThreadLifecycleService(services.redis_client)
+    services.workflow_store = RedisWorkflowStore(services.redis_client)
+    
+    # Update global services
     deps._services = services
+    
+    yield
+    
+    # Clear again after test to avoid leakage
+    if deps._services and hasattr(deps._services.cache, "clear"):
+        deps._services.cache.clear()
 
 
 @pytest.fixture(autouse=True)
@@ -100,12 +104,12 @@ def mock_gateway_http(monkeypatch, request):
         def json(self):
             return self.json_data
 
-    def fake_post(url, json=None, **kwargs):
+    def fake_post(url, json_body=None, **kwargs):
         # Default mock response following OpenAI structure
         content_dict = {"status": "completed", "message": "E2E Success"}
         
         # Simple routing for E2E tests based on prompt keywords
-        messages = json.get("messages", []) if json else []
+        messages = json_body.get("messages", []) if json_body else []
         prompt_texts = [m["content"].lower() for m in messages]
         full_text = " ".join(prompt_texts)
         
@@ -122,10 +126,21 @@ def mock_gateway_http(monkeypatch, request):
         return FakeResponse({
             "choices": [{"message": {"role": "assistant", "content": content}}],
             "usage": {"total_tokens": 1},
-            "model": json.get("model", "gpt-4.1") if json else "gpt-4.1",
+            "model": json_body.get("model", "gpt-4.1") if json_body else "gpt-4.1",
         })
 
+    class FakeClient:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+        def post(self, url, **kwargs):
+            # Capture the json argument and rename it to json_body for fake_post
+            payload = kwargs.get("json")
+            return fake_post(url, json_body=payload, **kwargs)
+
     monkeypatch.setattr(httpx, "post", fake_post)
+    monkeypatch.setattr(httpx, "Client", lambda **kwargs: FakeClient())
 
 
 @pytest.fixture

@@ -83,7 +83,8 @@ def get_services() -> Services:
     return _services
 
 
-
+def get_cache() -> MockRedisAdapter:
+    return get_services().cache
 
 
 def get_workflow_store():
@@ -92,7 +93,6 @@ def get_workflow_store():
 
 def get_checkpoint_store():
     return get_services().checkpoint_store
-
 
 
 def get_checkpoint_service() -> CheckpointService:

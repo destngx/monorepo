@@ -251,8 +251,8 @@ class NamespacedRedisClient:
         return f"run:{tenant_id}:{run_id}"
 
     @staticmethod
-    def workflow_key(workflow_id: str, tenant_id: str, version: str) -> str:
-        return f"workflow:{tenant_id}:{workflow_id}:{version}"
+    def workflow_key(workflow_id: str, tenant_id: str) -> str:
+        return f"workflow:{tenant_id}:{workflow_id}"
 
     @staticmethod
     def thread_key(thread_id: str, tenant_id: str) -> str:
@@ -439,6 +439,19 @@ class NamespacedRedisClient:
             "redis": is_closed,
             "circuit_breaker": self.circuit_breaker.get_state(),
         }
+
+    def clear(self):
+        """Clear all data from both Redis and fallback storage (for testing)."""
+        def redis_clear():
+            if hasattr(self.redis_client, "clear"):
+                self.redis_client.clear()
+            return True
+
+        def fallback_clear():
+            self.fallback_storage.clear()
+            return True
+
+        return self._execute_with_fallback("CLEAR", redis_clear, fallback_clear)
 
     def close(self):
         self.redis_client.close()

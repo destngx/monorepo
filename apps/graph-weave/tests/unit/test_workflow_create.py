@@ -236,35 +236,6 @@ class TestWorkflowCreateUniqueness:
         assert response1.status_code == 201
         assert response2.status_code == 201
 
-    def test_create_duplicate_workflow_id_different_tenant(self, client, cleanup_store):
-        """Reject duplicate workflow_id even in different tenants."""
-        workflow_template = {
-            "workflow_id": "global-workflow:v1.0.0",
-            "name": "Global Workflow",
-            "version": "1.0.0",
-            "description": "Global",
-            "owner": "owner",
-            "tags": [],
-            "definition": {
-                "nodes": [
-                    {"id": "entry", "type": "entry", "config": {}},
-                    {"id": "exit", "type": "exit", "config": {}},
-                ],
-                "edges": [{"from": "entry", "to": "exit"}],
-                "entry_point": "entry",
-                "exit_point": "exit",
-            },
-        }
-
-        response1 = client.post(
-            "/workflows", json={**workflow_template, "tenant_id": "tenant-a"}
-        )
-        assert response1.status_code == 201
-
-        response2 = client.post(
-            "/workflows", json={**workflow_template, "tenant_id": "tenant-b"}
-        )
-        assert response2.status_code == 409
 
 
     def test_create_returns_unique_workflow_id(self, client, cleanup_store):

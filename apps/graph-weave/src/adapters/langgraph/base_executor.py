@@ -252,13 +252,37 @@ class BaseLangGraphExecutor:
                             return False
                             
                         # Basic type conversion for comparison
-                        if right_val.lower() == 'true': right_val = True
-                        elif right_val.lower() == 'false': right_val = False
-                        elif right_val.isdigit(): right_val = int(right_val)
-                        
-                        if op == "==": return str(left_val) == str(right_val)
-                        if op == "!=": return str(left_val) != str(right_val)
-                        # ... handle others if needed
+                        def parse_val(v):
+                            if isinstance(v, str):
+                                vl = v.lower()
+                                if vl == 'true': return True
+                                if vl == 'false': return False
+                                try:
+                                    if '.' in v: return float(v)
+                                    return int(v)
+                                except ValueError:
+                                    return v
+                            return v
+
+                        l_val = parse_val(left_val)
+                        r_val = parse_val(right_val)
+
+                        try:
+                            if op == "==": return l_val == r_val
+                            if op == "!=": return l_val != r_val
+                            if op == ">": return l_val > r_val
+                            if op == "<": return l_val < r_val
+                            if op == ">=": return l_val >= r_val
+                            if op == "<=": return l_val <= r_val
+                        except TypeError:
+                            # Fallback to string comparison if types are incompatible
+                            ls, rs = str(l_val), str(r_val)
+                            if op == "==": return ls == rs
+                            if op == "!=": return ls != rs
+                            if op == ">": return ls > rs
+                            if op == "<": return ls < rs
+                            if op == ">=": return ls >= rs
+                            if op == "<=": return ls <= rs
             return True
         except Exception as e:
             logger.error(f"Error evaluating condition '{condition}': {e}")

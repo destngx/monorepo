@@ -19,12 +19,14 @@ PREDEFINED_WORKFLOWS = {
 
 
 class RedisWorkflowStore:
-    """Production workflow store backed by Redis with global uniqueness enforcement."""
-
-    GLOBAL_REGISTRY_KEY = "workflows:global:registry"
+    """Production workflow store backed by Redis with tenant-scoped isolation."""
 
     def __init__(self, redis_client: NamespacedRedisClient):
         self.redis_client = redis_client
+
+    def clear(self) -> None:
+        """Clear all workflows from the store (for testing)."""
+        self.redis_client.clear()
 
     def create(self, tenant_id: str, workflow: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         workflow_id = workflow["workflow_id"]
@@ -34,14 +36,10 @@ class RedisWorkflowStore:
             logger.warning(f"Attempt to create workflow shadowing pre-defined ID: {workflow_id}")
             return None
 
-        # 2. Enforce global uniqueness in Redis registry
-        # HSETNX returns 1 if field is new, 0 if it exists
-        if self.redis_client.hsetnx(self.GLOBAL_REGISTRY_KEY, workflow_id, tenant_id) == 0:
-            # Check if it's the same tenant (might be a retry)
-            owner = self.redis_client.hget(self.GLOBAL_REGISTRY_KEY, workflow_id)
-            if owner != tenant_id:
-                logger.warning(f"Workflow ID collision: {workflow_id} already owned by {owner}")
-                return None
+        # 2. Check if workflow already exists for this tenant
+        tenant_workflows_key = f"workflows:tenant:{tenant_id}"
+        if self.redis_client.hsetnx(tenant_workflows_key, workflow_id, "placeholder") == 0:
+            logger.warning(f"Workflow ID already exists for tenant: {workflow_id}")
             return None
 
         # 3. Create the workflow data
@@ -56,20 +54,16 @@ class RedisWorkflowStore:
             workflow_data["tags"] = []
 
         # 4. Persist to Redis (individual key for detail)
-        version = workflow.get("version", "1.0.0")
-        key = self.redis_client.workflow_key(workflow_id, tenant_id, version)
+        key = self.redis_client.workflow_key(workflow_id, tenant_id)
         self.redis_client.set(key, workflow_data)
         
-        # 5. Update tenant index (for listing)
-        tenant_workflows_key = f"workflows:tenant:{tenant_id}"
+        # 5. Update tenant index with full data
         self.redis_client.hset(tenant_workflows_key, workflow_id, workflow_data)
         
         return workflow_data
 
     def get(self, tenant_id: str, workflow_id: str) -> Optional[Dict[str, Any]]:
-        # Reconstruct key using version from workflow_id
-        version = workflow_id.split(":")[-1].lstrip("v") if ":" in workflow_id else "1.0.0"
-        key = self.redis_client.workflow_key(workflow_id, tenant_id, version)
+        key = self.redis_client.workflow_key(workflow_id, tenant_id)
         workflow = self.redis_client.get(key)
         
         if workflow:
@@ -126,8 +120,7 @@ class RedisWorkflowStore:
 
         workflow["updated_at"] = timestamp
         
-        version = workflow_id.split(":")[-1].lstrip("v") if ":" in workflow_id else "1.0.0"
-        key = self.redis_client.workflow_key(workflow_id, tenant_id, version)
+        key = self.redis_client.workflow_key(workflow_id, tenant_id)
         self.redis_client.set(key, workflow)
         
         # Update tenant index
@@ -137,13 +130,10 @@ class RedisWorkflowStore:
         return workflow
 
     def delete(self, tenant_id: str, workflow_id: str) -> bool:
-        version = workflow_id.split(":")[-1].lstrip("v") if ":" in workflow_id else "1.0.0"
-        key = self.redis_client.workflow_key(workflow_id, tenant_id, version)
+        key = self.redis_client.workflow_key(workflow_id, tenant_id)
         
         if self.redis_client.delete(key):
-            # 1. Remove from global registry
-            self.redis_client.hdel(self.GLOBAL_REGISTRY_KEY, workflow_id)
-            # 2. Remove from tenant index
+            # Remove from tenant index
             tenant_workflows_key = f"workflows:tenant:{tenant_id}"
             self.redis_client.hdel(tenant_workflows_key, workflow_id)
             return True
@@ -154,6 +144,9 @@ class RedisWorkflowStore:
         workflows_dict = self.redis_client.hgetall(tenant_workflows_key)
         
         workflows = list(workflows_dict.values())
+        
+        # Filter out placeholders (if any)
+        workflows = [w for w in workflows if isinstance(w, dict)]
         
         if status:
             workflows = [w for w in workflows if w.get("status") == status]
