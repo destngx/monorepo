@@ -243,6 +243,10 @@ class RedisAdapter:
     def from_env(cls, url: Optional[str] = None, token: Optional[str] = None):
         if not url or not token:
             return MockRedisAdapter()
+        if url.startswith("https://"):
+            url = "rediss://" + url[len("https://") :]
+        elif url.startswith("http://"):
+            url = "redis://" + url[len("http://") :]
         return cls(url, token)
 
     def set(self, key: str, value: Any, ex: Optional[int] = None, **kwargs) -> None:

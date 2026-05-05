@@ -170,15 +170,16 @@ async def lifespan(app: FastAPI):
 
     if GraphWeaveConfig.SCHEDULER_ENABLED:
         scheduler_service = get_scheduler_service()
-        scheduler_service.execution_handler = scheduler_execution_handler
-        scheduler_service.start()
-        
-        # Load all enabled schedules for existing tenants
-        # For now, we'll assume a default tenant or list all tenants if we had a tenant store.
-        # As a simplification, we'll just try to sync for 'default' tenant.
-        # In a real app, you'd iterate over all tenants.
-        scheduler_service.sync_schedules("default")
-        logger.info("Scheduler started and synced for 'default' tenant")
+        try:
+            scheduler_service.execution_handler = scheduler_execution_handler
+            scheduler_service.start()
+
+            # Load all enabled schedules for existing tenants.
+            # Best-effort during startup so local serve can still boot when Redis is unavailable.
+            scheduler_service.sync_schedules("default")
+            logger.info("Scheduler started and synced for 'default' tenant")
+        except Exception as e:
+            logger.warning(f"Scheduler startup skipped: {e}")
 
     yield
 
