@@ -271,8 +271,10 @@ def _interpolate_prompt(template: str, context: Dict[str, Any]) -> str:
         else:
             val = context.get(var_name)
 
-        if val is not None:
-            result = result.replace(f"{{{var_name}}}", str(val))
+        if val is None:
+            raise WorkflowParseError(f"Missing template variable: {var_name}")
+
+        result = result.replace(f"{{{var_name}}}", str(val))
 
     return result
 

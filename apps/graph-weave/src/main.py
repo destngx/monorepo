@@ -20,13 +20,9 @@ from .modules.shared.deps import (
     get_thread_lifecycle_service,
     get_redis_client,
     get_executor,
-    get_mcp_router,
     get_schedule_store,
     get_scheduler_service,
 )
-from .adapters.langgraph_executor import RealLangGraphExecutor
-from .adapters.mcp_router import MCPRouter
-from .adapters.ai_gateway_adapter import AIGatewayClient
 from .services.status_service import StatusService
 from .models import (
     ExecuteRequest,
@@ -50,8 +46,6 @@ from .models import (
 setup_logging(debug=GraphWeaveConfig.DEBUG)
 logger = get_logger(__name__)
 
-mcp_router = get_mcp_router()
-langgraph_executor = get_executor()
 execution_runs: dict[str, dict[str, Any]] = {}
 status_service = StatusService(execution_runs)
 
@@ -115,6 +109,7 @@ def _background_execute_run(
         logger.info(
             f"[BG EXEC] Starting background execution: run_id={run_id}, workflow_id={workflow_id}"
         )
+        executor = get_executor()
         
         # Immediate transition to 'running'
         status_service.transition_status(
@@ -126,7 +121,7 @@ def _background_execute_run(
         # Update local memory too
         if run_id in execution_runs:
             execution_runs[run_id]["status"] = "running"
-        execution_result = langgraph_executor.execute(
+        execution_result = executor.execute(
             run_id=run_id,
             thread_id=thread_id,
             tenant_id=tenant_id,

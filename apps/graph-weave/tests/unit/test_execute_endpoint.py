@@ -334,14 +334,14 @@ class TestExecuteEndpointMultiTenant:
         )
         assert response.status_code == 404
 
-    def test_execute_same_workflow_different_tenants(self, client):
-        """Same workflow_id in different tenants are isolated."""
+    def test_execute_same_definition_different_tenants(self, client):
+        """Equivalent workflows in different tenants are isolated."""
         store = get_workflow_store()
         store.clear()
 
-        workflow_template = {
-            "workflow_id": "shared:v1.0.0",
-            "name": "Shared",
+        workflow_a = {
+            "workflow_id": "shared-a:v1.0.0",
+            "name": "Shared A",
             "version": "1.0.0",
             "owner": "owner",
             "tags": [],
@@ -354,14 +354,20 @@ class TestExecuteEndpointMultiTenant:
             },
         }
 
-        store.create("tenant-a", {**workflow_template, "tenant_id": "tenant-a"})
-        store.create("tenant-b", {**workflow_template, "tenant_id": "tenant-b"})
+        workflow_b = {
+            **workflow_a,
+            "workflow_id": "shared-b:v1.0.0",
+            "name": "Shared B",
+        }
+
+        store.create("tenant-a", {**workflow_a, "tenant_id": "tenant-a"})
+        store.create("tenant-b", {**workflow_b, "tenant_id": "tenant-b"})
 
         response_a = client.post(
             "/execute",
             json={
                 "tenant_id": "tenant-a",
-                "workflow_id": "shared:v1.0.0",
+                "workflow_id": "shared-a:v1.0.0",
                 "input": {},
             },
         )
@@ -370,7 +376,7 @@ class TestExecuteEndpointMultiTenant:
             "/execute",
             json={
                 "tenant_id": "tenant-b",
-                "workflow_id": "shared:v1.0.0",
+                "workflow_id": "shared-b:v1.0.0",
                 "input": {},
             },
         )

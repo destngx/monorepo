@@ -251,7 +251,11 @@ class NamespacedRedisClient:
         return f"run:{tenant_id}:{run_id}"
 
     @staticmethod
-    def workflow_key(workflow_id: str, tenant_id: str) -> str:
+    def workflow_key(
+        workflow_id: str, tenant_id: str, version: Optional[str] = None
+    ) -> str:
+        if version:
+            return f"workflow:{tenant_id}:{workflow_id}:{version}"
         return f"workflow:{tenant_id}:{workflow_id}"
 
     @staticmethod

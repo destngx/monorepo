@@ -9,6 +9,74 @@ from ..mcp_router import MCPRouter, ProviderConfigError
 
 logger = get_logger(__name__)
 
+
+class _MockGatewayClient:
+    """Local no-network gateway client used by MockLangGraphExecutor by default."""
+
+    def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        provider: str,
+        model: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        stream: bool = False,
+    ) -> Dict[str, Any]:
+        user_msg = messages[-1]["content"] if messages else ""
+
+        if tools and "search" in user_msg.lower():
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "tool_calls": [
+                                {
+                                    "id": "call_123",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "search",
+                                        "arguments": json.dumps({"query": user_msg}),
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ],
+                "model": model,
+                "usage": {"total_tokens": 1},
+            }
+
+        content = json.dumps(
+            {"status": "completed", "message": "Mock Gateway Response"}
+        )
+        return {
+            "id": "mock_id",
+            "model": model,
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": content,
+                    }
+                }
+            ],
+            "usage": {"total_tokens": 10},
+        }
+
+
+class _MockMCPRouter:
+    def parse_tool_calls(self, content, allowed_tools=None):
+        return []
+
+    def get_tool_definitions(self, allowed_tools=None):
+        return []
+
+    def execute_tool(self, tool_name, tool_args):
+        return {"tool_name": tool_name, "arguments": tool_args}
+
+
 class MockLangGraphExecutor(BaseLangGraphExecutor):
     """Executes workflows by traversing nodes and edges, calling AI provider for agent work."""
 
@@ -17,8 +85,10 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
         ai_provider: Optional[LLMClient] = None,
         mcp_router: Optional[MCPRouter] = None,
     ):
-        self.ai_provider_factory = AIProviderFactory(ai_gateway_client=ai_provider)
-        self.mcp_router = mcp_router or MCPRouter()
+        self.ai_provider_factory = AIProviderFactory(
+            ai_gateway_client=ai_provider or _MockGatewayClient()
+        )
+        self.mcp_router = mcp_router or _MockMCPRouter()
         self._current_run_id: Optional[str] = None
         self.execution_events: Dict[str, List[Dict[str, Any]]] = {}
 

@@ -168,9 +168,9 @@ class TestWorkflowDeleteIsolation:
         store = get_workflow_store()
         store.clear()
 
-        workflow_template = {
-            "workflow_id": "shared:v1.0.0",
-            "name": "Shared",
+        workflow_a = {
+            "workflow_id": "shared-a:v1.0.0",
+            "name": "Shared A",
             "version": "1.0.0",
             "description": "Shared",
             "owner": "owner",
@@ -184,16 +184,22 @@ class TestWorkflowDeleteIsolation:
             },
         }
 
-        store.create("tenant-a", {**workflow_template, "tenant_id": "tenant-a"})
-        store.create("tenant-b", {**workflow_template, "tenant_id": "tenant-b"})
+        workflow_b = {
+            **workflow_a,
+            "workflow_id": "shared-b:v1.0.0",
+            "name": "Shared B",
+        }
+
+        store.create("tenant-a", {**workflow_a, "tenant_id": "tenant-a"})
+        store.create("tenant-b", {**workflow_b, "tenant_id": "tenant-b"})
 
         client.delete(
-            "/workflows/shared:v1.0.0",
+            "/workflows/shared-a:v1.0.0",
             params={"tenant_id": "tenant-a"},
         )
 
         response_b = client.get(
-            "/workflows/shared:v1.0.0",
+            "/workflows/shared-b:v1.0.0",
             params={"tenant_id": "tenant-b"},
         )
         assert response_b.status_code == 200

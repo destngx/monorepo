@@ -1,13 +1,14 @@
 """
-Refactored LangGraph Executor Facade.
-Now delegates to the src.adapters.langgraph package.
+Compatibility shim for the LangGraph executor package.
+
+The real implementation lives in `src.adapters.langgraph`.
 """
 
 from .langgraph import (
     ExecutorState,
     BaseLangGraphExecutor,
     MockLangGraphExecutor,
-    RealLangGraphExecutor
+    RealLangGraphExecutor,
 )
 
 __all__ = [

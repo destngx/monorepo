@@ -1,11 +1,18 @@
-import pytest
-import json
+import json as json_module
 import os
 from pathlib import Path
+from types import SimpleNamespace
+
 import httpx
-from src.adapters.workflow import RedisWorkflowStore
-from src.modules.shared import deps
+import pytest
+
 from src.adapters.cache import MockRedisAdapter
+from src.adapters.checkpoint import RedisCheckpointStore
+from src.adapters.workflow import RedisWorkflowStore
+from src.adapters.schedule import RedisScheduleStore
+from src.adapters.langgraph import RealLangGraphExecutor
+from src.adapters.redis_circuit_breaker import FallbackStorage, NamespacedRedisClient
+from src.modules.shared import deps
 
 collect_ignore_glob = ["test_*.py"]
 
@@ -25,6 +32,11 @@ def _load_dotenv_local():
 
 
 _load_dotenv_local()
+
+os.environ.setdefault(
+    "FS_TOOL_TRASH_PATH",
+    str(Path(__file__).resolve().parent.parent / "tmp" / "graph-weave-trash"),
+)
 
 
 class FakeRedisClient:
@@ -47,49 +59,72 @@ class FakeRedisClient:
 @pytest.fixture(autouse=True)
 def mock_redis_services(monkeypatch, request):
     """Mocks Redis services for unit tests and ensures a clean state."""
-    # Only mock for unit tests. E2E tests run as real integrations.
     if "tests/unit" not in str(request.node.fspath):
         yield
         return
 
-    # Ensure URL is empty to trigger MockRedisAdapter in deps.py
-    monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_URL", "")
-    monkeypatch.setattr(deps.GraphWeaveConfig, "UPSTASH_REDIS_REST_TOKEN", "")
-    
-    # Force a refresh of the services global if it was already initialized
-    deps._services = None
-    services = deps.get_services()
-    
-    # Ensure it's using the non-persistent mock for tests
-    if not isinstance(services.cache, MockRedisAdapter):
-        services.cache = MockRedisAdapter()
-        
-    # Clear the cache before the test
-    services.cache.clear()
-    
-    from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
-    services.redis_client = NamespacedRedisClient(
-        redis_client=services.cache,
-        fallback_storage=FallbackStorage()
+    cache = MockRedisAdapter()
+    redis_client = NamespacedRedisClient(
+        redis_client=cache,
+        fallback_storage=FallbackStorage(),
     )
-    
-    services.checkpoint_service = deps.CheckpointService(services.redis_client)
-    services.thread_lifecycle_service = deps.ThreadLifecycleService(services.redis_client)
-    services.workflow_store = RedisWorkflowStore(services.redis_client)
-    
-    # Update global services
+    workflow_store = RedisWorkflowStore(redis_client)
+    checkpoint_service = deps.CheckpointService(redis_client)
+    checkpoint_store = RedisCheckpointStore(redis_client)
+    thread_lifecycle_service = deps.ThreadLifecycleService(redis_client)
+    schedule_store = RedisScheduleStore(redis_client)
+
+    class MockMCPRouter:
+        def parse_tool_calls(self, content, allowed_tools=None):
+            return []
+
+        def get_tool_definitions(self, allowed_tools=None):
+            return []
+
+        def execute_tool(self, tool_name, tool_args):
+            return None
+
+    mcp_router = MockMCPRouter()
+    executor = RealLangGraphExecutor(
+        mcp_router=mcp_router,
+        redis_client=redis_client,
+        checkpoint_service=checkpoint_service,
+    )
+    scheduler_service = deps.SchedulerService(
+        schedule_store, execution_handler=None
+    )
+
+    services = SimpleNamespace(
+        cache=cache,
+        redis_client=redis_client,
+        workflow_store=workflow_store,
+        checkpoint_service=checkpoint_service,
+        checkpoint_store=checkpoint_store,
+        thread_lifecycle_service=thread_lifecycle_service,
+        mcp_router=mcp_router,
+        executor=executor,
+        schedule_store=schedule_store,
+        scheduler_service=scheduler_service,
+    )
     deps._services = services
-    
+
     yield
-    
-    # Clear again after test to avoid leakage
-    if deps._services and hasattr(deps._services.cache, "clear"):
-        deps._services.cache.clear()
+
+    if hasattr(cache, "clear"):
+        cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def clear_workflow_store(mock_redis_services):
+    store = deps.get_workflow_store()
+    store.clear()
+    yield
+    store.clear()
 
 
 @pytest.fixture(autouse=True)
 def mock_gateway_http(monkeypatch, request):
-    """Mocks all AI Gateway HTTP calls for unit tests."""
+    """Mocks AI Gateway HTTP calls for unit tests only."""
     if "tests/unit" not in str(request.node.fspath):
         return
 
@@ -104,15 +139,18 @@ def mock_gateway_http(monkeypatch, request):
         def json(self):
             return self.json_data
 
-    def fake_post(url, json_body=None, **kwargs):
-        # Default mock response following OpenAI structure
-        content_dict = {"status": "completed", "message": "E2E Success"}
-        
-        # Simple routing for E2E tests based on prompt keywords
-        messages = json_body.get("messages", []) if json_body else []
+    original_post = httpx.Client.post
+
+    def fake_post(self, url, headers=None, json=None, **kwargs):
+        if "chat/completions" not in str(url):
+            return original_post(self, url, headers=headers, json=json, **kwargs)
+
+        payload = json or {}
+        messages = payload.get("messages", [])
         prompt_texts = [m["content"].lower() for m in messages]
         full_text = " ".join(prompt_texts)
-        
+
+        content_dict = {"status": "completed", "message": "E2E Success"}
         if "stagnation" in full_text:
             content_dict["stagnation_detected"] = True
         if "detect_alert_storm" in full_text or "alert storm" in full_text:
@@ -120,43 +158,45 @@ def mock_gateway_http(monkeypatch, request):
         if "redact" in full_text or "sensitive" in full_text:
             content_dict["redaction_completed"] = True
             content_dict["message"] = "Incident report with [REDACTED] values"
-            
-        content = json.dumps(content_dict)
-            
-        return FakeResponse({
-            "choices": [{"message": {"role": "assistant", "content": content}}],
-            "usage": {"total_tokens": 1},
-            "model": json_body.get("model", "gpt-4.1") if json_body else "gpt-4.1",
-        })
 
-    class FakeClient:
-        def __enter__(self):
-            return self
-        def __exit__(self, *args):
-            pass
-        def post(self, url, **kwargs):
-            # Capture the json argument and rename it to json_body for fake_post
-            payload = kwargs.get("json")
-            return fake_post(url, json_body=payload, **kwargs)
+        content = json_module.dumps(content_dict)
+        return FakeResponse(
+            {
+                "choices": [
+                    {"message": {"role": "assistant", "content": content}}
+                ],
+                "usage": {"total_tokens": 1},
+                "model": payload.get("model", "gpt-4.1"),
+            }
+        )
 
-    monkeypatch.setattr(httpx, "post", fake_post)
-    monkeypatch.setattr(httpx, "Client", lambda **kwargs: FakeClient())
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
 
 
 @pytest.fixture
 def mock_mcp_router():
     """Provides a mocked MCPRouter."""
-    from src.adapters.mcp_router import MCPRouter
-    return MCPRouter()
+    class MockMCPRouter:
+        def parse_tool_calls(self, content, allowed_tools=None):
+            return []
+
+        def get_tool_definitions(self, allowed_tools=None):
+            return []
+
+        def execute_tool(self, tool_name, tool_args):
+            return {"tool_name": tool_name, "arguments": tool_args}
+
+        def filter_allowed_tools(self, tools, allowed_tools=None):
+            return tools or []
+
+    return MockMCPRouter()
 
 
 @pytest.fixture
 def workflow_multi_node():
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "workflow_example_multi_node.json"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "workflow_example_multi_node.json"
     with open(fixture_path) as f:
-        return json.load(f)
+        return json_module.load(f)
 
 
 @pytest.fixture

@@ -57,11 +57,11 @@ class TestOpenAPITags:
     """Verify OpenAPI schema includes semantic tag organization"""
 
     def test_openapi_has_tags_array(self, client):
-        """Verify OpenAPI schema includes tags array with 3 groups"""
+        """Verify OpenAPI schema includes tags array with 4 groups"""
         response = client.get("/openapi.json")
         schema = response.json()
         assert "tags" in schema
-        assert len(schema["tags"]) == 3
+        assert len(schema["tags"]) == 4
 
     def test_openapi_tag_definitions(self, client):
         """Verify each tag has name and description"""
@@ -69,7 +69,7 @@ class TestOpenAPITags:
         schema = response.json()
         tag_names = {tag["name"] for tag in schema["tags"]}
 
-        assert tag_names == {"Execution", "Skills", "Workflows"}
+        assert tag_names == {"Execution", "Schedules", "Skills", "Workflows"}
 
         for tag in schema["tags"]:
             assert "name" in tag

@@ -121,19 +121,37 @@ class MockRedisAdapter:
         key = self._build_versioned_key(namespace, tenant_id, skill_id, version)
         return self.get(key)
 
+    def get_versioned_with_fallback(
+        self,
+        namespace: str,
+        tenant_id: str,
+        skill_id: str,
+        version: Optional[str],
+    ) -> Optional[Any]:
+        resolved_version = version or "latest"
+        return self.get_versioned(
+            namespace, tenant_id, skill_id, resolved_version
+        )
+
     def get_versioned_with_rebuild(
         self,
         namespace: str,
         tenant_id: str,
         skill_id: str,
         version: str,
-        rebuild_fn,
+        source_loader=None,
+        rebuild_fn=None,
     ) -> Any:
         value = self.get_versioned(namespace, tenant_id, skill_id, version)
         if value is not None:
             return value
 
-        value = rebuild_fn()
+        if source_loader is not None:
+            value = source_loader.load_from_source(tenant_id, skill_id, version)
+        elif rebuild_fn is not None:
+            value = rebuild_fn()
+        else:
+            raise TypeError("source_loader or rebuild_fn is required")
         self.set_versioned(namespace, tenant_id, skill_id, version, value)
         return value
 
