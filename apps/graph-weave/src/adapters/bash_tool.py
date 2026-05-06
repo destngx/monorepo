@@ -64,7 +64,7 @@ class BashTool:
         # Check forbidden patterns
         for pattern in self.FORBIDDEN_PATTERNS:
             if pattern.search(command):
-                raise BashToolError(f"Command rejected by forbidden pattern: {pattern.pattern}")
+                raise BashToolError(f"Command rejected by forbidden pattern: '{pattern.pattern}'. DO NOT attempt to use 'sudo' or system-level commands. Please stick to the provided scripts in the allowed paths.")
 
         # Basic check for absolute paths in the command string that are outside allowed paths
         # This is a naive regex to find potential absolute paths

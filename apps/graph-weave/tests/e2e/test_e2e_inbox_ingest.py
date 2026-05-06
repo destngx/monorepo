@@ -22,7 +22,7 @@ def test_inbox_ingest_generator_to_execution_real_server(client):
     3. Execute the generated workflow
     4. Verify results
     """
-    
+
     # 1. Define the intent
     intent = """
 Process a preprocessed inbox file:
@@ -111,7 +111,7 @@ ERROR HANDLING:
     response.raise_for_status()
     run_id = response.json()["run_id"]
     print(f"Generator run started: {run_id}")
-    
+
     # Poll for completion
     max_retries = 150 # 5 minutes
     status = "pending"
@@ -119,7 +119,7 @@ ERROR HANDLING:
     data = {}
 
     time.sleep(2) # Initial delay
-    
+
     for i in range(max_retries):
         status_resp = client.get(f"/execute/{run_id}/status")
         status_resp.raise_for_status()
@@ -131,22 +131,22 @@ ERROR HANDLING:
                 generated_workflow = data.get("workflow_state", {}).get("generated_workflow")
             break
         time.sleep(2)
-    
+
     assert status == "completed", f"Generator failed with status {status}. Errors: {data.get('errors')}\nFull State: {json.dumps(data.get('workflow_state'), indent=2)}"
-    
+
     workflow_state = data.get("workflow_state", {})
     is_valid = workflow_state.get("is_valid")
     generated_workflow = workflow_state.get("generated_workflow")
-    
+
     if not generated_workflow:
         print(f"DEBUG: Generator State: {json.dumps(workflow_state, indent=2)}")
-        
+
     assert is_valid is True, f"Generator marked workflow as invalid: {workflow_state.get('validation_errors')}"
-    
+
     # Dump generated workflow to file for inspection
     with open("generated_workflow_debug.json", "w") as f:
         json.dump(generated_workflow, f, indent=2)
-        
+
     assert generated_workflow is not None, "Generator did not produce a workflow"
     print(f"[Step 1] Success! Generated nodes: {len(generated_workflow.get('nodes', []))}")
 
@@ -172,7 +172,7 @@ ERROR HANDLING:
     # 4. Execute the new workflow
     print(f"[Step 3] Executing {new_workflow_id}...")
     test_file_path = f"{VAULT_ROOT}/Persona/00_inbox/_ready/test_generator_real.md"
-    
+
     # Ensure dir exists
     os.makedirs(os.path.dirname(test_file_path), exist_ok=True)
     with open(test_file_path, "w") as f:
@@ -194,7 +194,7 @@ ERROR HANDLING:
         )
         exec_response.raise_for_status()
         exec_run_id = exec_response.json()["run_id"]
-        
+
         # Poll for completion
         for i in range(30):
             status_resp = client.get(f"/execute/{exec_run_id}/status")
@@ -205,14 +205,14 @@ ERROR HANDLING:
             if status in ["completed", "failed"]:
                 break
             time.sleep(2)
-            
+
         assert status == "completed", f"Execution failed: {data.get('errors')}. State: {json.dumps(data.get('workflow_state'), indent=2)}"
         print("[Step 3] Success!")
-        
+
         # 5. Detailed Verification and Logging
         print("\n=== EXECUTION AUDIT LOG ===")
         events = data.get("events", [])
-        
+
         # DEBUG: Print first bash event to see structure
         bash_events = [e for e in events if "tool" in str(e).lower() and "bash" in str(e).lower()]
         if bash_events:
@@ -220,13 +220,13 @@ ERROR HANDLING:
 
         bash_calls_started = [e for e in events if e.get("type") == "tool.started" and e.get("data", {}).get("tool") == "bash"]
         bash_calls_completed = [e for e in events if e.get("type") == "tool.completed" and e.get("data", {}).get("tool") == "bash"]
-        
+
         node_executions = [e for e in events if e.get("type") == "node.completed"]
-        
+
         for node in node_executions:
             node_id = node.get("data", {}).get("node_id")
             print(f"\n[Node: {node_id}]")
-        
+
         print("\n--- Tool Calls Detail ---")
         for i, start_event in enumerate(bash_calls_started):
             tool_data = start_event.get("data", {})
@@ -234,7 +234,7 @@ ERROR HANDLING:
             args = tool_data.get('arguments') or tool_data.get('input') or {}
             print(f"\nTool Call #{i+1}: {tool_data.get('tool')}")
             print(f"Command: {args.get('command')}")
-            
+
             # Find corresponding completion
             call_id = tool_data.get('call_id')
             completion = next((e for e in bash_calls_completed if e.get("data", {}).get("call_id") == call_id), None)
@@ -250,7 +250,7 @@ ERROR HANDLING:
 
         print(f"\n[Step 4] Verification: Found {len(bash_calls_started)} bash tool calls.")
         assert len(bash_calls_started) >= 1, "No bash tool calls detected"
-        
+
         print("\nReal Server Full Cycle E2E Test Success!")
 
     finally:

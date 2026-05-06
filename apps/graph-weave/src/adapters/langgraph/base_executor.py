@@ -210,6 +210,8 @@ class BaseLangGraphExecutor:
             if val is None and p in context:
                 val = context[p]
 
+            # Default to empty string for None values to avoid leaking {placeholders} into shell commands
+            val_str = ""
             if val is not None:
                 # Smart Content Extraction
                 if isinstance(val, dict):
@@ -227,9 +229,9 @@ class BaseLangGraphExecutor:
                 else:
                     val_str = str(val)
 
-                # Replace ALL variations: {{p}} and {p}
-                result = result.replace(f"{{{{{p}}}}}", val_str)
-                result = result.replace(f"{{{p}}}", val_str)
+            # Replace ALL variations: {{p}} and {p}
+            result = result.replace(f"{{{{{p}}}}}", val_str)
+            result = result.replace(f"{{{p}}}", val_str)
 
         return result
 

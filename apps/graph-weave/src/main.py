@@ -53,16 +53,16 @@ def scheduler_execution_handler(tenant_id: str, workflow_id: str, input_data: di
     """Handler called by APScheduler to trigger a workflow."""
     run_id = str(uuid.uuid4())
     thread_id = str(uuid.uuid4())
-    
+
     workflow_store = get_workflow_store()
     workflow = workflow_store.get(tenant_id, workflow_id)
-    
+
     if not workflow:
         logger.error(f"Scheduled execution failed: Workflow {workflow_id} not found for tenant {tenant_id}")
         return
 
     logger.info(f"Triggering scheduled execution: workflow_id={workflow_id}, tenant_id={tenant_id}, run_id={run_id}")
-    
+
     status_service.set_status(
         tenant_id,
         run_id,
@@ -110,7 +110,7 @@ def _background_execute_run(
             f"[BG EXEC] Starting background execution: run_id={run_id}, workflow_id={workflow_id}"
         )
         executor = get_executor()
-        
+
         # Immediate transition to 'running'
         status_service.transition_status(
             tenant_id,
@@ -309,7 +309,7 @@ async def execute(request: ExecuteRequest):
     thread_id = str(uuid.uuid4())
 
     logger.info(
-        f"Mock execution started: run_id={run_id}, thread_id={thread_id}, workflow_id={request.workflow_id}"
+        f"Execution started: run_id={run_id}, thread_id={thread_id}, workflow_id={request.workflow_id}"
     )
 
     try:
@@ -700,9 +700,9 @@ async def create_schedule(request: ScheduleCreate):
         "name": request.name,
         "enabled": request.enabled,
     }
-    
+
     result = store.create(request.tenant_id, schedule_data)
-    
+
     if request.enabled and GraphWeaveConfig.SCHEDULER_ENABLED:
         scheduler = get_scheduler_service()
         scheduler.add_schedule(
@@ -712,7 +712,7 @@ async def create_schedule(request: ScheduleCreate):
             workflow_id=result["workflow_id"],
             input_data=result["input_data"]
         )
-        
+
     return ScheduleResponse(**result)
 
 
@@ -739,7 +739,7 @@ async def get_schedule(schedule_id: str, tenant_id: str):
 @app.put("/schedules/{schedule_id}", response_model=ScheduleResponse, tags=["Schedules"])
 async def update_schedule(schedule_id: str, tenant_id: str, request: ScheduleUpdate):
     store = get_schedule_store()
-    
+
     updates = {}
     if request.cron_expression is not None:
         updates["cron_expression"] = request.cron_expression
@@ -749,11 +749,11 @@ async def update_schedule(schedule_id: str, tenant_id: str, request: ScheduleUpd
         updates["name"] = request.name
     if request.enabled is not None:
         updates["enabled"] = request.enabled
-        
+
     result = store.update(tenant_id, schedule_id, updates)
     if not result:
         raise HTTPException(status_code=404, detail="Schedule not found")
-        
+
     if GraphWeaveConfig.SCHEDULER_ENABLED:
         scheduler = get_scheduler_service()
         if result["enabled"]:
@@ -766,7 +766,7 @@ async def update_schedule(schedule_id: str, tenant_id: str, request: ScheduleUpd
             )
         else:
             scheduler.remove_schedule(tenant_id, schedule_id)
-            
+
     return ScheduleResponse(**result)
 
 
@@ -775,7 +775,7 @@ async def delete_schedule(schedule_id: str, tenant_id: str):
     store = get_schedule_store()
     if not store.delete(tenant_id, schedule_id):
         raise HTTPException(status_code=404, detail="Schedule not found")
-        
+
     if GraphWeaveConfig.SCHEDULER_ENABLED:
         scheduler = get_scheduler_service()
         scheduler.remove_schedule(tenant_id, schedule_id)

@@ -231,7 +231,8 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
     def _route_by_edge(self, run_id: str, workflow: Dict[str, Any], current_node_id: str, state: Dict[str, Any]) -> Optional[str]:
         edges = workflow.get("edges", [])
-        matching_edges = [e for e in edges if e.get("from") == current_node_id]
+        # Support both 'source' (standard) and 'from' (legacy) keys
+        matching_edges = [e for e in edges if (e.get("source") or e.get("from")) == current_node_id]
         if not matching_edges:
             return self._find_exit_node(workflow)
 
@@ -240,16 +241,21 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
         for edge in matching_edges:
             condition = edge.get("condition")
             if not condition or self._evaluate_condition(condition, state):
-                target_node_id = edge.get("to")
+                # Support both 'target' (standard) and 'to' (legacy) keys
+                target_node_id = edge.get("target") or edge.get("to")
                 routing_edge = edge
                 break
 
         if not target_node_id and matching_edges:
-            target_node_id = matching_edges[0].get("to")
+            target_node_id = matching_edges[0].get("target") or matching_edges[0].get("to")
             routing_edge = matching_edges[0]
 
         if target_node_id:
-            self._emit_event(run_id, "edge_route", {"from": current_node_id, "to": target_node_id, "condition": routing_edge.get("condition") if routing_edge else None})
+            self._emit_event(run_id, "edge_route", {
+                "from": current_node_id, 
+                "to": target_node_id, 
+                "condition": routing_edge.get("condition") if routing_edge else None
+            })
         return target_node_id
 
     def _check_kill_flag(self, run_id: str, tenant_id: str) -> bool:

@@ -326,7 +326,8 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
         state: Dict[str, Any],
     ) -> Optional[str]:
         edges = workflow.get("edges", [])
-        matching_edges = [e for e in edges if e.get("from") == current_node_id]
+        # Support both 'source' (standard) and 'from' (legacy) keys
+        matching_edges = [e for e in edges if (e.get("source") or e.get("from")) == current_node_id]
 
         if not matching_edges:
             self._log_event(
@@ -339,7 +340,8 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
         for edge in matching_edges:
             condition = edge.get("condition")
             if not condition or self._evaluate_condition(condition, state):
-                next_node_id = edge.get("to")
+                # Support both 'target' (standard) and 'to' (legacy) keys
+                next_node_id = edge.get("target") or edge.get("to")
                 self._log_event(
                     run_id,
                     "edge_route",
@@ -347,7 +349,7 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
                 )
                 return next_node_id
 
-        next_node_id = matching_edges[0].get("to")
+        next_node_id = matching_edges[0].get("target") or matching_edges[0].get("to")
         self._log_event(
             run_id,
             "edge_route",
