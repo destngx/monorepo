@@ -127,17 +127,39 @@ class AgentNodeHandler:
                         self.executor._emit_event(run_id, "tool.failed", {"tool": tool_name, "id": tool_id, "error": str(e)})
 
             cleaned_content = final_content
-            if isinstance(cleaned_content, str) and "```" in cleaned_content:
+            # Robust JSON extraction: try code blocks first, then any JSON-like structure
+            json_data = None
+            if isinstance(cleaned_content, str):
+                # 1. Try markdown code blocks
                 json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", cleaned_content, re.DOTALL)
                 if json_match:
-                    cleaned_content = json_match.group(1)
+                    try:
+                        json_data = json.loads(json_match.group(1))
+                    except:
+                        pass
+                
+                # 2. Try raw string if it looks like JSON
+                if json_data is None:
+                    try:
+                        json_data = json.loads(cleaned_content)
+                    except:
+                        pass
+                
+                # 3. Last resort: search for anything between curly braces
+                if json_data is None:
+                    bracket_match = re.search(r"(\{.*\})", cleaned_content, re.DOTALL)
+                    if bracket_match:
+                        try:
+                            json_data = json.loads(bracket_match.group(1))
+                        except:
+                            pass
 
-            try:
-                result_data = json.loads(cleaned_content or final_content)
-                print(f"[AGENT] Parsed JSON from {node_id}", flush=True)
-            except json.JSONDecodeError:
+            if json_data is not None:
+                result_data = json_data
+                self._logger.debug(f"[AGENT] Successfully parsed JSON from {node_id}")
+            else:
                 result_data = {"raw_response": final_content}
-                print(f"[AGENT] Failed to parse JSON from {node_id}, using raw_response", flush=True)
+                self._logger.warning(f"[AGENT] Failed to parse JSON from {node_id}, using raw_response")
 
             output_key = get_field("output_key")
             actual_result = {output_key: result_data} if output_key else result_data

@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import shlex
 from typing import Any, Dict, List, Mapping, Optional
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ class BaseLangGraphExecutor:
         self.ai_provider = ai_provider
         self.tools = tools or {}
 
-    def _get_state_value(self, path: str, state: Mapping[str, Any]) -> Any:
+    def _get_state_value(self, path: Any, state: Mapping[str, Any]) -> Any:
         """
         Extracts a value from the state using a dot-notated path or JSONPath.
         Supports:
@@ -20,8 +21,18 @@ class BaseLangGraphExecutor:
         2. $.field (from workflow_state)
         3. Simple field name
         4. Array indices: summary[0], metadata.tags[1]
+        5. Function mappings: {"type": "function", "function": "...", "args": {...}}
         """
         if not path:
+            return None
+
+        # Handle complex function mappings
+        if isinstance(path, dict):
+            if path.get("type") == "function":
+                return self._handle_function_mapping(path, state)
+            return None
+
+        if not isinstance(path, str):
             return None
 
         # Clean path
@@ -37,6 +48,12 @@ class BaseLangGraphExecutor:
         elif ".first(" in clean_path or clean_path.endswith(".first"):
             clean_path = clean_path.split(".first")[0]
             virtual_transform = "first"
+        elif ".sh_quote(" in clean_path or clean_path.endswith(".sh_quote"):
+            clean_path = clean_path.split(".sh_quote")[0]
+            virtual_transform = "sh_quote"
+        elif ".shell(" in clean_path or clean_path.endswith(".shell"):
+            clean_path = clean_path.split(".shell")[0]
+            virtual_transform = "sh_quote"
 
         keys = clean_path.split('.')
         first_part = keys[0]
@@ -47,6 +64,9 @@ class BaseLangGraphExecutor:
             first_part = first_part[:-7]
         elif first_part.endswith("_first"):
             virtual_transform = "first"
+            first_part = first_part[:-6]
+        elif first_part.endswith("_shell"):
+            virtual_transform = "sh_quote"
             first_part = first_part[:-6]
 
         # Handle array index in the first part, e.g., "summary[0]" -> "summary", ["0"]
@@ -84,6 +104,29 @@ class BaseLangGraphExecutor:
                             break
                 if res is not None: break
 
+        # 5. Fallback: if resolution returned None but we have a terminal scalar
+        #    at a parent path, return that scalar. This handles the common case where
+        #    LLMs return flat strings like "CREATED: path/to/file" in `result` instead
+        #    of nested objects like {"draft_path": "path/to/file"}.
+        #    E.g. $.create_draft.result.draft_path -> create_draft.result is "path/..."
+        if res is None and remaining_keys:
+            # Try resolving without the last key segment(s)
+            for trim in range(1, len(remaining_keys) + 1):
+                parent_keys = remaining_keys[:-trim]
+                parent_val = None
+                if first_key in node_results:
+                    parent_val = self._resolve_path(node_results[first_key], parent_keys)
+                elif first_key in workflow_state:
+                    parent_val = self._resolve_path(workflow_state[first_key], parent_keys)
+                elif first_key in state:
+                    parent_val = self._resolve_path(state[first_key], parent_keys)
+                
+                if parent_val is not None and isinstance(parent_val, str):
+                    # The parent is a terminal string, return it as the value
+                    logger.debug(f"Fallback: path '{path}' resolved parent to string: {parent_val[:80]}")
+                    res = parent_val
+                    break
+
         if res is not None:
             if virtual_transform == "joined" and isinstance(res, list):
                 # Auto-join lists: authors/tags by comma, summary/claims by newline
@@ -91,6 +134,8 @@ class BaseLangGraphExecutor:
                 res = sep.join(str(i) for i in res)
             elif virtual_transform == "first" and isinstance(res, list) and len(res) > 0:
                 res = res[0]
+            elif virtual_transform == "sh_quote":
+                res = shlex.quote(str(res))
             
             return res
 
@@ -136,6 +181,39 @@ class BaseLangGraphExecutor:
             else:
                 return None
         return current
+
+    def _handle_function_mapping(self, mapping: Dict[str, Any], state: Mapping[str, Any]) -> Any:
+        """Executes a transformation function for complex mappings."""
+        func_name = mapping.get("function")
+        args = mapping.get("args", {})
+        
+        if func_name == "str_replace":
+            val = self._get_state_value(args.get("value"), state)
+            if val is None:
+                return None
+            search_str = args.get("search", "")
+            replace_str = args.get("replace", "")
+            return str(val).replace(search_str, replace_str)
+            
+        elif func_name == "replace_null_with_empty":
+            val = self._get_state_value(args.get("value"), state)
+            return val if val is not None else ""
+            
+        elif func_name == "array_first":
+            val = self._get_state_value(args.get("array"), state)
+            if isinstance(val, list) and len(val) > 0:
+                return val[0]
+            return None
+            
+        elif func_name == "array_join":
+            val = self._get_state_value(args.get("array"), state)
+            sep = args.get("separator", ", ")
+            if isinstance(val, list):
+                return sep.join(str(i) for i in val)
+            return str(val) if val is not None else ""
+
+        logger.warning(f"Unknown function mapping: {func_name}")
+        return None
 
     def _clean_filler(self, content: str) -> str:
         """
@@ -184,6 +262,8 @@ class BaseLangGraphExecutor:
         """
         Interpolates variables into a prompt template using the execution state.
         Supports {variable} and {{variable}} syntax.
+        Only replaces placeholders that resolve to known values — unknown
+        placeholders are left as-is to avoid destroying JSON literals in prompts.
         """
         if not template or not isinstance(template, str):
             return template
@@ -196,6 +276,11 @@ class BaseLangGraphExecutor:
         context.update({k: v for k, v in state.items() if k != "workflow_state"})
         if local_context:
             context.update(local_context)
+
+        # Collect the set of known variable names from input_mapping / local_context
+        known_vars = set()
+        if local_context:
+            known_vars.update(local_context.keys())
 
         for p in placeholders:
             # Try resolving using the robust _get_state_value logic
@@ -210,7 +295,14 @@ class BaseLangGraphExecutor:
             if val is None and p in context:
                 val = context[p]
 
-            # Default to empty string for None values to avoid leaking {placeholders} into shell commands
+            # CRITICAL: Only replace if we actually found a value or if the
+            # placeholder is a known variable name (from input_mapping).
+            # This prevents destroying JSON literals like {"status": "processed"}
+            # in system prompts where "status" is not a workflow variable.
+            if val is None and p not in known_vars and p not in context:
+                # Unknown placeholder — leave it as-is in the template
+                continue
+
             val_str = ""
             if val is not None:
                 # Smart Content Extraction
@@ -220,8 +312,14 @@ class BaseLangGraphExecutor:
                     elif "result" in val:
                         val = val["result"]
 
-                # Convert complex objects to pretty JSON strings
-                if isinstance(val, (dict, list)):
+                # Auto-join lists as human-readable strings for prompt interpolation
+                # Tags/authors use comma, summaries/claims use newline
+                if isinstance(val, list):
+                    if any(hint in p.lower() for hint in ["tag", "author", "name"]):
+                        val_str = ", ".join(str(i) for i in val)
+                    else:
+                        val_str = "\n".join(str(i) for i in val)
+                elif isinstance(val, dict):
                     try:
                         val_str = json.dumps(val, indent=2)
                     except (TypeError, ValueError):
@@ -234,6 +332,7 @@ class BaseLangGraphExecutor:
             result = result.replace(f"{{{p}}}", val_str)
 
         return result
+
 
     def _evaluate_condition(self, condition: str, state: Mapping[str, Any]) -> bool:
         """Evaluates a transition condition against the state."""
