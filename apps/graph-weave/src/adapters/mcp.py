@@ -31,12 +31,15 @@ class MockMCPServer:
             },
             "bash": {
                 "name": "bash",
-                "description": "Executes a bash command.",
+                "description": "Executes a bash command. Use this for running predefined scripts or CLI tools. IMPORTANT: When running a .sh script, always prefix the command with 'bash ' (e.g., 'bash path/to/script.sh --arg value') to ensure reliable execution.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "command": {"type": "string", "description": "The bash command to run."},
-                        "cwd": {"type": "string", "description": "Optional working directory."}
+                        "command": {
+                            "type": "string", 
+                            "description": "The full bash command to run. If calling a script file, you MUST include 'bash ' prefix."
+                        },
+                        "cwd": {"type": "string", "description": "Optional working directory. Defaults to workspace root."}
                     },
                     "required": ["command"],
                 },
