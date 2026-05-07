@@ -158,6 +158,11 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
                         run_id, node, state, workflow, checkpoint_store
                     )
                     state["node_results"][current_node_id] = result
+                elif node_type in {"cli_node", "bash"}:
+                    result = self._execute_cli_node(
+                        run_id, node, state, workflow
+                    )
+                    state["node_results"][current_node_id] = result
                 elif node_type == "entry":
                     self._log_event(
                         run_id,
@@ -317,6 +322,56 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
 
         state["last_result"] = result_data
         return result
+
+    def _execute_cli_node(
+        self,
+        run_id: str,
+        node: Dict[str, Any],
+        state: ExecutorState,
+        workflow: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        node_id = node.get("id")
+        self._log_event(run_id, "node_execute", f"Executing CLI node: {node_id}")
+
+        config = node.get("config", {})
+        command_template = config.get("command", "")
+        cwd_template = config.get("cwd")
+
+        input_mapping = config.get("input_mapping", {})
+        cli_input_context = {}
+        if input_mapping:
+            for key, path in input_mapping.items():
+                cli_input_context[key] = self._get_state_value(path, state)
+
+        command = self._interpolate_prompt(command_template, state, local_context=cli_input_context)
+        cwd = None
+        if cwd_template:
+            cwd = self._interpolate_prompt(cwd_template, state, local_context=cli_input_context)
+
+        # Mock tool execution
+        result = self.mcp_router.execute_tool("bash", {"command": command, "cwd": cwd})
+        
+        # In mock, stdout is just the command for demonstration if not provided
+        stdout = result.get("stdout", f"Mock output for: {command}")
+        try:
+            result_data = json.loads(stdout)
+        except:
+            result_data = {"stdout": stdout}
+
+        node_result = {
+            "node_id": node_id,
+            "status": "completed",
+            "result": result_data,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "exit_code": result.get("exit_code", 0),
+        }
+
+        output_key = config.get("output_key")
+        if output_key:
+            node_result[output_key] = result_data
+
+        state["last_result"] = result_data
+        return node_result
 
     def _route_by_edge(
         self,

@@ -8,6 +8,7 @@ from .base_executor import BaseLangGraphExecutor
 from .stagnation_detector import StagnationDetector
 from .agent_node import AgentNodeHandler
 from .orchestrator_node import OrchestratorNodeHandler
+from .cli_node import CLINodeHandler
 from ..ai_provider import AIProviderFactory, LLMClient
 from ..mcp_router import MCPRouter
 from ..redis_circuit_breaker import NamespacedRedisClient
@@ -40,6 +41,7 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
         # Initialize specialized node handlers
         self.agent_handler = AgentNodeHandler(self)
         self.orchestrator_handler = OrchestratorNodeHandler(self)
+        self.cli_handler = CLINodeHandler(self)
 
     def execute(
         self,
@@ -170,7 +172,7 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
     def _resolve_node_input(self, node: Dict[str, Any], state: Dict[str, Any]) -> Dict[str, Any]:
         node_type = node.get("type")
-        if node_type in {"agent_node", "agent", "orchestrator"}:
+        if node_type in {"agent_node", "agent", "orchestrator", "cli_node", "bash"}:
             config = node.get("config", {})
             input_mapping = node.get("input_mapping") or config.get("input_mapping", {})
             if input_mapping:
@@ -196,6 +198,8 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
             return {"skills_loaded": True, "node_id": node.get("id")}
         elif node_type == "orchestrator":
             return self.orchestrator_handler.execute(run_id, node, state, workflow)
+        elif node_type in {"cli_node", "bash"}:
+            return self.cli_handler.execute(run_id, node, state, workflow)
         else:
             raise ValueError(f"Unknown node type: {node_type}")
 
