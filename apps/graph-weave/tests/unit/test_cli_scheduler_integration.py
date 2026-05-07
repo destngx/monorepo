@@ -33,30 +33,30 @@ def test_scheduled_cli_node_execution(mock_deps):
     from src.main import scheduler_execution_handler
     
     tenant_id = "test-tenant"
-    workflow_id = "backup-workflow:v1.0.0"
-    input_data = {"backup_path": "/tmp/backups"}
+    workflow_id = "echo-workflow:v1.0.0"
+    input_data = {"item_id": "SKU-123"}
     
     # 1. Mock the workflow definition
     workflow_def = {
         "workflow_id": workflow_id,
-        "name": "Backup Workflow",
+        "name": "Echo Workflow",
         "version": "1.0.0",
         "definition": {
             "nodes": [
                 {"id": "start", "type": "entry"},
                 {
-                    "id": "run_backup",
+                    "id": "run_echo",
                     "type": "cli_node",
                     "config": {
-                        "command": "tar -czf {backup_path}/data.tar.gz ./data",
-                        "output_key": "backup_result"
+                        "command": "echo 'Process started for {item_id}'",
+                        "output_key": "echo_result"
                     }
                 },
                 {"id": "end", "type": "exit"}
             ],
             "edges": [
-                {"source": "start", "target": "run_backup"},
-                {"source": "run_backup", "target": "end"}
+                {"source": "start", "target": "run_echo"},
+                {"source": "run_echo", "target": "end"}
             ],
             "entry_point": "start",
             "exit_point": "end"
@@ -65,13 +65,12 @@ def test_scheduled_cli_node_execution(mock_deps):
     mock_deps["workflow_store"].get.return_value = workflow_def
     
     # 2. Mock the executor.execute response
-    # In a real run, this would be handled by RealLangGraphExecutor calling CLINodeHandler
     expected_result = {
         "status": "completed",
         "workflow_state": {
-            "backup_path": "/tmp/backups",
-            "backup_result": {
-                "stdout": "backup successful",
+            "item_id": "SKU-123",
+            "echo_result": {
+                "stdout": "Process started for SKU-123\n",
                 "exit_code": 0,
                 "success": True
             }
@@ -149,4 +148,45 @@ def test_cli_node_interpolation_in_scheduled_run():
     # Verify interpolation worked
     mock_executor.mcp_router.execute_tool.assert_called_once_with(
         "bash", {"command": "rm -rf /var/log/app/*.tmp", "cwd": None}
+    )
+
+def test_simple_echo_node():
+    """
+    The simplest possible test: run an 'echo' command and verify the result.
+    """
+    from src.adapters.langgraph.cli_node import CLINodeHandler
+    
+    mock_executor = MagicMock()
+    # Simple interpolation: just return template as is for this test
+    mock_executor._interpolate_prompt = lambda t, s, local_context=None: t
+    
+    handler = CLINodeHandler(mock_executor)
+    
+    node = {
+        "id": "echo_node",
+        "type": "cli_node",
+        "config": {
+            "command": "echo 'Hello World'",
+            "output_key": "greeting"
+        }
+    }
+    
+    state = {"workflow_state": {}}
+    
+    # Mock the tool response
+    mock_executor.mcp_router.execute_tool.return_value = {
+        "status": "success",
+        "stdout": "Hello World\n",
+        "stderr": "",
+        "exit_code": 0
+    }
+    
+    result = handler.execute("run-simple", node, state, {})
+    
+    assert result["status"] == "completed"
+    assert result["greeting"]["stdout"] == "Hello World\n"
+    assert result["greeting"]["success"] is True
+    
+    mock_executor.mcp_router.execute_tool.assert_called_once_with(
+        "bash", {"command": "echo 'Hello World'", "cwd": None}
     )
