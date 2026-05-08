@@ -17,6 +17,7 @@ Claude Code and other agentic harnesses use **Progressive Disclosure**. Read the
 - **AI Gateway**: [AGENTS.md](file:///Users/ez2/projects/personal/monorepo/docs/ai-gateway/AGENTS.md) (Clean Architecture / Provider Patterns)
 - **Graph Weave**: [AGENTS.md](file:///Users/ez2/projects/personal/monorepo/docs/graph-weave/AGENTS.md) (LangGraph / MCP Orchestration)
 - **Market Data**: [AGENTS.md](file:///Users/ez2/projects/personal/monorepo/docs/vnstock-server/AGENTS.md) (Python / Caching Policies)
+- **Native Tools (OCR)**: [AGENTS.md](file:///Users/destnguyxn/projects/monorepo/docs/mac-ocr/AGENTS.md) (Swift / Vision Framework)
 
 ### 🚀 Roadmap & Tasks
 

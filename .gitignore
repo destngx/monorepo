@@ -125,3 +125,6 @@ profile.cov
 # SvelteKit
 .svelte-kit
 
+
+# Native Tools
+apps/mac-ocr/bin/
