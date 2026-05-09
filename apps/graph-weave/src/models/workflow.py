@@ -334,3 +334,16 @@ class UpdateWorkflowRequest(BaseModel):
                 self.definition is not None,
             ]
         )
+
+class TenantListResponse(BaseModel):
+    """Response model for listing all tenants with workflows"""
+    tenants: List[str] = Field(
+        default_factory=list,
+        description="List of all tenant IDs that have workflows registered",
+        json_schema_extra={"example": ["default", "system", "research_team"]},
+    )
+    count: int = Field(
+        ...,
+        description="Number of tenants in the list",
+        json_schema_extra={"example": 3},
+    )

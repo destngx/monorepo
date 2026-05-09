@@ -29,6 +29,10 @@ class MockRedisAdapter:
     def clear(self) -> None:
         self._store.clear()
 
+    def close(self) -> None:
+        """No-op for mock adapter."""
+        pass
+
     def rpush(self, key: str, value: Any) -> int:
         if key not in self._store:
             self._store[key] = []
@@ -98,6 +102,12 @@ class MockRedisAdapter:
         if key in self._store and isinstance(self._store[key], dict):
             return dict(self._store[key])
         return {}
+
+    def keys(self, pattern: str) -> List[str]:
+        import fnmatch
+        return [
+            k for k in self._store.keys() if fnmatch.fnmatch(k, pattern)
+        ]
 
     def _build_versioned_key(
         self, namespace: str, tenant_id: str, skill_id: str, version: str
@@ -341,6 +351,15 @@ class RedisAdapter:
             return {}
         data = self.client.hgetall(key)
         return {k: json.loads(v) for k, v in data.items()}
+
+    def keys(self, pattern: str) -> List[str]:
+        if not self.client:
+            return []
+        return self.client.keys(pattern)
+
+    def clear(self):
+        if self.client:
+            self.client.flushdb()
 
     def close(self):
         if self.client:

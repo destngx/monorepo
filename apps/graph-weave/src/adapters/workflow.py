@@ -15,6 +15,7 @@ PREDEFINED_WORKFLOWS_DIR = os.path.join(
 # Registry of pre-defined workflow IDs to their resource filenames
 PREDEFINED_WORKFLOWS = {
     "workflow-generator:v1.0.0": "workflow-generator:v1.0.0.json",
+    "workflow-generator:v1.0.1": "workflow-generator:v1.0.1.json",
 }
 
 
@@ -23,6 +24,17 @@ class RedisWorkflowStore:
 
     def __init__(self, redis_client: NamespacedRedisClient):
         self.redis_client = redis_client
+
+    def sync_predefined_workflows(self, tenant_id: str) -> None:
+        """
+        Synchronizes all predefined workflows into the tenant store.
+        Ensures they are immediately available without lazy-loading.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Syncing predefined workflows for tenant: {tenant_id}")
+        for workflow_id in PREDEFINED_WORKFLOWS:
+            self.get(tenant_id, workflow_id)
 
     def clear(self) -> None:
         """Clear all workflows from the store (for testing)."""
@@ -138,6 +150,18 @@ class RedisWorkflowStore:
             self.redis_client.hdel(tenant_workflows_key, workflow_id)
             return True
         return False
+
+
+    def list_tenants(self) -> List[str]:
+        """List all tenant IDs that have workflows registered."""
+        keys = self.redis_client.keys("workflows:tenant:*")
+        tenants = []
+        for key in keys:
+            # key is "workflows:tenant:TENANT_ID"
+            parts = key.split(":")
+            if len(parts) >= 3:
+                tenants.append(parts[2])
+        return sorted(list(set(tenants)))
 
     def list_for_tenant(self, tenant_id: str, status: Optional[str] = None, tags: Optional[List[str]] = None, owner: Optional[str] = None) -> List[Dict[str, Any]]:
         tenant_workflows_key = f"workflows:tenant:{tenant_id}"

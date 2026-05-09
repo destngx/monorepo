@@ -1,6 +1,6 @@
 {
   "name": "workflow-generator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Meta-workflow that converts a natural language intent into a validated GraphWeave workflow DAG. Enforces deterministic transformation pipelines and structured outputs while supporting domain-specific tool-use.",
   "metadata": {
     "author": "platform-eng",
@@ -61,8 +61,12 @@
               "items": {
                 "type": "object",
                 "properties": {
-                  "id": { "type": "string" },
-                  "purpose": { "type": "string" }
+                  "id": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "type": "string"
+                  }
                 },
                 "required": ["id", "purpose"]
               }
@@ -89,7 +93,10 @@
         "output_schema": {
           "type": "object",
           "properties": {
-            "nodes": { "type": "array", "minItems": 3 }
+            "nodes": {
+              "type": "array",
+              "minItems": 3
+            }
           },
           "required": ["nodes"]
         }
@@ -111,9 +118,15 @@
         "output_schema": {
           "type": "object",
           "properties": {
-            "edges": { "type": "array" },
-            "entry_point": { "type": "string" },
-            "exit_point": { "type": "string" }
+            "edges": {
+              "type": "array"
+            },
+            "entry_point": {
+              "type": "string"
+            },
+            "exit_point": {
+              "type": "string"
+            }
           },
           "required": ["edges", "entry_point", "exit_point"]
         }
@@ -136,9 +149,15 @@
         "output_schema": {
           "type": "object",
           "properties": {
-            "is_valid": { "type": "boolean" },
-            "errors": { "type": "array" },
-            "generated_workflow": { "type": "object" }
+            "is_valid": {
+              "type": "boolean"
+            },
+            "errors": {
+              "type": "array"
+            },
+            "generated_workflow": {
+              "type": "object"
+            }
           },
           "required": ["is_valid", "generated_workflow"]
         }
@@ -167,22 +186,56 @@
     }
   ],
   "edges": [
-    { "from": "entry", "to": "planner", "config": { "label": "Decompose intent" } },
-    { "from": "planner", "to": "node_builder", "config": { "label": "Build nodes" } },
-    { "from": "node_builder", "to": "edge_router", "config": { "label": "Route edges" } },
-    { "from": "edge_router", "to": "assembler", "config": { "label": "Assemble" } },
-    { "from": "assembler", "to": "validation_gate", "config": { "label": "Validate" } },
+    {
+      "from": "entry",
+      "to": "planner",
+      "config": {
+        "label": "Decompose intent"
+      }
+    },
+    {
+      "from": "planner",
+      "to": "node_builder",
+      "config": {
+        "label": "Build nodes"
+      }
+    },
+    {
+      "from": "node_builder",
+      "to": "edge_router",
+      "config": {
+        "label": "Route edges"
+      }
+    },
+    {
+      "from": "edge_router",
+      "to": "assembler",
+      "config": {
+        "label": "Assemble"
+      }
+    },
+    {
+      "from": "assembler",
+      "to": "validation_gate",
+      "config": {
+        "label": "Validate"
+      }
+    },
     {
       "from": "validation_gate",
       "to": "exit",
       "condition": "$.assembly_result.is_valid == true",
-      "config": { "label": "Success" }
+      "config": {
+        "label": "Success"
+      }
     },
     {
       "from": "validation_gate",
       "to": "planner",
       "condition": "$.assembly_result.is_valid == false",
-      "config": { "label": "Retry" }
+      "config": {
+        "label": "Retry"
+      }
     }
   ],
   "entry_point": "entry",

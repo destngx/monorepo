@@ -21,7 +21,7 @@ class AIGatewayClient:
             base_url: The base URL for the AI Gateway (e.g., http://localhost:8080/v1)
         """
         self.base_url = (base_url or os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")).rstrip("/")
-        self.timeout = float(os.getenv("AI_GATEWAY_TIMEOUT", "120.0"))
+        self.timeout = float(os.getenv("AI_GATEWAY_TIMEOUT", "300.0"))
 
     @retry(
         stop=stop_after_attempt(3),
@@ -36,7 +36,7 @@ class AIGatewayClient:
         model: str,
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.7,
-        max_tokens: int = 2000,
+        max_tokens: int = 8000,
         stream: bool = False
     ) -> Dict[str, Any]:
         """

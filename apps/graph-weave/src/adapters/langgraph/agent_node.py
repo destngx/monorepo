@@ -45,7 +45,7 @@ class AgentNodeHandler:
         provider = get_field("provider", "github-copilot")
         model = get_field("model", "gpt-4.1")
         temperature = get_field("temperature", 0.7)
-        max_tokens = get_field("max_tokens", 4000)
+        max_tokens = get_field("max_tokens", 8000)
         allowed_tools = get_field("tools", [])
 
         try:

@@ -435,6 +435,19 @@ class NamespacedRedisClient:
 
         return self._execute_with_fallback("HGETALL", redis_hgetall, fallback_hgetall)
 
+
+    def keys(self, pattern: str) -> List[str]:
+        def redis_keys():
+            return self.redis_client.keys(pattern)
+
+        def fallback_keys():
+            # In-memory scan of fallback storage
+            import fnmatch
+            with self.fallback_storage._lock:
+                return [k for k in self.fallback_storage._store.keys() if fnmatch.fnmatch(k, pattern)]
+
+        return self._execute_with_fallback("KEYS", redis_keys, fallback_keys)
+
     def get_health(self) -> Dict[str, Any]:
         is_closed = self.circuit_breaker.state == CircuitBreakerState.CLOSED
 

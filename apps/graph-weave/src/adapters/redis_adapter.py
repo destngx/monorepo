@@ -561,6 +561,24 @@ class UpstashRedisClient:
         except RedisError:
             raise
 
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def keys(self, pattern: str) -> List[str]:
+        """
+        Find all keys matching pattern.
+
+        Args:
+            pattern: Redis key pattern (e.g., "workflows:tenant:*")
+
+        Returns:
+            List of matching keys
+        """
+        try:
+            result = self._execute(["KEYS", pattern])
+            return result if result is not None else []
+        except RedisError:
+            raise
+
     def close(self):
         """Close the session."""
         self._session.close()

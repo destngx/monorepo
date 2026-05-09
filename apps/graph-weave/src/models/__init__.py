@@ -12,7 +12,7 @@ from .workflow import (
     WorkflowResponse,
     WorkflowDetailResponse,
     WorkflowSummary,
-    WorkflowListResponse,
+    WorkflowListResponse, TenantListResponse,
     UpdateWorkflowRequest,
 )
 from .schedule import (
@@ -37,7 +37,7 @@ __all__ = [
     "WorkflowResponse",
     "WorkflowDetailResponse",
     "WorkflowSummary",
-    "WorkflowListResponse",
+    "WorkflowListResponse", "TenantListResponse",
     "UpdateWorkflowRequest",
     "ScheduleCreate",
     "ScheduleUpdate",
