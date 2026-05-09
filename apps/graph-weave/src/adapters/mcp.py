@@ -65,6 +65,19 @@ class MockMCPServer:
                     "required": ["operation"]
                 }
             },
+            "fetch": {
+                "name": "fetch",
+                "description": "Fetches content from a URL. Supports GET and POST methods. Returns cleaned text for HTML pages.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "The URL to fetch"},
+                        "method": {"type": "string", "enum": ["GET", "POST"], "default": "GET"},
+                        "headers": {"type": "object", "description": "Optional HTTP headers"}
+                    },
+                    "required": ["url"]
+                }
+            },
         }
 
     def list_tools(self) -> List[Dict[str, Any]]:

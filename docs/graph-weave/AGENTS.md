@@ -19,6 +19,13 @@ The engine is built on **LangGraph** for stateful, multi-agent orchestration and
 - Use the `mcp_router` to handle multiple MCP server integrations.
 - Ensure tool calls are validated against the internal schema before being passed to LLMs via the AI Gateway.
 
+### 🧰 Core Tools
+
+- **`bash`**: Safe shell execution within allowed workspace paths.
+- **`fs`**: Standardized file system operations (CRUD).
+- **`fetch`**: Web content retrieval with automatic HTML-to-Text conversion for token efficiency.
+- **`search`**: Semantic/Web search (Mocked in MVP).
+
 ### 💾 State & Persistence
 
 - We use **Redis** for state checkpointing.

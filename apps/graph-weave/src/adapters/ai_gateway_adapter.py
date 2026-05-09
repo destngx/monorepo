@@ -3,6 +3,7 @@ import logging
 from src.app_logging import get_logger
 from typing import Dict, Any, List, Optional, Union
 import httpx
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = get_logger(__name__)
 
@@ -22,6 +23,12 @@ class AIGatewayClient:
         self.base_url = (base_url or os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")).rstrip("/")
         self.timeout = float(os.getenv("AI_GATEWAY_TIMEOUT", "120.0"))
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((httpx.ReadTimeout, httpx.ConnectTimeout)),
+        reraise=True
+    )
     def chat_completion(
         self,
         messages: List[Dict[str, str]],

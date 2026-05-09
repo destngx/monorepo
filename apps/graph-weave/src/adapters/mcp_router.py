@@ -25,7 +25,7 @@ from .mcp import MockMCPServer
 
 
 
-VALID_TOOLS = {"load_skill", "search", "verify", "bash", "fs"}
+VALID_TOOLS = {"load_skill", "search", "verify", "bash", "fs", "fetch"}
 
 
 class MCPRouterError(Exception):
@@ -94,6 +94,9 @@ class MCPRouter:
             os.path.join(default_fs_path, ".trash"),
         )
         self.fs_tool = FileSystemTool(allowed_paths=fs_allowed_paths, trash_path=fs_trash_path)
+        
+        from .web_tool import WebTool
+        self.web_tool = WebTool()
 
 
 
@@ -154,6 +157,8 @@ class MCPRouter:
             elif name == "fs":
                 operation = arguments.pop("operation", "")
                 return self.fs(operation, **arguments)
+            elif name == "fetch":
+                return self.fetch(arguments.get("url", ""), arguments.get("method", "GET"), arguments.get("headers"))
 
             # Fallback to direct MCP call if not handled by specific methods
             return self.mcp_server.call_tool(name, arguments)
@@ -303,6 +308,28 @@ class MCPRouter:
             }
         except Exception as e:
             raise ToolExecutionError(f"Failed to execute fs operation '{operation}': {str(e)}")
+
+    def fetch(self, url: str, method: str = "GET", headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """Execute web fetch tool.
+        
+        Args:
+            url: URL to fetch
+            method: HTTP method (GET, POST)
+            headers: Optional headers
+            
+        Returns:
+            Tool response with content or error
+        """
+        try:
+            result = self.web_tool.fetch(url, method=method, headers=headers)
+            return {
+                "tool": "fetch",
+                "url": url,
+                "status": "success" if result.get("success", False) else "error",
+                **result
+            }
+        except Exception as e:
+            raise ToolExecutionError(f"Failed to fetch URL '{url}': {str(e)}")
 
     def parse_tool_calls(
         self, response_text: str, allowed_tools: Optional[List[str]] = None

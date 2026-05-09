@@ -9,3 +9,4 @@ jsonpath-ng
 requests
 apscheduler
 croniter
+tenacity
