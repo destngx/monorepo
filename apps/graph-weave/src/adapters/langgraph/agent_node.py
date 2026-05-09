@@ -89,7 +89,7 @@ class AgentNodeHandler:
                 message = choice["message"]
                 
                 # Log raw LLM response for debugging tool-use issues
-                self._logger.debug(f"[AGENT] {node_id} response: {message.get('content', '')}")
+                self._logger.info(f"[AGENT] {node_id} response: {message.get('content', '')}")
                 if message.get("tool_calls"):
                     self._logger.info(f"[AGENT] {node_id} requested tools: {[tc['function']['name'] for tc in message['tool_calls']]}")
 
