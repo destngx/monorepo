@@ -87,6 +87,12 @@ class AgentNodeHandler:
                 total_tokens += response.get("usage", {}).get("total_tokens", 0)
                 choice = response["choices"][0]
                 message = choice["message"]
+                
+                # Log raw LLM response for debugging tool-use issues
+                self._logger.debug(f"[AGENT] {node_id} response: {message.get('content', '')}")
+                if message.get("tool_calls"):
+                    self._logger.info(f"[AGENT] {node_id} requested tools: {[tc['function']['name'] for tc in message['tool_calls']]}")
+
                 tool_calls = message.get("tool_calls")
 
                 if not tool_calls:

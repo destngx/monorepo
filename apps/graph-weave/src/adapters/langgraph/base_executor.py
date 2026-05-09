@@ -51,6 +51,12 @@ class BaseLangGraphExecutor:
         elif ".sh_quote(" in clean_path or clean_path.endswith(".sh_quote"):
             clean_path = clean_path.split(".sh_quote")[0]
             virtual_transform = "sh_quote"
+        elif ".json_quote(" in clean_path or clean_path.endswith(".json_quote"):
+            clean_path = clean_path.split(".json_quote")[0]
+            virtual_transform = "json_quote"
+        elif ".json_escape(" in clean_path or clean_path.endswith(".json_escape"):
+            clean_path = clean_path.split(".json_escape")[0]
+            virtual_transform = "json_quote"
         elif ".shell(" in clean_path or clean_path.endswith(".shell"):
             clean_path = clean_path.split(".shell")[0]
             virtual_transform = "sh_quote"
@@ -68,6 +74,9 @@ class BaseLangGraphExecutor:
         elif first_part.endswith("_shell"):
             virtual_transform = "sh_quote"
             first_part = first_part[:-6]
+        elif first_part.endswith("_json"):
+            virtual_transform = "json_quote"
+            first_part = first_part[:-5]
 
         # Handle array index in the first part, e.g., "summary[0]" -> "summary", ["0"]
         array_match = re.match(r"([^\[]+)\[(\d+)\]", first_part)
@@ -136,6 +145,11 @@ class BaseLangGraphExecutor:
                 res = res[0]
             elif virtual_transform == "sh_quote":
                 res = shlex.quote(str(res))
+            elif virtual_transform == "json_quote":
+                res = json.dumps(res)
+                # If it's a string, json.dumps adds surrounding quotes. 
+                # If the user already put quotes in the template, this might double them.
+                # But it's safer than unescaped newlines.
             
             return res
 
