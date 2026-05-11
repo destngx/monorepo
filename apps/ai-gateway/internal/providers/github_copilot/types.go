@@ -48,11 +48,18 @@ type responsesRequest struct {
 	Stream          bool                   `json:"stream"`
 	Temperature     *float64               `json:"temperature,omitempty"`
 	TopP            *float64               `json:"top_p,omitempty"`
-	Tools           []copilotTool          `json:"tools,omitempty"`
+	Tools           []responsesTool        `json:"tools,omitempty"`
 	Reasoning       *responsesReasoning    `json:"reasoning,omitempty"`
 	MaxOutputTokens *int                   `json:"max_output_tokens,omitempty"`
 	ToolChoice      any                    `json:"tool_choice,omitempty"`
 	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type responsesTool struct {
+	Type        string `json:"type"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Parameters  any    `json:"parameters,omitempty"`
 }
 
 type responsesInputItem struct {

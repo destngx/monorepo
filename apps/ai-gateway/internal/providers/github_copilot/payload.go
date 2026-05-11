@@ -188,7 +188,7 @@ func (p *Provider) buildResponsesPayload(req domain.ChatRequest) ([]byte, error)
 		Stream:          true,
 		Temperature:     nil,
 		TopP:            nil,
-		Tools:           make([]copilotTool, 0, len(req.Tools)),
+		Tools:           make([]responsesTool, 0, len(req.Tools)),
 		ToolChoice:      req.ToolChoice,
 		Reasoning:       &responsesReasoning{Effort: reasoningEffort},
 		MaxOutputTokens: maxOutputTokens,
@@ -204,13 +204,11 @@ func (p *Provider) buildResponsesPayload(req domain.ChatRequest) ([]byte, error)
 		if tool.Function == nil {
 			continue
 		}
-		payload.Tools = append(payload.Tools, copilotTool{
-			Type: tool.Type,
-			Function: copilotFunctionDefinition{
-				Name:        tool.Function.Name,
-				Description: tool.Function.Description,
-				Parameters:  sanitizeParameters(tool.Function.Parameters),
-			},
+		payload.Tools = append(payload.Tools, responsesTool{
+			Type:        tool.Type,
+			Name:        tool.Function.Name,
+			Description: tool.Function.Description,
+			Parameters:  sanitizeParameters(tool.Function.Parameters),
 		})
 	}
 
