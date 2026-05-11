@@ -38,7 +38,7 @@ def _finish_response(content: str = '{"summary": "done"}') -> Dict[str, Any]:
     return {
         "choices": [{"message": {"role": "assistant", "content": content}}],
         "usage": {"total_tokens": 10},
-        "model": "gpt-4.1",
+        "model": "gpt-5.4-mini",
     }
 
 
@@ -60,7 +60,7 @@ def _tool_call_response(tool_name: str, args: Dict) -> Dict[str, Any]:
             }
         }],
         "usage": {"total_tokens": 12},
-        "model": "gpt-4.1",
+        "model": "gpt-5.4-mini",
     }
 
 

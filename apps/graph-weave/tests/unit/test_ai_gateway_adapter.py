@@ -24,7 +24,7 @@ def test_chat_completion_success(mock_post):
     messages = [{"role": "user", "content": "Hi"}]
 
     result = client.chat_completion(
-        messages=messages, provider="openai", model="gpt-4.1"
+        messages=messages, provider="openai", model="gpt-5.4-mini"
     )
 
     assert result["choices"][0]["message"]["content"] == "Hello!"
@@ -33,7 +33,7 @@ def test_chat_completion_success(mock_post):
     args, kwargs = mock_post.call_args
     assert args[0] == "http://test-gateway/v1/chat/completions"
     assert kwargs["headers"]["X-AI-Provider"] == "openai"
-    assert kwargs["json"]["model"] == "gpt-4.1"
+    assert kwargs["json"]["model"] == "gpt-5.4-mini"
     assert kwargs["json"]["messages"] == messages
 
 

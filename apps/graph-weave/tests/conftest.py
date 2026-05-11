@@ -166,7 +166,7 @@ def mock_gateway_http(monkeypatch, request):
                     {"message": {"role": "assistant", "content": content}}
                 ],
                 "usage": {"total_tokens": 1},
-                "model": payload.get("model", "gpt-4.1"),
+                "model": payload.get("model", "gpt-5.4-mini"),
             }
         )
 

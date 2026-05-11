@@ -36,7 +36,7 @@ def test_e2e_bash_tool_in_orchestrator():
         allowed_skills=["bash"],
         max_iterations=10,
         provider="github-copilot",
-        model="gpt-4.1"
+        model="gpt-5.4-mini"
     )
 
     # Task: Create a python script that prints 'E2E Success' and then run it.

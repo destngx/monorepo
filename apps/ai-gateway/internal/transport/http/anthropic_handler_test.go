@@ -266,7 +266,7 @@ func TestAnthropicHandler_RouteInterceptorErrorStopsProviderCall(t *testing.T) {
 	assert.Equal(t, 0, mockOpenAI.chatCallCount)
 }
 
-func TestAnthropicHandler_DefaultRouteInterceptorUsesGitHubCopilotGPT5MiniHigh(t *testing.T) {
+func TestAnthropicHandler_DefaultRouteInterceptorUsesGitHubCopilotDefaultHigh(t *testing.T) {
 	handler, mockGitHubCopilot := setupDefaultRouteTestDeps()
 
 	req := anthropic.Request{
@@ -276,7 +276,7 @@ func TestAnthropicHandler_DefaultRouteInterceptorUsesGitHubCopilotGPT5MiniHigh(t
 	rr, _ := doReq(t, handler, "", "", req)
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, 1, mockGitHubCopilot.chatCallCount)
-	assert.Equal(t, domain.ModelGPT5Mini, mockGitHubCopilot.lastChatModel)
+	assert.Equal(t, domain.ModelDefault, mockGitHubCopilot.lastChatModel)
 	assert.Equal(t, domain.ReasoningEffortHigh, mockGitHubCopilot.lastReasoningEffort)
 }
 

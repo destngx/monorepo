@@ -18,20 +18,20 @@ def test_live_gateway_connectivity():
     client = AIGatewayClient(base_url=gateway_url)
 
     # Minimal chat completion to verify proxying
-    # Use gpt-4.1 as configured in previous steps
+    # Use gpt-5.4-mini as configured in previous steps
     messages = [{"role": "user", "content": "Respond with the word 'ACKNOWLEDGE'"}]
 
     try:
         result = client.chat_completion(
             messages=messages,
             provider="github-copilot",
-            model="gpt-4.1",
+            model="gpt-5.4-mini",
             max_tokens=5
         )
 
         content = result["choices"][0]["message"]["content"]
         assert "ACKNOWLEDGE" in content.upper()
-        assert result["model"].startswith("gpt-4.1")
+        assert result["model"].startswith("gpt-5.4-mini")
     except httpx.HTTPStatusError as e:
         pytest.fail(f"Gateway returned error status {e.response.status_code}: {e.response.text}")
     except Exception as e:

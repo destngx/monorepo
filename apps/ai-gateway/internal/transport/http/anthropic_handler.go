@@ -75,7 +75,7 @@ func newAnthropicRouteInterceptor(registry *service.Registry) AnthropicRouteInte
 }
 
 func DefaultAnthropicRouteInterceptor(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error) {
-	if route.Provider.Name() == domain.ProviderGitHubCopilot && route.Model == domain.ModelGPT5Mini {
+	if route.Provider.Name() == domain.ProviderGitHubCopilot && route.Model == domain.ModelDefault {
 		route.ReasoningEffort = domain.ReasoningEffortHigh
 	}
 	return route, nil

@@ -86,7 +86,7 @@ class OrchestratorReAct:
             response = self.client.chat_completion(
                 messages=messages,
                 provider=config.provider or "github-copilot",
-                model=config.model or "gpt-4.1",
+                model=config.model or "gpt-5.4-mini",
                 tools=tools if tools else None,
                 temperature=0.2,
                 max_tokens=8000,

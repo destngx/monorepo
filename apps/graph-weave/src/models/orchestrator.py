@@ -47,7 +47,7 @@ class OrchestratorConfig(BaseModel):
     model: Optional[str] = Field(
         None,
         description="Model name override. Falls back to executor default.",
-        json_schema_extra={"example": "gpt-4.1"},
+        json_schema_extra={"example": "gpt-5.4-mini"},
     )
     input_mapping: Optional[Dict[str, str]] = Field(
         None,

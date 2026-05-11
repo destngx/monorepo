@@ -47,6 +47,7 @@ const (
 
 	LogFormatListening    = "AI Gateway listening on %s"
 	LogFormatRegProviders = "Registered providers: %v"
+	LogFormatDefaultRoute = "Default route: %s/%s"
 )
 
 func main() {
@@ -115,6 +116,7 @@ func main() {
 
 	slog.Info(LogFormatListening, "addr", cfg.ListenAddr)
 	slog.Info(LogFormatRegProviders, "providers", registry.List())
+	slog.Info(LogFormatDefaultRoute, "provider", registry.Mapper.DefaultTarget.Provider, "model", registry.Mapper.DefaultTarget.Model)
 	if err := http.ListenAndServe(cfg.ListenAddr, stack); err != nil {
 		slog.Error("server failed", "error", err)
 		os.Exit(1)

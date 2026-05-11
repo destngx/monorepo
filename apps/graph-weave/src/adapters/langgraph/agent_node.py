@@ -43,7 +43,7 @@ class AgentNodeHandler:
         system_prompt = self.executor._interpolate_prompt(system_prompt, state, local_context=agent_input_context)
         
         provider = get_field("provider", "github-copilot")
-        model = get_field("model", "gpt-4.1")
+        model = get_field("model", "gpt-5.4-mini")
         temperature = get_field("temperature", 0.7)
         max_tokens = get_field("max_tokens", 8000)
         allowed_tools = get_field("tools", [])

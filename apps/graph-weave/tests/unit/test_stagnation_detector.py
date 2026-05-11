@@ -280,7 +280,7 @@ class TestRealLangGraphExecutorPerNodeConfig:
                     "type": "agent_node",
                     "config": {
                         "provider": "github-copilot",
-                        "model": "gpt-4.1",
+                        "model": "gpt-5.4-mini",
                         "temperature": 0.5,
                         "max_tokens": 1000,
                         "system_prompt": "You are helpful",
@@ -522,7 +522,7 @@ class TestProviderSwitching:
                     "type": "agent_node",
                     "config": {
                         "provider": "github-copilot",
-                        "model": "gpt-4.1",
+                        "model": "gpt-5.4-mini",
                         "system_prompt": "You are helpful",
                         "user_prompt_template": "Test",
                     },
@@ -532,7 +532,7 @@ class TestProviderSwitching:
                     "type": "agent_node",
                     "config": {
                         "provider": "openai",
-                        "model": "gpt-4.1",
+                        "model": "gpt-5.4-mini",
                         "system_prompt": "You are helpful",
                         "user_prompt_template": "Test",
                     },

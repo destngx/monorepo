@@ -62,7 +62,7 @@ class TestAIGatewayToolLoop:
                 "system_prompt": "You are a technical analyst.",
                 "user_prompt_template": "Analyze {topic}",
                 "provider": "github-copilot",
-                "model": "gpt-4.1",
+                "model": "gpt-5.4-mini",
                 "tools": ["search"]
             }
         }

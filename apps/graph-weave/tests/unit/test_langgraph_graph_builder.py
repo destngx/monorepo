@@ -138,9 +138,9 @@ class TestWorkflowParserExtractNodeConfig:
     def test_extract_node_config_valid_model_for_provider(self):
         """Valid model for provider should be extracted."""
         config = WorkflowParser.extract_node_config(
-            {"provider": "openai", "model": "gpt-4.1"}
+            {"provider": "openai", "model": "gpt-5.4-mini"}
         )
-        assert config.model == "gpt-4.1"
+        assert config.model == "gpt-5.4-mini"
 
     def test_extract_node_config_invalid_model_for_provider_raises(self):
         """Invalid model for provider should raise WorkflowParseError."""
@@ -155,8 +155,8 @@ class TestWorkflowParserExtractNodeConfig:
     def test_extract_node_config_all_providers_valid_models(self):
         """All providers should have valid models."""
         for provider, models in [
-            ("github-copilot", "gpt-4.1"),
-            ("openai", "gpt-4.1"),
+            ("github-copilot", "gpt-5.4-mini"),
+            ("openai", "gpt-5.4-mini"),
             ("anthropic", "claude-3-opus"),
         ]:
             config = WorkflowParser.extract_node_config(
@@ -221,14 +221,14 @@ class TestWorkflowParserExtractNodeConfig:
         config = WorkflowParser.extract_node_config(
             {
                 "provider": "openai",
-                "model": "gpt-4.1",
+                "model": "gpt-5.4-mini",
                 "temperature": 0.7,
                 "max_tokens": 2048,
                 "tools": ["load_skill", "verify"],
             }
         )
         assert config.provider == "openai"
-        assert config.model == "gpt-4.1"
+        assert config.model == "gpt-5.4-mini"
         assert config.temperature == 0.7
         assert config.max_tokens == 2048
         assert config.tools == ["load_skill", "verify"]
@@ -344,7 +344,7 @@ class TestNodeBuilders:
 
     def test_build_agent_node_stores_config(self):
         """Agent node should store NodeConfig on function."""
-        config = NodeConfig(provider="openai", model="gpt-4.1")
+        config = NodeConfig(provider="openai", model="gpt-5.4-mini")
         agent_func = build_agent_node(config, "You are helpful", "Analyze {input}")
         assert agent_func.config == config
 
@@ -480,7 +480,7 @@ class TestGraphBuilderBuild:
                     "id": "agent",
                     "type": "agent_node",
                     "provider": "openai",
-                    "model": "gpt-4.1",
+                    "model": "gpt-5.4-mini",
                     "system_prompt": "You are helpful",
                     "user_prompt_template": "Process this",
                 },
@@ -545,7 +545,7 @@ class TestGraphBuilderBuild:
                     "id": "agent1",
                     "type": "agent_node",
                     "provider": "openai",
-                    "model": "gpt-4.1",
+                    "model": "gpt-5.4-mini",
                 },
                 {
                     "id": "agent2",
@@ -699,13 +699,13 @@ class TestNodeConfigDataclass:
         """NodeConfig should accept full field initialization."""
         config = NodeConfig(
             provider="openai",
-            model="gpt-4.1",
+            model="gpt-5.4-mini",
             temperature=0.9,
             max_tokens=1024,
             tools=["search", "verify"],
         )
         assert config.provider == "openai"
-        assert config.model == "gpt-4.1"
+        assert config.model == "gpt-5.4-mini"
         assert config.temperature == 0.9
         assert config.max_tokens == 1024
         assert config.tools == ["search", "verify"]

@@ -262,7 +262,7 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
             response = provider_client.chat_completion(
                 messages=messages,
                 provider=provider or "openai",
-                model=model or "gpt-4.1",
+                model=model or "gpt-5.4-mini",
                 temperature=temperature,
                 max_tokens=max_tokens,
                 tools=allowed_tools,

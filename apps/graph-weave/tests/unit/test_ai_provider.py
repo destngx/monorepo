@@ -8,7 +8,7 @@ class TestAIProviderFactory:
 
     def test_get_provider_client_returns_unified_instance(self):
         factory = AIProviderFactory()
-        client1 = factory.get_provider_client("github-copilot", "gpt-4.1")
+        client1 = factory.get_provider_client("github-copilot", "gpt-5.4-mini")
         client2 = factory.get_provider_client("openai", "gpt-4o")
         
         # Should return the same AIGatewayClient instance (unified gateway)

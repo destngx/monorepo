@@ -39,7 +39,7 @@ class OrchestratorNodeHandler:
         react = OrchestratorReAct(
             client=self.executor.ai_provider_factory.get_provider_client(
                 config.provider or "github-copilot",
-                config.model or "gpt-4.1",
+                config.model or "gpt-5.4-mini",
             ),
             mcp_router=self.executor.mcp_router,
             emit=lambda etype, data: self.executor._emit_event(run_id, etype, data),
