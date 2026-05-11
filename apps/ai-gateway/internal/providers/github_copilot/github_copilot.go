@@ -20,12 +20,13 @@ import (
 )
 
 const (
-	baseURL       = "https://api.githubcopilot.com"
-	tokenURL      = "https://api.github.com/copilot_internal/v2/token"
-	userURL       = "https://api.github.com/copilot_internal/user"
-	editorVersion = "vscode/1.80.0"
-	pluginVersion = "copilot-chat/0.1.0"
-	userAgent     = "curl/8.7.1"
+	baseURL                    = "https://api.githubcopilot.com"
+	tokenURL                   = "https://api.github.com/copilot_internal/v2/token"
+	userURL                    = "https://api.github.com/copilot_internal/user"
+	defaultEditorVersion       = "vscode/1.80.0"
+	defaultEditorPluginVersion = "copilot-chat/0.1.0"
+	defaultIntegrationID       = "vscode-chat"
+	defaultUserAgent           = "GitHubCopilotChat/0.1.0"
 
 	// Model constants
 	ModelGPT5Mini      = "gpt-5-mini"
@@ -43,6 +44,7 @@ const (
 	headerContentType     = "Content-Type"
 	headerEditorVersion   = "Editor-Version"
 	headerEditorPluginVer = "Editor-Plugin-Version"
+	headerIntegrationID   = "Copilot-Integration-Id"
 
 	contentTypeJSON   = domain.ContentTypeJSON
 	tokenPrefixBearer = "Bearer "
@@ -52,6 +54,7 @@ const (
 	sseDone       = "[DONE]"
 
 	pathChatCompletions = "/chat/completions"
+	pathResponses       = "/responses"
 	pathModels          = "/models"
 
 	// GitHub Copilot API limits (https://github.com/github/copilot-cli/issues/509)
@@ -64,6 +67,7 @@ type Provider struct {
 	client      *http.Client
 	ready       bool
 	verbose     int
+	headers     ClientHeaders
 
 	mu             sync.Mutex
 	cachedToken    string
@@ -80,13 +84,107 @@ type tokenResponse struct {
 	} `json:"endpoints"`
 }
 
-func New(githubToken, accountType string, verbose int) *Provider {
+type responsesRequest struct {
+	Model           string                 `json:"model"`
+	Instructions    string                 `json:"instructions,omitempty"`
+	Input           []responsesInputItem   `json:"input"`
+	Stream          bool                   `json:"stream"`
+	Temperature     *float64               `json:"temperature,omitempty"`
+	TopP            *float64               `json:"top_p,omitempty"`
+	Tools           []copilotTool          `json:"tools,omitempty"`
+	Reasoning       *responsesReasoning    `json:"reasoning,omitempty"`
+	MaxOutputTokens *int                   `json:"max_output_tokens,omitempty"`
+	ToolChoice      any                    `json:"tool_choice,omitempty"`
+	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type responsesInputItem struct {
+	Role    string                  `json:"role"`
+	Content []responsesInputContent `json:"content"`
+}
+
+type responsesInputContent struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type responsesReasoning struct {
+	Effort string `json:"effort,omitempty"`
+}
+
+type responsesStreamEvent struct {
+	Type     string             `json:"type"`
+	Delta    string             `json:"delta,omitempty"`
+	Response *responsesEnvelope `json:"response,omitempty"`
+	Error    json.RawMessage    `json:"error,omitempty"`
+}
+
+type responsesEnvelope struct {
+	ID        string          `json:"id"`
+	CreatedAt int64           `json:"created_at"`
+	Model     string          `json:"model"`
+	Usage     *responsesUsage `json:"usage,omitempty"`
+}
+
+type responsesUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}
+
+func (u responsesUsage) toDomain() domain.Usage {
+	return domain.Usage{
+		PromptTokens:     u.InputTokens,
+		CompletionTokens: u.OutputTokens,
+		TotalTokens:      u.TotalTokens,
+	}
+}
+
+type ClientHeaders struct {
+	EditorVersion       string
+	EditorPluginVersion string
+	IntegrationID       string
+	UserAgent           string
+}
+
+func New(githubToken, accountType string, verbose int, headers ...ClientHeaders) *Provider {
+	clientHeaders := defaultClientHeaders()
+	if len(headers) > 0 {
+		clientHeaders = headers[0].withDefaults()
+	}
 	return &Provider{
 		githubToken: githubToken,
 		accountType: accountType,
 		client:      &http.Client{Timeout: 120 * time.Second},
 		verbose:     verbose,
+		headers:     clientHeaders,
 	}
+}
+
+func defaultClientHeaders() ClientHeaders {
+	return ClientHeaders{
+		EditorVersion:       defaultEditorVersion,
+		EditorPluginVersion: defaultEditorPluginVersion,
+		IntegrationID:       defaultIntegrationID,
+		UserAgent:           defaultUserAgent,
+	}
+}
+
+func (h ClientHeaders) withDefaults() ClientHeaders {
+	defaults := defaultClientHeaders()
+	if h.EditorVersion == "" {
+		h.EditorVersion = defaults.EditorVersion
+	}
+	if h.EditorPluginVersion == "" {
+		h.EditorPluginVersion = defaults.EditorPluginVersion
+	}
+	if h.IntegrationID == "" {
+		h.IntegrationID = defaults.IntegrationID
+	}
+	if h.UserAgent == "" {
+		h.UserAgent = defaults.UserAgent
+	}
+	return h
 }
 
 func (p *Provider) Name() string { return domain.ProviderGitHubCopilot }
@@ -263,6 +361,10 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 }
 
 func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
+	if isResponsesModel(req.Model) {
+		return p.chatResponsesStream(ctx, req, w)
+	}
+
 	start := time.Now()
 	p.vlogf(1, "[github-copilot] stream start model=%q", req.Model)
 
@@ -291,6 +393,50 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	return usage, err
 }
 
+func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
+	req = req.WithStream(false)
+	httpReq, err := p.newNativeResponsesRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github copilot responses error %d: %s", resp.StatusCode, b)
+	}
+
+	var result domain.ResponsesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode github copilot responses: %w", err)
+	}
+	return &result, nil
+}
+
+func (p *Provider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
+	req = req.WithStream(true)
+	httpReq, err := p.newNativeResponsesRequest(ctx, req)
+	if err != nil {
+		return domain.Usage{}, err
+	}
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return domain.Usage{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return domain.Usage{}, fmt.Errorf("github copilot responses error %d: %s", resp.StatusCode, b)
+	}
+
+	return shared.StreamResponsesSSEAndCountUsage(resp.Body, w)
+}
+
 func (p *Provider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	return nil, fmt.Errorf("github copilot does not support embeddings")
 }
@@ -309,9 +455,7 @@ func (p *Provider) ListModels(ctx context.Context) (*domain.ModelsResponse, erro
 
 	req.Header.Set(headerAuthorization, tokenPrefixBearer+token)
 	req.Header.Set(headerAccept, contentTypeJSON)
-	req.Header.Set(headerEditorVersion, editorVersion)
-	req.Header.Set(headerEditorPluginVer, pluginVersion)
-	req.Header.Set(headerUserAgent, userAgent)
+	p.setClientHeaders(req)
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -358,7 +502,7 @@ func (p *Provider) Usage(ctx context.Context) (any, error) {
 
 	req.Header.Set(headerAuthorization, tokenPrefixToken+p.githubToken)
 	req.Header.Set(headerAccept, contentTypeJSON)
-	req.Header.Set(headerUserAgent, userAgent)
+	p.setClientHeaders(req)
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -405,9 +549,7 @@ func (p *Provider) getCopilotSession(ctx context.Context) (string, string, error
 		}
 		httpReq.Header.Set(headerAuthorization, tokenPrefixToken+p.githubToken)
 		httpReq.Header.Set(headerAccept, contentTypeJSON)
-		httpReq.Header.Set(headerUserAgent, userAgent)
-		httpReq.Header.Set(headerEditorVersion, editorVersion)
-		httpReq.Header.Set(headerEditorPluginVer, pluginVersion)
+		p.setClientHeaders(httpReq)
 
 		resp, err := p.client.Do(httpReq)
 		if err != nil {
@@ -466,6 +608,15 @@ func isReasoningModel(model string) bool {
 		strings.Contains(m, "reasoning")
 }
 
+func isResponsesModel(model string) bool {
+	switch strings.ToLower(model) {
+	case domain.ModelGPT54, domain.ModelGPT54Mini:
+		return true
+	default:
+		return false
+	}
+}
+
 func (p *Provider) getCopilotBaseURL() string {
 	if p.accountType == "" || p.accountType == "individual" {
 		return baseURL
@@ -496,11 +647,270 @@ func (p *Provider) newChatRequest(ctx context.Context, req domain.ChatRequest, s
 	}
 	httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+token)
 	httpReq.Header.Set(headerContentType, contentTypeJSON)
-	httpReq.Header.Set(headerEditorVersion, editorVersion)
-	httpReq.Header.Set(headerEditorPluginVer, pluginVersion)
-	httpReq.Header.Set(headerUserAgent, userAgent)
+	p.setClientHeaders(httpReq)
 
 	return httpReq, nil
+}
+
+func (p *Provider) chatResponsesStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
+	start := time.Now()
+	p.vlogf(1, "[github-copilot] responses stream start model=%q", req.Model)
+
+	httpReq, err := p.newResponsesRequest(ctx, req)
+	if err != nil {
+		return domain.Usage{}, err
+	}
+
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return domain.Usage{}, err
+	}
+	defer resp.Body.Close()
+	p.vlogf(1, "[github-copilot] upstream responses call took=%s status=%d", time.Since(start), resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return domain.Usage{}, fmt.Errorf("github copilot responses error %d: %s", resp.StatusCode, b)
+	}
+
+	return transformResponsesStream(resp.Body, w, req.Model)
+}
+
+func (p *Provider) newResponsesRequest(ctx context.Context, req domain.ChatRequest) (*http.Request, error) {
+	payload, err := p.buildResponsesPayload(req)
+	if err != nil {
+		return nil, err
+	}
+
+	token, apiBase, err := p.getCopilotSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBase+pathResponses, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+token)
+	httpReq.Header.Set(headerContentType, contentTypeJSON)
+	p.setClientHeaders(httpReq)
+
+	return httpReq, nil
+}
+
+func (p *Provider) newNativeResponsesRequest(ctx context.Context, req domain.ResponsesRequest) (*http.Request, error) {
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	token, apiBase, err := p.getCopilotSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBase+pathResponses, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+token)
+	httpReq.Header.Set(headerContentType, contentTypeJSON)
+	p.setClientHeaders(httpReq)
+
+	return httpReq, nil
+}
+
+func (p *Provider) buildResponsesPayload(req domain.ChatRequest) ([]byte, error) {
+	messages := p.batchMessagesWithOversizedToolCalls(req.Messages)
+	instructions := make([]string, 0)
+	input := make([]responsesInputItem, 0, len(messages))
+
+	for _, msg := range messages {
+		if msg.Role == domain.RoleSystem {
+			if msg.Content != "" {
+				instructions = append(instructions, msg.Content)
+			}
+			continue
+		}
+		if msg.Content == "" {
+			continue
+		}
+
+		role := msg.Role
+		if role == domain.RoleTool {
+			role = domain.RoleUser
+		}
+		if role == "" {
+			role = domain.RoleUser
+		}
+
+		contentType := "input_text"
+		if role == domain.RoleAssistant {
+			contentType = "output_text"
+		}
+		input = append(input, responsesInputItem{
+			Role: role,
+			Content: []responsesInputContent{
+				{Type: contentType, Text: msg.Content},
+			},
+		})
+	}
+
+	if len(input) == 0 {
+		input = append(input, responsesInputItem{
+			Role: domain.RoleUser,
+			Content: []responsesInputContent{
+				{Type: "input_text", Text: ""},
+			},
+		})
+	}
+
+	reasoningEffort := req.ReasoningEffort
+	if reasoningEffort == "" && isReasoningModel(req.Model) {
+		reasoningEffort = domain.ReasoningEffortHigh
+	}
+
+	maxOutputTokens := req.MaxCompletionTokens
+	if maxOutputTokens == nil {
+		maxOutputTokens = req.MaxTokens
+	}
+
+	payload := responsesRequest{
+		Model:           req.Model,
+		Instructions:    strings.Join(instructions, "\n\n"),
+		Input:           input,
+		Stream:          true,
+		Temperature:     req.Temperature,
+		TopP:            req.TopP,
+		Tools:           make([]copilotTool, 0, len(req.Tools)),
+		ToolChoice:      req.ToolChoice,
+		Reasoning:       &responsesReasoning{Effort: reasoningEffort},
+		MaxOutputTokens: maxOutputTokens,
+	}
+	if payload.Instructions == "" {
+		payload.Instructions = "You are a helpful assistant."
+	}
+	if payload.Reasoning.Effort == "" {
+		payload.Reasoning = nil
+	}
+
+	for _, tool := range req.Tools {
+		if tool.Function == nil {
+			continue
+		}
+		payload.Tools = append(payload.Tools, copilotTool{
+			Type: tool.Type,
+			Function: copilotFunctionDefinition{
+				Name:        tool.Function.Name,
+				Description: tool.Function.Description,
+				Parameters:  sanitizeParameters(tool.Function.Parameters),
+			},
+		})
+	}
+
+	return json.Marshal(payload)
+}
+
+func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string) (domain.Usage, error) {
+	var usage domain.Usage
+	var responseID string
+	var created int64
+	model := fallbackModel
+	var completionTokens int
+
+	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 1024*64), 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, sseDataPrefix) {
+			continue
+		}
+		payload := strings.TrimPrefix(line, sseDataPrefix)
+		if payload == sseDone {
+			break
+		}
+
+		var event responsesStreamEvent
+		if err := json.Unmarshal([]byte(payload), &event); err != nil {
+			continue
+		}
+
+		if event.Response != nil {
+			if event.Response.ID != "" {
+				responseID = event.Response.ID
+			}
+			if event.Response.CreatedAt != 0 {
+				created = event.Response.CreatedAt
+			}
+			if event.Response.Model != "" {
+				model = event.Response.Model
+			}
+			if event.Response.Usage != nil {
+				usage = event.Response.Usage.toDomain()
+			}
+		}
+
+		switch event.Type {
+		case "response.output_text.delta":
+			completionTokens += shared.EstimateTokens(event.Delta)
+			if responseID == "" {
+				responseID = "chatcmpl-copilot-responses"
+			}
+			if created == 0 {
+				created = time.Now().Unix()
+			}
+			if err := writeChatCompletionDelta(w, responseID, created, model, event.Delta); err != nil {
+				return usage, err
+			}
+		case "response.failed":
+			return usage, fmt.Errorf("github copilot responses failed: %s", event.Error)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return usage, err
+	}
+
+	if usage.TotalTokens == 0 {
+		usage.CompletionTokens = completionTokens
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+	shared.InjectUsageChunk(w, usage)
+	return usage, nil
+}
+
+func writeChatCompletionDelta(w io.Writer, id string, created int64, model string, delta string) error {
+	chunk := map[string]interface{}{
+		"id":      id,
+		"object":  "chat.completion.chunk",
+		"created": created,
+		"model":   model,
+		"choices": []map[string]interface{}{
+			{
+				"index": 0,
+				"delta": map[string]string{
+					"content": delta,
+				},
+				"finish_reason": nil,
+			},
+		},
+	}
+	b, err := json.Marshal(chunk)
+	if err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, sseDataPrefix+string(b)+"\n\n"); err != nil {
+		return err
+	}
+	if f, ok := w.(interface{ Flush() }); ok {
+		f.Flush()
+	}
+	return nil
+}
+
+func (p *Provider) setClientHeaders(req *http.Request) {
+	req.Header.Set(headerEditorVersion, p.headers.EditorVersion)
+	req.Header.Set(headerEditorPluginVer, p.headers.EditorPluginVersion)
+	req.Header.Set(headerIntegrationID, p.headers.IntegrationID)
+	req.Header.Set(headerUserAgent, p.headers.UserAgent)
 }
 
 func (p *Provider) vlogf(level int, format string, args ...any) {

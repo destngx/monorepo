@@ -32,6 +32,7 @@ import (
 
 const (
 	PathChatCompletions  = "/v1/chat/completions"
+	PathResponses        = "/v1/responses"
 	PathMessages         = "/v1/messages"
 	PathModels           = "/v1/models"
 	PathModelsSlash      = "/v1/models/"
@@ -59,6 +60,7 @@ func main() {
 
 	registry := service.NewRegistry(cfg)
 	openaiHandler := httptransport.NewOpenAIHandler(registry)
+	responsesHandler := httptransport.NewResponsesHandler(registry)
 	anthroHandler := httptransport.NewAnthropicHandler(registry)
 	modelsHandler := httptransport.NewModelsHandler(registry)
 	embeddingsHandler := httptransport.NewEmbeddingsHandler(registry)
@@ -88,6 +90,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle(PathChatCompletions, openaiHandler)
+	mux.Handle(PathResponses, responsesHandler)
 	mux.Handle(PathMessages, anthroHandler)
 	mux.Handle(PathModels, modelsHandler)
 	mux.Handle(PathModelsSlash, modelsHandler)

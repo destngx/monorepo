@@ -2,11 +2,88 @@ package github_copilot
 
 import (
 	"apps/ai-gateway/internal/domain"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func TestChat_UsesResponsesEndpointForGPT54Mini(t *testing.T) {
+	var requestedPath string
+	var requestedBody map[string]any
+	p := New("gh-token", "individual", 0)
+	p.client = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		requestedPath = r.URL.Path
+		require.Equal(t, "Bearer copilot-token", r.Header.Get(headerAuthorization))
+		require.Equal(t, defaultIntegrationID, r.Header.Get(headerIntegrationID))
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&requestedBody))
+
+		body := strings.Join([]string{
+			`data: {"type":"response.created","response":{"id":"resp_123","created_at":123,"model":"gpt-5.4-mini"}}`,
+			`data: {"type":"response.output_text.delta","delta":"hello"}`,
+			`data: {"type":"response.completed","response":{"id":"resp_123","created_at":123,"model":"gpt-5.4-mini","usage":{"input_tokens":3,"output_tokens":2,"total_tokens":5}}}`,
+			"data: [DONE]",
+			"",
+		}, "\n\n")
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{headerContentType: []string{contentTypeJSON}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+		}, nil
+	})}
+	p.cachedToken = "copilot-token"
+	p.expiresAt = time.Now().Add(time.Hour).Unix()
+	p.copilotAPIBase = "https://copilot.example.test"
+
+	resp, err := p.Chat(t.Context(), domain.ChatRequest{
+		Model:    domain.ModelGPT54Mini,
+		Messages: []domain.Message{{Role: domain.RoleUser, Content: "hello"}},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, pathResponses, requestedPath)
+	assert.Equal(t, domain.ModelGPT54Mini, requestedBody["model"])
+	assert.Equal(t, true, requestedBody["stream"])
+	assert.Equal(t, "hello", resp.Choices[0].Message.Content)
+	assert.Equal(t, domain.Usage{PromptTokens: 3, CompletionTokens: 2, TotalTokens: 5}, resp.Usage)
+}
+
+func TestNewChatRequest_SetsCopilotClientHeaders(t *testing.T) {
+	p := New("gh-token", "individual", 0, ClientHeaders{
+		EditorVersion:       "vscode/1.99.0",
+		EditorPluginVersion: "copilot-chat/9.9.9",
+		IntegrationID:       "test-integration",
+		UserAgent:           "test-agent/1.0",
+	})
+	p.cachedToken = "copilot-token"
+	p.expiresAt = time.Now().Add(time.Hour).Unix()
+	p.copilotAPIBase = "https://copilot.example.test"
+
+	req, err := p.newChatRequest(t.Context(), domain.ChatRequest{
+		Model:    domain.ModelGPT5Mini,
+		Messages: []domain.Message{{Role: domain.RoleUser, Content: "hello"}},
+	}, true)
+	require.NoError(t, err)
+
+	assert.Equal(t, "Bearer copilot-token", req.Header.Get(headerAuthorization))
+	assert.Equal(t, "vscode/1.99.0", req.Header.Get(headerEditorVersion))
+	assert.Equal(t, "copilot-chat/9.9.9", req.Header.Get(headerEditorPluginVer))
+	assert.Equal(t, "test-integration", req.Header.Get(headerIntegrationID))
+	assert.Equal(t, "test-agent/1.0", req.Header.Get(headerUserAgent))
+}
 
 func TestBatchMessagesWithOversizedToolCalls(t *testing.T) {
 	p := &Provider{verbose: 1}

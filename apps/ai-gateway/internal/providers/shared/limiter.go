@@ -57,6 +57,20 @@ func (r *RateLimitedProvider) ChatStream(ctx context.Context, req domain.ChatReq
 	return r.Provider.ChatStream(ctx, req, w)
 }
 
+func (r *RateLimitedProvider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
+	if !r.limiter.Allow() {
+		return nil, &ErrRateLimitExceeded{Provider: r.Name()}
+	}
+	return r.Provider.Responses(ctx, req)
+}
+
+func (r *RateLimitedProvider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
+	if !r.limiter.Allow() {
+		return domain.Usage{}, &ErrRateLimitExceeded{Provider: r.Name()}
+	}
+	return r.Provider.ResponsesStream(ctx, req, w)
+}
+
 func (r *RateLimitedProvider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	if !r.limiter.Allow() {
 		return nil, &ErrRateLimitExceeded{Provider: r.Name()}

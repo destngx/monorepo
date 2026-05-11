@@ -19,6 +19,12 @@ type Provider interface {
 	// It returns the accumulated usage after the stream ends.
 	ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error)
 
+	// Responses sends a native OpenAI Responses API request.
+	Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error)
+
+	// ResponsesStream sends a native streaming OpenAI Responses API request.
+	ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error)
+
 	// ListModels returns the available models for this provider.
 	ListModels(context.Context) (*domain.ModelsResponse, error)
 

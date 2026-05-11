@@ -21,6 +21,8 @@ type MockTestProvider struct {
 	name                string
 	chatCallCount       int
 	streamCallCount     int
+	responsesCallCount  int
+	lastResponsesModel  string
 	lastChatModel       string
 	lastReasoningEffort string
 	lastMaxTokens       *int
@@ -39,6 +41,24 @@ func (m *MockTestProvider) Chat(ctx context.Context, req domain.ChatRequest) (*d
 func (m *MockTestProvider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
 	m.streamCallCount++
 	return domain.Usage{}, nil
+}
+func (m *MockTestProvider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
+	m.responsesCallCount++
+	m.lastResponsesModel = req.Model
+	return &domain.ResponsesResponse{
+		"id":    "resp_mock",
+		"model": req.Model,
+		"usage": map[string]any{
+			"input_tokens":  1,
+			"output_tokens": 2,
+			"total_tokens":  3,
+		},
+	}, nil
+}
+func (m *MockTestProvider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
+	m.responsesCallCount++
+	m.lastResponsesModel = req.Model
+	return domain.Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3}, nil
 }
 func (m *MockTestProvider) ListModels(context.Context) (*domain.ModelsResponse, error) {
 	return &domain.ModelsResponse{

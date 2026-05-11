@@ -409,6 +409,14 @@ func (p *Provider) convertStreamToOpenAI(body io.Reader, w io.Writer) (domain.Us
 	return usage, scanner.Err()
 }
 
+func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
+	return nil, domain.UnsupportedResponsesError(p.Name())
+}
+
+func (p *Provider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
+	return domain.Usage{}, domain.UnsupportedResponsesError(p.Name())
+}
+
 func (p *Provider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	return nil, fmt.Errorf("embeddings not supported by anthropic")
 }

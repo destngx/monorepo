@@ -128,6 +128,42 @@ func InjectUsageChunk(w io.Writer, usage domain.Usage) {
 	}
 }
 
+func StreamResponsesSSEAndCountUsage(body io.Reader, w io.Writer) (domain.Usage, error) {
+	var usage domain.Usage
+	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 1024*64), 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if _, err := io.WriteString(w, line+"\n"); err != nil {
+			return usage, err
+		}
+		if f, ok := w.(interface{ Flush() }); ok {
+			f.Flush()
+		}
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		payload := strings.TrimPrefix(line, "data: ")
+		if payload == "[DONE]" {
+			continue
+		}
+
+		var event struct {
+			Response map[string]any `json:"response,omitempty"`
+		}
+		if err := json.Unmarshal([]byte(payload), &event); err != nil {
+			continue
+		}
+		if event.Response != nil {
+			if next := domain.UsageFromResponsesValue(event.Response); next.TotalTokens > 0 {
+				usage = next
+			}
+		}
+	}
+	return usage, scanner.Err()
+}
+
 // MergeUsage accumulates usage stats across multiple tool-loop iterations.
 func MergeUsage(a, b domain.Usage) domain.Usage {
 	return domain.Usage{

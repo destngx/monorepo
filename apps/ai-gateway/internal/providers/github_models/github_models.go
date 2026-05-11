@@ -111,6 +111,14 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	return shared.StreamSSEAndCountTokens(resp.Body, w)
 }
 
+func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
+	return nil, domain.UnsupportedResponsesError(p.Name())
+}
+
+func (p *Provider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
+	return domain.Usage{}, domain.UnsupportedResponsesError(p.Name())
+}
+
 func (p *Provider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
 	body, _ := json.Marshal(req)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,

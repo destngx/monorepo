@@ -39,6 +39,7 @@ const (
 	authURL             = "https://auth.openai.com/oauth/token"
 
 	pathChatCompletions  = "/chat/completions"
+	pathResponses        = "/responses"
 	pathCodexResponses   = "/codex/responses"
 	pathCodexUsage       = "/wham/usage"
 	pathModels           = "/models"
@@ -330,6 +331,68 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	defer resp.Body.Close()
 
 	return shared.StreamSSEAndCountTokens(resp.Body, w)
+}
+
+func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
+	req = req.WithStream(false)
+	resp, err := p.doResponsesRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("openai responses error %d: %s", resp.StatusCode, b)
+	}
+
+	var result domain.ResponsesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode openai responses: %w", err)
+	}
+	return &result, nil
+}
+
+func (p *Provider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
+	req = req.WithStream(true)
+	resp, err := p.doResponsesRequest(ctx, req)
+	if err != nil {
+		return domain.Usage{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return domain.Usage{}, fmt.Errorf("openai responses stream error %d: %s", resp.StatusCode, b)
+	}
+
+	return shared.StreamResponsesSSEAndCountUsage(resp.Body, w)
+}
+
+func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesRequest) (*http.Response, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	if p.apiKey != "" {
+		return p.doOpenAIRequest(ctx, http.MethodPost, pathResponses, body, contentTypeJSON)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, chatGPTURL+pathCodexResponses, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	if err := p.setAuthHeaders(httpReq); err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set(headerContentType, contentTypeJSON)
+	httpReq.Header.Set(headerOpenAIBeta, codexResponsesExperimental)
+	httpReq.Header.Set(headerOriginator, codexOriginator)
+	httpReq.Header.Set(headerSessionID, newCodexSessionID())
+	httpReq.Header.Set(headerUserAgent, "")
+	httpReq.Header.Set(headerVersion, getEnv(envOpenAICodexVersion, codexDefaultVersion))
+
+	return p.client.Do(httpReq)
 }
 
 func (p *Provider) chatCodex(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {

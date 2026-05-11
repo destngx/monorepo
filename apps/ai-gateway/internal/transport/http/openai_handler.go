@@ -16,6 +16,7 @@ import (
 
 const (
 	pathChatCompletions = "/v1/chat/completions"
+	pathResponses       = "/v1/responses"
 	pathModelsV1        = "/v1/models/"
 
 	headerContentType     = "Content-Type"
@@ -173,6 +174,113 @@ func (h *OpenAIHandler) handleStream(w http.ResponseWriter, r *http.Request, p s
 	}
 
 	setMetrics(r, p.Name(), req.Model, inputModel, usage, req.Stream, nil)
+}
+
+// ResponsesHandler handles the /v1/responses endpoint.
+type ResponsesHandler struct {
+	registry *service.Registry
+}
+
+func NewResponsesHandler(registry *service.Registry) *ResponsesHandler {
+	return &ResponsesHandler{registry: registry}
+}
+
+// @Summary Responses
+// @Description Native Responses API endpoint.
+// @Tags responses
+// @Accept json
+// @Produce json
+// @Param body body domain.ResponsesRequest true "Responses Request"
+// @Param X-AI-Provider header string false "Provider name override"
+// @Success 200 {object} domain.ResponsesResponse
+// @Router /v1/responses [post]
+func (h *ResponsesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, errMsgMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req domain.ResponsesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		WriteError(w, r, http.StatusBadRequest, errMsgInvalidBody+err.Error())
+		return
+	}
+
+	provider, targetModel, err := h.registry.ResolveRoute(r, req.Model)
+	if err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "not ready") {
+			status = http.StatusNotFound
+		}
+		WriteError(w, r, status, errMsgRoutingFailed+err.Error())
+		return
+	}
+
+	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", req.Model, targetModel))
+	r = SetLogModel(r, req.Model)
+	req = req.WithModel(targetModel)
+
+	if req.Stream {
+		h.handleStream(w, r, provider, req, req.Model)
+		return
+	}
+	h.handleSync(w, r, provider, req, req.Model)
+}
+
+func (h *ResponsesHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ResponsesRequest, inputModel string) {
+	resp, err := p.Responses(r.Context(), req)
+	if err != nil {
+		if _, ok := err.(*shared.ErrRateLimitExceeded); ok {
+			WriteError(w, r, http.StatusTooManyRequests, err.Error())
+		} else {
+			WriteError(w, r, http.StatusBadGateway, err.Error())
+		}
+		setMetrics(r, p.Name(), req.Model, inputModel, domain.Usage{}, false, err)
+		return
+	}
+
+	usage := domain.UsageFromResponsesValue(map[string]any(*resp))
+	setMetrics(r, p.Name(), req.Model, inputModel, usage, false, nil)
+
+	w.Header().Set(headerContentType, contentTypeJSON)
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *ResponsesHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ResponsesRequest, inputModel string) {
+	w.Header().Set(headerContentType, contentTypeEventStream)
+	w.Header().Set(headerCacheControl, valueNoCache)
+	w.Header().Set(headerConnection, valueKeepAlive)
+	w.Header().Set(headerXAccelBuffering, valueNo)
+
+	if _, ok := w.(http.Flusher); !ok {
+		WriteError(w, r, http.StatusInternalServerError, errMsgStreamNotSupp)
+		return
+	}
+
+	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
+	var writer io.Writer = w
+	if h.registry.Config.Verbose >= 1 {
+		writer = &StreamLogWriter{w: w, rid: rid}
+	}
+
+	usage, err := p.ResponsesStream(r.Context(), req, writer)
+	if err != nil {
+		status := http.StatusBadGateway
+		if _, ok := err.(*shared.ErrRateLimitExceeded); ok {
+			status = http.StatusTooManyRequests
+		}
+		errResp := map[string]interface{}{
+			"error":  err.Error(),
+			"stack":  string(debug.Stack()),
+			"status": status,
+		}
+		b, _ := json.Marshal(errResp)
+		w.Write([]byte(sseDataPrefix + string(b) + "\n\n"))
+		setMetrics(r, p.Name(), req.Model, inputModel, domain.Usage{}, true, err)
+		return
+	}
+
+	setMetrics(r, p.Name(), req.Model, inputModel, usage, true, nil)
 }
 
 // ModelsHandler exposes the /v1/models endpoint to list available capabilities for a provider.

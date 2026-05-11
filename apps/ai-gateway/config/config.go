@@ -29,14 +29,18 @@ type OpenAIOAuth struct {
 }
 
 type Config struct {
-	GitHubToken       string
-	GitHubAccountType string
-	OpenAIKey         string
-	OpenAIOAuth       *OpenAIOAuth
-	AnthropicKey      string
-	AnthropicRoute    string
-	OllamaBaseURL     string
-	ListenAddr        string
+	GitHubToken                string
+	GitHubAccountType          string
+	CopilotEditorVersion       string
+	CopilotEditorPluginVersion string
+	CopilotIntegrationID       string
+	CopilotUserAgent           string
+	OpenAIKey                  string
+	OpenAIOAuth                *OpenAIOAuth
+	AnthropicKey               string
+	AnthropicRoute             string
+	OllamaBaseURL              string
+	ListenAddr                 string
 
 	GitHubRate    ProviderConfig
 	OpenAIRate    ProviderConfig
@@ -85,17 +89,21 @@ func Load() *Config {
 	enableColor := getEnv("LOG_COLOR", "true") != "false"
 
 	return &Config{
-		GitHubToken:       os.Getenv("GITHUB_TOKEN"),
-		GitHubAccountType: getEnv("GITHUB_ACCOUNT_TYPE", "business"),
-		OpenAIKey:         os.Getenv("OPENAI_API_KEY"),
-		OpenAIOAuth:       ReloadOpenAIOAuth(),
-		AnthropicKey:      os.Getenv("ANTHROPIC_API_KEY"),
-		AnthropicRoute:    getEnv("ANTHROPIC_ROUTE", "default"),
-		OllamaBaseURL:     ollamaBase,
-		ListenAddr:        addr,
-		Verbose:           verbose,
-		LogLevel:          logLevel,
-		EnableColor:       enableColor,
+		GitHubToken:                os.Getenv("GITHUB_TOKEN"),
+		GitHubAccountType:          getEnv("GITHUB_ACCOUNT_TYPE", "business"),
+		CopilotEditorVersion:       getEnv("COPILOT_EDITOR_VERSION", "vscode/1.80.0"),
+		CopilotEditorPluginVersion: getEnv("COPILOT_EDITOR_PLUGIN_VERSION", "copilot-chat/0.1.0"),
+		CopilotIntegrationID:       getEnv("COPILOT_INTEGRATION_ID", "vscode-chat"),
+		CopilotUserAgent:           getEnv("COPILOT_USER_AGENT", "GitHubCopilotChat/0.1.0"),
+		OpenAIKey:                  os.Getenv("OPENAI_API_KEY"),
+		OpenAIOAuth:                ReloadOpenAIOAuth(),
+		AnthropicKey:               os.Getenv("ANTHROPIC_API_KEY"),
+		AnthropicRoute:             getEnv("ANTHROPIC_ROUTE", "default"),
+		OllamaBaseURL:              ollamaBase,
+		ListenAddr:                 addr,
+		Verbose:                    verbose,
+		LogLevel:                   logLevel,
+		EnableColor:                enableColor,
 
 		GitHubRate:    loadProviderRate("GITHUB"),
 		OpenAIRate:    loadProviderRate("OPENAI"),
