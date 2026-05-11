@@ -617,6 +617,11 @@ func isResponsesModel(model string) bool {
 	}
 }
 
+func isNoTemperatureModel(model string) bool {
+	m := strings.ToLower(model)
+	return isReasoningModel(m) || isResponsesModel(m) || strings.Contains(m, "mini")
+}
+
 func (p *Provider) getCopilotBaseURL() string {
 	if p.accountType == "" || p.accountType == "individual" {
 		return baseURL
@@ -778,8 +783,8 @@ func (p *Provider) buildResponsesPayload(req domain.ChatRequest) ([]byte, error)
 		Instructions:    strings.Join(instructions, "\n\n"),
 		Input:           input,
 		Stream:          true,
-		Temperature:     req.Temperature,
-		TopP:            req.TopP,
+		Temperature:     nil, // Not supported for mini/reasoning models on GitHub Copilot
+		TopP:            nil, // Not supported for mini/reasoning models on GitHub Copilot
 		Tools:           make([]copilotTool, 0, len(req.Tools)),
 		ToolChoice:      req.ToolChoice,
 		Reasoning:       &responsesReasoning{Effort: reasoningEffort},
@@ -944,6 +949,11 @@ func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
 		ToolChoice:          req.ToolChoice,
 		ReasoningEffort:     reasoningEffort,
 		MaxCompletionTokens: req.MaxCompletionTokens,
+	}
+
+	if isNoTemperatureModel(req.Model) {
+		payload.Temperature = nil // Not supported for mini/reasoning models on GitHub Copilot
+		payload.TopP = nil        // Not supported for mini/reasoning models on GitHub Copilot
 	}
 
 	for _, tool := range req.Tools {

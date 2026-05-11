@@ -89,6 +89,10 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/v1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(HeaderContentType, ContentTypeJSON)
+		w.Write([]byte(`{"status":"ok","message":"AI Gateway v1"}`))
+	})
 	mux.Handle(PathChatCompletions, openaiHandler)
 	mux.Handle(PathResponses, responsesHandler)
 	mux.Handle(PathMessages, anthroHandler)
