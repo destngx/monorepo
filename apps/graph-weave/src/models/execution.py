@@ -12,6 +12,8 @@ class StatusEnum(str, Enum):
     completed = "completed"
     failed = "failed"
     cancelled = "cancelled"
+    timeout = "timeout"
+    stagnated = "stagnated"
 
 
 class ExecuteRequest(BaseModel):

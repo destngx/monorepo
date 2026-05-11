@@ -57,10 +57,24 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 			break
 		}
 
-		var event responsesStreamEvent
-		if err := json.Unmarshal([]byte(payload), &event); err != nil {
+		var rawEvent map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(payload), &rawEvent); err != nil {
 			continue
 		}
+
+		var eventType string
+		if t, ok := rawEvent["type"]; ok {
+			json.Unmarshal(t, &eventType)
+		}
+
+		var event responsesStreamEvent
+		if err := json.Unmarshal([]byte(payload), &event); err != nil {
+			// If it fails, maybe Delta is an object. Try to extract it anyway.
+			event.Type = eventType
+		}
+
+		// Debug logging to a local file
+		shared.LogToFile("copilot-sse.log", fmt.Sprintf("Event: %s, Payload: %s", eventType, payload))
 
 		if event.Response != nil {
 			if event.Response.ID != "" {
@@ -102,6 +116,12 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 			}
 		case "response.failed":
 			return usage, fmt.Errorf("github copilot responses failed: %s", event.Error)
+		default:
+			// Capture any other delta-like events just in case
+			if event.Delta != "" && strings.Contains(event.Type, "delta") {
+				completionTokens += shared.EstimateTokens(event.Delta)
+				writeChatCompletionDelta(w, responseID, created, model, event.Delta, "")
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {

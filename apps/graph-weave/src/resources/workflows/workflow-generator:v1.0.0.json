@@ -10,7 +10,7 @@
   "limits": {
     "max_hops": 15,
     "max_tokens": 500000,
-    "timeout_seconds": 300,
+    "timeout_seconds": 1800,
     "stagnation_window": 3,
     "stagnation_threshold": 2
   },
@@ -125,7 +125,7 @@
       "display_name": "Workflow Assembler & Quality Validator",
       "description": "Assembles the final workflow and enforces high-quality transformation standards",
       "config": {
-        "system_prompt": "You are a Workflow Quality Validator. Assemble the final JSON and REJECT if any quality rules are violated.\n\nQuality Rules (REJECT if violated):\n- Any node lacks 'output_schema'.\n- Any node has a vague purpose (e.g. 'analyze', 'think').\n- Any node produces unstructured output.\n- Workflow is not a clean transformation pipeline.\n\nFinal Structure:\n{\n  \"name\": \"...\",\n  \"version\": \"1.0.0\",\n  \"metadata\": {\"author\": \"workflow-generator\", \"created_at\": \"<ISO8601>\", \"tags\": []},\n  \"limits\": {\"max_hops\": 10, \"max_tokens\": 200000, \"timeout_seconds\": 300},\n  \"nodes\": [...],\n  \"edges\": [...],\n  \"entry_point\": \"entry\",\n  \"exit_point\": \"exit\"\n}\n\nReturn ONLY JSON:\n{\n  \"is_valid\": true|false,\n  \"errors\": [],\n  \"generated_workflow\": { ... }\n}",
+        "system_prompt": "You are a Workflow Quality Validator. Assemble the final JSON and REJECT if any quality rules are violated.\n\nQuality Rules (REJECT if violated):\n- Any agent_node or tool_node lacks 'output_schema' (except entry and exit nodes).\n- Any node has a vague purpose (e.g. 'analyze', 'think').\n- Any node produces unstructured output.\n- Workflow is not a clean transformation pipeline.\n\nFinal Structure:\n{\n  \"name\": \"...\",\n  \"version\": \"1.0.0\",\n  \"metadata\": {\"author\": \"workflow-generator\", \"created_at\": \"<ISO8601>\", \"tags\": []},\n  \"limits\": {\"max_hops\": 10, \"max_tokens\": 200000, \"timeout_seconds\": 1800},\n  \"nodes\": [...],\n  \"edges\": [...],\n  \"entry_point\": \"entry\",\n  \"exit_point\": \"exit\"\n}\n\nReturn ONLY JSON:\n{\n  \"is_valid\": true|false,\n  \"errors\": [],\n  \"generated_workflow\": { ... }\n}",
         "user_prompt_template": "Assemble and validate: {intent}\n\nNodes: {nodes_definition}\nRouting: {routing}",
         "input_mapping": {
           "intent": "$.entry.intent",

@@ -104,6 +104,11 @@ func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
 		MaxCompletionTokens: req.MaxCompletionTokens,
 	}
 
+	if payload.ReasoningEffort != "" {
+		payload.MaxTokens = nil
+		payload.MaxCompletionTokens = nil
+	}
+
 	if isNoTemperatureModel(req.Model) {
 		payload.Temperature = nil
 		payload.TopP = nil
@@ -179,6 +184,12 @@ func (p *Provider) buildResponsesPayload(req domain.ChatRequest) ([]byte, error)
 	maxOutputTokens := req.MaxCompletionTokens
 	if maxOutputTokens == nil {
 		maxOutputTokens = req.MaxTokens
+	}
+
+	// Reasoning models often use >8k tokens just for "thinking" before producing output.
+	// Forcing a low max_output_tokens limit causes them to truncate mid-thought.
+	if reasoningEffort != "" {
+		maxOutputTokens = nil
 	}
 
 	payload := responsesRequest{

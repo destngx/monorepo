@@ -14,7 +14,7 @@ func New(githubToken, accountType string, verbose int, headers ...ClientHeaders)
 	return &Provider{
 		githubToken: githubToken,
 		accountType: accountType,
-		client:      &http.Client{Timeout: 120 * time.Second},
+		client:      &http.Client{Timeout: 1800 * time.Second},
 		verbose:     verbose,
 		headers:     clientHeaders,
 	}

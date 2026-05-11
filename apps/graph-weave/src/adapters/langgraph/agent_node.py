@@ -94,9 +94,18 @@ class AgentNodeHandler:
                     self._logger.info(f"[AGENT] {node_id} requested tools: {[tc['function']['name'] for tc in message['tool_calls']]}")
 
                 tool_calls = message.get("tool_calls")
+                reasoning = message.get("reasoning_content", "")
+
+                if reasoning:
+                    self._logger.info(f"[AGENT] {node_id} reasoning: {reasoning[:200]}...")
 
                 if not tool_calls:
-                    final_content = self.executor._clean_filler(message.get("content", ""))
+                    content = message.get("content", "")
+                    if not content and reasoning:
+                        self._logger.info(f"[AGENT] {node_id} content is empty, using reasoning as fallback")
+                        content = reasoning
+                    
+                    final_content = self.executor._clean_filler(content)
                     break
                 
                 all_tool_calls.extend(tool_calls)

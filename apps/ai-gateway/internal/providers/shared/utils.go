@@ -3,6 +3,8 @@ package shared
 import (
 	"apps/ai-gateway/internal/domain"
 	"log"
+	"os"
+	"path/filepath"
 	"reflect"
 )
 
@@ -145,4 +147,18 @@ func CleanJSONSchema(schema any) any {
 	default:
 		return schema
 	}
+}
+
+// LogToFile logs a string to a file in the monorepo root's tmp directory.
+func LogToFile(filename, content string) {
+	// Simple append to file
+	// Since we are in monorepo, we use a relative path from the app's cwd
+	// Serve runs with cwd = apps/ai-gateway
+	path := filepath.Join("../../tmp", filename)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(content + "\n")
 }

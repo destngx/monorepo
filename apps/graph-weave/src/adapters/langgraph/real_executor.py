@@ -29,7 +29,7 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
         mcp_router: Optional[MCPRouter] = None,
         redis_client: Optional[NamespacedRedisClient] = None,
         checkpoint_service: Optional[Any] = None,
-        default_timeout_seconds: int = 300,
+        default_timeout_seconds: int = 1800,
     ):
         self.ai_provider_factory = AIProviderFactory(ai_gateway_client=ai_provider)
         self.mcp_router = mcp_router or MCPRouter()
