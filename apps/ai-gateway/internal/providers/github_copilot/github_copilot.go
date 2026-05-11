@@ -211,6 +211,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 	scanner := bufio.NewScanner(pr)
 	scanner.Buffer(make([]byte, 1024*64), 1024*64)
 	var contentBuilder strings.Builder
+	var reasoningContentBuilder strings.Builder
 	var rawBodyBuilder strings.Builder
 	toolCallsMap := make(map[int]*domain.ToolCall)
 	var finalUsage domain.Usage
@@ -232,8 +233,9 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 		var chunk struct {
 			Choices []struct {
 				Delta struct {
-					Content   string `json:"content"`
-					ToolCalls []struct {
+					Content          string `json:"content"`
+					ReasoningContent string `json:"reasoning_content"`
+					ToolCalls        []struct {
 						Index    int    `json:"index"`
 						ID       string `json:"id"`
 						Type     string `json:"type"`
@@ -251,6 +253,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 			if len(chunk.Choices) > 0 {
 				delta := chunk.Choices[0].Delta
 				contentBuilder.WriteString(delta.Content)
+				reasoningContentBuilder.WriteString(delta.ReasoningContent)
 
 				for _, tc := range delta.ToolCalls {
 					if existing, ok := toolCallsMap[tc.Index]; ok {
@@ -348,9 +351,10 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 	result.Choices = []domain.Choice{
 		{
 			Message: domain.Message{
-				Role:      "assistant",
-				Content:   contentBuilder.String(),
-				ToolCalls: targetToolCalls,
+				Role:             "assistant",
+				Content:          contentBuilder.String(),
+				ReasoningContent: reasoningContentBuilder.String(),
+				ToolCalls:        targetToolCalls,
 			},
 			FinishReason: finishReason,
 		},
@@ -855,7 +859,7 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 		}
 
 		switch event.Type {
-		case "response.output_text.delta":
+		case "response.output_text.delta", "response.text.delta", "response.content_part.delta":
 			completionTokens += shared.EstimateTokens(event.Delta)
 			if responseID == "" {
 				responseID = "chatcmpl-copilot-responses"
@@ -863,7 +867,18 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 			if created == 0 {
 				created = time.Now().Unix()
 			}
-			if err := writeChatCompletionDelta(w, responseID, created, model, event.Delta); err != nil {
+			if err := writeChatCompletionDelta(w, responseID, created, model, event.Delta, ""); err != nil {
+				return usage, err
+			}
+		case "response.reasoning_text.delta":
+			completionTokens += shared.EstimateTokens(event.Delta)
+			if responseID == "" {
+				responseID = "chatcmpl-copilot-responses"
+			}
+			if created == 0 {
+				created = time.Now().Unix()
+			}
+			if err := writeChatCompletionDelta(w, responseID, created, model, "", event.Delta); err != nil {
 				return usage, err
 			}
 		case "response.failed":
@@ -882,7 +897,15 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 	return usage, nil
 }
 
-func writeChatCompletionDelta(w io.Writer, id string, created int64, model string, delta string) error {
+func writeChatCompletionDelta(w io.Writer, id string, created int64, model string, content string, reasoningContent string) error {
+	delta := map[string]string{}
+	if content != "" {
+		delta["content"] = content
+	}
+	if reasoningContent != "" {
+		delta["reasoning_content"] = reasoningContent
+	}
+
 	chunk := map[string]interface{}{
 		"id":      id,
 		"object":  "chat.completion.chunk",
@@ -890,10 +913,8 @@ func writeChatCompletionDelta(w io.Writer, id string, created int64, model strin
 		"model":   model,
 		"choices": []map[string]interface{}{
 			{
-				"index": 0,
-				"delta": map[string]string{
-					"content": delta,
-				},
+				"index":         0,
+				"delta":         delta,
 				"finish_reason": nil,
 			},
 		},
