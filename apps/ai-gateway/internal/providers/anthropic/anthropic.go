@@ -1,14 +1,12 @@
 package anthropic
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"apps/ai-gateway/internal/domain"
@@ -71,124 +69,6 @@ func New(apiKey string) *Provider {
 }
 
 func (p *Provider) Name() string { return domain.ProviderAnthropic }
-
-// ConvertToAnthropicRequest transforms an OpenAI-compatible request into
-// Anthropic's Messages API format. Extracts system messages separately.
-func (p *Provider) ConvertToAnthropicRequest(req domain.ChatRequest) Request {
-	var system string
-	messages := make([]Message, 0, len(req.Messages))
-
-	for _, m := range req.Messages {
-		if m.Role == roleSystem {
-			if system != "" {
-				system += "\n\n"
-			}
-			system += m.Content
-			continue
-		}
-
-		if m.Role == roleTool {
-			// OpenAI tool role -> Anthropic tool_result block in a user message
-			messages = append(messages, Message{
-				Role: roleUser,
-				Content: []Content{{
-					Type:    typeToolResult,
-					ToolID:  m.ToolCallID,
-					Content: m.Content,
-				}},
-			})
-			continue
-		}
-
-		if m.Role == roleAssistant && len(m.ToolCalls) > 0 {
-			// OpenAI assistant message with tool calls -> Anthropic assistant message with tool_use blocks
-			content := make([]Content, 0, len(m.ToolCalls)+1)
-			if m.Content != "" {
-				content = append(content, Content{Type: typeText, Text: m.Content})
-			}
-			for _, tc := range m.ToolCalls {
-				var input any
-				json.Unmarshal([]byte(tc.Function.Arguments), &input)
-				content = append(content, Content{
-					Type:  typeToolUse,
-					ID:    tc.ID,
-					Name:  tc.Function.Name,
-					Input: input,
-				})
-			}
-			messages = append(messages, Message{
-				Role:    roleAssistant,
-				Content: content,
-			})
-			continue
-		}
-
-		messages = append(messages, Message{
-			Role:    m.Role,
-			Content: m.Content,
-		})
-	}
-
-	maxTokens := 4096
-	if req.MaxTokens != nil {
-		maxTokens = *req.MaxTokens
-	}
-
-	ar := Request{
-		Model:       req.Model,
-		MaxTokens:   maxTokens,
-		System:      system,
-		Messages:    messages,
-		Temperature: req.Temperature,
-		TopP:        req.TopP,
-	}
-
-	// Convert tools
-	for _, t := range req.Tools {
-		// Handle built-in tools (web_search, code_execution, etc.)
-		if t.Type != domain.ToolTypeFunction && t.Type != "" {
-			ar.Tools = append(ar.Tools, Tool{
-				Type: t.Type,
-				Name: t.Type, // For built-in tools, name is often the same as type or versioned
-			})
-			continue
-		}
-
-		// Handle standard function tools
-		if t.Function != nil {
-			ar.Tools = append(ar.Tools, Tool{
-				Type:        "function",
-				Name:        t.Function.Name,
-				Description: t.Function.Description,
-				InputSchema: t.Function.Parameters,
-			})
-		}
-	}
-
-	// Convert stop sequences
-	if req.Stop != nil {
-		switch v := req.Stop.(type) {
-		case string:
-			ar.StopSeqs = []string{v}
-		case []interface{}:
-			for _, s := range v {
-				if str, ok := s.(string); ok {
-					ar.StopSeqs = append(ar.StopSeqs, str)
-				}
-			}
-		}
-	}
-
-	return ar
-}
-
-func (p *Provider) headers() map[string]string {
-	return map[string]string{
-		headerAPIKey:           p.apiKey,
-		headerAnthropicVersion: apiVersion,
-		headerContentType:      contentTypeJSON,
-	}
-}
 
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
 	ar := p.ConvertToAnthropicRequest(req)
@@ -296,117 +176,6 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 
 	// Convert Anthropic SSE stream to OpenAI-compatible SSE format
 	return p.convertStreamToOpenAI(resp.Body, w)
-}
-
-// convertStreamToOpenAI reads Anthropic's SSE stream and re-emits it as
-// OpenAI-compatible SSE events so the client sees a uniform format.
-func (p *Provider) convertStreamToOpenAI(body io.Reader, w io.Writer) (domain.Usage, error) {
-	var usage domain.Usage
-	scanner := bufio.NewScanner(body)
-	scanner.Buffer(make([]byte, 1024*64), 1024*64)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if !strings.HasPrefix(line, sseDataPrefix) {
-			continue
-		}
-		payload := strings.TrimPrefix(line, sseDataPrefix)
-
-		var event map[string]interface{}
-		if err := json.Unmarshal([]byte(payload), &event); err != nil {
-			continue
-		}
-
-		eventType, _ := event["type"].(string)
-		switch eventType {
-		case eventMessageStart:
-			msg, _ := event["message"].(map[string]interface{})
-			if u, ok := msg["usage"].(map[string]interface{}); ok {
-				if inputTokens, ok := u["input_tokens"].(float64); ok {
-					usage.PromptTokens = int(inputTokens)
-				}
-			}
-
-		case eventContentBlockStart:
-			index, _ := event["index"].(float64)
-			block, _ := event["content_block"].(map[string]interface{})
-			blockType, _ := block["type"].(string)
-
-			if blockType == typeToolUse {
-				id, _ := block["id"].(string)
-				name, _ := block["name"].(string)
-				chunk := map[string]interface{}{
-					"object": objectChatCompletionChunk,
-					"choices": []map[string]interface{}{{
-						"index": 0,
-						"delta": map[string]interface{}{
-							"tool_calls": []map[string]interface{}{{
-								"index":    int(index),
-								"id":       id,
-								"type":     "function",
-								"function": map[string]string{"name": name},
-							}},
-						},
-					}},
-				}
-				b, _ := json.Marshal(chunk)
-				io.WriteString(w, sseDataPrefix+string(b)+"\n\n")
-			}
-
-		case eventContentBlockDelta:
-			index, _ := event["index"].(float64)
-			delta, _ := event["delta"].(map[string]interface{})
-			deltaType, _ := delta["type"].(string)
-
-			chunk := map[string]interface{}{
-				"object":  objectChatCompletionChunk,
-				"choices": []map[string]interface{}{{"index": 0}},
-			}
-
-			switch deltaType {
-			case typeTextDelta:
-				text, _ := delta["text"].(string)
-				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]string{"content": text}
-			case typeInputJSON:
-				partial, _ := delta["partial_json"].(string)
-				chunk["choices"].([]map[string]interface{})[0]["delta"] = map[string]interface{}{
-					"tool_calls": []map[string]interface{}{{
-						"index":    int(index),
-						"function": map[string]string{"arguments": partial},
-					}},
-				}
-			}
-
-			b, _ := json.Marshal(chunk)
-			if _, err := io.WriteString(w, "data: "+string(b)+"\n\n"); err != nil {
-				return usage, err
-			}
-			if f, ok := w.(interface{ Flush() }); ok {
-				f.Flush()
-			}
-
-		case eventMessageDelta:
-			// Extract usage from the final message_delta event
-			u, _ := event["usage"].(map[string]interface{})
-			if outputTokens, ok := u["output_tokens"].(float64); ok {
-				usage.CompletionTokens = int(outputTokens)
-			}
-
-		case eventMessageStop:
-			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-			io.WriteString(w, sseDataPrefix+sseDone+"\n\n")
-			if f, ok := w.(interface{ Flush() }); ok {
-				f.Flush()
-			}
-		}
-	}
-
-	if usage.TotalTokens == 0 {
-		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
-	}
-
-	return usage, scanner.Err()
 }
 
 func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
