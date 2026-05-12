@@ -40,11 +40,15 @@ class OrchestratorReAct:
         mcp_router: Any,      # MCPRouter
         emit: Callable[[str, Dict[str, Any]], None],
         max_context_messages: int = 20,
+        default_provider: str = "github-copilot",
+        default_model: str = "gpt-5.4-mini",
     ) -> None:
         self.client = client
         self.mcp_router = mcp_router
         self.emit = emit
         self.max_context_messages = max_context_messages
+        self.default_provider = default_provider
+        self.default_model = default_model
 
     # ------------------------------------------------------------------
     # Public API
@@ -85,11 +89,12 @@ class OrchestratorReAct:
 
             response = self.client.chat_completion(
                 messages=messages,
-                provider=config.provider or "github-copilot",
-                model=config.model or "gpt-5.4-mini",
+                provider=config.provider or self.default_provider,
+                model=config.model or self.default_model,
                 tools=tools if tools else None,
                 temperature=0.2,
                 max_tokens=8000,
+                reasoning_effort=config.reasoning_effort,
             )
 
             choice = response["choices"][0]

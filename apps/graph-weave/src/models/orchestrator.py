@@ -57,6 +57,11 @@ class OrchestratorConfig(BaseModel):
         None,
         description="Optional starting goal or user instructions for the ReAct loop",
     )
+    reasoning_effort: Optional[str] = Field(
+        None,
+        description="Reasoning effort level (e.g. 'low', 'medium', 'high') for models supporting it.",
+        json_schema_extra={"example": "high"},
+    )
 
     @field_validator("allowed_skills")
     @classmethod

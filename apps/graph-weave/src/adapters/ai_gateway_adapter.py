@@ -37,7 +37,8 @@ class AIGatewayClient:
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.7,
         max_tokens: int = 8000,
-        stream: bool = False
+        stream: bool = False,
+        reasoning_effort: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Send a chat completion request to the AI Gateway.
@@ -47,9 +48,10 @@ class AIGatewayClient:
             provider: The backend provider to use (X-AI-Provider header)
             model: The model name to request
             tools: Optional list of tool definitions
-            temperature: Sampling temperature
-            max_tokens: Maximum tokens to generate
-            stream: Whether to stream the response (currently sync only)
+            temperature: sampling temperature
+            max_tokens: maximum tokens to generate
+            stream: whether to stream the response (currently sync only)
+            reasoning_effort: optional reasoning effort (e.g., 'low', 'medium', 'high')
             
         Returns:
             OpenAI-compatible response dictionary
@@ -71,6 +73,9 @@ class AIGatewayClient:
         
         if tools:
             payload["tools"] = tools
+            
+        if reasoning_effort:
+            payload["reasoning_effort"] = reasoning_effort
 
         logger.debug(f"Sending request to AI Gateway: {url} (Provider: {provider}, Model: {model})")
         

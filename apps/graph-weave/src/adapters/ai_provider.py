@@ -16,6 +16,7 @@ class LLMClient(Protocol):
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.7,
         max_tokens: int = 2000,
+        reasoning_effort: Optional[str] = None
     ) -> Dict[str, Any]: ...
 
 

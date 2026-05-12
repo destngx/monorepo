@@ -42,8 +42,14 @@ class AgentNodeHandler:
         user_prompt = self.executor._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
         system_prompt = self.executor._interpolate_prompt(system_prompt, state, local_context=agent_input_context)
         
-        provider = get_field("provider", "github-copilot")
-        model = get_field("model", "gpt-5.4-mini")
+        provider_raw = get_field("provider", self.executor.config.DEFAULT_PROVIDER)
+        model_raw = get_field("model", self.executor.config.DEFAULT_MODEL)
+        reasoning_effort_raw = get_field("reasoning_effort")
+        
+        provider = self.executor._interpolate_prompt(provider_raw, state, local_context=agent_input_context)
+        model = self.executor._interpolate_prompt(model_raw, state, local_context=agent_input_context)
+        reasoning_effort = self.executor._interpolate_prompt(reasoning_effort_raw, state, local_context=agent_input_context) if reasoning_effort_raw else None
+        
         temperature = get_field("temperature", 0.7)
         max_tokens = get_field("max_tokens", 8000)
         allowed_tools = get_field("tools", [])
@@ -82,6 +88,7 @@ class AgentNodeHandler:
                     tools=tools if tools else None,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    reasoning_effort=reasoning_effort,
                 )
 
                 total_tokens += response.get("usage", {}).get("total_tokens", 0)

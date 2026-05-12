@@ -19,6 +19,9 @@ class GraphWeaveConfig:
     UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "")
     UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
 
+    DEFAULT_PROVIDER = os.getenv("DEFAULT_PROVIDER", "github-copilot")
+    DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gpt-5.4-mini")
+
     @staticmethod
     def validate() -> bool:
         """Validate required configuration is present."""

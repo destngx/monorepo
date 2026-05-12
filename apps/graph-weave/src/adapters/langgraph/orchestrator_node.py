@@ -35,14 +35,24 @@ class OrchestratorNodeHandler:
 
         config.system_prompt = self.executor._interpolate_prompt(config.system_prompt, state)
         user_prompt = self.executor._interpolate_prompt(config.user_prompt_template, state) if config.user_prompt_template else None
+        
+        # Support dynamic provider/model/reasoning_effort overrides
+        if config.provider:
+            config.provider = self.executor._interpolate_prompt(config.provider, state)
+        if config.model:
+            config.model = self.executor._interpolate_prompt(config.model, state)
+        if config.reasoning_effort:
+            config.reasoning_effort = self.executor._interpolate_prompt(config.reasoning_effort, state)
 
         react = OrchestratorReAct(
             client=self.executor.ai_provider_factory.get_provider_client(
-                config.provider or "github-copilot",
-                config.model or "gpt-5.4-mini",
+                config.provider or self.executor.config.DEFAULT_PROVIDER,
+                config.model or self.executor.config.DEFAULT_MODEL,
             ),
             mcp_router=self.executor.mcp_router,
             emit=lambda etype, data: self.executor._emit_event(run_id, etype, data),
+            default_provider=self.executor.config.DEFAULT_PROVIDER,
+            default_model=self.executor.config.DEFAULT_MODEL,
         )
 
         result = react.run(

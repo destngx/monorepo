@@ -44,7 +44,8 @@ class Services:
         self.executor = RealLangGraphExecutor(
             mcp_router=self.mcp_router,
             redis_client=self.redis_client,
-            checkpoint_service=self.checkpoint_service
+            checkpoint_service=self.checkpoint_service,
+            config=GraphWeaveConfig
         )
 
         self.schedule_store = RedisScheduleStore(self.redis_client)

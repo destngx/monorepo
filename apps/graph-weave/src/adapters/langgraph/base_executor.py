@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 class BaseLangGraphExecutor:
     """Base class for LangGraph executors with common utilities."""
     
-    def __init__(self, ai_provider=None, tools=None):
+    def __init__(self, ai_provider=None, tools=None, config=None):
         self.ai_provider = ai_provider
         self.tools = tools or {}
+        self.config = config
 
     def _get_state_value(self, path: Any, state: Mapping[str, Any]) -> Any:
         """
