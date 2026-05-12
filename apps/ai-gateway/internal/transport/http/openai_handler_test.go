@@ -17,7 +17,7 @@ import (
 
 func TestOpenAIHandler_KeepsGPT54MiniCopilotRequestOnGitHubCopilot(t *testing.T) {
 	reg := service.NewRegistry(&config.Config{})
-	reg.Mapper = service.NewModelMapper()
+	reg.Mapper = service.NewModelMapper(domain.ProviderGitHubCopilot)
 
 	mockCopilot := &MockTestProvider{name: domain.ProviderGitHubCopilot}
 	mockOpenAI := &MockTestProvider{name: domain.ProviderOpenAI}
@@ -44,7 +44,7 @@ func TestOpenAIHandler_KeepsGPT54MiniCopilotRequestOnGitHubCopilot(t *testing.T)
 
 func TestResponsesHandler_RoutesNativeResponsesRequest(t *testing.T) {
 	reg := service.NewRegistry(&config.Config{})
-	reg.Mapper = service.NewModelMapper()
+	reg.Mapper = service.NewModelMapper(domain.ProviderGitHubCopilot)
 
 	mockCopilot := &MockTestProvider{name: domain.ProviderGitHubCopilot}
 	reg.RegisterForTest(mockCopilot)

@@ -58,6 +58,8 @@ type Config struct {
 
 	MetricsBufferSize   int
 	MetricsSaveInterval int // seconds
+
+	DefaultProvider string
 }
 
 func Load() *Config {
@@ -104,7 +106,7 @@ func Load() *Config {
 		AnthropicRoute:             getEnv("ANTHROPIC_ROUTE", "default"),
 		OllamaBaseURL:              ollamaBase,
 		MimoKey:                    getEnv("MIMO_API_KEY", os.Getenv("ANTHROPIC_AUTH_TOKEN")),
-		MimoBaseURL:                getEnv("MIMO_BASE_URL", getEnv("ANTHROPIC_BASE_URL", "https://token-plan-sgp.xiaomimimo.com/v1")),
+		MimoBaseURL:                getEnv("MIMO_BASE_URL", "https://token-plan-sgp.xiaomimimo.com/v1"),
 		ListenAddr:                 addr,
 		Verbose:                    verbose,
 		LogLevel:                   logLevel,
@@ -121,6 +123,8 @@ func Load() *Config {
 
 		MetricsBufferSize:   getEnvInt("METRICS_BUFFER_SIZE", 2000),
 		MetricsSaveInterval: getEnvInt("METRICS_SAVE_INTERVAL_SECS", 60),
+
+		DefaultProvider: getEnv("DEFAULT_PROVIDER", "github-copilot"),
 	}
 }
 

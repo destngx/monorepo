@@ -41,7 +41,7 @@ func (r *Registry) Providers() map[string]shared.Provider {
 func NewRegistry(cfg *config.Config) *Registry {
 	r := &Registry{
 		providers: make(map[string]shared.Provider),
-		Mapper:    NewModelMapper(),
+		Mapper:    NewModelMapper(cfg.DefaultProvider),
 		Config:    cfg,
 	}
 
@@ -188,10 +188,6 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 	}
 
 	providerName := httpReq.Header.Get(domain.HeaderAIProvider)
-	if providerName == "" {
-		providerName = r.Mapper.DefaultTarget.Provider
-	}
-
 	// 1. Check Smart Mapper using provider + model as the routing key.
 	target, mapped := r.Mapper.Resolve(providerName, inputModel)
 
@@ -204,14 +200,8 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 		targetModel = r.Mapper.DefaultTarget.Model
 	}
 
-	// 2. If the mapper did not override provider, use the requested provider.
+	// 2. Use the provider identified by the mapper (already defaults if needed)
 	providerName = target.Provider
-	if providerName == "" {
-		providerName = httpReq.Header.Get(domain.HeaderAIProvider)
-		if providerName == "" {
-			providerName = r.Mapper.DefaultTarget.Provider
-		}
-	}
 
 	p, err := r.Get(providerName)
 	if err != nil {

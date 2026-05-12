@@ -83,7 +83,7 @@ func setupTestDeps() (*AnthropicHandler, *MockTestProvider, *MockTestProvider) {
 
 	// Since we don't have true config keys, default mappers might fail or act up if models aren't right,
 	// so we force model mapping:
-	reg.Mapper = service.NewModelMapper()
+	reg.Mapper = service.NewModelMapper(domain.ProviderGitHubCopilot)
 	reg.Mapper.DefaultTarget = service.RouteTarget{Provider: domain.ProviderOpenAI}
 
 	mockOpenAI := &MockTestProvider{name: domain.ProviderOpenAI}
@@ -98,7 +98,7 @@ func setupTestDeps() (*AnthropicHandler, *MockTestProvider, *MockTestProvider) {
 func setupDefaultRouteTestDeps() (*AnthropicHandler, *MockTestProvider) {
 	cfg := &config.Config{}
 	reg := service.NewRegistry(cfg)
-	reg.Mapper = service.NewModelMapper()
+	reg.Mapper = service.NewModelMapper(domain.ProviderGitHubCopilot)
 
 	mockGitHubCopilot := &MockTestProvider{name: domain.ProviderGitHubCopilot}
 	reg.RegisterForTest(mockGitHubCopilot)
@@ -109,7 +109,7 @@ func setupDefaultRouteTestDeps() (*AnthropicHandler, *MockTestProvider) {
 func setupOpenAIRouteTestDeps() (*AnthropicHandler, *MockTestProvider, *MockTestProvider) {
 	cfg := &config.Config{AnthropicRoute: "openai-gpt-5.4-mini-low"}
 	reg := service.NewRegistry(cfg)
-	reg.Mapper = service.NewModelMapper()
+	reg.Mapper = service.NewModelMapper(domain.ProviderGitHubCopilot)
 
 	mockOpenAI := &MockTestProvider{name: domain.ProviderOpenAI}
 	mockAnthropic := &MockTestProvider{name: domain.ProviderAnthropic}

@@ -46,9 +46,9 @@ const (
 	HeaderContentType = "Content-Type"
 	ContentTypeJSON   = "application/json"
 
-	LogFormatListening    = "AI Gateway listening on %s"
-	LogFormatRegProviders = "Registered providers: %v"
-	LogFormatDefaultRoute = "Default route: %s/%s"
+	LogFormatListening    = "AI Gateway listening"
+	LogFormatRegProviders = "Registered providers"
+	LogFormatDefaultRoute = "Default route"
 )
 
 func main() {

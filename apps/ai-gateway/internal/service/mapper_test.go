@@ -9,7 +9,7 @@ import (
 )
 
 func TestModelMapper_LeavesGPT54MiniOnGitHubCopilot(t *testing.T) {
-	mapper := NewModelMapper()
+	mapper := NewModelMapper(domain.ProviderGitHubCopilot)
 
 	target, mapped := mapper.Resolve(domain.ProviderGitHubCopilot, domain.ModelGPT54Mini)
 
@@ -19,7 +19,7 @@ func TestModelMapper_LeavesGPT54MiniOnGitHubCopilot(t *testing.T) {
 }
 
 func TestModelMapper_DoesNotRouteUnknownCopilotModelToOpenAI(t *testing.T) {
-	mapper := NewModelMapper()
+	mapper := NewModelMapper(domain.ProviderGitHubCopilot)
 
 	target, mapped := mapper.Resolve(domain.ProviderGitHubCopilot, "gpt-5.4-nano")
 

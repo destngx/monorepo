@@ -22,10 +22,10 @@ type ModelMapper struct {
 }
 
 // NewModelMapper initializes a mapper with standard mappings.
-func NewModelMapper() *ModelMapper {
+func NewModelMapper(defaultProvider string) *ModelMapper {
 	m := &ModelMapper{
 		exact:         make(map[string]RouteTarget),
-		DefaultTarget: RouteTarget{Provider: domain.ProviderGitHubCopilot, Model: domain.ModelDefault},
+		DefaultTarget: RouteTarget{Provider: defaultProvider, Model: domain.ModelDefault},
 	}
 
 	return m
@@ -53,10 +53,10 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 		return res, true
 	}
 
-	// 2. Specific remapping for Claude models on GitHub Copilot (or if unspecified)
-	if (pKey == "" || pKey == domain.ProviderGitHubCopilot) && strings.HasPrefix(mKey, domain.PrefixClaude) {
+	// 2. Specific remapping for Claude models on the default provider (or if unspecified)
+	if (pKey == "" || pKey == strings.ToLower(m.DefaultTarget.Provider)) && strings.HasPrefix(mKey, domain.PrefixClaude) {
 		return RouteTarget{
-			Provider: domain.ProviderGitHubCopilot,
+			Provider: m.DefaultTarget.Provider,
 			Model:    normalizeClaudeForCopilot(mKey),
 		}, false
 	}
@@ -74,8 +74,12 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 		}, false
 	}
 
-	// 4. Default to transparent passthrough
-	return RouteTarget{Provider: provider, Model: model}, false
+	// 4. Default to transparent passthrough with fallback to default provider
+	targetProvider := provider
+	if targetProvider == "" {
+		targetProvider = m.DefaultTarget.Provider
+	}
+	return RouteTarget{Provider: targetProvider, Model: model}, false
 }
 
 func normalizeClaudeForCopilot(lowered string) string {
