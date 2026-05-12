@@ -12,6 +12,12 @@ def test_fetch_invalid_protocol(web_tool):
     assert result["success"] is False
     assert "Invalid URL protocol" in result["error"]
 
+def test_default_headers_use_curl_like_identity(web_tool):
+    headers = web_tool._default_headers()
+
+    assert headers["User-Agent"].startswith("curl/")
+    assert headers["Accept"] == "*/*"
+
 @patch("httpx.Client")
 def test_fetch_success_html(mock_client_class, web_tool):
     mock_client = MagicMock()
@@ -79,6 +85,105 @@ def test_fetch_timeout(mock_client_class, web_tool):
     result = web_tool.fetch("https://example.com")
     assert result["success"] is False
     assert "timed out" in result["error"]
+
+@patch("httpx.Client")
+def test_fetch_wordpress_rest_fallback_on_403(mock_client_class, web_tool):
+    mock_client = MagicMock()
+    mock_client_class.return_value.__enter__.return_value = mock_client
+
+    forbidden_response = MagicMock()
+    forbidden_response.status_code = 403
+    forbidden_response.reason_phrase = "Forbidden"
+    forbidden_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "Forbidden",
+        request=MagicMock(),
+        response=forbidden_response,
+    )
+
+    rest_response = MagicMock()
+    rest_response.status_code = 200
+    rest_response.content = b'[{"title":{"rendered":"Post Title"},"content":{"rendered":"<p>Hello &amp; world.</p>"}}]'
+    rest_response.headers = {"Content-Type": "application/json"}
+    rest_response.url = "https://example.wordpress.com/wp-json/wp/v2/posts?slug=post-title"
+    rest_response.json.return_value = [
+        {
+            "title": {"rendered": "Post Title"},
+            "content": {"rendered": "<p>Hello &amp; world.</p>"},
+        }
+    ]
+
+    mock_client.get.side_effect = [forbidden_response, rest_response]
+
+    result = web_tool.fetch("https://example.wordpress.com/2010/11/06/post-title/")
+
+    assert result["success"] is True
+    assert result["source"] == "wordpress_rest"
+    assert result["content"] == "Post Title\n\nHello & world."
+    assert "fallback_reason" in result
+
+@patch("httpx.Client")
+def test_fetch_wordpress_com_public_api_fallback_when_local_rest_is_blocked(mock_client_class, web_tool):
+    mock_client = MagicMock()
+    mock_client_class.return_value.__enter__.return_value = mock_client
+
+    forbidden_response = MagicMock()
+    forbidden_response.status_code = 403
+    forbidden_response.reason_phrase = "Forbidden"
+    forbidden_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "Forbidden",
+        request=MagicMock(),
+        response=forbidden_response,
+    )
+
+    local_rest_response = MagicMock()
+    local_rest_response.status_code = 403
+    local_rest_response.reason_phrase = "Forbidden"
+    local_rest_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "Forbidden",
+        request=MagicMock(),
+        response=local_rest_response,
+    )
+
+    public_api_response = MagicMock()
+    public_api_response.status_code = 200
+    public_api_response.content = b'{"title":"Post Title","content":"<p>Hello &amp; world.</p>"}'
+    public_api_response.headers = {"Content-Type": "application/json"}
+    public_api_response.url = "https://public-api.wordpress.com/rest/v1.1/sites/example.wordpress.com/posts/slug:post-title"
+    public_api_response.json.return_value = {
+        "title": "Post Title",
+        "content": "<p>Hello &amp; world.</p>",
+    }
+
+    mock_client.get.side_effect = [
+        forbidden_response,
+        local_rest_response,
+        public_api_response,
+    ]
+
+    result = web_tool.fetch("https://example.wordpress.com/2010/11/06/post-title/")
+
+    assert result["success"] is True
+    assert result["source"] == "wordpress_com_public_api"
+    assert result["content"] == "Post Title\n\nHello & world."
+
+def test_wordpress_posts_api_url(web_tool):
+    api_url = web_tool._wordpress_posts_api_url(
+        "https://agilewarrior.wordpress.com/2010/11/06/the-agile-inception-deck/"
+    )
+
+    assert api_url.startswith("https://agilewarrior.wordpress.com/wp-json/wp/v2/posts?")
+    assert "slug=the-agile-inception-deck" in api_url
+    assert "_fields=link%2Ctitle%2Ccontent%2Cexcerpt" in api_url
+
+def test_wordpress_com_public_api_url(web_tool):
+    api_url = web_tool._wordpress_com_public_api_url(
+        "https://agilewarrior.wordpress.com/2010/11/06/the-agile-inception-deck/"
+    )
+
+    assert api_url == (
+        "https://public-api.wordpress.com/rest/v1.1/sites/"
+        "agilewarrior.wordpress.com/posts/slug:the-agile-inception-deck"
+    )
 
 def test_extract_text_from_html(web_tool):
     html = """
