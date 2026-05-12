@@ -75,7 +75,7 @@ async def list_workflow_tenants():
 
 @router.get("/workflows", response_model=WorkflowListResponse, tags=["Workflows"])
 async def list_workflows(
-    tenant_id: str = Query("system", description="Tenant ID for the workflows"),
+    tenant_id: str = Query(..., description="Tenant ID for the workflows"),
     status: Optional[str] = None,
     owner: Optional[str] = None,
     tags: Optional[str] = None,

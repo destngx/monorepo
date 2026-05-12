@@ -7,10 +7,10 @@ from src.services.scheduler_service import SchedulerService
 
 @pytest.fixture
 def mock_deps():
-    with patch("src.modules.shared.deps.get_executor") as mock_get_executor, \
-         patch("src.modules.shared.deps.get_workflow_store") as mock_get_workflow_store, \
-         patch("src.services.status_service.StatusService.set_status") as mock_set_status, \
-         patch("src.services.status_service.StatusService.transition_status") as mock_transition_status:
+    with patch("src.routers.execution.get_executor") as mock_get_executor, \
+         patch("src.routers.execution.get_workflow_store") as mock_get_workflow_store, \
+         patch("src.routers.execution.status_service.set_status") as mock_set_status, \
+         patch("src.routers.execution.status_service.transition_status") as mock_transition_status:
         
         executor = MagicMock(spec=RealLangGraphExecutor)
         mock_get_executor.return_value = executor
@@ -30,7 +30,7 @@ def test_scheduled_cli_node_execution(mock_deps):
     Test that a scheduled workflow containing a CLI node executes correctly.
     This simulates the full path from scheduler handler to CLI node execution.
     """
-    from src.main import scheduler_execution_handler
+    from src.routers.execution import scheduler_execution_handler
     
     tenant_id = "test-tenant"
     workflow_id = "echo-workflow:v1.0.0"

@@ -6,7 +6,7 @@ from src.services.status_service import StatusService
 
 
 class TestStatusLifecycle:
-    def test_status_enum_has_seven_states(self):
+    def test_status_enum_has_nine_states(self):
         assert [s.value for s in StatusEnum] == [
             "queued",
             "validating",
@@ -15,6 +15,8 @@ class TestStatusLifecycle:
             "completed",
             "failed",
             "cancelled",
+            "timeout",
+            "stagnated",
         ]
 
     def test_set_and_get_status(self):

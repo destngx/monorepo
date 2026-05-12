@@ -269,7 +269,7 @@ class TestWorkflowListEndpoint:
 
     def test_list_workflows_missing_tenant_id(self, client):
         response = client.get("/workflows")
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_list_workflows_tenant_isolation(self, client, sample_create_request):
         client.post("/workflows", json=sample_create_request)

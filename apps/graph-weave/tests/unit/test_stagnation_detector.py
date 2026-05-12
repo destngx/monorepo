@@ -115,7 +115,7 @@ class TestStagnationDetectorSummary:
 class TestRealLangGraphExecutorBasics:
     def test_instantiation_with_defaults(self, mock_mcp_router):
         executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
-        assert executor.default_timeout_seconds == 300
+        assert executor.default_timeout_seconds == 1800
         assert executor.mcp_router is not None
 
     def test_instantiation_with_custom_timeout(self, mock_mcp_router):

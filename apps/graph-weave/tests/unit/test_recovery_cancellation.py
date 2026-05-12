@@ -29,7 +29,7 @@ class TestRecoveryAndCancellation:
         thread_service.add_active_thread("tenant-1", "run-1", "wf-1")
         checkpoint_service.save_checkpoint("tenant-1", "run-1", {"workflow_state": {}})
 
-        from src.main import execution_runs, status_service
+        from src.routers.execution import execution_runs, status_service
 
         execution_runs["run-1"] = {
             "run_id": "run-1",

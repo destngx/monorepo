@@ -115,7 +115,7 @@ class TestExecutionEndpoint:
         assert response.status_code == 404
 
     def test_execute_status_reflects_executor_result(self, client):
-        from src.main import execution_runs
+        from src.routers.execution import execution_runs
 
         execution_runs["run-123"] = {
             "status": "completed",
