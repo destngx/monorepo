@@ -56,8 +56,9 @@ func StreamSSEAndCountTokens(body io.Reader, w io.Writer) (domain.Usage, error) 
 		var chunk struct {
 			Choices []struct {
 				Delta struct {
-					Content   string            `json:"content"`
-					ToolCalls []domain.ToolCall `json:"tool_calls"`
+					Content          string            `json:"content"`
+					ReasoningContent string            `json:"reasoning_content"`
+					ToolCalls        []domain.ToolCall `json:"tool_calls"`
 				} `json:"delta"`
 			} `json:"choices"`
 			Usage *domain.Usage `json:"usage,omitempty"`
@@ -72,6 +73,7 @@ func StreamSSEAndCountTokens(body io.Reader, w io.Writer) (domain.Usage, error) 
 		if len(chunk.Choices) > 0 {
 			delta := chunk.Choices[0].Delta
 			completionTokens += EstimateTokens(delta.Content)
+			completionTokens += EstimateTokens(delta.ReasoningContent)
 			for _, tc := range delta.ToolCalls {
 				completionTokens += EstimateTokens(tc.Function.Arguments)
 			}

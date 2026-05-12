@@ -61,7 +61,20 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 		}, false
 	}
 
-	// 3. Default to transparent passthrough
+	// 3. Map Mimo models to Xiaomi Mimo provider (Aggressive routing for specific prefix)
+	if strings.HasPrefix(mKey, domain.PrefixMimo) || strings.HasPrefix(mKey, "mimo-") {
+		targetModel := model
+		// If user used short name, normalize to scoped name
+		if strings.HasPrefix(mKey, "mimo-") && !strings.HasPrefix(mKey, domain.PrefixMimo) {
+			targetModel = "xiaomi-token-plan-sgp/" + model
+		}
+		return RouteTarget{
+			Provider: domain.ProviderXiaomiMimo,
+			Model:    targetModel,
+		}, false
+	}
+
+	// 4. Default to transparent passthrough
 	return RouteTarget{Provider: provider, Model: model}, false
 }
 

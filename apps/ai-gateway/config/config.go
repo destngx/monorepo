@@ -40,12 +40,15 @@ type Config struct {
 	AnthropicKey               string
 	AnthropicRoute             string
 	OllamaBaseURL              string
+	MimoKey                    string
+	MimoBaseURL                string
 	ListenAddr                 string
 
 	GitHubRate    ProviderConfig
 	OpenAIRate    ProviderConfig
 	AnthropicRate ProviderConfig
 	OllamaRate    ProviderConfig
+	MimoRate      ProviderConfig
 	BedrockRate   ProviderConfig
 
 	BedrockRegion string
@@ -100,6 +103,8 @@ func Load() *Config {
 		AnthropicKey:               os.Getenv("ANTHROPIC_API_KEY"),
 		AnthropicRoute:             getEnv("ANTHROPIC_ROUTE", "default"),
 		OllamaBaseURL:              ollamaBase,
+		MimoKey:                    getEnv("MIMO_API_KEY", os.Getenv("ANTHROPIC_AUTH_TOKEN")),
+		MimoBaseURL:                getEnv("MIMO_BASE_URL", getEnv("ANTHROPIC_BASE_URL", "https://token-plan-sgp.xiaomimimo.com/v1")),
 		ListenAddr:                 addr,
 		Verbose:                    verbose,
 		LogLevel:                   logLevel,
@@ -109,6 +114,7 @@ func Load() *Config {
 		OpenAIRate:    loadProviderRate("OPENAI"),
 		AnthropicRate: loadProviderRate("ANTHROPIC"),
 		OllamaRate:    loadProviderRate("OLLAMA"),
+		MimoRate:      loadProviderRate("MIMO"),
 		BedrockRate:   loadProviderRate("BEDROCK"),
 
 		BedrockRegion: getEnv("BEDROCK_REGION", "us-east-1"),

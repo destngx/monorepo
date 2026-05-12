@@ -7,6 +7,7 @@ const (
 	ProviderOpenAI        = "openai"
 	ProviderAnthropic     = "anthropic"
 	ProviderOllama        = "ollama"
+	ProviderXiaomiMimo    = "xiaomi-mimo"
 
 	HeaderAIProvider = "X-AI-Provider"
 	ContentTypeJSON  = "application/json"

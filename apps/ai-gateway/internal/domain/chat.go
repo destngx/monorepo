@@ -103,7 +103,17 @@ type FunctionChunk struct {
 
 // Usage carries token counts — always populated in the gateway response.
 type Usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+	PromptTokens            int                      `json:"prompt_tokens"`
+	CompletionTokens        int                      `json:"completion_tokens"`
+	TotalTokens             int                      `json:"total_tokens"`
+	PromptTokensDetails     *PromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
+	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
+}
+
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens,omitempty"`
+}
+
+type CompletionTokensDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
 }
