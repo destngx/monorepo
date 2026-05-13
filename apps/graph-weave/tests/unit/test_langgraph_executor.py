@@ -1,9 +1,9 @@
 import pytest
 import json
-from src.adapters.langgraph_executor import MockLangGraphExecutor
+from tests.mocks.mock_executor import MockLangGraphExecutor
 from src.adapters.checkpoint import RedisCheckpointStore
-from src.adapters.cache import MockRedisAdapter
-from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
+from src.adapters.redis import MockRedisAdapter
+from src.adapters.redis import NamespacedRedisClient, FallbackStorage
 from tests.mocks.gateway_mock import MockGatewayClient
 
 
@@ -228,6 +228,60 @@ class TestMockLangGraphExecutorStateValueExtraction:
 
         value = executor._get_state_value("status", state)
         assert value == "running"
+
+    def test_get_state_value_applies_json_suffix_to_nested_path(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        state = {
+            "node_results": {
+                "validate_ideas": {
+                    "result": {
+                        "validated_ideas": [
+                            {"title": "Idea 1", "content": "First"},
+                            {"title": "Idea 2", "content": "Second"},
+                        ]
+                    }
+                }
+            }
+        }
+
+        value = executor._get_state_value("$.validate_ideas.result.validated_ideas_json", state)
+
+        assert json.loads(value) == [
+            {"title": "Idea 1", "content": "First"},
+            {"title": "Idea 2", "content": "Second"},
+        ]
+
+    def test_get_state_value_applies_joined_suffix_to_nested_path(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        state = {
+            "node_results": {
+                "validate_ideas": {
+                    "result": {
+                        "ideas": ["First", "Second"]
+                    }
+                }
+            }
+        }
+
+        value = executor._get_state_value("$.validate_ideas.result.ideas_joined", state)
+
+        assert value == "First\nSecond"
+
+    def test_get_state_value_joins_nested_tags_with_commas(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        state = {
+            "node_results": {
+                "classify": {
+                    "result": {
+                        "tags": ["agile", "project-management"]
+                    }
+                }
+            }
+        }
+
+        value = executor._get_state_value("$.classify.result.tags_joined", state)
+
+        assert value == "agile, project-management"
 
 
 class TestMockLangGraphExecutorEdgeRouting:

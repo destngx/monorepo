@@ -3,7 +3,7 @@ from datetime import datetime
 import uuid
 import json
 import logging
-from ..adapters.redis_circuit_breaker import NamespacedRedisClient
+from src.adapters.redis import NamespacedRedisClient
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from src.adapters.langgraph_executor import MockLangGraphExecutor
+from tests.mocks.mock_executor import MockLangGraphExecutor
 from src.adapters.mcp import MockMCPServer
 from src.main import app
 

@@ -2,7 +2,7 @@ import os
 
 from typing import Any, Dict, Optional, Union
 
-from ..adapters.cache import RedisAdapter
+from src.adapters.redis import RedisAdapter
 from ..models import StatusEnum
 from .event_emitter import EventEmitter
 

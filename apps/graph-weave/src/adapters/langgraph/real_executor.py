@@ -11,7 +11,7 @@ from .orchestrator_node import OrchestratorNodeHandler
 from .cli_node import CLINodeHandler
 from ..ai_provider import AIProviderFactory, LLMClient
 from ..mcp_router import MCPRouter
-from ..redis_circuit_breaker import NamespacedRedisClient
+from src.adapters.redis import NamespacedRedisClient
 
 logger = get_logger(__name__)
 

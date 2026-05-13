@@ -74,6 +74,11 @@ def test_execute_bash_success(bash_tool, workspace_root):
     assert result["stdout"].strip() == "hello"
     assert result["exit_code"] == 0
 
+def test_execute_bash_preserves_home_for_scripts(bash_tool, workspace_root):
+    result = bash_tool.execute_bash("printf '%s' \"$HOME\"", cwd=workspace_root)
+    assert result["success"] is True
+    assert result["stdout"] == os.path.expanduser("~")
+
 def test_execute_bash_out_of_bounds_cwd(bash_tool):
     result = bash_tool.execute_bash("ls", cwd="/etc")
     assert result["success"] is False

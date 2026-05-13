@@ -14,14 +14,14 @@ import threading
 from unittest.mock import Mock, patch, MagicMock
 from concurrent.futures import ThreadPoolExecutor
 
-from src.adapters.redis_circuit_breaker import (
+from src.adapters.redis import (
     NamespacedRedisClient,
     CircuitBreaker,
     CircuitBreakerState,
     FallbackStorage,
     TTL_CONFIG,
 )
-from src.adapters.redis_adapter import (
+from src.adapters.redis import (
     UpstashRedisClient,
     RedisError,
     RedisConnectionError,

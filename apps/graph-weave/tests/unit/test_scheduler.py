@@ -71,8 +71,8 @@ def test_redis_schedule_store_fallback():
     mock_redis.hgetall.side_effect = Exception("Redis Down")
     
     # We need a real NamespacedRedisClient or a good mock
-    from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
-    from src.adapters.cache import MockRedisAdapter
+    from src.adapters.redis import NamespacedRedisClient, FallbackStorage
+    from src.adapters.redis import MockRedisAdapter
     
     fallback = FallbackStorage()
     client = NamespacedRedisClient(MockRedisAdapter(), fallback_storage=fallback)

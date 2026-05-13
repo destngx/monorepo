@@ -1,7 +1,7 @@
 import pytest
 
 from src.models import StatusEnum
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis import MockRedisAdapter
 from src.services.status_service import StatusService
 
 

@@ -134,6 +134,7 @@ class BashTool:
             # Only provide basic PATH to ensure allowed commands can be found.
             clean_env = {
                 "PATH": os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"),
+                "HOME": os.environ.get("HOME", str(Path.home())),
                 "TERM": "xterm-256color",
                 "LANG": os.environ.get("LANG", "en_US.UTF-8"),
                 "PYTHONPATH": os.environ.get("PYTHONPATH", ".")

@@ -79,6 +79,33 @@ class DummyClient:
         }
 
 
+class EnvelopeClient:
+    def chat_completion(self, **kwargs):
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"result": {"nodes": [{"id": "entry", "type": "entry"}]}, "confidence": 1}'
+                    }
+                }
+            ],
+            "usage": {"total_tokens": 1},
+        }
+
+
+class ErrorRouter(DummyRouter):
+    def execute_tool(self, name, args):
+        return {
+            "tool": name,
+            "command": args.get("command"),
+            "status": "error",
+            "exit_code": 2,
+            "stdout": "",
+            "stderr": "script failed",
+            "error": None,
+        }
+
+
 def test_infer_generic_fields_from_successful_bash_stdout():
     handler = AgentNodeHandler(DummyExecutor())
 
@@ -150,6 +177,89 @@ def test_complete_after_tool_calls_returns_mapped_tool_result_without_extra_llm_
 
     assert executor.ai_provider_factory.client.calls == 1
     assert result["result"]["artifact_path"] == "/workspace/output.txt"
+
+
+def test_complete_after_tool_calls_fails_error_tool_result_by_default():
+    executor = DummyExecutor()
+    executor.mcp_router = ErrorRouter()
+    handler = AgentNodeHandler(executor)
+
+    try:
+        handler.execute(
+            "run-1",
+            {
+                "id": "script_step",
+                "type": "agent_node",
+                "config": {
+                    "system_prompt": "Use bash.",
+                    "user_prompt_template": "Run the script.",
+                    "tools": ["bash"],
+                    "complete_after_tool_calls": True,
+                },
+            },
+            {"workflow_state": {}, "node_results": {}},
+            {},
+        )
+    except ValueError as exc:
+        assert "Tool execution failed" in str(exc)
+        assert "stderr=script failed" in str(exc)
+    else:
+        raise AssertionError("Expected error tool result to fail the agent node")
+
+
+def test_allow_tool_errors_keeps_error_tool_result_structured():
+    executor = DummyExecutor()
+    executor.mcp_router = ErrorRouter()
+    handler = AgentNodeHandler(executor)
+
+    result = handler.execute(
+        "run-1",
+        {
+            "id": "script_step",
+            "type": "agent_node",
+            "config": {
+                "system_prompt": "Use bash.",
+                "user_prompt_template": "Run the script.",
+                "tools": ["bash"],
+                "complete_after_tool_calls": True,
+                "allow_tool_errors": True,
+            },
+        },
+        {"workflow_state": {}, "node_results": {}},
+        {},
+    )
+
+    assert result["result"]["status"] == "error"
+    assert result["result"]["tool_results"][0]["stderr"] == "script failed"
+
+
+def test_tool_args_with_unresolved_template_placeholder_fail_before_execution():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    try:
+        handler._validate_tool_args_resolved(
+            "bash",
+            {
+                "command": "bash script.sh --claims \"{ideas_newline_joined}\"",
+                "cwd": "/workspace",
+            },
+        )
+    except ValueError as exc:
+        assert "unresolved template placeholders" in str(exc)
+        assert "{ideas_newline_joined}" in str(exc)
+    else:
+        raise AssertionError("Expected unresolved tool placeholder to fail")
+
+
+def test_tool_args_allow_non_template_braces():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    handler._validate_tool_args_resolved(
+        "bash",
+        {
+            "command": "echo '{\"status\":\"processed\"}'",
+        },
+    )
 
 
 def test_extract_json_from_prefaced_content():
@@ -258,6 +368,50 @@ def test_legacy_result_confidence_schema_accepts_flat_json():
             "required": ["result", "confidence"],
         },
     )
+
+
+def test_coerce_output_schema_unwraps_result_envelope():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._coerce_to_output_schema(
+        {"result": {"nodes": [{"id": "entry", "type": "entry"}]}, "confidence": 1},
+        {
+            "type": "object",
+            "properties": {"nodes": {"type": "array"}},
+            "required": ["nodes"],
+        },
+    )
+
+    assert result == {"nodes": [{"id": "entry", "type": "entry"}]}
+
+
+def test_agent_execute_accepts_result_envelope_when_inner_object_matches_schema():
+    executor = DummyExecutor()
+    executor.ai_provider_factory = DummyProviderFactory(EnvelopeClient())
+    handler = AgentNodeHandler(executor)
+
+    result = handler.execute(
+        "run-1",
+        {
+            "id": "node_builder",
+            "type": "agent_node",
+            "config": {
+                "system_prompt": "Return JSON",
+                "user_prompt_template": "Build nodes",
+                "output_key": "nodes_definition",
+                "output_schema": {
+                    "type": "object",
+                    "properties": {"nodes": {"type": "array"}},
+                    "required": ["nodes"],
+                },
+            },
+        },
+        {"workflow_state": {}, "node_results": {}},
+        {},
+    )
+
+    assert result["result"] == {"nodes": [{"id": "entry", "type": "entry"}]}
+    assert result["nodes_definition"] == {"nodes": [{"id": "entry", "type": "entry"}]}
 
 
 def test_domain_schema_still_rejects_missing_required_field():

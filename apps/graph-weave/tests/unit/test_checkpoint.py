@@ -1,8 +1,8 @@
 import pytest
 import json
 from src.adapters.checkpoint import RedisCheckpointStore
-from src.adapters.cache import MockRedisAdapter
-from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
+from src.adapters.redis import MockRedisAdapter
+from src.adapters.redis import NamespacedRedisClient, FallbackStorage
 
 
 @pytest.fixture

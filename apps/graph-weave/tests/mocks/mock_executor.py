@@ -2,10 +2,10 @@ import json
 from datetime import datetime
 from typing import Any, Dict, Optional, List
 from src.app_logging import get_logger
-from .base_executor import BaseLangGraphExecutor
-from .types import ExecutorState
-from ..ai_provider import AIProviderFactory, LLMClient
-from ..mcp_router import MCPRouter, ProviderConfigError
+from src.adapters.langgraph.base_executor import BaseLangGraphExecutor
+from src.adapters.langgraph.types import ExecutorState
+from src.adapters.ai_provider import AIProviderFactory, LLMClient
+from src.adapters.mcp_router import MCPRouter, ProviderConfigError
 
 logger = get_logger(__name__)
 

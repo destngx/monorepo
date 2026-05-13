@@ -1,8 +1,12 @@
 import json
-import re
 from typing import Any, Dict, List, Optional
 from src.app_logging import get_logger
-from ..mcp_router import ProviderConfigError
+from ...mcp_router import ProviderConfigError
+
+from .placeholder_utils import validate_tool_args_resolved
+from .json_utils import extract_json, repair_schema_json
+from .schema_utils import coerce_to_output_schema, validate_output_schema
+from .tool_utils import infer_result_from_tools, format_tool_error
 
 logger = get_logger(__name__)
 
@@ -54,6 +58,7 @@ class AgentNodeHandler:
         max_tokens = get_field("max_tokens", 8000)
         allowed_tools = get_field("tools", [])
         complete_after_tool_calls = bool(get_field("complete_after_tool_calls", False))
+        allow_tool_errors = bool(get_field("allow_tool_errors", False))
         output_schema = get_field("output_schema")
 
         try:
@@ -136,6 +141,8 @@ class AgentNodeHandler:
                         tool_args = json.loads(tool_args_interpolated)
                     except json.JSONDecodeError:
                         tool_args = json.loads(tool_args_raw)
+                    
+                    validate_tool_args_resolved(tool_name, tool_args)
 
                     if tool_name == "bash" and "cwd" in config:
                         if "cwd" not in tool_args:
@@ -160,23 +167,41 @@ class AgentNodeHandler:
 
             cleaned_content = final_content
             # Robust JSON extraction: try code blocks first, then any JSON-like structure
-            json_data = self._extract_json(cleaned_content)
+            json_data = extract_json(cleaned_content)
 
             if json_data is not None:
-                self._validate_output_schema(json_data, output_schema)
-                result_data = json_data
-                self._logger.debug(f"[AGENT] Successfully parsed JSON from {node_id}")
+                try:
+                    result_data = coerce_to_output_schema(json_data, output_schema)
+                    self._logger.debug(f"[AGENT] Successfully parsed JSON from {node_id}")
+                except ValueError as validation_error:
+                    if not output_schema:
+                        raise
+                    repaired = repair_schema_json(
+                        client=client,
+                        messages=messages,
+                        provider=provider,
+                        model=model,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        reasoning_effort=reasoning_effort,
+                        output_schema=output_schema,
+                        bad_content=final_content,
+                        validation_error=str(validation_error),
+                    )
+                    result_data = coerce_to_output_schema(repaired, output_schema)
             else:
-                inferred_result = self._infer_result_from_tools(
+                inferred_result = infer_result_from_tools(
                     tool_results,
                     final_content,
                     get_field("tool_output_mapping", {}),
                 )
                 if inferred_result is not None:
+                    if inferred_result.get("status") == "error" and not allow_tool_errors:
+                        raise ValueError(format_tool_error(inferred_result))
                     result_data = inferred_result
                     self._logger.info(f"[AGENT] Inferred structured result for {node_id} from tool output")
                 elif output_schema:
-                    repaired = self._repair_schema_json(
+                    repaired = repair_schema_json(
                         client=client,
                         messages=messages,
                         provider=provider,
@@ -187,8 +212,7 @@ class AgentNodeHandler:
                         output_schema=output_schema,
                         bad_content=final_content,
                     )
-                    self._validate_output_schema(repaired, output_schema)
-                    result_data = repaired
+                    result_data = coerce_to_output_schema(repaired, output_schema)
                 else:
                     result_data = {"raw_response": final_content}
                     self._logger.warning(f"[AGENT] Failed to parse JSON from {node_id}, using raw_response")
@@ -217,134 +241,23 @@ class AgentNodeHandler:
         except Exception as e:
             raise ValueError(f"Agent node execution failed: {e}")
 
+    def _format_tool_error(self, inferred_result: Dict[str, Any]) -> str:
+        return format_tool_error(inferred_result)
+
+    def _validate_tool_args_resolved(self, tool_name: str, tool_args: Any) -> None:
+        return validate_tool_args_resolved(tool_name, tool_args)
+
     def _extract_json(self, content: Any) -> Optional[Any]:
-        if not isinstance(content, str) or not content.strip():
-            return None
+        return extract_json(content)
 
-        json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", content, re.DOTALL)
-        if json_match:
-            parsed = self._loads_json(json_match.group(1))
-            if parsed is not None:
-                return parsed
+    def _repair_schema_json(self, **kwargs) -> Any:
+        return repair_schema_json(**kwargs)
 
-        parsed = self._loads_json(content)
-        if parsed is not None:
-            return parsed
-
-        decoder = json.JSONDecoder()
-        for index, char in enumerate(content):
-            if char not in "{[":
-                continue
-            try:
-                value, _ = decoder.raw_decode(content[index:])
-                return value
-            except json.JSONDecodeError:
-                continue
-
-        return None
-
-    def _loads_json(self, content: str) -> Optional[Any]:
-        try:
-            return json.loads(content)
-        except (TypeError, json.JSONDecodeError):
-            return None
-
-    def _repair_schema_json(
-        self,
-        client: Any,
-        messages: List[Dict[str, Any]],
-        provider: str,
-        model: str,
-        temperature: float,
-        max_tokens: int,
-        reasoning_effort: Optional[str],
-        output_schema: Dict[str, Any],
-        bad_content: str,
-    ) -> Any:
-        repair_messages = messages + [
-            {
-                "role": "user",
-                "content": (
-                    "Your previous response was not valid JSON for the required output schema. "
-                    "Return only one raw JSON value. Do not include markdown, commentary, or reasoning.\n\n"
-                    f"Required output schema:\n{json.dumps(output_schema, indent=2)}\n\n"
-                    f"Previous response:\n{bad_content}"
-                ),
-            }
-        ]
-
-        response = client.chat_completion(
-            messages=repair_messages,
-            provider=provider,
-            model=model,
-            tools=None,
-            temperature=0,
-            max_tokens=max_tokens,
-            reasoning_effort=reasoning_effort,
-        )
-        repaired_content = response["choices"][0]["message"].get("content", "")
-        repaired = self._extract_json(repaired_content)
-        if repaired is None:
-            raise ValueError("Schema-bound agent returned non-JSON output and JSON repair failed")
-        return repaired
+    def _coerce_to_output_schema(self, data: Any, schema: Optional[Dict[str, Any]]) -> Any:
+        return coerce_to_output_schema(data, schema)
 
     def _validate_output_schema(self, data: Any, schema: Optional[Dict[str, Any]]) -> None:
-        if not schema:
-            return
-
-        if self._is_legacy_result_confidence_schema(schema) and isinstance(data, dict) and "result" not in data:
-            return
-
-        expected_type = schema.get("type")
-        if expected_type and not self._matches_json_type(data, expected_type):
-            raise ValueError(f"Agent output does not match schema type '{expected_type}'")
-
-        if isinstance(data, dict):
-            for key in schema.get("required", []):
-                if key not in data:
-                    raise ValueError(f"Agent output missing required schema field '{key}'")
-
-            properties = schema.get("properties", {})
-            for key, field_schema in properties.items():
-                if key not in data or not isinstance(field_schema, dict):
-                    continue
-                field_type = field_schema.get("type")
-                if field_type and not self._matches_json_type(data[key], field_type):
-                    raise ValueError(f"Agent output field '{key}' does not match schema type '{field_type}'")
-
-    def _matches_json_type(self, value: Any, expected_type: Any) -> bool:
-        if isinstance(expected_type, list):
-            return any(self._matches_json_type(value, item) for item in expected_type)
-
-        type_map = {
-            "object": dict,
-            "array": list,
-            "string": str,
-            "boolean": bool,
-            "integer": int,
-            "number": (int, float),
-        }
-        python_type = type_map.get(expected_type)
-        if python_type is None:
-            return True
-        if expected_type in {"integer", "number"} and isinstance(value, bool):
-            return False
-        return isinstance(value, python_type)
-
-    def _is_legacy_result_confidence_schema(self, schema: Dict[str, Any]) -> bool:
-        required = set(schema.get("required", []))
-        properties = schema.get("properties", {})
-        result_schema = properties.get("result", {})
-        confidence_schema = properties.get("confidence", {})
-
-        return (
-            schema.get("type") == "object"
-            and required.issubset({"result", "confidence"})
-            and "result" in properties
-            and "confidence" in properties
-            and result_schema.get("type") == "object"
-            and confidence_schema.get("type") == "number"
-        )
+        return validate_output_schema(data, schema)
 
     def _infer_result_from_tools(
         self,
@@ -352,78 +265,4 @@ class AgentNodeHandler:
         final_content: str,
         tool_output_mapping: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
-        if not tool_results:
-            return None
-
-        successful = [result for result in tool_results if result.get("status") == "success"]
-        latest = successful[-1] if successful else tool_results[-1]
-        stdout = str(latest.get("stdout") or "")
-        stderr = str(latest.get("stderr") or "")
-        parsed_stdout = self._parse_labeled_stdout(stdout)
-
-        output: Dict[str, Any] = {
-            "status": "success" if successful else "error",
-            "tool_results": tool_results,
-            "tool_stdout": stdout,
-            "tool_stderr": stderr,
-            "stdout_fields": parsed_stdout,
-            "raw_response": final_content or stdout,
-        }
-
-        for key, spec in (tool_output_mapping or {}).items():
-            output[key] = self._resolve_tool_output_spec(spec, output)
-
-        return output
-
-    def _parse_labeled_stdout(self, text: str) -> Dict[str, Any]:
-        fields: Dict[str, Any] = {}
-        for line in text.splitlines():
-            stripped = line.strip()
-            match = re.match(r"^([A-Za-z][A-Za-z0-9 _-]*):\s*(.*)$", stripped)
-            if not match:
-                continue
-            key = re.sub(r"[^a-z0-9]+", "_", match.group(1).lower()).strip("_")
-            value = match.group(2).strip()
-            if not key or value == "":
-                continue
-            existing = fields.get(key)
-            if existing is None:
-                fields[key] = value
-            elif isinstance(existing, list):
-                existing.append(value)
-            else:
-                fields[key] = [existing, value]
-        return fields
-
-    def _resolve_tool_output_spec(self, spec: Any, output: Dict[str, Any]) -> Any:
-        if isinstance(spec, str):
-            if spec.startswith("$."):
-                return self._resolve_dict_path(output, spec[2:].split("."))
-            if spec in output:
-                return output[spec]
-            return output.get("stdout_fields", {}).get(spec)
-
-        if not isinstance(spec, dict):
-            return spec
-
-        transform = spec.get("type")
-        if transform == "constant":
-            return spec.get("value")
-        if transform == "array":
-            value = self._resolve_tool_output_spec(spec.get("value"), output)
-            if value is None:
-                return []
-            return value if isinstance(value, list) else [value]
-
-        return None
-
-    def _resolve_dict_path(self, current: Any, keys: List[str]) -> Any:
-        for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
-            elif isinstance(current, list) and key.isdigit():
-                index = int(key)
-                current = current[index] if index < len(current) else None
-            else:
-                return None
-        return current
+        return infer_result_from_tools(tool_results, final_content, tool_output_mapping)

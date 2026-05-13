@@ -3,13 +3,13 @@ Shared dependencies for modules.
 """
 
 from typing import Optional
-from src.adapters.cache import RedisAdapter, MockRedisAdapter, PersistentMockRedisAdapter
+from src.adapters.redis import RedisAdapter, MockRedisAdapter, PersistentMockRedisAdapter
 from src.config import GraphWeaveConfig
 from src.services.checkpoint_service import CheckpointService
 from src.services.thread_lifecycle_service import ThreadLifecycleService
 from src.adapters.workflow import RedisWorkflowStore
 from src.adapters.checkpoint import RedisCheckpointStore
-from src.adapters.redis_circuit_breaker import NamespacedRedisClient, FallbackStorage
+from src.adapters.redis import NamespacedRedisClient, FallbackStorage
 from src.adapters.langgraph_executor import RealLangGraphExecutor
 from src.adapters.mcp_router import MCPRouter
 from src.adapters.schedule import RedisScheduleStore

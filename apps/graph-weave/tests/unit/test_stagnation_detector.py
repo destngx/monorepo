@@ -3,9 +3,9 @@ import json
 import time
 from datetime import datetime
 
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis import MockRedisAdapter
 from src.adapters.langgraph import RealLangGraphExecutor, StagnationDetector
-from src.adapters.redis_circuit_breaker import FallbackStorage, NamespacedRedisClient
+from src.adapters.redis import FallbackStorage, NamespacedRedisClient
 
 
 

@@ -5,7 +5,7 @@ Verification: Cache adapter uses versioned key format for skill lookups
 """
 
 import pytest
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis import MockRedisAdapter
 
 
 @pytest.fixture

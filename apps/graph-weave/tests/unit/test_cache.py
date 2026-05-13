@@ -1,5 +1,5 @@
 import pytest
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis import MockRedisAdapter
 from src.config import GraphWeaveConfig
 
 

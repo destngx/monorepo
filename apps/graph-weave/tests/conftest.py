@@ -6,12 +6,12 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis import MockRedisAdapter
 from src.adapters.checkpoint import RedisCheckpointStore
 from src.adapters.workflow import RedisWorkflowStore
 from src.adapters.schedule import RedisScheduleStore
 from src.adapters.langgraph import RealLangGraphExecutor
-from src.adapters.redis_circuit_breaker import FallbackStorage, NamespacedRedisClient
+from src.adapters.redis import FallbackStorage, NamespacedRedisClient
 from src.modules.shared import deps
 
 collect_ignore_glob = ["test_*.py"]

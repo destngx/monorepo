@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from src.adapters.cache import RedisAdapter
+from src.adapters.redis import RedisAdapter
 
 
 def test_live_redis_roundtrip():

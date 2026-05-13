@@ -16,13 +16,13 @@ import threading
 from unittest.mock import Mock, patch, MagicMock
 from concurrent.futures import ThreadPoolExecutor
 
-from src.adapters.redis_adapter import (
+from src.adapters.redis import (
     UpstashRedisClient,
     RedisError,
     RedisTimeoutError,
     RedisConnectionError,
-    retry_with_backoff,
 )
+from src.adapters.redis.utils import retry_with_backoff
 from src.config import GraphWeaveConfig
 
 
@@ -86,7 +86,7 @@ class TestUpstashRedisClientRequestFormatting:
 class TestUpstashRedisClientErrorHandling:
     """Test error handling without network."""
 
-    @patch("src.adapters.redis_adapter.requests.Session")
+    @patch("src.adapters.redis.upstash.requests.Session")
     def test_empty_key_raises_value_error(self, mock_session_class):
         """Operations raise ValueError for empty key."""
         client = UpstashRedisClient("https://test.upstash.io", "test_token")
@@ -102,7 +102,7 @@ class TestUpstashRedisClientErrorHandling:
 
         client.close()
 
-    @patch("src.adapters.redis_adapter.requests.Session")
+    @patch("src.adapters.redis.upstash.requests.Session")
     def test_malformed_json_response_raises_redis_error(self, mock_session_class):
         """Malformed JSON response raises RedisError."""
         mock_response = Mock()
@@ -121,7 +121,7 @@ class TestUpstashRedisClientErrorHandling:
 
         client.close()
 
-    @patch("src.adapters.redis_adapter.requests.Session")
+    @patch("src.adapters.redis.upstash.requests.Session")
     def test_4xx_response_raises_redis_error_not_retried(self, mock_session_class):
         """4xx responses raise RedisError and are not retried."""
         mock_response = Mock()
@@ -142,7 +142,7 @@ class TestUpstashRedisClientErrorHandling:
         assert mock_session.post.call_count == 1
         client.close()
 
-    @patch("src.adapters.redis_adapter.requests.Session")
+    @patch("src.adapters.redis.upstash.requests.Session")
     def test_timeout_error_wrapped_as_redis_timeout_error(self, mock_session_class):
         """Timeout errors are wrapped as RedisTimeoutError."""
         mock_session = Mock()
@@ -156,7 +156,7 @@ class TestUpstashRedisClientErrorHandling:
 
         client.close()
 
-    @patch("src.adapters.redis_adapter.requests.Session")
+    @patch("src.adapters.redis.upstash.requests.Session")
     def test_connection_error_wrapped_as_redis_connection_error(
         self, mock_session_class
     ):

@@ -1,4 +1,4 @@
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis import MockRedisAdapter
 from src.services.checkpoint_service import CheckpointService
 
 

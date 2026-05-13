@@ -1,13 +1,10 @@
-from typing import Optional, Dict, Any, List
 import json
-
-try:
-    import redis
-except ImportError:  # pragma: no cover - optional runtime dependency
-    redis = None
-
+import os
+import fnmatch
+from typing import Optional, Dict, Any, List
 
 class MockRedisAdapter:
+    """In-memory Redis implementation for testing."""
     def __init__(self):
         self._store: Dict[str, Any] = {}
 
@@ -30,7 +27,6 @@ class MockRedisAdapter:
         self._store.clear()
 
     def close(self) -> None:
-        """No-op for mock adapter."""
         pass
 
     def rpush(self, key: str, value: Any) -> int:
@@ -104,10 +100,7 @@ class MockRedisAdapter:
         return {}
 
     def keys(self, pattern: str) -> List[str]:
-        import fnmatch
-        return [
-            k for k in self._store.keys() if fnmatch.fnmatch(k, pattern)
-        ]
+        return [k for k in self._store.keys() if fnmatch.fnmatch(k, pattern)]
 
     def _build_versioned_key(
         self, namespace: str, tenant_id: str, skill_id: str, version: str
@@ -115,12 +108,7 @@ class MockRedisAdapter:
         return f"{namespace}:{tenant_id}:{skill_id}:{version}"
 
     def set_versioned(
-        self,
-        namespace: str,
-        tenant_id: str,
-        skill_id: str,
-        version: str,
-        value: Any,
+        self, namespace: str, tenant_id: str, skill_id: str, version: str, value: Any
     ) -> None:
         key = self._build_versioned_key(namespace, tenant_id, skill_id, version)
         self.set(key, value)
@@ -132,16 +120,10 @@ class MockRedisAdapter:
         return self.get(key)
 
     def get_versioned_with_fallback(
-        self,
-        namespace: str,
-        tenant_id: str,
-        skill_id: str,
-        version: Optional[str],
+        self, namespace: str, tenant_id: str, skill_id: str, version: Optional[str]
     ) -> Optional[Any]:
         resolved_version = version or "latest"
-        return self.get_versioned(
-            namespace, tenant_id, skill_id, resolved_version
-        )
+        return self.get_versioned(namespace, tenant_id, skill_id, resolved_version)
 
     def get_versioned_with_rebuild(
         self,
@@ -171,29 +153,27 @@ class MockRedisAdapter:
         key = self._build_versioned_key(namespace, tenant_id, skill_id, version)
         self.delete(key)
 
-
 class PersistentMockRedisAdapter(MockRedisAdapter):
+    """File-backed in-memory Redis implementation."""
     def __init__(self, filepath: str):
         super().__init__()
         self._filepath = filepath
         self._load()
 
     def _load(self):
-        import os
         if os.path.exists(self._filepath):
             try:
                 with open(self._filepath, "r") as f:
                     self._store = json.load(f)
-            except Exception as e:
+            except:
                 pass
 
     def _save(self):
-        import os
         try:
             os.makedirs(os.path.dirname(self._filepath), exist_ok=True)
             with open(self._filepath, "w") as f:
                 json.dump(self._store, f)
-        except Exception as e:
+        except:
             pass
 
     def set(self, key: str, value: Any, ex: Optional[int] = None, **kwargs) -> None:
@@ -238,129 +218,3 @@ class PersistentMockRedisAdapter(MockRedisAdapter):
     def clear(self) -> None:
         super().clear()
         self._save()
-
-
-class RedisAdapter:
-    def __init__(self, url: str, token: str):
-        self.url = url
-        self.token = token
-        if redis:
-            self.client = redis.from_url(url, password=token, decode_responses=True)
-        else:
-            self.client = None
-
-    @classmethod
-    def from_env(cls, url: Optional[str] = None, token: Optional[str] = None):
-        if not url or not token:
-            return MockRedisAdapter()
-        if url.startswith("https://"):
-            url = "rediss://" + url[len("https://") :]
-        elif url.startswith("http://"):
-            url = "redis://" + url[len("http://") :]
-        return cls(url, token)
-
-    def set(self, key: str, value: Any, ex: Optional[int] = None, **kwargs) -> None:
-        if not self.client:
-            return
-        serialized = json.dumps(value)
-        self.client.set(key, serialized, ex=ex, **kwargs)
-
-    def get(self, key: str) -> Optional[Any]:
-        if not self.client:
-            return None
-        value = self.client.get(key)
-        if value:
-            return json.loads(value)
-        return None
-
-    def delete(self, key: str) -> bool:
-        if not self.client:
-            return False
-        return bool(self.client.delete(key))
-
-    def exists(self, key: str) -> bool:
-        if not self.client:
-            return False
-        return bool(self.client.exists(key))
-
-    def rpush(self, key: str, value: Any) -> int:
-        if not self.client:
-            return 0
-        serialized = json.dumps(value)
-        return self.client.rpush(key, serialized)
-
-    def lpush(self, key: str, value: Any) -> int:
-        if not self.client:
-            return 0
-        serialized = json.dumps(value)
-        return self.client.lpush(key, serialized)
-
-    def lrange(self, key: str, start: int, end: int) -> List[Any]:
-        if not self.client:
-            return []
-        items = self.client.lrange(key, start, end)
-        return [json.loads(item) for item in items]
-
-    def ltrim(self, key: str, start: int, end: int) -> bool:
-        if not self.client:
-            return False
-        return bool(self.client.ltrim(key, start, end))
-
-    def ttl(self, key: str) -> int:
-        if not self.client:
-            return -2
-        return self.client.ttl(key)
-
-    def mget(self, keys: List[str]) -> Dict[str, Any]:
-        if not self.client:
-            return {}
-        values = self.client.mget(keys)
-        return {
-            keys[i]: json.loads(values[i])
-            for i in range(len(keys))
-            if values[i] is not None
-        }
-
-    def hset(self, key: str, field: str, value: Any) -> int:
-        if not self.client:
-            return 0
-        serialized = json.dumps(value)
-        return self.client.hset(key, field, serialized)
-
-    def hsetnx(self, key: str, field: str, value: Any) -> int:
-        if not self.client:
-            return 0
-        serialized = json.dumps(value)
-        return self.client.hsetnx(key, field, serialized)
-
-    def hget(self, key: str, field: str) -> Optional[Any]:
-        if not self.client:
-            return None
-        value = self.client.hget(key, field)
-        if value:
-            return json.loads(value)
-        return None
-
-    def hdel(self, key: str, field: str) -> int:
-        if not self.client:
-            return 0
-        return self.client.hdel(key, field)
-
-    def hgetall(self, key: str) -> Dict[str, Any]:
-        if not self.client:
-            return {}
-        data = self.client.hgetall(key)
-        return {k: json.loads(v) for k, v in data.items()}
-
-    def keys(self, pattern: str) -> List[str]:
-        if not self.client:
-            return []
-        return self.client.keys(pattern)
-
-    def clear(self):
-        if self.client:
-            self.client.flushdb()
-
-    def close(self):
-        if self.client:
-            self.client.close()

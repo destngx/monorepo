@@ -6,7 +6,7 @@ updates Redis lookup entry, and continues loading.
 """
 
 import pytest
-from src.adapters.cache import MockRedisAdapter
+from src.adapters.redis import MockRedisAdapter
 
 
 class MockSkillSourceLoader:

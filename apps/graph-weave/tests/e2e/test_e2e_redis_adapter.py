@@ -8,7 +8,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from src.adapters.redis_adapter import (
+from src.adapters.redis import (
     UpstashRedisClient,
     RedisError,
     RedisTimeoutError,
