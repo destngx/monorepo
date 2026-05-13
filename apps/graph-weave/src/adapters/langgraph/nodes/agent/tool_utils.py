@@ -31,12 +31,14 @@ def infer_result_from_tools(
 
     successful = [result for result in tool_results if result.get("status") == "success"]
     latest = successful[-1] if successful else tool_results[-1]
+    execution_status = "success" if successful else "error"
     stdout = str(latest.get("stdout") or "")
     stderr = str(latest.get("stderr") or "")
     parsed_stdout = parse_labeled_stdout(stdout)
 
     output: Dict[str, Any] = {
-        "status": "success" if successful else "error",
+        "status": execution_status,
+        "tool_status": execution_status,
         "tool_results": tool_results,
         "tool_stdout": stdout,
         "tool_stderr": stderr,
@@ -46,6 +48,9 @@ def infer_result_from_tools(
 
     for key, spec in (tool_output_mapping or {}).items():
         output[key] = resolve_tool_output_spec(spec, output)
+
+    if execution_status == "error":
+        output["status"] = "error"
 
     return output
 

@@ -29,13 +29,36 @@ class WebTool:
     Safely fetches web content with size limits and timeouts.
     """
 
+    # Browser-like UA accepted by most sites (StackOverflow, GitHub, etc.).
+    _BROWSER_UA = (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0.0.0 Safari/537.36"
+    )
+    # Minimal curl UA bypasses JS-challenge systems (WordPress, some CDNs).
+    _CURL_UA = "curl/8.7.1"
+
+    # Ordered list of (user-agent, headers) strategies to try.
+    _UA_STRATEGIES = [
+        (
+            _BROWSER_UA,
+            {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Cache-Control": "no-cache",
+            },
+        ),
+        (
+            _CURL_UA,
+            {
+                "Accept": "*/*",
+            },
+        ),
+    ]
+
     def __init__(self, max_size_bytes: int = 1_000_000):
         self.max_size_bytes = max_size_bytes
-        # WordPress.com and some CDN challenge systems treat browser-like
-        # user agents without a real browser runtime as suspicious. A
-        # curl-like fetch identity is less likely to trigger JS challenges and
-        # matches the CLI behavior users expect from this tool.
-        self.user_agent = "curl/8.7.1"
 
     def fetch(
         self, 
@@ -46,6 +69,10 @@ class WebTool:
     ) -> Dict[str, Any]:
         """
         Fetch content from a URL.
+
+        Uses a browser-like User-Agent by default. If a 403 is returned,
+        automatically retries with a curl-like UA (helps with CDN challenge
+        pages that flag browser UAs without JS support).
         """
         if not url.startswith(("http://", "https://")):
             return {
@@ -54,42 +81,56 @@ class WebTool:
                 "url": url
             }
 
-        request_headers = self._default_headers()
-        if headers:
-            request_headers.update(headers)
+        last_error: Optional[httpx.HTTPStatusError] = None
 
-        try:
-            with httpx.Client(follow_redirects=True, timeout=timeout) as client:
-                if method.upper() == "GET":
-                    response = client.get(url, headers=request_headers)
-                elif method.upper() == "POST":
-                    response = client.post(url, headers=request_headers)
-                else:
-                    return {"success": False, "error": f"Unsupported method: {method}"}
+        for ua, default_hdrs in self._UA_STRATEGIES:
+            request_headers = {"User-Agent": ua, **default_hdrs}
+            if headers:
+                request_headers.update(headers)
 
-                response.raise_for_status()
+            try:
+                with httpx.Client(follow_redirects=True, timeout=timeout) as client:
+                    if method.upper() == "GET":
+                        response = client.get(url, headers=request_headers)
+                    elif method.upper() == "POST":
+                        response = client.post(url, headers=request_headers)
+                    else:
+                        return {"success": False, "error": f"Unsupported method: {method}"}
 
-                return self._response_to_result(response)
+                    response.raise_for_status()
+                    return self._response_to_result(response)
 
-        except httpx.HTTPStatusError as e:
-            logger.warning(f"HTTP error fetching {url}: {e}")
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                if e.response.status_code == 403:
+                    logger.debug(
+                        f"Got 403 with UA '{ua[:20]}…', retrying with next strategy"
+                    )
+                    continue
+                # Non-403 HTTP errors: no point retrying with a different UA.
+                break
+            except httpx.TimeoutException:
+                logger.warning(f"Timeout fetching {url}")
+                return {"success": False, "error": "Request timed out", "url": url}
+            except Exception as e:
+                logger.error(f"Error fetching {url}: {e}")
+                return {"success": False, "error": str(e), "url": url}
+
+        # All strategies exhausted or a non-retryable HTTP error occurred.
+        if last_error is not None:
+            logger.warning(f"HTTP error fetching {url}: {last_error}")
             return {
                 "success": False,
-                "error": f"HTTP {e.response.status_code}: {e.response.reason_phrase}",
+                "error": f"HTTP {last_error.response.status_code}: {last_error.response.reason_phrase}",
                 "url": url
             }
-        except httpx.TimeoutException:
-            logger.warning(f"Timeout fetching {url}")
-            return {"success": False, "error": "Request timed out", "url": url}
-        except Exception as e:
-            logger.error(f"Error fetching {url}: {e}")
-            return {"success": False, "error": str(e), "url": url}
+        # Should not reach here, but guard defensively.
+        return {"success": False, "error": "Unknown fetch error", "url": url}
 
     def _default_headers(self) -> Dict[str, str]:
-        return {
-            "User-Agent": self.user_agent,
-            "Accept": "*/*",
-        }
+        """Return browser-like default headers (primary strategy)."""
+        ua, hdrs = self._UA_STRATEGIES[0]
+        return {"User-Agent": ua, **hdrs}
 
     def _response_to_result(self, response: httpx.Response) -> Dict[str, Any]:
         content_len = len(response.content)

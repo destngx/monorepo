@@ -207,6 +207,37 @@ def test_complete_after_tool_calls_fails_error_tool_result_by_default():
         raise AssertionError("Expected error tool result to fail the agent node")
 
 
+def test_tool_output_mapping_cannot_mask_error_tool_status():
+    executor = DummyExecutor()
+    executor.mcp_router = ErrorRouter()
+    handler = AgentNodeHandler(executor)
+
+    try:
+        handler.execute(
+            "run-1",
+            {
+                "id": "script_step",
+                "type": "agent_node",
+                "config": {
+                    "system_prompt": "Use bash.",
+                    "user_prompt_template": "Run the script.",
+                    "tools": ["bash"],
+                    "complete_after_tool_calls": True,
+                    "tool_output_mapping": {
+                        "status": {"type": "constant", "value": "processed"},
+                    },
+                },
+            },
+            {"workflow_state": {}, "node_results": {}},
+            {},
+        )
+    except ValueError as exc:
+        assert "Tool execution failed" in str(exc)
+        assert "stderr=script failed" in str(exc)
+    else:
+        raise AssertionError("Expected mapped error tool result to fail the agent node")
+
+
 def test_allow_tool_errors_keeps_error_tool_result_structured():
     executor = DummyExecutor()
     executor.mcp_router = ErrorRouter()

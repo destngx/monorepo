@@ -398,6 +398,18 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
             if not condition or self._evaluate_condition(condition, state):
                 # Support both 'target' (standard) and 'to' (legacy) keys
                 next_node_id = edge.get("target") or edge.get("to")
+                entry_node_id = self._find_entry_node(workflow)
+                if next_node_id == entry_node_id and current_node_id != entry_node_id:
+                    exit_node_id = self._find_exit_node(workflow)
+                    self._log_event(
+                        run_id,
+                        "edge_route",
+                        (
+                            f"Blocked cycle {current_node_id} -> {next_node_id}, "
+                            f"routing to exit {exit_node_id}"
+                        ),
+                    )
+                    return exit_node_id
                 self._log_event(
                     run_id,
                     "edge_route",
@@ -405,11 +417,11 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
                 )
                 return next_node_id
 
-        next_node_id = matching_edges[0].get("target") or matching_edges[0].get("to")
+        next_node_id = self._find_exit_node(workflow)
         self._log_event(
             run_id,
             "edge_route",
-            f"No condition matched, taking first edge to {next_node_id}",
+            f"No condition matched from {current_node_id}, routing to exit {next_node_id}",
         )
         return next_node_id
 
@@ -418,6 +430,9 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
             return []
         if not isinstance(edges, list):
             raise ValueError("Workflow edges must be a list")
+
+        if edges and all(self._is_node_id_pair(edge) for edge in edges):
+            return [{"from": edge[0], "to": edge[1]} for edge in edges]
 
         flattened = self._flatten_edge_values(edges)
         if flattened and all(self._is_bare_node_id(edge) for edge in flattened):
@@ -449,6 +464,13 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
 
     def _is_bare_node_id(self, value: Any) -> bool:
         return isinstance(value, str) and bool(re.match(r"^\s*[A-Za-z_][A-Za-z0-9_-]*\s*$", value))
+
+    def _is_node_id_pair(self, value: Any) -> bool:
+        return (
+            isinstance(value, list)
+            and len(value) == 2
+            and all(self._is_bare_node_id(item) for item in value)
+        )
 
     def _parse_edge_string(self, edge: str) -> Dict[str, Any]:
         match = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*(?:->|=>|to)\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$", edge)

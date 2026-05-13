@@ -28,9 +28,25 @@ def route_by_edge(
             routing_edge = edge
             break
 
-    if not target_node_id and matching_edges:
-        target_node_id = matching_edges[0].get("target") or matching_edges[0].get("to")
-        routing_edge = matching_edges[0]
+    if not target_node_id:
+        target_node_id = executor._find_exit_node(workflow)
+        emit_event(executor, run_id, "edge_route.unmatched", {
+            "from": current_node_id,
+            "to": target_node_id,
+            "reason": "no_condition_matched",
+        })
+        return target_node_id
+
+    entry_node_id = executor._find_entry_node(workflow)
+    if target_node_id == entry_node_id and current_node_id != entry_node_id:
+        exit_node_id = executor._find_exit_node(workflow)
+        emit_event(executor, run_id, "edge_route.cycle_blocked", {
+            "from": current_node_id,
+            "blocked_to": target_node_id,
+            "to": exit_node_id,
+            "reason": "entry_reentry",
+        })
+        return exit_node_id
 
     if target_node_id:
         emit_event(executor, run_id, "edge_route", {
@@ -45,6 +61,9 @@ def normalize_edges(edges: Any) -> List[Dict[str, Any]]:
         return []
     if not isinstance(edges, list):
         raise ValueError("Workflow edges must be a list")
+
+    if edges and all(is_node_id_pair(edge) for edge in edges):
+        return [{"from": edge[0], "to": edge[1]} for edge in edges]
 
     flattened = flatten_edge_values(edges)
     if flattened and all(is_bare_node_id(edge) for edge in flattened):
@@ -76,6 +95,13 @@ def flatten_edge_values(edges: List[Any]) -> List[Any]:
 
 def is_bare_node_id(value: Any) -> bool:
     return isinstance(value, str) and bool(re.match(r"^\s*[A-Za-z_][A-Za-z0-9_-]*\s*$", value))
+
+def is_node_id_pair(value: Any) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(is_bare_node_id(item) for item in value)
+    )
 
 def parse_edge_string(edge: str) -> Dict[str, Any]:
     match = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*(?:->|=>|to)\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$", edge)

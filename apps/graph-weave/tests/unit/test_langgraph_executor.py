@@ -5,6 +5,8 @@ from src.adapters.checkpoint import RedisCheckpointStore
 from tests.mocks.redis_mock import MockRedisAdapter
 from src.adapters.redis import NamespacedRedisClient, FallbackStorage
 from tests.mocks.gateway_mock import MockGatewayClient
+from src.adapters.langgraph import RealLangGraphExecutor
+from src.adapters.langgraph.runtime.engine.routing import route_by_edge
 
 
 class TestMockLangGraphExecutorInstantiation:
@@ -330,6 +332,78 @@ class TestMockLangGraphExecutorEdgeRouting:
         next_node = executor._route_by_edge("test-run", workflow, "node1", state)
         assert next_node == "node3"
 
+    def test_route_by_edge_does_not_fallback_to_false_conditional_edge(
+        self, mock_mcp_router
+    ):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "fetch_url_content", "type": "agent_node"},
+                {"id": "exit", "type": "exit"},
+            ],
+            "edges": [
+                {
+                    "from": "fetch_url_content",
+                    "to": "entry",
+                    "condition": "$.should_refetch == true",
+                },
+            ],
+        }
+        state = {"should_refetch": False}
+        executor.set_current_run_id("test-run")
+
+        next_node = executor._route_by_edge(
+            "test-run", workflow, "fetch_url_content", state
+        )
+        assert next_node == "exit"
+
+    def test_real_route_by_edge_does_not_loop_to_entry_on_false_condition(
+        self, mock_mcp_router
+    ):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "fetch_url_content", "type": "agent_node"},
+                {"id": "exit", "type": "exit"},
+            ],
+            "edges": [
+                {
+                    "from": "fetch_url_content",
+                    "to": "entry",
+                    "condition": "$.should_refetch == true",
+                },
+            ],
+        }
+        state = {"should_refetch": False}
+
+        next_node = route_by_edge(
+            executor, "test-run", workflow, "fetch_url_content", state
+        )
+        assert next_node == "exit"
+
+    def test_real_route_by_edge_blocks_unconditional_entry_reentry(
+        self, mock_mcp_router
+    ):
+        executor = RealLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "fetch_url_content", "type": "agent_node"},
+                {"id": "exit", "type": "exit"},
+            ],
+            "edges": [
+                {"from": "entry", "to": "fetch_url_content"},
+                {"from": "fetch_url_content", "to": "entry"},
+            ],
+            "entry_point": "entry",
+            "exit_point": "exit",
+        }
+
+        next_node = route_by_edge(executor, "test-run", workflow, "fetch_url_content", {})
+        assert next_node == "exit"
+
     def test_route_by_edge_no_outgoing_edges(self, mock_mcp_router):
         executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         workflow = {
@@ -408,6 +482,29 @@ class TestMockLangGraphExecutorEdgeRouting:
         next_node = executor._route_by_edge("test-run", workflow, "normalize_input", {})
 
         assert next_node == "exit"
+
+    def test_route_by_edge_treats_nested_node_id_pairs_as_edges(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "fetch_url_content", "type": "agent_node"},
+                {"id": "normalize_input", "type": "agent_node"},
+                {"id": "exit", "type": "exit"},
+            ],
+            "edges": [
+                ["entry", "fetch_url_content"],
+                ["entry", "normalize_input"],
+                ["fetch_url_content", "normalize_input"],
+                ["normalize_input", "exit"],
+            ],
+        }
+
+        next_node = executor._route_by_edge(
+            "test-run", workflow, "fetch_url_content", {}
+        )
+
+        assert next_node == "normalize_input"
 
     def test_route_by_edge_rejects_unparseable_string_edge(self, mock_mcp_router):
         executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
