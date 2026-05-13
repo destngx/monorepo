@@ -419,13 +419,15 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
         if not isinstance(edges, list):
             raise ValueError("Workflow edges must be a list")
 
+        flattened = self._flatten_edge_values(edges)
+        if flattened and all(self._is_bare_node_id(edge) for edge in flattened):
+            return [
+                {"from": source, "to": target}
+                for source, target in zip(flattened, flattened[1:])
+            ]
+
         normalized: List[Dict[str, Any]] = []
-        pending = list(edges)
-        while pending:
-            edge = pending.pop(0)
-            if isinstance(edge, list):
-                pending = edge + pending
-                continue
+        for edge in flattened:
             if isinstance(edge, str):
                 normalized.append(self._parse_edge_string(edge))
                 continue
@@ -433,6 +435,20 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
                 raise ValueError(f"Workflow edge must be an object, got {type(edge).__name__}")
             normalized.append(edge)
         return normalized
+
+    def _flatten_edge_values(self, edges: List[Any]) -> List[Any]:
+        flattened: List[Any] = []
+        pending = list(edges)
+        while pending:
+            edge = pending.pop(0)
+            if isinstance(edge, list):
+                pending = edge + pending
+                continue
+            flattened.append(edge)
+        return flattened
+
+    def _is_bare_node_id(self, value: Any) -> bool:
+        return isinstance(value, str) and bool(re.match(r"^\s*[A-Za-z_][A-Za-z0-9_-]*\s*$", value))
 
     def _parse_edge_string(self, edge: str) -> Dict[str, Any]:
         match = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*(?:->|=>|to)\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$", edge)

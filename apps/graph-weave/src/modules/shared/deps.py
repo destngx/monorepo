@@ -20,7 +20,7 @@ class Services:
     def __init__(self):
         self.cache = RedisAdapter.from_env(
             GraphWeaveConfig.UPSTASH_REDIS_REST_URL,
-            GraphWeaveConfig.REDIS_TOKEN,
+            GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN,
         )
         self.redis_client = NamespacedRedisClient(
             redis_client=self.cache,

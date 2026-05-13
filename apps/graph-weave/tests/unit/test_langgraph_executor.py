@@ -379,6 +379,36 @@ class TestMockLangGraphExecutorEdgeRouting:
 
         assert next_node == "node2"
 
+    def test_route_by_edge_converts_node_id_list_to_chain(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "normalize_input", "type": "agent_node"},
+                {"id": "exit", "type": "exit"},
+            ],
+            "edges": ["entry", "normalize_input", "exit"],
+        }
+
+        next_node = executor._route_by_edge("test-run", workflow, "entry", {})
+
+        assert next_node == "normalize_input"
+
+    def test_route_by_edge_converts_nested_node_id_list_to_chain(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "normalize_input", "type": "agent_node"},
+                {"id": "exit", "type": "exit"},
+            ],
+            "edges": [["entry", "normalize_input", "exit"]],
+        }
+
+        next_node = executor._route_by_edge("test-run", workflow, "normalize_input", {})
+
+        assert next_node == "exit"
+
     def test_route_by_edge_rejects_unparseable_string_edge(self, mock_mcp_router):
         executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         workflow = {

@@ -46,13 +46,15 @@ def normalize_edges(edges: Any) -> List[Dict[str, Any]]:
     if not isinstance(edges, list):
         raise ValueError("Workflow edges must be a list")
 
+    flattened = flatten_edge_values(edges)
+    if flattened and all(is_bare_node_id(edge) for edge in flattened):
+        return [
+            {"from": source, "to": target}
+            for source, target in zip(flattened, flattened[1:])
+        ]
+
     normalized: List[Dict[str, Any]] = []
-    pending = list(edges)
-    while pending:
-        edge = pending.pop(0)
-        if isinstance(edge, list):
-            pending = edge + pending
-            continue
+    for edge in flattened:
         if isinstance(edge, str):
             normalized.append(parse_edge_string(edge))
             continue
@@ -60,6 +62,20 @@ def normalize_edges(edges: Any) -> List[Dict[str, Any]]:
             raise ValueError(f"Workflow edge must be an object, got {type(edge).__name__}")
         normalized.append(edge)
     return normalized
+
+def flatten_edge_values(edges: List[Any]) -> List[Any]:
+    flattened: List[Any] = []
+    pending = list(edges)
+    while pending:
+        edge = pending.pop(0)
+        if isinstance(edge, list):
+            pending = edge + pending
+            continue
+        flattened.append(edge)
+    return flattened
+
+def is_bare_node_id(value: Any) -> bool:
+    return isinstance(value, str) and bool(re.match(r"^\s*[A-Za-z_][A-Za-z0-9_-]*\s*$", value))
 
 def parse_edge_string(edge: str) -> Dict[str, Any]:
     match = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*(?:->|=>|to)\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$", edge)
