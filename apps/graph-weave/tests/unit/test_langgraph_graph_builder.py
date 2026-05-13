@@ -19,7 +19,7 @@ from typing import Any, Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.adapters.langgraph_graph_builder import (
+from src.adapters.langgraph.graph import (
     WorkflowParser,
     EdgeEvaluator,
     NodeConfig,

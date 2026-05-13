@@ -1,5 +1,5 @@
 import pytest
-from src.adapters.langgraph_graph_builder import GraphBuilder, WorkflowParseError
+from src.adapters.langgraph.graph import GraphBuilder, WorkflowParseError
 from src.adapters.langgraph_executor import RealLangGraphExecutor
 from src.adapters.mcp_router import MCPRouter
 

@@ -2,7 +2,7 @@ import pytest
 import json
 import uuid
 from unittest.mock import MagicMock, patch
-from src.adapters.langgraph.real_executor import RealLangGraphExecutor
+from src.adapters.langgraph.runtime.engine import RealLangGraphExecutor
 from src.services.scheduler_service import SchedulerService
 
 @pytest.fixture
@@ -106,7 +106,7 @@ def test_cli_node_interpolation_in_scheduled_run():
     Specifically test that CLINodeHandler correctly interpolates 
     scheduled input data.
     """
-    from src.adapters.langgraph.cli_node import CLINodeHandler
+    from src.adapters.langgraph.nodes.cli import CLINodeHandler
     
     mock_executor = MagicMock()
     # Mock interpolation
@@ -154,7 +154,7 @@ def test_simple_echo_node():
     """
     The simplest possible test: run an 'echo' command and verify the result.
     """
-    from src.adapters.langgraph.cli_node import CLINodeHandler
+    from src.adapters.langgraph.nodes.cli import CLINodeHandler
     
     mock_executor = MagicMock()
     # Simple interpolation: just return template as is for this test

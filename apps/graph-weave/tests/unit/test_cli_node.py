@@ -1,8 +1,8 @@
 import pytest
 import json
 from unittest.mock import MagicMock
-from src.adapters.langgraph.cli_node import CLINodeHandler
-from src.adapters.langgraph.real_executor import RealLangGraphExecutor
+from src.adapters.langgraph.nodes.cli import CLINodeHandler
+from src.adapters.langgraph.runtime.engine import RealLangGraphExecutor
 
 @pytest.fixture
 def mock_executor():

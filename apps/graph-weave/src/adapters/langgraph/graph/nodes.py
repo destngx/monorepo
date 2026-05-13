@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Callable, Protocol
 from .models import NodeConfig
 from .prompts import interpolate_prompt
-from .logic import EdgeEvaluator
+from .evaluator import EdgeEvaluator
 
 class AgentNodeFunc(Protocol):
     """Protocol for agent node functions with config attribute."""

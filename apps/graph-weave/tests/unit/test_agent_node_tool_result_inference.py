@@ -1,4 +1,4 @@
-from src.adapters.langgraph.agent_node import AgentNodeHandler
+from src.adapters.langgraph.nodes.agent import AgentNodeHandler
 
 
 class DummyExecutor:
