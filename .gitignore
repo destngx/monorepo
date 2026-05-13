@@ -4,6 +4,7 @@
 build
 dist
 tmp
+scratch
 /out-tsc
 
 # Log files
@@ -127,4 +128,4 @@ profile.cov
 
 
 # Native Tools
-apps/mac-ocr/bin/
+apps/**/bin/

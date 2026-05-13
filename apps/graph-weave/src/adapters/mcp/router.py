@@ -2,11 +2,11 @@ import os
 import json
 from typing import Any, Dict, List, Optional
 from ...app_logging import get_logger
-from .constants import VALID_TOOLS
-from .exceptions import ToolExecutionError
-from .utils import format_prompt, filter_allowed_tools
-from .parsing import parse_tool_calls, validate_tool_call
-from .handlers import (
+from .infra.constants import VALID_TOOLS
+from .infra.exceptions import ToolExecutionError
+from .infra.utils import format_prompt, filter_allowed_tools
+from .infra.parsing import parse_tool_calls, validate_tool_call
+from .tools import (
     handle_load_skill,
     handle_search,
     handle_verify,
@@ -14,7 +14,7 @@ from .handlers import (
     handle_fs,
     handle_fetch
 )
-from ..mcp import MockMCPServer
+from .registry import ToolRegistry
 
 logger = get_logger(__name__)
 
@@ -23,21 +23,21 @@ class MCPRouter:
 
     def __init__(
         self,
-        mcp_server: Optional[MockMCPServer] = None,
+        registry: Optional[ToolRegistry] = None,
     ):
-        self.mcp_server = mcp_server or MockMCPServer()
+        self.registry = registry or ToolRegistry()
         
         # Workspace root for tools
         workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
         
         # BashTool initialization
-        from ..bash_tool import BashTool
+        from .tools.bash import BashTool
         extra_paths = os.getenv("BASH_TOOL_ALLOWED_PATHS", "").split(",")
         allowed_paths = [workspace_root] + [p.strip() for p in extra_paths if p.strip()]
         self.bash_tool = BashTool(allowed_paths=allowed_paths)
         
         # FileSystemTool initialization
-        from ..fs_tool import FileSystemTool
+        from .tools.fs import FileSystemTool
         fs_allowed_paths = os.getenv("FS_TOOL_ALLOWED_PATHS", workspace_root).split(",")
         fs_allowed_paths = [os.path.abspath(p.strip()) for p in fs_allowed_paths if p.strip()]
         fs_trash_path = os.getenv(
@@ -47,7 +47,7 @@ class MCPRouter:
         self.fs_tool = FileSystemTool(allowed_paths=fs_allowed_paths, trash_path=fs_trash_path)
         
         # WebTool initialization
-        from ..web_tool import WebTool
+        from .tools.web import WebTool
         self.web_tool = WebTool()
 
     def get_tool_definitions(
@@ -55,7 +55,7 @@ class MCPRouter:
     ) -> List[Dict[str, Any]]:
         """Retrieves OpenAI-compatible tool definitions."""
         tools = []
-        for tool in self.mcp_server.list_tools():
+        for tool in self.registry.list_tools():
             name = tool["name"]
             if allowed_tools is None or name in allowed_tools:
                 tools.append(
@@ -92,8 +92,8 @@ class MCPRouter:
             elif name == "fetch":
                 return self.fetch(arguments.get("url", ""), arguments.get("method", "GET"), arguments.get("headers"))
 
-            # Fallback to direct MCP call
-            return self.mcp_server.call_tool(name, arguments)
+            # Fallback to direct registry call
+            return self.registry.call_tool(name, arguments)
 
         except Exception as e:
             logger.error(f"Error executing tool {name}: {e}")
@@ -102,10 +102,10 @@ class MCPRouter:
             raise ToolExecutionError(f"Tool {name} failed: {e}")
 
     def load_skill(self, skill_name: str) -> Dict[str, Any]:
-        return handle_load_skill(self.mcp_server, skill_name)
+        return handle_load_skill(self.registry, skill_name)
 
     def search(self, query: str) -> Dict[str, Any]:
-        return handle_search(self.mcp_server, query)
+        return handle_search(self.registry, query)
 
     def verify(self, claim: str) -> Dict[str, Any]:
         return handle_verify(claim)

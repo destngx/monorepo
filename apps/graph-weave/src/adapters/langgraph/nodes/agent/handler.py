@@ -2,7 +2,7 @@ import json
 from typing import Any, Dict, List, Optional
 from src.app_logging import get_logger
 from ....ai_provider import AIProviderFactory, LLMClient
-from ....mcp_router import MCPRouter, ProviderConfigError
+from ....mcp import MCPRouter, ProviderConfigError
 
 from .placeholder_utils import validate_tool_args_resolved
 from .json_utils import extract_json, repair_schema_json

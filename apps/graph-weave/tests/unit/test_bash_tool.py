@@ -1,6 +1,6 @@
 import os
 import pytest
-from src.adapters.bash_tool import BashTool, BashToolError
+from src.adapters.mcp.tools.bash import BashTool, BashToolError
 
 @pytest.fixture
 def workspace_root(tmp_path):

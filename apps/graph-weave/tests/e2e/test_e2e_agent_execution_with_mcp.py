@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.mocks.mock_executor import MockLangGraphExecutor
-from src.adapters.mcp import MockMCPServer
+from src.adapters.mcp import MCPServer
 from src.main import app
 
 
@@ -13,13 +13,13 @@ def client():
 
 class TestAgentExecutionWithMcpE2E:
     def test_agent_calls_mcp_search_tool(self):
-        server = MockMCPServer()
+        server = MCPServer()
         assert server.call_tool("search", {"query": "graph weave"}) == {
             "results": ["Result for: graph weave"]
         }
 
     def test_agent_calls_mcp_calculate_tool(self):
-        server = MockMCPServer()
+        server = MCPServer()
         assert server.call_tool("calculate", {"operation": "add", "a": 2, "b": 3}) == {
             "result": 5
         }

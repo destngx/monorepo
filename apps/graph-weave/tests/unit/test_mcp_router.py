@@ -17,12 +17,12 @@ Tests cover:
 import json
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from src.adapters.mcp_router import (
+from src.adapters.mcp import (
     MCPRouter,
     ProviderConfigError,
     ToolExecutionError,
 )
-from src.adapters.mcp import MockMCPServer
+from src.adapters.mcp import ToolRegistry
 
 
 class TestMCPRouterToolMethods:
@@ -53,7 +53,7 @@ class TestMCPRouterToolMethods:
         assert "verdict" in result
         assert "confidence" in result
 
-    @patch("src.adapters.bash_tool.BashTool.execute_bash")
+    @patch("src.adapters.mcp.tools.bash.BashTool.execute_bash")
     def test_bash_returns_execution_result(self, mock_execute):
         mock_execute.return_value = {
             "success": True,

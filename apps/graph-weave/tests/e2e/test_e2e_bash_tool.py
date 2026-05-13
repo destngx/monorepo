@@ -1,7 +1,7 @@
 import os
 import pytest
 from src.adapters.langgraph_executor import RealLangGraphExecutor
-from src.adapters.mcp_router import MCPRouter
+from src.adapters.mcp import MCPRouter
 from src.models import OrchestratorConfig
 from src.modules.orchestrator import OrchestratorReAct
 from src.adapters.ai_gateway_adapter import AIGatewayClient

@@ -2,10 +2,23 @@ import httpx
 import logging
 from typing import Dict, Any, Optional
 from src.app_logging import get_logger
-from .html_utils import extract_text_from_html
-from .wordpress import fetch_wordpress_post
+from ..infra.html_utils import extract_text_from_html
+from ..infra.exceptions import ToolExecutionError
 
 logger = get_logger(__name__)
+
+def handle_fetch(web_tool: Any, url: str, method: str = "GET", headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """Execute web fetch tool."""
+    try:
+        result = web_tool.fetch(url, method=method, headers=headers)
+        return {
+            "tool": "fetch",
+            "url": url,
+            "status": "success" if result.get("success", False) else "error",
+            **result
+        }
+    except Exception as e:
+        raise ToolExecutionError(f"Failed to fetch URL '{url}': {str(e)}")
 
 class WebToolError(Exception):
     """Exception raised for errors in the WebTool."""
@@ -54,15 +67,7 @@ class WebTool:
                 else:
                     return {"success": False, "error": f"Unsupported method: {method}"}
 
-                try:
-                    response.raise_for_status()
-                except httpx.HTTPStatusError as e:
-                    if method.upper() == "GET" and e.response.status_code in {401, 403, 406, 429}:
-                        fallback = fetch_wordpress_post(client, url, request_headers, self.max_size_bytes)
-                        if fallback.get("success"):
-                            fallback["fallback_reason"] = f"HTTP {e.response.status_code}: {e.response.reason_phrase}"
-                            return fallback
-                    raise
+                response.raise_for_status()
 
                 return self._response_to_result(response)
 
@@ -114,11 +119,3 @@ class WebTool:
 
     def _extract_text_from_html(self, html: str) -> str:
         return extract_text_from_html(html)
-
-    def _wordpress_posts_api_url(self, url: str) -> Optional[str]:
-        from .wordpress import wordpress_posts_api_url
-        return wordpress_posts_api_url(url)
-
-    def _wordpress_com_public_api_url(self, url: str) -> Optional[str]:
-        from .wordpress import wordpress_com_public_api_url
-        return wordpress_com_public_api_url(url)

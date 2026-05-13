@@ -7,8 +7,32 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from src.app_logging import get_logger
+from ..infra.exceptions import ToolExecutionError
 
 logger = get_logger(__name__)
+
+def handle_fs(fs_tool: Any, operation: str, **kwargs) -> Dict[str, Any]:
+    """Execute a file system operation using the FileSystemTool."""
+    try:
+        if not hasattr(fs_tool, operation):
+            return {
+                "tool": "fs",
+                "operation": operation,
+                "status": "error",
+                "error": f"Unknown FS operation: {operation}"
+            }
+            
+        method = getattr(fs_tool, operation)
+        result = method(**kwargs)
+        
+        return {
+            "tool": "fs",
+            "operation": operation,
+            "status": "success" if result.get("success", False) else "error",
+            **result
+        }
+    except Exception as e:
+        raise ToolExecutionError(f"Failed to execute fs operation '{operation}': {str(e)}")
 
 
 class FileSystemToolError(Exception):

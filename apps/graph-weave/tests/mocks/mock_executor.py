@@ -6,7 +6,7 @@ from src.app_logging import get_logger
 from src.adapters.langgraph.runtime.base import BaseLangGraphExecutor
 from src.adapters.langgraph.helper.types import ExecutorState
 from src.adapters.ai_provider import AIProviderFactory, LLMClient
-from src.adapters.mcp_router import MCPRouter, ProviderConfigError
+from src.adapters.mcp import MCPRouter, ProviderConfigError
 
 logger = get_logger(__name__)
 

@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 
 
-class MockMCPServer:
+class ToolRegistry:
     def __init__(self):
         self._tools = {
             "calculate": {
@@ -78,6 +78,28 @@ class MockMCPServer:
                     "required": ["url"]
                 }
             },
+            "load_skill": {
+                "name": "load_skill",
+                "description": "Loads a specialized skill/prompt for the agent.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "skill_name": {"type": "string", "description": "Name of the skill to load"}
+                    },
+                    "required": ["skill_name"]
+                }
+            },
+            "verify": {
+                "name": "verify",
+                "description": "Verifies a claim against known evidence.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "claim": {"type": "string", "description": "The claim to verify"}
+                    },
+                    "required": ["claim"]
+                }
+            },
         }
 
     def list_tools(self) -> List[Dict[str, Any]]:
@@ -105,11 +127,10 @@ class MockMCPServer:
                 return {"result": a / b if b != 0 else None}
 
         elif tool_name == "search":
+            # NOTE: For now, search is still handled here as a mock until a real engine is integrated.
             query = params.get("query")
             return {"results": [f"Result for: {query}"]}
 
-        elif tool_name == "bash":
-            command = params.get("command")
-            return {"stdout": f"Mock output for {command}", "stderr": "", "exit_code": 0}
-
+        # Tools handled by MCPRouter (bash, fs, fetch, load_skill, verify) 
+        # should generally not reach here for execution.
         return None

@@ -6,7 +6,7 @@ from ..base.executor import BaseLangGraphExecutor
 from ..stagnation import StagnationDetector
 from ...nodes import AgentNodeHandler, OrchestratorNodeHandler, CLINodeHandler
 from ....ai_provider import AIProviderFactory, LLMClient
-from ....mcp_router import MCPRouter
+from ....mcp import MCPRouter
 from src.adapters.redis import NamespacedRedisClient
 
 from .utils import should_stop, resolve_node_input

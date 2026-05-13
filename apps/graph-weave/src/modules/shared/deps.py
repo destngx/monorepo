@@ -11,7 +11,7 @@ from src.adapters.workflow import RedisWorkflowStore
 from src.adapters.checkpoint import RedisCheckpointStore
 from src.adapters.redis import NamespacedRedisClient, FallbackStorage
 from src.adapters.langgraph_executor import RealLangGraphExecutor
-from src.adapters.mcp_router import MCPRouter
+from src.adapters.mcp import MCPRouter
 from src.adapters.schedule import RedisScheduleStore
 from src.services.scheduler_service import SchedulerService
 

@@ -6,8 +6,28 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from src.app_logging import get_logger
+from ..infra.exceptions import ToolExecutionError
 
 logger = get_logger(__name__)
+
+
+def handle_bash(bash_tool: Any, command: str, cwd: Optional[str] = None) -> Dict[str, Any]:
+    """Execute a bash command using the BashTool."""
+    try:
+        result = bash_tool.execute_bash(command, cwd=cwd)
+        # Standardize tool response format
+        return {
+            "tool": "bash",
+            "command": command,
+            "cwd": result.get("cwd", cwd),
+            "status": "success" if result["success"] else "error",
+            "exit_code": result.get("exit_code", -1),
+            "stdout": result.get("stdout", ""),
+            "stderr": result.get("stderr", ""),
+            "error": result.get("error", None)
+        }
+    except Exception as e:
+        raise ToolExecutionError(f"Failed to execute bash command '{command}': {str(e)}")
 
 
 class BashToolError(Exception):

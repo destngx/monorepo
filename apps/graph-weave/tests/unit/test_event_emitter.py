@@ -1,4 +1,4 @@
-from src.adapters.mcp import MockMCPServer
+from src.adapters.mcp import ToolRegistry
 from src.services.status_service import StatusService
 from src.models import StatusEnum
 
@@ -18,8 +18,8 @@ def test_status_service_records_transition_payload():
     assert record["events"] == [{"type": "status.changed"}]
 
 
-def test_mock_mcp_search_tool_remains_deterministic():
-    server = MockMCPServer()
-    result = server.call_tool("search", {"query": "graph weave"})
+def test_registry_search_tool_remains_deterministic():
+    registry = ToolRegistry()
+    result = registry.call_tool("search", {"query": "graph weave"})
 
     assert result == {"results": ["Result for: graph weave"]}

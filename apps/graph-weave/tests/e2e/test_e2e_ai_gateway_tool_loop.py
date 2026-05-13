@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import json
 from src.adapters.langgraph_executor import RealLangGraphExecutor
-from src.adapters.mcp_router import MCPRouter
+from src.adapters.mcp import MCPRouter
 
 class TestAIGatewayToolLoop:
     """

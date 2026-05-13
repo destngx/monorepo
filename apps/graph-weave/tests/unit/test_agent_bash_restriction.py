@@ -1,7 +1,7 @@
 import pytest
 from src.adapters.langgraph.graph import GraphBuilder, WorkflowParseError
 from src.adapters.langgraph_executor import RealLangGraphExecutor
-from src.adapters.mcp_router import MCPRouter
+from src.adapters.mcp import MCPRouter
 
 def test_agent_node_can_now_use_bash_and_fs_tool_validation():
     """

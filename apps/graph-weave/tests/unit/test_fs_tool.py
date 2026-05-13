@@ -1,7 +1,7 @@
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-from src.adapters.fs_tool import FileSystemTool, FileSystemToolError
+from src.adapters.mcp.tools.fs import FileSystemTool, FileSystemToolError
 
 @pytest.fixture
 def tmp_workspace(tmp_path):
