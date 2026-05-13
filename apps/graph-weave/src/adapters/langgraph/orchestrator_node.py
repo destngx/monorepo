@@ -1,6 +1,6 @@
 from typing import Any, Dict
 from src.models import OrchestratorConfig
-from src.modules.orchestrator_react import OrchestratorReAct
+from src.modules.orchestrator import OrchestratorReAct
 
 class OrchestratorNodeHandler:
     """

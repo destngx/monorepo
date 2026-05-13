@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional, List
 from src.app_logging import get_logger
@@ -380,7 +381,7 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
         current_node_id: str,
         state: Dict[str, Any],
     ) -> Optional[str]:
-        edges = workflow.get("edges", [])
+        edges = self._normalize_edges(workflow.get("edges", []))
         # Support both 'source' (standard) and 'from' (legacy) keys
         matching_edges = [e for e in edges if (e.get("source") or e.get("from")) == current_node_id]
 
@@ -411,6 +412,34 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
             f"No condition matched, taking first edge to {next_node_id}",
         )
         return next_node_id
+
+    def _normalize_edges(self, edges: Any) -> List[Dict[str, Any]]:
+        if edges is None:
+            return []
+        if not isinstance(edges, list):
+            raise ValueError("Workflow edges must be a list")
+
+        normalized: List[Dict[str, Any]] = []
+        pending = list(edges)
+        while pending:
+            edge = pending.pop(0)
+            if isinstance(edge, list):
+                pending = edge + pending
+                continue
+            if isinstance(edge, str):
+                normalized.append(self._parse_edge_string(edge))
+                continue
+            if not isinstance(edge, dict):
+                raise ValueError(f"Workflow edge must be an object, got {type(edge).__name__}")
+            normalized.append(edge)
+        return normalized
+
+    def _parse_edge_string(self, edge: str) -> Dict[str, Any]:
+        match = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*(?:->|=>|to)\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$", edge)
+        if not match:
+            raise ValueError(f"Workflow edge string must use 'from -> to' syntax, got {edge!r}")
+        source, target = match.groups()
+        return {"from": source, "to": target}
 
     def _log_event(self, run_id: str, event_type: str, message: str) -> None:
         if run_id not in self.execution_events:

@@ -3,7 +3,7 @@ import json
 import time
 from datetime import datetime
 
-from src.adapters.redis import MockRedisAdapter
+from tests.mocks.redis_mock import MockRedisAdapter
 from src.adapters.langgraph import RealLangGraphExecutor, StagnationDetector
 from src.adapters.redis import FallbackStorage, NamespacedRedisClient
 

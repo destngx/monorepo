@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
 from src.models import OrchestratorConfig
-from src.modules.orchestrator_react import OrchestratorReAct
+from src.modules.orchestrator import OrchestratorReAct
 
 
 # ---------------------------------------------------------------------------

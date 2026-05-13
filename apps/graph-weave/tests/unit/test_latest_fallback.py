@@ -5,7 +5,7 @@ Verification: Cache adapter uses 'latest' as default when version is not provide
 """
 
 import pytest
-from src.adapters.redis import MockRedisAdapter
+from tests.mocks.redis_mock import MockRedisAdapter
 
 
 @pytest.fixture

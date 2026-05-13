@@ -1,6 +1,6 @@
 import json
 from typing import Optional, Dict, Any, List
-from .mock import MockRedisAdapter
+
 
 try:
     import redis
@@ -20,7 +20,7 @@ class RedisAdapter:
     @classmethod
     def from_env(cls, url: Optional[str] = None, token: Optional[str] = None):
         if not url or not token:
-            return MockRedisAdapter()
+            raise ValueError("Redis URL and token must be provided")
         if url.startswith("https://"):
             url = "rediss://" + url[len("https://") :]
         elif url.startswith("http://"):

@@ -101,7 +101,7 @@
       "display_name": "Edge Router Agent",
       "description": "Generates a cycle-free DAG connecting nodes in a transformation pipeline",
       "config": {
-        "system_prompt": "You are a DAG routing expert. Generate the 'edges' array for the workflow.\n\nDAG Rules:\n- NO cycles. NO orphan nodes.\n- entry -> first node; last node -> exit.\n- ALL IDs must use snake_case.\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
+        "system_prompt": "You are a DAG routing expert. Generate the 'edges' array for the workflow.\n\nDAG Rules:\n- NO cycles. NO orphan nodes.\n- entry -> first node; last node -> exit.\n- ALL IDs must use snake_case.\n- Every edge MUST be an object, never a string and never a nested array. Use {\"from\":\"entry\",\"to\":\"first_node\"}, not \"entry -> first_node\".\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
         "user_prompt_template": "Connect these nodes into a transformation DAG:\n\nIntent: {intent}\nNodes: {nodes_list}",
         "input_mapping": {
           "intent": "$.entry.intent",
@@ -111,7 +111,19 @@
         "output_schema": {
           "type": "object",
           "properties": {
-            "edges": { "type": "array" },
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": { "type": "string" },
+                  "to": { "type": "string" },
+                  "condition": { "type": "string" },
+                  "config": { "type": "object" }
+                },
+                "required": ["from", "to"]
+              }
+            },
             "entry_point": { "type": "string" },
             "exit_point": { "type": "string" }
           },

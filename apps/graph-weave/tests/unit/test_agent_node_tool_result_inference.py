@@ -414,6 +414,37 @@ def test_agent_execute_accepts_result_envelope_when_inner_object_matches_schema(
     assert result["nodes_definition"] == {"nodes": [{"id": "entry", "type": "entry"}]}
 
 
+def test_output_schema_rejects_array_items_with_wrong_type():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    try:
+        handler._validate_output_schema(
+            {"edges": ["entry -> exit"]},
+            {
+                "type": "object",
+                "properties": {
+                    "edges": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "from": {"type": "string"},
+                                "to": {"type": "string"},
+                            },
+                            "required": ["from", "to"],
+                        },
+                    }
+                },
+                "required": ["edges"],
+            },
+        )
+    except ValueError as exc:
+        assert "edges[0]" in str(exc)
+        assert "object" in str(exc)
+    else:
+        raise AssertionError("Expected schema validation to reject string edge items")
+
+
 def test_domain_schema_still_rejects_missing_required_field():
     handler = AgentNodeHandler(DummyExecutor())
 

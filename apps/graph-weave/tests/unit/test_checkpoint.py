@@ -1,7 +1,7 @@
 import pytest
 import json
 from src.adapters.checkpoint import RedisCheckpointStore
-from src.adapters.redis import MockRedisAdapter
+from tests.mocks.redis_mock import MockRedisAdapter
 from src.adapters.redis import NamespacedRedisClient, FallbackStorage
 
 

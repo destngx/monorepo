@@ -72,7 +72,7 @@ def test_redis_schedule_store_fallback():
     
     # We need a real NamespacedRedisClient or a good mock
     from src.adapters.redis import NamespacedRedisClient, FallbackStorage
-    from src.adapters.redis import MockRedisAdapter
+    from tests.mocks.redis_mock import MockRedisAdapter
     
     fallback = FallbackStorage()
     client = NamespacedRedisClient(MockRedisAdapter(), fallback_storage=fallback)

@@ -3,7 +3,7 @@ import pytest
 from src.adapters.langgraph_executor import RealLangGraphExecutor
 from src.adapters.mcp_router import MCPRouter
 from src.models import OrchestratorConfig
-from src.modules.orchestrator_react import OrchestratorReAct
+from src.modules.orchestrator import OrchestratorReAct
 from src.adapters.ai_gateway_adapter import AIGatewayClient
 
 def test_e2e_bash_tool_in_orchestrator():

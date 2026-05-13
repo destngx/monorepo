@@ -3,7 +3,7 @@ Shared dependencies for modules.
 """
 
 from typing import Optional
-from src.adapters.redis import RedisAdapter, MockRedisAdapter, PersistentMockRedisAdapter
+from src.adapters.redis import RedisAdapter
 from src.config import GraphWeaveConfig
 from src.services.checkpoint_service import CheckpointService
 from src.services.thread_lifecycle_service import ThreadLifecycleService
@@ -18,18 +18,10 @@ from src.services.scheduler_service import SchedulerService
 
 class Services:
     def __init__(self):
-        if (
-            not GraphWeaveConfig.UPSTASH_REDIS_REST_URL
-            or not GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN
-        ):
-            # Default to PersistentMockRedisAdapter for local dev/testing if env vars are missing
-            # This ensures data survives restarts even without a real Redis.
-            self.cache = PersistentMockRedisAdapter("./tmp/graph-weave-persistence.json")
-        else:
-            self.cache = RedisAdapter.from_env(
-                GraphWeaveConfig.UPSTASH_REDIS_REST_URL,
-                GraphWeaveConfig.UPSTASH_REDIS_REST_TOKEN,
-            )
+        self.cache = RedisAdapter.from_env(
+            GraphWeaveConfig.UPSTASH_REDIS_REST_URL,
+            GraphWeaveConfig.REDIS_TOKEN,
+        )
         self.redis_client = NamespacedRedisClient(
             redis_client=self.cache,
             fallback_storage=FallbackStorage()
@@ -84,7 +76,7 @@ def get_services() -> Services:
     return _services
 
 
-def get_cache() -> MockRedisAdapter:
+def get_cache() -> RedisAdapter:
     return get_services().cache
 
 

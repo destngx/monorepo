@@ -2,7 +2,7 @@ import pytest
 import json
 from tests.mocks.mock_executor import MockLangGraphExecutor
 from src.adapters.checkpoint import RedisCheckpointStore
-from src.adapters.redis import MockRedisAdapter
+from tests.mocks.redis_mock import MockRedisAdapter
 from src.adapters.redis import NamespacedRedisClient, FallbackStorage
 from tests.mocks.gateway_mock import MockGatewayClient
 
@@ -344,6 +344,53 @@ class TestMockLangGraphExecutorEdgeRouting:
 
         next_node = executor._route_by_edge("test-run", workflow, "node1", state)
         assert next_node == "exit"
+
+    def test_route_by_edge_flattens_nested_edge_lists(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "node1", "type": "agent_node"},
+                {"id": "node2", "type": "agent_node"},
+            ],
+            "edges": [
+                [
+                    {"from": "node1", "to": "node2"},
+                ]
+            ],
+        }
+        state = {"status": "pending"}
+
+        next_node = executor._route_by_edge("test-run", workflow, "node1", state)
+
+        assert next_node == "node2"
+
+    def test_route_by_edge_parses_simple_string_edge(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "node1", "type": "agent_node"},
+                {"id": "node2", "type": "agent_node"},
+            ],
+            "edges": ["node1 -> node2"],
+        }
+        state = {"status": "pending"}
+
+        next_node = executor._route_by_edge("test-run", workflow, "node1", state)
+
+        assert next_node == "node2"
+
+    def test_route_by_edge_rejects_unparseable_string_edge(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        workflow = {
+            "nodes": [
+                {"id": "node1", "type": "agent_node"},
+                {"id": "exit", "type": "exit"},
+            ],
+            "edges": ["not an edge"],
+        }
+
+        with pytest.raises(ValueError, match="Workflow edge string must use"):
+            executor._route_by_edge("test-run", workflow, "node1", {})
 
 
 class TestMockLangGraphExecutorAgentNodeExecution:

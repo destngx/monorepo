@@ -60,9 +60,27 @@ def validate_output_schema(data: Any, schema: Optional[Dict[str, Any]]) -> None:
         for key, field_schema in properties.items():
             if key not in data or not isinstance(field_schema, dict):
                 continue
-            field_type = field_schema.get("type")
-            if field_type and not matches_json_type(data[key], field_type):
-                raise ValueError(f"Agent output field '{key}' does not match schema type '{field_type}'")
+            validate_value_schema(data[key], field_schema, key)
+
+def validate_value_schema(value: Any, schema: Dict[str, Any], path: str) -> None:
+    expected_type = schema.get("type")
+    if expected_type and not matches_json_type(value, expected_type):
+        raise ValueError(f"Agent output field '{path}' does not match schema type '{expected_type}'")
+
+    if isinstance(value, dict):
+        for key in schema.get("required", []):
+            if key not in value:
+                raise ValueError(f"Agent output field '{path}' missing required schema field '{key}'")
+        properties = schema.get("properties", {})
+        for key, field_schema in properties.items():
+            if key not in value or not isinstance(field_schema, dict):
+                continue
+            validate_value_schema(value[key], field_schema, f"{path}.{key}")
+
+    if isinstance(value, list) and isinstance(schema.get("items"), dict):
+        item_schema = schema["items"]
+        for index, item in enumerate(value):
+            validate_value_schema(item, item_schema, f"{path}[{index}]")
 
 def matches_json_type(value: Any, expected_type: Any) -> bool:
     """

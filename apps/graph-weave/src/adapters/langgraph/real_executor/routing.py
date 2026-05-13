@@ -1,0 +1,69 @@
+import re
+import logging
+from typing import Any, Dict, List, Optional
+from .events import emit_event
+
+logger = logging.getLogger(__name__)
+
+def route_by_edge(
+    executor: Any,
+    run_id: str,
+    workflow: Dict[str, Any],
+    current_node_id: str,
+    state: Dict[str, Any]
+) -> Optional[str]:
+    edges = normalize_edges(workflow.get("edges", []))
+    # Support both 'source' (standard) and 'from' (legacy) keys
+    matching_edges = [e for e in edges if (e.get("source") or e.get("from")) == current_node_id]
+    if not matching_edges:
+        return executor._find_exit_node(workflow)
+
+    target_node_id = None
+    routing_edge = None
+    for edge in matching_edges:
+        condition = edge.get("condition")
+        if not condition or executor._evaluate_condition(condition, state):
+            # Support both 'target' (standard) and 'to' (legacy) keys
+            target_node_id = edge.get("target") or edge.get("to")
+            routing_edge = edge
+            break
+
+    if not target_node_id and matching_edges:
+        target_node_id = matching_edges[0].get("target") or matching_edges[0].get("to")
+        routing_edge = matching_edges[0]
+
+    if target_node_id:
+        emit_event(executor, run_id, "edge_route", {
+            "from": current_node_id, 
+            "to": target_node_id, 
+            "condition": routing_edge.get("condition") if routing_edge else None
+        })
+    return target_node_id
+
+def normalize_edges(edges: Any) -> List[Dict[str, Any]]:
+    if edges is None:
+        return []
+    if not isinstance(edges, list):
+        raise ValueError("Workflow edges must be a list")
+
+    normalized: List[Dict[str, Any]] = []
+    pending = list(edges)
+    while pending:
+        edge = pending.pop(0)
+        if isinstance(edge, list):
+            pending = edge + pending
+            continue
+        if isinstance(edge, str):
+            normalized.append(parse_edge_string(edge))
+            continue
+        if not isinstance(edge, dict):
+            raise ValueError(f"Workflow edge must be an object, got {type(edge).__name__}")
+        normalized.append(edge)
+    return normalized
+
+def parse_edge_string(edge: str) -> Dict[str, Any]:
+    match = re.match(r"^\s*([A-Za-z_][A-Za-z0-9_-]*)\s*(?:->|=>|to)\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$", edge)
+    if not match:
+        raise ValueError(f"Workflow edge string must use 'from -> to' syntax, got {edge!r}")
+    source, target = match.groups()
+    return {"from": source, "to": target}
