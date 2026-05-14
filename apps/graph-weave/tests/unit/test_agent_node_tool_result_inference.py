@@ -1,4 +1,5 @@
 from src.adapters.langgraph.nodes.agent import AgentNodeHandler
+from src.adapters.langgraph.nodes.agent.tool_utils import validate_command_contract
 
 
 class DummyExecutor:
@@ -47,6 +48,18 @@ class DummyProviderFactory:
         return self.client
 
 
+class CaptureClient:
+    def __init__(self):
+        self.kwargs = None
+
+    def chat_completion(self, **kwargs):
+        self.kwargs = kwargs
+        return {
+            "choices": [{"message": {"content": '{"ok": true}'}}],
+            "usage": {"total_tokens": 1},
+        }
+
+
 class DummyClient:
     def __init__(self):
         self.calls = 0
@@ -77,6 +90,24 @@ class DummyClient:
             ],
             "usage": {"total_tokens": 1},
         }
+
+
+class NullModelConfigExecutor(DummyExecutor):
+    def _get_state_value(self, path, state):
+        if path == "$.entry.provider":
+            return None
+        if path == "$.entry.model":
+            return None
+        if path == "$.entry.reasoning_effort":
+            return None
+        return super()._get_state_value(path, state)
+
+    def _interpolate_prompt(self, template, state, local_context=None):
+        if template in {"{provider}", "{model}", "{reasoning_effort}"}:
+            key = template.strip("{}")
+            value = (local_context or {}).get(key)
+            return "" if value is None else str(value)
+        return super()._interpolate_prompt(template, state, local_context)
 
 
 class EnvelopeClient:
@@ -128,6 +159,40 @@ def test_infer_generic_fields_from_successful_bash_stdout():
     assert result["tool_stdout"] == "CREATED: /workspace/output.txt\nID: abc123\n"
 
 
+def test_blank_interpolated_provider_and_model_fall_back_to_defaults():
+    client = CaptureClient()
+    executor = NullModelConfigExecutor()
+    executor.ai_provider_factory = DummyProviderFactory(client)
+    handler = AgentNodeHandler(executor)
+
+    result = handler.execute(
+        "run-1",
+        {
+            "id": "node_builder",
+            "type": "agent_node",
+            "config": {
+                "system_prompt": "Return JSON.",
+                "user_prompt_template": "Build.",
+                "provider": "{provider}",
+                "model": "{model}",
+                "reasoning_effort": "{reasoning_effort}",
+                "input_mapping": {
+                    "provider": "$.entry.provider",
+                    "model": "$.entry.model",
+                    "reasoning_effort": "$.entry.reasoning_effort",
+                },
+            },
+        },
+        {"workflow_state": {}, "node_results": {}},
+        {},
+    )
+
+    assert result["result"] == {"ok": True}
+    assert client.kwargs["provider"] == executor.config.DEFAULT_PROVIDER
+    assert client.kwargs["model"] == executor.config.DEFAULT_MODEL
+    assert client.kwargs["reasoning_effort"] is None
+
+
 def test_applies_declared_tool_output_mapping():
     handler = AgentNodeHandler(DummyExecutor())
 
@@ -150,6 +215,70 @@ def test_applies_declared_tool_output_mapping():
     assert result["artifact_path"] == "/workspace/output.txt"
     assert result["artifact_paths"] == ["/workspace/output.txt"]
     assert result["domain_status"] == "processed"
+
+
+def test_missing_required_tool_output_mapping_marks_result_error():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._infer_result_from_tools(
+        [
+            {
+                "tool": "bash",
+                "status": "success",
+                "stdout": "total 8\n-rw-r--r-- script.sh\n",
+            }
+        ],
+        "",
+        {
+            "draft_paths": "$.stdout_fields.draft_paths",
+            "status": {"type": "constant", "value": "processed"},
+        },
+    )
+
+    assert result["status"] == "error"
+    assert result["missing_mapped_fields"] == ["draft_paths"]
+
+
+def test_complete_after_tool_calls_fails_when_required_tool_mapping_is_missing():
+    class ListingRouter(DummyRouter):
+        def execute_tool(self, name, args):
+            return {
+                "tool": name,
+                "command": args.get("command"),
+                "status": "success",
+                "stdout": "total 8\n-rw-r--r-- create_drafts_from_json.sh\n",
+                "stderr": "",
+            }
+
+    executor = DummyExecutor()
+    executor.mcp_router = ListingRouter()
+    handler = AgentNodeHandler(executor)
+
+    try:
+        handler.execute(
+            "run-1",
+            {
+                "id": "script_step",
+                "type": "agent_node",
+                "config": {
+                    "system_prompt": "Use bash.",
+                    "user_prompt_template": "Run the draft creation script.",
+                    "tools": ["bash"],
+                    "complete_after_tool_calls": True,
+                    "tool_output_mapping": {
+                        "draft_paths": "$.stdout_fields.draft_paths",
+                        "ideas_count": "$.stdout_fields.draft_count",
+                        "status": {"type": "constant", "value": "processed"},
+                    },
+                },
+            },
+            {"workflow_state": {}, "node_results": {}},
+            {},
+        )
+    except ValueError as exc:
+        assert "missing_mapped_fields=draft_paths,ideas_count" in str(exc)
+    else:
+        raise AssertionError("Expected missing mapped draft output to fail the agent node")
 
 
 def test_complete_after_tool_calls_returns_mapped_tool_result_without_extra_llm_turn():
@@ -293,6 +422,120 @@ def test_tool_args_allow_non_template_braces():
     )
 
 
+def test_command_contract_rejects_missing_required_substring():
+    try:
+        validate_command_contract(
+            "bash create_source_card.sh --source-kind note",
+            {
+                "required_command_substrings": [
+                    "Persona/90_meta/02_scripts/agent/create_source_card.sh"
+                ]
+            },
+            "create_source_card",
+        )
+    except ValueError as exc:
+        assert "missing required substrings" in str(exc)
+    else:
+        raise AssertionError("Expected missing required command substring to fail")
+
+
+def test_command_contract_rejects_forbidden_substring():
+    try:
+        validate_command_contract(
+            "bash Persona/90_meta/02_scripts/agent/create_source_card.sh --source_type note",
+            {
+                "forbidden_command_substrings": ["--source_type"],
+            },
+            "create_source_card",
+        )
+    except ValueError as exc:
+        assert "forbidden substrings: --source_type" in str(exc)
+    else:
+        raise AssertionError("Expected forbidden command substring to fail")
+
+
+def test_command_contract_rejects_forbidden_command():
+    try:
+        validate_command_contract(
+            "find . -name create_drafts_from_json.sh -type f",
+            {"forbidden_commands": ["find", "ls", "cat", "grep"]},
+            "validate_and_create_drafts",
+        )
+    except ValueError as exc:
+        assert "forbidden command 'find'" in str(exc)
+    else:
+        raise AssertionError("Expected forbidden command to fail")
+
+
+def test_command_contract_rejects_forbidden_command_after_shell_operator():
+    try:
+        validate_command_contract(
+            "bash script.sh || find . -name script.sh",
+            {"forbidden_commands": ["find", "ls", "cat", "grep"]},
+            "script_step",
+        )
+    except ValueError as exc:
+        assert "forbidden command 'find'" in str(exc)
+    else:
+        raise AssertionError("Expected forbidden command after shell operator to fail")
+
+
+def test_command_contract_rejects_empty_required_flag_value():
+    try:
+        validate_command_contract(
+            "bash script.sh --title T --url '' --summary S",
+            {"required_non_empty_flags": ["--url"]},
+            "create_source_card",
+        )
+    except ValueError as exc:
+        assert "empty required flag values: --url" in str(exc)
+    else:
+        raise AssertionError("Expected empty required flag value to fail")
+
+
+def test_command_contract_accepts_required_flag_equals_value():
+    validate_command_contract(
+        "bash script.sh --url=https://example.com --summary S",
+        {"required_non_empty_flags": ["--url"]},
+        "create_source_card",
+    )
+
+
+def test_command_contract_validates_required_flag_without_parsing_unrelated_quotes():
+    validate_command_contract(
+        (
+            'bash script.sh --title "Agile Inception Deck" '
+            '--url "https://agilewarrior.wordpress.com/2010/11/06/the-agile-inception-deck/" '
+            '--summary "\'The deck communicates the project\'"\'"\'"\'s requirements."'
+        ),
+        {"required_non_empty_flags": ["--url"]},
+        "create_source_card",
+    )
+
+
+def test_command_contract_accepts_matching_command():
+    validate_command_contract(
+        (
+            "bash Persona/90_meta/02_scripts/agent/create_drafts_from_json.sh "
+            "--source-id src-1 --origin-type note --source-refs card.md "
+            "--ideas-json '[]' --summary S --tags t"
+        ),
+        {
+            "required_command_substrings": [
+                "Persona/90_meta/02_scripts/agent/create_drafts_from_json.sh",
+                "--source-id",
+                "--origin-type",
+                "--source-refs",
+                "--ideas-json",
+                "--summary",
+                "--tags",
+            ],
+            "forbidden_commands": ["find", "ls", "cat", "grep"],
+        },
+        "validate_and_create_drafts",
+    )
+
+
 def test_extract_json_from_prefaced_content():
     handler = AgentNodeHandler(DummyExecutor())
 
@@ -401,6 +644,24 @@ def test_legacy_result_confidence_schema_accepts_flat_json():
     )
 
 
+def test_legacy_result_confidence_schema_unwraps_inner_result():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._coerce_to_output_schema(
+        {"result": {"title": "A note", "source_type": "note"}, "confidence": 1},
+        {
+            "type": "object",
+            "properties": {
+                "result": {"type": "object"},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            },
+            "required": ["result", "confidence"],
+        },
+    )
+
+    assert result == {"title": "A note", "source_type": "note"}
+
+
 def test_coerce_output_schema_unwraps_result_envelope():
     handler = AgentNodeHandler(DummyExecutor())
 
@@ -414,6 +675,78 @@ def test_coerce_output_schema_unwraps_result_envelope():
     )
 
     assert result == {"nodes": [{"id": "entry", "type": "entry"}]}
+
+
+def test_coerce_output_schema_finds_required_fields_in_nested_payload():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._coerce_to_output_schema(
+        {"nodes_definition": {"nodes": [{"id": "entry", "type": "entry"}]}},
+        {
+            "type": "object",
+            "properties": {"nodes": {"type": "array"}},
+            "required": ["nodes"],
+        },
+    )
+
+    assert result == {"nodes": [{"id": "entry", "type": "entry"}]}
+
+
+def test_coerce_output_schema_wraps_result_array_for_single_required_field():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._coerce_to_output_schema(
+        {"result": [{"id": "entry", "type": "entry"}]},
+        {
+            "type": "object",
+            "properties": {"nodes": {"type": "array"}},
+            "required": ["nodes"],
+        },
+    )
+
+    assert result == {"nodes": [{"id": "entry", "type": "entry"}]}
+
+
+def test_coerce_output_schema_wraps_nested_json_string_for_single_required_field():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._coerce_to_output_schema(
+        {"payload": {"nodes_json": '[{"id": "entry", "type": "entry"}]'}},
+        {
+            "type": "object",
+            "properties": {"nodes": {"type": "array"}},
+            "required": ["nodes"],
+        },
+    )
+
+    assert result == {"nodes": [{"id": "entry", "type": "entry"}]}
+
+
+def test_coerce_output_schema_parses_stringified_nested_object_field():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._coerce_to_output_schema(
+        {
+            "is_valid": False,
+            "errors": [],
+            "generated_workflow": "{\"name\":\"workflow\",\"nodes\":[]}",
+        },
+        {
+            "type": "object",
+            "properties": {
+                "is_valid": {"type": "boolean"},
+                "errors": {"type": "array"},
+                "generated_workflow": {"type": "object"},
+            },
+            "required": ["is_valid", "generated_workflow"],
+        },
+    )
+
+    assert result == {
+        "is_valid": False,
+        "errors": [],
+        "generated_workflow": {"name": "workflow", "nodes": []},
+    }
 
 
 def test_agent_execute_accepts_result_envelope_when_inner_object_matches_schema():

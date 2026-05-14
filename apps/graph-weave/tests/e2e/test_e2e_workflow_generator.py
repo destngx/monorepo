@@ -93,6 +93,28 @@ class TestWorkflowGeneratorE2E:
         debug_log("EXEC", f"Run terminal: status={final['status']}, run_id={run_id}")
         return run_id, final
 
+    @staticmethod
+    def _assert_linear_chain(workflow: dict) -> None:
+        edges = workflow.get("edges", [])
+        node_ids = [node["id"] for node in workflow.get("nodes", [])]
+        if not node_ids:
+            raise AssertionError("Workflow has no nodes")
+
+        incoming = {node_id: 0 for node_id in node_ids}
+        outgoing = {node_id: 0 for node_id in node_ids}
+        for edge in edges:
+            incoming[edge["to"]] = incoming.get(edge["to"], 0) + 1
+            outgoing[edge["from"]] = outgoing.get(edge["from"], 0) + 1
+
+        processing_nodes = [node_id for node_id in node_ids if node_id not in {"entry", "exit"}]
+        assert incoming.get("entry", 0) == 0
+        assert outgoing.get("exit", 0) == 0
+        assert incoming.get(processing_nodes[0], 0) == 1
+        assert outgoing.get(processing_nodes[-1], 0) == 1
+        for node_id in processing_nodes:
+            assert incoming.get(node_id, 0) == 1, f"{node_id} must have exactly one incoming edge"
+            assert outgoing.get(node_id, 0) == 1, f"{node_id} must have exactly one outgoing edge"
+
     def test_gen001_eks_diagnostic_intent_produces_valid_dag(self, client):
         """
         GW-FEAT-GEN-001: EKS diagnostic intent produces valid DAG.
@@ -115,6 +137,7 @@ class TestWorkflowGeneratorE2E:
         assert generated is not None
         assert "nodes" in generated and "edges" in generated
         assert len(generated["nodes"]) >= 3
+        self._assert_linear_chain(generated)
 
     def test_gen004_pkm_inbox_pipeline_intent(self, client):
         """
@@ -187,6 +210,7 @@ status, draft_paths, source_card_path
         assert any("classify" in nid for nid in node_ids), "Missing classify node"
         assert any("source_card" in nid for nid in node_ids), "Missing source card node"
         assert any("update" in nid for nid in node_ids), "Missing update node"
+        self._assert_linear_chain(generated)
 
         # Register the workflow to ensure it's valid for the PKM tenant
         pkm_tenant = "pkm"
@@ -314,4 +338,3 @@ status, draft_paths, source_card_path
         
         assert final["status"] == "completed", f"Generator failed: {final.get('errors')}"
         debug_log("TEST", "✓ test_gen005_xiaomi_mimo_thinking_partner PASSED")
-

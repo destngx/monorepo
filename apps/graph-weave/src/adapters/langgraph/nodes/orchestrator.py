@@ -43,6 +43,8 @@ class OrchestratorNodeHandler:
             config.model = self.executor._interpolate_prompt(config.model, state)
         if config.reasoning_effort:
             config.reasoning_effort = self.executor._interpolate_prompt(config.reasoning_effort, state)
+        else:
+            config.reasoning_effort = self.executor.config.DEFAULT_REASONING_EFFORT
 
         react = OrchestratorReAct(
             client=self.executor.ai_provider_factory.get_provider_client(

@@ -22,6 +22,17 @@ def handle_exit_node(
             logger.debug(f"Mapping {key} -> {path} resolved to: {type(val).__name__}")
             final_output[key] = val
         state["workflow_state"] = final_output
+
+    required_outputs = config.get("required_outputs") or node.get("required_outputs") or []
+    missing_outputs = []
+    for key in required_outputs:
+        value = state["workflow_state"].get(key)
+        if value is None or value == "" or value == []:
+            missing_outputs.append(key)
+    if missing_outputs:
+        raise ValueError(
+            "Exit node missing required outputs: " + ", ".join(missing_outputs)
+        )
     
     emit_event(executor, run_id, "workflow.completed", {
         "run_id": run_id, 

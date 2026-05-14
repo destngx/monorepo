@@ -7,7 +7,7 @@ from ....mcp import MCPRouter, ProviderConfigError
 from .placeholder_utils import validate_tool_args_resolved
 from .json_utils import extract_json, repair_schema_json
 from .schema_utils import coerce_to_output_schema, validate_output_schema
-from .tool_utils import infer_result_from_tools, format_tool_error
+from .tool_utils import infer_result_from_tools, format_tool_error, validate_command_contract
 
 logger = get_logger(__name__)
 
@@ -47,13 +47,27 @@ class AgentNodeHandler:
         user_prompt = self.executor._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
         system_prompt = self.executor._interpolate_prompt(system_prompt, state, local_context=agent_input_context)
         
-        provider_raw = get_field("provider", self.executor.config.DEFAULT_PROVIDER)
-        model_raw = get_field("model", self.executor.config.DEFAULT_MODEL)
-        reasoning_effort_raw = get_field("reasoning_effort")
+        default_provider = getattr(self.executor.config, "DEFAULT_PROVIDER", None)
+        default_model = getattr(self.executor.config, "DEFAULT_MODEL", None)
+        default_reasoning_effort = getattr(
+            self.executor.config,
+            "DEFAULT_REASONING_EFFORT",
+            None,
+        )
+
+        provider_raw = get_field("provider", default_provider)
+        model_raw = get_field("model", default_model)
+        reasoning_effort_raw = get_field("reasoning_effort", default_reasoning_effort)
         
         provider = self.executor._interpolate_prompt(provider_raw, state, local_context=agent_input_context)
         model = self.executor._interpolate_prompt(model_raw, state, local_context=agent_input_context)
+        if not str(provider or "").strip():
+            provider = default_provider
+        if not str(model or "").strip():
+            model = default_model
         reasoning_effort = self.executor._interpolate_prompt(reasoning_effort_raw, state, local_context=agent_input_context) if reasoning_effort_raw else None
+        if not str(reasoning_effort or "").strip():
+            reasoning_effort = default_reasoning_effort
         
         temperature = get_field("temperature", 0.7)
         max_tokens = get_field("max_tokens", 8000)
@@ -148,6 +162,12 @@ class AgentNodeHandler:
                     if tool_name == "bash" and "cwd" in config:
                         if "cwd" not in tool_args:
                             tool_args["cwd"] = config["cwd"]
+                    if tool_name == "bash":
+                        validate_command_contract(
+                            str(tool_args.get("command") or ""),
+                            get_field("command_contract"),
+                            node_id or "",
+                        )
 
                     try:
                         self.executor._emit_event(run_id, "tool.started", {"tool": tool_name, "id": tool_id, "input": tool_args})

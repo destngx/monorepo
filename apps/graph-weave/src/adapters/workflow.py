@@ -76,10 +76,6 @@ class RedisWorkflowStore:
 
     def get(self, tenant_id: str, workflow_id: str) -> Optional[Dict[str, Any]]:
         key = self.redis_client.workflow_key(workflow_id, tenant_id)
-        workflow = self.redis_client.get(key)
-        
-        if workflow:
-            return workflow
 
         # Check pre-defined workflows
         if workflow_id in PREDEFINED_WORKFLOWS:
@@ -88,12 +84,14 @@ class RedisWorkflowStore:
 
             if os.path.exists(resource_path):
                 try:
-                    logger.info(f"Lazy-loading pre-defined workflow '{workflow_id}' for tenant '{tenant_id}' to Redis")
+                    logger.info(f"Loading pre-defined workflow '{workflow_id}' for tenant '{tenant_id}' from bundled resource")
                     with open(resource_path, "r") as f:
                         definition = json.load(f)
                     
                     timestamp = datetime.utcnow().isoformat() + "Z"
+                    existing_workflow = self.redis_client.get(key) or {}
                     workflow_data = {
+                        **existing_workflow,
                         "tenant_id": tenant_id,
                         "workflow_id": workflow_id,
                         "name": definition.get("name", "Pre-defined Workflow"),
@@ -114,6 +112,10 @@ class RedisWorkflowStore:
                     return workflow_data
                 except Exception as e:
                     logger.error(f"Failed to lazy-load pre-defined workflow '{workflow_id}': {e}")
+
+        workflow = self.redis_client.get(key)
+        if workflow:
+            return workflow
             
         return None
 

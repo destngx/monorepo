@@ -7,16 +7,103 @@ def format_tool_error(inferred_result: Dict[str, Any]) -> str:
     """
     tool_results = inferred_result.get("tool_results", [])
     latest = tool_results[-1] if tool_results else {}
+    missing_mapped_fields = inferred_result.get("missing_mapped_fields") or []
     parts = [
         "Tool execution failed",
         f"tool={latest.get('tool')}" if latest.get("tool") else "",
         f"command={latest.get('command')}" if latest.get("command") else "",
         f"exit_code={latest.get('exit_code')}" if latest.get("exit_code") is not None else "",
+        f"missing_mapped_fields={','.join(missing_mapped_fields)}" if missing_mapped_fields else "",
         f"error={latest.get('error')}" if latest.get("error") else "",
         f"stderr={latest.get('stderr')}" if latest.get("stderr") else "",
         f"stdout={latest.get('stdout')}" if latest.get("stdout") else "",
     ]
     return "; ".join(part for part in parts if part)
+
+def validate_command_contract(command: str, contract: Optional[Dict[str, Any]], node_id: str = "") -> None:
+    """
+    Validates a shell command against a generic workflow-defined contract.
+    """
+    if not contract:
+        return
+
+    command = str(command or "")
+    if not command:
+        return
+
+    forbidden_commands = contract.get("forbidden_commands") or []
+    for forbidden_command in forbidden_commands:
+        pattern = rf"(^|[;&|]\s*){re.escape(str(forbidden_command))}\b"
+        if re.search(pattern, command.strip()):
+            raise ValueError(
+                f"Node '{node_id}' command uses forbidden command '{forbidden_command}'. "
+                f"Got command: {command}"
+            )
+
+    forbidden_patterns = contract.get("forbidden_command_patterns") or []
+    for pattern in forbidden_patterns:
+        if re.search(pattern, command):
+            raise ValueError(
+                f"Node '{node_id}' command matches forbidden pattern '{pattern}'. "
+                f"Got command: {command}"
+            )
+
+    required_substrings = contract.get("required_command_substrings") or []
+    missing = [value for value in required_substrings if value not in command]
+    if missing:
+        raise ValueError(
+            f"Node '{node_id}' command is missing required substrings: {', '.join(missing)}. "
+            f"Got command: {command}"
+        )
+
+    forbidden_substrings = contract.get("forbidden_command_substrings") or []
+    present = [value for value in forbidden_substrings if value in command]
+    if present:
+        raise ValueError(
+            f"Node '{node_id}' command contains forbidden substrings: {', '.join(present)}. "
+            f"Got command: {command}"
+        )
+
+    required_non_empty_flags = contract.get("required_non_empty_flags") or []
+    if required_non_empty_flags:
+        missing_values = []
+        for flag in required_non_empty_flags:
+            flag = str(flag)
+            value = extract_shell_flag_value(command, flag)
+            if value is None or value == "" or value.startswith("--"):
+                missing_values.append(flag)
+
+        if missing_values:
+            raise ValueError(
+                f"Node '{node_id}' command has empty required flag values: {', '.join(missing_values)}. "
+                f"Got command: {command}"
+            )
+
+def extract_shell_flag_value(command: str, flag: str) -> Optional[str]:
+    """
+    Extracts a shell flag value without parsing the entire command.
+
+    This intentionally avoids shlex.split(command), because generated commands may
+    contain complex quoting in unrelated arguments. Contract validation should
+    only validate the local flag it cares about.
+    """
+    flag_pattern = re.escape(flag)
+    match = re.search(
+        rf"(^|\s){flag_pattern}(?:=(?P<eq>\S*)|\s+(?P<value>\"[^\"]*\"|'[^']*'|\S+))",
+        command,
+        re.DOTALL,
+    )
+    if not match:
+        return None
+
+    value = match.group("eq") if match.group("eq") is not None else match.group("value")
+    if value is None:
+        return None
+
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
 
 def infer_result_from_tools(
     tool_results: List[Dict[str, Any]],
@@ -46,10 +133,17 @@ def infer_result_from_tools(
         "raw_response": final_content or stdout,
     }
 
+    missing_mapped_fields: List[str] = []
     for key, spec in (tool_output_mapping or {}).items():
-        output[key] = resolve_tool_output_spec(spec, output)
+        value = resolve_tool_output_spec(spec, output)
+        output[key] = value
+        if value is None and is_required_tool_output_mapping(spec):
+            missing_mapped_fields.append(key)
 
-    if execution_status == "error":
+    if missing_mapped_fields:
+        output["missing_mapped_fields"] = missing_mapped_fields
+        output["status"] = "error"
+    elif execution_status == "error":
         output["status"] = "error"
 
     return output
@@ -101,6 +195,20 @@ def resolve_tool_output_spec(spec: Any, output: Dict[str, Any]) -> Any:
         return value if isinstance(value, list) else [value]
 
     return None
+
+def is_required_tool_output_mapping(spec: Any) -> bool:
+    """
+    Returns whether a tool output mapping must resolve to a real value.
+    """
+    if isinstance(spec, str):
+        return spec.startswith("$.")
+    if not isinstance(spec, dict):
+        return False
+    if spec.get("type") == "constant":
+        return False
+    if spec.get("required") is False:
+        return False
+    return True
 
 def resolve_dict_path(current: Any, keys: List[str]) -> Any:
     """

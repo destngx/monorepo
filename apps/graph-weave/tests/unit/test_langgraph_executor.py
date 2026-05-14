@@ -253,6 +253,70 @@ class TestMockLangGraphExecutorStateValueExtraction:
             {"title": "Idea 2", "content": "Second"},
         ]
 
+    def test_get_state_value_json_suffix_normalizes_existing_json_string(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        state = {
+            "node_results": {
+                "validate_ideas": {
+                    "result": {
+                        "validated_ideas_json": "[\"First\", \"Second\"]",
+                    }
+                }
+            }
+        }
+
+        value = executor._get_state_value("$.validate_ideas.result.validated_ideas_json_json", state)
+
+        assert json.loads(value) == ["First", "Second"]
+
+    def test_get_state_value_resolves_base_field_from_json_field(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        state = {
+            "node_results": {
+                "validate_ideas": {
+                    "result": {
+                        "validated_sources_json": "[\"https://example.com\"]",
+                    }
+                }
+            }
+        }
+
+        value = executor._get_state_value("$.validate_ideas.result.validated_sources", state)
+
+        assert value == ["https://example.com"]
+
+    def test_get_state_value_resolves_json_field_from_base_field(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        state = {
+            "node_results": {
+                "validate_ideas": {
+                    "result": {
+                        "validated_sources": ["https://example.com"],
+                    }
+                }
+            }
+        }
+
+        value = executor._get_state_value("$.validate_ideas.result.validated_sources_json", state)
+
+        assert json.loads(value) == ["https://example.com"]
+
+    def test_get_state_value_shell_suffix_quotes_structured_values_as_json(self, mock_mcp_router):
+        executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
+        state = {
+            "node_results": {
+                "validate_ideas": {
+                    "result": {
+                        "validated_sources": ["https://example.com/a path"],
+                    }
+                }
+            }
+        }
+
+        value = executor._get_state_value("$.validate_ideas.result.validated_sources_shell", state)
+
+        assert value == "'[\"https://example.com/a path\"]'"
+
     def test_get_state_value_applies_joined_suffix_to_nested_path(self, mock_mcp_router):
         executor = MockLangGraphExecutor(mcp_router=mock_mcp_router)
         state = {

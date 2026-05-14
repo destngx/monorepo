@@ -1,8 +1,12 @@
 import re
 import shlex
-import json
 import logging
 from typing import Any, Dict, List, Mapping, Optional
+from src.adapters.langgraph.utils.json_value_utils import (
+    json_stringify_normalized,
+    parse_json_string_if_needed,
+    structured_arg_string,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,9 +140,9 @@ def get_state_value(path: Any, state: Mapping[str, Any], handle_function_mapping
         elif virtual_transform == "first" and isinstance(res, list) and len(res) > 0:
             res = res[0]
         elif virtual_transform == "sh_quote":
-            res = shlex.quote(str(res))
+            res = shlex.quote(structured_arg_string(res))
         elif virtual_transform == "json_quote":
-            res = json.dumps(res)
+            res = json_stringify_normalized(res)
         
         return res
 
@@ -171,8 +175,15 @@ def resolve_path(current: Any, keys: List[str]) -> Any:
                     return None
             else:
                 return None
-        elif isinstance(current, dict) and key in current:
-            current = current[key]
+        elif isinstance(current, dict):
+            if key in current:
+                current = current[key]
+            elif f"{key}_json" in current:
+                current = parse_json_string_if_needed(current[f"{key}_json"])
+            elif key.endswith("_json") and key[:-5] in current:
+                current = json_stringify_normalized(current[key[:-5]])
+            else:
+                return None
         elif isinstance(current, list) and key.isdigit():
             idx = int(key)
             if idx < len(current):

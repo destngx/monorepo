@@ -192,9 +192,9 @@
     },
     {
       "from": "validation_gate",
-      "to": "planner",
+      "to": "exit",
       "condition": "$.assembly_result.is_valid == false",
-      "config": { "label": "Retry" }
+      "config": { "label": "Invalid" }
     }
   ],
   "entry_point": "entry",
