@@ -37,7 +37,7 @@ def test_fetch_success_html(mock_client_class, web_tool):
     assert result["success"] is True
     assert result["status_code"] == 200
     # Text extraction check: script should be removed, tags removed, whitespace cleaned
-    assert result["content"] == "Hello World"
+    assert result["content"] == "Hello\nWorld"
     assert result["content_type"] == "text/html"
 
 @patch("httpx.Client")
@@ -175,5 +175,6 @@ def test_extract_text_from_html(web_tool):
     assert "Nav" not in text
     assert "Footer" not in text
     assert "Title" in text
+    # The new extractor might add newlines/extra whitespace between words but the content should be there
     assert "Paragraph with space and <tag>." in text
     assert "console.log" not in text

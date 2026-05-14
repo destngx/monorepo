@@ -10,3 +10,5 @@ requests
 apscheduler
 croniter
 tenacity
+beautifulsoup4
+lxml
