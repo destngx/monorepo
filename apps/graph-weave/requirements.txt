@@ -12,3 +12,4 @@ croniter
 tenacity
 beautifulsoup4
 lxml
+psutil
