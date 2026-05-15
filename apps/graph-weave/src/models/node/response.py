@@ -30,3 +30,5 @@ class NodeResponse(BaseModel):
 class NodeListResponse(BaseModel):
     nodes: List[NodeResponse]
     total: int
+    page: int = 1
+    page_size: int = 20

@@ -12,8 +12,10 @@ from .tools import (
     handle_verify,
     handle_bash,
     handle_fs,
-    handle_fetch
+    handle_fetch,
+    handle_node_registry
 )
+from .tools.node_registry import NodeRegistryTool
 from .registry import ToolRegistry
 
 logger = get_logger(__name__)
@@ -24,8 +26,10 @@ class MCPRouter:
     def __init__(
         self,
         registry: Optional[ToolRegistry] = None,
+        node_store: Optional[Any] = None,
     ):
         self.registry = registry or ToolRegistry()
+        self.node_store = node_store
         
         # Workspace root for tools
         workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
@@ -49,6 +53,11 @@ class MCPRouter:
         # WebTool initialization
         from .tools.web import WebTool
         self.web_tool = WebTool()
+
+        # NodeRegistryTool initialization
+        self.node_registry_tool = None
+        if self.node_store:
+            self.node_registry_tool = NodeRegistryTool(self.node_store)
 
     def get_tool_definitions(
         self, allowed_tools: Optional[List[str]] = None
@@ -91,6 +100,10 @@ class MCPRouter:
                 return self.fs(operation, **args)
             elif name == "fetch":
                 return self.fetch(arguments.get("url", ""), arguments.get("method", "GET"), arguments.get("headers"))
+            elif name == "node_registry":
+                args = dict(arguments)
+                operation = args.pop("operation", "")
+                return self.node_registry(operation, **args)
 
             # Fallback to direct registry call
             return self.registry.call_tool(name, arguments)
@@ -118,6 +131,11 @@ class MCPRouter:
 
     def fetch(self, url: str, method: str = "GET", headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         return handle_fetch(self.web_tool, url, method, headers)
+
+    def node_registry(self, operation: str, **kwargs) -> Dict[str, Any]:
+        if not self.node_registry_tool:
+             raise ToolExecutionError("Node registry tool is not initialized (no node_store provided)")
+        return handle_node_registry(self.node_registry_tool, operation, **kwargs)
 
     def parse_tool_calls(
         self, response_text: str, allowed_tools: Optional[List[str]] = None

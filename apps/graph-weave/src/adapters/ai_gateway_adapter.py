@@ -3,9 +3,19 @@ import logging
 from src.app_logging import get_logger
 from typing import Dict, Any, List, Optional, Union
 import httpx
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 logger = get_logger(__name__)
+
+RETRYABLE_GATEWAY_STATUSES = {429, 502, 503, 504}
+
+
+def is_retryable_gateway_error(exc: BaseException) -> bool:
+    if isinstance(exc, (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.RemoteProtocolError)):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in RETRYABLE_GATEWAY_STATUSES
+    return False
 
 class AIGatewayClient:
     """
@@ -26,7 +36,7 @@ class AIGatewayClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.ConnectTimeout)),
+        retry=retry_if_exception(is_retryable_gateway_error),
         reraise=True
     )
     def chat_completion(
@@ -95,4 +105,3 @@ class AIGatewayClient:
         except Exception as exc:
             logger.error(f"Unexpected error during AI Gateway call: {exc}")
             raise
-

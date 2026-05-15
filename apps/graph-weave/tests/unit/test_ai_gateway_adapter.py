@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from src.adapters.ai_gateway_adapter import AIGatewayClient
+from src.adapters.ai_gateway_adapter import AIGatewayClient, is_retryable_gateway_error
 import httpx
 
 
@@ -76,3 +76,39 @@ def test_chat_completion_error_handling(mock_post):
 
     with pytest.raises(httpx.HTTPStatusError):
         client.chat_completion(messages=[], provider="test", model="test")
+
+
+@patch("httpx.Client.post")
+def test_chat_completion_retries_transient_gateway_error(mock_post):
+    retry_response = MagicMock()
+    retry_response.status_code = 502
+    retry_response.text = (
+        'ERROR HTTP Error rid=632a0e67 status=502 message=Post '
+        '"https://token-plan-sgp.xiaomimimo.com/v1/chat/completions": '
+        "context deadline exceeded"
+    )
+    retry_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "502 Error", request=MagicMock(), response=retry_response
+    )
+
+    success_response = MagicMock()
+    success_response.status_code = 200
+    success_response.json.return_value = {
+        "choices": [{"message": {"role": "assistant", "content": "Recovered"}}]
+    }
+
+    mock_post.side_effect = [retry_response, success_response]
+
+    client = AIGatewayClient(base_url="http://test-gateway/v1")
+    result = client.chat_completion(messages=[], provider="test", model="test")
+
+    assert result["choices"][0]["message"]["content"] == "Recovered"
+    assert mock_post.call_count == 2
+
+
+def test_gateway_502_is_retryable():
+    response = MagicMock()
+    response.status_code = 502
+    exc = httpx.HTTPStatusError("502 Error", request=MagicMock(), response=response)
+
+    assert is_retryable_gateway_error(exc) is True

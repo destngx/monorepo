@@ -13,3 +13,4 @@ tenacity
 beautifulsoup4
 lxml
 psutil
+nest-asyncio

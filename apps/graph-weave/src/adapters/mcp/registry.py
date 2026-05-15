@@ -100,6 +100,29 @@ class ToolRegistry:
                     "required": ["claim"]
                 }
             },
+            "node_registry": {
+                "name": "node_registry",
+                "description": "Interact with the Node Registry to search, retrieve, and resolve node definitions.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "operation": {
+                            "type": "string",
+                            "enum": ["search_nodes", "get_node", "find_compatible", "create_node", "list_current", "resolve_steps"],
+                            "description": "The operation to perform"
+                        },
+                        "query": {"type": "string", "description": "Search query for nodes"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Filter by tags"},
+                        "node_name": {"type": "string", "description": "Filter by node name"},
+                        "node_id": {"type": "string", "description": "Exact node ID (for get_node)"},
+                        "required_version": {"type": "string", "description": "Required version (for find_compatible)"},
+                        "node_data": {"type": "object", "description": "Node data (for create_node)"},
+                        "steps": {"type": "array", "items": {"type": "object"}, "description": "Intent-analysis steps (for resolve_steps)"},
+                        "page_size": {"type": "integer", "description": "Maximum nodes to inspect"}
+                    },
+                    "required": ["operation"]
+                }
+            },
         }
 
     def list_tools(self) -> List[Dict[str, Any]]:

@@ -97,6 +97,19 @@ class WorkflowCreate(BaseModel):
             raise ValueError(
                 f"workflow definition missing required fields: {', '.join(sorted(missing_fields))}"
             )
+        nodes = v.get("nodes")
+        if not isinstance(nodes, list) or not nodes:
+            raise ValueError("workflow definition nodes must be a non-empty array")
+
+        for node in nodes:
+            if not isinstance(node, dict):
+                raise ValueError("workflow definition nodes must be JSON objects")
+            node_type = node.get("type")
+            if node_type not in {"entry", "exit"} and not node.get("node_id"):
+                node_label = node.get("alias") or node.get("id") or "<unknown>"
+                raise ValueError(
+                    f"workflow node '{node_label}' missing node_id for compositional workflow"
+                )
         return v
 
     @model_validator(mode="after")

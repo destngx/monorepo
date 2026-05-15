@@ -76,6 +76,54 @@ class AgentNodeHandler:
         allow_tool_errors = bool(get_field("allow_tool_errors", False))
         output_schema = get_field("output_schema")
 
+        def fallback_schema_result() -> Optional[Dict[str, Any]]:
+            if node_id != "node_resolver" or not output_schema:
+                return None
+            if output_schema.get("required") != ["nodes"]:
+                return None
+
+            workflow_state = state.get("workflow_state", {})
+            intent_analysis = workflow_state.get("intent_analysis") or state.get("intent_analysis") or {}
+            steps = intent_analysis.get("steps", [])
+            if not isinstance(steps, list) or not steps:
+                return None
+
+            nodes = []
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                alias = step.get("step_id")
+                if not alias:
+                    continue
+                nodes.append(
+                    {
+                        "alias": alias,
+                        "status": "missing",
+                        "node_id": None,
+                        "suggestion": {
+                            "node_name": alias,
+                            "description": step.get("description") or step.get("purpose") or "",
+                            "type": step.get("type") or "agent_node",
+                            "capabilities": step.get("capabilities") or [],
+                            "intent_context": step.get("purpose") or step.get("description") or "",
+                        },
+                    }
+                )
+
+            if not nodes:
+                return None
+            return {"nodes": nodes}
+
+        def coerce_or_fallback(data: Any) -> Any:
+            try:
+                return coerce_to_output_schema(data, output_schema)
+            except ValueError:
+                fallback = fallback_schema_result()
+                if fallback is None:
+                    raise
+                self._logger.warning(f"[AGENT] Using deterministic schema fallback for {node_id}")
+                return coerce_to_output_schema(fallback, output_schema)
+
         try:
             client = self.executor.ai_provider_factory.get_provider_client(provider, model)
             messages = [
@@ -192,7 +240,7 @@ class AgentNodeHandler:
 
             if json_data is not None:
                 try:
-                    result_data = coerce_to_output_schema(json_data, output_schema)
+                    result_data = coerce_or_fallback(json_data)
                     self._logger.debug(f"[AGENT] Successfully parsed JSON from {node_id}")
                 except ValueError as validation_error:
                     if not output_schema:
@@ -209,7 +257,7 @@ class AgentNodeHandler:
                         bad_content=final_content,
                         validation_error=str(validation_error),
                     )
-                    result_data = coerce_to_output_schema(repaired, output_schema)
+                    result_data = coerce_or_fallback(repaired)
             else:
                 inferred_result = infer_result_from_tools(
                     tool_results,
@@ -219,8 +267,42 @@ class AgentNodeHandler:
                 if inferred_result is not None:
                     if inferred_result.get("status") == "error" and not allow_tool_errors:
                         raise ValueError(format_tool_error(inferred_result))
-                    result_data = inferred_result
-                    self._logger.info(f"[AGENT] Inferred structured result for {node_id} from tool output")
+                    if output_schema:
+                        if get_field("tool_output_mapping", {}) or complete_after_tool_calls:
+                            try:
+                                result_data = coerce_or_fallback(inferred_result)
+                                self._logger.info(f"[AGENT] Inferred structured result for {node_id} from tool output")
+                            except ValueError as validation_error:
+                                repaired = repair_schema_json(
+                                    client=client,
+                                    messages=messages,
+                                    provider=provider,
+                                    model=model,
+                                    temperature=temperature,
+                                    max_tokens=max_tokens,
+                                    reasoning_effort=reasoning_effort,
+                                    output_schema=output_schema,
+                                    bad_content=json.dumps(inferred_result),
+                                    validation_error=str(validation_error),
+                                )
+                                result_data = coerce_or_fallback(repaired)
+                        else:
+                            repaired = repair_schema_json(
+                                client=client,
+                                messages=messages,
+                                provider=provider,
+                                model=model,
+                                temperature=temperature,
+                                max_tokens=max_tokens,
+                                reasoning_effort=reasoning_effort,
+                                output_schema=output_schema,
+                                bad_content=json.dumps(inferred_result),
+                                validation_error="Schema-bound agent returned tool metadata instead of its declared output.",
+                            )
+                            result_data = coerce_or_fallback(repaired)
+                    else:
+                        result_data = inferred_result
+                        self._logger.info(f"[AGENT] Inferred structured result for {node_id} from tool output")
                 elif output_schema:
                     repaired = repair_schema_json(
                         client=client,
@@ -233,7 +315,7 @@ class AgentNodeHandler:
                         output_schema=output_schema,
                         bad_content=final_content,
                     )
-                    result_data = coerce_to_output_schema(repaired, output_schema)
+                    result_data = coerce_or_fallback(repaired)
                 else:
                     result_data = {"raw_response": final_content}
                     self._logger.warning(f"[AGENT] Failed to parse JSON from {node_id}, using raw_response")

@@ -111,6 +111,26 @@ class RedisAdapter:
         data = self.client.hgetall(key)
         return {k: json.loads(v) for k, v in data.items()}
 
+    def sadd(self, key: str, *values: Any) -> int:
+        if not self.client:
+            return 0
+        return self.client.sadd(key, *[json.dumps(value) for value in values])
+
+    def smembers(self, key: str) -> set:
+        if not self.client:
+            return set()
+        return {json.loads(value) for value in self.client.smembers(key)}
+
+    def srem(self, key: str, *values: Any) -> int:
+        if not self.client:
+            return 0
+        return self.client.srem(key, *[json.dumps(value) for value in values])
+
+    def sinter(self, *keys: str) -> set:
+        if not self.client or not keys:
+            return set()
+        return {json.loads(value) for value in self.client.sinter(*keys)}
+
     def keys(self, pattern: str) -> List[str]:
         if not self.client:
             return []

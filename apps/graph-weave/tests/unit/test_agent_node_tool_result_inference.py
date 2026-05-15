@@ -137,6 +137,52 @@ class ErrorRouter(DummyRouter):
         }
 
 
+class SchemaRepairClient:
+    def __init__(self):
+        self.calls = 0
+
+    def chat_completion(self, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "id": "call-1",
+                                    "function": {
+                                        "name": "bash",
+                                        "arguments": '{"command": "echo lookup"}',
+                                    },
+                                }
+                            ],
+                        }
+                    }
+                ],
+                "usage": {"total_tokens": 1},
+            }
+        if self.calls == 2:
+            return {
+                "choices": [{"message": {"content": ""}}],
+                "usage": {"total_tokens": 1},
+            }
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"nodes":[{"alias":"normalize_input","status":"missing",'
+                            '"suggestion":{"node_name":"Input Normalizer"}}]}'
+                        )
+                    }
+                }
+            ],
+            "usage": {"total_tokens": 1},
+        }
+
+
 def test_infer_generic_fields_from_successful_bash_stdout():
     handler = AgentNodeHandler(DummyExecutor())
 
@@ -157,6 +203,55 @@ def test_infer_generic_fields_from_successful_bash_stdout():
         "id": "abc123",
     }
     assert result["tool_stdout"] == "CREATED: /workspace/output.txt\nID: abc123\n"
+
+
+def test_schema_bound_agent_repairs_inferred_tool_metadata():
+    client = SchemaRepairClient()
+    executor = DummyExecutor()
+    executor.ai_provider_factory = DummyProviderFactory(client)
+    handler = AgentNodeHandler(executor)
+
+    result = handler.execute(
+        "run-1",
+        {
+            "id": "node_resolver",
+            "type": "agent_node",
+            "config": {
+                "system_prompt": "Resolve nodes.",
+                "user_prompt_template": "Find compatible nodes.",
+                "tools": ["bash"],
+                "output_schema": {
+                    "type": "object",
+                    "required": ["nodes"],
+                    "properties": {
+                        "nodes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["alias", "status"],
+                                "properties": {
+                                    "alias": {"type": "string"},
+                                    "status": {"type": "string"},
+                                    "suggestion": {"type": "object"},
+                                },
+                            },
+                        }
+                    },
+                },
+            },
+        },
+        {"workflow_state": {}, "node_results": {}},
+        {},
+    )
+
+    assert client.calls == 3
+    assert result["result"]["nodes"] == [
+        {
+            "alias": "normalize_input",
+            "status": "missing",
+            "suggestion": {"node_name": "Input Normalizer"},
+        }
+    ]
 
 
 def test_blank_interpolated_provider_and_model_fall_back_to_defaults():
@@ -807,6 +902,32 @@ def test_output_schema_rejects_array_items_with_wrong_type():
         assert "object" in str(exc)
     else:
         raise AssertionError("Expected schema validation to reject string edge items")
+
+
+def test_output_schema_accepts_null_type_union():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    handler._validate_output_schema(
+        {"nodes": [{"alias": "fetch_url_content", "status": "missing", "node_id": None}]},
+        {
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "alias": {"type": "string"},
+                            "status": {"type": "string"},
+                            "node_id": {"type": ["string", "null"]},
+                        },
+                        "required": ["alias", "status"],
+                    },
+                }
+            },
+            "required": ["nodes"],
+        },
+    )
 
 
 def test_domain_schema_still_rejects_missing_required_field():

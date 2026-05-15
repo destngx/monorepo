@@ -31,10 +31,12 @@ class Services:
         self.workflow_store = RedisWorkflowStore(self.redis_client)
         self.checkpoint_service = CheckpointService(self.redis_client)
         self.checkpoint_store = RedisCheckpointStore(self.redis_client)
-
         self.thread_lifecycle_service = ThreadLifecycleService(self.redis_client)
-        
-        self.mcp_router = MCPRouter()
+
+        self.node_store = RedisNodeStore(self.redis_client)
+        self.node_validator = NodeValidator()
+
+        self.mcp_router = MCPRouter(node_store=self.node_store)
         self.executor = RealLangGraphExecutor(
             mcp_router=self.mcp_router,
             redis_client=self.redis_client,
@@ -43,8 +45,6 @@ class Services:
         )
 
         self.schedule_store = RedisScheduleStore(self.redis_client)
-        self.node_store = RedisNodeStore(self.redis_client)
-        self.node_validator = NodeValidator()
         
         # Execution handler for the scheduler
         def scheduler_execution_handler(tenant_id, workflow_id, input_data):

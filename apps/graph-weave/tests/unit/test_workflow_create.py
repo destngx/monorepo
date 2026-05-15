@@ -173,6 +173,35 @@ class TestWorkflowCreateValidation:
         )
         assert response.status_code == 422
 
+    def test_create_rejects_unresolved_compositional_node(self, client, cleanup_store):
+        """Reject workflow review JSON that still has node aliases without node_id."""
+        response = client.post(
+            "/workflows",
+            json={
+                "tenant_id": "test-tenant",
+                "workflow_id": "test-workflow:v1.0.0",
+                "name": "Test",
+                "version": "1.0.0",
+                "owner": "owner",
+                "definition": {
+                    "nodes": [
+                        {"id": "entry", "type": "entry", "config": {}},
+                        {"id": "normalize_input", "type": "agent_node"},
+                        {"id": "exit", "type": "exit", "config": {}},
+                    ],
+                    "edges": [
+                        {"from": "entry", "to": "normalize_input"},
+                        {"from": "normalize_input", "to": "exit"},
+                    ],
+                    "entry_point": "entry",
+                    "exit_point": "exit",
+                },
+            },
+        )
+
+        assert response.status_code == 422
+        assert "missing node_id" in response.text
+
 
 class TestWorkflowCreateUniqueness:
     """Test uniqueness enforcement for workflows."""

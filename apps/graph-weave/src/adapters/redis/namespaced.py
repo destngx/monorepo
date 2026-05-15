@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import threading
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List, Optional, Set
 from .upstash import UpstashRedisClient
 from .fallback import FallbackStorage
 from .circuit_breaker import CircuitBreaker, CircuitBreakerState
@@ -23,11 +25,25 @@ class NamespacedRedisClient:
         self,
         redis_client: UpstashRedisClient,
         fallback_storage: Optional[FallbackStorage] = None,
+        tenant_id: str = "default",
     ):
         self.redis_client = redis_client
         self.fallback_storage = fallback_storage or FallbackStorage()
         self.circuit_breaker = CircuitBreaker()
         self._lock = threading.Lock()
+        self.tenant_id = tenant_id
+
+    def node_key(self, node_id: str) -> str:
+        return f"nodes:{self.tenant_id}:{node_id}"
+
+    def node_index_key(self) -> str:
+        return f"nodes:{self.tenant_id}:index"
+
+    def node_name_key(self, node_name: str) -> str:
+        return f"nodes:{self.tenant_id}:name:{node_name}"
+
+    def node_tag_key(self, tag: str) -> str:
+        return f"nodes:{self.tenant_id}:tags:{tag}"
 
     @staticmethod
     def run_key(run_id: str, tenant_id: str) -> str:
@@ -86,8 +102,14 @@ class NamespacedRedisClient:
             "GET", lambda: self.redis_client.get(key), lambda: self.fallback_storage.get(key)
         )
 
-    def set(self, key: str, value: Any, ex: Optional[int] = None) -> bool:
+    def set(self, key: str, value: Any, ex: Optional[int] = None, nx: bool = False) -> bool:
         ttl = ex or self._get_ttl(key)
+        if nx:
+            return self._execute_with_fallback(
+                "SETNX",
+                lambda: self.redis_client.set(key, value, ex=ttl, nx=nx),
+                lambda: self.fallback_storage.set(key, value, ex=ttl),
+            )
         return self._execute_with_fallback(
             "SET",
             lambda: self.redis_client.set(key, value, ex=ttl),
@@ -138,7 +160,13 @@ class NamespacedRedisClient:
             "TTL", lambda: self.redis_client.ttl(key), lambda: self.fallback_storage.ttl(key)
         )
 
-    def hset(self, key: str, field: str, value: Any) -> int:
+    def hset(self, key: str, field: str = None, value: Any = None, mapping: dict = None) -> int:
+        if mapping:
+            return self._execute_with_fallback(
+                "HSET",
+                lambda: self.redis_client.hset(key, mapping=mapping),
+                lambda: self.fallback_storage.hset(key, mapping=mapping),
+            )
         return self._execute_with_fallback(
             "HSET",
             lambda: self.redis_client.hset(key, field, value),
@@ -225,3 +253,37 @@ class NamespacedRedisClient:
     def close(self):
         self.redis_client.close()
         self.fallback_storage.clear()
+
+    async def async_lock(self, key: str, timeout: int = 10) -> "AsyncRedisLock":
+        return AsyncRedisLock(self, key, timeout)
+
+
+class AsyncRedisLock:
+    """Distributed lock using Redis SETNX with async support."""
+
+    def __init__(self, client: NamespacedRedisClient, key: str, timeout: int = 10):
+        self.client = client
+        self.key = f"lock:{key}"
+        self.timeout = timeout
+        self._acquired = False
+
+    async def __aenter__(self):
+        await self.acquire()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.release()
+
+    async def acquire(self) -> bool:
+        start = time.time()
+        while time.time() - start < self.timeout:
+            if self.client.set(self.key, "1", nx=True, ex=self.timeout):
+                self._acquired = True
+                return True
+            await asyncio.sleep(0.1)
+        return False
+
+    async def release(self) -> None:
+        if self._acquired:
+            self.client.delete(self.key)
+            self._acquired = False

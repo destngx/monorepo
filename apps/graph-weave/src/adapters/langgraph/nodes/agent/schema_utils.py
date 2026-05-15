@@ -198,6 +198,7 @@ def matches_json_type(value: Any, expected_type: Any) -> bool:
         "boolean": bool,
         "integer": int,
         "number": (int, float),
+        "null": type(None),
     }
     python_type = type_map.get(expected_type)
     if python_type is None:

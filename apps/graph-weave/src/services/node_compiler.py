@@ -60,7 +60,7 @@ class WorkflowCompiler:
             if not stored_node:
                 raise WorkflowCompileError(f"Node {node_id} not found in registry")
 
-            config = stored_node.config.dict()
+            config = stored_node.config.model_dump()
             input_mapping = overrides.get("input_mapping", {})
             if input_mapping:
                 config["input_mapping"] = input_mapping
@@ -110,4 +110,95 @@ class WorkflowCompiler:
                 for err in edge_errors:
                     errors.append(f"Edge {edge['from']}→{edge['to']}: {err}")
 
+        return errors
+
+    def detect_cycles(self, workflow: dict) -> list[str]:
+        """Detect cycles in workflow edges."""
+        errors = []
+        edges = workflow.get("edges", [])
+        
+        # Build adjacency list
+        graph = {}
+        for edge in edges:
+            from_node = edge.get("from")
+            to_node = edge.get("to")
+            if from_node and to_node:
+                graph.setdefault(from_node, []).append(to_node)
+        
+        # DFS cycle detection
+        visited = set()
+        rec_stack = set()
+        path = []
+        
+        def dfs(node):
+            visited.add(node)
+            rec_stack.add(node)
+            path.append(node)
+            
+            for neighbor in graph.get(node, []):
+                if neighbor not in visited:
+                    if dfs(neighbor):
+                        return True
+                elif neighbor in rec_stack:
+                    # Cycle found
+                    cycle_start = path.index(neighbor)
+                    cycle = path[cycle_start:] + [neighbor]
+                    errors.append(f"Cycle detected: {' → '.join(cycle)}")
+                    return True
+            
+            path.pop()
+            rec_stack.remove(node)
+            return False
+        
+        for node in graph:
+            if node not in visited:
+                dfs(node)
+        
+        return errors
+
+    def validate_dag_structure(self, workflow: dict) -> list[str]:
+        """Validate workflow is a valid DAG (no cycles, all nodes reachable)."""
+        errors = []
+        
+        # Check for cycles
+        cycle_errors = self.detect_cycles(workflow)
+        errors.extend(cycle_errors)
+        
+        # Check all nodes are reachable from entry
+        nodes = workflow.get("nodes", [])
+        edges = workflow.get("edges", [])
+        
+        # Find entry node
+        entry_nodes = [n for n in nodes if n.get("type") == "entry"]
+        if not entry_nodes:
+            errors.append("No entry node found")
+            return errors
+        
+        entry = entry_nodes[0].get("id") or entry_nodes[0].get("alias")
+        
+        # Build adjacency list
+        graph = {}
+        for edge in edges:
+            from_node = edge.get("from")
+            to_node = edge.get("to")
+            if from_node and to_node:
+                graph.setdefault(from_node, []).append(to_node)
+        
+        # BFS from entry
+        visited = set()
+        queue = [entry]
+        while queue:
+            node = queue.pop(0)
+            if node in visited:
+                continue
+            visited.add(node)
+            for neighbor in graph.get(node, []):
+                queue.append(neighbor)
+        
+        # Check all non-entry/exit nodes are reachable
+        for node in nodes:
+            node_id = node.get("id") or node.get("alias")
+            if node.get("type") not in ("entry", "exit") and node_id not in visited:
+                errors.append(f"Node '{node_id}' is not reachable from entry")
+        
         return errors

@@ -118,7 +118,7 @@ class IntentToWorkflowGenerator:
                 description=action.description,
                 operator=action.operator,
                 config={
-                    "parameters": [p.dict() for p in action.parameters]
+                    "parameters": [p.model_dump() for p in action.parameters]
                 },
                 retry_policy=action.retry_policy,
                 timeout_seconds=action.timeout_seconds,

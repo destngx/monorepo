@@ -4,6 +4,7 @@ from .web import WebTool, handle_fetch
 from .skill import handle_load_skill
 from .search import handle_search
 from .verify import handle_verify
+from .node_registry import handle_node_registry
 
 __all__ = [
     "BashTool",
@@ -15,4 +16,5 @@ __all__ = [
     "handle_load_skill",
     "handle_search",
     "handle_verify",
+    "handle_node_registry",
 ]
