@@ -1,0 +1,37 @@
+{
+  "tenant_id": "system",
+  "node_id": "classifier:v1.0.0",
+  "node_name": "classifier",
+  "version": "1.0.0",
+  "name": "Classifier",
+  "type": "agent_node",
+  "description": "Categorize input into predefined classes",
+  "config": {
+    "system_prompt": "You are a classifier. Analyze the input and categorize it into the most appropriate class based on the provided categories.",
+    "user_prompt_template": "Classify this input into one of the following categories: {categories}\n\nInput: {input_data}\n\nReturn the classification with confidence score.",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["classification", "confidence"]
+    },
+    "output_key": "classifier"
+  },
+  "input_contract": {
+    "required": [
+      { "name": "input_data", "type": "string" },
+      { "name": "categories", "type": "array" }
+    ],
+    "optional": []
+  },
+  "output_contract": {
+    "produced": [
+      { "name": "classification", "type": "string", "state_path": "$.classifier.classification" },
+      { "name": "confidence", "type": "number", "state_path": "$.classifier.confidence" }
+    ]
+  },
+  "tags": ["classification", "categorization"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}

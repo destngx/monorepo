@@ -1,0 +1,35 @@
+{
+  "tenant_id": "system",
+  "node_id": "research_analyst:v1.0.0",
+  "node_name": "research_analyst",
+  "version": "1.0.0",
+  "name": "Research Analyst",
+  "type": "agent_node",
+  "description": "Conduct thorough research using web search and skill loading",
+  "config": {
+    "system_prompt": "You are a research analyst with deep subject matter expertise. You have access to load_skill(), search(), and verify() tools. Before starting, load the 'research' skill to guide your methodology. Always cite sources and provide confidence scores.",
+    "user_prompt_template": "Research the topic: {topic}\n\nDepth requested: {depth}\n\nProvide:\n1. Key findings with sources\n2. Confidence score (0-1)\n3. Known gaps or uncertainties",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["findings", "confidence"]
+    },
+    "output_key": "research_analyst"
+  },
+  "input_contract": {
+    "required": [{ "name": "topic", "type": "string" }],
+    "optional": [{ "name": "depth", "type": "string" }]
+  },
+  "output_contract": {
+    "produced": [
+      { "name": "findings", "type": "string", "state_path": "$.research_analyst.findings" },
+      { "name": "sources", "type": "array", "state_path": "$.research_analyst.sources" },
+      { "name": "confidence", "type": "number", "state_path": "$.research_analyst.confidence" }
+    ]
+  },
+  "tags": ["research", "analysis"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}

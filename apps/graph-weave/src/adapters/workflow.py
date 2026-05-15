@@ -4,15 +4,15 @@ import json
 import os
 import logging
 from src.adapters.redis import NamespacedRedisClient
+from src.adapters.node import RedisNodeStore
+from src.services.node_compiler import WorkflowCompiler
 
 logger = logging.getLogger(__name__)
 
-# Directory where built-in workflows are bundled
 PREDEFINED_WORKFLOWS_DIR = os.path.join(
     os.path.dirname(__file__), "..", "resources", "workflows"
 )
 
-# Registry of pre-defined workflow IDs to their resource filenames
 PREDEFINED_WORKFLOWS = {
     "workflow-generator:v1.0.0": "workflow-generator:v1.0.0.json",
     "workflow-generator:v1.0.1": "workflow-generator:v1.0.1.json",
@@ -20,10 +20,18 @@ PREDEFINED_WORKFLOWS = {
 
 
 class RedisWorkflowStore:
-    """Production workflow store backed by Redis with tenant-scoped isolation."""
-
-    def __init__(self, redis_client: NamespacedRedisClient):
+    def __init__(self, redis_client: NamespacedRedisClient, node_store: RedisNodeStore = None):
         self.redis_client = redis_client
+        self.node_store = node_store
+        self.compiler = WorkflowCompiler(node_store) if node_store else None
+
+    async def get_compiled(self, tenant_id: str, workflow_id: str) -> Optional[Dict[str, Any]]:
+        workflow = self.get(tenant_id, workflow_id)
+        if not workflow:
+            return None
+        if self.compiler:
+            return await self.compiler.compile(workflow.get("definition", workflow))
+        return workflow.get("definition", workflow)
 
     def sync_predefined_workflows(self, tenant_id: str) -> None:
         """

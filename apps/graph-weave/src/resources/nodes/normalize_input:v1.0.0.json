@@ -1,0 +1,38 @@
+{
+  "tenant_id": "system",
+  "node_id": "normalize_input:v1.0.0",
+  "node_name": "normalize_input",
+  "version": "1.0.0",
+  "name": "Normalize Input",
+  "type": "agent_node",
+  "description": "Trim content and normalize tag input",
+  "config": {
+    "system_prompt": "You are a data normalizer. Trim whitespace, normalize tags to lowercase, and ensure consistent formatting.",
+    "user_prompt_template": "Normalize this input:\n{file_content}\n\nTags: {existing_tags}",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["file_content", "existing_tags"]
+    },
+    "output_key": "normalize_input"
+  },
+  "input_contract": {
+    "required": [
+      { "name": "file_path", "type": "string" },
+      { "name": "file_content", "type": "string" }
+    ],
+    "optional": [{ "name": "existing_tags", "type": "array" }]
+  },
+  "output_contract": {
+    "produced": [
+      { "name": "file_path", "type": "string", "state_path": "$.normalize_input.file_path" },
+      { "name": "file_content", "type": "string", "state_path": "$.normalize_input.file_content" },
+      { "name": "existing_tags", "type": "array", "state_path": "$.normalize_input.existing_tags" }
+    ]
+  },
+  "tags": ["normalization", "preprocessing"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}

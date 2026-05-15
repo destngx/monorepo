@@ -187,6 +187,38 @@ class UpstashRedisClient:
         result = self._execute(["KEYS", pattern])
         return result if result is not None else []
 
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def sadd(self, key: str, *values: Any) -> int:
+        if not key:
+            raise ValueError("Key cannot be empty")
+        serialized_values = [serialize(v) for v in values]
+        result = self._execute(["SADD", key] + serialized_values)
+        return result if result is not None else 0
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def smembers(self, key: str) -> set:
+        if not key:
+            raise ValueError("Key cannot be empty")
+        result = self._execute(["SMEMBERS", key])
+        items = result if result is not None else []
+        return {deserialize(item) for item in items}
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def srem(self, key: str, *values: Any) -> int:
+        if not key:
+            raise ValueError("Key cannot be empty")
+        serialized_values = [serialize(v) for v in values]
+        result = self._execute(["SREM", key] + serialized_values)
+        return result if result is not None else 0
+
+    @retry_with_backoff(max_retries=3, initial_backoff_ms=100)
+    def sinter(self, *keys: str) -> set:
+        if not keys:
+            return set()
+        result = self._execute(["SINTER"] + list(keys))
+        items = result if result is not None else []
+        return {deserialize(item) for item in items}
+
     def close(self):
         self._session.close()
         logger.info("UpstashRedisClient session closed")

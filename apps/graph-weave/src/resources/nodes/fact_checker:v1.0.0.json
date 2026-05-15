@@ -1,0 +1,35 @@
+{
+  "tenant_id": "system",
+  "node_id": "fact_checker:v1.0.0",
+  "node_name": "fact_checker",
+  "version": "1.0.0",
+  "name": "Fact Checker",
+  "type": "agent_node",
+  "description": "Verify claims against multiple sources",
+  "config": {
+    "system_prompt": "You are a fact-checker and verification specialist. You have access to load_skill(), verify(), and search() tools. Load the 'verification' skill. Systematically verify each key finding. Report verified, disputed, and unverifiable claims.",
+    "user_prompt_template": "Verify these research findings:\n{findings}\n\nReport:\n1. Verified facts\n2. Disputed or uncertain claims\n3. Missing evidence\n4. Overall verification confidence (0-1)",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["verified_facts", "confidence"]
+    },
+    "output_key": "fact_checker"
+  },
+  "input_contract": {
+    "required": [{ "name": "findings", "type": "string" }],
+    "optional": []
+  },
+  "output_contract": {
+    "produced": [
+      { "name": "verified_facts", "type": "array", "state_path": "$.fact_checker.verified_facts" },
+      { "name": "disputed_claims", "type": "array", "state_path": "$.fact_checker.disputed_claims" },
+      { "name": "confidence", "type": "number", "state_path": "$.fact_checker.confidence" }
+    ]
+  },
+  "tags": ["verification", "fact-checking"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}

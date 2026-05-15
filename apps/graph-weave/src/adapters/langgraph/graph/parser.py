@@ -1,12 +1,10 @@
 from typing import Any, Dict
 from .models import NodeConfig, WorkflowParseError, VALID_PROVIDERS, PROVIDER_MODELS, VALID_TOOLS
 
-class WorkflowParser:
-    """Parser for workflow JSON schema."""
 
+class WorkflowParser:
     @staticmethod
     def parse_workflow_json(workflow_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse and validate workflow JSON."""
         if not workflow_dict:
             raise WorkflowParseError("Workflow cannot be empty")
 
@@ -16,18 +14,49 @@ class WorkflowParser:
         if not nodes:
             raise WorkflowParseError("Workflow must have at least one node")
 
-        node_ids = {n.get("id") for n in nodes}
+        has_node_refs = any("node_id" in n for n in nodes)
+        has_entry_exit = any(n.get("type") in ("entry", "exit") for n in nodes)
+
+        if not has_node_refs and not has_entry_exit:
+            raise WorkflowParseError(
+                "Invalid workflow format. Expected compositional format with "
+                "alias/node_id references. Legacy embedded format not supported."
+            )
+
+        return WorkflowParser._parse_compositional(nodes, edges)
+
+    @staticmethod
+    def _parse_compositional(
+        nodes: list, edges: list
+    ) -> Dict[str, Any]:
+        aliases = set()
+        for node in nodes:
+            if node.get("type") in ("entry", "exit"):
+                continue
+            if "alias" not in node:
+                raise WorkflowParseError(f"Node missing 'alias': {node}")
+            if "node_id" not in node:
+                raise WorkflowParseError(f"Node missing 'node_id': {node}")
+            aliases.add(node["alias"])
+
         for edge in edges:
-            if edge.get("source") not in node_ids:
-                raise WorkflowParseError(f"Unknown source node: {edge.get('source')}")
-            if edge.get("target") not in node_ids:
-                raise WorkflowParseError(f"Unknown target node: {edge.get('target')}")
+            from_id = edge.get("from")
+            to_id = edge.get("to")
+
+            if from_id not in ("entry",) and from_id not in aliases:
+                raise WorkflowParseError(
+                    f"Edge 'from' references unknown alias: {from_id}"
+                )
+
+            if to_id not in ("exit",) and to_id not in aliases:
+                raise WorkflowParseError(
+                    f"Edge 'to' references unknown alias: {to_id}"
+                )
 
         return {"nodes": nodes, "edges": edges}
 
     @staticmethod
     def extract_node_config(node_dict: Dict[str, Any]) -> NodeConfig:
-        """Extract per-node configuration from node dictionary."""
         provider = node_dict.get("provider")
         if provider and provider not in VALID_PROVIDERS:
             raise WorkflowParseError(

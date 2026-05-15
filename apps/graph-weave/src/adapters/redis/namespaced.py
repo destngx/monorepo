@@ -173,6 +173,34 @@ class NamespacedRedisClient:
             lambda: self.fallback_storage.hgetall(key),
         )
 
+    def sadd(self, key: str, *values: Any) -> int:
+        return self._execute_with_fallback(
+            "SADD",
+            lambda: self.redis_client.sadd(key, *values),
+            lambda: self.fallback_storage.sadd(key, *values) if hasattr(self.fallback_storage, 'sadd') else 0,
+        )
+
+    def smembers(self, key: str) -> set:
+        return self._execute_with_fallback(
+            "SMEMBERS",
+            lambda: self.redis_client.smembers(key),
+            lambda: self.fallback_storage.smembers(key) if hasattr(self.fallback_storage, 'smembers') else set(),
+        )
+
+    def srem(self, key: str, *values: Any) -> int:
+        return self._execute_with_fallback(
+            "SREM",
+            lambda: self.redis_client.srem(key, *values),
+            lambda: self.fallback_storage.srem(key, *values) if hasattr(self.fallback_storage, 'srem') else 0,
+        )
+
+    def sinter(self, *keys: str) -> set:
+        return self._execute_with_fallback(
+            "SINTER",
+            lambda: self.redis_client.sinter(*keys),
+            lambda: self.fallback_storage.sinter(*keys) if hasattr(self.fallback_storage, 'sinter') else set(),
+        )
+
     def keys(self, pattern: str) -> List[str]:
         return self._execute_with_fallback(
             "KEYS", lambda: self.redis_client.keys(pattern), lambda: self.fallback_storage.keys(pattern)

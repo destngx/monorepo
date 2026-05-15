@@ -1,0 +1,34 @@
+{
+  "tenant_id": "system",
+  "node_id": "summarizer:v1.0.0",
+  "node_name": "summarizer",
+  "version": "1.0.0",
+  "name": "Summarizer",
+  "type": "agent_node",
+  "description": "Create concise summaries with key points",
+  "config": {
+    "system_prompt": "You are a technical writer. Create clear, concise summaries that highlight key points and integrate verification results.",
+    "user_prompt_template": "Summarize these results:\n{input_data}\n\nCreate a concise summary with key findings and confidence rating.",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["summary", "key_points"]
+    },
+    "output_key": "summarizer"
+  },
+  "input_contract": {
+    "required": [{ "name": "input_data", "type": "string" }],
+    "optional": []
+  },
+  "output_contract": {
+    "produced": [
+      { "name": "summary", "type": "string", "state_path": "$.summarizer.summary" },
+      { "name": "key_points", "type": "array", "state_path": "$.summarizer.key_points" }
+    ]
+  },
+  "tags": ["synthesis", "summarization"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}

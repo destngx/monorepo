@@ -1,0 +1,41 @@
+{
+  "tenant_id": "system",
+  "node_id": "classify_metadata:v1.0.0",
+  "node_name": "classify_metadata",
+  "version": "1.0.0",
+  "name": "Classify Metadata",
+  "type": "agent_node",
+  "description": "Classify content and extract metadata",
+  "config": {
+    "system_prompt": "You are a metadata classifier. Analyze content and extract relevant metadata including categories, tags, and key entities.",
+    "user_prompt_template": "Classify this content:\n{file_content}\n\nExtract metadata including categories, tags, and key entities.",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["categories", "tags", "entities"]
+    },
+    "output_key": "classify_metadata"
+  },
+  "input_contract": {
+    "required": [
+      { "name": "file_path", "type": "string" },
+      { "name": "file_content", "type": "string" },
+      { "name": "existing_tags", "type": "array" }
+    ],
+    "optional": []
+  },
+  "output_contract": {
+    "produced": [
+      { "name": "file_path", "type": "string", "state_path": "$.classify_metadata.file_path" },
+      { "name": "file_content", "type": "string", "state_path": "$.classify_metadata.file_content" },
+      { "name": "categories", "type": "array", "state_path": "$.classify_metadata.categories" },
+      { "name": "tags", "type": "array", "state_path": "$.classify_metadata.tags" },
+      { "name": "entities", "type": "array", "state_path": "$.classify_metadata.entities" }
+    ]
+  },
+  "tags": ["classification", "metadata"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}

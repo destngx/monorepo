@@ -1,0 +1,35 @@
+{
+  "tenant_id": "system",
+  "node_id": "cli_executor:v1.0.0",
+  "node_name": "cli_executor",
+  "version": "1.0.0",
+  "name": "CLI Executor",
+  "type": "cli_node",
+  "description": "Execute shell commands safely",
+  "config": {
+    "command": "{command}",
+    "cwd": "{cwd}",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["stdout", "stderr", "exit_code"]
+    },
+    "output_key": "cli_executor"
+  },
+  "input_contract": {
+    "required": [{ "name": "command", "type": "string" }],
+    "optional": [{ "name": "cwd", "type": "string" }]
+  },
+  "output_contract": {
+    "produced": [
+      { "name": "stdout", "type": "string", "state_path": "$.cli_executor.stdout" },
+      { "name": "stderr", "type": "string", "state_path": "$.cli_executor.stderr" },
+      { "name": "exit_code", "type": "number", "state_path": "$.cli_executor.exit_code" }
+    ]
+  },
+  "tags": ["automation", "cli"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}

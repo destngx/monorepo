@@ -14,6 +14,8 @@ from src.adapters.langgraph_executor import RealLangGraphExecutor
 from src.adapters.mcp import MCPRouter
 from src.adapters.schedule import RedisScheduleStore
 from src.services.scheduler_service import SchedulerService
+from src.adapters.node import RedisNodeStore
+from src.services.node_validator import NodeValidator
 
 
 class Services:
@@ -41,6 +43,8 @@ class Services:
         )
 
         self.schedule_store = RedisScheduleStore(self.redis_client)
+        self.node_store = RedisNodeStore(self.redis_client)
+        self.node_validator = NodeValidator()
         
         # Execution handler for the scheduler
         def scheduler_execution_handler(tenant_id, workflow_id, input_data):
@@ -110,3 +114,9 @@ def get_schedule_store() -> RedisScheduleStore:
 
 def get_scheduler_service() -> SchedulerService:
     return get_services().scheduler_service
+
+def get_node_store() -> RedisNodeStore:
+    return get_services().node_store
+
+def get_node_validator() -> NodeValidator:
+    return get_services().node_validator

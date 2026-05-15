@@ -15,7 +15,7 @@ from .modules.shared.deps import (
 )
 
 # Import routers
-from .routers import execution, skills, workflows, schedules
+from .routers import execution, skills, workflows, schedules, nodes
 
 setup_logging(debug=GraphWeaveConfig.DEBUG)
 logger = get_logger(__name__)
@@ -93,6 +93,7 @@ app.include_router(execution.router)
 app.include_router(skills.router)
 app.include_router(workflows.router)
 app.include_router(schedules.router)
+app.include_router(nodes.router)
 
 
 @app.exception_handler(RequestValidationError)

@@ -1,0 +1,35 @@
+{
+  "tenant_id": "system",
+  "node_id": "data_transformer:v1.0.0",
+  "node_name": "data_transformer",
+  "version": "1.0.0",
+  "name": "Data Transformer",
+  "type": "agent_node",
+  "description": "Transform data between formats",
+  "config": {
+    "system_prompt": "You are a data transformer. Convert data from one format to another while preserving structure and meaning.",
+    "user_prompt_template": "Transform this data from {source_format} to {target_format}:\n{input_data}",
+    "input_mapping": {},
+    "output_schema": {
+      "type": "object",
+      "required": ["transformed_data"]
+    },
+    "output_key": "data_transformer"
+  },
+  "input_contract": {
+    "required": [
+      { "name": "input_data", "type": "string" },
+      { "name": "source_format", "type": "string" },
+      { "name": "target_format", "type": "string" }
+    ],
+    "optional": []
+  },
+  "output_contract": {
+    "produced": [{ "name": "transformed_data", "type": "string", "state_path": "$.data_transformer.transformed_data" }]
+  },
+  "tags": ["etl", "transformation"],
+  "owner": "system",
+  "status": "active",
+  "reuse_eligible": true,
+  "provenance": {}
+}
