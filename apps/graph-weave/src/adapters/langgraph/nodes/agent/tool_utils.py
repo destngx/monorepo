@@ -133,6 +133,14 @@ def infer_result_from_tools(
         "raw_response": final_content or stdout,
     }
 
+    # Expose structured keys from MCP tool results at the top level.
+    # CLI tools use stdout_fields; MCP tools return structured dicts directly.
+    _meta_keys = {"tool", "status", "stdout", "stderr", "error", "exit_code", "command", "success"}
+    if isinstance(latest, dict):
+        for key, value in latest.items():
+            if key not in _meta_keys and key not in output:
+                output[key] = value
+
     missing_mapped_fields: List[str] = []
     for key, spec in (tool_output_mapping or {}).items():
         value = resolve_tool_output_spec(spec, output)

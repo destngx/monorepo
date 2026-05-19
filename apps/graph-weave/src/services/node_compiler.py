@@ -32,7 +32,7 @@ class WorkflowCompiler:
 
         has_entry_exit = any(n.get("type") in ("entry", "exit") for n in nodes)
         if has_entry_exit:
-            return await self._compile_compositional(workflow)
+            return workflow
 
         raise WorkflowFormatError(
             "Legacy embedded workflow format not supported. "

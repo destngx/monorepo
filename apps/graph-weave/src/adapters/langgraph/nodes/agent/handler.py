@@ -76,11 +76,19 @@ class AgentNodeHandler:
         allow_tool_errors = bool(get_field("allow_tool_errors", False))
         output_schema = get_field("output_schema")
 
+        tool_results = []
+
         def fallback_schema_result() -> Optional[Dict[str, Any]]:
             if node_id != "node_resolver" or not output_schema:
                 return None
             if output_schema.get("required") != ["nodes"]:
                 return None
+
+            # Try to recover from tool_results if a successful registry match occurred
+            for tr in tool_results:
+                if isinstance(tr, dict) and tr.get("tool") == "node_registry" and tr.get("status") == "success" and isinstance(tr.get("nodes"), list):
+                    self._logger.info(f"[AGENT] Recovered {len(tr['nodes'])} resolved nodes from tool results in fallback for {node_id}")
+                    return {"nodes": tr["nodes"]}
 
             workflow_state = state.get("workflow_state", {})
             intent_analysis = workflow_state.get("intent_analysis") or state.get("intent_analysis") or {}
@@ -148,7 +156,7 @@ class AgentNodeHandler:
             final_content = ""
             total_tokens = 0
             all_tool_calls = []
-            tool_results = []
+            tool_results.clear()
 
             while turns < max_turns:
                 turns += 1

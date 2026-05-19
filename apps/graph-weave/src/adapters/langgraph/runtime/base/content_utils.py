@@ -69,15 +69,21 @@ def interpolate_prompt(
         known_vars.update(local_context.keys())
 
     for p in placeholders:
-        val = get_state_value_cb(p, state)
-        
-        if val is None and local_context and p in local_context:
-            val = local_context[p]
-            
-        if val is None and p in context:
-            val = context[p]
+        lookup_p = p
+        is_shell = False
+        if p.lower().endswith("_shell"):
+            is_shell = True
+            lookup_p = p[:-6]
 
-        if val is None and p not in known_vars and p not in context:
+        val = get_state_value_cb(lookup_p, state)
+        
+        if val is None and local_context and lookup_p in local_context:
+            val = local_context[lookup_p]
+            
+        if val is None and lookup_p in context:
+            val = context[lookup_p]
+
+        if val is None and lookup_p not in known_vars and lookup_p not in context:
             continue
 
         val_str = ""
@@ -89,7 +95,12 @@ def interpolate_prompt(
                     val = val["result"]
 
             if isinstance(val, list):
-                if any(hint in p.lower() for hint in ["tag", "author", "name"]):
+                if lookup_p.lower().endswith("_json"):
+                    try:
+                        val_str = json.dumps(val)
+                    except (TypeError, ValueError):
+                        val_str = str(val)
+                elif any(hint in lookup_p.lower() for hint in ["tag", "author", "name"]):
                     val_str = ", ".join(str(i) for i in val)
                 else:
                     val_str = "\n".join(str(i) for i in val)
@@ -100,6 +111,9 @@ def interpolate_prompt(
                     val_str = str(val)
             else:
                 val_str = str(val)
+
+            if is_shell:
+                val_str = val_str.replace("'", "'\\''")
 
         result = result.replace(f"{{{{{p}}}}}", val_str)
         result = result.replace(f"{{{p}}}", val_str)

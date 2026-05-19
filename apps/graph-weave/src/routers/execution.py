@@ -91,8 +91,12 @@ def scheduler_execution_handler(tenant_id: str, workflow_id: str, input_data: di
     run_id = str(uuid.uuid4())
     thread_id = str(uuid.uuid4())
 
+    import asyncio
     workflow_store = get_workflow_store()
-    workflow = workflow_store.get(tenant_id, workflow_id)
+    try:
+        workflow = asyncio.run(workflow_store.get_compiled(tenant_id, workflow_id))
+    except RuntimeError:
+        workflow = workflow_store.get(tenant_id, workflow_id)
 
     if not workflow:
         logger.error(f"Scheduled execution failed: Workflow {workflow_id} not found for tenant {tenant_id}")
@@ -145,7 +149,7 @@ async def execute(request: ExecuteRequest):
 
     try:
         workflow_store = get_workflow_store()
-        workflow = workflow_store.get(request.tenant_id, request.workflow_id)
+        workflow = await workflow_store.get_compiled(request.tenant_id, request.workflow_id)
 
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")

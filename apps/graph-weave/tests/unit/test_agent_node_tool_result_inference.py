@@ -403,6 +403,101 @@ def test_complete_after_tool_calls_returns_mapped_tool_result_without_extra_llm_
     assert result["result"]["artifact_path"] == "/workspace/output.txt"
 
 
+def test_infer_merges_structured_mcp_tool_keys():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._infer_result_from_tools(
+        [
+            {
+                "tool": "node_registry",
+                "status": "success",
+                "nodes": [{"alias": "fetch_url_content", "status": "exists"}],
+                "total": 1,
+                "registry_total": 15,
+            }
+        ],
+        "",
+        {},
+    )
+
+    assert result["nodes"] == [{"alias": "fetch_url_content", "status": "exists"}]
+    assert result["total"] == 1
+    assert result["registry_total"] == 15
+    assert result["status"] == "success"
+
+
+def test_tool_output_mapping_resolves_structured_mcp_keys():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    result = handler._infer_result_from_tools(
+        [
+            {
+                "tool": "node_registry",
+                "status": "success",
+                "nodes": [{"alias": "fetch_url_content", "status": "exists"}],
+                "total": 1,
+            }
+        ],
+        "",
+        {
+            "resolved_nodes": "$.nodes",
+            "total_count": "$.total",
+        },
+    )
+
+    assert result["resolved_nodes"] == [{"alias": "fetch_url_content", "status": "exists"}]
+    assert result["total_count"] == 1
+
+
+def test_complete_after_tool_calls_with_structured_mcp_tool():
+    class MCPRegistryRouter(DummyRouter):
+        def execute_tool(self, name, args):
+            return {
+                "tool": name,
+                "status": "success",
+                "nodes": [{"alias": "fetch_url_content", "status": "exists"}],
+                "total": 1,
+            }
+
+    executor = DummyExecutor()
+    executor.mcp_router = MCPRegistryRouter()
+    handler = AgentNodeHandler(executor)
+
+    result = handler.execute(
+        "run-1",
+        {
+            "id": "node_resolver",
+            "type": "agent_node",
+            "config": {
+                "system_prompt": "Resolve steps.",
+                "user_prompt_template": "Resolve steps.",
+                "tools": ["node_registry"],
+                "complete_after_tool_calls": True,
+                "tool_output_mapping": {
+                    "nodes": "$.nodes",
+                },
+                "output_schema": {
+                    "type": "object",
+                    "required": ["nodes"],
+                    "properties": {
+                        "nodes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["alias", "status"],
+                            }
+                        }
+                    }
+                }
+            },
+        },
+        {"workflow_state": {}, "node_results": {}},
+        {},
+    )
+
+    assert result["result"]["nodes"] == [{"alias": "fetch_url_content", "status": "exists"}]
+
+
 def test_complete_after_tool_calls_fails_error_tool_result_by_default():
     executor = DummyExecutor()
     executor.mcp_router = ErrorRouter()

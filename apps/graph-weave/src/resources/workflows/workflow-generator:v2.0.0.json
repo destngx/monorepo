@@ -110,6 +110,10 @@
             }
           },
           "required": ["nodes"]
+        },
+        "complete_after_tool_calls": true,
+        "tool_output_mapping": {
+          "nodes": "$.nodes"
         }
       }
     },
@@ -120,7 +124,7 @@
       "description": "Generates edges connecting nodes in a linear transformation chain",
       "temperature": 0,
       "config": {
-        "system_prompt": "You are a DAG routing expert. Generate the 'edges' array for the workflow.\n\nRules:\n- NO cycles. NO orphan nodes.\n- The workflow must be a strictly linear chain.\n- entry -> first node; each processing node -> exactly one next node; last node -> exit.\n- Every non-entry, non-exit node must have exactly one parent and exactly one child.\n- ALL IDs must use snake_case.\n- Every edge MUST be an object with 'from' and 'to' fields.\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
+        "system_prompt": "You are a DAG routing expert. Generate the 'edges' array for the workflow.\n\nRules:\n- NO cycles. NO orphan nodes.\n- The workflow must be a strictly linear chain.\n- entry -> first node; each processing node -> exactly one next node; last node -> exit.\n- Every non-entry, non-exit node must have exactly one parent and exactly one child.\n- For building edges, you MUST use the 'alias' of each resolved node as its node ID (e.g., 'fetch_url_content'), NOT the versioned 'node_id' (e.g., 'fetch_url_content:v1.0.0'). The 'alias' is what will identify the node in the assembled workflow.\n- ALL IDs must use snake_case.\n- Every edge MUST be an object with 'from' and 'to' fields.\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
         "user_prompt_template": "Connect these nodes into a transformation DAG:\n\nIntent: {intent}\nNodes: {node_resolution_nodes}",
         "input_mapping": {
           "intent": "$.entry.intent",
