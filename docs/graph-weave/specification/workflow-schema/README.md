@@ -44,7 +44,7 @@ For each node in the graph:
       * Execute with node-specific prompts and LLM settings
       * Store output in state
     - If branch: evaluate condition, don't execute work
-    - If human_decision: pause, wait for user input
+    - If cli_node: execute deterministic bash command or local script
     - If exit: return final output
   4. Repeat until the exit node is reached (or limits exceeded)
 ```
@@ -202,7 +202,7 @@ See `MIGRATION_GUIDE.md` for detailed migration steps from subagent-routing work
 
 - ❌ Remove top-level `skills` array
 - ❌ Remove `subagents` array
-- ✅ Add explicit `nodes` array (entry, exit, agent_node, branch)
+- ✅ Add explicit `nodes` array (entry, exit, agent_node, cli_node, orchestrator, branch, guardrail, skill_loader)
 - ✅ Add explicit `edges` array with conditions
 - ✅ Move behavior to node-level `system_prompt` and `user_prompt_template`
 

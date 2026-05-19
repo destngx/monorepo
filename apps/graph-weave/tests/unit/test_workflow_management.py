@@ -13,19 +13,20 @@ def client():
 def sample_workflow_definition():
     return {
         "nodes": [
-            {"id": "entry", "type": "entry_node", "config": {}},
+            {"id": "entry", "type": "entry"},
             {
                 "id": "agent_1",
+                "alias": "agent_1",
+                "node_id": "system:agent_node:v1.0.0",
                 "type": "agent_node",
-                "config": {
-                    "system_prompt": "You are a research assistant",
-                    "user_prompt_template": "Research {query}",
-                },
+                "provider": "openai",
+                "model": "gpt-5.4-mini",
+                "system_prompt": "You are a research assistant",
+                "user_prompt_template": "Research {query}",
             },
             {
                 "id": "exit",
-                "type": "exit_node",
-                "config": {"output_mapping": "$.result"},
+                "type": "exit",
             },
         ],
         "edges": [

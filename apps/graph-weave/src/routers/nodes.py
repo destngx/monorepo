@@ -19,10 +19,7 @@ async def create_node(
     except NodeIdFormatError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    try:
-        node.validate_type()
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
 
     errors = validator.validate_standalone(node)
     if errors:

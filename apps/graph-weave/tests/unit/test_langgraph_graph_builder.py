@@ -64,12 +64,12 @@ class TestWorkflowParserParseWorkflowJson:
         workflow = {
             "nodes": [
                 {"id": "entry", "type": "entry"},
-                {"id": "agent", "type": "agent_node"},
+                {"id": "agent", "alias": "agent", "node_id": "system:agent_node:v1.0.0", "type": "agent_node"},
                 {"id": "exit", "type": "exit"},
             ],
             "edges": [
-                {"source": "entry", "target": "agent"},
-                {"source": "agent", "target": "exit"},
+                {"from": "entry", "to": "agent"},
+                {"from": "agent", "to": "exit"},
             ],
         }
         result = WorkflowParser.parse_workflow_json(workflow)
@@ -79,19 +79,25 @@ class TestWorkflowParserParseWorkflowJson:
     def test_parse_workflow_json_unknown_source_node_raises(self):
         """Edge referencing unknown source node should raise WorkflowParseError."""
         workflow = {
-            "nodes": [{"id": "node1", "type": "entry"}],
-            "edges": [{"source": "unknown", "target": "node1"}],
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "agent", "alias": "agent", "node_id": "system:agent_node:v1.0.0", "type": "agent_node"},
+            ],
+            "edges": [{"from": "unknown", "to": "agent"}],
         }
-        with pytest.raises(WorkflowParseError, match="Unknown source node"):
+        with pytest.raises(WorkflowParseError, match="Edge 'from' references unknown alias"):
             WorkflowParser.parse_workflow_json(workflow)
 
     def test_parse_workflow_json_unknown_target_node_raises(self):
         """Edge referencing unknown target node should raise WorkflowParseError."""
         workflow = {
-            "nodes": [{"id": "node1", "type": "entry"}],
-            "edges": [{"source": "node1", "target": "unknown"}],
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "agent", "alias": "agent", "node_id": "system:agent_node:v1.0.0", "type": "agent_node"},
+            ],
+            "edges": [{"from": "entry", "to": "unknown"}],
         }
-        with pytest.raises(WorkflowParseError, match="Unknown target node"):
+        with pytest.raises(WorkflowParseError, match="Edge 'to' references unknown alias"):
             WorkflowParser.parse_workflow_json(workflow)
 
     def test_parse_workflow_json_multiple_edges_all_valid(self):
@@ -99,14 +105,14 @@ class TestWorkflowParserParseWorkflowJson:
         workflow = {
             "nodes": [
                 {"id": "a", "type": "entry"},
-                {"id": "b", "type": "agent_node"},
-                {"id": "c", "type": "branch"},
+                {"id": "b", "alias": "b", "node_id": "system:agent_node:v1.0.0", "type": "agent_node"},
+                {"id": "c", "alias": "c", "node_id": "system:branch:v1.0.0", "type": "branch"},
                 {"id": "d", "type": "exit"},
             ],
             "edges": [
-                {"source": "a", "target": "b"},
-                {"source": "b", "target": "c"},
-                {"source": "c", "target": "d"},
+                {"from": "entry", "to": "b"},
+                {"from": "b", "to": "c"},
+                {"from": "c", "to": "exit"},
             ],
         }
         result = WorkflowParser.parse_workflow_json(workflow)
@@ -467,7 +473,7 @@ class TestGraphBuilderBuild:
     def test_graph_builder_single_entry_node(self):
         """Graph with single entry node should build successfully."""
         workflow = {"nodes": [{"id": "entry", "type": "entry"}], "edges": []}
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         assert "entry" in result["nodes"]
         assert result["edges"] == []
 
@@ -478,6 +484,8 @@ class TestGraphBuilderBuild:
                 {"id": "entry", "type": "entry"},
                 {
                     "id": "agent",
+                    "alias": "agent",
+                    "node_id": "system:agent_node:v1.0.0",
                     "type": "agent_node",
                     "provider": "openai",
                     "model": "gpt-5.4-mini",
@@ -487,11 +495,11 @@ class TestGraphBuilderBuild:
                 {"id": "exit", "type": "exit"},
             ],
             "edges": [
-                {"source": "entry", "target": "agent"},
-                {"source": "agent", "target": "exit"},
+                {"from": "entry", "to": "agent"},
+                {"from": "agent", "to": "exit"},
             ],
         }
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         assert "entry" in result["nodes"]
         assert "agent" in result["nodes"]
         assert "exit" in result["nodes"]
@@ -500,7 +508,7 @@ class TestGraphBuilderBuild:
     def test_graph_builder_preserves_workflow_definition(self):
         """Built graph should include original workflow definition."""
         workflow = {"nodes": [{"id": "n1", "type": "entry"}], "edges": []}
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         assert result["definition"] == workflow
 
     def test_graph_builder_branch_node_with_condition(self):
@@ -508,32 +516,38 @@ class TestGraphBuilderBuild:
         workflow = {
             "nodes": [
                 {"id": "entry", "type": "entry"},
-                {"id": "branch", "type": "branch", "condition": "$.score >= 0.8"},
+                {"id": "branch", "alias": "branch", "node_id": "system:branch:v1.0.0", "type": "branch", "condition": "$.score >= 0.8"},
                 {"id": "exit", "type": "exit"},
             ],
             "edges": [
-                {"source": "entry", "target": "branch"},
-                {"source": "branch", "target": "exit"},
+                {"from": "entry", "to": "branch"},
+                {"from": "branch", "to": "exit"},
             ],
         }
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         assert "branch" in result["nodes"]
 
     def test_graph_builder_unknown_node_type_raises(self):
         """Unknown node type should raise WorkflowParseError."""
-        workflow = {"nodes": [{"id": "unknown", "type": "unknown_type"}], "edges": []}
+        workflow = {
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "unknown", "alias": "unknown", "node_id": "system:unknown_type:v1.0.0", "type": "unknown_type"}
+            ],
+            "edges": []
+        }
         with pytest.raises(WorkflowParseError, match="Unknown node type"):
-            GraphBuilder.build(workflow)
+            GraphBuilder.build_sync(workflow)
 
     def test_graph_builder_edges_with_conditions(self):
         """Edges with conditions should be preserved in graph."""
         workflow = {
             "nodes": [{"id": "entry", "type": "entry"}, {"id": "exit", "type": "exit"}],
             "edges": [
-                {"source": "entry", "target": "exit", "condition": "$.ready == true"}
+                {"from": "entry", "to": "exit", "condition": "$.ready == true"}
             ],
         }
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         assert result["edges"][0]["condition"] == "$.ready == true"
 
     def test_graph_builder_multiple_agent_nodes(self):
@@ -543,12 +557,16 @@ class TestGraphBuilderBuild:
                 {"id": "entry", "type": "entry"},
                 {
                     "id": "agent1",
+                    "alias": "agent1",
+                    "node_id": "system:agent_node:v1.0.0",
                     "type": "agent_node",
                     "provider": "openai",
                     "model": "gpt-5.4-mini",
                 },
                 {
                     "id": "agent2",
+                    "alias": "agent2",
+                    "node_id": "system:agent_node:v1.0.0",
                     "type": "agent_node",
                     "provider": "anthropic",
                     "model": "claude-3-opus",
@@ -556,12 +574,12 @@ class TestGraphBuilderBuild:
                 {"id": "exit", "type": "exit"},
             ],
             "edges": [
-                {"source": "entry", "target": "agent1"},
-                {"source": "agent1", "target": "agent2"},
-                {"source": "agent2", "target": "exit"},
+                {"from": "entry", "to": "agent1"},
+                {"from": "agent1", "to": "agent2"},
+                {"from": "agent2", "to": "exit"},
             ],
         }
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         assert len(result["nodes"]) == 4
         # Verify agent nodes have configs
         assert hasattr(result["nodes"]["agent1"], "config")
@@ -577,13 +595,13 @@ class TestTenantIsolation:
         workflow = {
             "nodes": [
                 {"id": "tenant_t1:node_entry", "type": "entry"},
-                {"id": "tenant_t1:node_agent", "type": "agent_node"},
+                {"id": "tenant_t1:node_agent", "alias": "node_agent", "node_id": "system:agent_node:v1.0.0", "type": "agent_node"},
             ],
             "edges": [
-                {"source": "tenant_t1:node_entry", "target": "tenant_t1:node_agent"}
+                {"from": "entry", "to": "node_agent"}
             ],
         }
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         assert "tenant_t1:node_entry" in result["nodes"]
         assert "tenant_t1:node_agent" in result["nodes"]
 
@@ -591,8 +609,8 @@ class TestTenantIsolation:
         """Different tenants should have separate node instances."""
         workflow_t1 = {"nodes": [{"id": "t1:entry", "type": "entry"}], "edges": []}
         workflow_t2 = {"nodes": [{"id": "t2:entry", "type": "entry"}], "edges": []}
-        result_t1 = GraphBuilder.build(workflow_t1)
-        result_t2 = GraphBuilder.build(workflow_t2)
+        result_t1 = GraphBuilder.build_sync(workflow_t1)
+        result_t2 = GraphBuilder.build_sync(workflow_t2)
 
         assert "t1:entry" in result_t1["nodes"]
         assert "t2:entry" in result_t2["nodes"]
@@ -643,12 +661,12 @@ class TestErrorHandling:
         workflow = {
             "nodes": [
                 {"id": "entry", "type": "entry"},
-                {"id": "branch", "type": "branch", "condition": "$.x >>> 5"},
+                {"id": "branch", "alias": "branch", "node_id": "system:branch:v1.0.0", "type": "branch", "condition": "$.x >>> 5"},
             ],
             "edges": [],
         }
         # Build succeeds (lazy validation)
-        result = GraphBuilder.build(workflow)
+        result = GraphBuilder.build_sync(workflow)
         branch_func = result["nodes"]["branch"]
 
         # Evaluation fails with invalid syntax
@@ -659,11 +677,14 @@ class TestErrorHandling:
     def test_missing_required_node_type(self):
         """Node without type should raise WorkflowParseError."""
         workflow = {
-            "nodes": [{"id": "node1"}],  # Missing type
+            "nodes": [
+                {"id": "entry", "type": "entry"},
+                {"id": "node1", "alias": "node1", "node_id": "system:node1:v1.0.0"}  # Missing type
+            ],
             "edges": [],
         }
         with pytest.raises(WorkflowParseError, match="Unknown node type"):
-            GraphBuilder.build(workflow)
+            GraphBuilder.build_sync(workflow)
 
     def test_agent_node_missing_template_variable_raises(self):
         """Agent node with missing template variable should raise on execution."""

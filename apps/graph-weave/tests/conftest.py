@@ -3,19 +3,13 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
-import httpx
-import pytest
-
-from tests.mocks.redis_mock import MockRedisAdapter
-from src.adapters.checkpoint import RedisCheckpointStore
-from src.adapters.workflow import RedisWorkflowStore
-from src.adapters.schedule import RedisScheduleStore
-from src.adapters.langgraph import RealLangGraphExecutor
-from src.adapters.redis import FallbackStorage, NamespacedRedisClient
-from src.modules.shared import deps
-
-collect_ignore_glob = ["test_*.py"]
-
+# Initialize mock environment variables immediately before any local imports
+os.environ["UPSTASH_REDIS_REST_URL"] = "http://localhost:8079"
+os.environ["UPSTASH_REDIS_REST_TOKEN"] = "mock"
+os.environ.setdefault(
+    "FS_TOOL_TRASH_PATH",
+    str(Path(__file__).resolve().parent.parent / "tmp" / "graph-weave-trash"),
+)
 
 def _load_dotenv_local():
     env_path = Path(__file__).resolve().parent.parent / ".env.local"
@@ -30,13 +24,20 @@ def _load_dotenv_local():
             if key and key not in os.environ:
                 os.environ[key] = value
 
-
 _load_dotenv_local()
 
-os.environ.setdefault(
-    "FS_TOOL_TRASH_PATH",
-    str(Path(__file__).resolve().parent.parent / "tmp" / "graph-weave-trash"),
-)
+import httpx
+import pytest
+
+from tests.mocks.redis_mock import MockRedisAdapter
+from src.adapters.checkpoint import RedisCheckpointStore
+from src.adapters.workflow import RedisWorkflowStore
+from src.adapters.schedule import RedisScheduleStore
+from src.adapters.langgraph import RealLangGraphExecutor
+from src.adapters.redis import FallbackStorage, NamespacedRedisClient
+from src.modules.shared import deps
+
+collect_ignore_glob = ["test_*.py"]
 
 
 class FakeRedisClient:

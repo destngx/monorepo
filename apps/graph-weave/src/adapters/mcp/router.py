@@ -92,7 +92,7 @@ class MCPRouter:
             elif name == "verify":
                 return self.verify(arguments.get("claim", ""))
             elif name == "bash":
-                return self.bash(arguments.get("command", ""), arguments.get("cwd"))
+                return self.bash(arguments.get("command", ""))
             elif name == "fs":
                 # Copy arguments to avoid mutation issues if needed, though arguments.pop is used in original
                 args = dict(arguments)
@@ -123,8 +123,8 @@ class MCPRouter:
     def verify(self, claim: str) -> Dict[str, Any]:
         return handle_verify(claim)
 
-    def bash(self, command: str, cwd: Optional[str] = None) -> Dict[str, Any]:
-        return handle_bash(self.bash_tool, command, cwd)
+    def bash(self, command: str) -> Dict[str, Any]:
+        return handle_bash(self.bash_tool, command)
 
     def fs(self, operation: str, **kwargs) -> Dict[str, Any]:
         return handle_fs(self.fs_tool, operation, **kwargs)

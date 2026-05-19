@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from unittest.mock import Mock
 from src.models.node import NodeCreate, NodeConfig, InputContract, OutputContract, ContractField
@@ -138,80 +139,72 @@ def sample_node():
     )
 
 
-@pytest.mark.asyncio
-async def test_create_node_success(node_store, mock_redis, sample_node):
-    result = await node_store.create(sample_node)
+def test_create_node_success(node_store, mock_redis, sample_node):
+    result = asyncio.run(node_store.create(sample_node))
     assert result.node_id == "test_node:v1.0.0"
     assert result.tenant_id == "test-tenant"
     mock_redis.hset_mock.assert_called_once()
     assert mock_redis.sadd_mock.call_count >= 3
 
 
-@pytest.mark.asyncio
-async def test_create_node_duplicate_raises_conflict(node_store, mock_redis, sample_node):
+def test_create_node_duplicate_raises_conflict(node_store, mock_redis, sample_node):
     mock_redis.exists_result = True
     with pytest.raises(ConflictError):
-        await node_store.create(sample_node)
+        asyncio.run(node_store.create(sample_node))
 
 
-@pytest.mark.asyncio
-async def test_get_node_exists(node_store, mock_redis, sample_node):
+def test_get_node_exists(node_store, mock_redis, sample_node):
     import json
     node_dict = sample_node.model_dump()
     node_dict["created_at"] = ""
     node_dict["immutable_fields"] = ["config", "input_contract", "output_contract", "type"]
     mock_redis.hget_result = node_dict
-    result = await node_store.get("test_node:v1.0.0")
+    result = asyncio.run(node_store.get("test_node:v1.0.0"))
     assert result is not None
     assert result.node_id == "test_node:v1.0.0"
 
 
-@pytest.mark.asyncio
-async def test_get_node_not_exists_returns_none(node_store, mock_redis):
+def test_get_node_not_exists_returns_none(node_store, mock_redis):
     mock_redis.hget_result = None
-    result = await node_store.get("nonexistent:v1.0.0")
+    result = asyncio.run(node_store.get("nonexistent:v1.0.0"))
     assert result is None
 
 
-@pytest.mark.asyncio
-async def test_list_nodes_all(node_store, mock_redis, sample_node):
+def test_list_nodes_all(node_store, mock_redis, sample_node):
     import json
     node_dict = sample_node.model_dump()
     node_dict["created_at"] = ""
     node_dict["immutable_fields"] = ["config", "input_contract", "output_contract", "type"]
     mock_redis.smembers_result = {"test_node:v1.0.0"}
     mock_redis.hget_result = node_dict
-    result = await node_store.list()
+    result = asyncio.run(node_store.list())
     assert result.total == 1
     assert result.nodes[0].node_id == "test_node:v1.0.0"
 
 
-@pytest.mark.asyncio
-async def test_list_nodes_by_tags(node_store, mock_redis, sample_node):
+def test_list_nodes_by_tags(node_store, mock_redis, sample_node):
     import json
     node_dict = sample_node.model_dump()
     node_dict["created_at"] = ""
     node_dict["immutable_fields"] = ["config", "input_contract", "output_contract", "type"]
     mock_redis.sinter_result = {"test_node:v1.0.0"}
     mock_redis.hget_result = node_dict
-    result = await node_store.list(tags=["test"])
+    result = asyncio.run(node_store.list(tags=["test"]))
     assert result.total == 1
 
 
-@pytest.mark.asyncio
-async def test_list_nodes_by_name(node_store, mock_redis, sample_node):
+def test_list_nodes_by_name(node_store, mock_redis, sample_node):
     import json
     node_dict = sample_node.model_dump()
     node_dict["created_at"] = ""
     node_dict["immutable_fields"] = ["config", "input_contract", "output_contract", "type"]
     mock_redis.smembers_result = {"test_node:v1.0.0"}
     mock_redis.hget_result = node_dict
-    result = await node_store.list(node_name="test_node")
+    result = asyncio.run(node_store.list(node_name="test_node"))
     assert result.total == 1
 
 
-@pytest.mark.asyncio
-async def test_update_node_metadata_only(node_store, mock_redis, sample_node):
+def test_update_node_metadata_only(node_store, mock_redis, sample_node):
     from src.models.node import NodeUpdate
     import json
     node_dict = sample_node.model_dump()
@@ -220,68 +213,61 @@ async def test_update_node_metadata_only(node_store, mock_redis, sample_node):
     mock_redis.hget_result = node_dict
     mock_redis.exists_result = True
     update = NodeUpdate(name="Updated Name")
-    result = await node_store.update("test_node:v1.0.0", update)
+    result = asyncio.run(node_store.update("test_node:v1.0.0", update))
     assert result.name == "Updated Name"
 
 
-@pytest.mark.asyncio
-async def test_update_node_not_found_raises_error(node_store, mock_redis):
+def test_update_node_not_found_raises_error(node_store, mock_redis):
     from src.models.node import NodeUpdate
     mock_redis.hget_result = None
     update = NodeUpdate(name="Updated Name")
     with pytest.raises(NotFoundError):
-        await node_store.update("nonexistent:v1.0.0", update)
+        asyncio.run(node_store.update("nonexistent:v1.0.0", update))
 
 
-@pytest.mark.asyncio
-async def test_delete_node_removes_indexes(node_store, mock_redis, sample_node):
+def test_delete_node_removes_indexes(node_store, mock_redis, sample_node):
     import json
     node_dict = sample_node.model_dump()
     node_dict["created_at"] = ""
     node_dict["immutable_fields"] = ["config", "input_contract", "output_contract", "type"]
     mock_redis.hget_result = node_dict
-    result = await node_store.delete("test_node:v1.0.0")
+    result = asyncio.run(node_store.delete("test_node:v1.0.0"))
     assert result is True
     assert mock_redis.srem_mock.call_count >= 3
     mock_redis.delete_mock.assert_called_once()
 
 
-@pytest.mark.asyncio
-async def test_delete_node_not_exists_returns_false(node_store, mock_redis):
+def test_delete_node_not_exists_returns_false(node_store, mock_redis):
     mock_redis.hget_result = None
-    result = await node_store.delete("nonexistent:v1.0.0")
+    result = asyncio.run(node_store.delete("nonexistent:v1.0.0"))
     assert result is False
 
 
-@pytest.mark.asyncio
-async def test_exists_returns_true(node_store, mock_redis):
+def test_exists_returns_true(node_store, mock_redis):
     mock_redis.exists_result = True
-    result = await node_store.exists("test_node:v1.0.0")
+    result = asyncio.run(node_store.exists("test_node:v1.0.0"))
     assert result is True
 
 
-@pytest.mark.asyncio
-async def test_exists_returns_false(node_store, mock_redis):
+def test_exists_returns_false(node_store, mock_redis):
     mock_redis.exists_result = False
-    result = await node_store.exists("nonexistent:v1.0.0")
+    result = asyncio.run(node_store.exists("nonexistent:v1.0.0"))
     assert result is False
 
 
-@pytest.mark.asyncio
-async def test_find_by_name_returns_all_versions(node_store, mock_redis, sample_node):
+def test_find_by_name_returns_all_versions(node_store, mock_redis, sample_node):
     import json
     node_dict = sample_node.model_dump()
     node_dict["created_at"] = ""
     node_dict["immutable_fields"] = ["config", "input_contract", "output_contract", "type"]
     mock_redis.smembers_result = {"test_node:v1.0.0"}
     mock_redis.hget_result = node_dict
-    result = await node_store.find_by_name("test_node")
+    result = asyncio.run(node_store.find_by_name("test_node"))
     assert len(result) == 1
     assert result[0].node_id == "test_node:v1.0.0"
 
 
-@pytest.mark.asyncio
-async def test_list_nodes_supports_sync_redis_adapter(sample_node):
+def test_list_nodes_supports_sync_redis_adapter(sample_node):
     redis = SyncFakeRedis()
     node_store = RedisNodeStore(redis)
     node_dict = sample_node.model_dump()
@@ -290,7 +276,7 @@ async def test_list_nodes_supports_sync_redis_adapter(sample_node):
     redis.smembers_result = {"test_node:v1.0.0"}
     redis.hget_result = node_dict
 
-    result = await node_store.list()
+    result = asyncio.run(node_store.list())
 
     assert result.total == 1
     assert result.nodes[0].node_id == "test_node:v1.0.0"

@@ -105,7 +105,7 @@ Every node is a discrete work unit inside the workflow graph. The node type dete
 ```json
 {
   "id": "string (unique within workflow)",
-  "type": "enum: entry | exit | agent_node | human_decision | branch | orchestrator",
+  "type": "enum: entry | exit | agent_node | cli_node | orchestrator | branch | guardrail | skill_loader",
   "display_name": "string (optional)",
   "description": "string (optional)",
 
@@ -272,20 +272,23 @@ Evaluates a condition and determines routing. Does not execute skill work itself
 }
 ```
 
-### Node Type: `human_decision`
+### Node Type: `cli_node`
 
-Awaits human input to proceed. Pauses execution.
+Executes a deterministic bash command or local script within an isolated execution environment.
 
 ```json
 {
-  "id": "approval",
-  "type": "human_decision",
-  "display_name": "Human Approval",
-  "description": "Waiting for user to approve direction",
+  "id": "run_ocr_node",
+  "type": "cli_node",
+  "display_name": "Run OCR Parser",
+  "description": "Deterministic parser node to pull text from local images",
 
   "config": {
-    "prompt": "Do you want to proceed with this plan?",
-    "options": ["yes", "no", "revise"]
+    "command": "swift run mac-ocr --file {image_path}",
+    "input_mapping": {
+      "image_path": "$.entry.image_path"
+    },
+    "output_key": "ocr_text"
   }
 }
 ```

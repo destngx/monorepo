@@ -62,7 +62,9 @@ def test_scheduled_cli_node_execution(mock_deps):
             "exit_point": "end"
         }
     }
-    mock_deps["workflow_store"].get.return_value = workflow_def
+    async def mock_get_compiled(*args, **kwargs):
+        return workflow_def
+    mock_deps["workflow_store"].get_compiled = mock_get_compiled
     
     # 2. Mock the executor.execute response
     expected_result = {
@@ -147,7 +149,7 @@ def test_cli_node_interpolation_in_scheduled_run():
     
     # Verify interpolation worked
     mock_executor.mcp_router.execute_tool.assert_called_once_with(
-        "bash", {"command": "rm -rf /var/log/app/*.tmp", "cwd": None}
+        "bash", {"command": "rm -rf /var/log/app/*.tmp"}
     )
 
 def test_simple_echo_node():
@@ -188,5 +190,5 @@ def test_simple_echo_node():
     assert result["greeting"]["success"] is True
     
     mock_executor.mcp_router.execute_tool.assert_called_once_with(
-        "bash", {"command": "echo 'Hello World'", "cwd": None}
+        "bash", {"command": "echo 'Hello World'"}
     )

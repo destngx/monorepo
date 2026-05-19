@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from .create import NodeConfig, InputContract, OutputContract, Provenance
+from .create import NodeConfig, InputContract, OutputContract, Provenance, NodeType
 
 
 class NodeResponse(BaseModel):
@@ -11,11 +11,12 @@ class NodeResponse(BaseModel):
     node_name: str
     version: str
     name: str
-    type: str
+    type: NodeType
     description: str
     config: NodeConfig
     input_contract: InputContract
     output_contract: OutputContract
+    capabilities: List[str] = Field(default_factory=list)
     tags: List[str]
     owner: str
     status: str

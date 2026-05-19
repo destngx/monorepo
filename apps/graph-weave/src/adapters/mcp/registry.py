@@ -38,8 +38,7 @@ class ToolRegistry:
                         "command": {
                             "type": "string", 
                             "description": "The full bash command to run. If calling a script file, you MUST include 'bash ' prefix."
-                        },
-                        "cwd": {"type": "string", "description": "Optional working directory. Defaults to workspace root."}
+                        }
                     },
                     "required": ["command"],
                 },

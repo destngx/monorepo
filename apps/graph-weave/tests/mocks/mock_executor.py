@@ -336,7 +336,6 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
 
         config = node.get("config", {})
         command_template = config.get("command", "")
-        cwd_template = config.get("cwd")
 
         input_mapping = config.get("input_mapping", {})
         cli_input_context = {}
@@ -345,12 +344,9 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
                 cli_input_context[key] = self._get_state_value(path, state)
 
         command = self._interpolate_prompt(command_template, state, local_context=cli_input_context)
-        cwd = None
-        if cwd_template:
-            cwd = self._interpolate_prompt(cwd_template, state, local_context=cli_input_context)
 
         # Mock tool execution
-        result = self.mcp_router.execute_tool("bash", {"command": command, "cwd": cwd})
+        result = self.mcp_router.execute_tool("bash", {"command": command})
         
         # In mock, stdout is just the command for demonstration if not provided
         stdout = result.get("stdout", f"Mock output for: {command}")

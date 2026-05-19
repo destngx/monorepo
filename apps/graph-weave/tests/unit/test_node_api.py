@@ -52,8 +52,7 @@ def sample_node():
     }
 
 
-@pytest.mark.asyncio
-async def test_create_node_200(client, mock_node_store, sample_node):
+def test_create_node_200(client, mock_node_store, sample_node):
     from src.models.node import NodeResponse
 
     mock_node_store.create.return_value = NodeResponse(
@@ -71,17 +70,15 @@ async def test_create_node_200(client, mock_node_store, sample_node):
     assert response.status_code == 201
 
 
-@pytest.mark.asyncio
-async def test_create_node_validation_error_400(client, mock_node_store, sample_node):
+def test_create_node_validation_error_422(client, mock_node_store, sample_node):
     sample_node["type"] = "invalid_type"
 
     override_node_deps(mock_node_store)
     response = client.post("/nodes/", json=sample_node)
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
-@pytest.mark.asyncio
-async def test_create_node_duplicate_409(client, mock_node_store, sample_node):
+def test_create_node_duplicate_409(client, mock_node_store, sample_node):
     mock_node_store.create.side_effect = ConflictError("Node already exists")
 
     override_node_deps(mock_node_store)
@@ -89,8 +86,7 @@ async def test_create_node_duplicate_409(client, mock_node_store, sample_node):
     assert response.status_code == 409
 
 
-@pytest.mark.asyncio
-async def test_get_node_200(client, mock_node_store, sample_node):
+def test_get_node_200(client, mock_node_store, sample_node):
     from src.models.node import NodeResponse
 
     mock_node_store.get.return_value = NodeResponse(
@@ -108,8 +104,7 @@ async def test_get_node_200(client, mock_node_store, sample_node):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
-async def test_get_node_404(client, mock_node_store):
+def test_get_node_404(client, mock_node_store):
     mock_node_store.get.return_value = None
 
     override_node_deps(mock_node_store)
@@ -117,8 +112,7 @@ async def test_get_node_404(client, mock_node_store):
     assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-async def test_list_nodes_200(client, mock_node_store):
+def test_list_nodes_200(client, mock_node_store):
     mock_node_store.list.return_value = NodeListResponse(
         nodes=[],
         total=0,
@@ -131,8 +125,7 @@ async def test_list_nodes_200(client, mock_node_store):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
-async def test_update_node_200(client, mock_node_store, sample_node):
+def test_update_node_200(client, mock_node_store, sample_node):
     from src.models.node import NodeResponse
 
     updated_node = {**sample_node, "name": "Updated Name"}
@@ -154,8 +147,7 @@ async def test_update_node_200(client, mock_node_store, sample_node):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
-async def test_update_node_404(client, mock_node_store):
+def test_update_node_404(client, mock_node_store):
     mock_node_store.update.side_effect = NotFoundError("Node not found")
 
     override_node_deps(mock_node_store)
@@ -166,8 +158,7 @@ async def test_update_node_404(client, mock_node_store):
     assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-async def test_delete_node_200(client, mock_node_store):
+def test_delete_node_200(client, mock_node_store):
     mock_node_store.delete.return_value = True
 
     override_node_deps(mock_node_store)
@@ -175,8 +166,7 @@ async def test_delete_node_200(client, mock_node_store):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
-async def test_delete_node_404(client, mock_node_store):
+def test_delete_node_404(client, mock_node_store):
     mock_node_store.delete.return_value = False
 
     override_node_deps(mock_node_store)

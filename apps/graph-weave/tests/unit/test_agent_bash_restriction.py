@@ -13,6 +13,8 @@ def test_agent_node_can_now_use_bash_and_fs_tool_validation():
             {"id": "entry", "type": "entry"},
             {
                 "id": "shell_agent",
+                "alias": "shell_agent",
+                "node_id": "system:agent_node:v1.0.0",
                 "type": "agent_node",
                 "system_prompt": "You are a shell assistant.",
                 "user_prompt_template": "Run {command}",
@@ -21,15 +23,15 @@ def test_agent_node_can_now_use_bash_and_fs_tool_validation():
             {"id": "exit", "type": "exit"}
         ],
         "edges": [
-            {"source": "entry", "target": "shell_agent"},
-            {"source": "shell_agent", "target": "exit"}
+            {"from": "entry", "to": "shell_agent"},
+            {"from": "shell_agent", "to": "exit"}
         ],
         "entry_point": "entry",
         "exit_point": "exit"
     }
     
     # This should NOT raise WorkflowParseError now
-    result = GraphBuilder.build(workflow_dict)
+    result = GraphBuilder.build_sync(workflow_dict)
     assert "shell_agent" in result["nodes"]
     
     # Check that config has tools

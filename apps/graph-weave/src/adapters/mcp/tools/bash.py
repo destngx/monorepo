@@ -11,15 +11,15 @@ from ..infra.exceptions import ToolExecutionError
 logger = get_logger(__name__)
 
 
-def handle_bash(bash_tool: Any, command: str, cwd: Optional[str] = None) -> Dict[str, Any]:
+def handle_bash(bash_tool: Any, command: str) -> Dict[str, Any]:
     """Execute a bash command using the BashTool."""
     try:
-        result = bash_tool.execute_bash(command, cwd=cwd)
+        result = bash_tool.execute_bash(command)
         # Standardize tool response format
         return {
             "tool": "bash",
             "command": command,
-            "cwd": result.get("cwd", cwd),
+            "cwd": result.get("cwd"),
             "status": "success" if result["success"] else "error",
             "exit_code": result.get("exit_code", -1),
             "stdout": result.get("stdout", ""),
@@ -117,14 +117,13 @@ class BashTool:
         
         return f"{head}\n\n... [{omitted_len} characters omitted] ...\n\n{tail}"
 
-    def execute_bash(self, command: str, timeout: int = 30, cwd: Optional[str] = None) -> Dict[str, Any]:
+    def execute_bash(self, command: str, timeout: int = 30) -> Dict[str, Any]:
         """
         Execute a bash command safely.
         
         Args:
             command: The command string to execute.
             timeout: Execution timeout in seconds.
-            cwd: Current working directory for execution.
             
         Returns:
             Dict containing success status, stdout, stderr, and exit code.
@@ -139,13 +138,12 @@ class BashTool:
                 "exit_code": -1
             }
 
-        target_cwd = cwd if cwd is not None else os.getcwd()
-        abs_cwd = os.path.abspath(os.path.expanduser(target_cwd))
+        abs_cwd = os.path.abspath(os.getcwd())
         
         if not self._is_path_allowed(abs_cwd):
             return {
                 "success": False,
-                "error": f"Requested cwd '{cwd}' is outside allowed paths.",
+                "error": "Workspace directory is outside allowed paths.",
                 "exit_code": -1
             }
 

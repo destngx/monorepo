@@ -9,7 +9,7 @@ def workspace_root(tmp_path):
 
 @pytest.fixture
 def bash_tool(workspace_root):
-    return BashTool(allowed_paths=[workspace_root])
+    return BashTool(allowed_paths=[workspace_root, os.getcwd()])
 
 def test_initialization(workspace_root):
     tool = BashTool(allowed_paths=[workspace_root])
@@ -23,6 +23,7 @@ def test_is_path_allowed(bash_tool, workspace_root):
     # Allowed
     assert bash_tool._is_path_allowed(workspace_root)
     assert bash_tool._is_path_allowed(os.path.join(workspace_root, "subdir", "file.txt"))
+    assert bash_tool._is_path_allowed(os.getcwd())
     
     # Not allowed
     assert not bash_tool._is_path_allowed("/etc")
@@ -68,23 +69,18 @@ def test_smart_truncate(bash_tool):
     assert len(truncated) < 5000
     assert truncated.startswith("A" * 1000)
 
-def test_execute_bash_success(bash_tool, workspace_root):
-    result = bash_tool.execute_bash("echo 'hello'", cwd=workspace_root)
+def test_execute_bash_success(bash_tool):
+    result = bash_tool.execute_bash("echo 'hello'")
     assert result["success"] is True
     assert result["stdout"].strip() == "hello"
     assert result["exit_code"] == 0
 
-def test_execute_bash_preserves_home_for_scripts(bash_tool, workspace_root):
-    result = bash_tool.execute_bash("printf '%s' \"$HOME\"", cwd=workspace_root)
+def test_execute_bash_preserves_home_for_scripts(bash_tool):
+    result = bash_tool.execute_bash("printf '%s' \"$HOME\"")
     assert result["success"] is True
     assert result["stdout"] == os.path.expanduser("~")
 
-def test_execute_bash_out_of_bounds_cwd(bash_tool):
-    result = bash_tool.execute_bash("ls", cwd="/etc")
-    assert result["success"] is False
-    assert "outside allowed paths" in result["error"]
-
-def test_execute_bash_timeout(bash_tool, workspace_root):
-    result = bash_tool.execute_bash("sleep 2", timeout=1, cwd=workspace_root)
+def test_execute_bash_timeout(bash_tool):
+    result = bash_tool.execute_bash("sleep 2", timeout=1)
     assert result["success"] is False
     assert "timed out" in result["error"]

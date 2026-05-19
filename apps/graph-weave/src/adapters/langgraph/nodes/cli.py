@@ -30,8 +30,6 @@ class CLINodeHandler:
         if not command_template:
             raise ValueError(f"CLI node {node_id} is missing 'command' in config")
             
-        cwd_template = config.get("cwd") or node.get("cwd")
-        
         # 1. Resolve input mapping if present
         input_mapping = config.get("input_mapping") or node.get("input_mapping", {})
         cli_input_context = {}
@@ -42,12 +40,9 @@ class CLINodeHandler:
             # Default to full workflow state if no mapping
             cli_input_context = dict(state.get("workflow_state", {}))
             
-        # 2. Interpolate command and cwd
+        # 2. Interpolate command
         command = self.executor._interpolate_prompt(command_template, state, local_context=cli_input_context)
         validate_command_contract(command, config.get("command_contract"), node_id or "")
-        cwd = None
-        if cwd_template:
-            cwd = self.executor._interpolate_prompt(cwd_template, state, local_context=cli_input_context)
 
         self.executor._emit_event(
             run_id,
@@ -55,14 +50,13 @@ class CLINodeHandler:
             {
                 "node_id": node_id,
                 "command": command,
-                "cwd": cwd,
             },
         )
 
         try:
             # 3. Execute the command via MCPRouter's bash tool
             # This ensures we follow the same security/path restrictions as the LLM-driven bash tool
-            result = self.executor.mcp_router.execute_tool("bash", {"command": command, "cwd": cwd})
+            result = self.executor.mcp_router.execute_tool("bash", {"command": command})
             
             # 4. Process the result
             status = "completed" if result.get("status") == "success" else "failed"

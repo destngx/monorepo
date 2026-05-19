@@ -70,13 +70,16 @@ The previous workflow model mixed **skill availability with routing logic**. Thi
 
 ### 1. Node Types are Explicit
 
-| Type             | Purpose                        | Example                    |
-| ---------------- | ------------------------------ | -------------------------- |
-| `entry`          | Start workflow, accept input   | Customer query input       |
-| `skill_call`     | Execute a skill (load context) | "billing_system" skill     |
-| `branch`         | Evaluate condition, no work    | Decision point (if/then)   |
-| `human_decision` | Pause for human input          | Approval gate              |
-| `exit`           | End workflow, output result    | Format and return response |
+| Type           | Purpose                           | Example                    |
+| -------------- | --------------------------------- | -------------------------- |
+| `entry`        | Start workflow, accept input      | Customer query input       |
+| `agent_node`   | Execute LLM agent with prompts    | Primary cognitive agent    |
+| `cli_node`     | Execute bash commands securely    | isolated swift mac-ocr run |
+| `orchestrator` | Multi-step ReAct agent loops      | Investigative SRE agent    |
+| `branch`       | Route based on JSONPath match     | Decision point (if/then)   |
+| `guardrail`    | Safety block for checking content | Content policy check       |
+| `skill_loader` | Mount recipe-based context files  | Procedural task playbooks  |
+| `exit`         | End workflow, output result       | Format and return response |
 
 **Old Model** had only `subagents` (implicit execution).
 
@@ -112,7 +115,7 @@ When node `billing_agent` executes:
 ```json
 {
   "id": "billing_agent",
-  "type": "skill_call",
+  "type": "agent_node",
   "guardrails": {
     "input": {
       "max_tokens": 2000,
@@ -221,8 +224,13 @@ graph TD
   "nodes": [
     {
       "id": "classify_query",
-      "type": "skill_call",
-      "skill_id": "classify_support_request"
+      "type": "agent_node",
+      "config": {
+        "system_prompt": "You are a customer support query classifier. Classify request category.",
+        "user_prompt_template": "Classify this query: {query}",
+        "input_mapping": { "query": "$.entry.query" },
+        "output_key": "classification"
+      }
     },
     {
       "id": "route_decision",
@@ -231,8 +239,13 @@ graph TD
     },
     {
       "id": "billing_agent",
-      "type": "skill_call",
-      "skill_id": "billing_system"
+      "type": "agent_node",
+      "config": {
+        "system_prompt": "You are a billing support agent. Load 'billing_system' skill to assist the user.",
+        "user_prompt_template": "Help with query: {query}",
+        "input_mapping": { "query": "$.entry.query" },
+        "output_key": "billing_response"
+      }
     }
   ],
   "edges": [
@@ -267,10 +280,10 @@ graph TD
 
 ### Migration Checklist
 
-- [ ] Convert each `subagent` to a `skill_call` node.
+- [ ] Convert each `subagent` to an `agent_node` or `cli_node`.
 - [ ] Convert implicit routing to explicit edges with conditions.
-- [ ] Add node types (entry, exit, branch) to define graph shape.
-- [ ] Move skill references from top-level to node `config.skill_id`.
+- [ ] Add node types (entry, exit, branch, etc.) to define graph shape.
+- [ ] Move dynamic execution capabilities into the `.capabilities` array.
 - [ ] Test condition evaluation with real state snapshots.
 
 ---

@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, patch
 from src.models.node import (
@@ -60,8 +61,7 @@ def sample_stored_node():
     )
 
 
-@pytest.mark.asyncio
-async def test_compile_compositional_workflow(
+def test_compile_compositional_workflow(
     compiler, mock_node_store, sample_stored_node
 ):
     mock_node_store.get.return_value = sample_stored_node
@@ -82,7 +82,7 @@ async def test_compile_compositional_workflow(
         ],
     }
 
-    result = await compiler.compile(workflow)
+    result = asyncio.run(compiler.compile(workflow))
 
     assert len(result["nodes"]) == 3
     assert result["nodes"][1]["id"] == "test"
@@ -91,19 +91,17 @@ async def test_compile_compositional_workflow(
     assert result["nodes"][1]["config"]["input_mapping"]["input1"] == "$.entry.custom"
 
 
-@pytest.mark.asyncio
-async def test_compile_rejects_legacy(compiler):
+def test_compile_rejects_legacy(compiler):
     workflow = {
         "nodes": [{"id": "test", "type": "agent_node", "config": {}}],
         "edges": [],
     }
 
     with pytest.raises(WorkflowFormatError):
-        await compiler.compile(workflow)
+        asyncio.run(compiler.compile(workflow))
 
 
-@pytest.mark.asyncio
-async def test_compile_missing_node_raises_error(compiler, mock_node_store):
+def test_compile_missing_node_raises_error(compiler, mock_node_store):
     mock_node_store.get.return_value = None
 
     workflow = {
@@ -112,11 +110,10 @@ async def test_compile_missing_node_raises_error(compiler, mock_node_store):
     }
 
     with pytest.raises(WorkflowCompileError):
-        await compiler.compile(workflow)
+        asyncio.run(compiler.compile(workflow))
 
 
-@pytest.mark.asyncio
-async def test_validate_references_success(compiler, mock_node_store):
+def test_validate_references_success(compiler, mock_node_store):
     mock_node_store.exists.return_value = True
 
     workflow = {
@@ -124,12 +121,11 @@ async def test_validate_references_success(compiler, mock_node_store):
         "edges": [],
     }
 
-    errors = await compiler.validate_references(workflow)
+    errors = asyncio.run(compiler.validate_references(workflow))
     assert errors == []
 
 
-@pytest.mark.asyncio
-async def test_validate_references_missing(compiler, mock_node_store):
+def test_validate_references_missing(compiler, mock_node_store):
     mock_node_store.exists.return_value = False
 
     workflow = {
@@ -137,13 +133,12 @@ async def test_validate_references_missing(compiler, mock_node_store):
         "edges": [],
     }
 
-    errors = await compiler.validate_references(workflow)
+    errors = asyncio.run(compiler.validate_references(workflow))
     assert len(errors) == 1
     assert "nonexistent:v1.0.0" in errors[0]
 
 
-@pytest.mark.asyncio
-async def test_validate_contracts_success(
+def test_validate_contracts_success(
     compiler, mock_node_store, sample_stored_node
 ):
     matching_node = NodeResponse(
@@ -185,12 +180,11 @@ async def test_validate_contracts_success(
         "edges": [{"from": "node1", "to": "node2"}],
     }
 
-    errors = await compiler.validate_contracts(workflow)
+    errors = asyncio.run(compiler.validate_contracts(workflow))
     assert errors == []
 
 
-@pytest.mark.asyncio
-async def test_validate_contracts_incompatible(compiler, mock_node_store):
+def test_validate_contracts_incompatible(compiler, mock_node_store):
     upstream = NodeResponse(
         tenant_id="test-tenant",
         node_id="upstream:v1.0.0",
@@ -254,6 +248,6 @@ async def test_validate_contracts_incompatible(compiler, mock_node_store):
         "edges": [{"from": "up", "to": "down"}],
     }
 
-    errors = await compiler.validate_contracts(workflow)
+    errors = asyncio.run(compiler.validate_contracts(workflow))
     assert len(errors) == 1
     assert "missing" in errors[0]

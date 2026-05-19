@@ -215,9 +215,6 @@ class AgentNodeHandler:
                     
                     validate_tool_args_resolved(tool_name, tool_args)
 
-                    if tool_name == "bash" and "cwd" in config:
-                        if "cwd" not in tool_args:
-                            tool_args["cwd"] = config["cwd"]
                     if tool_name == "bash":
                         validate_command_contract(
                             str(tool_args.get("command") or ""),

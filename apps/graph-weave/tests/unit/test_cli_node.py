@@ -49,7 +49,7 @@ def test_cli_node_handler_execute_success(mock_executor):
     assert result["cli_out"] == {"foo": "bar", "stderr": "", "exit_code": 0, "success": True}
     
     mock_executor.mcp_router.execute_tool.assert_called_once_with(
-        "bash", {"command": "echo '{\"foo\": \"bar\"}'", "cwd": None}
+        "bash", {"command": "echo '{\"foo\": \"bar\"}'"}
     )
 
 def test_cli_node_handler_interpolation(mock_executor):
@@ -59,14 +59,12 @@ def test_cli_node_handler_interpolation(mock_executor):
         "id": "test_cli",
         "type": "cli_node",
         "config": {
-            "command": "ls {dir_name}",
-            "cwd": "{work_dir}"
+            "command": "ls {dir_name}"
         }
     }
     state = {
         "workflow_state": {
-            "dir_name": "tmp",
-            "work_dir": "/projects"
+            "dir_name": "tmp"
         }
     }
     workflow = {}
@@ -81,7 +79,7 @@ def test_cli_node_handler_interpolation(mock_executor):
     handler.execute("run-1", node, state, workflow)
     
     mock_executor.mcp_router.execute_tool.assert_called_once_with(
-        "bash", {"command": "ls tmp", "cwd": "/projects"}
+        "bash", {"command": "ls tmp"}
     )
 
 def test_cli_node_handler_failure(mock_executor):

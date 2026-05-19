@@ -63,7 +63,7 @@ class TestMCPRouterToolMethods:
             "cwd": "/tmp"
         }
         router = MCPRouter()
-        result = router.bash("echo hello", cwd="/tmp")
+        result = router.bash("echo hello")
         assert result["tool"] == "bash"
         assert result["command"] == "echo hello"
         assert result["status"] == "success"
