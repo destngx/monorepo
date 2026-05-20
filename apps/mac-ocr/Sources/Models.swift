@@ -107,3 +107,34 @@ struct OCRSummary: Codable {
         case warnings
     }
 }
+
+extension OCRResult {
+    static func create(pages: [PageResult], config: OCRConfig) -> OCRResult {
+        let summary = OCRSummary(
+            totalChars: pages.reduce(0) { $0 + $1.charCount },
+            pagesDirect: pages.filter { $0.method == .direct }.count,
+            pagesOCR: pages.filter { $0.method == .ocr }.count,
+            avgConfidence: pages.count > 0 ? pages.reduce(0.0) { $0 + $1.confidence } / Double(pages.count) : 0.0,
+            warnings: []
+        )
+        
+        let metadata = OCRMetadata(
+            filename: config.inputPath.lastPathComponent,
+            fileSize: (try? config.inputPath.resourceValues(forKeys: [.fileSizeKey]).fileSize).map { Int64($0) } ?? 0,
+            pageCount: pages.count,
+            processedAt: ISO8601DateFormatter().string(from: Date()),
+            config: ConfigMetadata(
+                dpi: Double(config.dpi),
+                languages: config.languages,
+                forceOCR: config.forceOCR
+            )
+        )
+        
+        return OCRResult(
+            metadata: metadata,
+            pages: pages,
+            summary: summary
+        )
+    }
+}
+

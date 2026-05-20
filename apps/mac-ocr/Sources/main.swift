@@ -2,10 +2,10 @@ import Foundation
 
 func printUsage() {
     let usage = """
-    USAGE: mac-ocr <input> [OPTIONS]
+    USAGE: mac-ocr <input-files...> [OPTIONS]
 
     ARGUMENTS:
-      <input>           Path to image or PDF file
+      <input-files...>  One or more paths to image or PDF files
 
     OPTIONS:
       --format <fmt>    Output format: plain | json  [default: plain]
@@ -39,16 +39,7 @@ func main() {
         exit(1)
     }
     
-    let inputPathStr = args[1]
-    if inputPathStr.hasPrefix("-") {
-        fputs("Error: Missing input path\n", stderr)
-        printUsage()
-        exit(1)
-    }
-    
-    let inputPath = URL(fileURLWithPath: inputPathStr)
-    
-    // Default config
+    var inputPathsStr: [String] = []
     var format: OutputFormat = .plain
     var languages: [String] = ["en-US"]
     var dpi: CGFloat = 150
@@ -57,60 +48,121 @@ func main() {
     var timeout: TimeInterval = 30
     var targetPage: Int? = nil
     
-    // Parse options
-    var i = 2
+    var i = 1
     while i < args.count {
         let arg = args[i]
         switch arg {
         case "--format":
             if i + 1 < args.count {
                 format = OutputFormat(rawValue: args[i+1]) ?? .plain
-                i += 1
+                i += 2
+            } else {
+                fputs("Error: Missing value for --format\n", stderr)
+                exit(1)
             }
         case "--lang":
             if i + 1 < args.count {
                 languages = args[i+1].split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
-                i += 1
+                i += 2
+            } else {
+                fputs("Error: Missing value for --lang\n", stderr)
+                exit(1)
             }
         case "--dpi":
-            if i + 1 < args.count, let val = Double(args[i+1]) {
-                dpi = CGFloat(val)
-                i += 1
+            if i + 1 < args.count {
+                if let val = Double(args[i+1]) {
+                    dpi = CGFloat(val)
+                } else {
+                    fputs("Error: Invalid value for --dpi\n", stderr)
+                    exit(1)
+                }
+                i += 2
+            } else {
+                fputs("Error: Missing value for --dpi\n", stderr)
+                exit(1)
             }
         case "--force-ocr":
             forceOCR = true
+            i += 1
         case "--bbox":
             includeBBox = true
+            i += 1
         case "--timeout":
-            if i + 1 < args.count, let val = Double(args[i+1]) {
-                timeout = val
-                i += 1
+            if i + 1 < args.count {
+                if let val = Double(args[i+1]) {
+                    timeout = val
+                } else {
+                    fputs("Error: Invalid value for --timeout\n", stderr)
+                    exit(1)
+                }
+                i += 2
+            } else {
+                fputs("Error: Missing value for --timeout\n", stderr)
+                exit(1)
             }
         case "--page":
-            if i + 1 < args.count, let val = Int(args[i+1]) {
-                targetPage = val
-                i += 1
+            if i + 1 < args.count {
+                if let val = Int(args[i+1]) {
+                    targetPage = val
+                } else {
+                    fputs("Error: Invalid value for --page\n", stderr)
+                    exit(1)
+                }
+                i += 2
+            } else {
+                fputs("Error: Missing value for --page\n", stderr)
+                exit(1)
             }
         default:
-            fputs("Warning: Unknown option \(arg)\n", stderr)
+            if arg.hasPrefix("-") {
+                fputs("Error: Unknown option \(arg)\n", stderr)
+                printUsage()
+                exit(1)
+            } else {
+                inputPathsStr.append(arg)
+                i += 1
+            }
         }
-        i += 1
     }
     
-    let config = OCRConfig(
-        inputPath: inputPath,
-        format: format,
-        languages: languages,
-        dpi: dpi,
-        forceOCR: forceOCR,
-        includeBBox: includeBBox,
-        timeout: timeout,
-        targetPage: targetPage
-    )
+    guard !inputPathsStr.isEmpty else {
+        fputs("Error: Missing input path\n", stderr)
+        printUsage()
+        exit(1)
+    }
+    
+    // Validate file existence and make sure they are not directories
+    var inputPaths: [URL] = []
+    for pathStr in inputPathsStr {
+        let url = URL(fileURLWithPath: pathStr)
+        var isDirectory: ObjCBool = false
+        if !FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) || isDirectory.boolValue {
+            fputs("Error: File not found: \(pathStr)\n", stderr)
+            exit(2)
+        }
+        inputPaths.append(url)
+    }
     
     do {
-        let pages = try InputRouter.route(config: config)
-        let output = Formatter.format(pages: pages, config: config)
+        var results: [OCRResult] = []
+        for inputPath in inputPaths {
+            let config = OCRConfig(
+                inputPath: inputPath,
+                format: format,
+                languages: languages,
+                dpi: dpi,
+                forceOCR: forceOCR,
+                includeBBox: includeBBox,
+                timeout: timeout,
+                targetPage: targetPage
+            )
+            
+            let pages = try InputRouter.route(config: config)
+            let result = OCRResult.create(pages: pages, config: config)
+            results.append(result)
+        }
+        
+        let output = Formatter.format(results: results, format: format)
         print(output)
         exit(0)
     } catch {
