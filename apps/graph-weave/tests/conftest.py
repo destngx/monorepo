@@ -60,7 +60,7 @@ class FakeRedisClient:
 @pytest.fixture(autouse=True)
 def mock_redis_services(monkeypatch, request):
     """Mocks Redis services for unit tests and ensures a clean state."""
-    if "tests/unit" not in str(request.node.fspath):
+    if "tests/e2e" in str(request.node.fspath):
         yield
         return
 
@@ -126,7 +126,7 @@ def clear_workflow_store(mock_redis_services):
 @pytest.fixture(autouse=True)
 def mock_gateway_http(monkeypatch, request):
     """Mocks AI Gateway HTTP calls for unit tests only."""
-    if "tests/unit" not in str(request.node.fspath):
+    if "tests/e2e" in str(request.node.fspath):
         return
 
     class FakeResponse:

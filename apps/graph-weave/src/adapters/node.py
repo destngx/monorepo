@@ -68,6 +68,9 @@ class RedisNodeStore:
     def _tag_key(self, tag: str) -> str:
         return self.redis.node_tag_key(tag)
 
+    def _capability_key(self, capability: str) -> str:
+        return f"nodes:{self.redis.tenant_id}:capabilities:{capability}"
+
     async def _redis_call(self, method_name: str, *args, **kwargs):
         result = getattr(self.redis, method_name)(*args, **kwargs)
         if inspect.isawaitable(result):
@@ -95,6 +98,9 @@ class RedisNodeStore:
 
         for tag in node.tags:
             await self._redis_call("sadd", self._tag_key(tag), node.node_id)
+
+        for capability in node.capabilities:
+            await self._redis_call("sadd", self._capability_key(capability), node.node_id)
 
         return NodeResponse(**node_dict)
 
@@ -176,6 +182,9 @@ class RedisNodeStore:
         for tag in node.tags:
             await self._redis_call("srem", self._tag_key(tag), node_id)
 
+        for capability in node.capabilities:
+            await self._redis_call("srem", self._capability_key(capability), node_id)
+
         await self._redis_call("delete", key)
         return True
 
@@ -239,3 +248,24 @@ class RedisNodeStore:
         key = self._node_key(node_id)
         await self._redis_call("hset", key, field="data", value=node_dict)
         return True
+
+    async def find_by_capability(self, capability: str) -> List[NodeResponse]:
+        """Find all active catalog nodes dynamically with a given capability."""
+        # Try fetching from set index first
+        node_ids = await self._redis_call("smembers", self._capability_key(capability))
+        if not node_ids:
+            # Fallback: scan all nodes and check capabilities (robust fallback for non-indexed nodes)
+            all_node_ids = await self._redis_call("smembers", self._index_key())
+            nodes = []
+            for node_id in all_node_ids:
+                node = await self.get(node_id)
+                if node and node.status == "active" and capability in getattr(node, "capabilities", []):
+                    nodes.append(node)
+            return nodes
+        
+        nodes = []
+        for node_id in node_ids:
+            node = await self.get(node_id)
+            if node and node.status == "active":
+                nodes.append(node)
+        return nodes

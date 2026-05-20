@@ -101,3 +101,17 @@ class NodeCreate(BaseModel):
 
     def validate_node_id_format(self) -> None:
         validate_node_id(self.node_id)
+
+
+class OperatorCapability(str, Enum):
+    """Operator capability categories."""
+    
+    DATA_FETCH = "data_fetch"
+    DATA_PROCESS = "data_process"
+    DATA_STORE = "data_store"
+    LLM_CALL = "llm_call"
+    SEARCH = "search"
+    COMPUTE = "compute"
+    EXTERNAL_API = "external_api"
+    FILE_IO = "file_io"
+    CUSTOM = "custom"

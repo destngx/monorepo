@@ -2,6 +2,7 @@
 Workflow Generation Benchmarking
 
 Measures latency, accuracy, and resource usage across patterns.
+Consolidated into core services.
 """
 
 import time
@@ -9,8 +10,14 @@ import psutil
 import os
 from typing import Dict, List, Any, Callable
 from dataclasses import dataclass, asdict
-from pydantic import BaseModel, Field
 import json
+
+from src.services import (
+    IntentToWorkflowGenerator,
+    TemplateWorkflowGenerator,
+    get_global_registry,
+)
+from src.models import OperatorCapability
 
 
 @dataclass
@@ -42,16 +49,7 @@ class WorkflowBenchmark:
     ) -> List[BenchmarkResult]:
         """
         Benchmark Pattern 1: Intent → Structured Workflow.
-        
-        Args:
-            intent_factory: Function that returns IntentExtraction
-            num_runs: Number of benchmark runs
-        
-        Returns:
-            List of BenchmarkResult
         """
-        from ..generators import IntentToWorkflowGenerator
-        
         results = []
         generator = IntentToWorkflowGenerator()
         
@@ -99,15 +97,7 @@ class WorkflowBenchmark:
     ) -> List[BenchmarkResult]:
         """
         Benchmark Pattern 2: Operator Registry.
-        
-        Args:
-            num_runs: Number of benchmark runs
-        
-        Returns:
-            List of BenchmarkResult
         """
-        from ..operators import get_global_registry, OperatorCapability
-        
         results = []
         registry = get_global_registry()
         
@@ -160,17 +150,7 @@ class WorkflowBenchmark:
     ) -> List[BenchmarkResult]:
         """
         Benchmark Pattern 3: Template-based Workflows.
-        
-        Args:
-            template_factory: Function that returns WorkflowTemplate
-            variables_factory: Function that returns variables dict
-            num_runs: Number of benchmark runs
-        
-        Returns:
-            List of BenchmarkResult
         """
-        from ..templates import TemplateWorkflowGenerator
-        
         results = []
         generator = TemplateWorkflowGenerator()
         

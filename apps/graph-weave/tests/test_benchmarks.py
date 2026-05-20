@@ -5,17 +5,17 @@ Tests latency, accuracy, and resource usage.
 """
 
 import pytest
-from src.workflow_generation import (
+from src.models import (
     IntentExtraction,
     IntentAction,
     IntentParameter,
 )
-from src.workflow_generation.templates import (
+from src.services import (
     WorkflowTemplate,
     TemplateVariable,
     TemplateNode,
 )
-from src.workflow_generation.benchmarks import WorkflowBenchmark
+from src.services.benchmarks import WorkflowBenchmark
 
 
 class TestBenchmarks:

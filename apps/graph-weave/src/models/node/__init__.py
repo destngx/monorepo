@@ -8,6 +8,7 @@ from .create import (
     OutputContract,
     NodeConfig,
     Provenance,
+    OperatorCapability,
 )
 from .update import NodeUpdate
 from .response import NodeResponse, NodeListResponse
@@ -22,6 +23,7 @@ __all__ = [
     "OutputContract",
     "NodeConfig",
     "Provenance",
+    "OperatorCapability",
     "NodeUpdate",
     "NodeResponse",
     "NodeListResponse",

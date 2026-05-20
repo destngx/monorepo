@@ -9,10 +9,10 @@ Tests cover:
 """
 
 import pytest
-from src.workflow_generation.operators import (
+from src.models import OperatorCapability
+from src.services import (
     OperatorRegistry,
     OperatorDefinition,
-    OperatorCapability,
     get_global_registry,
 )
 

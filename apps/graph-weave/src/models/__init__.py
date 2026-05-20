@@ -9,6 +9,10 @@ from .cache import InvalidateRequest, InvalidateResponse
 from .orchestrator import TraceEntry, OrchestratorConfig
 from .workflow import (
     WorkflowCreate,
+    WorkflowNodeType,
+    WorkflowNode,
+    WorkflowEdge,
+    WorkflowSpec,
     WorkflowResponse,
     WorkflowDetailResponse,
     WorkflowSummary,
@@ -22,6 +26,12 @@ from .schedule import (
     ScheduleSummary,
     ScheduleListResponse,
 )
+from .intent import (
+    IntentExtraction,
+    IntentAction,
+    IntentParameter,
+)
+from .node import OperatorCapability
 
 __all__ = [
     "StatusEnum",
@@ -34,6 +44,10 @@ __all__ = [
     "TraceEntry",
     "OrchestratorConfig",
     "WorkflowCreate",
+    "WorkflowNodeType",
+    "WorkflowNode",
+    "WorkflowEdge",
+    "WorkflowSpec",
     "WorkflowResponse",
     "WorkflowDetailResponse",
     "WorkflowSummary",
@@ -44,4 +58,8 @@ __all__ = [
     "ScheduleResponse",
     "ScheduleSummary",
     "ScheduleListResponse",
+    "IntentExtraction",
+    "IntentAction",
+    "IntentParameter",
+    "OperatorCapability",
 ]

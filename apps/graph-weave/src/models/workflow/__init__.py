@@ -1,4 +1,10 @@
-from .create import WorkflowCreate
+from .create import (
+    WorkflowCreate,
+    WorkflowNodeType,
+    WorkflowNode,
+    WorkflowEdge,
+    WorkflowSpec,
+)
 from .response import (
     WorkflowResponse,
     WorkflowDetailResponse,
@@ -11,6 +17,10 @@ from .validators import validate_workflow_id_format, validate_semantic_version
 
 __all__ = [
     "WorkflowCreate",
+    "WorkflowNodeType",
+    "WorkflowNode",
+    "WorkflowEdge",
+    "WorkflowSpec",
     "WorkflowResponse",
     "WorkflowDetailResponse",
     "WorkflowSummary",

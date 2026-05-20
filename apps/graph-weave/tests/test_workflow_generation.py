@@ -9,14 +9,16 @@ Tests cover:
 """
 
 import pytest
-from src.workflow_generation import (
+from src.models import (
     IntentExtraction,
     IntentAction,
     IntentParameter,
+    WorkflowNodeType as NodeType,
+)
+from src.services import (
     IntentValidator,
     IntentToWorkflowGenerator,
     WorkflowValidator,
-    NodeType,
 )
 
 

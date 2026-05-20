@@ -34,6 +34,16 @@ async def create_workflow(request: WorkflowCreate):
             status_code=422,
             detail="workflow_id must be in format 'name:version' and version must match",
         )
+    # Validate definition with DAG cycle safety and reachability checks
+    from ..services.workflow_validator import WorkflowValidator
+    validator = WorkflowValidator()
+    validation_result = validator.validate(request.definition)
+    if not validation_result["valid"]:
+        logger.warning(f"Invalid workflow definition: {validation_result['errors']}")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid workflow definition: {'; '.join(validation_result['errors'])}"
+        )
 
     store = get_workflow_store()
 
@@ -190,6 +200,15 @@ async def update_workflow(
     if request.tags is not None:
         updates["tags"] = request.tags
     if request.definition is not None:
+        from ..services.workflow_validator import WorkflowValidator
+        validator = WorkflowValidator()
+        validation_result = validator.validate(request.definition)
+        if not validation_result["valid"]:
+            logger.warning(f"Invalid workflow definition: {validation_result['errors']}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid workflow definition: {'; '.join(validation_result['errors'])}"
+            )
         updates["definition"] = request.definition
 
     result = store.update(tenant_id, workflow_id, updates)

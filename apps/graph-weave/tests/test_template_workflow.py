@@ -9,7 +9,7 @@ Tests cover:
 """
 
 import pytest
-from src.workflow_generation.templates import (
+from src.services import (
     WorkflowTemplate,
     TemplateVariable,
     TemplateNode,

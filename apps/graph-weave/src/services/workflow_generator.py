@@ -2,21 +2,21 @@
 Intent to Workflow Generator
 
 Deterministic conversion from IntentExtraction → WorkflowSpec.
-
-Algorithm:
-1. Validate intent (IntentValidator)
-2. Map actions to workflow nodes
-3. Construct DAG edges from dependencies
-4. Add START/END nodes
-5. Validate workflow (WorkflowValidator)
+Relocated to core services layer and harmonized with the entry_point / exit_point DAG format.
 """
 
 import uuid
-from typing import Dict, List, Optional, Any
-from ..schemas.intent import IntentExtraction, IntentAction
-from ..schemas.workflow import WorkflowSpec, WorkflowNode, WorkflowEdge, NodeType
-from ..validators.intent_validator import IntentValidator
-from ..validators.workflow_validator import WorkflowValidator
+from typing import Dict, List, Optional, Any, Set
+from ..models import (
+    IntentExtraction,
+    IntentAction,
+    WorkflowSpec,
+    WorkflowNode,
+    WorkflowEdge,
+    WorkflowNodeType,
+)
+from .intent_validator import IntentValidator
+from .workflow_validator import WorkflowValidator
 
 
 class IntentToWorkflowGenerator:
@@ -24,23 +24,50 @@ class IntentToWorkflowGenerator:
     
     def __init__(
         self,
-        available_operators: Optional[set] = None,
-        workflow_id_prefix: str = "wf"
+        available_operators: Optional[Set[str]] = None,
+        workflow_id_prefix: str = "wf",
+        node_store: Optional[Any] = None,
     ):
         """
         Initialize generator.
         
         Args:
-            available_operators: Set of available operator names
+            available_operators: Set of available operator names. 
+                                 If provided, will override the dynamically resolved capabilities.
             workflow_id_prefix: Prefix for generated workflow IDs
+            node_store: RedisNodeStore instance to dynamically resolve capability availability.
         """
-        self.intent_validator = IntentValidator(available_operators)
+        self.intent_validator = IntentValidator(
+            available_operators=available_operators,
+            node_store=node_store
+        )
         self.workflow_validator = WorkflowValidator()
         self.workflow_id_prefix = workflow_id_prefix
     
     def generate(self, intent: IntentExtraction) -> Dict[str, Any]:
         """
-        Generate WorkflowSpec from IntentExtraction.
+        Generate WorkflowSpec from IntentExtraction synchronously.
+        
+        Backward compatible synchronous wrapper running the async pipeline.
+        """
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+            
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(lambda: asyncio.run(self.generate_async(intent))).result()
+        else:
+            return asyncio.run(self.generate_async(intent))
+
+    async def generate_async(self, intent: IntentExtraction) -> Dict[str, Any]:
+        """
+        Generate WorkflowSpec from IntentExtraction asynchronously.
+        
+        This method is async to support dynamic capability lookups against Redis.
         
         Returns:
             {
@@ -51,8 +78,8 @@ class IntentToWorkflowGenerator:
                 "errors": List[str]
             }
         """
-        # Stage 1: Validate intent
-        intent_validation = self.intent_validator.validate(intent)
+        # Stage 1: Validate intent (async capability check)
+        intent_validation = await self.intent_validator.validate_async(intent)
         
         if not intent_validation["valid"]:
             return {
@@ -96,11 +123,11 @@ class IntentToWorkflowGenerator:
         nodes = []
         action_to_node_id = {}
         
-        # Add START node
-        start_node_id = f"{workflow_id}_start"
+        # Add ENTRY node
+        entry_node_id = f"{workflow_id}_entry"
         nodes.append(WorkflowNode(
-            id=start_node_id,
-            type=NodeType.START,
+            id=entry_node_id,
+            type=WorkflowNodeType.ENTRY,
             name="Start",
             description="Workflow start",
             tags=["system"]
@@ -113,7 +140,7 @@ class IntentToWorkflowGenerator:
             
             nodes.append(WorkflowNode(
                 id=node_id,
-                type=NodeType.TOOL_CALL,
+                type=WorkflowNodeType.TOOL_CALL,
                 name=action.name,
                 description=action.description,
                 operator=action.operator,
@@ -125,11 +152,11 @@ class IntentToWorkflowGenerator:
                 tags=["action"]
             ))
         
-        # Add END node
-        end_node_id = f"{workflow_id}_end"
+        # Add EXIT node
+        exit_node_id = f"{workflow_id}_exit"
         nodes.append(WorkflowNode(
-            id=end_node_id,
-            type=NodeType.END,
+            id=exit_node_id,
+            type=WorkflowNodeType.EXIT,
             name="End",
             description="Workflow end",
             tags=["system"]
@@ -138,11 +165,11 @@ class IntentToWorkflowGenerator:
         # Create edges
         edges = []
         
-        # Connect START to first actions (those with no dependencies)
+        # Connect ENTRY to first actions (those with no dependencies)
         first_actions = [a for a in intent.actions if not a.dependencies]
         for action in first_actions:
             edges.append(WorkflowEdge(
-                source=start_node_id,
+                source=entry_node_id,
                 target=action_to_node_id[action.id],
                 condition="success",
                 label="start"
@@ -158,7 +185,7 @@ class IntentToWorkflowGenerator:
                     label=f"after_{dep_id}"
                 ))
         
-        # Connect last actions to END
+        # Connect last actions to EXIT
         last_actions = [
             a for a in intent.actions
             if not any(a.id in other.dependencies for other in intent.actions)
@@ -166,7 +193,7 @@ class IntentToWorkflowGenerator:
         for action in last_actions:
             edges.append(WorkflowEdge(
                 source=action_to_node_id[action.id],
-                target=end_node_id,
+                target=exit_node_id,
                 condition="success",
                 label="complete"
             ))
@@ -179,8 +206,8 @@ class IntentToWorkflowGenerator:
             version="1.0.0",
             nodes=nodes,
             edges=edges,
-            start_node_id=start_node_id,
-            end_node_ids=[end_node_id],
+            entry_point=entry_node_id,
+            exit_point=exit_node_id,
             tags=["generated", "intent-driven"],
             constraints=intent.constraints,
             success_criteria=intent.success_criteria,
