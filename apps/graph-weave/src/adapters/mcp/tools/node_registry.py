@@ -85,6 +85,15 @@ class NodeRegistryTool:
             inventory = await self.node_store.list(page_size=page_size)
             existing_nodes = [n.model_dump() for n in inventory.nodes]
             resolved = []
+            generic_cli_executor = next(
+                (
+                    node
+                    for node in existing_nodes
+                    if self._normalize_token(node.get("node_name") or node.get("name") or "") == "cli_executor"
+                    and node.get("type") == "cli_node"
+                ),
+                None,
+            )
 
             for step in steps or []:
                 if not isinstance(step, dict):
@@ -94,6 +103,9 @@ class NodeRegistryTool:
                     continue
 
                 match = self._find_step_match(step, existing_nodes)
+                if not match and self._should_use_generic_cli_executor(step, generic_cli_executor):
+                    match = generic_cli_executor
+
                 if match:
                     resolved.append(
                         {
@@ -157,6 +169,30 @@ class NodeRegistryTool:
                 best_match = node
 
         return best_match if best_score >= 3 else None
+
+    def _should_use_generic_cli_executor(
+        self, step: Dict[str, Any], generic_cli_executor: Optional[Dict[str, Any]]
+    ) -> bool:
+        if not generic_cli_executor:
+            return False
+        if step.get("type") != "cli_node":
+            return False
+
+        capabilities = {
+            self._normalize_token(value)
+            for value in step.get("capabilities") or []
+        }
+        reusable_cli_markers = {
+            "cli",
+            "cli_execution",
+            "bash",
+            "bash_execution",
+            "script",
+            "script_runner",
+            "command",
+            "run_script",
+        }
+        return bool(capabilities & reusable_cli_markers)
 
     def _candidate_names(self, step: Dict[str, Any]) -> set[str]:
         raw = [

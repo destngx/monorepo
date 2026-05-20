@@ -7,29 +7,43 @@
   "type": "cli_node",
   "description": "Execute shell commands safely",
   "config": {
-    "command": "{command}",
-    "cwd": "{cwd}",
-    "input_mapping": {},
-    "output_schema": {
-      "type": "object",
-      "required": ["stdout", "stderr", "exit_code"]
-    },
+    "command": "echo hello from cli_executor graphweave",
     "output_key": "cli_executor"
   },
   "input_contract": {
-    "required": [{ "name": "command", "type": "string" }],
-    "optional": [{ "name": "cwd", "type": "string" }]
+    "required": [
+      {
+        "name": "command",
+        "type": "string",
+        "description": "Bash command to execute",
+        "state_path": "$.cli_executor.command"
+      }
+    ],
+    "optional": []
   },
   "output_contract": {
     "produced": [
-      { "name": "stdout", "type": "string", "state_path": "$.cli_executor.stdout" },
-      { "name": "stderr", "type": "string", "state_path": "$.cli_executor.stderr" },
-      { "name": "exit_code", "type": "number", "state_path": "$.cli_executor.exit_code" }
+      {
+        "name": "stdout",
+        "type": "string",
+        "description": "Captured standard output",
+        "state_path": "$.cli_executor.stdout"
+      },
+      {
+        "name": "stderr",
+        "type": "string",
+        "description": "Captured standard error",
+        "state_path": "$.cli_executor.stderr"
+      },
+      {
+        "name": "exit_code",
+        "type": "number",
+        "description": "Process exit code",
+        "state_path": "$.cli_executor.exit_code"
+      }
     ]
   },
   "tags": ["automation", "cli"],
   "owner": "system",
-  "status": "active",
-  "reuse_eligible": true,
-  "provenance": {}
+  "status": "active"
 }

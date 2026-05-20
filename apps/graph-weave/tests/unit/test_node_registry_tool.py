@@ -30,6 +30,14 @@ class InventoryNodeStore:
                     type="agent_node",
                     tags=["input_cleaning", "validation"],
                     description="Normalize inbox input",
+                ),
+                Node(
+                    node_id="cli_executor:v1.0.0",
+                    node_name="cli_executor",
+                    name="CLI Executor",
+                    type="cli_node",
+                    tags=["automation", "cli"],
+                    description="Execute shell commands safely",
                 )
             ]
         )
@@ -52,8 +60,9 @@ def test_list_current_returns_node_inventory():
     result = handle_node_registry(tool, "list_current")
 
     assert result["status"] == "success"
-    assert result["total"] == 1
+    assert result["total"] == 2
     assert result["nodes"][0]["node_id"] == "input_normalizer:v1.0.0"
+    assert result["nodes"][1]["node_id"] == "cli_executor:v1.0.0"
 
 
 def test_resolve_steps_matches_existing_and_suggests_missing():
@@ -81,5 +90,5 @@ def test_resolve_steps_matches_existing_and_suggests_missing():
     assert result["status"] == "success"
     assert result["nodes"][0]["status"] == "exists"
     assert result["nodes"][0]["node_id"] == "input_normalizer:v1.0.0"
-    assert result["nodes"][1]["status"] == "missing"
-    assert result["nodes"][1]["suggestion"]["node_name"] == "create_source_cards"
+    assert result["nodes"][1]["status"] == "exists"
+    assert result["nodes"][1]["node_id"] == "cli_executor:v1.0.0"

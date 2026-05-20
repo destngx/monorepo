@@ -17,7 +17,16 @@ def mock_executor():
         return re.sub(r'\{(\w+)\}', lambda m: str(ctx.get(m.group(1), m.group(0))), template)
     
     executor._interpolate_prompt = mock_interpolate
-    executor._get_state_value = lambda path, state: state.get(path.replace("$.", ""))
+    def mock_get_state_value(path, state):
+        raw = path.replace("$.", "")
+        current = state.get("workflow_state", state)
+        for part in raw.split("."):
+            if isinstance(current, dict):
+                current = current.get(part)
+            else:
+                return None
+        return current
+    executor._get_state_value = mock_get_state_value
     return executor
 
 def test_cli_node_handler_execute_success(mock_executor):
@@ -80,6 +89,42 @@ def test_cli_node_handler_interpolation(mock_executor):
     
     mock_executor.mcp_router.execute_tool.assert_called_once_with(
         "bash", {"command": "ls tmp"}
+    )
+
+
+def test_cli_node_handler_uses_mapped_command_input(mock_executor):
+    handler = CLINodeHandler(mock_executor)
+
+    node = {
+        "id": "test_cli",
+        "type": "cli_node",
+        "config": {
+            "input_mapping": {
+                "command": "$.entry.command",
+            },
+        }
+    }
+    state = {
+        "workflow_state": {
+            "entry": {
+                "command": "bash scripts/run.sh --flag value",
+            }
+        }
+    }
+    workflow = {}
+
+    mock_executor.mcp_router.execute_tool.return_value = {
+        "status": "success",
+        "stdout": "done\n",
+        "stderr": "",
+        "exit_code": 0,
+    }
+
+    result = handler.execute("run-1", node, state, workflow)
+
+    assert result["status"] == "completed"
+    mock_executor.mcp_router.execute_tool.assert_called_once_with(
+        "bash", {"command": "bash scripts/run.sh --flag value"}
     )
 
 def test_cli_node_handler_failure(mock_executor):

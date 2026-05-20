@@ -65,6 +65,9 @@ class WorkflowCompiler:
             if input_mapping:
                 config["input_mapping"] = input_mapping
 
+            if "command" in overrides:
+                config["command"] = overrides["command"]
+
             if "output_key" in overrides:
                 config["output_key"] = overrides["output_key"]
 

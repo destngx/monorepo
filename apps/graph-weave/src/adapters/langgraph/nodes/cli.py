@@ -24,12 +24,7 @@ class CLINodeHandler:
     ) -> Dict[str, Any]:
         node_id = node.get("id")
         config = node.get("config", {})
-        
-        # Determine the command to run
-        command_template = config.get("command") or node.get("command")
-        if not command_template:
-            raise ValueError(f"CLI node {node_id} is missing 'command' in config")
-            
+
         # 1. Resolve input mapping if present
         input_mapping = config.get("input_mapping") or node.get("input_mapping", {})
         cli_input_context = {}
@@ -39,7 +34,17 @@ class CLINodeHandler:
         else:
             # Default to full workflow state if no mapping
             cli_input_context = dict(state.get("workflow_state", {}))
-            
+
+        # Determine the command to run. Allow the command itself to be supplied
+        # through input_mapping so the same CLI node can execute arbitrary bash.
+        command_template = (
+            config.get("command")
+            or cli_input_context.get("command")
+            or node.get("command")
+        )
+        if not command_template:
+            raise ValueError(f"CLI node {node_id} is missing 'command' in config or input")
+
         # 2. Interpolate command
         command = self.executor._interpolate_prompt(command_template, state, local_context=cli_input_context)
         validate_command_contract(command, config.get("command_contract"), node_id or "")
