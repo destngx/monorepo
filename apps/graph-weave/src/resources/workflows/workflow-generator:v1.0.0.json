@@ -19,8 +19,8 @@
     "nodes": [
       "nodes/entry.json",
       "nodes/planner.json",
-      "nodes/node_builder.json",
       "nodes/architecture_advisor.json",
+      "nodes/node_builder.json",
       "nodes/edge_router.json",
       "nodes/assembler.json",
       "nodes/validation_gate.json",
@@ -34,14 +34,14 @@
     },
     {
       "from": "planner",
-      "to": "node_builder"
-    },
-    {
-      "from": "node_builder",
       "to": "architecture_advisor"
     },
     {
       "from": "architecture_advisor",
+      "to": "node_builder"
+    },
+    {
+      "from": "node_builder",
       "to": "edge_router"
     },
     {

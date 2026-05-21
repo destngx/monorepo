@@ -4,9 +4,7 @@
   "display_name": "Final Output",
   "config": {
     "output_mapping": {
-      "node_definition": "$.node_definition",
-      "is_valid": "$.validation_result.is_valid",
-      "validation_errors": "$.validation_result.errors"
+      "is_valid": "$.nodes.node_validator.result.is_valid"
     }
   }
 }

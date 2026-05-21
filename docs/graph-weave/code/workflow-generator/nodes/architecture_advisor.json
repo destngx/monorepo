@@ -2,14 +2,13 @@
   "id": "architecture_advisor",
   "type": "agent_node",
   "display_name": "Architecture Advisor",
-  "description": "Classifies each planned step by placement and evaluates publishability",
+  "description": "Classifies each planned step by deterministic node placement and evaluates publishability",
   "config": {
-    "system_prompt": "You are an architecture advisor for workflow generation. Classify each planned step by the best placement and judge whether the workflow is publishable.\n\nPlacement rules:\n- Use cognitive_workflow for semantic reasoning, extraction, synthesis, classification, and other LLM-bound work.\n- Use preprocess_script for deterministic input cleanup, URL scanning/fetching, OCR, file path resolution, and schema validation.\n- Use postprocess_script for deterministic file writing, vault updates, and registration steps that happen after cognitive work.\n- Use hybrid when a step has both deterministic and semantic parts.\n- Use manual_review when the task cannot be trusted to automation.\n\nPublishability rules:\n- publishability.status = 'ready' when the cognitive workflow is self-contained and deterministic preprocessing/postprocessing is clearly separable.\n- publishability.status = 'blocked' when the current plan depends on missing nodes or cannot be safely executed as generated.\n- publishability.status = 'needs_review' when the workflow is valid but still requires a human decision on placement or splitting.\n\nReturn ONLY JSON.",
-    "user_prompt_template": "Review the planned workflow and classify each step by placement.\n\nQuery: {query}\nPlan: {plan}\nNodes: {nodes_definition}\n\nReturn recommendations and publishability for the assembled workflow.",
+    "system_prompt": "You are an architecture advisor for workflow generation. Classify each planned step into exactly one executable node placement.\n\nDeterministic placement contract:\n- recommended_placement MUST be exactly one of: agent_node, cli_node.\n- recommended_placement is the only placement decision field.\n- Do not add extra decision fields beyond the output schema.\n\nDecision rules, applied in order:\n1. Use cli_node ONLY when the step can run as mechanical execution with no runtime judgment and with an explicit command/script already provided by the intent, or with trivial built-in shell behavior such as trim, copy, move, or schema validation.\n2. A cli_node must not decide whether content is meaningful, sparse, relevant, complete, novel, high-confidence, or worth processing. Those are agent_node responsibilities.\n3. Use agent_node when the step requires semantic judgment, tool choice, content interpretation, classification, extraction, synthesis, ranking, novelty/confidence assessment, deciding among alternatives, deciding whether to fetch/process content, or generating suggestions.\n4. Use agent_node when the only available command is a suggested future script name. Suggestions are not executable evidence.\n5. If a high-level step contains both judgment and command execution, classify the judgment step as agent_node and rely on the planner to split mechanical command execution into a separate cli_node when an explicit command exists.\n6. If the step is unsafe or underspecified, still choose the nearest placement and mark publishability.status as blocked with a concrete blocking item.\n\nScript externalization guidance:\n- externalization_suggestions are advisory only.\n- A suggested_script_name MUST NOT be treated as an existing executable command.\n- Recommend externalization when command logic is long, reused, environment-specific, security-sensitive, needs tests, touches files, calls network tools, calls OCR/media tools, mutates a vault, or has error-handling requirements.\n- Do not use externalization guidance to change recommended_placement.\n\nPublishability rules:\n- publishability.status MUST be either ready or blocked.\n- Use ready when all planned steps have deterministic placements and every cli_node has an explicit executable command path or trivial shell behavior.\n- Use blocked when required inputs, scripts, commands, safety constraints, or node definitions are missing.\n\nReturn ONLY JSON.",
+    "user_prompt_template": "Review the planned workflow and classify each step into one executable node placement.\n\nQuery: {query}\nPlan: {plan}\n\nReturn recommendations and publishability for the planned workflow.",
     "input_mapping": {
       "query": "$.input.intent",
-      "plan": "$.nodes.planner.result",
-      "nodes_definition": "$.nodes.node_builder.result.nodes"
+      "plan": "$.nodes.planner.result"
     },
     "output_key": "architecture_review",
     "output_schema": {
@@ -28,19 +27,10 @@
                   },
                   "recommended_placement": {
                     "type": "string",
-                    "enum": ["cognitive_workflow", "preprocess_script", "postprocess_script", "hybrid", "manual_review"]
+                    "enum": ["agent_node", "cli_node"]
                   },
                   "reason": {
                     "type": "string"
-                  },
-                  "workflow_action": {
-                    "type": "string",
-                    "enum": [
-                      "include_in_generated_workflow",
-                      "exclude_from_generated_workflow",
-                      "split_between_script_and_agent",
-                      "requires_human_decision"
-                    ]
                   },
                   "confidence": {
                     "type": "number",
@@ -48,60 +38,61 @@
                     "maximum": 1
                   }
                 },
-                "required": ["step_id", "recommended_placement", "reason", "workflow_action", "confidence"]
+                "required": ["step_id", "recommended_placement", "reason", "confidence"],
+                "additionalProperties": false
               }
             },
             "summary": {
               "type": "object",
               "properties": {
-                "cognitive_workflow_steps": {
+                "agent_node_steps": {
                   "type": "array",
                   "items": {
                     "type": "string"
                   }
                 },
-                "preprocess_script_steps": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "postprocess_script_steps": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "hybrid_steps": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "manual_review_steps": {
+                "cli_node_steps": {
                   "type": "array",
                   "items": {
                     "type": "string"
                   }
                 }
               },
-              "required": [
-                "cognitive_workflow_steps",
-                "preprocess_script_steps",
-                "postprocess_script_steps",
-                "hybrid_steps",
-                "manual_review_steps"
-              ]
+              "required": ["agent_node_steps", "cli_node_steps"],
+              "additionalProperties": false
+            },
+            "externalization_suggestions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step_id": {
+                    "type": "string"
+                  },
+                  "suggested_script_name": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "cli_node_should_reference_script": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["step_id", "suggested_script_name", "reason", "cli_node_should_reference_script"],
+                "additionalProperties": false
+              }
             }
           },
-          "required": ["placement_review", "summary"]
+          "required": ["placement_review", "summary", "externalization_suggestions"],
+          "additionalProperties": false
         },
         "publishability": {
           "type": "object",
           "properties": {
             "status": {
               "type": "string",
-              "enum": ["ready", "blocked", "needs_review"]
+              "enum": ["ready", "blocked"]
             },
             "reason": {
               "type": "string"
@@ -119,10 +110,12 @@
               }
             }
           },
-          "required": ["status", "reason", "blocking_items", "warnings"]
+          "required": ["status", "reason", "blocking_items", "warnings"],
+          "additionalProperties": false
         }
       },
-      "required": ["recommendations", "publishability"]
+      "required": ["recommendations", "publishability"],
+      "additionalProperties": false
     }
   }
 }

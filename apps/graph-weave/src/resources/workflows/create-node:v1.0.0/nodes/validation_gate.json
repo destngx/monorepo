@@ -3,6 +3,6 @@
   "type": "branch",
   "display_name": "Validation Gate",
   "config": {
-    "condition_expression": "$.validation_result.is_valid"
+    "condition_expression": "$.nodes.node_validator.result.is_valid"
   }
 }

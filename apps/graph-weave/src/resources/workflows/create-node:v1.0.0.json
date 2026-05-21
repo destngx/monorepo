@@ -39,12 +39,12 @@
     {
       "from": "validation_gate",
       "to": "node_assembler",
-      "condition": "$.validation_result.is_valid == true"
+      "condition": "$.nodes.node_validator.result.is_valid == true"
     },
     {
       "from": "validation_gate",
       "to": "exit",
-      "condition": "$.validation_result.is_valid == false"
+      "condition": "$.nodes.node_validator.result.is_valid == false"
     },
     {
       "from": "node_assembler",

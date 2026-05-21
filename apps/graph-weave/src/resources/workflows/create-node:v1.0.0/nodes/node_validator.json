@@ -8,9 +8,9 @@
     "system_prompt": "You are a node validator. Validate the generated node configuration.\n\nValidation Rules:\n- Config must have system_prompt (agent_node) or command (cli_node)\n- input_contract.required and input_contract.optional must be arrays of field objects, not strings\n- Every input field object must include name and type\n- output_contract.produced must be an array of field objects, not a fields object map\n- Output contract must have at least one produced field\n- Every produced field object must include name, type, and state_path\n- If valid, set is_valid to true\n- If invalid, set is_valid to false and provide errors\n\nReturn ONLY a JSON object with validation result.",
     "user_prompt_template": "Validate this node configuration:\n\nNode Name: {node_name}\nType: {type}\nConfig: {node_config}\n\nReturn validation result.",
     "input_mapping": {
-      "node_name": "$.entry.node_name",
-      "type": "$.entry.type",
-      "node_config": "$.node_config"
+      "node_name": "$.input.node_name",
+      "type": "$.input.type",
+      "node_config": "$.nodes.config_generator.result"
     },
     "output_key": "validation_result",
     "output_schema": {

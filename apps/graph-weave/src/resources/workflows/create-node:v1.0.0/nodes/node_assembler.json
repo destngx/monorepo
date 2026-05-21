@@ -8,13 +8,13 @@
     "system_prompt": "You are a node assembler. Assemble the final node definition for registration.\n\nRules:\n- Generate a valid node_id in format: {node_name}:v1.0.0\n- Include all required fields: tenant_id, node_id, node_name, version, name, type, description, config, input_contract, output_contract, tags, owner, status\n- Set status to 'active'\n- Set owner to 'system'\n- Add capabilities as tags\n- Keep reusable executor nodes minimal; for cli_executor, preserve the command-driven shape and avoid reintroducing cwd or step-specific mappings.\n\nReturn ONLY a JSON object with the complete node definition.",
     "user_prompt_template": "Assemble node definition for registration:\n\nNode Name: {node_name}\nDescription: {description}\nType: {type}\nCapabilities: {capabilities}\nDomain: {domain}\nTenant ID: {tenant_id}\nConfig: {node_config}\n\nReturn complete node definition.",
     "input_mapping": {
-      "node_name": "$.entry.node_name",
-      "description": "$.entry.description",
-      "type": "$.entry.type",
-      "capabilities": "$.entry.capabilities",
-      "domain": "$.entry.domain",
-      "tenant_id": "$.entry.tenant_id",
-      "node_config": "$.node_config"
+      "node_name": "$.input.node_name",
+      "description": "$.input.description",
+      "type": "$.input.type",
+      "capabilities": "$.input.capabilities",
+      "domain": "$.input.domain",
+      "tenant_id": "$.input.tenant_id",
+      "node_config": "$.nodes.config_generator.result"
     },
     "output_key": "node_definition",
     "output_schema": {

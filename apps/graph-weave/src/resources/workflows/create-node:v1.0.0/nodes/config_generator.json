@@ -6,15 +6,15 @@
   "temperature": 0,
   "config": {
     "system_prompt": "You are a node configuration generator. Generate the complete node configuration based on the provided details.\n\nRules:\n1. Node Type:\n- For agent_node: Generate system_prompt and user_prompt_template. System prompts must start with: 'You are a specialized data transformer. Your output MUST be raw JSON ONLY.'\n- For cli_node: Generate the minimal reusable command executor shape. Keep the node simple. For the shared cli_executor, the node should be command-driven and reusable, not tied to a fixed cwd or step-specific output mapping. Use config.command as the executable command template, and when the intent supplies a command field, use it directly. Do not require config.cwd, config.input_mapping, or config.output_schema for the reusable executor. Never use shell environment variables (like $VAR) inside commands. Instead, use {variable} or {variable_shell} curly-brace placeholders. Any placeholder representing a JSON array or multi-line string passed as a command argument MUST use the {variable_shell} suffix (ending in '_shell') wrapped in single quotes, e.g. '{variable_shell}', to trigger secure single-quote escaping in the prompt interpolator.\n\n2. Output Mapping & Contracts:\n- For cli_node Labeled Output: If the command produces structured stdout, the runtime may infer or map output fields, but the reusable executor should stay minimal.\n- Generate the smallest valid input_contract and output_contract needed for registration.\n- Prefer a single required command input. Avoid adding extra inputs unless they are necessary for the specific node being created.\n- Output fields should only describe what the executor actually returns (stdout, stderr, exit_code).\n- All output fields must have state_path in format: $.{node_name}.{field_name}\n\n3. Flat Input Mappings:\n- If input mapping is needed for a generated node, map every required parameter name directly to its flat top-level state path (e.g. '$.field_name') under $. instead of prefixing them with step/node names (like $.predecessor_node.field_name).\n\n4. Domain Specifics:\n- Carefully read the provided description, capabilities, intent_context, and domain. Rely entirely on these fields to determine the specific script paths, exact command flags, input variables, output schema keys, and custom mappings. Do not hardcode specific knowledge about any particular system unless explicitly defined in the provided fields.\n\nExample contract shape:\n{\n  \"input_contract\": {\n    \"required\": [{\"name\": \"command\", \"type\": \"string\", \"description\": \"Command to execute\", \"state_path\": \"$.cli_executor.command\"}],\n    \"optional\": []\n  },\n  \"output_contract\": {\n    \"produced\": [\n      {\"name\": \"stdout\", \"type\": \"string\", \"description\": \"Captured output\", \"state_path\": \"$.cli_executor.stdout\"},\n      {\"name\": \"stderr\", \"type\": \"string\", \"description\": \"Captured error output\", \"state_path\": \"$.cli_executor.stderr\"},\n      {\"name\": \"exit_code\", \"type\": \"number\", \"description\": \"Process exit code\", \"state_path\": \"$.cli_executor.exit_code\"}\n    ]\n  }\n}\n\nReturn ONLY a JSON object with the node configuration.",
-    "user_prompt_template": "Generate node configuration for:\n\nNode Name: {node_name}\nDescription: {description}\nType: {type}\nCapabilities: {capabilities}\nIntent Context: {intent_context}\nDomain: {domain}\n\nReturn the complete node configuration.",
+    "user_prompt_template": "Generate node configuration for:\n\nNode Name: {node_name}\nDescription: {description}\nType: {type}\nCapabilities: {capabilities}\nIntent Context: {intent_context}\nCommand: {command}\nDomain: {domain}\n\nReturn the complete node configuration.",
     "input_mapping": {
-      "node_name": "$.entry.node_name",
-      "description": "$.entry.description",
-      "type": "$.entry.type",
-      "capabilities": "$.entry.capabilities",
-      "intent_context": "$.entry.intent_context",
-      "command": "$.entry.command",
-      "domain": "$.entry.domain"
+      "node_name": "$.input.node_name",
+      "description": "$.input.description",
+      "type": "$.input.type",
+      "capabilities": "$.input.capabilities",
+      "intent_context": "$.input.intent_context",
+      "command": "$.input.command",
+      "domain": "$.input.domain"
     },
     "output_key": "node_config",
     "output_schema": {

@@ -78,6 +78,58 @@ class AgentNodeHandler:
         tool_results = []
 
         def fallback_schema_result() -> Optional[Dict[str, Any]]:
+            if node_id == "assembler" and output_schema:
+                nodes_result = state.get("nodes", {}).get("node_builder", {}).get("result", {})
+                routing_result = state.get("nodes", {}).get("edge_router", {}).get("result", {})
+                architecture_result = state.get("nodes", {}).get("architecture_advisor", {}).get("result", {})
+
+                generated_nodes = nodes_result.get("nodes")
+                generated_edges = routing_result.get("edges")
+                if not isinstance(generated_nodes, list) or not isinstance(generated_edges, list):
+                    return None
+
+                recommendations = architecture_result.get("recommendations") or {}
+                publishability = architecture_result.get("publishability") or {
+                    "status": "blocked",
+                    "reason": "Architecture review did not produce publishability.",
+                    "blocking_items": ["architecture_advisor"],
+                    "warnings": [],
+                }
+
+                errors: List[str] = []
+                node_ids = {
+                    node.get("id")
+                    for node in generated_nodes
+                    if isinstance(node, dict) and node.get("id")
+                }
+                for edge in generated_edges:
+                    if not isinstance(edge, dict) or not edge.get("from") or not edge.get("to"):
+                        errors.append("Edge missing required from/to fields")
+                        continue
+                    if edge.get("from") not in node_ids:
+                        errors.append(f"Edge source not found: {edge.get('from')}")
+                    if edge.get("to") not in node_ids:
+                        errors.append(f"Edge target not found: {edge.get('to')}")
+
+                is_valid = not errors and publishability.get("status") == "ready"
+                if publishability.get("status") != "ready":
+                    errors.extend(publishability.get("blocking_items") or [])
+
+                return {
+                    "is_valid": is_valid,
+                    "errors": errors,
+                    "publishability": publishability,
+                    "recommendations": recommendations,
+                    "generated_workflow": {
+                        "name": "generated-workflow",
+                        "version": "1.0.0",
+                        "nodes": generated_nodes,
+                        "edges": generated_edges,
+                        "entry_point": routing_result.get("entry_point") or "entry",
+                        "exit_point": routing_result.get("exit_point") or "exit",
+                    },
+                }
+
             if node_id != "node_resolver" or not output_schema:
                 return None
             if output_schema.get("required") != ["nodes"]:

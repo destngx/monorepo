@@ -4,7 +4,7 @@
   "display_name": "Workflow Assembler & Quality Validator",
   "description": "Assembles the final workflow and enforces high-quality transformation standards",
   "config": {
-    "system_prompt": "You are a Workflow Quality Validator. Assemble the final JSON and REJECT if any quality rules are violated.\n\nQuality Validation Rules (REJECT if violated):\n- Any node lacks 'output_schema'.\n- Any node has a vague purpose (e.g. 'analyze', 'explore').\n- Any node produces unstructured output.\n- Workflow is not a clean transformation pipeline.\n- DAG contains cycles or orphan nodes.\n- Every generated_workflow.edges[] object must use \"from\" and \"to\" endpoint keys.\n- Reject edge objects that use \"source\", \"target\", \"source_node\", \"target_node\", \"start\", or \"end\" instead of \"from\" and \"to\".\n- The workflow is not publishable according to architecture_review.\n\nFinal Structure:\n{\n  \"name\": \"...\",\n  \"version\": \"1.0.0\",\n  \"nodes\": [...],\n  \"edges\": [{\"from\": \"entry\", \"to\": \"first_node\"}],\n  \"entry_point\": \"entry\",\n  \"exit_point\": \"exit\"\n}\n\nReturn ONLY JSON:\n{\n  \"is_valid\": true|false,\n  \"errors\": [],\n  \"publishability\": {\n    \"status\": \"ready|blocked|needs_review\",\n    \"reason\": \"...\",\n    \"blocking_items\": [],\n    \"warnings\": []\n  },\n  \"recommendations\": { ... },\n  \"generated_workflow\": { ... }\n}",
+    "system_prompt": "You are a Workflow Quality Validator. Assemble the final embedded draft workflow JSON and REJECT if any quality rules are violated.\n\nQuality Validation Rules (REJECT if violated):\n- Entry node lacks config.input_schema.\n- Exit node lacks config.output_mapping.\n- Any processing node lacks id, type, config.input_mapping, or output_schema.\n- Any agent_node lacks config.system_prompt or config.user_prompt_template.\n- Any cli_node lacks config.command.\n- Any node has a vague purpose (e.g. 'analyze', 'explore').\n- Any processing node produces unstructured output.\n- Workflow is not a clean transformation pipeline.\n- DAG contains cycles or orphan nodes.\n- Every generated_workflow.edges[] object must use \"from\" and \"to\" endpoint keys.\n- Reject edge objects that use \"source\", \"target\", \"source_node\", \"target_node\", \"start\", or \"end\" instead of \"from\" and \"to\".\n- Generated workflow MUST include the full nodes array from Nodes.\n- Reject any cli_node that needs semantic judgment, tool choice, content interpretation, ranking, or suggestion generation before it can run.\n- Reject any cli_node command that uses an architecture_review externalization_suggestions[].suggested_script_name unless the original intent explicitly provided that exact executable command/path.\n- The workflow is not publishable according to architecture_review.\n\nFinal Structure:\n{\n  \"name\": \"...\",\n  \"version\": \"1.0.0\",\n  \"nodes\": [...],\n  \"edges\": [{\"from\": \"entry\", \"to\": \"first_node\"}],\n  \"entry_point\": \"entry\",\n  \"exit_point\": \"exit\"\n}\n\nReturn ONLY JSON:\n{\n  \"is_valid\": true|false,\n  \"errors\": [],\n  \"publishability\": {\n    \"status\": \"ready|blocked\",\n    \"reason\": \"...\",\n    \"blocking_items\": [],\n    \"warnings\": []\n  },\n  \"recommendations\": { ... },\n  \"generated_workflow\": { ... }\n}",
     "user_prompt_template": "Assemble and validate: {query}\n\nNodes: {nodes_definition}\nRouting: {routing}\nArchitecture Review: {architecture_review}",
     "input_mapping": {
       "query": "$.input.intent",
@@ -23,14 +23,117 @@
           "type": "array"
         },
         "publishability": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["ready", "blocked"]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "blocking_items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["status", "reason", "blocking_items", "warnings"],
+          "additionalProperties": false
         },
         "recommendations": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "placement_review": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step_id": {
+                    "type": "string"
+                  },
+                  "recommended_placement": {
+                    "type": "string",
+                    "enum": ["agent_node", "cli_node"]
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": ["step_id", "recommended_placement", "reason", "confidence"],
+                "additionalProperties": false
+              }
+            },
+            "summary": {
+              "type": "object",
+              "properties": {
+                "agent_node_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "cli_node_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["agent_node_steps", "cli_node_steps"],
+              "additionalProperties": false
+            },
+            "externalization_suggestions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step_id": {
+                    "type": "string"
+                  },
+                  "suggested_script_name": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "cli_node_should_reference_script": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["step_id", "suggested_script_name", "reason", "cli_node_should_reference_script"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["placement_review", "summary", "externalization_suggestions"],
+          "additionalProperties": false
         },
         "generated_workflow": {
           "type": ["object", "null"],
           "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "minItems": 2
+            },
             "edges": {
               "type": "array",
               "items": {
@@ -49,8 +152,15 @@
                 "required": ["from", "to"],
                 "additionalProperties": false
               }
+            },
+            "entry_point": {
+              "type": "string"
+            },
+            "exit_point": {
+              "type": "string"
             }
-          }
+          },
+          "required": ["name", "version", "nodes", "edges", "entry_point", "exit_point"]
         }
       },
       "required": ["is_valid", "errors", "publishability", "recommendations", "generated_workflow"]
