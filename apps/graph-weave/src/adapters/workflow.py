@@ -15,8 +15,6 @@ PREDEFINED_WORKFLOWS_DIR = os.path.join(
 
 PREDEFINED_WORKFLOWS = {
     "workflow-generator:v1.0.0": "workflow-generator:v1.0.0.json",
-    "workflow-generator:v1.0.1": "workflow-generator:v1.0.1.json",
-    "workflow-generator:v2.0.0": "workflow-generator:v2.0.0.json",
     "create-node:v1.0.0": "create-node:v1.0.0.json",
 }
 

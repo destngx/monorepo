@@ -89,9 +89,14 @@ class WorkflowValidator:
             return node.id if hasattr(node, "id") else node.get("id")
             
         # Helper to get edge endpoints
+        # Supports both Pydantic model (source/target) and raw dict (from/to) formats
         def get_edge_endpoints(edge):
-            source = edge.source if hasattr(edge, "source") else edge.get("source")
-            target = edge.target if hasattr(edge, "target") else edge.get("target")
+            if hasattr(edge, "source"):
+                source = edge.source
+                target = edge.target
+            else:
+                source = edge.get("source") or edge.get("from")
+                target = edge.get("target") or edge.get("to")
             return source, target
 
         # Check: At least one node
@@ -136,10 +141,14 @@ class WorkflowValidator:
             return node.id if hasattr(node, "id") else node.get("id")
             
         def get_edge_endpoints(edge):
-            source = edge.source if hasattr(edge, "source") else edge.get("source")
-            target = edge.target if hasattr(edge, "target") else edge.get("target")
+            if hasattr(edge, "source"):
+                source = edge.source
+                target = edge.target
+            else:
+                source = edge.get("source") or edge.get("from")
+                target = edge.get("target") or edge.get("to")
             return source, target
-            
+
         # Build adjacency list
         graph = defaultdict(list)
         for edge in edges:
@@ -187,8 +196,12 @@ class WorkflowValidator:
             return node.id if hasattr(node, "id") else node.get("id")
             
         def get_edge_endpoints(edge):
-            source = edge.source if hasattr(edge, "source") else edge.get("source")
-            target = edge.target if hasattr(edge, "target") else edge.get("target")
+            if hasattr(edge, "source"):
+                source = edge.source
+                target = edge.target
+            else:
+                source = edge.get("source") or edge.get("from")
+                target = edge.get("target") or edge.get("to")
             return source, target
             
         # Build forward and backward adjacency lists

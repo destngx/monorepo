@@ -77,6 +77,72 @@
       }
     },
     {
+      "id": "architecture_advisor",
+      "type": "agent_node",
+      "display_name": "Architecture Advisor",
+      "description": "Reviews the steps and classifies them into cognitive, preprocess, or postprocess, providing structured recommendations",
+      "temperature": 0,
+      "config": {
+        "system_prompt": "You are a hybrid AI systems architect. Review the list of extracted workflow steps and categorize each step into one of three buckets:\n1. `preprocess_script`: 100% deterministic operations that can be run as simple scripts locally before any AI logic (e.g. data normalization, scanning strings, fetching external URLs, checking file length, basic OCR/media conversions).\n2. `cognitive_workflow`: Non-deterministic operations that require LLM reasoning, semantic understanding, fuzzy analysis, or complex cognitive decision-making (e.g. decomposing text into atomic ideas, identifying intellectual friction, writing personalized Feynman prompts, conceptual linking).\n3. `postprocess_script`: Deterministic side-effects that can run locally after the AI completes (e.g. writing files to disk, sending notifications, running validation schemas, committing to git).\n\nFor each step, recommend the placement, write a clear logical reason, suggest a confidence score, and determine if it should be excluded from the generated GraphWeave workflow.\n\nAlso, filter and return a list of ONLY those steps that belong in the `cognitive_workflow`. These are the steps that will actually be compiled into the GraphWeave DAG.\n\nOutput MUST be valid JSON only with this schema:\n{\n  \"recommendations\": {\n    \"placement_review\": [\n      {\n        \"step_id\": \"string\",\n        \"recommended_placement\": \"preprocess_script|cognitive_workflow|postprocess_script\",\n        \"reason\": \"string\",\n        \"workflow_action\": \"exclude_from_generated_workflow|include_in_generated_workflow\",\n        \"confidence\": number\n      }\n    ],\n    \"summary\": {\n      \"agent_workflow_steps\": [\"string\"],\n      \"preprocess_script_steps\": [\"string\"],\n      \"postprocess_script_steps\": [\"string\"],\n      \"hybrid_steps\": []\n    }\n  },\n  \"cognitive_steps\": [\n    {\n      \"step_id\": \"string\",\n      \"purpose\": \"string\",\n      \"capabilities\": [\"string\"],\n      \"type\": \"string\",\n      \"description\": \"string\"\n    }\n  ]\n}",
+        "user_prompt_template": "Review the placement for these steps:\n\nSteps: {steps}\nDomain: {domain}",
+        "input_mapping": {
+          "steps": "$.intent_analysis.steps",
+          "domain": "$.entry.domain"
+        },
+        "output_key": "architecture_recommendations",
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "recommendations": {
+              "type": "object",
+              "properties": {
+                "placement_review": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "step_id": { "type": "string" },
+                      "recommended_placement": { "type": "string" },
+                      "reason": { "type": "string" },
+                      "workflow_action": { "type": "string" },
+                      "confidence": { "type": "number" }
+                    },
+                    "required": ["step_id", "recommended_placement", "reason", "workflow_action", "confidence"]
+                  }
+                },
+                "summary": {
+                  "type": "object",
+                  "properties": {
+                    "agent_workflow_steps": { "type": "array", "items": { "type": "string" } },
+                    "preprocess_script_steps": { "type": "array", "items": { "type": "string" } },
+                    "postprocess_script_steps": { "type": "array", "items": { "type": "string" } },
+                    "hybrid_steps": { "type": "array" }
+                  },
+                  "required": ["agent_workflow_steps", "preprocess_script_steps", "postprocess_script_steps"]
+                }
+              },
+              "required": ["placement_review", "summary"]
+            },
+            "cognitive_steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step_id": { "type": "string" },
+                  "purpose": { "type": "string" },
+                  "capabilities": { "type": "array", "items": { "type": "string" } },
+                  "type": { "type": "string" },
+                  "description": { "type": "string" }
+                },
+                "required": ["step_id", "purpose", "capabilities", "type", "description"]
+              }
+            }
+          },
+          "required": ["recommendations", "cognitive_steps"]
+        }
+      }
+    },
+    {
       "id": "node_resolver",
       "type": "agent_node",
       "display_name": "Node Resolver",
@@ -89,7 +155,7 @@
         "input_mapping": {
           "intent": "$.entry.intent",
           "domain": "$.entry.domain",
-          "intent_analysis_steps": "$.intent_analysis.steps"
+          "intent_analysis_steps": "$.architecture_recommendations.cognitive_steps"
         },
         "output_key": "node_resolution",
         "output_schema": {
@@ -159,22 +225,24 @@
       "description": "Assembles the final workflow and determines if all nodes exist",
       "temperature": 0,
       "config": {
-        "system_prompt": "You are a Workflow Assembler. Assemble the final JSON and determine if all nodes are available.\n\nRules:\n- If ANY node has status 'missing', set 'all_nodes_available' to false.\n- If ALL nodes have status 'exists', set 'all_nodes_available' to true.\n- When all nodes are available, create the final workflow in compositional format.\n- When nodes are missing, return the suggestions for node creation.\n- The workflow must follow the DAG structure from edge_generator.\n- For cli_node steps that run scripts, reference the reusable cli_executor:v1.0.0 node and set an overrides.input_mapping.command value that binds the step's command template into the executor.\n- Keep the assembled workflow simple: reuse the shared cli_executor node instead of generating script-specific node definitions.\n\nFinal Structure when all nodes available:\n{\n  \"all_nodes_available\": true,\n  \"workflow\": {\n    \"nodes\": [\n      {\"id\": \"entry\", \"type\": \"entry\"},\n      {\"alias\": \"...\", \"node_id\": \"cli_executor:v1.0.0\", \"overrides\": {\"input_mapping\": {\"command\": \"$.entry.some_command\"}}},\n      {\"id\": \"exit\", \"type\": \"exit\"}\n    ],\n    \"edges\": [...],\n    \"entry_point\": \"entry\",\n    \"exit_point\": \"exit\"\n  },\n  \"suggested_nodes\": []\n}\n\nFinal Structure when nodes missing:\n{\n  \"all_nodes_available\": false,\n  \"workflow\": null,\n  \"suggested_nodes\": [\n    {\n      \"node_name\": \"...\",\n      \"description\": \"...\",\n      \"type\": \"agent_node|cli_node\",\n      \"capabilities\": [...],\n      \"intent_context\": \"...\"\n    }\n  ]\n}\n\nReturn ONLY JSON.",
-        "user_prompt_template": "Assemble and validate: {intent}\n\nNode Resolution: {node_resolution}\nRouting: {routing}",
+        "system_prompt": "You are a Workflow Assembler. Assemble the final JSON and determine if all nodes are available.\n\nRules:\n- If ANY node has status 'missing', set 'all_nodes_available' to false.\n- If ALL nodes have status 'exists', set 'all_nodes_available' to true.\n- When all nodes are available, create the final workflow in compositional format.\n- When nodes are missing, return the suggestions for node creation.\n- The workflow must follow the DAG structure from edge_generator.\n- For cli_node steps that run scripts, reference the reusable cli_executor:v1.0.0 node and set an overrides.input_mapping.command value that binds the step's command template into the executor.\n- Keep the assembled workflow simple: reuse the shared cli_executor node instead of generating script-specific node definitions.\n- You also receive 'recommendations' from the Architecture Advisor, which you must pass through in the final JSON under the 'recommendations' key.\n\nFinal Structure when all nodes available:\n{\n  \"all_nodes_available\": true,\n  \"workflow\": {\n    \"nodes\": [\n      {\"id\": \"entry\", \"type\": \"entry\"},\n      {\"alias\": \"...\", \"node_id\": \"cli_executor:v1.0.0\", \"overrides\": {\"input_mapping\": {\"command\": \"$.entry.some_command\"}}},\n      {\"id\": \"exit\", \"type\": \"exit\"}\n    ],\n    \"edges\": [...],\n    \"entry_point\": \"entry\",\n    \"exit_point\": \"exit\"\n  },\n  \"recommendations\": {\n    \"placement_review\": [...],\n    \"summary\": {...}\n  },\n  \"suggested_nodes\": []\n}\n\nFinal Structure when nodes missing:\n{\n  \"all_nodes_available\": false,\n  \"workflow\": null,\n  \"recommendations\": {\n    \"placement_review\": [...],\n    \"summary\": {...}\n  },\n  \"suggested_nodes\": [\n    {\n      \"node_name\": \"...\",\n      \"description\": \"...\",\n      \"type\": \"agent_node|cli_node\",\n      \"capabilities\": [...],\n      \"intent_context\": \"...\"\n    }\n  ]\n}\n\nReturn ONLY JSON.",
+        "user_prompt_template": "Assemble and validate: {intent}\n\nNode Resolution: {node_resolution}\nRouting: {routing}\nRecommendations: {recommendations}",
         "input_mapping": {
           "intent": "$.entry.intent",
           "node_resolution": "$.node_resolution",
-          "routing": "$.routing"
+          "routing": "$.routing",
+          "recommendations": "$.architecture_recommendations.recommendations"
         },
         "output_key": "assembly_result",
         "output_schema": {
           "type": "object",
           "properties": {
             "all_nodes_available": { "type": "boolean" },
-            "workflow": { "type": "object" },
+            "workflow": { "type": ["object", "null"] },
+            "recommendations": { "type": "object" },
             "suggested_nodes": { "type": "array" }
           },
-          "required": ["all_nodes_available"]
+          "required": ["all_nodes_available", "recommendations"]
         }
       }
     },
@@ -196,7 +264,8 @@
           "workflow": "$.assembly_result.workflow",
           "suggested_nodes": "$.assembly_result.suggested_nodes",
           "intent_analysis": "$.intent_analysis",
-          "node_resolution": "$.node_resolution"
+          "node_resolution": "$.node_resolution",
+          "recommendations": "$.assembly_result.recommendations"
         }
       }
     }
@@ -211,6 +280,13 @@
     },
     {
       "from": "intent_analyzer",
+      "to": "architecture_advisor",
+      "config": {
+        "label": "Analyze placement"
+      }
+    },
+    {
+      "from": "architecture_advisor",
       "to": "node_resolver",
       "config": {
         "label": "Resolve nodes"
