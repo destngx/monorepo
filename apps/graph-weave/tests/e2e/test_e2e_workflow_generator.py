@@ -16,6 +16,7 @@ import os
 import time
 import pytest
 import httpx
+from src.adapters.workflow import load_workflow_definition
 
 from .helpers import (
     debug_log,
@@ -26,10 +27,10 @@ from .helpers import (
 )
 
 TENANT_ID = "system"
-WORKFLOW_ID = "workflow-generator:v1.0.1"
+WORKFLOW_ID = "workflow-generator:v1.0.0"
 FIXTURE_PATH = os.path.join(
     os.path.dirname(__file__),
-    "../../src/resources/workflows/workflow-generator:v1.0.1.json",
+    "../../src/resources/workflows/workflow-generator:v1.0.0.json",
 )
 
 
@@ -42,8 +43,7 @@ def client():
 @pytest.fixture(scope="module")
 def generator_definition():
     """Load the generator definition for debugging/logging purposes."""
-    with open(FIXTURE_PATH, "r") as f:
-        return json.load(f)
+    return load_workflow_definition(FIXTURE_PATH)
 
 
 class TestWorkflowGeneratorE2E:
@@ -52,11 +52,10 @@ class TestWorkflowGeneratorE2E:
     def setup_method(self, method):
         """Prepare for each test method."""
         # Load the generator definition for I/O logging
-        with open(FIXTURE_PATH, "r") as f:
-            self.generator_def = {
-                "workflow_id": WORKFLOW_ID,
-                "definition": json.load(f)
-            }
+        self.generator_def = {
+            "workflow_id": WORKFLOW_ID,
+            "definition": load_workflow_definition(FIXTURE_PATH),
+        }
 
     def _execute_and_wait(self, client, intent: str, domain: str = "devops", timeout: float = 300.0):
         """Helper to execute the generator workflow and wait for completion."""
@@ -275,7 +274,7 @@ status, draft_paths, source_card_path
 
     def test_gen_latency_within_sla(self, client):
         """
-        NFR: Latency within SLA (expanded for v1.0.1 which is more complex).
+        NFR: Latency within SLA (expanded for v1.0.0 which is more complex).
         """
         debug_log("TEST", "Starting test_gen_latency_within_sla")
         

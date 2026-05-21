@@ -12,225 +12,43 @@
     "max_tokens": 200000,
     "timeout_seconds": 300
   },
-  "nodes": [
-    {
-      "id": "entry",
-      "type": "entry",
-      "display_name": "Node Details Input",
-      "description": "Accepts the node details for creation",
-      "config": {
-        "properties": {
-          "node_name": {
-            "type": "string",
-            "description": "Name of the node to create (snake_case)"
-          },
-          "description": {
-            "type": "string",
-            "description": "What the node should do"
-          },
-          "type": {
-            "type": "string",
-            "description": "Node type: agent_node or cli_node"
-          },
-          "capabilities": {
-            "type": "array",
-            "description": "List of capabilities the node provides"
-          },
-          "intent_context": {
-            "type": "string",
-            "description": "Relevant part of the intent for context"
-          },
-          "command": {
-            "type": "string",
-            "description": "Dynamic bash command to execute when creating a cli_node"
-          },
-          "domain": {
-            "type": "string",
-            "description": "Domain prefix for the node",
-            "default": "general"
-          },
-          "tenant_id": {
-            "type": "string",
-            "description": "Tenant ID for node registration",
-            "default": "system"
-          }
-        },
-        "required": ["node_name", "description", "type", "capabilities"]
-      }
-    },
-    {
-      "id": "config_generator",
-      "type": "agent_node",
-      "display_name": "Config Generator",
-      "description": "Generates node configuration including prompts and schemas",
-      "temperature": 0,
-      "config": {
-        "system_prompt": "You are a node configuration generator. Generate the complete node configuration based on the provided details.\n\nRules:\n1. Node Type:\n- For agent_node: Generate system_prompt and user_prompt_template. System prompts must start with: 'You are a specialized data transformer. Your output MUST be raw JSON ONLY.'\n- For cli_node: Generate the minimal reusable command executor shape. Keep the node simple. For the shared cli_executor, the node should be command-driven and reusable, not tied to a fixed cwd or step-specific output mapping. Use config.command as the executable command template, and when the intent supplies a command field, use it directly. Do not require config.cwd, config.input_mapping, or config.output_schema for the reusable executor. Never use shell environment variables (like $VAR) inside commands. Instead, use {variable} or {variable_shell} curly-brace placeholders. Any placeholder representing a JSON array or multi-line string passed as a command argument MUST use the {variable_shell} suffix (ending in '_shell') wrapped in single quotes, e.g. '{variable_shell}', to trigger secure single-quote escaping in the prompt interpolator.\n\n2. Output Mapping & Contracts:\n- For cli_node Labeled Output: If the command produces structured stdout, the runtime may infer or map output fields, but the reusable executor should stay minimal.\n- Generate the smallest valid input_contract and output_contract needed for registration.\n- Prefer a single required command input. Avoid adding extra inputs unless they are necessary for the specific node being created.\n- Output fields should only describe what the executor actually returns (stdout, stderr, exit_code).\n- All output fields must have state_path in format: $.{node_name}.{field_name}\n\n3. Flat Input Mappings:\n- If input mapping is needed for a generated node, map every required parameter name directly to its flat top-level state path (e.g. '$.field_name') under $. instead of prefixing them with step/node names (like $.predecessor_node.field_name).\n\n4. Domain Specifics:\n- Carefully read the provided description, capabilities, intent_context, and domain. Rely entirely on these fields to determine the specific script paths, exact command flags, input variables, output schema keys, and custom mappings. Do not hardcode specific knowledge about any particular system unless explicitly defined in the provided fields.\n\nExample contract shape:\n{\n  \"input_contract\": {\n    \"required\": [{\"name\": \"command\", \"type\": \"string\", \"description\": \"Command to execute\", \"state_path\": \"$.cli_executor.command\"}],\n    \"optional\": []\n  },\n  \"output_contract\": {\n    \"produced\": [\n      {\"name\": \"stdout\", \"type\": \"string\", \"description\": \"Captured output\", \"state_path\": \"$.cli_executor.stdout\"},\n      {\"name\": \"stderr\", \"type\": \"string\", \"description\": \"Captured error output\", \"state_path\": \"$.cli_executor.stderr\"},\n      {\"name\": \"exit_code\", \"type\": \"number\", \"description\": \"Process exit code\", \"state_path\": \"$.cli_executor.exit_code\"}\n    ]\n  }\n}\n\nReturn ONLY a JSON object with the node configuration.",
-        "user_prompt_template": "Generate node configuration for:\n\nNode Name: {node_name}\nDescription: {description}\nType: {type}\nCapabilities: {capabilities}\nIntent Context: {intent_context}\nDomain: {domain}\n\nReturn the complete node configuration.",
-        "input_mapping": {
-          "node_name": "$.entry.node_name",
-          "description": "$.entry.description",
-          "type": "$.entry.type",
-          "capabilities": "$.entry.capabilities",
-          "intent_context": "$.entry.intent_context",
-          "command": "$.entry.command",
-          "domain": "$.entry.domain"
-        },
-        "output_key": "node_config",
-        "output_schema": {
-          "type": "object",
-          "properties": {
-            "config": { "type": "object" },
-            "input_contract": { "type": "object" },
-            "output_contract": { "type": "object" }
-          },
-          "required": ["config", "input_contract", "output_contract"]
-        }
-      }
-    },
-    {
-      "id": "node_validator",
-      "type": "agent_node",
-      "display_name": "Node Validator",
-      "description": "Validates the generated node configuration",
-      "temperature": 0,
-      "config": {
-        "system_prompt": "You are a node validator. Validate the generated node configuration.\n\nValidation Rules:\n- Config must have system_prompt (agent_node) or command (cli_node)\n- input_contract.required and input_contract.optional must be arrays of field objects, not strings\n- Every input field object must include name and type\n- output_contract.produced must be an array of field objects, not a fields object map\n- Output contract must have at least one produced field\n- Every produced field object must include name, type, and state_path\n- If valid, set is_valid to true\n- If invalid, set is_valid to false and provide errors\n\nReturn ONLY a JSON object with validation result.",
-        "user_prompt_template": "Validate this node configuration:\n\nNode Name: {node_name}\nType: {type}\nConfig: {node_config}\n\nReturn validation result.",
-        "input_mapping": {
-          "node_name": "$.entry.node_name",
-          "type": "$.entry.type",
-          "node_config": "$.node_config"
-        },
-        "output_key": "validation_result",
-        "output_schema": {
-          "type": "object",
-          "properties": {
-            "is_valid": { "type": "boolean" },
-            "errors": { "type": "array", "items": { "type": "string" } }
-          },
-          "required": ["is_valid"]
-        }
-      }
-    },
-    {
-      "id": "validation_gate",
-      "type": "branch",
-      "display_name": "Validation Gate",
-      "config": {
-        "condition_expression": "$.validation_result.is_valid"
-      }
-    },
-    {
-      "id": "node_assembler",
-      "type": "agent_node",
-      "display_name": "Node Assembler",
-      "description": "Assembles the final node definition for registration",
-      "temperature": 0,
-      "config": {
-        "system_prompt": "You are a node assembler. Assemble the final node definition for registration.\n\nRules:\n- Generate a valid node_id in format: {node_name}:v1.0.0\n- Include all required fields: tenant_id, node_id, node_name, version, name, type, description, config, input_contract, output_contract, tags, owner, status\n- Set status to 'active'\n- Set owner to 'system'\n- Add capabilities as tags\n- Keep reusable executor nodes minimal; for cli_executor, preserve the command-driven shape and avoid reintroducing cwd or step-specific mappings.\n\nReturn ONLY a JSON object with the complete node definition.",
-        "user_prompt_template": "Assemble node definition for registration:\n\nNode Name: {node_name}\nDescription: {description}\nType: {type}\nCapabilities: {capabilities}\nDomain: {domain}\nTenant ID: {tenant_id}\nConfig: {node_config}\n\nReturn complete node definition.",
-        "input_mapping": {
-          "node_name": "$.entry.node_name",
-          "description": "$.entry.description",
-          "type": "$.entry.type",
-          "capabilities": "$.entry.capabilities",
-          "domain": "$.entry.domain",
-          "tenant_id": "$.entry.tenant_id",
-          "node_config": "$.node_config"
-        },
-        "output_key": "node_definition",
-        "output_schema": {
-          "type": "object",
-          "properties": {
-            "tenant_id": { "type": "string" },
-            "node_id": { "type": "string" },
-            "node_name": { "type": "string" },
-            "version": { "type": "string" },
-            "name": { "type": "string" },
-            "type": { "type": "string" },
-            "description": { "type": "string" },
-            "config": { "type": "object" },
-            "input_contract": { "type": "object" },
-            "output_contract": { "type": "object" },
-            "tags": { "type": "array" },
-            "owner": { "type": "string" },
-            "status": { "type": "string" },
-            "reuse_eligible": { "type": "boolean" },
-            "provenance": { "type": "object" }
-          },
-          "required": [
-            "tenant_id",
-            "node_id",
-            "node_name",
-            "version",
-            "name",
-            "type",
-            "description",
-            "config",
-            "input_contract",
-            "output_contract"
-          ]
-        }
-      }
-    },
-    {
-      "id": "exit",
-      "type": "exit",
-      "display_name": "Final Output",
-      "config": {
-        "output_mapping": {
-          "node_definition": "$.node_definition",
-          "is_valid": "$.validation_result.is_valid",
-          "validation_errors": "$.validation_result.errors"
-        }
-      }
-    }
-  ],
+  "components": {
+    "base_dir": "create-node:v1.0.0",
+    "nodes": [
+      "nodes/entry.json",
+      "nodes/config_generator.json",
+      "nodes/node_validator.json",
+      "nodes/validation_gate.json",
+      "nodes/node_assembler.json",
+      "nodes/exit.json"
+    ]
+  },
   "edges": [
     {
       "from": "entry",
-      "to": "config_generator",
-      "config": {
-        "label": "Generate config"
-      }
+      "to": "config_generator"
     },
     {
       "from": "config_generator",
-      "to": "node_validator",
-      "config": {
-        "label": "Validate node"
-      }
+      "to": "node_validator"
     },
     {
       "from": "node_validator",
-      "to": "validation_gate",
-      "config": {
-        "label": "Check validation"
-      }
+      "to": "validation_gate"
     },
     {
       "from": "validation_gate",
       "to": "node_assembler",
-      "condition": "$.validation_result.is_valid == true",
-      "config": {
-        "label": "Valid - assemble"
-      }
+      "condition": "$.validation_result.is_valid == true"
     },
     {
       "from": "validation_gate",
       "to": "exit",
-      "condition": "$.validation_result.is_valid == false",
-      "config": {
-        "label": "Invalid - exit"
-      }
+      "condition": "$.validation_result.is_valid == false"
     },
     {
       "from": "node_assembler",
-      "to": "exit",
-      "config": {
-        "label": "Complete"
-      }
+      "to": "exit"
     }
   ],
   "entry_point": "entry",

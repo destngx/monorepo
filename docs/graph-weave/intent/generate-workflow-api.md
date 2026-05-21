@@ -14,7 +14,7 @@
 
 ## 2. Scope
 
-- **In scope**: A predefined JSON workflow definition, system prompts for graph-generation nodes (Planner, Builder, Router), and E2E testing of this workflow using real AI models.
+- **In scope**: A predefined JSON workflow manifest plus component node files, system prompts for graph-generation nodes (Planner, Builder, Architecture Advisor, Router, Assembler), and E2E testing of this workflow using real AI models.
 - **Out of scope**: Creating a new `/generate-workflow` API endpoint (the existing `/execute` endpoint will run the workflow).
 
 ## 2.1 User Story (What, When, Why)
@@ -36,14 +36,15 @@ _As a DevOps SRE,_
 
 ## 4. Technical Plan
 
-1. Author the `workflow-generator:v1.0.0` JSON file representing this DAG.
+1. Author the `workflow-generator.json` manifest plus component node JSON files representing this DAG.
 2. Embed the `WORKFLOW_JSON_SPEC.md` guidelines into the "Node Builder Agent" system prompt.
-3. Configure the `branch` condition nodes to evaluate the generated schema validity (mocked validation skill or LLM-based verification for now) and loop back if required.
-4. Deploy and execute this workflow during live E2E tests using the existing API routes.
+3. Configure the `branch` condition nodes to evaluate the generated schema validity and loop back if required.
+4. Preload the manifest at startup so the full workflow definition is available before execution.
+5. Deploy and execute this workflow during live E2E tests using the existing API routes.
 
 ## 5. Tasks
 
-- [ ] Draft `workflow-generator.json` defining the planner, builder, router, and verifier nodes.
+- [ ] Draft `workflow-generator.json` manifest plus component node files for the planner, builder, advisor, router, assembler, and gates.
 - [ ] Craft exact system prompts for the agents to adhere strictly to the schema.
 - [ ] Write `test_e2e_workflow_generator.py` to `POST /workflows` (register generator) and `POST /execute` (run generator) with a DevOps intent.
 

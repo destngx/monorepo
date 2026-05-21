@@ -5,6 +5,12 @@ def validate_tool_args_resolved(tool_name: str, tool_args: Any) -> None:
     """
     Validates that all placeholders in tool arguments have been resolved.
     """
+    if tool_name == "node_registry":
+        # node_registry accepts structured step descriptions that may contain
+        # brace-delimited text as part of the content being analyzed. Those are
+        # not executable templates and should not be rejected here.
+        return
+
     unresolved = find_unresolved_placeholders(tool_args)
     if unresolved:
         raise ValueError(

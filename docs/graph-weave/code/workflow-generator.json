@@ -1,7 +1,7 @@
 {
   "name": "workflow-generator",
   "version": "1.0.1",
-  "description": "Meta-workflow that converts a natural language query into a validated GraphWeave workflow DAG. Enforces deterministic transformation pipelines and structured outputs.",
+  "description": "Meta-workflow that converts a natural language query into a validated GraphWeave workflow DAG. Enforces deterministic transformation pipelines, structured outputs, and publishability recommendations.",
   "metadata": {
     "author": "platform-eng",
     "created_at": "2026-04-21T00:00:00Z",
@@ -14,171 +14,31 @@
     "stagnation_window": 3,
     "stagnation_threshold": 2
   },
-  "nodes": [
-    {
-      "id": "entry",
-      "type": "entry",
-      "display_name": "Query Input",
-      "description": "Accepts the natural language query and generation context",
-      "config": {
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "Natural language description of what the workflow should do"
-          },
-          "domain": {
-            "type": "string",
-            "description": "Optional domain hint, e.g. devops, finance, research",
-            "default": "devops"
-          },
-          "correction_attempts": {
-            "type": "integer",
-            "description": "Internal counter for self-correction loop (start at 0)",
-            "default": 0
-          }
-        },
-        "required": ["query"]
-      }
-    },
-    {
-      "id": "planner",
-      "type": "agent_node",
-      "display_name": "Planner Agent",
-      "description": "Decomposes the query into deterministic data transformation steps",
-      "config": {
-        "system_prompt": "You are a deterministic workflow architect. Your job is to decompose a natural language query into a discrete pipeline of data transformation steps.\n\nRules:\n- Workflow must follow this implicit pipeline: 1. Input normalization/parsing, 2. Data transformation steps, 3. Optional validation, 4. Final structured output.\n- Each step must describe a data transformation and be input -> output driven.\n- Each step must increase structure or reduce ambiguity.\n- Disallowed terms: analyze, think, reflect, explore.\n- Allowed terms: extract, classify, transform, validate, aggregate.\n- Keep the list between 3 and 6 steps maximum.\n\nGlobal Constraints:\n- Output MUST be valid JSON\n- No markdown formatting\n- No conversational text\n- No backticks\n- No explanations outside JSON\n\nReturn ONLY a JSON object:\n{\n  \"steps\": [\n    {\"id\": \"snake_case_id\", \"purpose\": \"extract|classify|transform|validate keyword followed by data description\"}\n  ]\n}",
-        "user_prompt_template": "Decompose this query into transformation steps:\n\nQuery: {query}\nDomain: {domain}\n\nReturn a JSON object with a 'steps' array.",
-        "input_mapping": {
-          "query": "$.entry.query",
-          "domain": "$.entry.domain"
-        },
-        "output_key": "plan",
-        "output_schema": {
-          "type": "object",
-          "properties": {
-            "steps": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "id": { "type": "string" },
-                  "purpose": { "type": "string" }
-                },
-                "required": ["id", "purpose"]
-              }
-            }
-          },
-          "required": ["steps"]
-        }
-      },
-      "guardrails": {
-        "input": { "max_tokens": 2000 },
-        "output": { "required_format": "json", "schema_validation": true }
-      }
-    },
-    {
-      "id": "node_builder",
-      "type": "agent_node",
-      "display_name": "Node Builder Agent",
-      "description": "Generates GraphWeave nodes with strict JSON schemas and structured thinking constraints",
-      "config": {
-        "system_prompt": "You are a GraphWeave JSON compiler. Generate a 'nodes' array where every node is a deterministic data transformer.\n\nStrict Constraints:\n- You MUST include an 'entry' node (type: entry) and an 'exit' node (type: exit).\n- Every agent_node MUST have a 'config' object containing 'system_prompt', 'user_prompt_template', and 'input_mapping'.\n- Zero-Conversational-Filler Mandate: You MUST NOT generate any conversational text (no 'Hello', 'Certainly', 'Here is the result', etc.).\n- Generated system_prompts MUST start with: 'You are a specialized data transformer. Your output MUST be raw JSON ONLY. No greetings, no explanations, no filler.'\n- MANDATORY 'output_schema' for every agent_node with 'result' and 'confidence'.\n- Disallowed terms: analyze, think, reflect, explore.\n- Allowed terms: extract, classify, transform, validate, aggregate.\n\nExample Node Structure:\n{\n  \"id\": \"node_id\",\n  \"type\": \"agent_node\",\n  \"config\": {\n    \"system_prompt\": \"You are a specialized data transformer. Your output MUST be raw JSON ONLY. No greetings, no explanations, no filler. Instructions: [Specific logic]\",\n    \"user_prompt_template\": \"Perform [Task] using: {input_var}\",\n    \"input_mapping\": { \"input_var\": \"$.previous_node.result\" }\n  },\n  \"output_schema\": { \"type\": \"object\", \"properties\": { \"result\": { \"type\": \"string\" }, \"confidence\": { \"type\": \"number\" } }, \"required\": [\"result\", \"confidence\"] }\n}\n\nMandatory Output Schema for agents:\n\"output_schema\": {\n  \"type\": \"object\",\n  \"properties\": {\n    \"result\": { \"type\": \"string\" },\n    \"confidence\": { \"type\": \"number\", \"minimum\": 0, \"maximum\": 1 }\n  },\n  \"required\": [\"result\", \"confidence\"]\n}\n\nReturn JSON with a 'nodes' array.",
-        "user_prompt_template": "Generate GraphWeave 'nodes'. Each node must output structured JSON. No markdown.\n\n1. Include 'entry' node defining 'query' property.\n2. Build 'agent_node' for each plan step below, using strictly 'input_mapping' for data flow.\n3. Include 'exit' node.\n\nOriginal Query: {query}\nDomain: {domain}\nPlan steps: {plan_steps}\n\nEnsure ALL 'input_mapping' entries align with '$.entry.query'.",
-        "input_mapping": {
-          "query": "$.entry.query",
-          "domain": "$.entry.domain",
-          "plan_steps": "$.plan.steps"
-        },
-        "output_key": "nodes_definition",
-        "output_schema": {
-          "type": "object",
-          "properties": {
-            "nodes": { "type": "array", "minItems": 3 }
-          },
-          "required": ["nodes"]
-        }
-      },
-      "guardrails": {
-        "input": { "max_tokens": 10000 },
-        "output": { "required_format": "json", "schema_validation": true }
-      }
-    },
-    {
-      "id": "edge_router",
-      "type": "agent_node",
-      "display_name": "Edge Router Agent",
-      "description": "Generates a cycle-free DAG connecting nodes in a transformation pipeline",
-      "config": {
-        "system_prompt": "You are a DAG routing expert. Generate the 'edges' array for the workflow.\n\nDAG Rules:\n- NO cycles.\n- NO orphan nodes (all nodes must be reachable from entry and connect to exit).\n- Default linear pipeline unless explicitly required otherwise.\n- entry -> first node; last node -> exit.\n\nGlobal Constraints:\n- Output MUST be valid JSON (NO markdown, NO conversational text).\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
-        "user_prompt_template": "Connect these nodes into a transformation DAG:\n\nQuery: {query}\nNodes: {nodes_list}",
-        "input_mapping": {
-          "query": "$.entry.query",
-          "nodes_list": "$.nodes_definition.nodes"
-        },
-        "output_key": "routing",
-        "output_schema": {
-          "type": "object",
-          "properties": {
-            "edges": { "type": "array" },
-            "entry_point": { "type": "string" },
-            "exit_point": { "type": "string" }
-          },
-          "required": ["edges", "entry_point", "exit_point"]
-        }
-      }
-    },
-    {
-      "id": "assembler",
-      "type": "agent_node",
-      "display_name": "Workflow Assembler & Quality Validator",
-      "description": "Assembles the final workflow and enforces high-quality transformation standards",
-      "config": {
-        "system_prompt": "You are a Workflow Quality Validator. Assemble the final JSON and REJECT if any quality rules are violated.\n\nQuality Validation Rules (REJECT if violated):\n- Any node lacks 'output_schema'.\n- Any node has a vague purpose (e.g. 'analyze', 'explore').\n- Any node produces unstructured output.\n- Workflow is not a clean transformation pipeline.\n- DAG contains cycles or orphan nodes.\n\nFinal Structure:\n{\n  \"name\": \"...\",\n  \"version\": \"1.0.1\",\n  \"nodes\": [...],\n  \"edges\": [...],\n  \"entry_point\": \"entry\",\n  \"exit_point\": \"exit\"\n}\n\nReturn ONLY JSON:\n{\n  \"is_valid\": true|false,\n  \"errors\": [],\n  \"generated_workflow\": { ... }\n}",
-        "user_prompt_template": "Assemble and validate: {query}\n\nNodes: {nodes_definition}\nRouting: {routing}",
-        "input_mapping": {
-          "query": "$.entry.query",
-          "nodes_definition": "$.nodes_definition.nodes",
-          "routing": "$.routing"
-        },
-        "output_key": "assembly_result",
-        "output_schema": {
-          "type": "object",
-          "properties": {
-            "is_valid": { "type": "boolean" },
-            "errors": { "type": "array" },
-            "generated_workflow": { "type": "object" }
-          },
-          "required": ["is_valid", "generated_workflow"]
-        }
-      }
-    },
-    {
-      "id": "validation_gate",
-      "type": "branch",
-      "display_name": "Validation Gate",
-      "config": {
-        "condition_expression": "$.assembly_result.is_valid"
-      }
-    },
-    {
-      "id": "exit",
-      "type": "exit",
-      "display_name": "Final Output",
-      "config": {
-        "output_mapping": {
-          "generated_workflow": "$.assembly_result.generated_workflow",
-          "validation_errors": "$.assembly_result.errors",
-          "is_valid": "$.assembly_result.is_valid"
-        }
-      }
-    }
-  ],
   "edges": [
-    { "from": "entry", "to": "planner" },
-    { "from": "planner", "to": "node_builder" },
-    { "from": "node_builder", "to": "edge_router" },
-    { "from": "edge_router", "to": "assembler" },
-    { "from": "assembler", "to": "validation_gate" },
+    {
+      "from": "entry",
+      "to": "planner"
+    },
+    {
+      "from": "planner",
+      "to": "node_builder"
+    },
+    {
+      "from": "node_builder",
+      "to": "architecture_advisor"
+    },
+    {
+      "from": "architecture_advisor",
+      "to": "edge_router"
+    },
+    {
+      "from": "edge_router",
+      "to": "assembler"
+    },
+    {
+      "from": "assembler",
+      "to": "validation_gate"
+    },
     {
       "from": "validation_gate",
       "to": "exit",
@@ -191,5 +51,18 @@
     }
   ],
   "entry_point": "entry",
-  "exit_point": "exit"
+  "exit_point": "exit",
+  "components": {
+    "base_dir": "workflow-generator",
+    "nodes": [
+      "nodes/entry.json",
+      "nodes/planner.json",
+      "nodes/node_builder.json",
+      "nodes/architecture_advisor.json",
+      "nodes/edge_router.json",
+      "nodes/assembler.json",
+      "nodes/validation_gate.json",
+      "nodes/exit.json"
+    ]
+  }
 }

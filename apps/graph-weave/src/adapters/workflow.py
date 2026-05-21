@@ -15,8 +15,59 @@ PREDEFINED_WORKFLOWS_DIR = os.path.join(
 
 PREDEFINED_WORKFLOWS = {
     "workflow-generator:v1.0.0": "workflow-generator:v1.0.0.json",
+    "workflow-generator:v2.0.0": "workflow-generator:v2.0.0.json",
     "create-node:v1.0.0": "create-node:v1.0.0.json",
 }
+
+
+def load_workflow_definition(resource_path: str) -> Dict[str, Any]:
+    with open(resource_path, "r") as f:
+        definition = json.load(f)
+    return _resolve_workflow_components(definition, os.path.dirname(resource_path))
+
+
+def _resolve_workflow_components(definition: Dict[str, Any], base_dir: str) -> Dict[str, Any]:
+    components = definition.get("components")
+    if not isinstance(components, dict):
+        return definition
+
+    node_refs = components.get("nodes") or []
+    if not node_refs:
+        return definition
+
+    components_base_dir = components.get("base_dir") or ""
+    if components_base_dir:
+        base_dir = os.path.join(base_dir, components_base_dir)
+
+    resolved_nodes: List[Dict[str, Any]] = []
+    for node_ref in node_refs:
+        if isinstance(node_ref, str):
+            node_path = os.path.join(base_dir, node_ref)
+            node_alias = None
+        elif isinstance(node_ref, dict):
+            node_path = os.path.join(base_dir, node_ref.get("file", ""))
+            node_alias = node_ref.get("id")
+        else:
+            continue
+
+        if not node_path or not os.path.exists(node_path):
+            raise FileNotFoundError(f"Workflow component not found: {node_path}")
+
+        with open(node_path, "r") as f:
+            node_definition = json.load(f)
+
+        if node_alias and "id" not in node_definition:
+            node_definition["id"] = node_alias
+
+        resolved_nodes.append(
+            _resolve_workflow_components(node_definition, os.path.dirname(node_path))
+        )
+
+    resolved_definition = {
+        **{k: v for k, v in definition.items() if k != "components"},
+        "nodes": resolved_nodes,
+    }
+    return resolved_definition
 
 
 class RedisWorkflowStore:
@@ -89,12 +140,13 @@ class RedisWorkflowStore:
         if workflow_id in PREDEFINED_WORKFLOWS:
             resource_file = PREDEFINED_WORKFLOWS[workflow_id]
             resource_path = os.path.join(PREDEFINED_WORKFLOWS_DIR, resource_file)
+            if os.path.isabs(resource_file):
+                resource_path = resource_file
 
             if os.path.exists(resource_path):
                 try:
                     logger.info(f"Loading pre-defined workflow '{workflow_id}' for tenant '{tenant_id}' from bundled resource")
-                    with open(resource_path, "r") as f:
-                        definition = json.load(f)
+                    definition = load_workflow_definition(resource_path)
                     
                     timestamp = datetime.utcnow().isoformat() + "Z"
                     existing_workflow = self.redis_client.get(key) or {}

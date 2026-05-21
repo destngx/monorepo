@@ -3,6 +3,7 @@ import os
 import time
 import pytest
 import httpx
+from src.adapters.workflow import load_workflow_definition
 from .helpers import (
     debug_log,
     wait_for_terminal_status,
@@ -12,11 +13,11 @@ from .helpers import (
 )
 
 TENANT_ID = "platform-eng"
-GENERATOR_WORKFLOW_ID = "workflow-generator:v1.0.1"
+GENERATOR_WORKFLOW_ID = "workflow-generator:v1.0.0"
 DEEP_RESEARCH_WORKFLOW_ID = "deep-research:v1.0.0"
 FIXTURE_PATH = os.path.join(
     os.path.dirname(__file__),
-    "../../../../docs/graph-weave/code/workflow-generator.json",
+    "../../src/resources/workflows/workflow-generator:v1.0.0.json",
 )
 
 @pytest.fixture(scope="module")
@@ -26,13 +27,12 @@ def client():
 
 @pytest.fixture(scope="module")
 def generator_workflow_definition():
-    with open(FIXTURE_PATH, "r") as f:
-        definition = json.load(f)
+    definition = load_workflow_definition(FIXTURE_PATH)
     return {
         "tenant_id": TENANT_ID,
         "workflow_id": GENERATOR_WORKFLOW_ID,
         "name": "Workflow Generator",
-        "version": "1.0.1",
+        "version": "1.0.0",
         "description": "Meta-workflow that converts natural language intents into GraphWeave DAGs",
         "owner": "platform-eng",
         "tags": ["meta", "generator", "dag-builder", "deep-research"],
@@ -83,6 +83,12 @@ class TestDeepResearchE2E:
         
         generated_dag = final_gen["workflow_state"].get("generated_workflow")
         assert generated_dag is not None, "Generator did not produce a DAG"
+        recommendations = final_gen["workflow_state"].get("recommendations")
+        publishability = final_gen["workflow_state"].get("publishability")
+        assert recommendations is not None, "Generator did not produce recommendations"
+        assert "placement_review" in recommendations, "Generator recommendations missing placement_review"
+        assert publishability is not None, "Generator did not produce publishability metadata"
+        assert publishability.get("status") in {"ready", "blocked", "needs_review"}
         
         # Ensure entry_point and exit_point exist (resilience)
         if "entry_point" not in generated_dag:

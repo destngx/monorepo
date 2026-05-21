@@ -1,0 +1,25 @@
+{
+  "id": "entry",
+  "type": "entry",
+  "display_name": "Query Input",
+  "description": "Accepts the natural language query and generation context",
+  "config": {
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Natural language description of what the workflow should do"
+      },
+      "domain": {
+        "type": "string",
+        "description": "Optional domain hint, e.g. devops, finance, research",
+        "default": "devops"
+      },
+      "correction_attempts": {
+        "type": "integer",
+        "description": "Internal counter for self-correction loop (start at 0)",
+        "default": 0
+      }
+    },
+    "required": ["query"]
+  }
+}

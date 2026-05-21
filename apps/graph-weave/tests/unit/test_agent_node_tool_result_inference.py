@@ -612,6 +612,27 @@ def test_tool_args_allow_non_template_braces():
     )
 
 
+def test_tool_args_allow_node_registry_descriptions_with_braces():
+    handler = AgentNodeHandler(DummyExecutor())
+
+    handler._validate_tool_args_resolved(
+        "node_registry",
+        {
+            "operation": "resolve_steps",
+            "steps": [
+                {
+                    "step_id": "run_create_source_cards",
+                    "description": "Consumes {sources_markdown} produced by the previous step.",
+                },
+                {
+                    "step_id": "run_validate_and_create_drafts",
+                    "description": "Consumes {drafts_markdown} and writes draft files.",
+                },
+            ],
+        },
+    )
+
+
 def test_command_contract_rejects_missing_required_substring():
     try:
         validate_command_contract(

@@ -10,9 +10,12 @@ The workflow generator processes your intent through a rigorous multi-agent pipe
 
 1. **Planner Agent**: Decomposes the intent into deterministic data transformation steps.
 2. **Node Builder Agent**: Generates the GraphWeave nodes with strict JSON schemas.
-3. **Edge Router Agent**: Generates a cycle-free DAG connecting the transformation pipeline.
-4. **Assembler & Quality Validator**: Assembles the final workflow and enforces quality standards (e.g., rejecting if any node lacks an output schema).
-5. **Validation Gate**: Loops back to the planner if validation fails.
+3. **Architecture Advisor**: Classifies each step by where it should run and whether the workflow is publishable.
+4. **Edge Router Agent**: Generates a cycle-free DAG connecting the transformation pipeline.
+5. **Assembler & Quality Validator**: Assembles the final workflow and enforces quality standards, including publishability.
+6. **Validation Gate**: Loops back to the planner if validation fails.
+
+The workflow definition itself is stored as a small manifest plus separate component JSON files, and GraphWeave preloads the full definition on startup.
 
 ## 📝 How to Craft an Intent
 
@@ -55,7 +58,7 @@ To ensure the generator produces a valid and useful DAG, you **must** adhere to 
 
 - **Domain Hinting**: Always provide a relevant `domain` hint (e.g., `devops`, `finance`, `research`) alongside your intent. This helps the agents contextualize the node generation.
 - **Avoid Ambiguity**: Be explicit about the tools or systems involved (e.g., "AWS Secrets Manager", "Slack", "Grafana").
-- **Review and Register**: The generator outputs a JSON DAG. Always review the `generated_workflow` output before registering it via the POST `/workflows` endpoint.
+- **Review and Register**: The generator outputs a JSON DAG plus `recommendations` and `publishability`. Always review both the generated workflow and the recommendation block before registering it via the POST `/workflows` endpoint.
 
 ## 📖 Programmatic Sample Use Case: AWS Credential Rotation
 

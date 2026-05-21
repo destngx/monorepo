@@ -1,0 +1,38 @@
+{
+  "id": "assembler",
+  "type": "agent_node",
+  "display_name": "Workflow Assembler & Quality Validator",
+  "description": "Assembles the final workflow and enforces high-quality transformation standards",
+  "config": {
+    "system_prompt": "You are a Workflow Quality Validator. Assemble the final JSON and REJECT if any quality rules are violated.\n\nQuality Validation Rules (REJECT if violated):\n- Any node lacks 'output_schema'.\n- Any node has a vague purpose (e.g. 'analyze', 'explore').\n- Any node produces unstructured output.\n- Workflow is not a clean transformation pipeline.\n- DAG contains cycles or orphan nodes.\n- The workflow is not publishable according to architecture_review.\n\nFinal Structure:\n{\n  \"name\": \"...\",\n  \"version\": \"1.0.0\",\n  \"nodes\": [...],\n  \"edges\": [...],\n  \"entry_point\": \"entry\",\n  \"exit_point\": \"exit\"\n}\n\nReturn ONLY JSON:\n{\n  \"is_valid\": true|false,\n  \"errors\": [],\n  \"publishability\": {\n    \"status\": \"ready|blocked|needs_review\",\n    \"reason\": \"...\",\n    \"blocking_items\": [],\n    \"warnings\": []\n  },\n  \"recommendations\": { ... },\n  \"generated_workflow\": { ... }\n}",
+    "user_prompt_template": "Assemble and validate: {query}\n\nNodes: {nodes_definition}\nRouting: {routing}\nArchitecture Review: {architecture_review}",
+    "input_mapping": {
+      "query": "$.entry.query",
+      "nodes_definition": "$.nodes_definition.nodes",
+      "routing": "$.routing",
+      "architecture_review": "$.architecture_review"
+    },
+    "output_key": "assembly_result",
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "is_valid": {
+          "type": "boolean"
+        },
+        "errors": {
+          "type": "array"
+        },
+        "publishability": {
+          "type": "object"
+        },
+        "recommendations": {
+          "type": "object"
+        },
+        "generated_workflow": {
+          "type": ["object", "null"]
+        }
+      },
+      "required": ["is_valid", "errors", "publishability", "recommendations", "generated_workflow"]
+    }
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "id": "architecture_advisor",
+  "type": "agent_node",
+  "display_name": "Architecture Advisor",
+  "description": "Classifies each planned step by placement and evaluates publishability",
+  "config": {
+    "system_prompt": "You are an architecture advisor for workflow generation. Classify each planned step by the best placement and judge whether the workflow is publishable.\n\nPlacement rules:\n- Use cognitive_workflow for semantic reasoning, extraction, synthesis, classification, and other LLM-bound work.\n- Use preprocess_script for deterministic input cleanup, URL scanning/fetching, OCR, file path resolution, and schema validation.\n- Use postprocess_script for deterministic file writing, vault updates, and registration steps that happen after cognitive work.\n- Use hybrid when a step has both deterministic and semantic parts.\n- Use manual_review when the task cannot be trusted to automation.\n\nPublishability rules:\n- publishability.status = 'ready' when the cognitive workflow is self-contained and deterministic preprocessing/postprocessing is clearly separable.\n- publishability.status = 'blocked' when the current plan depends on missing nodes or cannot be safely executed as generated.\n- publishability.status = 'needs_review' when the workflow is valid but still requires a human decision on placement or splitting.\n\nReturn ONLY JSON.",
+    "user_prompt_template": "Review the planned workflow and classify each step by placement.\n\nQuery: {query}\nPlan: {plan}\nNodes: {nodes_definition}\n\nReturn recommendations and publishability for the assembled workflow.",
+    "input_mapping": {
+      "query": "$.entry.query",
+      "plan": "$.plan",
+      "nodes_definition": "$.nodes_definition.nodes"
+    },
+    "output_key": "architecture_review",
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "recommendations": {
+          "type": "object",
+          "properties": {
+            "placement_review": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step_id": {
+                    "type": "string"
+                  },
+                  "recommended_placement": {
+                    "type": "string",
+                    "enum": ["cognitive_workflow", "preprocess_script", "postprocess_script", "hybrid", "manual_review"]
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "workflow_action": {
+                    "type": "string",
+                    "enum": [
+                      "include_in_generated_workflow",
+                      "exclude_from_generated_workflow",
+                      "split_between_script_and_agent",
+                      "requires_human_decision"
+                    ]
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": ["step_id", "recommended_placement", "reason", "workflow_action", "confidence"]
+              }
+            },
+            "summary": {
+              "type": "object",
+              "properties": {
+                "cognitive_workflow_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "preprocess_script_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "postprocess_script_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "hybrid_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "manual_review_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "cognitive_workflow_steps",
+                "preprocess_script_steps",
+                "postprocess_script_steps",
+                "hybrid_steps",
+                "manual_review_steps"
+              ]
+            }
+          },
+          "required": ["placement_review", "summary"]
+        },
+        "publishability": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["ready", "blocked", "needs_review"]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "blocking_items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["status", "reason", "blocking_items", "warnings"]
+        }
+      },
+      "required": ["recommendations", "publishability"]
+    }
+  }
+}

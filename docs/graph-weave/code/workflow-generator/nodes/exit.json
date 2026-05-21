@@ -1,0 +1,14 @@
+{
+  "id": "exit",
+  "type": "exit",
+  "display_name": "Final Output",
+  "config": {
+    "output_mapping": {
+      "generated_workflow": "$.assembly_result.generated_workflow",
+      "validation_errors": "$.assembly_result.errors",
+      "is_valid": "$.assembly_result.is_valid",
+      "publishability": "$.assembly_result.publishability",
+      "recommendations": "$.assembly_result.recommendations"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": "entry",
+  "type": "entry",
+  "display_name": "Node Details Input",
+  "description": "Accepts the node details for creation",
+  "config": {
+    "properties": {
+      "node_name": {
+        "type": "string",
+        "description": "Name of the node to create (snake_case)"
+      },
+      "description": {
+        "type": "string",
+        "description": "What the node should do"
+      },
+      "type": {
+        "type": "string",
+        "description": "Node type: agent_node or cli_node"
+      },
+      "capabilities": {
+        "type": "array",
+        "description": "List of capabilities the node provides"
+      },
+      "intent_context": {
+        "type": "string",
+        "description": "Relevant part of the intent for context"
+      },
+      "command": {
+        "type": "string",
+        "description": "Dynamic bash command to execute when creating a cli_node"
+      },
+      "domain": {
+        "type": "string",
+        "description": "Domain prefix for the node",
+        "default": "general"
+      },
+      "tenant_id": {
+        "type": "string",
+        "description": "Tenant ID for node registration",
+        "default": "system"
+      }
+    },
+    "required": ["node_name", "description", "type", "capabilities"]
+  }
+}
