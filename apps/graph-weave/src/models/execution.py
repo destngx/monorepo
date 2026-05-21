@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator, Field
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from ..validation import validate_resource_id, validate_optional_uuid
 
 
@@ -80,6 +80,9 @@ class ExecuteResponse(BaseModel):
         description="Tenant identifier echo from request",
         json_schema_extra={"example": "default"},
     )
+    output: Dict[str, Any] = Field(default_factory=dict)
+    state: Optional[Dict[str, Any]] = None
+    events: List[Dict[str, Any]] = Field(default_factory=list)
 
     @field_validator("run_id", mode="before")
     @classmethod

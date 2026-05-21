@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, Optional
 from src.app_logging import get_logger
 from .agent.tool_utils import infer_result_from_tools, format_tool_error, validate_command_contract
+from ..runtime.state import StateResolver
 
 logger = get_logger(__name__)
 
@@ -29,11 +30,10 @@ class CLINodeHandler:
         input_mapping = config.get("input_mapping") or node.get("input_mapping", {})
         cli_input_context = {}
         if input_mapping:
-            for key, path in input_mapping.items():
-                cli_input_context[key] = self.executor._get_state_value(path, state)
+            cli_input_context = StateResolver(state).resolve_mapping(input_mapping)
         else:
             # Default to full workflow state if no mapping
-            cli_input_context = dict(state.get("workflow_state", {}))
+            cli_input_context = dict(state.get("workflow", {}))
 
         # Determine the command to run. Allow the command itself to be supplied
         # through input_mapping so the same CLI node can execute arbitrary bash.
@@ -105,23 +105,24 @@ class CLINodeHandler:
             )
 
             output_key = config.get("output_key") or node.get("output_key")
-            actual_result = {output_key: output_data} if output_key else output_data
+            outputs = {
+                "stdout": stdout,
+                "stderr": result.get("stderr", ""),
+                "exit_code": exit_code,
+                "success": result.get("status") == "success",
+            }
+            if output_key:
+                outputs[output_key] = output_data
 
-            node_result_payload = {
-                "node_id": node_id,
+            return {
                 "status": status,
                 "result": output_data,
-                f"{node_id}_output": output_data,
-                f"{node_id}_status": status,
-                "exit_code": exit_code,
+                "outputs": outputs,
+                "metadata": {
+                    "node_id": node_id,
+                    "command": command,
+                },
             }
-            
-            if isinstance(actual_result, dict):
-                for key, value in actual_result.items():
-                    if key not in {"node_id", "status", "result", f"{node_id}_status"}:
-                        node_result_payload[key] = value
-                
-            return node_result_payload
 
         except Exception as e:
             self._logger.error(f"CLI node {node_id} execution failed: {e}")

@@ -1,5 +1,5 @@
 from .parser import WorkflowParser
-from .evaluator import EdgeEvaluator, parse_value as _parse_value
+from .evaluator import EdgeEvaluator
 from .builder import GraphBuilder
 from .models import NodeConfig, WorkflowParseError
 from .nodes import (
@@ -25,5 +25,4 @@ __all__ = [
     "build_branch_node",
     "build_exit_node",
     "_interpolate_prompt",
-    "_parse_value",
 ]

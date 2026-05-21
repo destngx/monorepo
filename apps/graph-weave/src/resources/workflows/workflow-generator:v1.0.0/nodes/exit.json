@@ -4,11 +4,12 @@
   "display_name": "Final Output",
   "config": {
     "output_mapping": {
-      "generated_workflow": "$.assembly_result.generated_workflow",
-      "validation_errors": "$.assembly_result.errors",
-      "is_valid": "$.assembly_result.is_valid",
-      "publishability": "$.assembly_result.publishability",
-      "recommendations": "$.assembly_result.recommendations"
+      "generated_workflow": "$.nodes.assembler.result.generated_workflow",
+      "validation_errors": "$.nodes.assembler.result.errors",
+      "is_valid": "$.nodes.assembler.result.is_valid",
+      "architecture_review": "$.nodes.architecture_advisor.result",
+      "publishability": "$.nodes.assembler.result.publishability",
+      "recommendations": "$.nodes.assembler.result.recommendations"
     }
   }
 }

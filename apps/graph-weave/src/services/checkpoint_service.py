@@ -6,12 +6,12 @@ class CheckpointService:
         self._store = store
 
     def save_checkpoint(
-        self, tenant_id: str, thread_id: str, workflow_state: Dict[str, Any]
+        self, tenant_id: str, thread_id: str, state: Dict[str, Any]
     ) -> Dict[str, Any]:
         checkpoint = {
             "tenant_id": tenant_id,
             "thread_id": thread_id,
-            "workflow_state": workflow_state,
+            "state": state,
         }
         self._store.set(f"checkpoint:{tenant_id}:{thread_id}:latest", checkpoint)
         return checkpoint

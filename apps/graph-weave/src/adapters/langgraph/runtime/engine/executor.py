@@ -77,12 +77,16 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
         state: Dict[str, Any] = {
             "input": input_data,
-            "step": 0,
-            "current_node": None,
-            "node_results": {},
-            "workflow_state": dict(input_data),
-            "status": None,
-            "hop_count": 0,
+            "workflow": dict(input_data),
+            "nodes": {},
+            "runtime": {
+                "status": None,
+                "step": 0,
+                "current_node": None,
+                "hop_count": 0,
+                "last_node": None,
+                "output": {},
+            },
             "errors": [],
         }
 
@@ -94,6 +98,8 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
             state["current_node"] = current_node_id
             hop_count = 0
+            state["runtime"]["current_node"] = current_node_id
+            state["runtime"]["step"] = hop_count
 
             while True:
                 # 1. Check constraints (timeout, kill flag, stagnation)
@@ -109,6 +115,8 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
                 node_type = node.get("type")
                 state["current_node"] = current_node_id
                 state["step"] = hop_count
+                state["runtime"]["current_node"] = current_node_id
+                state["runtime"]["step"] = hop_count
 
                 # 2. Handle Exit Node
                 if node_type == "exit":
@@ -127,21 +135,23 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
                 try:
                     node_result = self._dispatch_node_execution(run_id, node, state, workflow)
                     self._logger.debug(f"Node {current_node_id} result keys: {list(node_result.keys())}")
-                    state["node_results"][current_node_id] = node_result
-                    state["workflow_state"].update(node_result)
+                    normalized_result = self._normalize_node_result(current_node_id, node_result)
+                    state["nodes"][current_node_id] = normalized_result
+                    state["last_result"] = normalized_result
+                    state["runtime"]["last_node"] = current_node_id
 
                     if self.checkpoint_service:
                         self.checkpoint_service.save_checkpoint(
                             tenant_id=tenant_id, 
                             thread_id=thread_id, 
-                            workflow_state=state["workflow_state"]
+                            state=state
                         )
 
                     emit_event(self, run_id, "node.completed", {
                         "node_id": current_node_id, 
                         "node_type": node_type, 
-                        "result": node_result, 
-                        "result_keys": list(node_result.keys())
+                        "result": normalized_result,
+                        "result_keys": list(normalized_result.keys())
                     })
 
                 except Exception as e:
@@ -150,6 +160,7 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
                     node_config = node.get("config", {})
                     if not node_config.get("optional", False):
                         state["status"] = "failed"
+                        state["runtime"]["status"] = "failed"
                         break
 
                 # 5. Route to Next Node
@@ -162,6 +173,26 @@ class RealLangGraphExecutor(BaseLangGraphExecutor):
 
         except Exception as e:
             return handle_execution_error(self, run_id, thread_id, tenant_id, workflow_id, state, e)
+
+    def _normalize_node_result(self, node_id: str, node_result: Dict[str, Any]) -> Dict[str, Any]:
+        payload = dict(node_result or {})
+        payload.pop("node_id", None)
+        payload.setdefault("status", "completed")
+
+        outputs = payload.get("outputs")
+        if outputs is None:
+            outputs = {}
+        if not isinstance(outputs, dict):
+            outputs = {"value": outputs}
+        payload["outputs"] = outputs
+
+        metadata = payload.get("metadata")
+        if metadata is None:
+            metadata = {}
+        if not isinstance(metadata, dict):
+            metadata = {"value": metadata}
+        payload["metadata"] = metadata
+        return payload
 
     def _dispatch_node_execution(self, run_id: str, node: Dict[str, Any], state: Dict[str, Any], workflow: Dict[str, Any]) -> Dict[str, Any]:
         node_type = node.get("type")

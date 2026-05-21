@@ -58,8 +58,8 @@ def interpolate_prompt(
     placeholders = re.findall(r"\{+([^{}]+)\}+", template)
 
     # Merge context for existence check
-    context = dict(state.get("workflow_state", {}))
-    context.update({k: v for k, v in state.items() if k != "workflow_state"})
+    context = dict(state.get("workflow", {}))
+    context.update({k: v for k, v in state.items() if k != "workflow"})
     if local_context:
         context.update(local_context)
 

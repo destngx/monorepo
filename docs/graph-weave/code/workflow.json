@@ -42,7 +42,7 @@
         "user_prompt_template": "Customer query: {query}\n\nClassify this query into one of: 'billing', 'shipping', 'returns', 'other'.\n\nReturn JSON:\n{{\n  \"category\": \"<category>\",\n  \"confidence\": <0-1>,\n  \"reasoning\": \"<brief explanation>\"\n}}",
 
         "input_mapping": {
-          "query": "$.entry.customer_query"
+          "query": "$.input.customer_query"
         },
 
         "output_key": "classification"
@@ -87,8 +87,8 @@
         "user_prompt_template": "Customer ID: {customer_id}\nBilling Issue: {query}\n\nResolve the billing issue following company policy. Return JSON:\n{{\n  \"issue_type\": \"<type>\",\n  \"resolution\": \"<action taken>\",\n  \"status\": \"resolved\" or \"escalated\",\n  \"confidence\": <0-1>\n}}",
 
         "input_mapping": {
-          "customer_id": "$.entry.customer_id",
-          "query": "$.entry.customer_query"
+          "customer_id": "$.input.customer_id",
+          "query": "$.input.customer_query"
         },
 
         "output_key": "billing_response"
@@ -118,8 +118,8 @@
         "user_prompt_template": "Customer ID: {customer_id}\nShipping Issue: {query}\n\nResolve the shipping issue. Return JSON:\n{{\n  \"issue_type\": \"<type>\",\n  \"resolution\": \"<action taken>\",\n  \"status\": \"resolved\" or \"escalated\",\n  \"tracking_update\": \"<if applicable>\",\n  \"confidence\": <0-1>\n}}",
 
         "input_mapping": {
-          "customer_id": "$.entry.customer_id",
-          "query": "$.entry.customer_query"
+          "customer_id": "$.input.customer_id",
+          "query": "$.input.customer_query"
         },
 
         "output_key": "shipping_response"
@@ -144,8 +144,8 @@
         "user_prompt_template": "Customer ID: {customer_id}\nReturn Request: {query}\n\nProcess the return request following return policy. Return JSON:\n{{\n  \"issue_type\": \"<type>\",\n  \"eligibility\": \"eligible\" or \"ineligible\",\n  \"resolution\": \"<action taken>\",\n  \"status\": \"resolved\" or \"escalated\",\n  \"confidence\": <0-1>\n}}",
 
         "input_mapping": {
-          "customer_id": "$.entry.customer_id",
-          "query": "$.entry.customer_query"
+          "customer_id": "$.input.customer_id",
+          "query": "$.input.customer_query"
         },
 
         "output_key": "returns_response"
@@ -180,8 +180,8 @@
         "user_prompt_template": "Unresolved Issue:\nQuery: {query}\nCustomer ID: {customer_id}\nAttempted Resolution: {attempts}\n\nCreate escalation ticket summary. Return JSON:\n{{\n  \"ticket_id\": \"<generated>\",\n  \"summary\": \"<issue summary>\",\n  \"priority\": \"high\" or \"normal\",\n  \"context\": \"<customer context for agent>\",\n  \"next_steps\": \"<recommended actions>\"\n}}",
 
         "input_mapping": {
-          "query": "$.entry.customer_query",
-          "customer_id": "$.entry.customer_id",
+          "query": "$.input.customer_query",
+          "customer_id": "$.input.customer_id",
           "attempts": "$.classification"
         },
 
@@ -203,7 +203,7 @@
           "escalation_ticket": "$.escalation_ticket.ticket_id || null",
           "status": {
             "resolved": "$.verify_resolution",
-            "customer_id": "$.entry.customer_id"
+            "customer_id": "$.input.customer_id"
           }
         }
       }

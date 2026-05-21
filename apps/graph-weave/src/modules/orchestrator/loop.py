@@ -38,12 +38,12 @@ class OrchestratorReAct:
         run_id: str,
         node_id: str,
         config: OrchestratorConfig,
-        workflow_state: Dict[str, Any],
+        workflow_context: Dict[str, Any],
         user_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Execute the ReAct loop."""
         trace: List[Dict[str, Any]] = []
-        messages: List[Dict[str, Any]] = build_initial_messages(config, workflow_state, user_prompt)
+        messages: List[Dict[str, Any]] = build_initial_messages(config, workflow_context, user_prompt)
 
         # Fetch tool definitions for allowed_skills
         tools = get_tools(self.mcp_router, config.allowed_skills)
@@ -144,7 +144,7 @@ class OrchestratorReAct:
     def _build_initial_messages(
         self,
         config: OrchestratorConfig,
-        workflow_state: Dict[str, Any],
+        workflow_context: Dict[str, Any],
         user_prompt: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        return build_initial_messages(config, workflow_state, user_prompt)
+        return build_initial_messages(config, workflow_context, user_prompt)

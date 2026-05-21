@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from src.app_logging import get_logger
 from ....ai_provider import AIProviderFactory, LLMClient
 from ....mcp import MCPRouter, ProviderConfigError
+from ...runtime.state import StateResolver
 
 from .placeholder_utils import validate_tool_args_resolved
 from .json_utils import extract_json, repair_schema_json
@@ -38,11 +39,9 @@ class AgentNodeHandler:
         
         input_mapping = get_field("input_mapping", {})
         if input_mapping:
-            agent_input_context = {}
-            for key, path in input_mapping.items():
-                agent_input_context[key] = self.executor._get_state_value(path, state)
+            agent_input_context = StateResolver(state).resolve_mapping(input_mapping)
         else:
-            agent_input_context = dict(state.get("workflow_state", {}))
+            agent_input_context = dict(state.get("workflow", {}))
         
         user_prompt = self.executor._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
         system_prompt = self.executor._interpolate_prompt(system_prompt, state, local_context=agent_input_context)
@@ -90,8 +89,8 @@ class AgentNodeHandler:
                     self._logger.info(f"[AGENT] Recovered {len(tr['nodes'])} resolved nodes from tool results in fallback for {node_id}")
                     return {"nodes": tr["nodes"]}
 
-            workflow_state = state.get("workflow_state", {})
-            intent_analysis = workflow_state.get("intent_analysis") or state.get("intent_analysis") or {}
+            workflow_context = state.get("workflow", {})
+            intent_analysis = workflow_context.get("intent_analysis") or state.get("intent_analysis") or {}
             steps = intent_analysis.get("steps", [])
             if not isinstance(steps, list) or not steps:
                 return None
@@ -326,23 +325,23 @@ class AgentNodeHandler:
                     self._logger.warning(f"[AGENT] Failed to parse JSON from {node_id}, using raw_response")
 
             output_key = get_field("output_key")
-            actual_result = {output_key: result_data} if output_key else result_data
 
-            node_result_payload = {
-                "node_id": node_id,
+            outputs = {
+                "tool_calls": all_tool_calls,
+            }
+            if output_key and output_key != "result":
+                outputs[output_key] = result_data
+
+            return {
                 "status": "completed",
                 "result": result_data,
-                "tool_calls": all_tool_calls,
-                f"{node_id}_output": result_data,
-                f"{node_id}_status": "completed",
-                "tokens_used": total_tokens,
-                "turns": turns,
+                "outputs": outputs,
+                "metadata": {
+                    "tokens_used": total_tokens,
+                    "turns": turns,
+                    "node_id": node_id,
+                },
             }
-            
-            if isinstance(actual_result, dict):
-                node_result_payload.update(actual_result)
-                
-            return node_result_payload
 
         except ProviderConfigError as e:
             raise ValueError(f"Provider configuration error: {e}")

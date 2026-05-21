@@ -4,18 +4,34 @@
   "display_name": "Edge Router Agent",
   "description": "Generates a cycle-free DAG connecting nodes in a transformation pipeline",
   "config": {
-    "system_prompt": "You are a DAG routing expert. Generate the 'edges' array for the workflow.\n\nDAG Rules:\n- NO cycles.\n- NO orphan nodes (all nodes must be reachable from entry and connect to exit).\n- Default linear pipeline unless explicitly required otherwise.\n- entry -> first node; last node -> exit.\n\nGlobal Constraints:\n- Output MUST be valid JSON (NO markdown, NO conversational text).\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
+    "system_prompt": "You are a DAG routing expert. Generate the 'edges' array for the workflow.\n\nDAG Rules:\n- NO cycles.\n- NO orphan nodes (all nodes must be reachable from entry and connect to exit).\n- Default linear pipeline unless explicitly required otherwise.\n- entry -> first node; last node -> exit.\n- Every edge object MUST use exactly these keys for endpoints: \"from\" and \"to\".\n- Do NOT use \"source\", \"target\", \"source_node\", \"target_node\", \"start\", or \"end\".\n\nGlobal Constraints:\n- Output MUST be valid JSON (NO markdown, NO conversational text).\n\nReturn JSON with 'edges', 'entry_point', and 'exit_point'.",
     "user_prompt_template": "Connect these nodes into a transformation DAG:\n\nQuery: {query}\nNodes: {nodes_list}",
     "input_mapping": {
-      "query": "$.entry.query",
-      "nodes_list": "$.nodes_definition.nodes"
+      "query": "$.input.intent",
+      "nodes_list": "$.nodes.node_builder.result.nodes"
     },
     "output_key": "routing",
     "output_schema": {
       "type": "object",
       "properties": {
         "edges": {
-          "type": "array"
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "condition": {
+                "type": "string"
+              }
+            },
+            "required": ["from", "to"],
+            "additionalProperties": false
+          }
         },
         "entry_point": {
           "type": "string"

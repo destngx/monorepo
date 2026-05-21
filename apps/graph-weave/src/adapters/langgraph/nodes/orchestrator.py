@@ -1,6 +1,7 @@
 from typing import Any, Dict
 from src.models import OrchestratorConfig
 from src.modules.orchestrator import OrchestratorReAct
+from ..runtime.state import StateResolver
 
 class OrchestratorNodeHandler:
     """
@@ -27,11 +28,9 @@ class OrchestratorNodeHandler:
 
         input_mapping = config.input_mapping
         if input_mapping:
-            orchestrator_context = {}
-            for key, path in input_mapping.items():
-                orchestrator_context[key] = self.executor._get_state_value(path, state)
+            orchestrator_context = StateResolver(state).resolve_mapping(input_mapping)
         else:
-            orchestrator_context = dict(state.get("workflow_state", {}))
+            orchestrator_context = dict(state.get("workflow", {}))
 
         config.system_prompt = self.executor._interpolate_prompt(config.system_prompt, state)
         user_prompt = self.executor._interpolate_prompt(config.user_prompt_template, state) if config.user_prompt_template else None
@@ -61,12 +60,19 @@ class OrchestratorNodeHandler:
             run_id=run_id,
             node_id=node_id,
             config=config,
-            workflow_state=orchestrator_context,
+            workflow_context=orchestrator_context,
             user_prompt=user_prompt,
         )
 
         return {
-            **result,
-            "orchestrator_result": result.get("final_result", {}),
-            "node_id": node_id,
+            "status": "completed",
+            "result": result.get("final_result", {}),
+            "outputs": {
+                "orchestrator_trace": result.get("orchestrator_trace", []),
+                "final_result": result.get("final_result", {}),
+            },
+            "metadata": {
+                "node_id": node_id,
+                "iterations": len(result.get("orchestrator_trace", [])),
+            },
         }

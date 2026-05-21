@@ -42,12 +42,12 @@
     {
       "from": "validation_gate",
       "to": "exit",
-      "condition": "$.assembly_result.is_valid == true"
+      "condition": "$.nodes.assembler.result.is_valid == true"
     },
     {
       "from": "validation_gate",
       "to": "exit",
-      "condition": "$.assembly_result.is_valid == false"
+      "condition": "$.nodes.assembler.result.is_valid == false"
     }
   ],
   "entry_point": "entry",

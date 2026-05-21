@@ -1,11 +1,11 @@
 {
   "id": "entry",
   "type": "entry",
-  "display_name": "Query Input",
-  "description": "Accepts the natural language query and generation context",
+  "display_name": "Intent Input",
+  "description": "Accepts the natural language intent and generation context",
   "config": {
     "properties": {
-      "query": {
+      "intent": {
         "type": "string",
         "description": "Natural language description of what the workflow should do"
       },
@@ -20,6 +20,6 @@
         "default": 0
       }
     },
-    "required": ["query"]
+    "required": ["intent"]
   }
 }

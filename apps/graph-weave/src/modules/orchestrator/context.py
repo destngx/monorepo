@@ -24,10 +24,10 @@ def trim_context(messages: List[Dict[str, Any]], max_context_messages: int) -> L
 
 def build_initial_messages(
     config: OrchestratorConfig,
-    workflow_state: Dict[str, Any],
+    workflow_context: Dict[str, Any],
     user_prompt: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    context_summary = json.dumps(workflow_state, default=str)
+    context_summary = json.dumps(workflow_context, default=str)
     
     # If no explicit prompt provided, use the hardcoded default
     final_user_prompt = user_prompt or (

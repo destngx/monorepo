@@ -73,7 +73,8 @@ def _background_execute_run(
             "status": "failed",
             "error": str(e),
             "events": [],
-            "final_state": None,
+            "output": {},
+            "state": None,
             "hop_count": 0,
         }
 
@@ -118,7 +119,8 @@ def scheduler_execution_handler(tenant_id: str, workflow_id: str, input_data: di
         "tenant_id": tenant_id,
         "status": "queued",
         "events": [],
-        "final_state": None,
+        "output": {},
+        "state": None,
         "hop_count": 0,
     }
 
@@ -168,7 +170,8 @@ async def execute(request: ExecuteRequest):
             "tenant_id": request.tenant_id,
             "status": "queued",
             "events": [],
-            "final_state": None,
+            "output": {},
+            "state": None,
             "hop_count": 0,
         }
 
@@ -196,6 +199,8 @@ async def execute(request: ExecuteRequest):
             status="queued",
             workflow_id=request.workflow_id,
             tenant_id=request.tenant_id,
+            output={},
+            state=None,
         )
 
     except HTTPException:
@@ -208,6 +213,8 @@ async def execute(request: ExecuteRequest):
             status="failed",
             workflow_id=request.workflow_id,
             tenant_id=request.tenant_id,
+            output={},
+            state=None,
         )
 
 
@@ -236,8 +243,8 @@ async def get_execution_status(run_id: str):
         "workflow_id": result.get("workflow_id"),
         "tenant_id": result.get("tenant_id"),
         "events": events,
-        "final_state": result.get("final_state"),
-        "workflow_state": result.get("workflow_state"),
+        "output": result.get("output"),
+        "state": result.get("state"),
         "hop_count": result.get("hop_count"),
     }
 
@@ -255,13 +262,15 @@ async def recover_execution(run_id: str, request: RecoveryRequest):
         raise HTTPException(status_code=404, detail="Checkpoint not found")
 
     execution_runs[run_id]["status"] = "running"
-    execution_runs[run_id]["final_state"] = checkpoint.get("workflow_state", {})
+    execution_runs[run_id]["state"] = checkpoint.get("state")
     return ExecuteResponse(
         run_id=run_id,
         thread_id=request.thread_id,
         status="running",
         workflow_id=execution_runs[run_id].get("workflow_id", "unknown"),
         tenant_id=execution_runs[run_id].get("tenant_id", "unknown"),
+        output=execution_runs[run_id].get("output", {}),
+        state=execution_runs[run_id].get("state"),
     )
 
 

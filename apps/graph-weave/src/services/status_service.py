@@ -41,7 +41,8 @@ class StatusService:
             "run_id": run_id,
             "status": normalized_status.value,
             "events": payload.get("events", []) if payload else [],
-            "final_state": payload.get("final_state") if payload else None,
+            "state": payload.get("state") if payload else None,
+            "output": payload.get("output") if payload else None,
             "hop_count": payload.get("hop_count", 0) if payload else 0,
             "workflow_id": payload.get("workflow_id") if payload else None,
         }

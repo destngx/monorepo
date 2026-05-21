@@ -7,9 +7,9 @@
     "system_prompt": "You are an architecture advisor for workflow generation. Classify each planned step by the best placement and judge whether the workflow is publishable.\n\nPlacement rules:\n- Use cognitive_workflow for semantic reasoning, extraction, synthesis, classification, and other LLM-bound work.\n- Use preprocess_script for deterministic input cleanup, URL scanning/fetching, OCR, file path resolution, and schema validation.\n- Use postprocess_script for deterministic file writing, vault updates, and registration steps that happen after cognitive work.\n- Use hybrid when a step has both deterministic and semantic parts.\n- Use manual_review when the task cannot be trusted to automation.\n\nPublishability rules:\n- publishability.status = 'ready' when the cognitive workflow is self-contained and deterministic preprocessing/postprocessing is clearly separable.\n- publishability.status = 'blocked' when the current plan depends on missing nodes or cannot be safely executed as generated.\n- publishability.status = 'needs_review' when the workflow is valid but still requires a human decision on placement or splitting.\n\nReturn ONLY JSON.",
     "user_prompt_template": "Review the planned workflow and classify each step by placement.\n\nQuery: {query}\nPlan: {plan}\nNodes: {nodes_definition}\n\nReturn recommendations and publishability for the assembled workflow.",
     "input_mapping": {
-      "query": "$.entry.query",
-      "plan": "$.plan",
-      "nodes_definition": "$.nodes_definition.nodes"
+      "query": "$.input.intent",
+      "plan": "$.nodes.planner.result",
+      "nodes_definition": "$.nodes.node_builder.result.nodes"
     },
     "output_key": "architecture_review",
     "output_schema": {

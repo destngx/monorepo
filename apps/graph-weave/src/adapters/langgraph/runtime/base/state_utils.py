@@ -91,46 +91,19 @@ def get_state_value(path: Any, state: Mapping[str, Any], handle_function_mapping
         first_key = first_part
         remaining_keys = keys[1:]
 
-    node_results = state.get("node_results", {})
-    workflow_state = state.get("workflow_state", {})
+    nodes_state = state.get("nodes", {})
+    workflow_data = state.get("workflow", {})
     
     res = None
-    # 1. Try finding in node_results first
-    if first_key in node_results:
-        res = resolve_path(node_results[first_key], remaining_keys)
-    # 2. Try workflow_state
-    elif first_key in workflow_state:
-        res = resolve_path(workflow_state[first_key], remaining_keys)
+    # 1. Try finding in nodes first
+    if first_key in nodes_state:
+        res = resolve_path(nodes_state[first_key], remaining_keys)
+    # 2. Try workflow
+    elif first_key in workflow_data:
+        res = resolve_path(workflow_data[first_key], remaining_keys)
     # 3. Try root level
     elif first_key in state:
         res = resolve_path(state[first_key], remaining_keys)
-
-    # 4. Deep search
-    if res is None and "." not in clean_path:
-        for container in [workflow_state, node_results]:
-            for val in container.values():
-                if isinstance(val, dict) and first_key in val:
-                    res = resolve_path(val[first_key], remaining_keys)
-                    if res is not None:
-                        break
-            if res is not None: break
-
-    # 5. Fallback for terminal scalars
-    if res is None and remaining_keys:
-        for trim in range(1, len(remaining_keys) + 1):
-            parent_keys = remaining_keys[:-trim]
-            parent_val = None
-            if first_key in node_results:
-                parent_val = resolve_path(node_results[first_key], parent_keys)
-            elif first_key in workflow_state:
-                parent_val = resolve_path(workflow_state[first_key], parent_keys)
-            elif first_key in state:
-                parent_val = resolve_path(state[first_key], parent_keys)
-            
-            if parent_val is not None and isinstance(parent_val, str):
-                logger.debug(f"Fallback: path '{path}' resolved parent to string")
-                res = parent_val
-                break
 
     if res is not None:
         if virtual_transform == "joined" and isinstance(res, list):

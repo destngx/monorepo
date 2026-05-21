@@ -1,1143 +1,871 @@
 # State Management Refactoring Specification
 
-> **Project**: Graph Weave  
-> **Component**: Runtime / State Management  
-> **Status**: Draft  
-> **Author**: Sisyphus  
+> **Project**: Graph Weave
+> **Component**: Runtime / State Management
+> **Status**: Draft
+> **Author**: Sisyphus
 > **Date**: 2026-05-21
 
 ## Executive Summary
 
-Graph-weave's current node data passing system has **9 identified pain points** stemming from duplicated patterns, stringly-typed access, and inconsistent naming. This specification proposes a **StateContext** pattern with typed accessors to eliminate complexity while maintaining backward compatibility.
+Graph Weave's current state model mixes node outputs, shared workflow data, execution metadata, and final response data into overlapping dictionaries. This creates ambiguous state paths, duplicated lookup logic, hidden fallback behavior, and inconsistent node result shapes.
 
-**Effort**: 4 days  
-**Risk**: Low → Medium (incremental)  
-**Impact**: High — eliminates 6x code duplication, adds type safety, improves debuggability
+This specification proposes a **breaking v2 state architecture** instead of a compatibility-first wrapper. The new architecture removes the dual-store model, standardizes node outputs, requires explicit namespaced paths, and routes all state access through one strict resolver.
 
----
-
-## Table of Contents
-
-1. [Current Architecture](#current-architecture)
-2. [Pain Points Analysis](#pain-points-analysis)
-3. [Best Practices Research](#best-practices-research)
-4. [Proposed Architecture](#proposed-architecture)
-5. [Implementation Plan](#implementation-plan)
-6. [Migration Guide](#migration-guide)
-7. [Success Metrics](#success-metrics)
-8. [Risk Assessment](#risk-assessment)
-9. [References](#references)
+**Risk**: High, intentional breaking change
+**Impact**: High, removes ambiguous state semantics and establishes a clean runtime contract
 
 ---
 
-## Current Architecture
+## Goals
 
-### State Model
+- Replace implicit, fallback-heavy state access with explicit namespaced paths.
+- Stop merging node results into shared workflow state.
+- Standardize the node result shape for all node handlers.
+- Use one resolver for input mapping, prompt interpolation, edge conditions, and exit output mapping.
+- Move transforms out of path suffixes and into explicit mapping configuration.
+- Make exit nodes responsible for final API output projection.
+- Update built-in workflows, generator prompts, tests, and checkpoints to the new state model.
 
-Graph-weave uses a **shared mutable state dictionary** pattern where a single state dict flows through every node. There are two state layers:
+## Non-Goals
 
-#### Production Runtime State (`ExecutorState`)
-
-```python
-# File: apps/graph-weave/src/adapters/langgraph/helper/types.py
-
-class ExecutorState(TypedDict):
-    input: Dict[str, Any]                    # Original request payload
-    step: int                                # Current hop count
-    current_node: Optional[str]              # Active node ID
-    node_results: Dict[str, Dict[str, Any]]  # Per-node output cache (isolated)
-    workflow_state: Dict[str, Any]           # Shared accumulated state (merged)
-    status: Optional[str]                    # Execution status
-    hop_count: int                           # Total hops
-    last_result: Optional[Dict[str, Any]]    # Last node result
-    errors: List[Dict[str, Any]]             # Error accumulation
-```
-
-#### Design/Reference State (`GraphWeaveState`)
-
-```python
-# File: docs/graph-weave/code/state_schema.py
-
-class GraphWeaveState(TypedDict):
-    messages: Annotated[List[Dict[str, Any]], add_messages]
-    available_skills: Dict[str, Any]
-    active_mcp_contexts: Dict[str, Any]
-    agent_summaries: List[Dict[str, Any]]
-    routing_directive: Literal["Agent_order_tools", "Agent_return_tools", "FINISH", "FORCE_EXIT"]
-    agent_payload: Dict[str, Any]
-    final_response: str
-    stagnation_history: Annotated[List[str], lambda x, y: (x + y)[-3:]]
-    token_usage: Annotated[Dict[str, int], lambda x, y: {**x, **y}]
-    remaining_steps: int
-```
-
-### Data Flow Pipeline
-
-```
-User Input
-  │
-  ▼
-[State Init] ── input_data seeded into workflow_state
-  │
-  ▼
-[Node A]
-  ├── input_mapping: reads from state via dot-paths
-  ├── executes (LLM call, tool, etc.)
-  ├── returns {"node_A_output": result, "status": "completed", ...}
-  ├── state["node_results"]["A"] = result      ← isolated cache
-  └── state["workflow_state"].update(result)    ← merged into shared state
-  │
-  ▼
-[Edge] ── evaluates condition against state → routes to next node
-  │
-  ▼
-[Node B]
-  ├── input_mapping: reads from node_results + workflow_state
-  └── ... (repeat)
-  │
-  ▼
-[Exit Node] ── output_mapping projects final state → returns result
-```
-
-### State Access Mechanisms
-
-| Mechanism              | Usage                          | Location            |
-| ---------------------- | ------------------------------ | ------------------- |
-| `input_mapping`        | Declarative per-node config    | Workflow JSON       |
-| `get_state_value()`    | Dot-notation path resolution   | `state_utils.py`    |
-| `interpolate_prompt()` | Template variable substitution | `content_utils.py`  |
-| `evaluate_condition()` | Edge routing conditions        | `workflow_utils.py` |
+- Preserve legacy state paths such as `$.summary`, `$.final_result`, or `$.previous_node.result`.
+- Preserve response aliases such as `workflow_state`, `node_results`, `orchestrator_result`, or `{node_id}_output`.
+- Maintain compatibility with old persisted checkpoints without migration.
+- Keep permissive behavior for missing required state paths.
 
 ---
 
-## Pain Points Analysis
+## Current Pain Points
 
-### Pain Point 1: Duplicated `input_mapping` Resolution (6 locations)
+### 1. Dual State Stores
 
-The exact same pattern — iterate over `input_mapping`, call `_get_state_value`, fallback to `workflow_state` — is copy-pasted across 6 files with minor variations.
-
-**Pattern A** (agent/orchestrator nodes):
+The current executor writes every node result to both containers:
 
 ```python
-# agent/handler.py:39-45, orchestrator.py:28-34
-input_mapping = get_field("input_mapping", {})
-if input_mapping:
-    agent_input_context = {}
-    for key, path in input_mapping.items():
-        agent_input_context[key] = self.executor._get_state_value(path, state)
-else:
-    agent_input_context = dict(state.get("workflow_state", {}))
+state["node_results"][current_node_id] = node_result
+state["workflow_state"].update(node_result)
 ```
 
-**Pattern B** (CLI node):
+This makes the same value accessible through multiple paths and allows unrelated node outputs to overwrite each other in `workflow_state`.
+
+### 2. Ambiguous State Resolution
+
+The current resolver checks `node_results`, then `workflow_state`, then root state, then performs deep scans and terminal scalar fallback. This behavior hides broken paths and makes reads dependent on dictionary shape and insertion order.
+
+### 3. Inconsistent Node Result Shapes
+
+Handlers return different keys:
+
+- `result`
+- `final_result`
+- `orchestrator_result`
+- `branch_result`
+- `{node_id}_output`
+- `{node_id}_status`
+- handler-specific fields such as `tool_calls`, `turns`, `stdout`, and `stderr`
+
+Downstream consumers must know handler-specific conventions instead of using one contract.
+
+### 4. Duplicated Input Mapping
+
+Multiple handlers and runtime utilities repeat the same pattern:
 
 ```python
-# cli.py:29-36
-input_mapping = config.get("input_mapping") or node.get("input_mapping", {})
-if input_mapping:
-    cli_input_context = {}
-    for key, path in input_mapping.items():
-        cli_input_context[key] = self.executor._get_state_value(path, state)
-else:
-    cli_input_context = dict(state.get("workflow_state", {}))
+for key, path in input_mapping.items():
+    resolved[key] = executor._get_state_value(path, state)
 ```
 
-**Pattern C** (engine utils):
+Each copy depends on the same ambiguous resolver.
 
-```python
-# engine/utils.py:41-46
-input_mapping = node.get("input_mapping") or config.get("input_mapping", {})
-if input_mapping:
-    resolved = {}
-    for key, path in input_mapping.items():
-        resolved[key] = executor._get_state_value(path, state)
-    return resolved
-```
+### 5. Duplicate Prompt and Condition Evaluation
 
-**Files affected**:
+Graph-level and runtime-level implementations use different rules for missing variables, dot paths, transforms, and errors.
 
-- `apps/graph-weave/src/adapters/langgraph/nodes/agent/handler.py`
-- `apps/graph-weave/src/adapters/langgraph/nodes/orchestrator.py`
-- `apps/graph-weave/src/adapters/langgraph/nodes/cli.py`
-- `apps/graph-weave/src/adapters/langgraph/runtime/engine/utils.py`
+### 6. Magic Path Transforms
 
----
+Transforms are encoded as suffixes or pseudo-methods:
 
-### Pain Point 2: Inconsistent State Key Naming Conventions
+- `_shell`
+- `_json`
+- `_joined`
+- `_first`
+- `.join(...)`
+- `.first(...)`
+- `.json_quote(...)`
 
-Node results are stored using multiple conflicting naming patterns:
-
-| Pattern               | Where Used                       | Example                         |
-| --------------------- | -------------------------------- | ------------------------------- |
-| `{node_id}_output`    | agent/handler.py:336, cli.py:114 | `"my_node_output": result_data` |
-| `{node_id}_status`    | agent/handler.py:337, cli.py:115 | `"my_node_status": "completed"` |
-| `result`              | agent/handler.py:334, cli.py:113 | `"result": result_data`         |
-| `orchestrator_result` | orchestrator.py:70               | `"orchestrator_result": {...}`  |
-| `final_result`        | loop.py:138                      | Returned from OrchestratorReAct |
-| `branch_result`       | executor.py:173                  | `"branch_result": "true"`       |
-| `node_id`             | Multiple files                   | Redundant field in every result |
-
-**Impact**: Consumers must know which key to look for. No guaranteed shape.
-
----
-
-### Pain Point 3: 5-Level Fallback Chain in `get_state_value()`
-
-The 228-line `get_state_value()` function has an escalating fallback strategy:
-
-```python
-# state_utils.py - Simplified fallback chain
-
-# Level 1: node_results lookup
-if first_key in node_results:
-    res = resolve_path(node_results[first_key], remaining_keys)
-
-# Level 2: workflow_state lookup
-elif first_key in workflow_state:
-    res = resolve_path(workflow_state[first_key], remaining_keys)
-
-# Level 3: root state lookup
-elif first_key in state:
-    res = resolve_path(state[first_key], remaining_keys)
-
-# Level 4: Deep search across ALL values (DANGEROUS)
-if res is None and "." not in clean_path:
-    for container in [workflow_state, node_results]:
-        for val in container.values():
-            if isinstance(val, dict) and first_key in val:
-                res = resolve_path(val[first_key], remaining_keys)
-
-# Level 5: Trimming fallback for terminal scalars
-if res is None and remaining_keys:
-    for trim in range(1, len(remaining_keys) + 1):
-        # Re-lookup in all 3 locations again
-```
-
-**Level 4 is dangerous**: O(n) deep scan across all values with no guarantee of which match is returned if multiple exist.
-
----
-
-### Pain Point 4: Duplicate `interpolate_prompt()` Implementations
-
-Two completely different implementations with incompatible semantics:
-
-| Version       | Location                               | Behavior                                                      |
-| ------------- | -------------------------------------- | ------------------------------------------------------------- |
-| Graph-level   | `graph/prompts.py:5-36`                | Takes flat dict, RAISES on missing variable                   |
-| Runtime-level | `runtime/base/content_utils.py:45-121` | Takes full state, SILENTLY skips missing, supports transforms |
-
-**Impact**: Agent nodes built via `GraphBuilder.build()` use different interpolation than agents executed by `RealLangGraphExecutor`.
-
----
-
-### Pain Point 5: Duplicate Condition Evaluators
-
-| Version | Location                  | Behavior                                                 |
-| ------- | ------------------------- | -------------------------------------------------------- |
-| Runtime | `workflow_utils.py:6-55`  | Uses `get_state_value_cb`, string comparison fallback    |
-| Graph   | `graph/evaluator.py:9-54` | Uses `jsonpath_ng`, requires `$` prefix, raises on error |
-
----
-
-### Pain Point 6: Near-Identical `build()`/`build_sync()`
-
-```python
-# builder.py:14-58 (build) vs builder.py:61-94 (build_sync)
-# The ONLY difference: build() compiles via WorkflowCompiler first.
-# The node-building loop and edge-building loop are copy-pasted verbatim.
-```
-
----
-
-### Pain Point 7: Dual State Stores Confusion
-
-In `executor.py:130-131`, every node result is written to **both** containers:
-
-```python
-state["node_results"][current_node_id] = node_result  # Per-node storage
-state["workflow_state"].update(node_result)            # Flat merge into global state
-```
-
-**Consequences**:
-
-1. Same data accessible via two different paths
-2. `get_state_value()` searches `node_results` first, then `workflow_state` — confusing resolution order
-3. Keys from different nodes **overwrite each other** in `workflow_state` if they share the same key name
-4. Exit node handler **replaces** `workflow_state` entirely
-
----
-
-### Pain Point 8: `orchestrator_result` vs `final_result` Double Wrapping
-
-```python
-# orchestrator.py:68-71
-return {
-    **result,                                              # includes "final_result"
-    "orchestrator_result": result.get("final_result", {}), # DUPLICATE
-    "node_id": node_id,
-}
-```
-
-Downstream consumers must know to look for either `final_result` or `orchestrator_result`.
-
----
-
-### Pain Point 9: Virtual Transform Mess
-
-Lines 36-83 of `state_utils.py` handle 8 different virtual transforms with **two overlapping detection mechanisms**:
-
-```python
-# Suffix-based detection
-elif clean_path.endswith("_joined"): ...
-elif clean_path.endswith("_first"): ...
-elif clean_path.endswith("_shell"): ...
-elif clean_path.endswith("_json"): ...
-
-# Method-call-based detection
-if ".join(" in clean_path: ...
-elif ".first(" in clean_path or clean_path.endswith(".first"): ...
-
-# THEN redundant suffix detection AGAIN on first_key
-if first_part.endswith("_joined"): ...
-elif first_part.endswith("_first"): ...
-```
-
-**Impact**: Triple-overlapping detection logic makes behavior unpredictable.
-
----
-
-## Best Practices Research
-
-### LangGraph Official Patterns
-
-#### 1. Typed State Schemas
-
-```python
-# ✅ TypedDict for development (fast iteration)
-from typing_extensions import TypedDict, Annotated
-
-class AgentState(TypedDict):
-    messages: list[str]
-    user_id: str
-    iteration: int
-
-# ✅ Pydantic for production (validation)
-from pydantic import BaseModel, Field, field_validator
-
-class AgentState(BaseModel):
-    messages: list[str] = Field(default_factory=list)
-    user_id: str
-    iteration: int = 0
-
-    @field_validator('messages')
-    @classmethod
-    def validate_message_count(cls, v):
-        if len(v) > 10:
-            return v[-10:]
-        return v
-```
-
-#### 2. Reducers for Parallel Safety
-
-```python
-class WorkflowState(TypedDict):
-    # Last-write-wins (default)
-    status: str
-
-    # Append to list (commutative)
-    messages: Annotated[list, add_messages]
-
-    # Sum numeric values
-    total_cost: Annotated[int, operator.add]
-
-    # Merge dicts
-    metadata: Annotated[dict, lambda old, new: {**old, **new}]
-```
-
-**Key insight**: Reducers enable **parallel node execution** without race conditions.
-
-#### 3. Context vs State Separation (v0.6+)
-
-```python
-# ✅ MUTABLE: Changes during workflow
-class WorkflowState(TypedDict):
-    messages: Annotated[list, add_messages]
-    current_step: str
-
-# ✅ IMMUTABLE: Set once, never changes
-class WorkflowContext(TypedDict):
-    user_id: str
-    db_connection: object
-    api_key: str
-
-graph = StateGraph(
-    state_schema=WorkflowState,
-    context_schema=WorkflowContext
-)
-
-def research_node(state: WorkflowState, runtime: Runtime[WorkflowContext]) -> dict:
-    user_id = runtime.context["user_id"]  # Immutable access
-    return {"current_step": "done"}
-```
-
----
-
-### Workflow Engine Comparison
-
-| Aspect              | Temporal             | Prefect          | Airflow            | LangGraph                 |
-| ------------------- | -------------------- | ---------------- | ------------------ | ------------------------- |
-| **State Model**     | Event-sourced replay | Task results     | Metadata DB + XCom | Typed channels + reducers |
-| **Durability**      | Full workflow state  | Task-level only  | Task-level only    | Per-node checkpointing    |
-| **Context Passing** | Typed activities     | Typed parameters | XCom (serialized)  | `context_schema` (typed)  |
-| **Parallelism**     | Activity workers     | Task workers     | Celery/K8s         | Reducer-safe channels     |
-| **Best For**        | Mission-critical     | Python pipelines | Scheduled ETL      | LLM agent orchestration   |
-
----
-
-### Production Multi-Agent Patterns
-
-#### Typed Accessor Class
-
-```python
-class StateAccessor:
-    def __init__(self, state: State):
-        self._state = state
-
-    @property
-    def last_message(self) -> str:
-        return self._state["messages"][-1] if self._state["messages"] else ""
-
-    @property
-    def is_complete(self) -> bool:
-        return self._state["status"] == "complete"
-
-    def add_message(self, msg: str) -> dict:
-        return {"messages": [msg]}
-
-def node(state: State) -> dict:
-    accessor = StateAccessor(state)
-    if accessor.is_complete:
-        return {}
-    return accessor.add_message(f"Last: {accessor.last_message}")
-```
+This makes path parsing unpredictable and mixes lookup semantics with formatting concerns.
 
 ---
 
 ## Proposed Architecture
 
-### Core Concept: StateContext
+### Canonical Runtime State
 
-Introduce a `StateContext` class that wraps state access with:
-
-1. **Typed getters** — `get_node_output()`, `get_workflow_value()`
-2. **Validated path resolution** — checks against `InputContract`
-3. **Access logging** — debug what was accessed and what was missing
-4. **Single resolution point** — eliminates 6x duplication
-
-### Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Node Handler                            │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │                  StateContext                          │  │
-│  │                                                       │  │
-│  │  • get_node_output(node_id, key) → Any                │  │
-│  │  • get_workflow_value(key) → Any                      │  │
-│  │  • resolve_path(dot_path) → Any (validated)           │  │
-│  │  • resolve_input_mapping(mapping) → Dict              │  │
-│  │  • get_access_summary() → Dict[str, int]              │  │
-│  │                                                       │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                           │                                  │
-│                           ▼                                  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │              ExecutorState (existing)                  │  │
-│  │                                                       │  │
-│  │  node_results: Dict[str, Dict]                        │  │
-│  │  workflow_state: Dict[str, Any]                       │  │
-│  │  ... other fields                                     │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### StateContext API
+Replace the current `ExecutorState` shape with explicit namespaces:
 
 ```python
-class StateContext:
-    """Typed state accessor with validation and debug logging."""
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
-    def __init__(
-        self,
-        state: Dict[str, Any],
-        node_input_contract: Optional['InputContract'] = None
-    ):
-        self.state = state
-        self.contract = node_input_contract
-        self._access_log: List[Dict[str, str]] = []
 
-    def get_node_output(
-        self,
-        node_id: str,
-        key: str,
-        default: Any = None
-    ) -> Any:
-        """
-        Typed access to a specific node's output.
+class RuntimeState(TypedDict, total=False):
+    status: Optional[str]
+    step: int
+    hop_count: int
+    current_node: Optional[str]
+    last_node: Optional[str]
 
-        Args:
-            node_id: The node identifier
-            key: The output key within that node's result
-            default: Value to return if not found
 
-        Returns:
-            The value from node_results[node_id][key], or default
-        """
-        ...
+class NodeResultPayload(TypedDict, total=False):
+    status: Literal["completed", "failed", "skipped"]
+    result: Any
+    outputs: Dict[str, Any]
+    error: Optional[str]
+    metadata: Dict[str, Any]
 
-    def get_workflow_value(
-        self,
-        key: str,
-        default: Any = None
-    ) -> Any:
-        """
-        Typed access to accumulated workflow state.
 
-        Args:
-            key: The key in workflow_state
-            default: Value to return if not found
-
-        Returns:
-            The value from workflow_state[key], or default
-        """
-        ...
-
-    def resolve_path(self, path: str) -> Any:
-        """
-        Resolve dot-notation path with optional contract validation.
-
-        Args:
-            path: Dot-notation path (e.g., "researcher_output.summary")
-
-        Returns:
-            The resolved value
-
-        Raises:
-            ValidationError: If path not in contract (when contract provided)
-        """
-        ...
-
-    def resolve_input_mapping(
-        self,
-        input_mapping: Dict[str, str]
-    ) -> Dict[str, Any]:
-        """
-        Resolve a full input_mapping dict.
-
-        Args:
-            input_mapping: Dict of {local_key: state_path}
-
-        Returns:
-            Dict of {local_key: resolved_value}
-        """
-        ...
-
-    def get_access_summary(self) -> Dict[str, int]:
-        """
-        Get summary of state accesses for debugging.
-
-        Returns:
-            Dict with "found" and "missing" counts
-        """
-        ...
+class ExecutorState(TypedDict):
+    input: Dict[str, Any]
+    workflow: Dict[str, Any]
+    nodes: Dict[str, NodeResultPayload]
+    runtime: RuntimeState
+    errors: List[Dict[str, Any]]
 ```
 
----
+### Namespace Responsibilities
 
-### Standardized Node Result Schema
+| Namespace  | Mutability  | Purpose                              |
+| ---------- | ----------- | ------------------------------------ |
+| `input`    | Immutable   | Original execution input             |
+| `workflow` | Mutable     | Explicit shared workflow data only   |
+| `nodes`    | Mutable     | Canonical per-node result payloads   |
+| `runtime`  | Mutable     | Execution metadata and control state |
+| `errors`   | Append-only | Node and execution errors            |
+
+### Valid State Paths
+
+All paths must start with one of the supported namespaces:
+
+```text
+$.input.alert
+$.workflow.topic
+$.nodes.researcher.result
+$.nodes.researcher.outputs.summary
+$.nodes.researcher.metadata.tokens_used
+$.runtime.status
+$.errors[0].message
+```
+
+Invalid examples:
+
+```text
+$.summary
+$.final_result
+$.previous_node.result
+$.node_results.researcher.result
+$.workflow_state.summary
+```
+
+### Node Result Contract
+
+All node handlers return the same payload shape:
 
 ```python
 class NodeResultPayload(TypedDict, total=False):
-    """Standardized shape for all node handler return values."""
-
-    node_id: str                                    # Required: Node identifier
-    status: str                                     # Required: "completed" | "failed" | "skipped"
-    result: Any                                     # Primary output data
-    output_data: Dict[str, Any]                     # Additional named outputs
-    tokens_used: int                                # Token consumption
-    error: Optional[str]                            # Error message if failed
-    metadata: Dict[str, Any]                        # Extra context
+    status: Literal["completed", "failed", "skipped"]
+    result: Any
+    outputs: Dict[str, Any]
+    error: Optional[str]
+    metadata: Dict[str, Any]
 ```
 
-**Before** (inconsistent):
+Rules:
+
+- Handlers do not attach `node_id`; the executor owns node identity.
+- Primary semantic output goes in `result`.
+- Named secondary outputs go in `outputs`.
+- Diagnostics and non-domain execution details go in `metadata`.
+- Failure details go in `error` and `metadata`, with `status="failed"`.
+- The executor normalizes missing `status` to `"completed"` for successful handlers.
+
+### Executor Write Semantics
+
+The executor stores a node result only under its node namespace:
 
 ```python
-# agent/handler.py
-return {
-    "node_id": node_id,
-    "status": "completed",
-    "result": result_data,
-    "tool_calls": all_tool_calls,
-    f"{node_id}_output": result_data,
-    f"{node_id}_status": "completed",
-    "tokens_used": total_tokens,
-    "turns": turns,
-}
+state["nodes"][current_node_id] = normalized_payload
+state["runtime"]["last_node"] = current_node_id
+```
 
-# orchestrator.py
-return {
-    **result,
-    "orchestrator_result": result.get("final_result", {}),
-    "node_id": node_id,
+The executor must not merge node results into `workflow`.
+
+Shared workflow values must be written explicitly by a dedicated node behavior or by configured output projection, not as an automatic side effect of node completion.
+
+### Final Response Shape
+
+Execution responses expose a projected `output` plus the internal state:
+
+```json
+{
+  "run_id": "run-123",
+  "thread_id": "thread-123",
+  "tenant_id": "tenant-1",
+  "workflow_id": "workflow:v2.0.0",
+  "status": "completed",
+  "hop_count": 4,
+  "output": {
+    "answer": "..."
+  },
+  "state": {
+    "input": {},
+    "workflow": {},
+    "nodes": {},
+    "runtime": {},
+    "errors": []
+  },
+  "events": []
 }
 ```
 
-**After** (standardized):
+Rules:
+
+- `output` is the stable consumer-facing result.
+- `state` is the internal execution state for debugging and recovery.
+- `workflow_state` and `final_state` are removed from the final API contract.
+- Exit nodes own `output` projection through `output_mapping`.
+
+---
+
+## State Resolver
+
+### Canonical Resolver API
+
+Create a strict resolver module:
+
+```text
+apps/graph-weave/src/adapters/langgraph/runtime/state/resolver.py
+```
 
 ```python
-# All node handlers
-return NodeResultPayload(
-    node_id=node_id,
-    status="completed",
-    result=result_data,
-    output_data={"tool_calls": all_tool_calls},
-    tokens_used=total_tokens,
-    metadata={"turns": turns},
-)
+class StateResolutionError(ValueError):
+    pass
+
+
+class MissingStatePathError(StateResolutionError):
+    pass
+
+
+class InvalidStatePathError(StateResolutionError):
+    pass
+
+
+class StateResolver:
+    def __init__(self, state: ExecutorState):
+        self.state = state
+
+    def resolve(self, path: str) -> Any:
+        ...
+
+    def resolve_mapping(self, mapping: dict[str, Any]) -> dict[str, Any]:
+        ...
+```
+
+### Resolution Rules
+
+- Path must be a string starting with `$.`.
+- First segment after `$` must be one of `input`, `workflow`, `nodes`, `runtime`, or `errors`.
+- Dot notation resolves dictionaries.
+- Array notation supports list indices, for example `$.errors[0].message`.
+- Missing required paths raise `MissingStatePathError`.
+- Invalid syntax raises `InvalidStatePathError`.
+- Resolver never deep-searches.
+- Resolver never trims trailing segments.
+- Resolver never silently falls back to another namespace.
+
+### Mapping Forms
+
+Simple mapping:
+
+```json
+{
+  "topic": "$.input.event.details.topic"
+}
+```
+
+Mapping with transform:
+
+```json
+{
+  "command_arg": {
+    "path": "$.nodes.planner.outputs.steps",
+    "transform": "shell_quote"
+  }
+}
+```
+
+Mapping with optional default:
+
+```json
+{
+  "priority": {
+    "path": "$.input.priority",
+    "required": false,
+    "default": "normal"
+  }
+}
+```
+
+### Explicit Transforms
+
+Create transforms in:
+
+```text
+apps/graph-weave/src/adapters/langgraph/runtime/state/transforms.py
+```
+
+Supported transforms:
+
+| Transform        | Behavior                                           |
+| ---------------- | -------------------------------------------------- |
+| `shell_quote`    | Safely quote structured values for shell arguments |
+| `json_stringify` | Serialize value to normalized JSON                 |
+| `join`           | Join list values using configured separator        |
+| `first`          | Return first list item                             |
+
+Example with transform options:
+
+```json
+{
+  "tags": {
+    "path": "$.nodes.extractor.outputs.tags",
+    "transform": "join",
+    "separator": ", "
+  }
+}
 ```
 
 ---
 
-### Unified State Resolution
+## Prompt Interpolation
 
-**Before** (5-level fallback):
+Use the canonical resolver for prompt placeholders.
 
-```python
-def get_state_value(path, state):
-    # Level 1: node_results
-    # Level 2: workflow_state
-    # Level 3: root state
-    # Level 4: Deep scan (DANGEROUS)
-    # Level 5: Trim fallback
+### Runtime Interpolation
+
+Runtime node prompts resolve placeholders from explicit state paths or local mapped inputs:
+
+```text
+Investigate {topic} using evidence from {$.nodes.researcher.outputs.summary}
 ```
 
-**After** (3-level, explicit):
+Rules:
+
+- Local input keys can be referenced as `{topic}` after `input_mapping` resolution.
+- Direct state placeholders must use explicit paths such as `{ $.input.topic }` without spaces in actual workflow JSON.
+- Missing required variables raise by default.
+- Optional placeholders must be configured explicitly if unresolved placeholders should be preserved.
+
+### Build-Time Interpolation
+
+Graph builder interpolation uses the same parsing core but always raises on missing values. This keeps workflow validation strict.
+
+---
+
+## Edge Conditions
+
+Runtime and graph-level condition evaluators must use the same resolver.
+
+Supported condition format:
+
+```text
+$.nodes.classifier.outputs.confidence >= 0.8
+$.nodes.guardrail.result == true
+$.runtime.status != "failed"
+```
+
+Rules:
+
+- Left side must be an explicit state path.
+- Right side may be a string, number, boolean, null, or explicit state path.
+- Missing paths fail deterministically.
+- Invalid conditions raise validation errors at workflow compilation/build time when possible.
+
+---
+
+## Exit Node Projection
+
+Exit nodes produce final response `output` through explicit `output_mapping`.
+
+Example:
+
+```json
+{
+  "id": "exit",
+  "type": "exit",
+  "config": {
+    "output_mapping": {
+      "answer": "$.nodes.answerer.result.answer",
+      "confidence": "$.nodes.answerer.outputs.confidence",
+      "trace": "$.nodes.investigate.outputs.orchestrator_trace"
+    },
+    "required_outputs": ["answer"]
+  }
+}
+```
+
+Rules:
+
+- Production workflows should define `output_mapping`.
+- Missing required outputs fail the execution.
+- If `output_mapping` is omitted in tests or development workflows, the executor may return an empty object and keep full internal state under `state`.
+- Exit node must not replace internal state.
+
+---
+
+## Handler-Specific Output Mapping
+
+### Entry Node
+
+Entry node initializes state only:
 
 ```python
-def get_state_value(path, state):
-    # Level 1: node_results (explicit node output)
-    # Level 2: workflow_state (accumulated shared state)
-    # Level 3: root state (execution metadata)
-    # NO deep scan, NO trim fallback
+state["input"] = input_data
+state["workflow"] = {}
+state["nodes"] = {}
+state["runtime"] = {...}
+state["errors"] = []
+```
+
+It does not duplicate input into workflow.
+
+### Agent Node
+
+Agent node returns:
+
+```python
+{
+    "status": "completed",
+    "result": result_data,
+    "outputs": {
+        "tool_calls": all_tool_calls
+    },
+    "metadata": {
+        "tokens_used": total_tokens,
+        "turns": turns
+    }
+}
+```
+
+### Orchestrator Node
+
+Orchestrator node returns:
+
+```python
+{
+    "status": "completed",
+    "result": final_result,
+    "outputs": {
+        "orchestrator_trace": trace
+    },
+    "metadata": {
+        "iterations": iteration_count,
+        "tokens_used": tokens_used
+    }
+}
+```
+
+The legacy `orchestrator_result` alias is removed.
+
+### CLI/Bash Node
+
+CLI node returns:
+
+```python
+{
+    "status": "completed",
+    "result": stdout,
+    "outputs": {
+        "stdout": stdout,
+        "stderr": stderr,
+        "exit_code": exit_code
+    },
+    "metadata": {
+        "command": redacted_command,
+        "cwd": cwd
+    }
+}
+```
+
+### Branch Node
+
+Branch node should not need a synthetic `branch_result` unless the workflow explicitly consumes it. Routing should evaluate conditions directly from state.
+
+If a branch node must record its decision:
+
+```python
+{
+    "status": "completed",
+    "result": selected_branch,
+    "outputs": {
+        "selected_branch": selected_branch
+    }
+}
+```
+
+---
+
+## Contract Validation
+
+`ContractField.state_path` already exists and must use explicit paths.
+
+Validation rules:
+
+- Required input contract fields must have resolvable paths before node execution.
+- Optional input contract fields may define defaults.
+- `input_mapping` keys should correspond to contract field names when a contract exists.
+- Output contract fields must describe canonical output paths under `$.nodes.<node_id>`.
+- Empty `state_path` is invalid for new v2 nodes.
+
+Example:
+
+```json
+{
+  "input_contract": {
+    "required": [
+      {
+        "name": "topic",
+        "type": "string",
+        "state_path": "$.input.event.details.topic"
+      }
+    ],
+    "optional": [
+      {
+        "name": "priority",
+        "type": "string",
+        "state_path": "$.input.priority"
+      }
+    ]
+  },
+  "output_contract": {
+    "produced": [
+      {
+        "name": "summary",
+        "type": "string",
+        "state_path": "$.nodes.summarizer.outputs.summary"
+      }
+    ]
+  }
+}
 ```
 
 ---
 
 ## Implementation Plan
 
-### Phase 1: Foundation (Day 1) — Low risk, High impact
+### Phase 1: State Architecture Foundation
 
-| Task | File                             | Change                                      | Priority |
-| ---- | -------------------------------- | ------------------------------------------- | -------- |
-| 1.1  | `runtime/base/state_context.py`  | **NEW** — Create `StateContext` class       | P0       |
-| 1.2  | `runtime/base/input_resolver.py` | **NEW** — Extract `resolve_input_mapping()` | P0       |
-| 1.3  | `runtime/base/state_utils.py`    | **SIMPLIFY** — Remove Level 4 & 5 fallbacks | P0       |
-| 1.4  | `runtime/base/result_schema.py`  | **NEW** — Define `NodeResultPayload`        | P1       |
+Create:
 
-**Deliverable**: All node handlers can use `StateContext` instead of raw dict access.
-
-#### Task 1.1: Create StateContext Class
-
-```python
-# File: apps/graph-weave/src/adapters/langgraph/runtime/base/state_context.py
-
-from typing import Any, Dict, List, Optional
-from pydantic import ValidationError
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-class StateContext:
-    """Typed state accessor with validation and debug logging."""
-
-    def __init__(
-        self,
-        state: Dict[str, Any],
-        node_input_contract: Optional[Any] = None
-    ):
-        self.state = state
-        self.contract = node_input_contract
-        self._access_log: List[Dict[str, str]] = []
-
-    def get_node_output(
-        self,
-        node_id: str,
-        key: str,
-        default: Any = None
-    ) -> Any:
-        """Typed access to a specific node's output."""
-        node_results = self.state.get("node_results", {})
-
-        if node_id not in node_results:
-            self._log_access(f"node:{node_id}.{key}", "missing_node")
-            return default
-
-        node_result = node_results[node_id]
-
-        if not isinstance(node_result, dict):
-            self._log_access(f"node:{node_id}.{key}", "invalid_type")
-            return default
-
-        val = node_result.get(key, default)
-        status = "found" if val is not None else "missing_key"
-        self._log_access(f"node:{node_id}.{key}", status)
-
-        return val
-
-    def get_workflow_value(
-        self,
-        key: str,
-        default: Any = None
-    ) -> Any:
-        """Typed access to accumulated workflow state."""
-        workflow_state = self.state.get("workflow_state", {})
-        val = workflow_state.get(key, default)
-        status = "found" if val is not None else "missing"
-        self._log_access(f"workflow:{key}", status)
-        return val
-
-    def resolve_path(self, path: str) -> Any:
-        """Resolve dot-notation path with optional contract validation."""
-        # Contract validation (if provided)
-        if self.contract:
-            declared_paths = set()
-            for field in getattr(self.contract, 'required', []):
-                if hasattr(field, 'state_path'):
-                    declared_paths.add(field.state_path)
-            for field in getattr(self.contract, 'optional', []):
-                if hasattr(field, 'state_path'):
-                    declared_paths.add(field.state_path)
-
-            if path not in declared_paths:
-                logger.warning(
-                    f"Path '{path}' not declared in InputContract. "
-                    f"Declared: {declared_paths}"
-                )
-
-        # Use existing get_state_value
-        from .state_utils import get_state_value
-        try:
-            return get_state_value(path, self.state)
-        except Exception as e:
-            logger.error(f"Failed to resolve path '{path}': {e}")
-            raise
-
-    def resolve_input_mapping(
-        self,
-        input_mapping: Dict[str, str]
-    ) -> Dict[str, Any]:
-        """Resolve a full input_mapping dict."""
-        if not input_mapping:
-            # Return full workflow_state if no mapping
-            return dict(self.state.get("workflow_state", {}))
-
-        resolved = {}
-        for key, path in input_mapping.items():
-            try:
-                resolved[key] = self.resolve_path(path)
-            except Exception as e:
-                logger.warning(f"Failed to resolve '{key}' -> '{path}': {e}")
-                resolved[key] = None
-
-        return resolved
-
-    def _log_access(self, path: str, status: str):
-        """Log state access for debugging."""
-        self._access_log.append({
-            "path": path,
-            "status": status,
-        })
-
-    def get_access_summary(self) -> Dict[str, int]:
-        """Get summary of state accesses for debugging."""
-        return {
-            "total": len(self._access_log),
-            "found": sum(1 for x in self._access_log if x["status"] == "found"),
-            "missing": sum(
-                1 for x in self._access_log
-                if x["status"] in ["missing_key", "missing_node", "missing"]
-            ),
-            "invalid": sum(1 for x in self._access_log if x["status"] == "invalid_type"),
-        }
-
-    def get_access_log(self) -> List[Dict[str, str]]:
-        """Get full access log for detailed debugging."""
-        return self._access_log.copy()
+```text
+apps/graph-weave/src/adapters/langgraph/runtime/state/schema.py
+apps/graph-weave/src/adapters/langgraph/runtime/state/resolver.py
+apps/graph-weave/src/adapters/langgraph/runtime/state/transforms.py
+apps/graph-weave/src/adapters/langgraph/runtime/state/context.py
 ```
 
-#### Task 1.2: Extract Input Resolver
+Implement:
 
-```python
-# File: apps/graph-weave/src/adapters/langgraph/runtime/base/input_resolver.py
+- `ExecutorState`, `RuntimeState`, and `NodeResultPayload`.
+- Strict path parsing and resolution.
+- Explicit transform handling.
+- Mapping resolution with `required`, `default`, and `transform`.
+- Unit tests for all resolver and transform behavior.
 
-from typing import Any, Dict, Optional
-from .state_context import StateContext
-import logging
+### Phase 2: Executor State Cutover
 
-logger = logging.getLogger(__name__)
+Update:
 
-
-def resolve_input_mapping(
-    state: Dict[str, Any],
-    input_mapping: Optional[Dict[str, str]] = None,
-    node_input_contract: Optional[Any] = None,
-) -> Dict[str, Any]:
-    """
-    Resolve input_mapping for a node handler.
-
-    This is the SINGLE canonical implementation for all node handlers.
-    Replaces 6 duplicated implementations.
-
-    Args:
-        state: Full execution state
-        input_mapping: Dict of {local_key: state_path}, or None
-        node_input_contract: Optional InputContract for validation
-
-    Returns:
-        Dict of resolved input values
-    """
-    ctx = StateContext(state, node_input_contract)
-    return ctx.resolve_input_mapping(input_mapping or {})
+```text
+apps/graph-weave/src/adapters/langgraph/helper/types.py
+apps/graph-weave/src/adapters/langgraph/runtime/engine/executor.py
+apps/graph-weave/src/adapters/langgraph/runtime/engine/handlers.py
+apps/graph-weave/src/adapters/langgraph/runtime/base/executor.py
 ```
 
-#### Task 1.3: Simplify get_state_value()
+Implement:
 
-Remove Level 4 (deep scan) and Level 5 (trim fallback) from `state_utils.py`.
+- New state initialization.
+- Node result normalization.
+- Node result writes to `state["nodes"][node_id]`.
+- Runtime metadata writes to `state["runtime"]`.
+- Error writes to `state["errors"]`.
+- Final response shape with `output` and `state`.
+- Remove automatic `workflow.update(node_result)`.
 
-**Before** (228 lines, 5 levels):
+### Phase 3: Canonical Resolver Adoption
 
-```python
-def get_state_value(path, state):
-    # Level 1: node_results
-    # Level 2: workflow_state
-    # Level 3: root state
-    # Level 4: Deep scan across ALL values ← REMOVE
-    # Level 5: Trim fallback ← REMOVE
+Update all state access call sites:
+
+```text
+apps/graph-weave/src/adapters/langgraph/runtime/engine/utils.py
+apps/graph-weave/src/adapters/langgraph/runtime/engine/routing.py
+apps/graph-weave/src/adapters/langgraph/runtime/base/workflow_utils.py
+apps/graph-weave/src/adapters/langgraph/runtime/base/content_utils.py
+apps/graph-weave/src/adapters/langgraph/graph/evaluator.py
+apps/graph-weave/src/adapters/langgraph/graph/prompts.py
 ```
 
-**After** (~100 lines, 3 levels):
+Implement:
 
-```python
-def get_state_value(path, state):
-    """Resolve dot-notation path in state. 3-level lookup only."""
-    clean_path = path.strip().lstrip("$").lstrip(".")
+- One resolver-backed input mapping function.
+- One resolver-backed condition evaluator.
+- One resolver-backed interpolation core with build-time and runtime modes.
+- Delete or deprecate old fallback resolver behavior.
 
-    if not clean_path:
-        return state
+### Phase 4: Node Handler Refactor
 
-    # Handle virtual transforms
-    clean_path, transform = _extract_transform(clean_path)
+Update:
 
-    parts = clean_path.split(".")
-    first_key = parts[0]
-    remaining_keys = parts[1:] if len(parts) > 1 else []
-
-    # Level 1: node_results
-    node_results = state.get("node_results", {})
-    if first_key in node_results:
-        result = _resolve_path(node_results[first_key], remaining_keys)
-        if result is not None:
-            return _apply_transform(result, transform)
-
-    # Level 2: workflow_state
-    workflow_state = state.get("workflow_state", {})
-    if first_key in workflow_state:
-        result = _resolve_path(workflow_state[first_key], remaining_keys)
-        if result is not None:
-            return _apply_transform(result, transform)
-
-    # Level 3: root state
-    if first_key in state:
-        result = _resolve_path(state[first_key], remaining_keys)
-        if result is not None:
-            return _apply_transform(result, transform)
-
-    # Not found
-    logger.warning(f"Path '{path}' not found in state")
-    return None
+```text
+apps/graph-weave/src/adapters/langgraph/nodes/agent/handler.py
+apps/graph-weave/src/adapters/langgraph/nodes/orchestrator.py
+apps/graph-weave/src/adapters/langgraph/nodes/cli.py
+apps/graph-weave/src/adapters/langgraph/runtime/engine/executor.py
 ```
+
+Implement:
+
+- Handler input resolution through canonical resolver.
+- Canonical `NodeResultPayload` returns.
+- Remove handler-emitted legacy aliases.
+- Move handler-specific extras into `outputs` or `metadata`.
+
+### Phase 5: Workflow and Compiler Migration
+
+Update:
+
+```text
+apps/graph-weave/src/resources/workflows/
+apps/graph-weave/src/resources/nodes/
+apps/graph-weave/src/services/node_compiler.py
+docs/graph-weave/code/
+```
+
+Implement:
+
+- Rewrite built-in workflow paths to `$.input`, `$.workflow`, `$.nodes`, and `$.runtime`.
+- Update workflow-generator prompts so generated paths are explicit.
+- Update node compiler contract validation for v2 paths.
+- Reject newly generated flat or legacy paths.
+
+### Phase 6: Checkpoint and API Migration
+
+Update:
+
+```text
+apps/graph-weave/src/services/checkpoint_service.py
+apps/graph-weave/src/routers/execution.py
+apps/graph-weave/tests/unit/test_checkpoint_service.py
+apps/graph-weave/tests/unit/test_checkpoint_recovery.py
+```
+
+Implement:
+
+- Store and restore the new `ExecutorState` shape.
+- Return `output` and `state` from execution status endpoints.
+- Remove old `workflow_state` response dependencies.
+- Decide whether old checkpoints are invalidated or migrated.
+
+Default decision: invalidate old checkpoints unless production data retention requires migration.
+
+### Phase 7: Remove Legacy State Semantics
+
+Remove:
+
+- Deep search fallback.
+- Terminal scalar fallback.
+- `workflow_state` runtime writes.
+- `node_results` runtime writes.
+- `orchestrator_result`.
+- `{node_id}_output`.
+- `{node_id}_status`.
+- Transform suffix parsing from state paths.
 
 ---
 
-### Phase 2: Unify Patterns (Day 2) — Medium risk
+## Test Plan
 
-| Task | File                             | Change                                      | Priority |
-| ---- | -------------------------------- | ------------------------------------------- | -------- |
-| 2.1  | `runtime/base/content_utils.py`  | **MERGE** — Single `interpolate_prompt()`   | P0       |
-| 2.2  | `runtime/base/workflow_utils.py` | **MERGE** — Single condition evaluator      | P0       |
-| 2.3  | `graph/builder.py`               | **EXTRACT** — Shared node/edge construction | P1       |
-| 2.4  | `nodes/orchestrator.py`          | **FIX** — Remove double wrapping            | P1       |
+### Resolver Unit Tests
 
-#### Task 2.1: Unified interpolate_prompt()
+- Resolves `$.input`, `$.workflow`, `$.nodes`, `$.runtime`, and `$.errors`.
+- Resolves nested dictionaries and list indices.
+- Rejects paths without `$.`.
+- Rejects unknown namespaces.
+- Raises on missing required paths.
+- Returns defaults for optional mappings.
+- Applies explicit transforms.
+- Does not deep-search.
+- Does not trim path segments.
 
-Keep the runtime version (more capable), deprecate graph-level version.
+### Node Result Tests
 
-```python
-# File: apps/graph-weave/src/adapters/langgraph/runtime/base/content_utils.py
+- Executor normalizes handler payloads.
+- Executor stores results under `state["nodes"][node_id]`.
+- Executor does not merge node results into `workflow`.
+- Handler-provided `node_id` is rejected or ignored.
+- `outputs` and `metadata` remain distinct.
 
-def interpolate_prompt(
-    template: str,
-    state: Dict[str, Any],
-    local_context: Optional[Dict[str, Any]] = None,
-) -> str:
-    """
-    Single canonical prompt interpolation implementation.
+### Prompt Tests
 
-    Supports:
-    - {variable} substitution
-    - {path.to.value} dot-notation
-    - {_joined}, {_first}, {_shell}, {_json} transforms
-    - local_context override (takes priority over state)
-    """
-    if not template:
-        return ""
+- Runtime interpolation resolves local mapped inputs.
+- Runtime interpolation resolves explicit state placeholders.
+- Build-time interpolation raises on missing variables.
+- Shell and JSON transforms produce safe output.
+- Legacy suffix transforms are rejected in v2 mappings.
 
-    ctx = StateContext(state)
-    result = template
+### Edge Condition Tests
 
-    for match in re.finditer(r'\{([^}]+)\}', template):
-        var_name = match.group(1)
-        full_match = match.group(0)
+- Evaluates explicit state paths.
+- Compares strings, numbers, booleans, and nulls.
+- Supports right-hand state paths.
+- Fails deterministically for missing paths.
+- Rejects malformed conditions.
 
-        # Check local_context first
-        if local_context and var_name in local_context:
-            value = local_context[var_name]
-        else:
-            try:
-                value = ctx.resolve_path(var_name)
-            except Exception:
-                logger.warning(f"Could not resolve template variable: {var_name}")
-                continue
+### Exit Node Tests
 
-        if value is not None:
-            # Apply transform if present
-            value = _apply_template_transform(value, var_name)
-            result = result.replace(full_match, str(value))
+- Projects final `output` from explicit paths.
+- Fails when required output is missing.
+- Does not replace internal state.
+- Returns empty output for development workflows without mapping, if allowed.
 
-    return result
-```
+### Integration and E2E Tests
 
----
+- Orchestrator workflow maps input from `$.input`.
+- Orchestrator output is read from `$.nodes.<id>.result`.
+- Orchestrator trace is read from `$.nodes.<id>.outputs.orchestrator_trace`.
+- CLI workflow receives shell-quoted transformed arguments.
+- Workflow generator emits v2 paths.
+- Checkpoint recovery restores the new state shape.
+- Execution API returns `output` and `state`.
 
-### Phase 3: Enforce Contracts (Day 3) — Higher risk
+### Regression Tests
 
-| Task | File                            | Change                                                | Priority |
-| ---- | ------------------------------- | ----------------------------------------------------- | -------- |
-| 3.1  | `models/node/create.py`         | **EXTEND** — Add `state_path` to `ContractField`      | P0       |
-| 3.2  | `runtime/engine/utils.py`       | **VALIDATE** — Check `InputContract` before resolving | P0       |
-| 3.3  | `runtime/base/content_utils.py` | **VALIDATE** — Check template vars against contract   | P1       |
-| 3.4  | All node handlers               | **UPDATE** — Use `StateContext`                       | P0       |
-
-#### Task 3.1: Extend ContractField
-
-```python
-# File: apps/graph-weave/src/models/node/create.py
-
-class ContractField(BaseModel):
-    """Defines a field in a node's input/output contract."""
-
-    name: str
-    type: str
-    required: bool = True
-    description: Optional[str] = None
-    default: Optional[Any] = None
-    state_path: Optional[str] = None  # NEW: Dot-notation path in state
-```
-
-#### Task 3.4: Update Node Handlers
-
-**Example: Agent Handler**
-
-```python
-# File: apps/graph-weave/src/adapters/langgraph/nodes/agent/handler.py
-
-from ...runtime.base.input_resolver import resolve_input_mapping
-
-class AgentNodeHandler:
-    async def execute(self, node, state, workflow):
-        # ... existing setup ...
-
-        # BEFORE (20 lines of duplicated code):
-        # input_mapping = get_field("input_mapping", {})
-        # if input_mapping:
-        #     agent_input_context = {}
-        #     for key, path in input_mapping.items():
-        #         agent_input_context[key] = self.executor._get_state_value(path, state)
-        # else:
-        #     agent_input_context = dict(state.get("workflow_state", {}))
-
-        # AFTER (1 line):
-        agent_input_context = resolve_input_mapping(
-            state,
-            input_mapping=get_field("input_mapping"),
-            node_input_contract=self.contract,
-        )
-
-        # ... rest of handler ...
-```
-
----
-
-### Phase 4: Migration Path (Day 4) — Documentation + tooling
-
-| Task | File                | Change                                   | Priority |
-| ---- | ------------------- | ---------------------------------------- | -------- |
-| 4.1  | `docs/graph-weave/` | **DOCUMENT** — StateContext usage guide  | P1       |
-| 4.2  | `scripts/`          | **NEW** — Auto-generate InputContract    | P2       |
-| 4.3  | Tests               | **UPDATE** — Add StateContext unit tests | P0       |
-
----
-
-## Migration Guide
-
-### For Existing Workflows
-
-Existing workflows will continue to work without changes. The refactoring is backward compatible.
-
-### For New Workflows
-
-Use the new patterns:
-
-```python
-# 1. Declare InputContract on your node config
-node_config = {
-    "type": "agent",
-    "input_contract": {
-        "required": [
-            {"name": "query", "type": "string", "state_path": "user_query"}
-        ],
-        "optional": [
-            {"name": "context", "type": "dict", "state_path": "researcher_output"}
-        ]
-    },
-    "input_mapping": {
-        "query": "user_query",
-        "context": "researcher_output.summary"
-    }
-}
-
-# 2. In your node handler, use resolve_input_mapping()
-from graph_weave.adapters.langgraph.runtime.base.input_resolver import resolve_input_mapping
-
-async def my_node_handler(node, state, workflow):
-    inputs = resolve_input_mapping(
-        state,
-        input_mapping=node.get("input_mapping"),
-        node_input_contract=node.get("input_contract"),
-    )
-
-    # Use inputs["query"], inputs["context"]
-    ...
-
-# 3. Return standardized NodeResultPayload
-from graph_weave.adapters.langgraph.runtime.base.result_schema import NodeResultPayload
-
-return NodeResultPayload(
-    node_id="my_node",
-    status="completed",
-    result=output_data,
-)
-```
+- No references remain to `workflow_state` in runtime logic.
+- No references remain to `node_results` in runtime logic.
+- No tests depend on `orchestrator_result`.
+- No tests depend on `{node_id}_output` or `{node_id}_status`.
+- No generated resource workflow uses flat implicit state paths.
 
 ---
 
 ## Success Metrics
 
-| Metric                               | Current | Target | How to Measure                               |
-| ------------------------------------ | ------- | ------ | -------------------------------------------- |
-| `input_mapping` resolution locations | 6       | 1      | Grep for `_get_state_value` in node handlers |
-| `get_state_value()` fallback levels  | 5       | 3      | Code review of state_utils.py                |
-| Duplicate `interpolate_prompt()`     | 2       | 1      | Grep for function definition                 |
-| Duplicate condition evaluators       | 2       | 1      | Grep for `evaluate_condition`                |
-| Node result schema compliance        | 0%      | 100%   | Runtime validation                           |
-| Missing input detection              | None    | 100%   | Contract validation logs                     |
+| Metric                                        | Target                                                 |
+| --------------------------------------------- | ------------------------------------------------------ |
+| Runtime state containers                      | `input`, `workflow`, `nodes`, `runtime`, `errors` only |
+| State resolvers                               | 1 canonical resolver                                   |
+| Automatic node result merges into workflow    | 0                                                      |
+| Legacy output aliases                         | 0                                                      |
+| Deep-search fallback usage                    | 0                                                      |
+| Suffix transform parsing in paths             | 0                                                      |
+| Built-in workflows using explicit v2 paths    | 100%                                                   |
+| Node handlers returning canonical payload     | 100%                                                   |
+| Exit nodes projecting final output explicitly | 100% for production workflows                          |
 
 ---
 
 ## Risk Assessment
 
-| Phase   | Risk   | Likelihood | Impact | Mitigation                                                          |
-| ------- | ------ | ---------- | ------ | ------------------------------------------------------------------- |
-| Phase 1 | Low    | Low        | Low    | Backward compatible, existing code still works                      |
-| Phase 2 | Medium | Medium     | Medium | Run full test suite after each merge                                |
-| Phase 3 | Higher | Medium     | High   | Feature flag for contract validation; log warnings before enforcing |
-| Phase 4 | Low    | Low        | Low    | Documentation only                                                  |
+| Risk                                  | Likelihood | Impact | Mitigation                                                                          |
+| ------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------- |
+| Existing workflows break              | High       | High   | Intentional v2 breaking change; update bundled workflows and tests in same branch   |
+| Checkpoint recovery incompatibility   | High       | Medium | Invalidate old checkpoints by default or add one-time migration if needed           |
+| Generated workflows use legacy paths  | Medium     | High   | Update generator prompts and compiler validation before enabling v2                 |
+| API consumers expect `workflow_state` | High       | High   | Update routers/tests/docs together; expose `output` as stable final result          |
+| Shell argument escaping regression    | Medium     | High   | Preserve existing escaping behavior in explicit `shell_quote` transform tests       |
+| Missing path failures increase        | High       | Medium | Treat as desired strictness; improve validation errors with node id and mapping key |
 
-### Rollback Strategy
+---
 
-Each phase is independently deployable. If issues arise:
+## Rollout Strategy
 
-1. **Phase 1**: Remove `StateContext` usage from node handlers, revert to direct `_get_state_value` calls
-2. **Phase 2**: Restore duplicate implementations from git history
-3. **Phase 3**: Disable contract validation via feature flag
-4. **Phase 4**: Remove documentation
+This is a breaking architecture refactor and should be released as a v2 state model.
+
+Recommended rollout:
+
+1. Land the state schema and resolver with exhaustive unit tests.
+2. Cut over executor internals and node handlers in one branch.
+3. Update resource workflows and generator prompts before running e2e tests.
+4. Update API response expectations.
+5. Remove legacy resolver behavior before merging.
+6. Document the v1-to-v2 path migration rules.
+
+Do not ship an intermediate half-standardized runtime where both old and new state semantics are accepted by default.
+
+---
+
+## Migration Guide
+
+### Path Migration
+
+| Old Path                      | New Path                               |
+| ----------------------------- | -------------------------------------- |
+| `$.field`                     | `$.input.field` or `$.workflow.field`  |
+| `$.previous_node.result`      | `$.nodes.previous_node.result`         |
+| `$.node_results.agent.result` | `$.nodes.agent.result`                 |
+| `$.workflow_state.topic`      | `$.workflow.topic`                     |
+| `$.final_result`              | `$.nodes.<orchestrator_id>.result`     |
+| `$.orchestrator_result`       | `$.nodes.<orchestrator_id>.result`     |
+| `$.stdout`                    | `$.nodes.<cli_node_id>.outputs.stdout` |
+
+### Transform Migration
+
+| Old Mapping       | New Mapping                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `$.steps_shell`   | `{ "path": "$.nodes.planner.outputs.steps", "transform": "shell_quote" }`              |
+| `$.items_json`    | `{ "path": "$.nodes.extractor.outputs.items", "transform": "json_stringify" }`         |
+| `$.tags_joined`   | `{ "path": "$.nodes.extractor.outputs.tags", "transform": "join", "separator": ", " }` |
+| `$.results_first` | `{ "path": "$.nodes.search.outputs.results", "transform": "first" }`                   |
+
+### Output Migration
+
+Old implicit final output:
+
+```json
+{
+  "workflow_state": {
+    "final_result": {
+      "answer": "..."
+    }
+  }
+}
+```
+
+New explicit exit projection:
+
+```json
+{
+  "output_mapping": {
+    "answer": "$.nodes.investigate.result.answer"
+  }
+}
+```
+
+New response:
+
+```json
+{
+  "output": {
+    "answer": "..."
+  }
+}
+```
 
 ---
 
 ## References
 
-### Internal Documentation
-
-- [Graph Weave AGENTS.md](../../AGENTS.md) — Engineering standards
-- [State Schema Reference](../../../docs/graph-weave/code/state_schema.py) — Design-layer state definition
-- [ExecutorState Definition](../../../apps/graph-weave/src/adapters/langgraph/helper/types.py) — Runtime state definition
-
-### External Resources
-
-- [LangGraph State Management](https://langchain-ai-langgraph-40.mintlify.app/concepts/state) — Official docs
-- [StateGraph API Reference](https://reference.langchain.com/python/langgraph/graph/state/StateGraph) — API docs
-- [Production LangGraph Patterns (2026)](https://callsphere.ai/blog/langgraph-state-machine-architecture-deep-dive-2026) — Best practices
-- [Multi-Agent State Management](https://agentmarketcap.ai/blog/2026/04/10/concurrent-multi-agent-state-management) — Concurrency patterns
-
----
-
-## Appendix A: File Inventory
-
-### Files to Create
-
-| File                             | Purpose                        |
-| -------------------------------- | ------------------------------ |
-| `runtime/base/state_context.py`  | StateContext class             |
-| `runtime/base/input_resolver.py` | Shared resolve_input_mapping() |
-| `runtime/base/result_schema.py`  | NodeResultPayload TypedDict    |
-
-### Files to Modify
-
-| File                             | Change                                   |
-| -------------------------------- | ---------------------------------------- |
-| `runtime/base/state_utils.py`    | Remove Level 4 & 5 fallbacks             |
-| `runtime/base/content_utils.py`  | Unify interpolate_prompt()               |
-| `runtime/base/workflow_utils.py` | Keep as canonical evaluator              |
-| `graph/builder.py`               | Extract shared build logic               |
-| `graph/prompts.py`               | Deprecate, use runtime version           |
-| `graph/evaluator.py`             | Deprecate, use runtime version           |
-| `nodes/agent/handler.py`         | Use StateContext                         |
-| `nodes/orchestrator.py`          | Use StateContext, remove double wrapping |
-| `nodes/cli.py`                   | Use StateContext                         |
-| `runtime/engine/utils.py`        | Use StateContext                         |
-| `runtime/engine/handlers.py`     | Use StateContext                         |
-| `models/node/create.py`          | Add state_path to ContractField          |
-
----
-
-## Appendix B: Glossary
-
-| Term                  | Definition                                            |
-| --------------------- | ----------------------------------------------------- |
-| **StateContext**      | Typed wrapper around ExecutorState with validation    |
-| **InputContract**     | Pydantic model declaring what inputs a node expects   |
-| **NodeResultPayload** | Standardized TypedDict for node handler return values |
-| **input_mapping**     | Dict mapping local parameter names to state dot-paths |
-| **workflow_state**    | Accumulated shared state merged from all node outputs |
-| **node_results**      | Per-node output cache (isolated by node_id)           |
+- [Graph Weave AGENTS.md](../../AGENTS.md)
+- [Architecture Living Spec](./README.md)
+- [Runtime Specification](../runtime/README.md)
+- [Workflow Schema Specification](../workflow-schema/README.md)

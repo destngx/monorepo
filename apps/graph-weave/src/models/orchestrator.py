@@ -49,7 +49,7 @@ class OrchestratorConfig(BaseModel):
         description="Model name override. Falls back to executor default.",
         json_schema_extra={"example": "gpt-5.4-mini"},
     )
-    input_mapping: Optional[Dict[str, str]] = Field(
+    input_mapping: Optional[Dict[str, Any]] = Field(
         None,
         description="Maps global state paths to local keys for the orchestrator context",
     )
