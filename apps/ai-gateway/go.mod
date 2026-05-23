@@ -7,7 +7,7 @@ require github.com/joho/godotenv v1.5.1
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
-	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.50.6
+	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.51.0
 	github.com/fatih/color v1.19.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/stretchr/testify v1.11.1
