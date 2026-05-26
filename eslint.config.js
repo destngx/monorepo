@@ -17,6 +17,8 @@ export default [
       '.pytest_cache/**',
       '.venv/**',
       '**/__generated__/**',
+      '**/*.d.ts',
+      '**/*.svelte.d.ts',
       // Legacy/reference surfaces not in active scope
       'apps/cloudinary-photos-app/**',
       'apps/portfolio-landpage/**',
@@ -52,6 +54,9 @@ export default [
         // Node.js
         process: 'readonly',
         // Browser globals
+        window: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
         fetch: 'readonly',
         Request: 'readonly',
         Response: 'readonly',

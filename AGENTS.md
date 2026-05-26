@@ -29,7 +29,7 @@ Claude Code and other agentic harnesses use **Progressive Disclosure**. Read the
 ### Runtime and Tooling
 
 - **Bun**: Use `bun run` and `bunx nx` for package management and task execution.
-- **Python**: Use `uv` for Python environment management.
+- **Python**: Use `uv` for Python environment management. Always execute tests and Python scripts using the local virtual environment binaries directly (e.g., `.venv/bin/pytest` or `.venv/bin/python`) to ensure dependencies and configurations are correctly loaded and to avoid sandbox or path-resolution environment issues.
 - **Workflow**: Default to **TDD + BDD**. Always verify changes with unit or integration tests.
 
 ### Security and Env
