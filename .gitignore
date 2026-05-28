@@ -129,3 +129,6 @@ profile.cov
 
 # Native Tools
 apps/**/bin/
+
+# scrape data
+**/data/**

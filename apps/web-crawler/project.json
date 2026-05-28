@@ -1,0 +1,63 @@
+{
+  "name": "web-crawler",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/web-crawler/src",
+  "projectType": "application",
+  "tags": ["type:app", "app:web-crawler", "scope:backend", "lang:python"],
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv pip install -r requirements.txt",
+        "cwd": "apps/web-crawler"
+      },
+      "inputs": ["{projectRoot}/requirements.txt"]
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/python -m compileall src tests",
+        "cwd": "apps/web-crawler"
+      },
+      "inputs": ["default", "^default"],
+      "outputs": []
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".venv/bin/uvicorn src.main:app --reload --reload-dir src --host 0.0.0.0 --port 8002",
+        "cwd": "apps/web-crawler"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/pytest tests/unit",
+        "cwd": "apps/web-crawler"
+      },
+      "inputs": ["default", "{projectRoot}/tests/unit/**/*"]
+    },
+    "test-e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/pytest tests/e2e",
+        "cwd": "apps/web-crawler"
+      },
+      "inputs": ["default", "{projectRoot}/tests/e2e/**/*"]
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/ruff check src tests",
+        "cwd": "apps/web-crawler"
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/black --check src tests",
+        "cwd": "apps/web-crawler"
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+playwright
+httpx
+beautifulsoup4
+lxml
+pytest
+black
+ruff
+
