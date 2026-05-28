@@ -14,6 +14,16 @@ This is the practical guide for running the `apps/web-crawler` service.
 2. Confirm `GET /health` returns `200`.
 3. Use `POST /v1/pages/probe/browser` to probe a URL.
 
+Example:
+
+```bash
+curl -X POST 'http://127.0.0.1:8002/v1/pages/probe/browser' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "url": "https://voz.vn/t/example-thread"
+  }'
+```
+
 ## Crawl VOZ
 
 1. Send `POST /v1/threads/crawl/browser` with a VOZ thread URL.
