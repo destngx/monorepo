@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
@@ -14,6 +14,14 @@ USER_ID_RE = re.compile(r"\.(\d+)/?$")
 
 
 class VozParser:
+    def canonical_thread_url(self, url: str) -> str:
+        parsed = urlsplit(url.strip())
+        path = re.sub(r"/page-\d+/?$", "/", parsed.path)
+        path = re.sub(r"/+$", "/", path)
+        if not path.endswith("/"):
+            path = f"{path}/"
+        return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
+
     def parse_last_page(self, html: str) -> int:
         soup = BeautifulSoup(html, "lxml")
         candidates: set[int] = set()
@@ -103,13 +111,13 @@ class VozParser:
         return posts
 
     def thread_id_from_url(self, url: str) -> str:
-        match = THREAD_ID_RE.search(url)
+        match = THREAD_ID_RE.search(self.canonical_thread_url(url))
         if match:
             return match.group(1)
         return "thread"
 
     def page_url(self, thread_url: str, page: int) -> str:
-        base = re.sub(r"/page-\d+/?$", "/", thread_url.strip())
+        base = self.canonical_thread_url(thread_url)
         if page <= 1:
             return base
         return f"{base.rstrip('/')}/page-{page}"

@@ -91,3 +91,12 @@ def test_builds_xenforo_page_urls():
 
     assert parser.page_url(url, 1) == url
     assert parser.page_url(url, 2) == "https://voz.vn/t/example.913440/page-2"
+
+
+def test_canonical_thread_url_strips_page_and_fragment():
+    parser = VozParser()
+    url = "https://voz.vn/t/ca-phe-tai-gia-2025.1048163/page-239#post-41417669"
+
+    assert parser.canonical_thread_url(url) == "https://voz.vn/t/ca-phe-tai-gia-2025.1048163/"
+    assert parser.thread_id_from_url(url) == "1048163"
+    assert parser.page_url(url, 2) == "https://voz.vn/t/ca-phe-tai-gia-2025.1048163/page-2"
