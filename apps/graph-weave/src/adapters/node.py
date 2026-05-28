@@ -1,5 +1,8 @@
 from typing import Optional, List, Tuple
 import inspect
+import json
+import logging
+import os
 import re
 
 from ..models.node import (
@@ -10,6 +13,29 @@ from ..models.node import (
 )
 from ..models.node.validators import NodeIdFormatError, parse_node_id
 from .redis.namespaced import NamespacedRedisClient
+
+_logger = logging.getLogger(__name__)
+
+# Directory where bundled system node JSON definitions live
+_NODES_RESOURCE_DIR = os.path.join(os.path.dirname(__file__), "..", "resources", "nodes")
+
+
+def _find_node_resource(node_id: str) -> Optional[dict]:
+    """Scan resources/nodes/ for a JSON file whose node_id matches. Returns raw dict or None."""
+    if not os.path.isdir(_NODES_RESOURCE_DIR):
+        return None
+    for fname in os.listdir(_NODES_RESOURCE_DIR):
+        if not fname.endswith(".json"):
+            continue
+        fpath = os.path.join(_NODES_RESOURCE_DIR, fname)
+        try:
+            with open(fpath, "r") as f:
+                data = json.load(f)
+            if data.get("node_id") == node_id:
+                return data
+        except Exception:
+            continue
+    return None
 
 
 class ConflictError(Exception):
@@ -107,10 +133,43 @@ class RedisNodeStore:
     async def get(self, node_id: str) -> Optional[NodeResponse]:
         key = self._node_key(node_id)
         data = await self._redis_call("hget", key, "data")
+
+        # Lazy-load from bundled resources on a Redis miss
         if not data:
+            raw = _find_node_resource(node_id)
+            if raw:
+                _logger.info(f"Lazy-loading system node from resources: {node_id}")
+                # Build a complete node dict with safe defaults for optional fields
+                node_dict = {
+                    "tenant_id": raw.get("tenant_id", "system"),
+                    "node_id": raw.get("node_id", node_id),
+                    "node_name": raw.get("node_name") or node_id,
+                    "version": raw.get("version", "1.0.0"),
+                    "name": raw.get("name") or raw.get("display_name") or node_id,
+                    "type": raw.get("type", "agent_node"),
+                    "description": raw.get("description", ""),
+                    "config": raw.get("config") or {},
+                    "input_contract": raw.get("input_contract") or {"required": [], "optional": []},
+                    "output_contract": raw.get("output_contract") or {"produced": []},
+                    "capabilities": raw.get("capabilities") or [],
+                    "tags": raw.get("tags") or [],
+                    "owner": raw.get("owner", "system"),
+                    "status": raw.get("status", "active"),
+                    "reuse_eligible": raw.get("reuse_eligible", True),
+                    "provenance": raw.get("provenance") or {},
+                    "created_at": "",
+                    "immutable_fields": ["config", "input_contract", "output_contract", "type"],
+                }
+                # Cache to Redis so next lookup is instant
+                try:
+                    await self._redis_call("hset", key, field="data", value=node_dict)
+                    await self._redis_call("sadd", self._index_key(), node_dict["node_id"])
+                except Exception as cache_err:
+                    _logger.debug(f"Could not cache lazy-loaded node {node_id}: {cache_err}")
+                return NodeResponse(**node_dict)
             return None
+
         if isinstance(data, str):
-            import json
             data = json.loads(data)
         return NodeResponse(**data)
 
@@ -156,7 +215,7 @@ class RedisNodeStore:
         update_data = update.model_dump(exclude_unset=True)
         node_dict = node.model_dump()
         for field in update_data:
-            if field in ("name", "description", "tags"):
+            if field in ("name", "description", "tags", "config"):
                 node_dict[field] = update_data[field]
 
         key = self._node_key(node_id)
@@ -269,3 +328,56 @@ class RedisNodeStore:
             if node and node.status == "active":
                 nodes.append(node)
         return nodes
+
+    async def sync_predefined_nodes(self, tenant_id: str) -> None:
+        """Synchronizes all pre-defined nodes into the node store."""
+        import os
+        import json
+        from ..models.node import NodeCreate, NodeUpdate
+        
+        nodes_dir = os.path.join(
+            os.path.dirname(__file__), "..", "resources", "nodes"
+        )
+        if not os.path.exists(nodes_dir):
+            return
+            
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Syncing predefined nodes for tenant: {tenant_id}")
+        
+        for file_name in os.listdir(nodes_dir):
+            if not file_name.endswith(".json"):
+                continue
+            file_path = os.path.join(nodes_dir, file_name)
+            try:
+                with open(file_path, "r") as f:
+                    node_data = json.load(f)
+                
+                node_id = node_data.get("node_id") or file_name[:-5]
+                node_name = node_data.get("node_name") or node_id.split(":")[0]
+                
+                node_create = NodeCreate(
+                    node_id=node_id,
+                    node_name=node_name,
+                    name=node_data.get("name") or node_data.get("display_name") or node_name,
+                    type=node_data.get("type", "agent_node"),
+                    tags=node_data.get("tags") or [],
+                    capabilities=node_data.get("capabilities") or [],
+                    description=node_data.get("description", ""),
+                    config=node_data.get("config") or {},
+                )
+                
+                try:
+                    await self.create(node_create)
+                    logger.info(f"  ✓ Seeded predefined node: {node_id}")
+                except Exception:
+                    # Update to keep it fresh
+                    node_update = NodeUpdate(
+                        name=node_create.name,
+                        description=node_create.description,
+                        tags=node_create.tags,
+                        config=node_create.config,
+                    )
+                    await self.update(node_id, node_update)
+            except Exception as e:
+                logger.debug(f"Failed to seed node {file_name}: {e}")

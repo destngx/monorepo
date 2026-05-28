@@ -11,6 +11,7 @@ from .modules.shared.deps import (
     init_services,
     get_cache,
     get_workflow_store,
+    get_node_store,
     get_scheduler_service,
 )
 
@@ -32,13 +33,13 @@ async def lifespan(app: FastAPI):
     init_services()
     logger.info("Services initialized")
 
-    # Auto-create system workflows on startup
+    # Sync predefined workflow metadata index on startup
     try:
         workflow_store = get_workflow_store()
         workflow_store.sync_predefined_workflows("system")
         logger.info("System workflows synchronized")
     except Exception as e:
-        logger.warning(f"System workflow synchronization failed: {e}")
+        logger.warning(f"System synchronization failed: {e}")
 
     if GraphWeaveConfig.SCHEDULER_ENABLED:
         scheduler_service = get_scheduler_service()
@@ -49,8 +50,7 @@ async def lifespan(app: FastAPI):
 
             # Load all enabled schedules for existing tenants.
             # Best-effort during startup so local serve can still boot when Redis is unavailable.
-            scheduler_service.sync_schedules("default")
-            logger.info("Scheduler started and synced for 'default' tenant")
+            logger.info("Scheduler started successfully")
         except Exception as e:
             logger.warning(f"Scheduler startup skipped: {e}")
 

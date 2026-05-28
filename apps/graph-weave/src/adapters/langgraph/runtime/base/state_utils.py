@@ -1,18 +1,14 @@
-import re
-import shlex
 import logging
-from typing import Any, Dict, List, Mapping, Optional
-from src.adapters.langgraph.utils.json_value_utils import (
-    json_stringify_normalized,
-    parse_json_string_if_needed,
-    structured_arg_string,
-)
+from typing import Any, Dict, Mapping, List
+
+from src.adapters.langgraph.runtime.state.resolver import StateResolver
 
 logger = logging.getLogger(__name__)
 
 def get_state_value(path: Any, state: Mapping[str, Any], handle_function_mapping_cb=None) -> Any:
     """
     Extracts a value from the state using a dot-notated path or JSONPath.
+    Now standardized on StateResolver under the hood to ensure 100% consistent resolution.
     """
     if not path:
         return None
@@ -23,149 +19,16 @@ def get_state_value(path: Any, state: Mapping[str, Any], handle_function_mapping
             return handle_function_mapping_cb(path, state)
         return None
 
-    if not isinstance(path, str):
-        return None
+    # Initialize standard StateResolver and resolve using the unified logic
+    resolver = StateResolver(state)
+    return resolver.resolve(path, required=False)
 
-    # Clean path
-    clean_path = path
-    if clean_path.startswith("$."):
-        clean_path = clean_path[2:]
-    original_clean_path = clean_path
-    
-    # Handle common JS-isms like tags.join(",") or summary.first()
-    virtual_transform = None
-    if ".join(" in clean_path:
-        clean_path = clean_path.split(".join(")[0]
-        virtual_transform = "joined"
-    elif clean_path.endswith("_joined"):
-        clean_path = clean_path[:-7]
-        virtual_transform = "joined"
-    elif ".first(" in clean_path or clean_path.endswith(".first"):
-        clean_path = clean_path.split(".first")[0]
-        virtual_transform = "first"
-    elif clean_path.endswith("_first"):
-        clean_path = clean_path[:-6]
-        virtual_transform = "first"
-    elif ".sh_quote(" in clean_path or clean_path.endswith(".sh_quote"):
-        clean_path = clean_path.split(".sh_quote")[0]
-        virtual_transform = "sh_quote"
-    elif clean_path.endswith("_shell"):
-        clean_path = clean_path[:-6]
-        virtual_transform = "sh_quote"
-    elif ".json_quote(" in clean_path or clean_path.endswith(".json_quote"):
-        clean_path = clean_path.split(".json_quote")[0]
-        virtual_transform = "json_quote"
-    elif ".json_escape(" in clean_path or clean_path.endswith(".json_escape"):
-        clean_path = clean_path.split(".json_escape")[0]
-        virtual_transform = "json_quote"
-    elif clean_path.endswith("_json"):
-        clean_path = clean_path[:-5]
-        virtual_transform = "json_quote"
-    elif ".shell(" in clean_path or clean_path.endswith(".shell"):
-        clean_path = clean_path.split(".shell")[0]
-        virtual_transform = "sh_quote"
-
-    keys = clean_path.split('.')
-    first_part = keys[0]
-    
-    # Handle virtual suffixes for lists/strings
-    if first_part.endswith("_joined"):
-        virtual_transform = "joined"
-        first_part = first_part[:-7]
-    elif first_part.endswith("_first"):
-        virtual_transform = "first"
-        first_part = first_part[:-6]
-    elif first_part.endswith("_shell"):
-        virtual_transform = "sh_quote"
-        first_part = first_part[:-6]
-    elif first_part.endswith("_json"):
-        virtual_transform = "json_quote"
-        first_part = first_part[:-5]
-
-    # Handle array index in the first part, e.g., "summary[0]"
-    array_match = re.match(r"([^\[]+)\[(\d+)\]", first_part)
-    if array_match:
-        first_key, first_index = array_match.groups()
-        remaining_keys = [f"[{first_index}]"] + keys[1:]
-    else:
-        first_key = first_part
-        remaining_keys = keys[1:]
-
-    nodes_state = state.get("nodes", {})
-    workflow_data = state.get("workflow", {})
-    
-    res = None
-    # 1. Try finding in nodes first
-    if first_key in nodes_state:
-        res = resolve_path(nodes_state[first_key], remaining_keys)
-    # 2. Try workflow
-    elif first_key in workflow_data:
-        res = resolve_path(workflow_data[first_key], remaining_keys)
-    # 3. Try root level
-    elif first_key in state:
-        res = resolve_path(state[first_key], remaining_keys)
-
-    if res is not None:
-        if virtual_transform == "joined" and isinstance(res, list):
-            sep_key = original_clean_path.lower()
-            sep = ", " if any(k in sep_key for k in ["tag", "author", "name"]) else "\n"
-            res = sep.join(str(i) for i in res)
-        elif virtual_transform == "first" and isinstance(res, list) and len(res) > 0:
-            res = res[0]
-        elif virtual_transform == "sh_quote":
-            res = shlex.quote(structured_arg_string(res))
-        elif virtual_transform == "json_quote":
-            res = json_stringify_normalized(res)
-        
-        return res
-
-    return None
 
 def resolve_path(current: Any, keys: List[str]) -> Any:
-    """Helper to resolve a nested path in an object."""
-    for key in keys:
-        if current is None:
-            return None
-            
-        bracket_index_match = re.match(r"\[(\d+)\]", key)
-        if bracket_index_match:
-            index = int(bracket_index_match.group(1))
-            if isinstance(current, list) and index < len(current):
-                current = current[index]
-            else:
-                return None
-            continue
+    """Helper to resolve a nested path in an object. Delegates to StateResolver."""
+    resolver = StateResolver({})
+    return resolver._resolve_path(current, list(keys))
 
-        array_match = re.match(r"([^\[]+)\[(\d+)\]", key)
-        if array_match:
-            name, index = array_match.groups()
-            index = int(index)
-            if isinstance(current, dict) and name in current:
-                current = current[name]
-                if isinstance(current, list) and index < len(current):
-                    current = current[index]
-                else:
-                    return None
-            else:
-                return None
-        elif isinstance(current, dict):
-            if key in current:
-                current = current[key]
-            elif f"{key}_json" in current:
-                current = parse_json_string_if_needed(current[f"{key}_json"])
-            elif key.endswith("_json") and key[:-5] in current:
-                current = json_stringify_normalized(current[key[:-5]])
-            else:
-                return None
-        elif isinstance(current, list) and key.isdigit():
-            idx = int(key)
-            if idx < len(current):
-                current = current[idx]
-            else:
-                return None
-        else:
-            return None
-    return current
 
 def handle_function_mapping(mapping: Dict[str, Any], state: Mapping[str, Any], get_state_value_cb) -> Any:
     """Executes a transformation function for complex mappings."""

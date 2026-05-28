@@ -34,10 +34,25 @@ async def create_workflow(request: WorkflowCreate):
             status_code=422,
             detail="workflow_id must be in format 'name:version' and version must match",
         )
-    # Validate definition with DAG cycle safety and reachability checks
+    # Resolve composition or validate definition with DAG cycle safety and reachability checks
+    definition = request.definition
+    if request.composition:
+        from ..services.compose_service import WorkflowComposeService
+        try:
+            definition = await WorkflowComposeService.compose(
+                request.tenant_id,
+                request.composition.skeleton,
+                request.composition.node_map
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    if not definition:
+        raise HTTPException(status_code=422, detail="Workflow definition is empty or missing")
+
     from ..services.workflow_validator import WorkflowValidator
     validator = WorkflowValidator()
-    validation_result = validator.validate(request.definition)
+    validation_result = validator.validate(definition)
     if not validation_result["valid"]:
         logger.warning(f"Invalid workflow definition: {validation_result['errors']}")
         raise HTTPException(
@@ -56,7 +71,7 @@ async def create_workflow(request: WorkflowCreate):
         "description": request.description,
         "owner": request.owner,
         "tags": request.tags or [],
-        "definition": request.definition,
+        "definition": definition,
     }
 
     result = store.create(request.tenant_id, workflow_data)
@@ -131,7 +146,7 @@ async def get_workflow(workflow_id: str, tenant_id: Optional[str] = None):
         raise HTTPException(status_code=400, detail="tenant_id is required")
 
     store = get_workflow_store()
-    workflow = store.get(tenant_id, workflow_id)
+    workflow = await store.get_compiled(tenant_id, workflow_id)
 
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -167,6 +182,7 @@ async def update_workflow(
             request.status,
             request.tags,
             request.definition,
+            request.composition,
         ]
     ):
         raise HTTPException(
@@ -199,17 +215,31 @@ async def update_workflow(
         updates["status"] = request.status
     if request.tags is not None:
         updates["tags"] = request.tags
-    if request.definition is not None:
+
+    # Resolve composition if provided
+    definition = request.definition
+    if request.composition is not None:
+        from ..services.compose_service import WorkflowComposeService
+        try:
+            definition = await WorkflowComposeService.compose(
+                tenant_id,
+                request.composition.skeleton,
+                request.composition.node_map
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    if definition is not None:
         from ..services.workflow_validator import WorkflowValidator
         validator = WorkflowValidator()
-        validation_result = validator.validate(request.definition)
+        validation_result = validator.validate(definition)
         if not validation_result["valid"]:
             logger.warning(f"Invalid workflow definition: {validation_result['errors']}")
             raise HTTPException(
                 status_code=422,
                 detail=f"Invalid workflow definition: {'; '.join(validation_result['errors'])}"
             )
-        updates["definition"] = request.definition
+        updates["definition"] = definition
 
     result = store.update(tenant_id, workflow_id, updates)
 

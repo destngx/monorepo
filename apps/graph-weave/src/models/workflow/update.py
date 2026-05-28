@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from ...validation import validate_resource_id
+from .create import WorkflowCompositionSpec
 
 class UpdateWorkflowRequest(BaseModel):
     """Request model for updating a workflow (all fields optional)"""
@@ -33,6 +34,10 @@ class UpdateWorkflowRequest(BaseModel):
     definition: Optional[Dict[str, Any]] = Field(
         None,
         description="Updated workflow definition",
+    )
+    composition: Optional[WorkflowCompositionSpec] = Field(
+        None,
+        description="Updated composition spec (generates new workflow definition)",
     )
 
     @field_validator("name", mode="before")
@@ -97,5 +102,6 @@ class UpdateWorkflowRequest(BaseModel):
                 self.owner is not None,
                 self.status is not None,
                 self.definition is not None,
+                self.composition is not None,
             ]
         )

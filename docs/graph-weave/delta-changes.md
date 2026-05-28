@@ -91,3 +91,10 @@ This file is the incremental memory for GraphWeave. It preserves choices and con
   - Azure Entra ID support for production deployments
   - Token scope validation before workflow execution
   - Per-tenant credential isolation
+
+- 2026-05-26 — **Compositional Workflow Generator Architecture**:
+  - **Decision**: Pivoted `workflow-generator` from a monolithic, cycle-prone node materializer to a highly scalable **Compositional & Modular Architecture**. Chosen "Option A" (Shell-Orchestrated Hybrid) for simplicity and reliability.
+  - **Flow 1 (Skeleton Generation)**: Upgraded `workflow-generator:v1.0.0.json` to utilize `skeleton_assembler` instead of `node_builder`/`assembler`, producing a topological DAG skeleton. Added edge_router overrides dynamically in the manifest.
+  - **Flow 2 (Compositional Shell Orchestration)**: Overhauled `generate_inbox_workflow.sh` to extract per-step intents, perform catalog checks (`GET /nodes`), generate/register missing nodes via `create-node:v1.0.0`, and dynamically wire output-to-input variables programmatically in Python based on resolved contracts.
+  - **Cleanup**: Deleted legacy nodes `node_builder:v1.0.0.json` and `assembler:v1.0.0.json`, and removed `workflow-generator:v2.0.0` from predefined workflows (in-place upgrade).
+  - **Result**: All tests pass. Architectural specs, execution guides, and tests completely aligned to the new compositional architecture.

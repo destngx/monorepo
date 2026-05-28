@@ -293,3 +293,27 @@ async def cancel_execution(run_id: str):
     status_service.transition_status(tenant_id, run_id, "cancelled", result)
 
     return CancelResponse(run_id=run_id, status="cancelled", thread_id=thread_id)
+
+
+@router.get("/execute", tags=["Execution"])
+async def list_executions(tenant_id: str = None, workflow_id: str = None):
+    """
+    List all current and historical execution runs in memory, optionally filtered.
+    """
+    runs_list = []
+    for run_id, run in execution_runs.items():
+        if tenant_id and run.get("tenant_id") != tenant_id:
+            continue
+        if workflow_id and run.get("workflow_id") != workflow_id:
+            continue
+        runs_list.append({
+            "run_id": run_id,
+            "thread_id": run.get("thread_id"),
+            "workflow_id": run.get("workflow_id"),
+            "tenant_id": run.get("tenant_id"),
+            "status": run.get("status", "unknown"),
+            "hop_count": run.get("hop_count", 0),
+        })
+    # Sort runs so we have a consistent view (e.g. can sort by run_id or keep insertion order)
+    return {"runs": list(reversed(runs_list)), "count": len(runs_list)}
+

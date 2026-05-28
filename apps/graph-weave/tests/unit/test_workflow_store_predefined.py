@@ -48,13 +48,15 @@ def test_predefined_workflow_get_refreshes_from_resource(monkeypatch, tmp_path):
 
 
 def test_create_node_predefined_workflow_loads_component_manifest():
+    import os
+    current_dir = os.path.dirname(__file__)
     definition = load_workflow_definition(
-        "/Users/ez2/projects/personal/monorepo/apps/graph-weave/src/resources/workflows/create-node:v1.0.0.json"
+        os.path.abspath(os.path.join(current_dir, "../../src/resources/workflows/create-node:v1.0.0.json"))
     )
 
     assert definition["name"] == "create-node"
     assert definition["version"] == "1.0.0"
-    assert [node["id"] for node in definition["nodes"]] == [
+    assert [node.get("id") or node.get("alias") for node in definition["nodes"]] == [
         "entry",
         "config_generator",
         "node_validator",

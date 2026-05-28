@@ -1,189 +1,124 @@
-# Workflow Generator Guide
+# Workflow Generator Guide - Compositional & Modular Architecture
 
-The **Workflow Generator** is a built-in meta-workflow (`workflow-generator:v1.0.0`) in GraphWeave that automatically converts natural language intents into validated, ready-to-deploy GraphWeave DAGs (Directed Acyclic Graphs).
+GraphWeave utilizes a state-of-the-art **Compositional & Modular Architecture** to generate, register, and assemble workflows. Instead of creating giant, monolithic workflow DAGs with embedded, hardcoded node configurations, GraphWeave decomposes the lifecycle into two discrete orchestration phases:
 
-This guide covers best practices, rules, and a sample use case for utilizing the generator effectively.
-
-## 🧠 How It Works
-
-The workflow generator processes your intent through a rigorous multi-agent pipeline:
-
-1. **Planner Agent**: Decomposes the intent into deterministic data transformation steps.
-2. **Node Builder Agent**: Generates the GraphWeave nodes with strict JSON schemas.
-3. **Architecture Advisor**: Classifies each step by where it should run and whether the workflow is publishable.
-4. **Edge Router Agent**: Generates a cycle-free DAG connecting the transformation pipeline.
-5. **Assembler & Quality Validator**: Assembles the final workflow and enforces quality standards, including publishability.
-6. **Validation Gate**: Loops back to the planner if validation fails.
-
-The workflow definition itself is stored as a small manifest plus separate component JSON files, and GraphWeave preloads the full definition on startup.
-
-## 📝 How to Craft an Intent
-
-The workflow generator performs best when given structured, predictable instructions. An ideal intent follows a clear `Trigger → Pipeline Steps → Final Output` formula.
-
-### The Intent Formula
-
-> `"On [Trigger Event], [Action 1], [Action 2], ..., and [Final Output Action]."`
-
-**Examples of Good vs. Bad Intents:**
-
-✅ **Good (Deterministic & Structured):**
-
-> _"When a Cloudflare WAF rule triggers, fetch the blocked request details, classify the threat type, and update the blocklist rule automatically."_
-> **Why it works:** Clear trigger (WAF rule), discrete transformation steps (fetch, classify), and a tangible output (update blocklist).
-
-❌ **Bad (Vague & Open-ended):**
-
-> _"Look at our web traffic and if you see something weird, analyze it to see if it's a threat and then fix it."_
-> **Why it fails:** Uses non-deterministic terms like "look at", "weird", "analyze", and "fix it". The workflow generator does not know what specific data to process or what the exact output format should be.
+1. **The Skeleton Generation Pipeline** (`workflow-generator:v1.0.0`): A lightweight, multi-agent meta-workflow that produces a topological skeleton DAG containing steps, step classifications, and routing contracts without materializing concrete configs.
+2. **The Shell-Orchestrated Assembly Flow** (`generate_inbox_workflow.sh`): A local shell wrapper that parses step intents, checks the catalog for reusable nodes, runs per-step generator instances (`create-node:v1.0.0`), and deterministically wires output-to-input variables based on resolved contracts.
 
 ---
 
-## ⚖️ Rules for Writing Intents
+## 🗺️ Architectural Topology
 
-To ensure the generator produces a valid and useful DAG, you **must** adhere to the following rules when crafting your natural language query:
+The two orchestration flows cooperate to deliver clean, scalable, and highly reusable workflows:
 
-1. **Focus on Deterministic Data Transformation**
-   - **DO USE**: `extract`, `classify`, `transform`, `validate`, `aggregate`.
-   - **DO NOT USE**: `analyze`, `think`, `reflect`, `explore`. The system is designed to build data pipelines, not open-ended reasoning loops.
+```mermaid
+graph TD
+    %% Flow 1: Skeleton Generation
+    subgraph Flow 1: Skeleton Generation Pipeline
+        intent[Natural Language Intent] --> planner[Planner Agent]
+        planner -->|Decomposed Steps| advisor[Architecture Advisor]
+        advisor -->|Step Placement Classification| router[Edge Router Agent]
+        router -->|DAG Edges| skeleton[Skeleton Assembler]
+        skeleton -->|Topological Skeleton JSON| gate{Validation Gate}
+        gate -->|Pass| skeleton_out[Output: Skeleton DAG]
+    end
 
-2. **Specify Clear Inputs and Outputs**
-   - Explicitly define what triggers the workflow (the input data) and what the final state should look like (the output).
-   - Example: _"When an EKS pod enters a CrashLoopBackOff state, extract the error pattern, classify the root cause, and post a structured incident summary to Slack with recommended remediation steps."_
+    %% Flow 2: Shell Orchestration
+    subgraph Flow 2: Compositional Shell Orchestration
+        shell[generate_inbox_workflow.sh] -->|1. Triggers| Flow_1[Run Flow 1]
+        Flow_1 -->|Returns| skeleton_out
+        shell -->|2. Loop Steps| check_catalog{Node in Catalog?}
+        check_catalog -->|Yes| reuse[Reuse Catalog Node]
+        check_catalog -->|No| create_node_flow[Run create-node:v1.0.0]
+        create_node_flow -->|Generates & Registers| catalog[Register to Catalog]
 
-3. **Enforce Structured Thinking**
-   - The generator strictly expects structured outputs. Your intent should map well to a pipeline of discrete steps. Keep the scope limited to a 3-6 step pipeline.
+        reuse --> combine[Deterministic Python Combinator]
+        catalog --> combine
 
-## 🚀 Best Practices
-
-- **Domain Hinting**: Always provide a relevant `domain` hint (e.g., `devops`, `finance`, `research`) alongside your intent. This helps the agents contextualize the node generation.
-- **Avoid Ambiguity**: Be explicit about the tools or systems involved (e.g., "AWS Secrets Manager", "Slack", "Grafana").
-- **Review and Register**: The generator outputs a JSON DAG plus `recommendations` and `publishability`. Always review both the generated workflow and the recommendation block before registering it via the POST `/workflows` endpoint.
-
-## 📖 Programmatic Sample Use Case: AWS Credential Rotation
-
-Here is an end-to-end example of generating and registering a workflow using Python and `httpx`, mirroring our actual E2E test suite.
-
-```python
-import httpx
-import time
-
-TENANT_ID = "platform-eng"
-WORKFLOW_ID = "workflow-generator:v1.0.0"
-API_URL = "http://localhost:8001"
-
-client = httpx.Client(base_url=API_URL, timeout=120.0)
-
-# Step 1: Submit the Intent
-intent = (
-    "Rotate an expiring AWS IAM access key: detect keys older than 90 days, "
-    "generate new key pair, update the secret in AWS Secrets Manager, "
-    "notify the owning team via Slack, and archive the old key."
-)
-
-print("Submitting intent...")
-response = client.post(
-    "/execute",
-    json={
-        "tenant_id": TENANT_ID,
-        "workflow_id": WORKFLOW_ID,
-        "input": {
-            "intent": intent,
-            "domain": "devops",
-            "correction_attempts": 0,
-        },
-    },
-)
-response.raise_for_status()
-run_id = response.json()["run_id"]
-print(f"Run started with ID: {run_id}")
-
-# Step 2: Poll for Completion
-print("Waiting for workflow generator to complete...")
-while True:
-    # Use the real /status endpoint
-    status_response = client.get(f"/execute/{run_id}/status")
-    status_data = status_response.json()
-    if status_data["status"] in ["completed", "failed"]:
-        break
-    time.sleep(2)
-
-# Step 3: Extract and Register the Generated DAG
-if status_data["status"] == "completed":
-    state = status_data.get("workflow_state", {})
-    generated_workflow = state.get("generated_workflow")
-
-    if generated_workflow:
-        print("Successfully generated DAG. Registering new workflow...")
-
-        new_workflow_id = "aws-credential-rotation:v1.0.0"
-        payload = {
-            "tenant_id": TENANT_ID,
-            "workflow_id": new_workflow_id,
-            "name": "AWS Credential Rotation",
-            "version": "1.0.0",
-            "description": "Generated by workflow-generator",
-            "owner": "platform-eng",
-            "tags": ["generated", "devops"],
-            "definition": generated_workflow,
-        }
-
-        reg_response = client.post("/workflows", json=payload)
-        reg_response.raise_for_status()
-        print(f"Registered new workflow '{new_workflow_id}' successfully!")
-else:
-    print(f"Workflow generation failed. Final status: {status_data['status']}")
+        combine -->|3. Output-to-Input Binding| final_workflow[Final Composed Workflow]
+        final_workflow -->|4. Register| workflows_api[POST /workflows]
+    end
 ```
 
-Once registered, you can immediately execute your new `aws-credential-rotation:v1.0.0` workflow!
+---
 
-## 💻 Sample Use Case via cURL
+## ⚡ Flow 1: The Skeleton Generation Pipeline (`workflow-generator:v1.0.0`)
 
-You can also interact with the workflow generator and register the workflow using standard shell commands.
+This pipeline runs inside GraphWeave as a system workflow. It takes a raw natural language intent and outputs a structural skeleton containing the DAG topology and metadata.
 
-**1. Submit the Intent**
+### Step-by-Step Pipeline
 
-```bash
-curl -X POST http://localhost:8001/execute \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tenant_id": "platform-eng",
-    "workflow_id": "workflow-generator:v1.0.0",
-    "input": {
-      "intent": "When an EKS pod enters a CrashLoopBackOff state, fetch the pod logs, analyze the error pattern, and post a structured incident summary to Slack.",
-      "domain": "devops",
-      "correction_attempts": 0
-    }
-  }'
-```
+1. **Planner Agent (`planner:v1.0.0`)**:
+   Decomposes the natural language intent into a clean sequence of discrete data transformation steps (e.g., normalizations, extractions, validations, writes). Disallows open-ended terms (`analyze`, `think`, `reflect`, `explore`) and enforces clear inputs and outputs.
+2. **Architecture Advisor (`architecture_advisor:v1.0.0`)**:
+   Classifies each decomposed step's execution environment. It determines whether the step should be placed as an **`agent_node`** (needs LLM semantic reasoning) or a **`cli_node`** (needs mechanical CLI command execution or file system writes).
+3. **Edge Router Agent (`edge_router:v1.0.0`)**:
+   Generates a cycle-free Directed Acyclic Graph (DAG) connecting the steps. It maps the linear or conditional execution pathways and outputs the `edges`, `entry_point`, and `exit_point` using strictly namespaced `from` and `to` endpoints.
+4. **Skeleton Assembler (`skeleton_assembler:v1.0.0`)**:
+   Combines the planner steps, routing edges, and advisor classifications. It enforces topological sanity checks (rejections on cycles, orphans, invalid names) and formats the output schema.
+5. **Validation Gate (`validation_gate:v1.0.0`)**:
+   Ensures the skeleton meets all publishing criteria. If valid, the execution completes, exposing the skeleton.
 
-**2. Poll for Completion and Extract DAG**
-Once the run status is `completed`, extract the generated DAG:
+### Output Schema
 
-```bash
-curl -s http://localhost:8001/execute/<RUN_ID>/status | jq '.workflow_state.generated_workflow' > dag.json
-```
+The skeleton outputs a structural DAG manifest:
 
-**3. Register the Workflow**
-It is recommended to use a payload file to handle the complex DAG structure:
-
-```bash
-# Create the registration payload
-cat <<EOF > payload.json
+```json
 {
-  "tenant_id": "platform-eng",
-  "workflow_id": "eks-incident-handler:v1.0.0",
-  "name": "EKS Incident Handler",
-  "version": "1.0.0",
-  "description": "Generated by workflow-generator",
-  "owner": "platform-eng",
-  "tags": ["generated", "devops"],
-  "definition": $(cat dag.json)
+  "is_valid": true,
+  "errors": [],
+  "skeleton": {
+    "name": "inbox-ingest-generated",
+    "version": "1.0.0",
+    "steps": [
+      {
+        "id": "normalize_input",
+        "purpose": "Clean and standardize input fields",
+        "type": "agent_node"
+      },
+      {
+        "id": "process_media",
+        "purpose": "OCR extract image references",
+        "type": "cli_node"
+      }
+    ],
+    "edges": [
+      { "from": "entry", "to": "normalize_input" },
+      { "from": "normalize_input", "to": "process_media" }
+    ],
+    "entry_point": "entry",
+    "exit_point": "exit"
+  }
 }
-EOF
-
-# Submit to GraphWeave
-curl -X POST http://localhost:8001/workflows \
-  -H "Content-Type: application/json" \
-  -d @payload.json
 ```
+
+---
+
+## 🐚 Flow 2: The Compositional Shell Orchestration Flow (`generate_inbox_workflow.sh`)
+
+This client-side shell orchestration script acts strictly as a **thin, decoupled runner** to drive the dynamic generation and registration of the workflow.
+
+### Step-by-Step Flow
+
+1. **Generate Skeleton & Slice Intents**:
+   Invokes `workflow-generator:v1.0.0` over the GraphWeave API with the raw intent markdown. The system's `planner` and `skeleton_assembler` nodes natively slice, parse, and propagate the logic `context` and explicit CLI `command` templates directly inside the returned DAG skeleton steps array.
+2. **Read Step Contexts & Commands**:
+   Reads `context` and `command` for each step directly from the compiled skeleton step objects using programmatic `jq` lookups.
+3. **Check Catalog for Reusability & Enforce Tag Safety**:
+   Queries the catalog API (`GET /nodes/pkm_<step_id>:v1.0.0`).
+   - If the node is already present in the catalog, it is reused.
+   - If not, it calls `create-node:v1.0.0` over the API, passing the parsed context and command.
+   - Converts the capability tags to lowercase kebab-case (e.g. `pkm-normalize-input`) to ensure strict tag formatting validation compliance.
+4. **Deterministic Composition**:
+   Submits the `skeleton` and `node_map` to the GraphWeave backend. The server-side compositional pipeline handles the deterministic wiring, state path mapping, and output-to-input binding programmatically.
+5. **Register Workflow**:
+   Saves the finished compiled compositional workflow under `POST /workflows`.
+
+---
+
+## 🏆 Key Advantages of Compositional Architecture
+
+- **No LLM Hallucinations in Routing**: Standard JSON schemas and state paths are constructed programmatically via Python rather than requesting the LLM to generate huge, delicate state path strings at once.
+- **Node Reusability (Catalog-First)**: Steps like `process_media` or `normalize_input` are registered once as system-wide nodes. Future generated workflows reuse these catalog definitions instead of duplicating them.
+- **Secure Shell Sandboxing**: Commands in `cli_nodes` are securely formatted using curly-brace argument placeholders (e.g. `'{variable_shell}'`), ensuring strict single-quote escaping when evaluated by the GraphWeave CLI runner.
+- **Isolated Testing**: Individual nodes can be unit-tested or updated in the catalog without breaking existing parent workflows.

@@ -1,7 +1,7 @@
 {
   "name": "workflow-generator",
   "version": "1.0.0",
-  "description": "Meta-workflow that converts a natural language intent into a compositional workflow DAG. Searches registry for existing nodes and suggests missing ones.",
+  "description": "Meta-workflow that converts a natural language intent into a workflow skeleton. Searches registry for existing nodes and suggests missing ones.",
   "metadata": {
     "author": "platform-eng",
     "created_at": "2026-05-15T00:00:00Z",
@@ -14,19 +14,44 @@
     "stagnation_window": 3,
     "stagnation_threshold": 2
   },
-  "components": {
-    "base_dir": "workflow-generator:v1.0.0",
-    "nodes": [
-      "nodes/entry.json",
-      "nodes/planner.json",
-      "nodes/architecture_advisor.json",
-      "nodes/node_builder.json",
-      "nodes/edge_router.json",
-      "nodes/assembler.json",
-      "nodes/validation_gate.json",
-      "nodes/exit.json"
-    ]
-  },
+  "nodes": [
+    {
+      "id": "entry",
+      "type": "entry",
+      "display_name": "Entry"
+    },
+    {
+      "alias": "planner",
+      "node_id": "nodes:system:planner:v1.0.0"
+    },
+    {
+      "alias": "architecture_advisor",
+      "node_id": "nodes:system:architecture_advisor:v1.0.0"
+    },
+    {
+      "alias": "edge_router",
+      "node_id": "nodes:system:edge_router:v1.0.0",
+      "overrides": {
+        "input_mapping": {
+          "query": "$.input.intent",
+          "nodes_list": "$.nodes.planner.result.steps"
+        }
+      }
+    },
+    {
+      "alias": "skeleton_assembler",
+      "node_id": "nodes:system:skeleton_assembler:v1.0.0"
+    },
+    {
+      "alias": "validation_gate",
+      "node_id": "nodes:system:validation_gate:v1.0.0"
+    },
+    {
+      "id": "exit",
+      "type": "exit",
+      "display_name": "Exit"
+    }
+  ],
   "edges": [
     {
       "from": "entry",
@@ -38,29 +63,25 @@
     },
     {
       "from": "architecture_advisor",
-      "to": "node_builder"
-    },
-    {
-      "from": "node_builder",
       "to": "edge_router"
     },
     {
       "from": "edge_router",
-      "to": "assembler"
+      "to": "skeleton_assembler"
     },
     {
-      "from": "assembler",
+      "from": "skeleton_assembler",
       "to": "validation_gate"
     },
     {
       "from": "validation_gate",
       "to": "exit",
-      "condition": "$.nodes.assembler.result.is_valid == true"
+      "condition": "$.nodes.skeleton_assembler.result.is_valid == true"
     },
     {
       "from": "validation_gate",
       "to": "exit",
-      "condition": "$.nodes.assembler.result.is_valid == false"
+      "condition": "$.nodes.skeleton_assembler.result.is_valid == false"
     }
   ],
   "entry_point": "entry",

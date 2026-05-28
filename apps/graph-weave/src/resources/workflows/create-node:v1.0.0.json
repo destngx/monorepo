@@ -12,17 +12,34 @@
     "max_tokens": 200000,
     "timeout_seconds": 300
   },
-  "components": {
-    "base_dir": "create-node:v1.0.0",
-    "nodes": [
-      "nodes/entry.json",
-      "nodes/config_generator.json",
-      "nodes/node_validator.json",
-      "nodes/validation_gate.json",
-      "nodes/node_assembler.json",
-      "nodes/exit.json"
-    ]
-  },
+  "nodes": [
+    {
+      "id": "entry",
+      "type": "entry",
+      "display_name": "Entry"
+    },
+    {
+      "alias": "config_generator",
+      "node_id": "nodes:system:config_generator:v1.0.0"
+    },
+    {
+      "alias": "node_validator",
+      "node_id": "nodes:system:node_validator:v1.0.0"
+    },
+    {
+      "alias": "validation_gate",
+      "node_id": "nodes:system:validation_gate:v1.0.0"
+    },
+    {
+      "alias": "node_assembler",
+      "node_id": "nodes:system:node_assembler:v1.0.0"
+    },
+    {
+      "id": "exit",
+      "type": "exit",
+      "display_name": "Exit"
+    }
+  ],
   "edges": [
     {
       "from": "entry",

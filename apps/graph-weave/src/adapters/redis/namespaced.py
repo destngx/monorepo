@@ -34,6 +34,10 @@ class NamespacedRedisClient:
         self.tenant_id = tenant_id
 
     def node_key(self, node_id: str) -> str:
+        # Node IDs like "nodes:system:planner:v1.0.0" are already globally namespaced.
+        # Only apply the tenant prefix for bare IDs (e.g. "planner:v1.0.0").
+        if node_id.startswith("nodes:"):
+            return node_id
         return f"nodes:{self.tenant_id}:{node_id}"
 
     def node_index_key(self) -> str:

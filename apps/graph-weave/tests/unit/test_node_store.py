@@ -217,6 +217,21 @@ def test_update_node_metadata_only(node_store, mock_redis, sample_node):
     assert result.name == "Updated Name"
 
 
+def test_update_node_config_and_prompts(node_store, mock_redis, sample_node):
+    from src.models.node import NodeUpdate, NodeConfig
+    import json
+    node_dict = sample_node.model_dump()
+    node_dict["created_at"] = ""
+    node_dict["immutable_fields"] = ["config", "input_contract", "output_contract", "type"]
+    mock_redis.hget_result = node_dict
+    mock_redis.exists_result = True
+    new_config = NodeConfig(system_prompt="Brand new system instruction prompt", user_prompt_template="Analyze query: {query}")
+    update = NodeUpdate(config=new_config)
+    result = asyncio.run(node_store.update("test_node:v1.0.0", update))
+    assert result.config.system_prompt == "Brand new system instruction prompt"
+    assert result.config.user_prompt_template == "Analyze query: {query}"
+
+
 def test_update_node_not_found_raises_error(node_store, mock_redis):
     from src.models.node import NodeUpdate
     mock_redis.hget_result = None

@@ -1,0 +1,12 @@
+{
+  "node_id": "nodes:system:validation_gate:v1.0.0",
+  "node_name": "validation_gate",
+  "name": "Validation Gate",
+  "type": "branch",
+  "tags": ["system", "create-node"],
+  "capabilities": [],
+  "description": "",
+  "config": {
+    "condition_expression": "$.nodes.node_validator.result.is_valid"
+  }
+}

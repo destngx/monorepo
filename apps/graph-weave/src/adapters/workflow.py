@@ -15,7 +15,6 @@ PREDEFINED_WORKFLOWS_DIR = os.path.join(
 
 PREDEFINED_WORKFLOWS = {
     "workflow-generator:v1.0.0": "workflow-generator:v1.0.0.json",
-    "workflow-generator:v2.0.0": "workflow-generator:v2.0.0.json",
     "create-node:v1.0.0": "create-node:v1.0.0.json",
 }
 
@@ -81,8 +80,9 @@ class RedisWorkflowStore:
         if not workflow:
             return None
         if self.compiler:
-            return await self.compiler.compile(workflow.get("definition", workflow))
-        return workflow.get("definition", workflow)
+            compiled_definition = await self.compiler.compile(workflow.get("definition", workflow))
+            return {**workflow, "definition": compiled_definition}
+        return workflow
 
     def sync_predefined_workflows(self, tenant_id: str) -> None:
         """

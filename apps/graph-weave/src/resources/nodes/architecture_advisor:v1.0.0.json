@@ -1,0 +1,145 @@
+{
+  "node_id": "nodes:system:architecture_advisor:v1.0.0",
+  "node_name": "architecture_advisor",
+  "name": "Architecture Advisor",
+  "type": "agent_node",
+  "tags": ["system", "workflow-generator"],
+  "capabilities": [],
+  "description": "Classifies each planned step by deterministic node placement and evaluates publishability",
+  "config": {
+    "system_prompt": "You are an architecture advisor for workflow generation. Classify each planned step into exactly one executable node placement.\n\nDeterministic placement contract:\n- recommended_placement MUST be exactly one of: agent_node, cli_node.\n- recommended_placement is the only placement decision field.\n- Do not add extra decision fields beyond the output schema.\n\nDecision rules, applied in order:\n1. Use cli_node ONLY when the step explicitly provides an executable command or script path within the intent details. If no command or script is specified in the intent for a step, it must NEVER be classified as a cli_node.\n2. A cli_node must not decide whether content is meaningful, sparse, relevant, complete, novel, high-confidence, or worth processing. Those are agent_node responsibilities.\n3. Use agent_node when the step requires semantic judgment, tool choice, content interpretation, classification, extraction, synthesis, ranking, novelty/confidence assessment, deciding among alternatives, deciding whether to fetch/process content, or generating suggestions.\n4. Use agent_node when the only available command is a suggested future script name. Suggestions are not executable evidence.\n5. If a high-level step contains both judgment and command execution, classify the judgment step as agent_node and rely on the planner to split mechanical command execution into a separate cli_node when an explicit command exists.\n6. If the step is unsafe or underspecified, still choose the nearest placement and mark publishability.status as blocked with a concrete blocking item.\n\nIO contract extraction (MANDATORY):\nFor EVERY step, analyze the intent to extract its input and output field names.\n- Read the intent carefully for each step's Input, Prerequisite, or Output sections.\n- Extract field names as they appear (e.g. file_content, file_path, sources_markdown, drafts_markdown).\n- If the intent uses {placeholder} syntax, use the name inside the braces.\n- If the intent uses prose like 'Input: file_content from Step 1', extract 'file_content'.\n- input_fields: list of field names this step CONSUMES.\n- output_fields: list of field names this step PRODUCES.\n- For the first step in a pipeline, input_fields typically come from the entry contract (e.g. file_path, file_content).\n- NEVER invent generic names like input_data, raw_input, text, content, data. Use the exact names from the intent.\n\nScript externalization guidance:\n- externalization_suggestions are advisory only.\n- A suggested_script_name MUST NOT be treated as an existing executable command.\n- Recommend externalization when command logic is long, reused, environment-specific, security-sensitive, needs tests, touches files, calls network tools, calls OCR/media tools, mutates a vault, or has error-handling requirements.\n- Do not use externalization guidance to change recommended_placement.\n\nPublishability rules:\n- publishability.status MUST be either ready or blocked.\n- Use ready when all planned steps have deterministic placements and every cli_node has an explicit executable command path or trivial shell behavior.\n- Use blocked when required inputs, scripts, commands, safety constraints, or node definitions are missing.\n\nReturn ONLY JSON.",
+    "user_prompt_template": "Review the planned workflow and classify each step into one executable node placement.\n\nQuery: {query}\nPlan: {plan}\n\nReturn recommendations and publishability for the planned workflow.",
+    "input_mapping": {
+      "query": "$.input.intent",
+      "plan": "$.nodes.planner.result"
+    },
+    "output_key": "architecture_review",
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "recommendations": {
+          "type": "object",
+          "properties": {
+            "placement_review": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step_id": {
+                    "type": "string"
+                  },
+                  "recommended_placement": {
+                    "type": "string",
+                    "enum": ["agent_node", "cli_node"]
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "input_fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Field names this step consumes from predecessors or entry"
+                  },
+                  "output_fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Field names this step produces for successors"
+                  }
+                },
+                "required": [
+                  "step_id",
+                  "recommended_placement",
+                  "reason",
+                  "confidence",
+                  "input_fields",
+                  "output_fields"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "summary": {
+              "type": "object",
+              "properties": {
+                "agent_node_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "cli_node_steps": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["agent_node_steps", "cli_node_steps"],
+              "additionalProperties": false
+            },
+            "externalization_suggestions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "step_id": {
+                    "type": "string"
+                  },
+                  "suggested_script_name": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "cli_node_should_reference_script": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["step_id", "suggested_script_name", "reason", "cli_node_should_reference_script"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["placement_review", "summary", "externalization_suggestions"],
+          "additionalProperties": false
+        },
+        "publishability": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["ready", "blocked"]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "blocking_items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": ["status", "reason", "blocking_items", "warnings"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["recommendations", "publishability"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -3,6 +3,12 @@ from typing import Optional, List, Dict, Any
 from ...validation import validate_resource_id
 from .validators import validate_workflow_id_format, validate_semantic_version
 
+class WorkflowCompositionSpec(BaseModel):
+    """Configuration spec for server-side workflow composition"""
+    skeleton: Dict[str, Any] = Field(..., description="High-level workflow DAG skeleton steps and edges")
+    node_map: Dict[str, str] = Field(..., description="Map of step aliases to registered catalog node IDs")
+
+
 class WorkflowCreate(BaseModel):
     """Request model for creating a new workflow"""
 
@@ -52,9 +58,13 @@ class WorkflowCreate(BaseModel):
         min_length=1,
         max_length=128,
     )
-    definition: Dict[str, Any] = Field(
-        ...,
-        description="Complete workflow JSON definition per WORKFLOW_JSON_SPEC",
+    definition: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Complete workflow JSON definition per WORKFLOW_JSON_SPEC (optional if composition is provided)",
+    )
+    composition: Optional[WorkflowCompositionSpec] = Field(
+        None,
+        description="Optional composition specification containing workflow skeleton and catalog node ID mapping",
     )
 
     @field_validator("tenant_id")
@@ -86,7 +96,9 @@ class WorkflowCreate(BaseModel):
 
     @field_validator("definition")
     @classmethod
-    def validate_definition(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_definition(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if v is None:
+            return v
         if not isinstance(v, dict):
             raise ValueError("definition must be a valid JSON object")
         if not v:
@@ -121,6 +133,8 @@ class WorkflowCreate(BaseModel):
             raise ValueError(
                 f"workflow_id version (v{id_version}) must match version field ({version})"
             )
+        if not self.definition and not self.composition:
+            raise ValueError("Either definition or composition must be provided")
         return self
 
 
