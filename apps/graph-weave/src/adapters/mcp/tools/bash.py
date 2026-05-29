@@ -81,17 +81,27 @@ class BashTool:
         Validate the command string against forbidden patterns and 
         absolute path access restrictions.
         """
-        # Check forbidden patterns
-        for pattern in self.FORBIDDEN_PATTERNS:
-            if pattern.search(command):
-                raise BashToolError(f"Command rejected by forbidden pattern: '{pattern.pattern}'. DO NOT attempt to use 'sudo' or system-level commands. Please stick to the provided scripts in the allowed paths.")
+        try:
+            tokens = shlex.split(command)
+        except Exception:
+            tokens = command.split()
+
+        # Check forbidden patterns on each token (skipping large multiline data payloads)
+        for token in tokens:
+            if len(token) > 100 or "\n" in token:
+                continue
+            for pattern in self.FORBIDDEN_PATTERNS:
+                if pattern.search(token):
+                    raise BashToolError(f"Command rejected by forbidden pattern: '{pattern.pattern}'. DO NOT attempt to use 'sudo' or system-level commands. Please stick to the provided scripts in the allowed paths.")
 
         # Basic check for absolute paths in the command string that are outside allowed paths
-        # This is a naive regex to find potential absolute paths
-        potential_paths = re.findall(r"(?:^|\s)(/[a-zA-Z0-9_\-\./]+)", command)
-        for p in potential_paths:
-            if not self._is_path_allowed(p):
-                raise BashToolError(f"Command attempts to access forbidden path: {p}")
+        for token in tokens:
+            if len(token) > 256 or "\n" in token:
+                continue
+            potential_paths = re.findall(r"(?:^|\s|')(/[a-zA-Z0-9_\-\./]+)", token)
+            for p in potential_paths:
+                if not self._is_path_allowed(p):
+                    raise BashToolError(f"Command attempts to access forbidden path: {p}")
                 
         # While we allow pipes and redirects, we could optionally enforce the base command here.
         # For LLM flexibility, we rely more on the forbidden patterns and path restrictions.

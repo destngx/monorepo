@@ -127,7 +127,10 @@ class WorkflowComposeService:
                         if prev == "entry":
                             input_mapping[req_field] = f"$.input.{req_field}"
                         elif node_defs.get(prev, {}).get("type") == "cli_node":
-                            input_mapping[req_field] = f"$.nodes.{prev}.result.stdout"
+                            if req_field in ("stdout", "stderr", "exit_code"):
+                                input_mapping[req_field] = f"$.nodes.{prev}.outputs.{req_field}"
+                            else:
+                                input_mapping[req_field] = f"$.nodes.{prev}.result.{req_field}"
                         else:
                             input_mapping[req_field] = f"$.nodes.{prev}.result.{req_field}"
                         mapped = True
@@ -149,22 +152,39 @@ class WorkflowComposeService:
             })
             step_order.append(alias)
 
-        # 5. Construct exit node output mapping dynamically
+        # 5. Construct exit node output mapping dynamically and generically
         exit_output_mapping = {}
-        for prev in reversed(step_order):
-            if node_defs.get(prev, {}).get("type") == "cli_node" and "updated_file_content" not in exit_output_mapping:
-                exit_output_mapping["updated_file_content"] = f"$.nodes.{prev}.result.stdout"
-            elif "file_content" in produced_fields.get(prev, []) and "updated_file_content" not in exit_output_mapping:
-                exit_output_mapping["updated_file_content"] = f"$.nodes.{prev}.result.file_content"
+        
+        # Check if skeleton exit step has defined an output_mapping
+        exit_step = next((s for s in skeleton.get("steps", []) if s.get("id") == "exit" or s.get("type") == "exit"), None)
+        if exit_step:
+            skeleton_mapping = exit_step.get("output_mapping") or exit_step.get("config", {}).get("output_mapping")
+            if skeleton_mapping:
+                exit_output_mapping = {}
+                for key, val in skeleton_mapping.items():
+                    # Automatically normalize cli_node outputs (stdout, stderr, exit_code) to .outputs.<field> instead of .result.<field>
+                    match = re.match(r"^\$\.nodes\.([a-zA-Z0-9_-]+)\.result\.(stdout|stderr|exit_code)$", val)
+                    if match:
+                        node_alias, field = match.groups()
+                        node_def = node_defs.get(node_alias, {})
+                        if node_def.get("type") == "cli_node" or node_alias == "process_media":
+                            exit_output_mapping[key] = f"$.nodes.{node_alias}.outputs.{field}"
+                            continue
+                    exit_output_mapping[key] = val
                 
-            if "sources_markdown" in produced_fields.get(prev, []) and "sources_markdown" not in exit_output_mapping:
-                exit_output_mapping["sources_markdown"] = f"$.nodes.{prev}.result.sources_markdown"
-                
-            if "drafts_markdown" in produced_fields.get(prev, []) and "drafts_markdown" not in exit_output_mapping:
-                exit_output_mapping["drafts_markdown"] = f"$.nodes.{prev}.result.drafts_markdown"
-
-        if "updated_file_content" not in exit_output_mapping:
-            exit_output_mapping["updated_file_content"] = "$.input.file_content"
+        # Generic Fallback: If no mapping is defined in the skeleton, build one dynamically from produced contracts
+        if not exit_output_mapping:
+            for prev in reversed(step_order):
+                if prev == "entry":
+                    continue
+                produced = produced_fields.get(prev, [])
+                for field in produced:
+                    if field not in exit_output_mapping:
+                        if node_defs.get(prev, {}).get("type") == "cli_node" and field in ("stdout", "stderr", "exit_code"):
+                            exit_output_mapping[field] = f"$.nodes.{prev}.outputs.{field}"
+                        else:
+                            exit_output_mapping[field] = f"$.nodes.{prev}.result.{field}"
+                            
 
         exit_node = {
             "id": "exit",

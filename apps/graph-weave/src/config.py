@@ -7,6 +7,30 @@ import os
 from typing import Optional
 from functools import lru_cache
 
+# Lightweight dynamic dotenv loader
+def _load_env_file(filepath: str) -> None:
+    if not os.path.exists(filepath):
+        return
+    try:
+        with open(filepath, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    key = key.strip()
+                    val = val.strip().strip("'\"")
+                    if key and key not in os.environ:
+                        os.environ[key] = val
+    except Exception:
+        pass
+
+# Automatically load .env and .env.local from both app and monorepo roots
+for env_name in [".env", ".env.local", "../../.env", "../../.env.local", "../../../.env", "../../../.env.local"]:
+    _abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), env_name))
+    _load_env_file(_abs_path)
+
 
 class GraphWeaveConfig:
     """Configuration for GraphWeave application."""

@@ -33,6 +33,14 @@ async def lifespan(app: FastAPI):
     init_services()
     logger.info("Services initialized")
 
+    try:
+        from .modules.shared.deps import get_mcp_router
+        mcp_router = get_mcp_router()
+        if mcp_router and hasattr(mcp_router, "bash_tool"):
+            logger.info(f"BashTool whitelisted paths: {mcp_router.bash_tool.allowed_paths}")
+    except Exception as e:
+        logger.warning(f"Could not log whitelisted paths: {e}")
+
     # Sync predefined workflow metadata index on startup
     try:
         workflow_store = get_workflow_store()
