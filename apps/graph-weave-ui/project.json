@@ -8,12 +8,12 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx vite build",
+        "command": "pnpx vite build",
         "cwd": "apps/graph-weave-ui"
       },
       "configurations": {
         "production": {
-          "command": "bunx vite build --mode production",
+          "command": "pnpx vite build --mode production",
           "cwd": "apps/graph-weave-ui"
         }
       }
@@ -21,28 +21,28 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx vite dev --host --port 8082",
+        "command": "pnpx vite dev --host --port 8082",
         "cwd": "apps/graph-weave-ui"
       }
     },
     "check": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx svelte-check --tsconfig ./tsconfig.json",
+        "command": "pnpx svelte-check --tsconfig ./tsconfig.json",
         "cwd": "apps/graph-weave-ui"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx eslint .",
+        "command": "pnpx eslint .",
         "cwd": "apps/graph-weave-ui"
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "bunx vitest",
+        "command": "pnpx vitest",
         "cwd": "apps/graph-weave-ui"
       }
     }

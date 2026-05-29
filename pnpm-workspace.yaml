@@ -1,0 +1,6 @@
+allowBuilds:
+  '@parcel/watcher': true
+  '@swc/core': true
+  es5-ext: true
+  nx: true
+  unrs-resolver: true
