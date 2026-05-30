@@ -9,7 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/oauth2 v0.36.0
-	google.golang.org/api v0.281.0
+	google.golang.org/api v0.282.0
 )
 
 require (
