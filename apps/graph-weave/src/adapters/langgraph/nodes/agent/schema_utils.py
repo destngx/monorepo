@@ -113,7 +113,9 @@ def matches_or_parses_as(value: Any, schema: Dict[str, Any]) -> bool:
 
 def normalize_against_schema(data: Any, schema: Optional[Dict[str, Any]]) -> Any:
     """
-    Parses stringified JSON values when the schema expects structured data.
+    Parses stringified JSON values when the schema expects structured data,
+    and applies self-healing lenient type coercion and auto-initialization
+    of missing required fields to prevent JSON schema validation failures.
     """
     if not schema:
         return data
@@ -123,9 +125,90 @@ def normalize_against_schema(data: Any, schema: Optional[Dict[str, Any]]) -> Any
         data = parsed
 
     expected_type = schema.get("type")
+    
+    # 1. Lenient Type Coercion
+    if expected_type:
+        if expected_type == "array":
+            if data is None:
+                data = []
+            elif not isinstance(data, list):
+                if isinstance(data, str) and data.startswith("[") and data.endswith("]"):
+                    try:
+                        import json
+                        data = json.loads(data)
+                    except Exception:
+                        data = [data]
+                else:
+                    data = [data]
+        elif expected_type == "object":
+            if data is None:
+                data = {}
+            elif not isinstance(data, dict):
+                if isinstance(data, str) and data.startswith("{") and data.endswith("}"):
+                    try:
+                        import json
+                        data = json.loads(data)
+                    except Exception:
+                        data = {}
+                else:
+                    data = {}
+        elif expected_type == "string":
+            if data is None:
+                data = ""
+            elif isinstance(data, (list, dict)):
+                import json
+                data = json.dumps(data)
+            else:
+                data = str(data)
+        elif expected_type == "boolean":
+            if data is None:
+                data = False
+            elif isinstance(data, str):
+                val_lower = data.strip().lower()
+                data = val_lower in ("true", "yes", "1", "y", "t", "ready", "pass", "passed", "valid")
+            else:
+                data = bool(data)
+        elif expected_type in ("number", "integer"):
+            if data is None:
+                data = 0
+            elif isinstance(data, str):
+                try:
+                    data = int(float(data)) if expected_type == "integer" else float(data)
+                except ValueError:
+                    data = 0
+            elif isinstance(data, bool):
+                data = 1 if data else 0
+            elif not isinstance(data, (int, float)):
+                data = 0
+
+    # 2. Recursive Auto-Filing of Missing Required Fields
     if expected_type == "object" and isinstance(data, dict):
         properties = schema.get("properties", {})
+        required = schema.get("required", [])
         normalized = dict(data)
+
+        for req_field in required:
+            if req_field not in normalized or normalized[req_field] is None:
+                field_schema = properties.get(req_field, {})
+                f_type = field_schema.get("type") if isinstance(field_schema, dict) else None
+                
+                if isinstance(f_type, list):
+                    non_null_types = [t for t in f_type if t != "null"]
+                    f_type = non_null_types[0] if non_null_types else None
+                
+                if f_type == "array":
+                    normalized[req_field] = []
+                elif f_type == "object":
+                    normalized[req_field] = {}
+                elif f_type == "string":
+                    normalized[req_field] = ""
+                elif f_type == "boolean":
+                    normalized[req_field] = False
+                elif f_type in ("number", "integer"):
+                    normalized[req_field] = 0
+                else:
+                    normalized[req_field] = None
+
         for key, field_schema in properties.items():
             if key in normalized and isinstance(field_schema, dict):
                 normalized[key] = normalize_against_schema(normalized[key], field_schema)
