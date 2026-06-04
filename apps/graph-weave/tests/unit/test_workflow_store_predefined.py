@@ -59,8 +59,6 @@ def test_create_node_predefined_workflow_loads_component_manifest():
     assert [node.get("id") or node.get("alias") for node in definition["nodes"]] == [
         "entry",
         "config_generator",
-        "node_validator",
-        "validation_gate",
         "node_assembler",
         "exit",
     ]

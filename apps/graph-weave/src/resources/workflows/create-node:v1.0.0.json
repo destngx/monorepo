@@ -23,14 +23,6 @@
       "node_id": "nodes:system:config_generator:v1.0.0"
     },
     {
-      "alias": "node_validator",
-      "node_id": "nodes:system:node_validator:v1.0.0"
-    },
-    {
-      "alias": "validation_gate",
-      "node_id": "nodes:system:validation_gate:v1.0.0"
-    },
-    {
       "alias": "node_assembler",
       "node_id": "nodes:system:node_assembler:v1.0.0"
     },
@@ -47,21 +39,7 @@
     },
     {
       "from": "config_generator",
-      "to": "node_validator"
-    },
-    {
-      "from": "node_validator",
-      "to": "validation_gate"
-    },
-    {
-      "from": "validation_gate",
-      "to": "node_assembler",
-      "condition": "$.nodes.node_validator.result.is_valid == true"
-    },
-    {
-      "from": "validation_gate",
-      "to": "exit",
-      "condition": "$.nodes.node_validator.result.is_valid == false"
+      "to": "node_assembler"
     },
     {
       "from": "node_assembler",

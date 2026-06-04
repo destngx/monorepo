@@ -98,3 +98,60 @@ class TestStateResolverUnified:
         assert get_state_value("$.input.file_path", sample_state) == "/Users/test/file name.txt"
         assert get_state_value("$normalize_input.output_schema.file_content", sample_state) == "Normalized text content"
         assert get_state_value("normalize_input.result.tags_first", sample_state) == "wealth"
+
+
+class TestStateResolverCoalescing:
+    def test_resolve_mapping_fallback_list(self, sample_state):
+        resolver = StateResolver(sample_state)
+        
+        # Scenario 1: First path is missing (process_media skipped), fallback to fetch_url_content
+        mapping = {
+            "file_content": [
+                "$.nodes.process_media.result.file_content",
+                "$.nodes.fetch_url_content.result.file_content",
+                "$.nodes.normalize_input.result.file_content"
+            ]
+        }
+        res = resolver.resolve_mapping(mapping)
+        assert res["file_content"] == "Extracted website content"
+
+        # Scenario 2: First two are missing (both skipped), fallback to normalize_input
+        mapping2 = {
+            "file_content": [
+                "$.nodes.process_media.result.file_content",
+                "$.nodes.non_existent.result.file_content",
+                "$.nodes.normalize_input.result.file_content"
+            ]
+        }
+        res2 = resolver.resolve_mapping(mapping2)
+        assert res2["file_content"] == "Normalized text content"
+
+    def test_resolve_mapping_fallback_list_in_dict_spec(self, sample_state):
+        resolver = StateResolver(sample_state)
+        
+        # Test dict spec with list of paths
+        mapping = {
+            "file_content": {
+                "path": [
+                    "$.nodes.process_media.result.file_content",
+                    "$.nodes.fetch_url_content.result.file_content"
+                ],
+                "required": True
+            }
+        }
+        res = resolver.resolve_mapping(mapping)
+        assert res["file_content"] == "Extracted website content"
+
+    def test_resolve_mapping_fallback_fails_throws(self, sample_state):
+        resolver = StateResolver(sample_state)
+        
+        # When all fallback paths miss, resolve_mapping returns None (lenient)
+        # instead of raising MissingStatePathError. This supports optional/skipped nodes.
+        mapping = {
+            "file_content": [
+                "$.nodes.process_media.result.file_content",
+                "$.nodes.non_existent.result.file_content"
+            ]
+        }
+        res = resolver.resolve_mapping(mapping)
+        assert res["file_content"] is None

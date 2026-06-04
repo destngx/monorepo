@@ -48,6 +48,7 @@ class AgentNodeHandler:
         
         default_provider = getattr(self.executor.config, "DEFAULT_PROVIDER", None)
         default_model = getattr(self.executor.config, "DEFAULT_MODEL", None)
+        default_large_context_model = getattr(self.executor.config, "DEFAULT_LARGE_CONTEXT_MODEL", "gpt-5.4")
         default_reasoning_effort = getattr(
             self.executor.config,
             "DEFAULT_REASONING_EFFORT",
@@ -57,13 +58,23 @@ class AgentNodeHandler:
         provider_raw = get_field("provider", default_provider)
         model_raw = get_field("model", default_model)
         reasoning_effort_raw = get_field("reasoning_effort", default_reasoning_effort)
-        
         provider = self.executor._interpolate_prompt(provider_raw, state, local_context=agent_input_context)
         model = self.executor._interpolate_prompt(model_raw, state, local_context=agent_input_context)
         if not str(provider or "").strip():
             provider = default_provider
         if not str(model or "").strip():
             model = default_model
+
+        # Dynamic model selection for long context
+        total_prompt_len = len(user_prompt) + len(system_prompt)
+        if total_prompt_len > 12000 and model in ["gpt-5.4-mini", "gpt-5-mini", "gpt-4o-mini"]:
+            self._logger.info(
+                f"[AGENT] Prompt length {total_prompt_len} exceeds threshold (12000). "
+                f"Dynamically upgrading model from {model} to {default_large_context_model} for handling long context."
+            )
+            model = default_large_context_model
+            provider = "openai"
+
         reasoning_effort = self.executor._interpolate_prompt(reasoning_effort_raw, state, local_context=agent_input_context) if reasoning_effort_raw else None
         if not str(reasoning_effort or "").strip():
             reasoning_effort = default_reasoning_effort

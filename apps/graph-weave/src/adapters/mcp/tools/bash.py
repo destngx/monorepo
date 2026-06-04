@@ -180,8 +180,8 @@ class BashTool:
                 timeout=timeout
             )
             
-            stdout = self._smart_truncate(result.stdout)
-            stderr = self._smart_truncate(result.stderr)
+            stdout = self._smart_truncate(result.stdout, threshold=1000000)
+            stderr = self._smart_truncate(result.stderr, threshold=1000000)
             
             return {
                 "success": result.returncode == 0,

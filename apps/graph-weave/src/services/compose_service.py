@@ -33,7 +33,7 @@ class WorkflowComposeService:
         Returns:
             The fully composed, stitched workflow definition dictionary.
         """
-        node_store = get_node_store()
+        node_store = get_node_store(tenant_id)
         
         # 1. Fetch resolved node definitions from catalog
         node_defs = {}
@@ -94,6 +94,7 @@ class WorkflowComposeService:
             {"id": "entry", "type": "entry", "display_name": "Entry"}
         ]
         step_order = ["entry"]
+        step_indices = {step.get("id"): idx for idx, step in enumerate(skeleton.get("steps", []))}
 
         for step in skeleton.get("steps", []):
             alias = step.get("id")
@@ -117,27 +118,32 @@ class WorkflowComposeService:
             input_mapping = {}
             ancestors = get_all_ancestors(alias)
             
+            # Sort ancestors so that nodes later in the execution flow (higher index) come first
+            ancestors.sort(key=lambda a: step_indices.get(a, -1), reverse=True)
+            
             if "entry" not in ancestors:
                 ancestors.append("entry")
 
             for req_field in required:
-                mapped = False
+                paths = []
                 for prev in ancestors:
                     if req_field in produced_fields.get(prev, []):
                         if prev == "entry":
-                            input_mapping[req_field] = f"$.input.{req_field}"
+                            paths.append(f"$.input.{req_field}")
                         elif node_defs.get(prev, {}).get("type") == "cli_node":
                             if req_field in ("stdout", "stderr", "exit_code"):
-                                input_mapping[req_field] = f"$.nodes.{prev}.outputs.{req_field}"
+                                paths.append(f"$.nodes.{prev}.outputs.{req_field}")
                             else:
-                                input_mapping[req_field] = f"$.nodes.{prev}.result.{req_field}"
+                                paths.append(f"$.nodes.{prev}.result.{req_field}")
                         else:
-                            input_mapping[req_field] = f"$.nodes.{prev}.result.{req_field}"
-                        mapped = True
-                        break
+                            paths.append(f"$.nodes.{prev}.result.{req_field}")
                 
-                # Ultimate fallback to workflow global input
-                if not mapped:
+                if len(paths) == 1:
+                    input_mapping[req_field] = paths[0]
+                elif len(paths) > 1:
+                    input_mapping[req_field] = paths
+                else:
+                    # Ultimate fallback to workflow global input
                     input_mapping[req_field] = f"$.input.{req_field}"
 
             # Assemble step node exactly as expected by the GraphWeave NodeCompiler
@@ -162,28 +168,34 @@ class WorkflowComposeService:
             if skeleton_mapping:
                 exit_output_mapping = {}
                 for key, val in skeleton_mapping.items():
-                    # Automatically normalize cli_node outputs (stdout, stderr, exit_code) to .outputs.<field> instead of .result.<field>
-                    match = re.match(r"^\$\.nodes\.([a-zA-Z0-9_-]+)\.result\.(stdout|stderr|exit_code)$", val)
-                    if match:
-                        node_alias, field = match.groups()
-                        node_def = node_defs.get(node_alias, {})
-                        if node_def.get("type") == "cli_node" or node_alias == "process_media":
-                            exit_output_mapping[key] = f"$.nodes.{node_alias}.outputs.{field}"
+                    if isinstance(val, str):
+                        # Convert specific node result/outputs paths to generic wildcards/fallbacks
+                        match = re.match(r"^\$\.nodes\.[a-zA-Z0-9_-]+\.(result|outputs)\.([a-zA-Z0-9_-]+)$", val)
+                        if match:
+                            ns, field = match.groups()
+                            if field in ("stdout", "stderr", "exit_code"):
+                                exit_output_mapping[key] = f"$.nodes.*.outputs.{field}"
+                            else:
+                                exit_output_mapping[key] = [
+                                    f"$.nodes.*.result.{field}",
+                                    f"$.input.{field}"
+                                ]
                             continue
                     exit_output_mapping[key] = val
                 
-        # Generic Fallback: If no mapping is defined in the skeleton, build one dynamically from produced contracts
+        # Generic Fallback: If no mapping is defined in the skeleton, build one dynamically.
         if not exit_output_mapping:
             for prev in reversed(step_order):
-                if prev == "entry":
-                    continue
                 produced = produced_fields.get(prev, [])
                 for field in produced:
                     if field not in exit_output_mapping:
-                        if node_defs.get(prev, {}).get("type") == "cli_node" and field in ("stdout", "stderr", "exit_code"):
-                            exit_output_mapping[field] = f"$.nodes.{prev}.outputs.{field}"
+                        if field in ("stdout", "stderr", "exit_code"):
+                            exit_output_mapping[field] = f"$.nodes.*.outputs.{field}"
                         else:
-                            exit_output_mapping[field] = f"$.nodes.{prev}.result.{field}"
+                            exit_output_mapping[field] = [
+                                f"$.nodes.*.result.{field}",
+                                f"$.input.{field}"
+                            ]
                             
 
         exit_node = {

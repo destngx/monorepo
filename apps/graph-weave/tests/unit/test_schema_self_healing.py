@@ -113,3 +113,82 @@ def test_auto_fill_missing_required_fields():
             "blocking_items": []
         }
     }
+
+
+def test_coerce_list_to_multi_field_object_sources():
+    schema = {
+        "type": "object",
+        "properties": {
+            "sources_markdown": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "drafts_markdown": {
+                "type": "array",
+                "items": {"type": "string"}
+            }
+        },
+        "required": ["sources_markdown", "drafts_markdown"]
+    }
+    
+    # Raw list should be coerced to the first array field, others auto-filled
+    input_data = ["card1", "card2"]
+    result = coerce_to_output_schema(input_data, schema)
+    
+    assert result == {
+        "sources_markdown": ["card1", "card2"],
+        "drafts_markdown": []
+    }
+
+
+def test_coerce_empty_list_to_multi_field_object():
+    schema = {
+        "type": "object",
+        "properties": {
+            "sources_markdown": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "drafts_markdown": {
+                "type": "array",
+                "items": {"type": "string"}
+            }
+        },
+        "required": ["sources_markdown", "drafts_markdown"]
+    }
+    
+    # Empty list should be coerced
+    input_data = []
+    result = coerce_to_output_schema(input_data, schema)
+    
+    assert result == {
+        "sources_markdown": [],
+        "drafts_markdown": []
+    }
+
+
+def test_coerce_dict_with_correct_keys_unchanged():
+    schema = {
+        "type": "object",
+        "properties": {
+            "sources_markdown": {
+                "type": "array",
+                "items": {"type": "string"}
+            },
+            "drafts_markdown": {
+                "type": "array",
+                "items": {"type": "string"}
+            }
+        },
+        "required": ["sources_markdown", "drafts_markdown"]
+    }
+    
+    # Dict with keys already present should pass through unchanged
+    input_data = {
+        "sources_markdown": ["card1"],
+        "drafts_markdown": ["draft1"]
+    }
+    result = coerce_to_output_schema(input_data, schema)
+    
+    assert result == input_data
+

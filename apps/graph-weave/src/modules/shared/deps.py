@@ -3,6 +3,7 @@ Shared dependencies for modules.
 """
 
 from typing import Optional
+from fastapi import Request
 from src.adapters.redis import RedisAdapter
 from src.config import GraphWeaveConfig
 from src.services.checkpoint_service import CheckpointService
@@ -114,8 +115,28 @@ def get_schedule_store() -> RedisScheduleStore:
 def get_scheduler_service() -> SchedulerService:
     return get_services().scheduler_service
 
-def get_node_store() -> RedisNodeStore:
-    return get_services().node_store
+def get_node_store(tenant_id: Optional[str] = None) -> RedisNodeStore:
+    services = get_services()
+    if tenant_id and tenant_id != "default":
+        namespaced_client = NamespacedRedisClient(
+            redis_client=services.cache,
+            fallback_storage=services.redis_client.fallback_storage,
+            tenant_id=tenant_id
+        )
+        return RedisNodeStore(namespaced_client)
+    return services.node_store
+
+async def get_tenant_node_store(request: Request) -> RedisNodeStore:
+    tenant_id = request.query_params.get("tenant_id")
+    if not tenant_id and request.method in ("POST", "PUT"):
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                tenant_id = body.get("tenant_id")
+        except Exception:
+            pass
+    return get_node_store(tenant_id)
 
 def get_node_validator() -> NodeValidator:
     return get_services().node_validator
+

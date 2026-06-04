@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..models.node import NodeCreate, NodeUpdate, NodeResponse, NodeListResponse
 from ..models.node.validators import NodeIdFormatError
-from ..modules.shared.deps import get_node_store, get_node_validator
+from ..modules.shared.deps import get_node_store, get_tenant_node_store, get_node_validator
 from ..adapters.node import ConflictError, NotFoundError
 
 router = APIRouter(prefix="/nodes", tags=["Nodes"])
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/nodes", tags=["Nodes"])
 @router.post("/", response_model=NodeResponse, status_code=201)
 async def create_node(
     node: NodeCreate,
-    store=Depends(get_node_store),
+    store=Depends(get_tenant_node_store),
     validator=Depends(get_node_validator),
 ):
     try:
@@ -29,8 +29,8 @@ async def create_node(
         existing = await store.get(node.node_id)
         if existing:
             # Review existing vs requested node to detect contract or configuration drift
-            existing_cmd = (existing.config or {}).get("command")
-            new_cmd = (node.config or {}).get("command")
+            existing_cmd = getattr(existing.config, "command", "") if hasattr(existing.config, "command") else (existing.config or {}).get("command", "")
+            new_cmd = getattr(node.config, "command", "") if hasattr(node.config, "command") else (node.config or {}).get("command", "")
             
             existing_produced = {p.get("name") for p in (existing.output_contract or {}).get("produced", []) if isinstance(p, dict)}
             new_produced = {p.name for p in (node.output_contract or {}).get("produced", [])}
@@ -62,7 +62,7 @@ async def list_nodes(
     node_name: str = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    store=Depends(get_node_store),
+    store=Depends(get_tenant_node_store),
 ):
     tag_list = tags.split(",") if tags else None
     return await store.list(
@@ -72,44 +72,6 @@ async def list_nodes(
         page_size=page_size,
     )
 
-
-@router.get("/{node_id:path}", response_model=NodeResponse)
-async def get_node(
-    node_id: str,
-    tenant_id: str = Query(...),
-    store=Depends(get_node_store),
-):
-    node = await store.get(node_id)
-    if not node:
-        raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
-    return node
-
-
-@router.put("/{node_id:path}", response_model=NodeResponse)
-async def update_node(
-    node_id: str,
-    update: NodeUpdate,
-    tenant_id: str = Query(...),
-    store=Depends(get_node_store),
-):
-    try:
-        return await store.update(node_id, update)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
-
-
-@router.delete("/{node_id:path}")
-async def delete_node(
-    node_id: str,
-    tenant_id: str = Query(...),
-    store=Depends(get_node_store),
-):
-    deleted = await store.delete(node_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
-    return {"deleted": True}
-
-
 @router.get("/verify", response_model=dict)
 async def verify_node(
     node_id: str = Query(...),
@@ -118,7 +80,8 @@ async def verify_node(
     command: str = Query(None),
     produced_fields: str = Query(None),
     required_fields: str = Query(None),
-    store=Depends(get_node_store),
+    intent_context: str = Query(None),
+    store=Depends(get_tenant_node_store),
 ):
     node = await store.get(node_id)
     if not node:
@@ -133,6 +96,12 @@ async def verify_node(
         existing_cmd = (node.config or {}).get("command")
         if existing_cmd != command:
             return {"is_reusable": False, "reason": "Command mismatch"}
+
+    # 2.5 Verify Intent Context (for agent nodes)
+    if type == "agent_node" and intent_context is not None:
+        existing_intent = getattr(node.provenance, "source_intent", None) if node.provenance else None
+        if existing_intent != intent_context:
+            return {"is_reusable": False, "reason": "Intent context mismatch (stale prompt)"}
 
     # 3. Verify Produced Fields
     if produced_fields:
@@ -151,3 +120,40 @@ async def verify_node(
                 return {"is_reusable": False, "reason": f"Input field '{f}' is missing in catalog"}
 
     return {"is_reusable": True}
+
+
+@router.get("/{node_id:path}", response_model=NodeResponse)
+async def get_node(
+    node_id: str,
+    tenant_id: str = Query(...),
+    store=Depends(get_tenant_node_store),
+):
+    node = await store.get(node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
+    return node
+
+
+@router.put("/{node_id:path}", response_model=NodeResponse)
+async def update_node(
+    node_id: str,
+    update: NodeUpdate,
+    tenant_id: str = Query(...),
+    store=Depends(get_tenant_node_store),
+):
+    try:
+        return await store.update(node_id, update)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
+
+
+@router.delete("/{node_id:path}")
+async def delete_node(
+    node_id: str,
+    tenant_id: str = Query(...),
+    store=Depends(get_tenant_node_store),
+):
+    deleted = await store.delete(node_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Node {node_id} not found")
+    return {"deleted": True}

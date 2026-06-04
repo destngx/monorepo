@@ -22,7 +22,9 @@ def test_exit_node_fails_when_required_output_is_missing():
         "workflow_state": {
             "status": "success",
             "draft_paths": None,
-        }
+        },
+        # Add root-level status so $.status resolves but $.draft_paths stays None
+        "status": "success",
     }
     node = {
         "id": "exit",

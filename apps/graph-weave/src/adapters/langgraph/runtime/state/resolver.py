@@ -78,12 +78,26 @@ class StateResolver:
         return resolved
 
     def _resolve_mapping_value(self, spec: Any) -> Any:
+        if isinstance(spec, list):
+            last_err = None
+            for item in spec:
+                try:
+                    val = self._resolve_mapping_value(item)
+                    if val is not None:
+                        return val
+                except MissingStatePathError as e:
+                    last_err = e
+                    continue
+            # Lenient: if all paths in the fallback list miss, return None
+            # instead of crashing. This supports optional/skipped nodes.
+            return None
+
         if isinstance(spec, str):
-            return self.resolve(spec)
+            return self.resolve(spec, required=False)
 
         if not isinstance(spec, dict):
             raise InvalidStatePathError(
-                f"Mapping spec must be a string or object, got {type(spec).__name__}"
+                f"Mapping spec must be a string, list, or object, got {type(spec).__name__}"
             )
 
         path = spec.get("path")
@@ -93,7 +107,23 @@ class StateResolver:
             return spec.get("default")
 
         required = spec.get("required", True)
-        value = self.resolve(path, required=required)
+        
+        if isinstance(path, list):
+            value = None
+            last_err = None
+            for p in path:
+                try:
+                    value = self.resolve(p, required=required)
+                    if value is not None:
+                        break
+                except MissingStatePathError as e:
+                    last_err = e
+                    continue
+            if value is None and last_err and required:
+                raise last_err
+        else:
+            value = self.resolve(path, required=required)
+
         if value is None:
             return spec.get("default")
 
@@ -231,7 +261,7 @@ class StateResolver:
         return None
 
     def _resolve_path(self, current: Any, keys: list[str]) -> Any:
-        for key in keys:
+        for idx, key in enumerate(keys):
             if current is None:
                 return None
 
@@ -250,6 +280,32 @@ class StateResolver:
             elif first_part.endswith("_json"):
                 virtual_transform = "json_quote"
                 first_part = first_part[:-5]
+
+            if first_part == "*":
+                if isinstance(current, dict):
+                    remaining_keys = keys[idx + 1:]
+                    for sub_key, sub_val in list(current.items())[::-1]:
+                        try:
+                            val = self._resolve_path(sub_val, remaining_keys)
+                            if val is not None:
+                                current = val
+                                break
+                        except MissingStatePathError:
+                            continue
+                    else:
+                        return None
+                    
+                    if virtual_transform is not None:
+                        if virtual_transform == "joined" and isinstance(current, list):
+                            current = ", ".join(str(i) for i in current)
+                        elif virtual_transform == "first" and isinstance(current, list) and len(current) > 0:
+                            current = current[0]
+                        elif virtual_transform == "sh_quote":
+                            current = shlex.quote(structured_arg_string(current))
+                        elif virtual_transform == "json_quote":
+                            current = json_stringify_normalized(current)
+                    return current
+                return None
 
             bracket_index_match = re.match(r"\[(\d+)\]", first_part)
             if bracket_index_match:

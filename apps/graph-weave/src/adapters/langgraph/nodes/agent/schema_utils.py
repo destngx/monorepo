@@ -15,9 +15,42 @@ def coerce_to_output_schema(data: Any, schema: Optional[Dict[str, Any]]) -> Any:
         validate_output_schema(data, schema)
         return data
 
-    candidates = [data]
+    candidates = []
+    if not (isinstance(data, list) and schema.get("type") == "object"):
+        candidates.append(data)
     if isinstance(data, dict):
         candidates.extend(iter_dict_candidates(data))
+
+    # Multi-field list-to-object wrapping candidates.
+    # When data is a list but schema expects an object with array-typed required fields,
+    # generate candidates that assign the list to each array field, auto-filling others.
+    required = schema.get("required", [])
+    if isinstance(data, list) and schema.get("type") == "object":
+        properties = schema.get("properties", {})
+        array_fields = [
+            f for f in required
+            if isinstance(properties.get(f), dict) and properties[f].get("type") == "array"
+        ]
+        if len(array_fields) >= 1:
+            for target_field in array_fields:
+                wrapper = {target_field: data}
+                for other_field in required:
+                    if other_field != target_field:
+                        f_schema = properties.get(other_field, {})
+                        f_type = f_schema.get("type") if isinstance(f_schema, dict) else None
+                        if f_type == "array":
+                            wrapper[other_field] = []
+                        elif f_type == "object":
+                            wrapper[other_field] = {}
+                        elif f_type == "string":
+                            wrapper[other_field] = ""
+                        elif f_type == "boolean":
+                            wrapper[other_field] = False
+                        elif f_type in ("number", "integer"):
+                            wrapper[other_field] = 0
+                        else:
+                            wrapper[other_field] = None
+                candidates.append(wrapper)
 
     # Special case: single required field schema
     required = schema.get("required", [])

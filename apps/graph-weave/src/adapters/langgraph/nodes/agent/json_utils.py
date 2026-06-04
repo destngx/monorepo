@@ -2,6 +2,95 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
+def repair_split_arrays(content: str) -> str:
+    """
+    Repairs malformed JSON arrays that are split into multiple arrays (e.g. `["a"], ["b"]` instead of `["a", "b"]`)
+    by merging them when they occur inside an object and outside of other arrays.
+    """
+    if not isinstance(content, str):
+        return content
+
+    result = []
+    in_string = False
+    escape = False
+    brace_depth = 0
+    bracket_depth = 0
+
+    i = 0
+    n = len(content)
+    while i < n:
+        char = content[i]
+
+        if in_string:
+            if escape:
+                escape = False
+            elif char == '\\':
+                escape = True
+            elif char == '"':
+                in_string = False
+            result.append(char)
+            i += 1
+            continue
+
+        # Not in string
+        if char == '"':
+            in_string = True
+            escape = False
+            result.append(char)
+            i += 1
+            continue
+
+        if char == '{':
+            brace_depth += 1
+            result.append(char)
+            i += 1
+            continue
+        elif char == '}':
+            brace_depth = max(0, brace_depth - 1)
+            result.append(char)
+            i += 1
+            continue
+        elif char == '[':
+            bracket_depth += 1
+            result.append(char)
+            i += 1
+            continue
+        elif char == ']':
+            # Check if this is a split array boundary
+            if bracket_depth == 1 and brace_depth > 0:
+                # Look ahead for optional whitespace, optional single comma, optional whitespace, and '['
+                j = i + 1
+                seen_comma = False
+                has_match = False
+                while j < n:
+                    c = content[j]
+                    if c.isspace():
+                        j += 1
+                    elif c == ',' and not seen_comma:
+                        seen_comma = True
+                        j += 1
+                    elif c == '[':
+                        has_match = True
+                        break
+                    else:
+                        break
+                
+                if has_match:
+                    # Merge by replacing the range from i to j (from ']' to '[') with ', '
+                    result.append(', ')
+                    i = j + 1
+                    continue
+
+            bracket_depth = max(0, bracket_depth - 1)
+            result.append(char)
+            i += 1
+            continue
+
+        result.append(char)
+        i += 1
+
+    return "".join(result)
+
 def extract_json(content: Any) -> Optional[Any]:
     """
     Robust JSON extraction: try code blocks first, then any JSON-like structure.
@@ -9,10 +98,22 @@ def extract_json(content: Any) -> Optional[Any]:
     if not isinstance(content, str) or not content.strip():
         return None
 
-    # Try to extract from markdown code blocks
-    json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", content, re.DOTALL)
+    repaired = repair_split_arrays(content)
+    return _extract_json_internal(repaired)
+
+def _extract_json_internal(content: str) -> Optional[Any]:
+    # Try to extract using a greedy regex (matches from first ```json to last ```)
+    # This prevents truncation on inner markdown code blocks within the JSON string values
+    json_match = re.search(r"```(?:json)?\s*(.*)\s*```", content, re.DOTALL)
     if json_match:
         parsed = loads_json(json_match.group(1))
+        if parsed is not None:
+            return parsed
+
+    # Fallback to non-greedy extract from markdown code blocks
+    json_match_non_greedy = re.search(r"```(?:json)?\s*(.*?)\s*```", content, re.DOTALL)
+    if json_match_non_greedy:
+        parsed = loads_json(json_match_non_greedy.group(1))
         if parsed is not None:
             return parsed
 

@@ -79,10 +79,16 @@ class RedisWorkflowStore:
         workflow = self.get(tenant_id, workflow_id)
         if not workflow:
             return None
-        if self.compiler:
-            compiled_definition = await self.compiler.compile(workflow.get("definition", workflow))
-            return {**workflow, "definition": compiled_definition}
-        return workflow
+            
+        if self.node_store is None:
+            return workflow
+            
+        from src.modules.shared.deps import get_node_store
+        tenant_node_store = get_node_store(tenant_id)
+        
+        compiler = WorkflowCompiler(tenant_node_store)
+        compiled_definition = await compiler.compile(workflow.get("definition", workflow))
+        return {**workflow, "definition": compiled_definition}
 
     def sync_predefined_workflows(self, tenant_id: str) -> None:
         """
