@@ -1,6 +1,7 @@
 package domain
 
 const (
+	ProviderDefault       = ProviderOpenAI
 	ProviderGitHubCopilot = "github-copilot"
 	ProviderGitHubModels  = "github-models"
 	ProviderBedrock       = "bedrock"

@@ -69,7 +69,7 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 			targetModel = "xiaomi-token-plan-sgp/" + model
 		}
 		return RouteTarget{
-			Provider: domain.ProviderXiaomiMimo,
+			Provider: domain.ProviderDefault,
 			Model:    targetModel,
 		}, false
 	}

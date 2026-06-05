@@ -1,7 +1,7 @@
 package domain
 
 const (
-	ModelDefault          = ModelMimoV25
+	ModelDefault          = ModelGPT5Mini
 	ModelGPT5Mini         = "gpt-5-mini"
 	ModelGPT54            = "gpt-5.4"
 	ModelGPT54Mini        = "gpt-5.4-mini"

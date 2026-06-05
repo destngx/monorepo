@@ -144,12 +144,11 @@ func toCodexResponseRequest(req domain.ChatRequest) codexResponseRequest {
 	}
 
 	out := codexResponseRequest{
-		Model:           req.Model,
-		Instructions:    strings.Join(instructions, "\n\n"),
-		Input:           input,
-		Stream:          true,
-		Store:           false,
-		MaxOutputTokens: maxOutputTokens,
+		Model:        req.Model,
+		Instructions: strings.Join(instructions, "\n\n"),
+		Input:        input,
+		Stream:       true,
+		Store:        false,
 	}
 	return out
 }
