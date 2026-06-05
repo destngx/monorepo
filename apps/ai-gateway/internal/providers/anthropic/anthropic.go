@@ -210,8 +210,14 @@ func (p *Provider) IsConfigured() bool {
 }
 
 func (p *Provider) Ping(ctx context.Context) error {
-	// Anthropic doesn't have a simple GET ping; try HEAD on messages endpoint
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodHead, baseURL+pathMessages, nil)
+	body, _ := json.Marshal(map[string]interface{}{
+		"model": "claude-3-5-haiku-20241022",
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": "ping"},
+		},
+		"max_tokens": 1,
+	})
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+pathMessages, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -225,8 +231,9 @@ func (p *Provider) Ping(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 
-	// 405 Method Not Allowed is acceptable for HEAD on a POST-only endpoint,
-	// it proves the server is reachable and understands the URL.
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("anthropic auth failed: %d", resp.StatusCode)
+	}
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("anthropic service unavailable (status %d)", resp.StatusCode)
 	}

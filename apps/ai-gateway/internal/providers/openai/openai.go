@@ -44,7 +44,7 @@ const (
 	envOpenAICodexVersion  = "OPENAI_CODEX_VERSION"
 
 	authProbeModel             = "__ai_gateway_auth_probe__"
-	codexDefaultVersion        = "0.122.0"
+	codexDefaultVersion        = "0.137.0"
 	codexOriginator            = "codex_cli_rs"
 	codexResponsesExperimental = "responses=experimental"
 	codexUserAgent             = "codex-cli"
@@ -259,6 +259,7 @@ func staticModels() *domain.ModelsResponse {
 		Data: []domain.ModelInfo{
 			{ID: "gpt-5.4", Object: "model", OwnedBy: "openai"},
 			{ID: "gpt-5.4-mini", Object: "model", OwnedBy: "openai"},
+			{ID: domain.ModelGPT55, Object: "model", OwnedBy: "openai"},
 			{ID: domain.ModelGPT5Mini, Object: "model", OwnedBy: "openai"},
 			{ID: "gpt-5.1", Object: "model", OwnedBy: "openai"},
 			{ID: domain.ModelGPT41, Object: "model", OwnedBy: "openai"},

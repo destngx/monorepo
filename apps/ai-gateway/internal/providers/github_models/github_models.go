@@ -211,7 +211,7 @@ func (p *Provider) Ping(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 500 {
+	if resp.StatusCode >= 400 && resp.StatusCode != http.StatusMethodNotAllowed && resp.StatusCode != http.StatusNotFound {
 		return fmt.Errorf("github models service unavailable (status %d)", resp.StatusCode)
 	}
 	return nil

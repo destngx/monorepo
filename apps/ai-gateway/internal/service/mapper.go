@@ -68,8 +68,12 @@ func (m *ModelMapper) Resolve(provider, model string) (target RouteTarget, isExa
 		if strings.HasPrefix(mKey, "mimo-") && !strings.HasPrefix(mKey, domain.PrefixMimo) {
 			targetModel = "xiaomi-token-plan-sgp/" + model
 		}
+		targetProvider := provider
+		if targetProvider == "" {
+			targetProvider = domain.ProviderXiaomiMimo
+		}
 		return RouteTarget{
-			Provider: domain.ProviderDefault,
+			Provider: targetProvider,
 			Model:    targetModel,
 		}, false
 	}

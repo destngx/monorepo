@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 
 	"apps/ai-gateway/internal/domain"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -120,10 +119,8 @@ func (p *Provider) Ping(ctx context.Context) error {
 			MaxTokens: aws.Int32(1),
 		},
 	})
-	if err != nil && !strings.Contains(err.Error(), "AccessDenied") {
-		if strings.Contains(err.Error(), "no such host") || strings.Contains(err.Error(), "timeout") {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 	return nil
 }

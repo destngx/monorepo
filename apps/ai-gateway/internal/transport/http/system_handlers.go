@@ -61,8 +61,9 @@ func NewHealthHandler(registry *service.Registry) *HealthHandler {
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":    "ok",
-		"providers": h.registry.List(),
+		"status":              "ok",
+		"supported_providers": h.registry.List(),
+		"ready_providers":     h.registry.ReadyList(),
 	})
 }
 

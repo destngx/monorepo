@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"apps/ai-gateway/config"
@@ -90,12 +91,25 @@ func NewRegistry(cfg *config.Config) *Registry {
 		slog.Warn("Failed to initialize Bedrock", "error", err)
 	}
 
+	// Concurrent readiness checks for all registered providers
+	var wg sync.WaitGroup
+	for _, p := range r.providers {
+		wg.Add(1)
+		go func(prov shared.Provider) {
+			defer wg.Done()
+			r.checkReadiness(prov)
+		}(p)
+	}
+	wg.Wait()
+
 	return r
 }
 
 func (r *Registry) register(p shared.Provider) {
 	r.providers[p.Name()] = p
+}
 
+func (r *Registry) checkReadiness(p shared.Provider) {
 	// Phase 1: Token Check
 	if !p.IsConfigured() {
 		slog.Warn("Provider missing configuration", "provider", p.Name())
@@ -175,6 +189,17 @@ func (r *Registry) List() []string {
 	keys := make([]string, 0, len(r.providers))
 	for k := range r.providers {
 		keys = append(keys, k)
+	}
+	return keys
+}
+
+// ReadyList returns the names of all providers that are configured and ready.
+func (r *Registry) ReadyList() []string {
+	keys := make([]string, 0)
+	for name, p := range r.providers {
+		if p.IsReady() {
+			keys = append(keys, name)
+		}
 	}
 	return keys
 }

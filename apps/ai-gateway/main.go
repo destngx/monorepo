@@ -122,7 +122,8 @@ func main() {
 	)
 
 	slog.Info(LogFormatListening, "addr", cfg.ListenAddr)
-	slog.Info(LogFormatRegProviders, "providers", registry.List())
+	slog.Info("Supported providers", "providers", registry.List())
+	slog.Info("Ready providers", "providers", registry.ReadyList())
 	slog.Info(LogFormatDefaultRoute, "provider", registry.Mapper.DefaultTarget.Provider, "model", registry.Mapper.DefaultTarget.Model)
 	if err := http.ListenAndServe(cfg.ListenAddr, stack); err != nil {
 		slog.Error("server failed", "error", err)

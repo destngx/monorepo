@@ -16,7 +16,7 @@ class AgentNodeHandler:
     """
     Handles the execution of agent nodes, including the tool loop.
     """
-    
+
     def __init__(self, executor: Any):
         self.executor = executor
         self._logger = logger
@@ -30,25 +30,25 @@ class AgentNodeHandler:
     ) -> Dict[str, Any]:
         node_id = node.get("id")
         config = node.get("config", {})
-        
+
         def get_field(name, default=None):
             return config.get(name) or node.get(name) or default
 
         system_prompt = get_field("system_prompt", "You are a helpful assistant.")
         user_prompt_template = get_field("user_prompt_template", "")
-        
+
         input_mapping = get_field("input_mapping", {})
         if input_mapping:
             agent_input_context = StateResolver(state).resolve_mapping(input_mapping)
         else:
             agent_input_context = dict(state.get("workflow", {}))
-        
+
         user_prompt = self.executor._interpolate_prompt(user_prompt_template, state, local_context=agent_input_context)
         system_prompt = self.executor._interpolate_prompt(system_prompt, state, local_context=agent_input_context)
-        
+
         default_provider = getattr(self.executor.config, "DEFAULT_PROVIDER", None)
         default_model = getattr(self.executor.config, "DEFAULT_MODEL", None)
-        default_large_context_model = getattr(self.executor.config, "DEFAULT_LARGE_CONTEXT_MODEL", "gpt-5.4")
+        default_large_context_model = getattr(self.executor.config, "DEFAULT_LARGE_CONTEXT_MODEL", "gpt-5.5")
         default_reasoning_effort = getattr(
             self.executor.config,
             "DEFAULT_REASONING_EFFORT",
@@ -78,7 +78,7 @@ class AgentNodeHandler:
         reasoning_effort = self.executor._interpolate_prompt(reasoning_effort_raw, state, local_context=agent_input_context) if reasoning_effort_raw else None
         if not str(reasoning_effort or "").strip():
             reasoning_effort = default_reasoning_effort
-        
+
         temperature = get_field("temperature", 0.7)
         max_tokens = get_field("max_tokens", 8000)
         allowed_tools = get_field("tools", [])
@@ -235,7 +235,7 @@ class AgentNodeHandler:
                 total_tokens += response.get("usage", {}).get("total_tokens", 0)
                 choice = response["choices"][0]
                 message = choice["message"]
-                
+
                 # Log raw LLM response for debugging tool-use issues
                 self._logger.info(f"[AGENT] {node_id} response: {message.get('content', '')}")
                 if message.get("tool_calls"):
@@ -252,10 +252,10 @@ class AgentNodeHandler:
                     if not content and reasoning and not output_schema:
                         self._logger.info(f"[AGENT] {node_id} content is empty, using reasoning as fallback")
                         content = reasoning
-                    
+
                     final_content = self.executor._clean_filler(content)
                     break
-                
+
                 all_tool_calls.extend(tool_calls)
                 messages.append(message)
 
@@ -274,7 +274,7 @@ class AgentNodeHandler:
                         tool_args = json.loads(tool_args_interpolated)
                     except json.JSONDecodeError:
                         tool_args = json.loads(tool_args_raw)
-                    
+
                     validate_tool_args_resolved(tool_name, tool_args)
 
                     if tool_name == "bash":
