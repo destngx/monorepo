@@ -73,7 +73,7 @@ class AgentNodeHandler:
                 f"Dynamically upgrading model from {model} to {default_large_context_model} for handling long context."
             )
             model = default_large_context_model
-            provider = "openai"
+            provider = default_provider
 
         reasoning_effort = self.executor._interpolate_prompt(reasoning_effort_raw, state, local_context=agent_input_context) if reasoning_effort_raw else None
         if not str(reasoning_effort or "").strip():

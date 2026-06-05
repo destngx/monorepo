@@ -10,6 +10,8 @@ from src.adapters.ai_provider import LLMClient
 from .context import build_initial_messages, trim_context
 from .tools import get_tools, execute_tool_calls
 
+from src.config import GraphWeaveConfig
+
 logger = get_logger(__name__)
 
 class OrchestratorReAct:
@@ -23,8 +25,8 @@ class OrchestratorReAct:
         mcp_router: Any,      # MCPRouter
         emit: Callable[[str, Dict[str, Any]], None],
         max_context_messages: int = 20,
-        default_provider: str = "github-copilot",
-        default_model: str = "gpt-5.4-mini",
+        default_provider: str = GraphWeaveConfig.DEFAULT_PROVIDER,
+        default_model: str = GraphWeaveConfig.DEFAULT_MODEL,
     ) -> None:
         self.client = client
         self.mcp_router = mcp_router

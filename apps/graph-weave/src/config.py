@@ -27,7 +27,7 @@ def _load_env_file(filepath: str) -> None:
         pass
 
 # Automatically load .env and .env.local from both app and monorepo roots
-for env_name in [".env", ".env.local", "../../.env", "../../.env.local", "../../../.env", "../../../.env.local"]:
+for env_name in [".env", ".env.local", "../.env", "../.env.local", "../../.env", "../../.env.local", "../../../.env", "../../../.env.local"]:
     _abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), env_name))
     _load_env_file(_abs_path)
 

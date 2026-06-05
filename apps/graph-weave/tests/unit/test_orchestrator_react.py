@@ -89,7 +89,7 @@ class TestOrchestratorHappyPath:
             run_id="run-001",
             node_id="node-orch",
             config=config,
-            workflow_state={"incident": "high CPU on prod"},
+            workflow_context={"incident": "high CPU on prod"},
         )
 
         assert "orchestrator_trace" in result

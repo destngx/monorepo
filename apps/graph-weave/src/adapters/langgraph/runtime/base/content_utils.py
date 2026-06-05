@@ -95,15 +95,23 @@ def interpolate_prompt(
                     val = val["result"]
 
             if isinstance(val, list):
-                if lookup_p.lower().endswith("_json"):
+                # If the list contains any multiline strings (e.g. documents, cards),
+                # serialize as a JSON array to preserve layout boundaries.
+                has_multiline = any(isinstance(item, str) and "\n" in item for item in val)
+                if has_multiline or lookup_p.lower().endswith("_json"):
                     try:
                         val_str = json.dumps(val)
                     except (TypeError, ValueError):
                         val_str = str(val)
-                elif any(hint in lookup_p.lower() for hint in ["tag", "author", "name"]):
-                    val_str = ", ".join(str(i) for i in val)
                 else:
-                    val_str = "\n".join(str(i) for i in val)
+                    # Heuristic: If the placeholder is on a line by itself in the template,
+                    # format as block-level (joined by newlines). Otherwise, format inline (joined by commas).
+                    pattern = r"^\s*\{{1,2}" + re.escape(p) + r"\}{1,2}\s*$"
+                    is_block = bool(re.search(pattern, template, re.MULTILINE))
+                    if is_block:
+                        val_str = "\n".join(str(i) for i in val)
+                    else:
+                        val_str = ", ".join(str(i) for i in val)
             elif isinstance(val, dict):
                 try:
                     val_str = json.dumps(val, indent=2)
