@@ -13,6 +13,9 @@ import (
 )
 
 func (p *Provider) authMode() string {
+	if p.useCodex() {
+		return "oauth"
+	}
 	if p.apiKey != "" {
 		return "api_key"
 	}
@@ -105,24 +108,28 @@ func (p *Provider) refreshAccessToken(ctx context.Context, force bool) (*config.
 }
 
 func (p *Provider) setAuthHeaders(httpReq *http.Request) error {
+	if p.useCodex() {
+		oauth, err := p.refreshAccessToken(httpReq.Context(), false)
+		if err != nil {
+			return err
+		}
+		if oauth != nil {
+			if oauth.AccessToken != "" {
+				httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+oauth.AccessToken)
+			} else if oauth.IDToken != "" {
+				httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+oauth.IDToken)
+			}
+			if oauth.AccountID != "" {
+				httpReq.Header.Set(headerChatGPTAcctID, oauth.AccountID)
+			}
+		}
+		return nil
+	}
+
 	if p.apiKey != "" {
 		httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+p.apiKey)
 		return nil
 	}
 
-	oauth, err := p.refreshAccessToken(httpReq.Context(), false)
-	if err != nil {
-		return err
-	}
-	if oauth != nil {
-		if oauth.AccessToken != "" {
-			httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+oauth.AccessToken)
-		} else if oauth.IDToken != "" {
-			httpReq.Header.Set(headerAuthorization, tokenPrefixBearer+oauth.IDToken)
-		}
-		if oauth.AccountID != "" {
-			httpReq.Header.Set(headerChatGPTAcctID, oauth.AccountID)
-		}
-	}
 	return nil
 }

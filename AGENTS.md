@@ -39,6 +39,6 @@ Claude Code and other agentic harnesses use **Progressive Disclosure**. Read the
 
 ## Anti-Patterns
 
-- **No NPM/Yarn/PNPM**: Use `bun` exclusively in this workspace.
+- **No NPM/Yarn/bun**: Use `pnpm` exclusively in this workspace.
 - **No Error Swallowing**: Always handle or wrap errors properly.
 - **Check Docs First**: Review the corresponding `docs/*/AGENTS.md` before implementing architectural changes.

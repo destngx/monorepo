@@ -71,7 +71,7 @@ func New(apiKey string, oauth *config.OpenAIOAuth) *Provider {
 func (p *Provider) Name() string { return domain.ProviderOpenAI }
 
 func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
-	if p.apiKey == "" {
+	if p.useCodex() {
 		return p.chatCodex(ctx, req)
 	}
 
@@ -98,7 +98,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 }
 
 func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
-	if p.apiKey == "" {
+	if p.useCodex() {
 		return p.chatCodexStream(ctx, req, w)
 	}
 
@@ -174,7 +174,7 @@ func (p *Provider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) 
 }
 
 func (p *Provider) ListModels(ctx context.Context) (*domain.ModelsResponse, error) {
-	if p.apiKey == "" {
+	if p.useCodex() {
 		models, err := p.listCodexModels(ctx)
 		if err == nil {
 			return models, nil
@@ -269,6 +269,12 @@ func staticModels() *domain.ModelsResponse {
 	}
 }
 
+func (p *Provider) useCodex() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.oauth != nil && (p.oauth.AccessToken != "" || p.oauth.RefreshToken != "" || p.oauth.IDToken != "")
+}
+
 func (p *Provider) IsConfigured() bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -276,6 +282,16 @@ func (p *Provider) IsConfigured() bool {
 }
 
 func (p *Provider) RefreshReady(ctx context.Context) bool {
+	if p.useCodex() {
+		if p.refreshOAuth() == nil {
+			return false
+		}
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		return p.Ping(ctx) == nil
+	}
+
 	if p.apiKey != "" {
 		p.mu.Lock()
 		p.source = "OPENAI_API_KEY"
@@ -283,25 +299,25 @@ func (p *Provider) RefreshReady(ctx context.Context) bool {
 		return true
 	}
 
-	if p.refreshOAuth() == nil {
-		return false
-	}
-
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return p.Ping(ctx) == nil
+	return false
 }
 
 func (p *Provider) ReadySummary() string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	if p.apiKey != "" {
-		return "api_key (OPENAI_API_KEY)"
+	if p.useCodex() {
+		p.mu.RLock()
+		source := p.source
+		p.mu.RUnlock()
+		if source != "" {
+			return "oauth_access_token (" + source + ")"
+		}
+		return p.authMode()
 	}
-	if p.source != "" {
-		return "oauth_access_token (" + p.source + ")"
+
+	p.mu.RLock()
+	apiKey := p.apiKey
+	p.mu.RUnlock()
+	if apiKey != "" {
+		return "api_key (OPENAI_API_KEY)"
 	}
 	return p.authMode()
 }
@@ -311,33 +327,33 @@ func (p *Provider) Ping(ctx context.Context) error {
 		return fmt.Errorf("openai not configured")
 	}
 
-	if p.apiKey != "" {
+	if p.useCodex() {
+		// For OAuth, we need to try an actual request
+		body, _ := json.Marshal(domain.ChatRequest{
+			Model:    authProbeModel,
+			Messages: []domain.Message{{Role: domain.RoleUser, Content: "ping"}},
+		})
+		resp, err := p.doOpenAIRequest(ctx, http.MethodPost, pathChatCompletions, body, contentTypeJSON)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return fmt.Errorf("openai auth failed: %d", resp.StatusCode)
+		}
+
 		return nil
-	}
-
-	// For OAuth, we need to try an actual request
-	body, _ := json.Marshal(domain.ChatRequest{
-		Model:    authProbeModel,
-		Messages: []domain.Message{{Role: domain.RoleUser, Content: "ping"}},
-	})
-	resp, err := p.doOpenAIRequest(ctx, http.MethodPost, pathChatCompletions, body, contentTypeJSON)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("openai auth failed: %d", resp.StatusCode)
 	}
 
 	return nil
 }
 
 func (p *Provider) Usage(ctx context.Context) (any, error) {
-	if p.apiKey != "" {
-		return p.usageAPI(ctx)
+	if p.useCodex() {
+		return p.usageCodex(ctx)
 	}
-	return p.usageCodex(ctx)
+	return p.usageAPI(ctx)
 }
 
 func (p *Provider) IsReady() bool   { return p.ready }

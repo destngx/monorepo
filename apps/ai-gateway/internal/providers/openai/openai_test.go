@@ -154,3 +154,44 @@ func TestUsageReturnsCodexSnapshotForOAuth(t *testing.T) {
 		t.Fatalf("expected weekly left percent 86, got %v", limitsDisplay["weekly"].LeftPercent)
 	}
 }
+
+func TestCodexPriorityOverAPIKey(t *testing.T) {
+	var captured *http.Request
+	t.Setenv("OPENAI_OAUTH_PATH", "/nonexistent/openai-auth.json")
+	t.Setenv("CODEX_AUTH_PATH", "/nonexistent/codex-auth.json")
+	t.Setenv("HOME", t.TempDir())
+
+	p := New("test-api-key", &config.OpenAIOAuth{AccessToken: "oauth-token"})
+	p.client = &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			captured = r
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body: io.NopCloser(strings.NewReader(`{
+					"rate_limit": {
+						"primary_window": {"used_percent": 12, "limit_window_seconds": 18000, "reset_at": 1776932940},
+						"secondary_window": {"used_percent": 14, "limit_window_seconds": 604800, "reset_at": 1777445040}
+					},
+					"plan_type": "plus"
+				}`)),
+			}, nil
+		}),
+	}
+
+	_, err := p.Usage(context.Background())
+	if err != nil {
+		t.Fatalf("usage error: %v", err)
+	}
+	if captured == nil {
+		t.Fatalf("expected request to be captured")
+	}
+	// If Codex is first, it should call the Codex usage endpoint (/backend-api/wham/usage)
+	// and use the oauth token, not the api key.
+	if captured.URL.Path != "/backend-api/wham/usage" {
+		t.Fatalf("expected codex usage path, got %s", captured.URL.Path)
+	}
+	if captured.Header.Get(headerAuthorization) != tokenPrefixBearer+"oauth-token" {
+		t.Fatalf("expected oauth authorization header, got %s", captured.Header.Get(headerAuthorization))
+	}
+}

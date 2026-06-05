@@ -11,7 +11,7 @@ import (
 
 func (p *Provider) doOpenAIRequest(ctx context.Context, method, path string, body []byte, contentType string) (*http.Response, error) {
 	resp, err := p.doOpenAIRequestOnce(ctx, method, path, body, contentType)
-	if err != nil || resp.StatusCode != http.StatusUnauthorized || p.apiKey != "" {
+	if err != nil || resp.StatusCode != http.StatusUnauthorized || !p.useCodex() {
 		return resp, err
 	}
 
@@ -47,7 +47,7 @@ func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesR
 	if err != nil {
 		return nil, err
 	}
-	if p.apiKey != "" {
+	if !p.useCodex() {
 		return p.doOpenAIRequest(ctx, http.MethodPost, pathResponses, body, contentTypeJSON)
 	}
 
