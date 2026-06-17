@@ -140,8 +140,14 @@ func TestUsageReturnsCodexSnapshotForOAuth(t *testing.T) {
 	if !strings.Contains(display.FiveHour, "88% left") {
 		t.Fatalf("expected 5h left display, got %q", display.FiveHour)
 	}
+	if display.FiveHourReset != "2026-04-23 08:29 UTC" {
+		t.Fatalf("expected 5h reset date, got %q", display.FiveHourReset)
+	}
 	if !strings.Contains(display.Weekly, "86% left") {
 		t.Fatalf("expected weekly left display, got %q", display.Weekly)
+	}
+	if display.WeeklyReset != "2026-04-29 06:44 UTC" {
+		t.Fatalf("expected weekly reset date, got %q", display.WeeklyReset)
 	}
 	limitsDisplay, ok := snapshot.Limits.(map[string]codexLimitDisplay)
 	if !ok {

@@ -58,10 +58,12 @@ func (p *Provider) usageCodex(ctx context.Context) (any, error) {
 	var raw struct {
 		RateLimit struct {
 			Primary struct {
-				UsedPercent int `json:"used_percent"`
+				UsedPercent int   `json:"used_percent"`
+				ResetAt     int64 `json:"reset_at"`
 			} `json:"primary_window"`
 			Secondary struct {
-				UsedPercent int `json:"used_percent"`
+				UsedPercent int   `json:"used_percent"`
+				ResetAt     int64 `json:"reset_at"`
 			} `json:"secondary_window"`
 		} `json:"rate_limit"`
 	}
@@ -82,8 +84,10 @@ func (p *Provider) usageCodex(ctx context.Context) (any, error) {
 			},
 		},
 		Display: codexUsageDisplay{
-			FiveHour: fmt.Sprintf("%d%% used (%d%% left)", raw.RateLimit.Primary.UsedPercent, 100-raw.RateLimit.Primary.UsedPercent),
-			Weekly:   fmt.Sprintf("%d%% used (%d%% left)", raw.RateLimit.Secondary.UsedPercent, 100-raw.RateLimit.Secondary.UsedPercent),
+			FiveHour:      fmt.Sprintf("%d%% used (%d%% left)", raw.RateLimit.Primary.UsedPercent, 100-raw.RateLimit.Primary.UsedPercent),
+			FiveHourReset: formatUsageResetAt(raw.RateLimit.Primary.ResetAt),
+			Weekly:        fmt.Sprintf("%d%% used (%d%% left)", raw.RateLimit.Secondary.UsedPercent, 100-raw.RateLimit.Secondary.UsedPercent),
+			WeeklyReset:   formatUsageResetAt(raw.RateLimit.Secondary.ResetAt),
 		},
 		Limits: map[string]codexLimitDisplay{
 			"5h":     codexLimitDisplay{LeftPercent: 100 - raw.RateLimit.Primary.UsedPercent},
@@ -92,4 +96,11 @@ func (p *Provider) usageCodex(ctx context.Context) (any, error) {
 	}
 
 	return snapshot, nil
+}
+
+func formatUsageResetAt(unixSeconds int64) string {
+	if unixSeconds == 0 {
+		return ""
+	}
+	return time.Unix(unixSeconds, 0).UTC().Format("2006-01-02 15:04 UTC")
 }

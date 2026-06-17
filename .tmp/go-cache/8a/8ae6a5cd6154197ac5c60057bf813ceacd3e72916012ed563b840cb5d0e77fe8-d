@@ -1,0 +1,27 @@
+# test log
+getenv OPENAI_OAUTH_PATH
+getenv CODEX_AUTH_PATH
+getenv GOTMPDIR
+getenv TMPDIR
+getenv HOME
+getenv OPENAI_OAUTH_PATH
+getenv CODEX_AUTH_PATH
+getenv HOME
+open /nonexistent/openai-auth.json
+open /nonexistent/codex-auth.json
+open /var/folders/7d/v0yvrdps1jl1vgrp6x61kd4w0000gn/T/TestUsageReturnsCodexSnapshotForOAuth1521411701/001/.codex/auth.json
+open /var/folders/7d/v0yvrdps1jl1vgrp6x61kd4w0000gn/T/TestUsageReturnsCodexSnapshotForOAuth1521411701/001/.code/auth.json
+open /var/folders/7d/v0yvrdps1jl1vgrp6x61kd4w0000gn/T
+getenv OPENAI_OAUTH_PATH
+getenv CODEX_AUTH_PATH
+getenv GOTMPDIR
+getenv TMPDIR
+getenv HOME
+getenv OPENAI_OAUTH_PATH
+getenv CODEX_AUTH_PATH
+getenv HOME
+open /nonexistent/openai-auth.json
+open /nonexistent/codex-auth.json
+open /var/folders/7d/v0yvrdps1jl1vgrp6x61kd4w0000gn/T/TestCodexPriorityOverAPIKey2004883510/001/.codex/auth.json
+open /var/folders/7d/v0yvrdps1jl1vgrp6x61kd4w0000gn/T/TestCodexPriorityOverAPIKey2004883510/001/.code/auth.json
+open /var/folders/7d/v0yvrdps1jl1vgrp6x61kd4w0000gn/T

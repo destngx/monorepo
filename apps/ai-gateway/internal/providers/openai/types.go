@@ -80,8 +80,10 @@ type codexUsageSnapshot struct {
 }
 
 type codexUsageDisplay struct {
-	FiveHour string `json:"5h"`
-	Weekly   string `json:"weekly"`
+	FiveHour      string `json:"5h"`
+	FiveHourReset string `json:"5h_reset_at"`
+	Weekly        string `json:"weekly"`
+	WeeklyReset   string `json:"weekly_reset_at"`
 }
 
 type codexLimitDisplay struct {
