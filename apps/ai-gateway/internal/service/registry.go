@@ -21,8 +21,10 @@ import (
 )
 
 const (
-	errUnknownProvider  = "unknown provider %q — registered: %v"
-	errProviderNotReady = "provider %q not ready"
+	errUnknownProvider      = "unknown provider %q — registered: %v"
+	errProviderNotReady     = "provider %q not ready"
+	defaultReadinessTimeout = 2 * time.Second
+	bedrockReadinessTimeout = 10 * time.Second
 )
 
 // Registry maps provider names to their implementations.
@@ -153,7 +155,13 @@ func (r *Registry) checkReadiness(p shared.Provider) {
 	}
 
 	// Phase 2: Ping Check
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	readinessTimeout := defaultReadinessTimeout
+	if p.Name() == domain.ProviderBedrock {
+		// Bedrock discovery is a control-plane request and can exceed the
+		// short timeout used by local/HTTP providers, especially on cold start.
+		readinessTimeout = bedrockReadinessTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), readinessTimeout)
 	defer cancel()
 
 	if err := p.Ping(ctx); err != nil {

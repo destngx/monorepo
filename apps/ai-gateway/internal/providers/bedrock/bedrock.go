@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 
 	"apps/ai-gateway/internal/domain"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/bedrock"
+	bedrocktypes "github.com/aws/aws-sdk-go-v2/service/bedrock/types"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime"
 	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime/types"
 )
@@ -26,9 +29,18 @@ const (
 )
 
 type Provider struct {
-	client *bedrockruntime.Client
-	region string
-	ready  bool
+	client  *bedrockruntime.Client
+	control *bedrock.Client
+	region  string
+	ready   bool
+	mu      sync.RWMutex
+	probe   probeResult
+}
+
+type probeResult struct {
+	discovered int
+	candidates int
+	model      string
 }
 
 func New(ctx context.Context, region string) (*Provider, error) {
@@ -39,8 +51,9 @@ func New(ctx context.Context, region string) (*Provider, error) {
 
 	client := bedrockruntime.NewFromConfig(cfg)
 	return &Provider{
-		client: client,
-		region: region,
+		client:  client,
+		control: bedrock.NewFromConfig(cfg),
+		region:  region,
 	}, nil
 }
 
@@ -105,24 +118,69 @@ func (p *Provider) IsConfigured() bool {
 }
 
 func (p *Provider) Ping(ctx context.Context) error {
-	_, err := p.client.Converse(ctx, &bedrockruntime.ConverseInput{
-		ModelId: aws.String("anthropic.claude-3-haiku-20240307-v1:0"),
-		Messages: []types.Message{
-			{
-				Role: types.ConversationRoleUser,
-				Content: []types.ContentBlock{
-					&types.ContentBlockMemberText{Value: "ping"},
-				},
-			},
-		},
-		InferenceConfig: &types.InferenceConfiguration{
-			MaxTokens: aws.Int32(1),
-		},
+	models, err := p.control.ListFoundationModels(ctx, &bedrock.ListFoundationModelsInput{
+		ByOutputModality: bedrocktypes.ModelModalityText,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("bedrock model discovery failed: %w", err)
 	}
-	return nil
+
+	candidates := 0
+	for _, model := range models.ModelSummaries {
+		if model.ModelId != nil && model.ModelLifecycle != nil &&
+			model.ModelLifecycle.Status == bedrocktypes.FoundationModelLifecycleStatusActive &&
+			supportsOnDemand(model.InferenceTypesSupported) {
+			candidates++
+		}
+	}
+	p.mu.Lock()
+	p.probe.discovered = len(models.ModelSummaries)
+	p.probe.candidates = candidates
+	p.mu.Unlock()
+
+	var lastErr error
+	for _, model := range models.ModelSummaries {
+		if model.ModelId == nil || model.ModelLifecycle == nil ||
+			model.ModelLifecycle.Status != bedrocktypes.FoundationModelLifecycleStatusActive ||
+			!supportsOnDemand(model.InferenceTypesSupported) {
+			continue
+		}
+
+		_, err = p.client.Converse(ctx, &bedrockruntime.ConverseInput{
+			ModelId: model.ModelId,
+			Messages: []types.Message{{
+				Role:    types.ConversationRoleUser,
+				Content: []types.ContentBlock{&types.ContentBlockMemberText{Value: "ping"}},
+			}},
+			InferenceConfig: &types.InferenceConfiguration{MaxTokens: aws.Int32(1)},
+		})
+		if err == nil {
+			p.mu.Lock()
+			p.probe.model = aws.ToString(model.ModelId)
+			p.mu.Unlock()
+			return nil
+		}
+		lastErr = fmt.Errorf("model %q: %w", aws.ToString(model.ModelId), err)
+	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("bedrock model discovery returned no active on-demand text models")
+}
+
+func (p *Provider) ReadySummary() string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return fmt.Sprintf("region=%s discovered_models=%d probe_candidates=%d probe_model=%s", p.region, p.probe.discovered, p.probe.candidates, p.probe.model)
+}
+
+func supportsOnDemand(inferenceTypes []bedrocktypes.InferenceType) bool {
+	for _, inferenceType := range inferenceTypes {
+		if inferenceType == bedrocktypes.InferenceTypeOnDemand {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Provider) Usage(ctx context.Context) (any, error) {
