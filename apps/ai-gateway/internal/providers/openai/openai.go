@@ -257,6 +257,8 @@ func staticModels() *domain.ModelsResponse {
 	return &domain.ModelsResponse{
 		Object: "list",
 		Data: []domain.ModelInfo{
+			{ID: domain.ModelGPT56Sol, Object: "model", OwnedBy: "openai"},
+			{ID: domain.ModelGPT56Luna, Object: "model", OwnedBy: "openai"},
 			{ID: "gpt-5.4", Object: "model", OwnedBy: "openai"},
 			{ID: "gpt-5.4-mini", Object: "model", OwnedBy: "openai"},
 			{ID: domain.ModelGPT55, Object: "model", OwnedBy: "openai"},

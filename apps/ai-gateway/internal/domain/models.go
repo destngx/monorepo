@@ -1,9 +1,11 @@
 package domain
 
 const (
-	ModelDefault          = ModelGPT54Mini
+	ModelDefault          = ModelGPT56Luna
 	ModelGPT5Mini         = "gpt-5-mini"
 	ModelGPT55            = "gpt-5.5"
+	ModelGPT56Luna        = "gpt-5.6-luna"
+	ModelGPT56Sol         = "gpt-5.6-sol"
 	ModelGPT54            = "gpt-5.4"
 	ModelGPT54Mini        = "gpt-5.4-mini"
 	ModelGPT41            = "gpt-4.1"

@@ -48,7 +48,7 @@ class AgentNodeHandler:
 
         default_provider = getattr(self.executor.config, "DEFAULT_PROVIDER", None)
         default_model = getattr(self.executor.config, "DEFAULT_MODEL", None)
-        default_large_context_model = getattr(self.executor.config, "DEFAULT_LARGE_CONTEXT_MODEL", "gpt-5.5")
+        default_large_context_model = getattr(self.executor.config, "DEFAULT_LARGE_CONTEXT_MODEL", "gpt-5.6-sol")
         default_reasoning_effort = getattr(
             self.executor.config,
             "DEFAULT_REASONING_EFFORT",
@@ -67,7 +67,7 @@ class AgentNodeHandler:
 
         # Dynamic model selection for long context
         total_prompt_len = len(user_prompt) + len(system_prompt)
-        if total_prompt_len > 12000 and model in ["gpt-5.4-mini", "gpt-5-mini", "gpt-4o-mini"]:
+        if total_prompt_len > 12000 and model in ["gpt-5.6-luna", "gpt-5.4-mini", "gpt-5-mini", "gpt-4o-mini"]:
             self._logger.info(
                 f"[AGENT] Prompt length {total_prompt_len} exceeds threshold (12000). "
                 f"Dynamically upgrading model from {model} to {default_large_context_model} for handling long context."
