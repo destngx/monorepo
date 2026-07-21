@@ -44,7 +44,7 @@ const (
 	envOpenAICodexVersion  = "OPENAI_CODEX_VERSION"
 
 	authProbeModel             = "__ai_gateway_auth_probe__"
-	codexDefaultVersion        = "0.137.0"
+	codexDefaultVersion        = "0.144.6"
 	codexOriginator            = "codex_cli_rs"
 	codexResponsesExperimental = "responses=experimental"
 	codexUserAgent             = "codex-cli"
