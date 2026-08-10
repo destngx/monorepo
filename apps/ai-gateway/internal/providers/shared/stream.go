@@ -168,9 +168,21 @@ func StreamResponsesSSEAndCountUsage(body io.Reader, w io.Writer) (domain.Usage,
 
 // MergeUsage accumulates usage stats across multiple tool-loop iterations.
 func MergeUsage(a, b domain.Usage) domain.Usage {
-	return domain.Usage{
+	merged := domain.Usage{
 		PromptTokens:     a.PromptTokens + b.PromptTokens,
 		CompletionTokens: a.CompletionTokens + b.CompletionTokens,
 		TotalTokens:      a.TotalTokens + b.TotalTokens,
 	}
+	if a.PromptTokensDetails != nil || b.PromptTokensDetails != nil {
+		merged.PromptTokensDetails = &domain.PromptTokensDetails{}
+		if a.PromptTokensDetails != nil {
+			merged.PromptTokensDetails.CachedTokens += a.PromptTokensDetails.CachedTokens
+			merged.PromptTokensDetails.CacheWriteTokens += a.PromptTokensDetails.CacheWriteTokens
+		}
+		if b.PromptTokensDetails != nil {
+			merged.PromptTokensDetails.CachedTokens += b.PromptTokensDetails.CachedTokens
+			merged.PromptTokensDetails.CacheWriteTokens += b.PromptTokensDetails.CacheWriteTokens
+		}
+	}
+	return merged
 }

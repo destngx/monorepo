@@ -1,5 +1,7 @@
 package domain
 
+import "encoding/json"
+
 const (
 	RoleSystem    = "system"
 	RoleUser      = "user"
@@ -16,19 +18,25 @@ const (
 // ChatRequest is the OpenAI-compatible inbound request structure.
 // Clients always send this format, regardless of provider.
 type ChatRequest struct {
-	Model               string         `json:"model"`
-	Messages            []Message      `json:"messages"`
-	Stream              bool           `json:"stream"`
-	StreamOptions       *StreamOptions `json:"stream_options,omitempty"`
-	Temperature         *float64       `json:"temperature,omitempty"`
-	TopP                *float64       `json:"top_p,omitempty"`
-	MaxTokens           *int           `json:"max_tokens,omitempty"`
-	Stop                any            `json:"stop,omitempty"`
-	N                   *int           `json:"n,omitempty"`
-	Tools               []Tool         `json:"tools,omitempty"`
-	ToolChoice          any            `json:"tool_choice,omitempty"`
-	ReasoningEffort     string         `json:"reasoning_effort,omitempty"`
-	MaxCompletionTokens *int           `json:"max_completion_tokens,omitempty"`
+	Model               string              `json:"model"`
+	Messages            []Message           `json:"messages"`
+	Stream              bool                `json:"stream"`
+	StreamOptions       *StreamOptions      `json:"stream_options,omitempty"`
+	Temperature         *float64            `json:"temperature,omitempty"`
+	TopP                *float64            `json:"top_p,omitempty"`
+	MaxTokens           *int                `json:"max_tokens,omitempty"`
+	Stop                any                 `json:"stop,omitempty"`
+	N                   *int                `json:"n,omitempty"`
+	Tools               []Tool              `json:"tools,omitempty"`
+	ToolChoice          any                 `json:"tool_choice,omitempty"`
+	ReasoningEffort     string              `json:"reasoning_effort,omitempty"`
+	MaxCompletionTokens *int                `json:"max_completion_tokens,omitempty"`
+	PromptCacheKey      string              `json:"prompt_cache_key,omitempty"`
+	PromptCacheOptions  *PromptCacheOptions `json:"prompt_cache_options,omitempty"`
+}
+
+type PromptCacheOptions struct {
+	Mode string `json:"mode,omitempty"`
 }
 
 type StreamOptions struct {
@@ -36,11 +44,37 @@ type StreamOptions struct {
 }
 
 type Message struct {
-	Role             string     `json:"role"` // "system" | "user" | "assistant" | "tool"
-	Content          string     `json:"content"`
-	ReasoningContent string     `json:"reasoning_content,omitempty"`
-	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID       string     `json:"tool_call_id,omitempty"`
+	Role             string        `json:"role"` // "system" | "user" | "assistant" | "tool"
+	Content          string        `json:"content"`
+	ReasoningContent string        `json:"reasoning_content,omitempty"`
+	ToolCalls        []ToolCall    `json:"tool_calls,omitempty"`
+	ToolCallID       string        `json:"tool_call_id,omitempty"`
+	Parts            []ContentPart `json:"-"`
+}
+
+type ContentPart struct {
+	Type                  string           `json:"type"`
+	Text                  string           `json:"text"`
+	PromptCacheBreakpoint *CacheBreakpoint `json:"prompt_cache_breakpoint,omitempty"`
+}
+
+type CacheBreakpoint struct {
+	Mode string `json:"mode"`
+}
+
+func (m Message) MarshalJSON() ([]byte, error) {
+	type wire struct {
+		Role             string     `json:"role"`
+		Content          any        `json:"content"`
+		ReasoningContent string     `json:"reasoning_content,omitempty"`
+		ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
+		ToolCallID       string     `json:"tool_call_id,omitempty"`
+	}
+	content := any(m.Content)
+	if len(m.Parts) > 0 {
+		content = m.Parts
+	}
+	return json.Marshal(wire{m.Role, content, m.ReasoningContent, m.ToolCalls, m.ToolCallID})
 }
 
 type Tool struct {
@@ -111,7 +145,8 @@ type Usage struct {
 }
 
 type PromptTokensDetails struct {
-	CachedTokens int `json:"cached_tokens,omitempty"`
+	CachedTokens     int `json:"cached_tokens,omitempty"`
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
 }
 
 type CompletionTokensDetails struct {

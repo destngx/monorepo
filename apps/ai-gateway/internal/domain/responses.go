@@ -85,10 +85,26 @@ func UsageFromResponsesUsage(usageObj map[string]any) Usage {
 		totalTokens = inputTokens + outputTokens
 	}
 	return Usage{
-		PromptTokens:     inputTokens,
-		CompletionTokens: outputTokens,
-		TotalTokens:      totalTokens,
+		PromptTokens:        inputTokens,
+		CompletionTokens:    outputTokens,
+		TotalTokens:         totalTokens,
+		PromptTokensDetails: promptTokenDetails(usageObj["input_tokens_details"]),
 	}
+}
+
+func promptTokenDetails(value any) *PromptTokensDetails {
+	obj, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	details := &PromptTokensDetails{
+		CachedTokens:     numberToInt(obj["cached_tokens"]),
+		CacheWriteTokens: numberToInt(obj["cache_write_tokens"]),
+	}
+	if details.CachedTokens == 0 && details.CacheWriteTokens == 0 {
+		return nil
+	}
+	return details
 }
 
 func numberToInt(value any) int {

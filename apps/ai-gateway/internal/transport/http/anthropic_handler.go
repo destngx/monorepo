@@ -374,6 +374,7 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 
 	if ar.System != nil {
 		systemText := ""
+		var systemParts []domain.ContentPart
 		switch v := ar.System.(type) {
 		case string:
 			systemText = v
@@ -382,6 +383,11 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 				if b, ok := block.(map[string]any); ok {
 					if t, ok := b["type"].(string); ok && t == "text" {
 						if txt, ok := b["text"].(string); ok {
+							part := domain.ContentPart{Type: "text", Text: txt}
+							if _, marked := b["cache_control"].(map[string]any); marked {
+								part.PromptCacheBreakpoint = &domain.CacheBreakpoint{Mode: "explicit"}
+							}
+							systemParts = append(systemParts, part)
 							if systemText != "" {
 								systemText += "\n"
 							}
@@ -394,8 +400,7 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 
 		if systemText != "" {
 			req.Messages = append(req.Messages, domain.Message{
-				Role:    domain.RoleSystem,
-				Content: systemText,
+				Role: domain.RoleSystem, Content: systemText, Parts: systemParts,
 			})
 		}
 	}
@@ -466,6 +471,20 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 
 		if msg.Content == "" && len(msg.ToolCalls) == 0 && msg.Role != "tool" {
 			msg.Content = "..."
+		}
+		if blocks, ok := m.Content.([]any); ok {
+			for _, raw := range blocks {
+				block, ok := raw.(map[string]any)
+				if !ok || block["type"] != "text" {
+					continue
+				}
+				text, _ := block["text"].(string)
+				part := domain.ContentPart{Type: "text", Text: text}
+				if _, ok := block["cache_control"].(map[string]any); ok {
+					part.PromptCacheBreakpoint = &domain.CacheBreakpoint{Mode: "explicit"}
+				}
+				msg.Parts = append(msg.Parts, part)
+			}
 		}
 
 		if msg.Role != "" || msg.Content != "" || len(msg.ToolCalls) > 0 {

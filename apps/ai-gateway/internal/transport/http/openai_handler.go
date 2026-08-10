@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -454,6 +455,20 @@ func (sw *StreamLogWriter) Flush() {
 }
 
 func setMetrics(r *http.Request, provider, model, inputModel string, usage domain.Usage, stream bool, err error) {
+	cached, writes := 0, 0
+	metadataPresent := usage.PromptTokensDetails != nil
+	if usage.PromptTokensDetails != nil {
+		cached = usage.PromptTokensDetails.CachedTokens
+		writes = usage.PromptTokensDetails.CacheWriteTokens
+	}
+	ratio := 0.0
+	if usage.PromptTokens > 0 {
+		ratio = math.Round(float64(cached)/float64(usage.PromptTokens)*1000) / 10
+	}
+	slog.Info("Prompt cache usage", "provider", provider, "model", model,
+		"input_tokens", usage.PromptTokens, "cache_read_tokens", cached,
+		"cache_write_tokens", writes, "cache_read_ratio", ratio,
+		"metadata_present", metadataPresent)
 	payload, ok := r.Context().Value(domain.MetricsPayloadKey).(*domain.MetricsPayload)
 	if !ok || payload == nil {
 		return

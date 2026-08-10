@@ -57,16 +57,18 @@ type codexResponse struct {
 }
 
 type codexUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
-	TotalTokens  int `json:"total_tokens"`
+	InputTokens        int                         `json:"input_tokens"`
+	OutputTokens       int                         `json:"output_tokens"`
+	TotalTokens        int                         `json:"total_tokens"`
+	InputTokensDetails *domain.PromptTokensDetails `json:"input_tokens_details,omitempty"`
 }
 
 func (u codexUsage) toDomain() domain.Usage {
 	return domain.Usage{
-		PromptTokens:     u.InputTokens,
-		CompletionTokens: u.OutputTokens,
-		TotalTokens:      u.TotalTokens,
+		PromptTokens:        u.InputTokens,
+		CompletionTokens:    u.OutputTokens,
+		TotalTokens:         u.TotalTokens,
+		PromptTokensDetails: u.InputTokensDetails,
 	}
 }
 

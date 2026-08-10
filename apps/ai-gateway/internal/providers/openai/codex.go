@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -77,6 +78,7 @@ func (p *Provider) chatCodexStream(ctx context.Context, req domain.ChatRequest, 
 }
 
 func (p *Provider) doCodexRequest(ctx context.Context, req domain.ChatRequest) (*http.Response, error) {
+	slog.Info("OpenAI upstream request", "method", http.MethodPost, "path", pathCodexResponses)
 	body, err := json.Marshal(toCodexResponseRequest(req))
 	if err != nil {
 		return nil, err
@@ -121,7 +123,7 @@ func toCodexResponseRequest(req domain.ChatRequest) codexResponseRequest {
 		input = append(input, codexInputMessage{
 			Role: role,
 			Content: []codexInputContent{
-				{Type: "input_text", Text: msg.Content},
+				codexContentFromMessage(msg),
 			},
 		})
 	}
@@ -151,6 +153,14 @@ func toCodexResponseRequest(req domain.ChatRequest) codexResponseRequest {
 		Store:        false,
 	}
 	return out
+}
+
+func codexContentFromMessage(msg domain.Message) codexInputContent {
+	content := codexInputContent{Type: "input_text", Text: msg.Content}
+	if len(msg.Parts) > 0 {
+		content.Text = msg.Parts[0].Text
+	}
+	return content
 }
 
 func parseCodexStream(body io.Reader, w io.Writer) (string, domain.Usage, string, int64, string, error) {

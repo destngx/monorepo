@@ -70,50 +70,6 @@ func New(apiKey string, oauth *config.OpenAIOAuth) *Provider {
 
 func (p *Provider) Name() string { return domain.ProviderOpenAI }
 
-func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
-	if p.useCodex() {
-		return p.chatCodex(ctx, req)
-	}
-
-	body, _ := json.Marshal(req)
-	resp, err := p.doOpenAIRequest(ctx, http.MethodPost, pathChatCompletions, body, contentTypeJSON)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		if isInsufficientQuota(b) {
-			return nil, fmt.Errorf("%s: openai error %d: %s", openAIInsufficientQuotaMsg, resp.StatusCode, b)
-		}
-		return nil, fmt.Errorf("openai error %d: %s", resp.StatusCode, b)
-	}
-
-	var result domain.ChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
-func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
-	if p.useCodex() {
-		return p.chatCodexStream(ctx, req, w)
-	}
-
-	req.Stream = true
-	req.StreamOptions = &domain.StreamOptions{IncludeUsage: true}
-	body, _ := json.Marshal(req)
-	resp, err := p.doOpenAIRequest(ctx, http.MethodPost, pathChatCompletions, body, contentTypeJSON)
-	if err != nil {
-		return domain.Usage{}, err
-	}
-	defer resp.Body.Close()
-
-	return shared.StreamSSEAndCountTokens(resp.Body, w)
-}
-
 func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
 	req = req.WithStream(false)
 	resp, err := p.doResponsesRequest(ctx, req)

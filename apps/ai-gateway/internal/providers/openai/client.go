@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 )
 
@@ -25,6 +26,7 @@ func (p *Provider) doOpenAIRequest(ctx context.Context, method, path string, bod
 }
 
 func (p *Provider) doOpenAIRequestOnce(ctx context.Context, method, path string, body []byte, contentType string) (*http.Response, error) {
+	slog.Info("OpenAI upstream request", "method", method, "path", path)
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
@@ -43,6 +45,7 @@ func (p *Provider) doOpenAIRequestOnce(ctx context.Context, method, path string,
 }
 
 func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesRequest) (*http.Response, error) {
+	slog.Info("OpenAI upstream request", "method", http.MethodPost, "path", pathResponses)
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
