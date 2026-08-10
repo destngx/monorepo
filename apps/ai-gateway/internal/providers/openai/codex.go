@@ -303,6 +303,11 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
 	if w != nil {
+		if len(toolCalls) > 0 {
+			if err := writeOpenAIToolFinish(w, responseID, created, model); err != nil {
+				return content.String(), toolCalls, usage, responseID, created, model, err
+			}
+		}
 		shared.InjectUsageChunk(w, usage)
 	}
 
@@ -322,6 +327,16 @@ func writeOpenAIToolDelta(w io.Writer, id string, created int64, model string, i
 		function["name"] = name
 	}
 	chunk := map[string]any{"id": id, "object": "chat.completion.chunk", "created": created, "model": model, "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"tool_calls": []any{map[string]any{"index": index, "id": callID, "type": "function", "function": function}}}, "finish_reason": nil}}}
+	return writeSSEMap(w, chunk)
+}
+
+func writeOpenAIToolFinish(w io.Writer, id string, created int64, model string) error {
+	chunk := map[string]any{
+		"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
+		"choices": []any{map[string]any{
+			"index": 0, "delta": map[string]any{}, "finish_reason": "tool_calls",
+		}},
+	}
 	return writeSSEMap(w, chunk)
 }
 

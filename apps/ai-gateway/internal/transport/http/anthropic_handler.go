@@ -314,11 +314,23 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 	eventCount, convertErr := convertToAnthropicStream(pr, writer)
 	if convertErr != nil {
 		slog.Error("Stream convert error", "rid", rid, "error", convertErr)
+		// Once headers/events have been sent, the only useful way to report a
+		// failure is an Anthropic SSE error event.  Without this Claude sees a
+		// truncated turn and may appear to stop after a tool call.
+		sendAnthroEvent(writer, eventError, map[string]any{
+			"error": map[string]any{
+				"type":    typeAnthroAPIError,
+				"message": convertErr.Error(),
+			},
+		})
+		if flusher, ok := writer.(interface{ Flush() }); ok {
+			flusher.Flush()
+		}
 	}
 
 	if err := <-errCh; err != nil {
 		slog.Error("Anthropic stream error", "rid", rid, "error", err)
-		if eventCount == 0 {
+		if eventCount == 0 && convertErr == nil {
 			sendAnthroEvent(writer, eventError, map[string]any{
 				"error": map[string]any{
 					"type":    typeAnthroAPIError,
@@ -599,11 +611,15 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	emitted := 0
 
 	var (
-		first            = true
-		textBlockStarted = false
-		blockIndex       = -1
-		activeToolIndex  = -1
-		activeToolID     = ""
+		first             = true
+		textBlockStarted  = false
+		blockIndex        = -1
+		activeToolIndex   = -1
+		activeToolID      = ""
+		toolArguments     = make(map[int]string)
+		toolArgumentsSent = make(map[int]bool)
+		messageDeltaSent  = false
+		toolUseSeen       = false
 	)
 
 	writeEvent := func(eventType string, data any) {
@@ -629,6 +645,22 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		}
 	}
 
+	emitToolArguments := func() {
+		for index, arguments := range toolArguments {
+			if toolArgumentsSent[index] || arguments == "" {
+				continue
+			}
+			if normalized, changed := normalizeStreamToolArguments(arguments); changed {
+				arguments = normalized
+			}
+			writeEvent(eventContentBlockDelta, map[string]any{
+				"index": index,
+				"delta": map[string]any{"type": "input_json_delta", "partial_json": arguments},
+			})
+			toolArgumentsSent[index] = true
+		}
+	}
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, sseDataPrefix) {
@@ -637,6 +669,17 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		data := strings.TrimPrefix(line, sseDataPrefix)
 		if data == "[DONE]" {
 			ensureTextStopped()
+			emitToolArguments()
+			if activeToolIndex != -1 {
+				writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
+			}
+			if !messageDeltaSent {
+				stopReason := stopReasonEndTurn
+				if toolUseSeen {
+					stopReason = "tool_use"
+				}
+				writeEvent(eventMessageDelta, map[string]any{"delta": map[string]any{"stop_reason": stopReason}, "usage": map[string]any{"output_tokens": 0}})
+			}
 			writeEvent(eventMessageStop, map[string]any{})
 			break
 		}
@@ -668,7 +711,10 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		if !ok || len(choices) == 0 {
 			continue
 		}
-		choice := choices[0].(map[string]any)
+		choice, ok := choices[0].(map[string]any)
+		if !ok {
+			return emitted, fmt.Errorf("invalid OpenAI stream choice: expected object")
+		}
 		delta, _ := choice["delta"].(map[string]any)
 
 		if content, ok := delta["content"].(string); ok && content != "" {
@@ -686,9 +732,13 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 			ensureTextStopped()
 
 			for _, tc := range toolCalls {
-				t := tc.(map[string]any)
+				t, ok := tc.(map[string]any)
+				if !ok {
+					return emitted, fmt.Errorf("invalid OpenAI tool call: expected object")
+				}
 				if id, ok := t["id"].(string); ok && id != activeToolID {
-					name, _ := t["function"].(map[string]any)["name"].(string)
+					function, _ := t["function"].(map[string]any)
+					name, _ := function["name"].(string)
 
 					if activeToolIndex != -1 {
 						writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
@@ -697,6 +747,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 					blockIndex++
 					activeToolIndex = blockIndex
 					activeToolID = id
+					toolUseSeen = true
 
 					writeEvent(eventContentBlockStart, map[string]any{
 						"index": activeToolIndex,
@@ -707,15 +758,21 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 							"input": map[string]any{},
 						},
 					})
+					if args, ok := function["arguments"].(string); ok {
+						toolArguments[activeToolIndex] = args
+					}
 				} else if function, ok := t["function"].(map[string]any); ok {
 					if args, ok := function["arguments"].(string); ok {
-						writeEvent(eventContentBlockDelta, map[string]any{
-							"index": activeToolIndex,
-							"delta": map[string]any{
-								"type":         "input_json_delta",
-								"partial_json": args,
-							},
-						})
+						// Buffer tool JSON until the provider signals completion. This
+						// lets us remove invalid Claude-Code arguments such as
+						// Read.pages="" without having already emitted them.
+						if json.Valid([]byte(args)) {
+							// Responses providers may send the complete arguments in
+							// the final chunk after sending deltas. Avoid duplicating it.
+							toolArguments[activeToolIndex] = args
+						} else {
+							toolArguments[activeToolIndex] += args
+						}
 					}
 				}
 			}
@@ -723,6 +780,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 
 		if finish, ok := choice["finish_reason"].(string); ok && finish != "" {
 			ensureTextStopped()
+			emitToolArguments()
 
 			if activeToolIndex != -1 {
 				writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
@@ -744,6 +802,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 				},
 				"usage": map[string]any{"output_tokens": 0},
 			})
+			messageDeltaSent = true
 		}
 
 		if flusher != nil {
@@ -752,6 +811,21 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	}
 
 	return emitted, scanner.Err()
+}
+
+func normalizeStreamToolArguments(arguments string) (string, bool) {
+	var value map[string]any
+	if json.Unmarshal([]byte(arguments), &value) != nil {
+		return arguments, false
+	}
+	if pages, ok := value["pages"].(string); ok && pages == "" {
+		delete(value, "pages")
+		encoded, err := json.Marshal(value)
+		if err == nil {
+			return string(encoded), true
+		}
+	}
+	return arguments, false
 }
 
 func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp *domain.ChatResponse) {

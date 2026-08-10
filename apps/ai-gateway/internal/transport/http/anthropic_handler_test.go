@@ -333,3 +333,37 @@ func TestAnthropicHandler_OpenAIRouteDropsUnsupportedMaxOutputTokens(t *testing.
 	assert.Nil(t, mockOpenAI.lastMaxTokens)
 	assert.Nil(t, mockOpenAI.lastMaxCompletion)
 }
+
+func TestNormalizeStreamToolArgumentsRemovesEmptyReadPages(t *testing.T) {
+	got, changed := normalizeStreamToolArguments(`{"command":"ls","pages":""}`)
+	assert.True(t, changed)
+	assert.JSONEq(t, `{"command":"ls"}`, got)
+}
+
+func TestNormalizeStreamToolArgumentsPreservesValidPages(t *testing.T) {
+	input := `{"command":"ls","pages":"1"}`
+	got, changed := normalizeStreamToolArguments(input)
+	assert.False(t, changed)
+	assert.Equal(t, input, got)
+}
+
+func TestNormalizeStreamToolArgumentsPreservesPartialJSON(t *testing.T) {
+	input := `{"command":"ls","pages":"`
+	got, changed := normalizeStreamToolArguments(input)
+	assert.False(t, changed)
+	assert.Equal(t, input, got)
+}
+
+func TestConvertToAnthropicStreamPreservesArgumentsFromFirstToolChunk(t *testing.T) {
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.4-mini\",\"choices\":[{" +
+		"\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"type\":\"function\",\"function\":{\"name\":\"Bash\",\"arguments\":\"{\\\"command\\\":\\\"git status --short\\\"}\"}}]},\"finish_reason\":null}]}\n\n" +
+		"data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n" +
+		"data: [DONE]\n\n"
+
+	var output bytes.Buffer
+	count, err := convertToAnthropicStream(bytes.NewBufferString(input), &output)
+	assert.NoError(t, err)
+	assert.Positive(t, count)
+	assert.Contains(t, output.String(), "git status --short")
+	assert.NotContains(t, output.String(), "partial_json\\\":\\\"{}")
+}
