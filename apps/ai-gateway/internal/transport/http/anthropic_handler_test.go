@@ -297,7 +297,7 @@ func TestAnthropicHandler_DefaultRouteInterceptorUsesGitHubCopilotDefaultHigh(t 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, 1, mockGitHubCopilot.chatCallCount)
 	assert.Equal(t, domain.ModelDefault, mockGitHubCopilot.lastChatModel)
-	assert.Equal(t, domain.ReasoningEffortHigh, mockGitHubCopilot.lastReasoningEffort)
+	assert.Equal(t, domain.ReasoningEffortLow, mockGitHubCopilot.lastReasoningEffort)
 }
 
 func TestAnthropicHandler_OpenAIGPT54MiniLowRouteInterceptorExample(t *testing.T) {

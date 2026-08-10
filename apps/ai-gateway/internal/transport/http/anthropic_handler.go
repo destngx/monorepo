@@ -75,9 +75,6 @@ func newAnthropicRouteInterceptor(registry *service.Registry) AnthropicRouteInte
 }
 
 func DefaultAnthropicRouteInterceptor(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error) {
-	if route.Provider.Name() == domain.ProviderGitHubCopilot && route.Model == domain.ModelDefault {
-		route.ReasoningEffort = domain.ReasoningEffortHigh
-	}
 	return route, nil
 }
 
@@ -85,7 +82,6 @@ func OpenAIGPT54MiniLowRouteInterceptor(openAIProvider shared.Provider) Anthropi
 	return func(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error) {
 		route.Provider = openAIProvider
 		route.Model = domain.ModelGPT54Mini
-		route.ReasoningEffort = domain.ReasoningEffortLow
 		return route, nil
 	}
 }
@@ -132,8 +128,12 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	route := AnthropicRoute{
-		Provider: provider,
-		Model:    targetModel,
+		Provider:        provider,
+		Model:           targetModel,
+		ReasoningEffort: anthroReq.ReasoningEffort,
+	}
+	if route.ReasoningEffort == "" {
+		route.ReasoningEffort = domain.ReasoningEffortLow
 	}
 	if h.routeInterceptor != nil {
 		route, err = h.routeInterceptor(r, anthroReq, route)
@@ -144,7 +144,9 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, route.Model))
+	r = SetLogProvider(r, route.Provider.Name())
 	r = SetLogModel(r, anthroReq.Model)
+	r = SetLogReasoningEffort(r, route.ReasoningEffort)
 
 	if hasUnsupported, _ := detectUnsupportedNativeTools(anthroReq, route.Provider.Name()); hasUnsupported {
 		if anthroReq.Stream {

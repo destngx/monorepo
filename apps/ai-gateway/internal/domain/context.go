@@ -3,8 +3,10 @@ package domain
 type ContextKey string
 
 type RequestLogMeta struct {
-	Mapping string
-	Model   string
+	Provider        string
+	Mapping         string
+	Model           string
+	ReasoningEffort string
 }
 
 const (

@@ -5,6 +5,7 @@ const (
 	ModelGPT5Mini         = "gpt-5-mini"
 	ModelGPT55            = "gpt-5.5"
 	ModelGPT56Luna        = "gpt-5.6-luna"
+	ModelGPT56Terra       = "gpt-5.6-terra"
 	ModelGPT56Sol         = "gpt-5.6-sol"
 	ModelGPT54            = "gpt-5.4"
 	ModelGPT54Mini        = "gpt-5.4-mini"
@@ -19,6 +20,10 @@ const (
 
 	PrefixClaude = "claude-"
 	PrefixMimo   = "xiaomi-token-plan-sgp/mimo-"
+
+	ClaudeModelFamilyHaiku  = "haiku"
+	ClaudeModelFamilySonnet = "sonnet"
+	ClaudeModelFamilyOpus   = "opus"
 )
 
 const (
@@ -26,6 +31,8 @@ const (
 	ReasoningEffortLow    = "low"
 	ReasoningEffortMedium = "medium"
 	ReasoningEffortHigh   = "high"
+	ReasoningEffortXHigh  = "xhigh"
+	ReasoningEffortMax    = "max"
 )
 
 // ModelInfo represents a single model in OpenAI-compatible list format.

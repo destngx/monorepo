@@ -64,9 +64,6 @@ func Logger(next http.Handler) http.Handler {
 		r = r.WithContext(ctx)
 
 		provider := r.Header.Get(HeaderAIProvider)
-		if provider == "" {
-			provider = domain.ProviderGitHubCopilot
-		}
 
 		rw := &ResponseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
@@ -74,9 +71,14 @@ func Logger(next http.Handler) http.Handler {
 		meta, _ := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta)
 		mapping := ""
 		model := ""
+		reasoningEffort := ""
 		if meta != nil {
+			if meta.Provider != "" {
+				provider = meta.Provider
+			}
 			mapping = meta.Mapping
 			model = meta.Model
+			reasoningEffort = meta.ReasoningEffort
 		}
 
 		method := r.Method
@@ -93,6 +95,7 @@ func Logger(next http.Handler) http.Handler {
 			"status", status,
 			"provider", provider,
 			"model", model,
+			"reasoning_effort", reasoningEffort,
 			"duration", time.Since(start),
 			"mapping", mapping,
 			"rid", requestID,
@@ -137,6 +140,22 @@ func Metrics(collector *service.MetricsCollector) func(http.Handler) http.Handle
 func SetLogMapping(r *http.Request, mapping string) *http.Request {
 	if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil {
 		meta.Mapping = mapping
+	}
+	return r
+}
+
+// SetLogProvider attaches the resolved provider metadata to the request context.
+func SetLogProvider(r *http.Request, provider string) *http.Request {
+	if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil {
+		meta.Provider = provider
+	}
+	return r
+}
+
+// SetLogReasoningEffort attaches the effective reasoning effort to the request context.
+func SetLogReasoningEffort(r *http.Request, effort string) *http.Request {
+	if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil {
+		meta.ReasoningEffort = effort
 	}
 	return r
 }

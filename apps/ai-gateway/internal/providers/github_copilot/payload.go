@@ -85,7 +85,7 @@ func (p *Provider) buildPayload(req domain.ChatRequest) ([]byte, error) {
 
 	reasoningEffort := req.ReasoningEffort
 	if reasoningEffort == "" && isReasoningModel(req.Model) {
-		reasoningEffort = "high"
+		reasoningEffort = domain.ReasoningEffortHigh
 	}
 
 	payload := copilotChatRequest{

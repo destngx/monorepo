@@ -1,7 +1,6 @@
 package domain
 
 const (
-	ProviderDefault       = ProviderGitHubCopilot
 	ProviderGitHubCopilot = "github-copilot"
 	ProviderGitHubModels  = "github-models"
 	ProviderBedrock       = "bedrock"

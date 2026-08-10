@@ -120,7 +120,7 @@ func (p *Provider) convertToMimoRequest(req domain.ChatRequest) Request {
 		case domain.ReasoningEffortMedium:
 			mimoReq.Thinking.Type = "enabled"
 			mimoReq.Thinking.BudgetTokens = 2048
-		case domain.ReasoningEffortHigh:
+		case domain.ReasoningEffortHigh, domain.ReasoningEffortXHigh, domain.ReasoningEffortMax:
 			mimoReq.Thinking.Type = "enabled"
 			mimoReq.Thinking.BudgetTokens = 4096
 		}

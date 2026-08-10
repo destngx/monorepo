@@ -90,6 +90,7 @@ func (h *OpenAIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", req.Model, targetModel))
+	r = SetLogProvider(r, provider.Name())
 	r = SetLogModel(r, req.Model)
 	req.Model = targetModel
 

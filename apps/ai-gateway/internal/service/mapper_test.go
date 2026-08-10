@@ -49,3 +49,26 @@ func TestModelMapper_RoutesMimoModelsToXiaomiMimo(t *testing.T) {
 	assert.Equal(t, domain.ProviderOpenAI, target3.Provider)
 	assert.Equal(t, "xiaomi-token-plan-sgp/mimo-v2.5", target3.Model)
 }
+
+func TestModelMapper_RoutesClaudeFamiliesToGatewayModels(t *testing.T) {
+	mapper := NewModelMapper(domain.ProviderGitHubCopilot)
+
+	tests := []struct {
+		name   string
+		input  string
+		output string
+	}{
+		{name: "haiku", input: "claude-haiku-4-5-20251001", output: domain.ModelGPT56Luna},
+		{name: "sonnet", input: "claude-sonnet-4-6", output: domain.ModelGPT56Terra},
+		{name: "opus", input: "claude-opus-4-7", output: domain.ModelGPT56Sol},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			target, mapped := mapper.Resolve("", tt.input)
+			assert.False(t, mapped)
+			assert.Equal(t, domain.ProviderGitHubCopilot, target.Provider)
+			assert.Equal(t, tt.output, target.Model)
+		})
+	}
+}

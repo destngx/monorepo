@@ -2,16 +2,17 @@ package anthropic
 
 // Request represents the Anthropic Messages API request format.
 type Request struct {
-	Model       string    `json:"model"`
-	MaxTokens   int       `json:"max_tokens"`
-	System      any       `json:"system,omitempty"`
-	Messages    []Message `json:"messages"`
-	Stream      bool      `json:"stream,omitempty"`
-	Temperature *float64  `json:"temperature,omitempty"`
-	TopP        *float64  `json:"top_p,omitempty"`
-	StopSeqs    []string  `json:"stop_sequences,omitempty"`
-	Tools       []Tool    `json:"tools,omitempty"`
-	ToolChoice  any       `json:"tool_choice,omitempty"`
+	Model           string    `json:"model"`
+	MaxTokens       int       `json:"max_tokens"`
+	System          any       `json:"system,omitempty"`
+	Messages        []Message `json:"messages"`
+	Stream          bool      `json:"stream,omitempty"`
+	Temperature     *float64  `json:"temperature,omitempty"`
+	TopP            *float64  `json:"top_p,omitempty"`
+	ReasoningEffort string    `json:"reasoning_effort,omitempty"`
+	StopSeqs        []string  `json:"stop_sequences,omitempty"`
+	Tools           []Tool    `json:"tools,omitempty"`
+	ToolChoice      any       `json:"tool_choice,omitempty"`
 }
 
 type Tool struct {
