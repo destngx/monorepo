@@ -465,7 +465,11 @@ func setMetrics(r *http.Request, provider, model, inputModel string, usage domai
 	if usage.PromptTokens > 0 {
 		ratio = math.Round(float64(cached)/float64(usage.PromptTokens)*1000) / 10
 	}
-	slog.Info("Prompt cache usage", "provider", provider, "model", model,
+	cacheLogLevel := slog.LevelDebug
+	if cached > 0 || writes > 0 {
+		cacheLogLevel = slog.LevelInfo
+	}
+	slog.Log(r.Context(), cacheLogLevel, "Prompt cache usage", "provider", provider, "model", model,
 		"input_tokens", usage.PromptTokens, "cache_read_tokens", cached,
 		"cache_write_tokens", writes, "cache_read_ratio", ratio,
 		"metadata_present", metadataPresent)

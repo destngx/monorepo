@@ -443,15 +443,7 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 						case string:
 							contentStr = c
 						case []any:
-							for _, innerBlock := range c {
-								if ib, ok := innerBlock.(map[string]any); ok {
-									if it, ok := ib["type"].(string); ok && it == "text" {
-										if itxt, ok := ib["text"].(string); ok {
-											contentStr += itxt
-										}
-									}
-								}
-							}
+							contentStr = extractToolResultText(c)
 						}
 
 						if contentStr == "" {
@@ -524,6 +516,27 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 	return req
 }
 
+func extractToolResultText(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case []any:
+		var result strings.Builder
+		for _, item := range v {
+			result.WriteString(extractToolResultText(item))
+		}
+		return result.String()
+	case map[string]any:
+		if text, ok := v["text"].(string); ok {
+			return text
+		}
+		if content, ok := v["content"]; ok {
+			return extractToolResultText(content)
+		}
+	}
+	return ""
+}
+
 func convertToAnthropicResponse(resp *domain.ChatResponse) anthropic.Response {
 	ar := anthropic.Response{
 		ID:      resp.ID,
@@ -557,6 +570,7 @@ func convertToAnthropicResponse(resp *domain.ChatResponse) anthropic.Response {
 			if tc.Type != domain.ToolTypeFunction && tc.Type != "" && name == "" {
 				name = tc.Type
 			}
+			input = normalizeAnthropicToolInput(name, input)
 
 			ar.Content = append(ar.Content, anthropic.Content{
 				Type:  "tool_use",
@@ -589,6 +603,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		textBlockStarted = false
 		blockIndex       = -1
 		activeToolIndex  = -1
+		activeToolID     = ""
 	)
 
 	writeEvent := func(eventType string, data any) {
@@ -672,7 +687,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 
 			for _, tc := range toolCalls {
 				t := tc.(map[string]any)
-				if id, ok := t["id"].(string); ok {
+				if id, ok := t["id"].(string); ok && id != activeToolID {
 					name, _ := t["function"].(map[string]any)["name"].(string)
 
 					if activeToolIndex != -1 {
@@ -681,6 +696,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 
 					blockIndex++
 					activeToolIndex = blockIndex
+					activeToolID = id
 
 					writeEvent(eventContentBlockStart, map[string]any{
 						"index": activeToolIndex,
@@ -711,6 +727,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 			if activeToolIndex != -1 {
 				writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
 				activeToolIndex = -1
+				activeToolID = ""
 			}
 
 			stopReason := stopReasonEndTurn
@@ -788,6 +805,7 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 			if name == "" {
 				name = tc.Type
 			}
+			input = normalizeAnthropicToolInput(name, input)
 
 			sendAnthroEvent(w, eventContentBlockStart, map[string]any{
 				"index": blockIdx,
@@ -826,6 +844,19 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 	if flusher != nil {
 		flusher.Flush()
 	}
+}
+
+func normalizeAnthropicToolInput(name string, input any) any {
+	values, ok := input.(map[string]any)
+	if !ok || name != "Read" {
+		return input
+	}
+	if pages, exists := values["pages"]; exists {
+		if pageString, ok := pages.(string); ok && pageString == "" {
+			delete(values, "pages")
+		}
+	}
+	return values
 }
 
 func sendAnthroEvent(w io.Writer, eventType string, data any) {

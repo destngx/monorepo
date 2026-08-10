@@ -95,7 +95,12 @@ func TestChatResponseFromResponsesParsesFunctionCall(t *testing.T) {
 func TestCodexRequestPreservesPromptCacheConfiguration(t *testing.T) {
 	req := domain.ChatRequest{Model: "gpt-5.6-luna", PromptCacheKey: "cc:test", PromptCacheOptions: &domain.PromptCacheOptions{Mode: "explicit"}, Messages: []domain.Message{{Role: domain.RoleUser, Parts: []domain.ContentPart{{Type: "text", Text: "stable", PromptCacheBreakpoint: &domain.CacheBreakpoint{Mode: "explicit"}}}}}}
 	payload := toCodexResponseRequest(req)
-	if payload.Input[0].Content[0].Text != "stable" {
+	first, ok := payload.Input[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected Codex input: %#v", payload.Input[0])
+	}
+	content, ok := first["content"].([]map[string]any)
+	if !ok || len(content) == 0 || content[0]["type"] != "input_text" || content[0]["text"] != "stable" {
 		t.Fatalf("unexpected Codex content: %#v", payload.Input[0])
 	}
 }

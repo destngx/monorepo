@@ -28,7 +28,7 @@ func (p *Provider) chatCodex(ctx context.Context, req domain.ChatRequest) (*doma
 		return nil, fmt.Errorf("openai codex error %d: %s", resp.StatusCode, b)
 	}
 
-	content, usage, responseID, created, model, err := parseCodexStream(resp.Body, nil)
+	content, toolCalls, usage, responseID, created, model, err := parseCodexStream(resp.Body, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -51,10 +51,11 @@ func (p *Provider) chatCodex(ctx context.Context, req domain.ChatRequest) (*doma
 			{
 				Index: 0,
 				Message: domain.Message{
-					Role:    domain.RoleAssistant,
-					Content: content,
+					Role:      domain.RoleAssistant,
+					Content:   content,
+					ToolCalls: toolCalls,
 				},
-				FinishReason: "stop",
+				FinishReason: codexFinishReason(toolCalls),
 			},
 		},
 		Usage: usage,
@@ -73,12 +74,12 @@ func (p *Provider) chatCodexStream(ctx context.Context, req domain.ChatRequest, 
 		return domain.Usage{}, fmt.Errorf("openai codex stream error %d: %s", resp.StatusCode, b)
 	}
 
-	_, usage, _, _, _, err := parseCodexStream(resp.Body, w)
+	_, _, usage, _, _, _, err := parseCodexStream(resp.Body, w)
 	return usage, err
 }
 
 func (p *Provider) doCodexRequest(ctx context.Context, req domain.ChatRequest) (*http.Response, error) {
-	slog.Info("OpenAI upstream request", "method", http.MethodPost, "path", pathCodexResponses)
+	slog.Debug("OpenAI upstream request", "method", http.MethodPost, "path", pathCodexResponses)
 	body, err := json.Marshal(toCodexResponseRequest(req))
 	if err != nil {
 		return nil, err
@@ -102,41 +103,20 @@ func (p *Provider) doCodexRequest(ctx context.Context, req domain.ChatRequest) (
 }
 
 func toCodexResponseRequest(req domain.ChatRequest) codexResponseRequest {
-	instructions := make([]string, 0)
-	input := make([]codexInputMessage, 0, len(req.Messages))
-
-	for _, msg := range req.Messages {
-		if msg.Role == domain.RoleSystem {
-			if msg.Content != "" {
-				instructions = append(instructions, msg.Content)
-			}
-			continue
-		}
-
-		role := msg.Role
-		if role == domain.RoleAssistant || role == domain.RoleTool {
-			role = domain.RoleUser
-		}
-		if role == "" {
-			role = domain.RoleUser
-		}
-		input = append(input, codexInputMessage{
-			Role: role,
-			Content: []codexInputContent{
-				codexContentFromMessage(msg),
-			},
-		})
+	instructionText, input := responsesInputFromMessages(req.Messages)
+	input = codexResponsesInput(input)
+	instructions := []string{}
+	if instructionText != "" {
+		instructions = append(instructions, instructionText)
 	}
 
 	if len(instructions) == 0 {
 		instructions = append(instructions, "You are a helpful assistant.")
 	}
 	if len(input) == 0 {
-		input = append(input, codexInputMessage{
-			Role: domain.RoleUser,
-			Content: []codexInputContent{
-				{Type: "input_text", Text: ""},
-			},
+		input = append(input, map[string]any{
+			"role":    domain.RoleUser,
+			"content": []map[string]string{{"type": "input_text", "text": ""}},
 		})
 	}
 
@@ -152,7 +132,40 @@ func toCodexResponseRequest(req domain.ChatRequest) codexResponseRequest {
 		Stream:       true,
 		Store:        false,
 	}
+	if len(req.Tools) > 0 {
+		out.Tools = responsesToolsFromChat(req.Tools)
+	}
+	if req.ToolChoice != nil {
+		out.ToolChoice = req.ToolChoice
+	}
 	return out
+}
+
+func codexResponsesInput(input []any) []any {
+	for _, raw := range input {
+		message, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		parts, ok := message["content"].([]domain.ContentPart)
+		if !ok {
+			continue
+		}
+		converted := make([]map[string]any, 0, len(parts))
+		contentType := "input_text"
+		if role, _ := message["role"].(string); role == domain.RoleAssistant {
+			contentType = "output_text"
+		}
+		for _, part := range parts {
+			typeName := part.Type
+			if typeName == "text" {
+				typeName = contentType
+			}
+			converted = append(converted, map[string]any{"type": typeName, "text": part.Text})
+		}
+		message["content"] = converted
+	}
+	return input
 }
 
 func codexContentFromMessage(msg domain.Message) codexInputContent {
@@ -163,8 +176,11 @@ func codexContentFromMessage(msg domain.Message) codexInputContent {
 	return content
 }
 
-func parseCodexStream(body io.Reader, w io.Writer) (string, domain.Usage, string, int64, string, error) {
+func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, domain.Usage, string, int64, string, error) {
 	var content strings.Builder
+	toolCalls := make([]domain.ToolCall, 0)
+	callIndexes := make(map[string]int)
+	callNames := make(map[string]string)
 	var usage domain.Usage
 	var responseID string
 	var created int64
@@ -211,15 +227,75 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, domain.Usage, string
 					created = time.Now().Unix()
 				}
 				if err := writeOpenAIStreamDelta(w, responseID, created, model, event.Delta); err != nil {
-					return content.String(), usage, responseID, created, model, err
+					return content.String(), toolCalls, usage, responseID, created, model, err
+				}
+			}
+		case "response.output_item.added", "response.output_item.done":
+			item := event.Item
+			if item == nil || item.Type != "function_call" {
+				continue
+			}
+			if item.CallID == "" {
+				item.CallID = item.ID
+			}
+			if item.Name == "" {
+				item.Name = event.Name
+			}
+			if index, ok := callIndexes[item.CallID]; ok {
+				toolCalls[index].ID = item.CallID
+				if toolCalls[index].Function == nil {
+					toolCalls[index].Function = &domain.FunctionCall{}
+				}
+				toolCalls[index].Function.Name = item.Name
+				if item.Arguments != "" {
+					toolCalls[index].Function.Arguments = item.Arguments
+				}
+			} else {
+				callIndexes[item.CallID] = len(toolCalls)
+				if item.ID != "" {
+					callIndexes[item.ID] = len(toolCalls)
+				}
+				callNames[item.CallID] = item.Name
+				toolCalls = append(toolCalls, domain.ToolCall{ID: item.CallID, Type: domain.ToolTypeFunction, Function: &domain.FunctionCall{Name: item.Name, Arguments: item.Arguments}})
+			}
+		case "response.function_call_arguments.delta", "response.function_call_arguments.done":
+			callID := event.CallID
+			if callID == "" {
+				callID = event.ItemID
+			}
+			index, ok := callIndexes[callID]
+			if !ok {
+				index = len(toolCalls)
+				callIndexes[callID] = index
+				toolCalls = append(toolCalls, domain.ToolCall{ID: callID, Type: domain.ToolTypeFunction, Function: &domain.FunctionCall{Name: callNames[callID]}})
+			}
+			call := &toolCalls[index]
+			if call.Function == nil {
+				call.Function = &domain.FunctionCall{}
+			}
+			if event.Type == "response.function_call_arguments.done" && event.Arguments != "" {
+				call.Function.Arguments = event.Arguments
+			} else {
+				call.Function.Arguments += event.Delta
+			}
+			if call.Function.Name == "" {
+				call.Function.Name = event.Name
+			}
+			if w != nil {
+				arguments := event.Delta
+				if event.Type == "response.function_call_arguments.done" {
+					arguments = event.Arguments
+				}
+				if err := writeOpenAIToolDelta(w, responseID, created, model, index, callID, call.Function.Name, arguments); err != nil {
+					return content.String(), toolCalls, usage, responseID, created, model, err
 				}
 			}
 		case "response.failed":
-			return content.String(), usage, responseID, created, model, fmt.Errorf("openai codex response failed: %s", event.Error)
+			return content.String(), toolCalls, usage, responseID, created, model, fmt.Errorf("openai codex response failed: %s", event.Error)
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return content.String(), usage, responseID, created, model, err
+		return content.String(), toolCalls, usage, responseID, created, model, err
 	}
 
 	if usage.TotalTokens == 0 {
@@ -230,7 +306,37 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, domain.Usage, string
 		shared.InjectUsageChunk(w, usage)
 	}
 
-	return content.String(), usage, responseID, created, model, nil
+	return content.String(), toolCalls, usage, responseID, created, model, nil
+}
+
+func codexFinishReason(calls []domain.ToolCall) string {
+	if len(calls) > 0 {
+		return "tool_calls"
+	}
+	return "stop"
+}
+
+func writeOpenAIToolDelta(w io.Writer, id string, created int64, model string, index int, callID, name, arguments string) error {
+	function := map[string]string{"arguments": arguments}
+	if name != "" {
+		function["name"] = name
+	}
+	chunk := map[string]any{"id": id, "object": "chat.completion.chunk", "created": created, "model": model, "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"tool_calls": []any{map[string]any{"index": index, "id": callID, "type": "function", "function": function}}}, "finish_reason": nil}}}
+	return writeSSEMap(w, chunk)
+}
+
+func writeSSEMap(w io.Writer, chunk map[string]any) error {
+	b, err := json.Marshal(chunk)
+	if err != nil {
+		return err
+	}
+	if _, err = io.WriteString(w, "data: "+string(b)+"\n\n"); err != nil {
+		return err
+	}
+	if f, ok := w.(interface{ Flush() }); ok {
+		f.Flush()
+	}
+	return nil
 }
 
 func writeOpenAIStreamDelta(w io.Writer, id string, created int64, model string, delta string) error {

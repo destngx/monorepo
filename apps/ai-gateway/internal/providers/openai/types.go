@@ -14,12 +14,14 @@ type oauthRefreshResponse struct {
 }
 
 type codexResponseRequest struct {
-	Model           string              `json:"model"`
-	Instructions    string              `json:"instructions"`
-	Input           []codexInputMessage `json:"input"`
-	Stream          bool                `json:"stream"`
-	Store           bool                `json:"store"`
-	MaxOutputTokens *int                `json:"max_output_tokens,omitempty"`
+	Model           string `json:"model"`
+	Instructions    string `json:"instructions"`
+	Input           []any  `json:"input"`
+	Stream          bool   `json:"stream"`
+	Store           bool   `json:"store"`
+	Tools           []any  `json:"tools,omitempty"`
+	ToolChoice      any    `json:"tool_choice,omitempty"`
+	MaxOutputTokens *int   `json:"max_output_tokens,omitempty"`
 }
 
 type codexInputMessage struct {
@@ -33,10 +35,23 @@ type codexInputContent struct {
 }
 
 type codexStreamEvent struct {
-	Type     string          `json:"type"`
-	Delta    string          `json:"delta,omitempty"`
-	Response *codexResponse  `json:"response,omitempty"`
-	Error    json.RawMessage `json:"error,omitempty"`
+	Type      string           `json:"type"`
+	Delta     string           `json:"delta,omitempty"`
+	Response  *codexResponse   `json:"response,omitempty"`
+	Error     json.RawMessage  `json:"error,omitempty"`
+	CallID    string           `json:"call_id,omitempty"`
+	ItemID    string           `json:"item_id,omitempty"`
+	Name      string           `json:"name,omitempty"`
+	Arguments string           `json:"arguments,omitempty"`
+	Item      *codexOutputItem `json:"item,omitempty"`
+}
+
+type codexOutputItem struct {
+	ID        string `json:"id,omitempty"`
+	Type      string `json:"type,omitempty"`
+	CallID    string `json:"call_id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
 }
 
 type chatGPTModelsResponse struct {
