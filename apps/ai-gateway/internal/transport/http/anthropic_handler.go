@@ -132,6 +132,10 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Model:           targetModel,
 		ReasoningEffort: anthroReq.ReasoningEffort,
 	}
+	if anthroReq.OutputConfig != nil && anthroReq.OutputConfig.Effort != "" {
+		route.ReasoningEffort = anthroReq.OutputConfig.Effort
+	}
+	// Claude Code omits output_config.effort for models without effort support; keep the gateway default low.
 	if route.ReasoningEffort == "" {
 		route.ReasoningEffort = domain.ReasoningEffortLow
 	}
