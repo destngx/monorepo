@@ -1,4 +1,4 @@
-package httptransport
+package anthropic
 
 import (
 	"bufio"
@@ -13,31 +13,7 @@ import (
 	"apps/ai-gateway/internal/providers/anthropic"
 	"apps/ai-gateway/internal/providers/shared"
 	"apps/ai-gateway/internal/service"
-)
-
-const (
-	typeAnthroAPIError = "api_error"
-
-	stopReasonEndTurn = "end_turn"
-
-	eventMessageStart      = "message_start"
-	eventMessageDelta      = "message_delta"
-	eventMessageStop       = "message_stop"
-	eventContentBlockStart = "content_block_start"
-	eventContentBlockDelta = "content_block_delta"
-	eventContentBlockStop  = "content_block_stop"
-	eventError             = "error"
-
-	logFormatAnthroRequest       = "[ID:%s] [VERBOSE 1] Received Anthropic Request: %s"
-	logMsgAnthroFinished         = "[ID:%s] [VERBOSE 2] Finished decoding Anthropic request"
-	logMsgAnthroEnteringSync     = "[ID:%s] [VERBOSE 2] Entering Anthropic handleSync"
-	logMsgAnthroEnteringStream   = "[ID:%s] [VERBOSE 2] Entering Anthropic handleStream"
-	logFormatAnthroProviderError = "[ID:%s] [VERBOSE 1] Provider returned error: %v"
-	logFormatAnthroResponse      = "[ID:%s] [VERBOSE 1] Provider Response (Anthropic format): %s"
-	logFormatAnthroStreamError   = "[ID:%s] STREAM ERROR: %v"
-	logFormatStreamConvErr       = "[ID:%s] STREAM CONVERT ERROR: %v"
-
-	errMsgInvalidAnthroBody = "invalid anthropic request body: "
+	"apps/ai-gateway/internal/transport/http/common"
 )
 
 type AnthropicHandler struct {
@@ -45,44 +21,12 @@ type AnthropicHandler struct {
 	routeInterceptor AnthropicRouteInterceptor
 }
 
-type AnthropicRoute struct {
-	Provider        shared.Provider
-	Model           string
-	ReasoningEffort string
-}
-
-type AnthropicRouteInterceptor func(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error)
+func NewHandler(registry *service.Registry) *AnthropicHandler { return NewAnthropicHandler(registry) }
 
 func NewAnthropicHandler(registry *service.Registry) *AnthropicHandler {
 	return &AnthropicHandler{
 		registry:         registry,
 		routeInterceptor: newAnthropicRouteInterceptor(registry),
-	}
-}
-
-func newAnthropicRouteInterceptor(registry *service.Registry) AnthropicRouteInterceptor {
-	switch strings.ToLower(strings.TrimSpace(registry.Config.AnthropicRoute)) {
-	case "openai-gpt-5.4-mini-low":
-		openAIProvider, err := registry.Get(domain.ProviderOpenAI)
-		if err != nil {
-			slog.Warn("Anthropic route unavailable; using default route", "route", registry.Config.AnthropicRoute, "error", err)
-			return DefaultAnthropicRouteInterceptor
-		}
-		return OpenAIGPT54MiniLowRouteInterceptor(openAIProvider)
-	default:
-		return DefaultAnthropicRouteInterceptor
-	}
-}
-
-func DefaultAnthropicRouteInterceptor(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error) {
-	return route, nil
-}
-
-func OpenAIGPT54MiniLowRouteInterceptor(openAIProvider shared.Provider) AnthropicRouteInterceptor {
-	return func(r *http.Request, req anthropic.Request, route AnthropicRoute) (AnthropicRoute, error) {
-		route.Provider = openAIProvider
-		route.Model = domain.ModelGPT54Mini
-		return route, nil
 	}
 }
 
@@ -100,13 +44,13 @@ func (h *AnthropicHandler) SetRouteInterceptor(interceptor AnthropicRouteInterce
 // @Router /v1/messages [post]
 func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, errMsgMethodNotAllowed, http.StatusMethodNotAllowed)
+		http.Error(w, common.ErrMsgMethodNotAllowed, http.StatusMethodNotAllowed)
 		return
 	}
 
 	var anthroReq anthropic.Request
 	if err := json.NewDecoder(r.Body).Decode(&anthroReq); err != nil {
-		WriteError(w, r, http.StatusBadRequest, errMsgInvalidAnthroBody+err.Error())
+		common.WriteError(w, r, http.StatusBadRequest, errMsgInvalidAnthroBody+err.Error())
 		return
 	}
 
@@ -123,7 +67,7 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(err.Error(), "not ready") {
 			status = http.StatusNotFound
 		}
-		WriteError(w, r, status, errMsgRoutingFailed+err.Error())
+		common.WriteError(w, r, status, common.ErrMsgRoutingFailed+err.Error())
 		return
 	}
 
@@ -142,22 +86,22 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h.routeInterceptor != nil {
 		route, err = h.routeInterceptor(r, anthroReq, route)
 		if err != nil {
-			WriteError(w, r, http.StatusBadRequest, errMsgRoutingFailed+err.Error())
+			common.WriteError(w, r, http.StatusBadRequest, common.ErrMsgRoutingFailed+err.Error())
 			return
 		}
 	}
 
-	r = SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, route.Model))
-	r = SetLogProvider(r, route.Provider.Name())
-	r = SetLogModel(r, anthroReq.Model)
-	r = SetLogReasoningEffort(r, route.ReasoningEffort)
+	r = common.SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, route.Model))
+	r = common.SetLogProvider(r, route.Provider.Name())
+	r = common.SetLogModel(r, anthroReq.Model)
+	r = common.SetLogReasoningEffort(r, route.ReasoningEffort)
 
 	if hasUnsupported, _ := detectUnsupportedNativeTools(anthroReq, route.Provider.Name()); hasUnsupported {
 		if anthroReq.Stream {
-			w.Header().Set(headerContentType, contentTypeEventStream)
-			w.Header().Set(headerCacheControl, valueNoCache)
-			w.Header().Set(headerConnection, valueKeepAlive)
-			w.Header().Set(headerXAccelBuffering, valueNo)
+			w.Header().Set(common.HeaderContentType, common.ContentTypeEventStream)
+			w.Header().Set(common.HeaderCacheControl, common.ValueNoCache)
+			w.Header().Set(common.HeaderConnection, common.ValueKeepAlive)
+			w.Header().Set(common.HeaderXAccelBuffering, common.ValueNo)
 			w.WriteHeader(http.StatusOK)
 
 			errorResponse := map[string]any{
@@ -172,7 +116,7 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				flusher.Flush()
 			}
 		} else {
-			w.Header().Set(headerContentType, contentTypeJSON)
+			w.Header().Set(common.HeaderContentType, common.ContentTypeJSON)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]any{
 				"type": "error",
@@ -197,103 +141,19 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func normalizeRequestForRoute(req *domain.ChatRequest, anthroReq anthropic.Request, route AnthropicRoute) {
-	if route.Provider.Name() != domain.ProviderOpenAI {
-		return
-	}
-
-	req.MaxTokens = nil
-	req.MaxCompletionTokens = nil
-}
-
-func detectUnsupportedNativeTools(req anthropic.Request, providerName string) (bool, string) {
-	if providerName == domain.ProviderAnthropic {
-		return false, ""
-	}
-
-	validFunctionToolNames := make(map[string]bool)
-
-	for _, t := range req.Tools {
-		toolType := strings.ToLower(t.Type)
-		if toolType == "" || toolType == domain.ToolTypeFunction {
-			validFunctionToolNames[t.Name] = true
-			continue
-		}
-		return true, fmt.Sprintf("non-function tool type '%s' is not supported", t.Type)
-	}
-
-	if req.ToolChoice != nil {
-		if m, ok := req.ToolChoice.(map[string]any); ok {
-			if t, ok := m["type"].(string); ok && t == "tool" {
-				if name, ok := m["name"].(string); ok {
-					if !validFunctionToolNames[name] {
-						return true, fmt.Sprintf("tool_choice targets unmapped or native tool '%s'", name)
-					}
-				}
-			}
-		}
-	}
-
-	for _, msg := range req.Messages {
-		if blocks, ok := msg.Content.([]any); ok {
-			for _, block := range blocks {
-				if b, ok := block.(map[string]any); ok {
-					bType, _ := b["type"].(string)
-					if bType != "text" && bType != "tool_use" && bType != "tool_result" {
-						return true, fmt.Sprintf("native message content block type '%s' is not supported", bType)
-					}
-				}
-			}
-		}
-	}
-
-	return false, ""
-}
-
-func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string, wasStream bool) {
-	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
-	if h.registry.Config.Verbose >= 2 {
-		slog.Debug("Entering Anthropic handleSync", "rid", rid)
-	}
-
-	resp, err := p.Chat(r.Context(), req)
-	if err != nil {
-		if h.registry.Config.Verbose >= 1 {
-			slog.Warn("Provider returned error", "rid", rid, "error", err)
-		}
-		WriteError(w, r, http.StatusBadGateway, err.Error())
-		setMetrics(r, p.Name(), req.Model, inputModel, domain.Usage{}, req.Stream, err)
-		return
-	}
-
-	setMetrics(r, p.Name(), req.Model, inputModel, resp.Usage, req.Stream, nil)
-
-	if wasStream {
-		h.writeAnthroStreamResponse(w, resp)
-	} else {
-		anthroResp := convertToAnthropicResponse(resp)
-		if h.registry.Config.Verbose >= 1 {
-			body, _ := json.MarshalIndent(anthroResp, "", "  ")
-			slog.Info("FULL ANTHROPIC RESPONSE", "rid", rid, "body", string(body))
-		}
-		w.Header().Set(headerContentType, contentTypeJSON)
-		json.NewEncoder(w).Encode(anthroResp)
-	}
-}
-
-func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
+/* func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, p shared.Provider, req domain.ChatRequest, inputModel string) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	if h.registry.Config.Verbose >= 2 {
 		slog.Debug("Entering Anthropic handleStream", "rid", rid)
 	}
 
-	w.Header().Set(headerContentType, contentTypeEventStream)
-	w.Header().Set(headerCacheControl, valueNoCache)
-	w.Header().Set(headerConnection, valueKeepAlive)
-	w.Header().Set(headerXAccelBuffering, valueNo)
+	w.Header().Set(common.HeaderContentType, common.ContentTypeEventStream)
+	w.Header().Set(common.HeaderCacheControl, common.ValueNoCache)
+	w.Header().Set(common.HeaderConnection, common.ValueKeepAlive)
+	w.Header().Set(common.HeaderXAccelBuffering, common.ValueNo)
 
 	if _, ok := w.(http.Flusher); !ok {
-		WriteError(w, r, http.StatusInternalServerError, errMsgStreamNotSupp)
+		common.WriteError(w, r, http.StatusInternalServerError, common.ErrMsgStreamNotSupp)
 		return
 	}
 
@@ -301,14 +161,18 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 	errCh := make(chan error, 1)
 	go func() {
 		defer pw.Close()
-		usage, err := p.ChatStream(r.Context(), req, pw)
+		providerWriter := io.Writer(pw)
+		if h.registry.Config.Verbose >= 2 {
+			providerWriter = &common.RawStreamLogWriter{W: pw, RID: rid}
+		}
+		usage, err := p.ChatStream(r.Context(), req, providerWriter)
 		errCh <- err
-		setMetrics(r, p.Name(), req.Model, inputModel, usage, req.Stream, err)
+		common.SetMetrics(r, p.Name(), req.Model, inputModel, usage, req.Stream, err)
 	}()
 
 	var writer io.Writer = w
 	if h.registry.Config.Verbose >= 1 {
-		writer = &StreamLogWriter{w: w, rid: rid}
+		writer = &common.StreamLogWriter{w: w, rid: rid}
 	}
 
 	eventCount, convertErr := convertToAnthropicStream(pr, writer)
@@ -342,7 +206,7 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 			}
 		}
 	}
-}
+} */
 
 func convertFromAnthropicRequest(ar anthropic.Request, providerName string) domain.ChatRequest {
 	isGemini := providerName == "google" || strings.Contains(providerName, "gemini")
@@ -528,82 +392,6 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 	return req
 }
 
-func extractToolResultText(value any) string {
-	switch v := value.(type) {
-	case string:
-		return v
-	case []any:
-		var result strings.Builder
-		for _, item := range v {
-			result.WriteString(extractToolResultText(item))
-		}
-		return result.String()
-	case map[string]any:
-		if text, ok := v["text"].(string); ok {
-			return text
-		}
-		if content, ok := v["content"]; ok {
-			return extractToolResultText(content)
-		}
-	}
-	return ""
-}
-
-func convertToAnthropicResponse(resp *domain.ChatResponse) anthropic.Response {
-	ar := anthropic.Response{
-		ID:      resp.ID,
-		Type:    "message",
-		Role:    "assistant",
-		Model:   resp.Model,
-		Content: []anthropic.Content{},
-		Usage: anthropic.Usage{
-			InputTokens:  resp.Usage.PromptTokens,
-			OutputTokens: resp.Usage.CompletionTokens,
-		},
-	}
-
-	if len(resp.Choices) > 0 {
-		msg := resp.Choices[0].Message
-
-		// 2. Handle standard text content
-		if msg.Content != "" {
-			ar.Content = append(ar.Content, anthropic.Content{
-				Type: "text",
-				Text: msg.Content,
-			})
-		}
-
-		// 3. Handle standard tool calls
-		for _, tc := range msg.ToolCalls {
-			var input any
-			json.Unmarshal([]byte(tc.Function.Arguments), &input)
-
-			name := tc.Function.Name
-			if tc.Type != domain.ToolTypeFunction && tc.Type != "" && name == "" {
-				name = tc.Type
-			}
-			input = normalizeAnthropicToolInput(name, input)
-
-			ar.Content = append(ar.Content, anthropic.Content{
-				Type:  "tool_use",
-				ID:    tc.ID,
-				Name:  name,
-				Input: input,
-			})
-		}
-
-		ar.StopReason = stopReasonEndTurn
-		switch resp.Choices[0].FinishReason {
-		case "length":
-			ar.StopReason = "max_tokens"
-		case "tool_calls":
-			ar.StopReason = "tool_use"
-		}
-	}
-
-	return ar
-}
-
 func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 1024*64), 1024*64)
@@ -616,6 +404,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		blockIndex        = -1
 		activeToolIndex   = -1
 		activeToolID      = ""
+		activeToolStarted = false
 		toolArguments     = make(map[int]string)
 		toolArgumentsSent = make(map[int]bool)
 		messageDeltaSent  = false
@@ -663,15 +452,17 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if !strings.HasPrefix(line, sseDataPrefix) {
+		if !strings.HasPrefix(line, common.SSEDataPrefix) {
 			continue
 		}
-		data := strings.TrimPrefix(line, sseDataPrefix)
+		data := strings.TrimPrefix(line, common.SSEDataPrefix)
 		if data == "[DONE]" {
 			ensureTextStopped()
 			emitToolArguments()
 			if activeToolIndex != -1 {
-				writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
+				if activeToolStarted {
+					writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
+				}
 			}
 			if !messageDeltaSent {
 				stopReason := stopReasonEndTurn
@@ -740,7 +531,11 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 					function, _ := t["function"].(map[string]any)
 					name, _ := function["name"].(string)
 
-					if activeToolIndex != -1 {
+					if activeToolIndex != -1 && activeToolStarted {
+						// Finish the previous block's buffered arguments before closing it.
+						// Parallel OpenAI tool calls can arrive in separate chunks; emitting
+						// the stop event first causes the client to observe input: {}.
+						emitToolArguments()
 						writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
 					}
 
@@ -749,20 +544,25 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 					activeToolID = id
 					toolUseSeen = true
 
-					writeEvent(eventContentBlockStart, map[string]any{
-						"index": activeToolIndex,
-						"content_block": map[string]any{
-							"type":  "tool_use",
-							"id":    id,
-							"name":  name,
-							"input": map[string]any{},
-						},
-					})
 					if args, ok := function["arguments"].(string); ok {
 						toolArguments[activeToolIndex] = args
+						if args != "" {
+							writeEvent(eventContentBlockStart, map[string]any{
+								"index":         activeToolIndex,
+								"content_block": map[string]any{"type": "tool_use", "id": id, "name": name, "input": map[string]any{}},
+							})
+							activeToolStarted = true
+						}
 					}
 				} else if function, ok := t["function"].(map[string]any); ok {
 					if args, ok := function["arguments"].(string); ok {
+						if args != "" && !activeToolStarted {
+							writeEvent(eventContentBlockStart, map[string]any{
+								"index":         activeToolIndex,
+								"content_block": map[string]any{"type": "tool_use", "id": activeToolID, "name": "", "input": map[string]any{}},
+							})
+							activeToolStarted = true
+						}
 						// Buffer tool JSON until the provider signals completion. This
 						// lets us remove invalid Claude-Code arguments such as
 						// Read.pages="" without having already emitted them.
@@ -782,10 +582,11 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 			ensureTextStopped()
 			emitToolArguments()
 
-			if activeToolIndex != -1 {
+			if activeToolIndex != -1 && activeToolStarted {
 				writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
 				activeToolIndex = -1
 				activeToolID = ""
+				activeToolStarted = false
 			}
 
 			stopReason := stopReasonEndTurn
@@ -811,21 +612,6 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	}
 
 	return emitted, scanner.Err()
-}
-
-func normalizeStreamToolArguments(arguments string) (string, bool) {
-	var value map[string]any
-	if json.Unmarshal([]byte(arguments), &value) != nil {
-		return arguments, false
-	}
-	if pages, ok := value["pages"].(string); ok && pages == "" {
-		delete(value, "pages")
-		encoded, err := json.Marshal(value)
-		if err == nil {
-			return string(encoded), true
-		}
-	}
-	return arguments, false
 }
 
 func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp *domain.ChatResponse) {
@@ -918,26 +704,4 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 	if flusher != nil {
 		flusher.Flush()
 	}
-}
-
-func normalizeAnthropicToolInput(name string, input any) any {
-	values, ok := input.(map[string]any)
-	if !ok || name != "Read" {
-		return input
-	}
-	if pages, exists := values["pages"]; exists {
-		if pageString, ok := pages.(string); ok && pageString == "" {
-			delete(values, "pages")
-		}
-	}
-	return values
-}
-
-func sendAnthroEvent(w io.Writer, eventType string, data any) {
-	if m, ok := data.(map[string]any); ok {
-		m["type"] = eventType
-	}
-	b, _ := json.Marshal(data)
-	payload := string(b)
-	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, payload)
 }

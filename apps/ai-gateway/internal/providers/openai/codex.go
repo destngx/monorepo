@@ -291,7 +291,13 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 				}
 			}
 		case "response.failed":
-			return content.String(), toolCalls, usage, responseID, created, model, fmt.Errorf("openai codex response failed: %s", event.Error)
+			details := strings.TrimSpace(string(event.Error))
+			if details == "" {
+				// Some Codex events omit the top-level error field and put the
+				// useful failure reason in the event payload/response object.
+				details = payload
+			}
+			return content.String(), toolCalls, usage, responseID, created, model, fmt.Errorf("openai codex response failed: %s", details)
 		}
 	}
 	if err := scanner.Err(); err != nil {

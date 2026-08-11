@@ -1,4 +1,4 @@
-package httptransport
+package anthropic
 
 import (
 	"bytes"
@@ -366,4 +366,31 @@ func TestConvertToAnthropicStreamPreservesArgumentsFromFirstToolChunk(t *testing
 	assert.Positive(t, count)
 	assert.Contains(t, output.String(), "git status --short")
 	assert.NotContains(t, output.String(), "partial_json\\\":\\\"{}")
+}
+
+func TestConvertToAnthropicStreamSuppressesEmptyToolCall(t *testing.T) {
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.4-mini\",\"choices\":[{" +
+		"\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"empty\",\"type\":\"function\",\"function\":{\"name\":\"Read\",\"arguments\":\"\"}}]},\"finish_reason\":null}]}\n\n" +
+		"data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"valid\",\"type\":\"function\",\"function\":{\"name\":\"Read\",\"arguments\":\"{\\\"file_path\\\":\\\"README.md\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n" +
+		"data: [DONE]\n\n"
+
+	var output bytes.Buffer
+	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output)
+	assert.NoError(t, err)
+	assert.NotContains(t, output.String(), `"id":"empty"`)
+	assert.Contains(t, output.String(), `"id":"valid"`)
+	assert.Contains(t, output.String(), "README.md")
+}
+
+func TestConvertToAnthropicStreamCompletesParallelToolCallsBeforeStopping(t *testing.T) {
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.6\",\"choices\":[{" +
+		"\"delta\":{\"tool_calls\":[{\"id\":\"call-0\",\"index\":0,\"function\":{\"name\":\"Bash\",\"arguments\":\"{\\\"command\\\":\\\"ls\\\"}\"}},{\"id\":\"call-1\",\"index\":1,\"function\":{\"name\":\"Bash\",\"arguments\":\"{\\\"command\\\":\\\"pwd\\\"}\"}}]},\"finish_reason\":null}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n"
+
+	var output bytes.Buffer
+	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output)
+	assert.NoError(t, err)
+	result := output.String()
+	assert.Contains(t, result, `"partial_json":"{\"command\":\"ls\"}"`)
+	assert.Contains(t, result, `"partial_json":"{\"command\":\"pwd\"}"`)
 }

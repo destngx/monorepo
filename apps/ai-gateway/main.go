@@ -28,6 +28,8 @@ import (
 	"apps/ai-gateway/internal/logger"
 	"apps/ai-gateway/internal/service"
 	httptransport "apps/ai-gateway/internal/transport/http"
+	anthropictransport "apps/ai-gateway/internal/transport/http/anthropic"
+	openaitransport "apps/ai-gateway/internal/transport/http/openai"
 )
 
 const (
@@ -59,9 +61,9 @@ func main() {
 	docs.SwaggerInfo.Host = ""
 
 	registry := service.NewRegistry(cfg)
-	openaiHandler := httptransport.NewOpenAIHandler(registry)
-	responsesHandler := httptransport.NewResponsesHandler(registry)
-	anthroHandler := httptransport.NewAnthropicHandler(registry)
+	openaiHandler := openaitransport.NewOpenAIHandler(registry)
+	responsesHandler := openaitransport.NewResponsesHandler(registry)
+	anthroHandler := anthropictransport.NewHandler(registry)
 	modelsHandler := httptransport.NewModelsHandler(registry)
 	embeddingsHandler := httptransport.NewEmbeddingsHandler(registry)
 	usageHandler := httptransport.NewUsageHandler(registry)

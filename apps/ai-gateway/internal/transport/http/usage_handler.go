@@ -6,6 +6,7 @@ import (
 
 	"apps/ai-gateway/internal/domain"
 	"apps/ai-gateway/internal/service"
+	"apps/ai-gateway/internal/transport/http/common"
 )
 
 // UsageHandler handles the /v1/usage endpoint.
@@ -37,18 +38,18 @@ func (h *UsageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	provider, err := h.registry.Get(providerName)
 	if err != nil {
-		WriteError(w, r, http.StatusBadRequest, err.Error())
+		common.WriteError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if !provider.IsConfigured() {
-		WriteError(w, r, http.StatusNotFound, "provider "+providerName+" not configured")
+		common.WriteError(w, r, http.StatusNotFound, "provider "+providerName+" not configured")
 		return
 	}
 
 	usage, err := provider.Usage(r.Context())
 	if err != nil {
-		WriteError(w, r, http.StatusBadGateway, err.Error())
+		common.WriteError(w, r, http.StatusBadGateway, err.Error())
 		return
 	}
 
