@@ -18,6 +18,7 @@ class LLMClient(Protocol):
         max_tokens: int = 2000,
         reasoning_effort: Optional[str] = None,
         use_responses: bool = True,
+        output_schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]: ...
 
 

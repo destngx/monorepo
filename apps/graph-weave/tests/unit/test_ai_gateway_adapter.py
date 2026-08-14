@@ -62,6 +62,23 @@ def test_openai_chat_completion_uses_responses_and_normalizes_result(mock_post):
 
 
 @patch("httpx.Client.post")
+def test_messages_sends_native_json_schema_format(mock_post):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = 'data: {"type":"response.output_text.delta","delta":"{}"}\n'
+    mock_post.return_value = mock_response
+    schema = {"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]}
+
+    AIGatewayClient(base_url="http://test-gateway/v1").messages(
+        messages=[{"role": "user", "content": "Return JSON"}], provider="openai", model="gpt-5.6-luna", output_schema=schema
+    )
+
+    assert mock_post.call_args.kwargs["json"]["text"]["format"] == {
+        "type": "json_schema", "name": "graph_weave_output", "schema": schema, "strict": True,
+    }
+
+
+@patch("httpx.Client.post")
 def test_openai_responses_normalizes_function_calls(mock_post):
     mock_response = MagicMock()
     mock_response.status_code = 200

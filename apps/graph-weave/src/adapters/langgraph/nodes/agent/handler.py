@@ -230,6 +230,11 @@ class AgentNodeHandler:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     reasoning_effort=reasoning_effort,
+                    output_schema=output_schema,
+                    # Existing schema-bound nodes rely on Chat Completions' JSON
+                    # compatibility contract. Native Responses is retained for
+                    # non-schema agent calls until every stored schema is strict.
+                    use_responses=not bool(output_schema),
                 )
 
                 total_tokens += response.get("usage", {}).get("total_tokens", 0)

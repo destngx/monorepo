@@ -45,6 +45,7 @@ class AIGatewayClient:
         stream: bool = False,
         reasoning_effort: Optional[str] = None,
         use_responses: bool = True,
+        output_schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Send a chat completion request to the AI Gateway.
@@ -62,7 +63,18 @@ class AIGatewayClient:
         Returns:
             OpenAI-compatible response dictionary
         """
-        handler = self.responses if use_responses else self.chat_completion
+        if use_responses:
+            return self.responses(
+                messages=messages,
+                provider=provider,
+                model=model,
+                tools=tools,
+                max_tokens=max_tokens,
+                stream=stream,
+                reasoning_effort=reasoning_effort,
+                output_schema=output_schema,
+            )
+        handler = self.chat_completion
         return handler(
             messages=messages,
             provider=provider,
@@ -89,6 +101,7 @@ class AIGatewayClient:
         max_tokens: int = 8000,
         stream: bool = False,
         reasoning_effort: Optional[str] = None,
+        output_schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Use the legacy OpenAI-compatible ``/chat/completions`` endpoint.
 
@@ -150,6 +163,7 @@ class AIGatewayClient:
         max_tokens: int = 8000,
         stream: bool = False,
         reasoning_effort: Optional[str] = None,
+        output_schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Call the native Responses endpoint and return a chat-compatible result.
 
@@ -175,6 +189,15 @@ class AIGatewayClient:
             payload["tools"] = self._responses_tools(tools)
         if reasoning_effort:
             payload["reasoning"] = {"effort": reasoning_effort}
+        if output_schema:
+            payload["text"] = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "graph_weave_output",
+                    "schema": output_schema,
+                    "strict": True,
+                }
+            }
 
         logger.debug(f"Sending Responses request to AI Gateway: {url} (Provider: {provider}, Model: {model})")
         try:

@@ -181,6 +181,10 @@ def repair_schema_json(
         temperature=0,
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
+        output_schema=output_schema,
+        # Schema repair must use the same JSON-compatible contract as its
+        # initial schema-bound generation request.
+        use_responses=False,
     )
     repaired_content = response["choices"][0]["message"].get("content", "")
     repaired = extract_json(repaired_content)

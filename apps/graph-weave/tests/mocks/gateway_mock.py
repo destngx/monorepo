@@ -20,13 +20,16 @@ class MockGatewayClient:
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        stream: bool = False
+        stream: bool = False,
+        output_schema: Optional[Dict[str, Any]] = None,
+        **_: Any,
     ) -> Dict[str, Any]:
         self.last_payload = {
             "messages": messages,
             "provider": provider,
             "model": model,
             "tools": tools,
+            "output_schema": output_schema,
         }
         
         # Determine content from responses or default
