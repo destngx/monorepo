@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Protocol, cast
+from typing import Any, Dict, Iterator, List, Optional, Protocol, cast
 import threading
 from .ai_gateway_adapter import AIGatewayClient
 from ..app_logging import get_logger
@@ -20,6 +20,17 @@ class LLMClient(Protocol):
         use_responses: bool = True,
         output_schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]: ...
+
+    def messages_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        max_tokens: int = 2000,
+        reasoning_effort: Optional[str] = None,
+        output_schema: Optional[Dict[str, Any]] = None,
+    ) -> Iterator[Dict[str, Any]]: ...
 
 
 

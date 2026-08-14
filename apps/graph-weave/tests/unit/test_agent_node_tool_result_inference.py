@@ -2,6 +2,23 @@ from src.adapters.langgraph.nodes.agent import AgentNodeHandler
 from src.adapters.langgraph.nodes.agent.tool_utils import validate_command_contract
 
 
+def test_complete_output_schema_normalizes_nested_array_item_type():
+    schema = {
+        "type": "object",
+        "properties": {
+            "steps": {"type": "array", "items": {"properties": {"name": {"type": "string"}}}},
+            "tags": {"type": "array"},
+        },
+        "required": ["steps"],
+    }
+
+    normalized = AgentNodeHandler._complete_output_schema(schema, None)
+
+    assert normalized["properties"]["steps"]["items"]["type"] == "object"
+    assert normalized["properties"]["tags"]["items"] == {"type": "string"}
+    assert normalized["required"] == ["steps", "tags"]
+
+
 class DummyExecutor:
     class Config:
         DEFAULT_PROVIDER = "test"

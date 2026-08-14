@@ -182,12 +182,13 @@ def repair_schema_json(
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
         output_schema=output_schema,
-        # Schema repair must use the same JSON-compatible contract as its
-        # initial schema-bound generation request.
-        use_responses=False,
     )
     repaired_content = response["choices"][0]["message"].get("content", "")
     repaired = extract_json(repaired_content)
     if repaired is None:
-        raise ValueError("Schema-bound agent returned non-JSON output and JSON repair failed")
+        preview = " ".join(str(repaired_content).split())[:240]
+        raise ValueError(
+            "Schema-bound agent returned non-JSON output and JSON repair failed "
+            f"(length={len(repaired_content)}, preview={preview!r})"
+        )
     return repaired

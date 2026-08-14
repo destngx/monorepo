@@ -85,6 +85,8 @@ class AgentNodeHandler:
         complete_after_tool_calls = bool(get_field("complete_after_tool_calls", False))
         allow_tool_errors = bool(get_field("allow_tool_errors", False))
         output_schema = get_field("output_schema")
+        output_schema = self._complete_output_schema(output_schema, node.get("output_contract"))
+        schema_summary = self._schema_summary(output_schema)
 
         tool_results = []
 
@@ -231,18 +233,18 @@ class AgentNodeHandler:
                     max_tokens=max_tokens,
                     reasoning_effort=reasoning_effort,
                     output_schema=output_schema,
-                    # Existing schema-bound nodes rely on Chat Completions' JSON
-                    # compatibility contract. Native Responses is retained for
-                    # non-schema agent calls until every stored schema is strict.
-                    use_responses=not bool(output_schema),
                 )
 
                 total_tokens += response.get("usage", {}).get("total_tokens", 0)
                 choice = response["choices"][0]
                 message = choice["message"]
 
-                # Log raw LLM response for debugging tool-use issues
-                self._logger.info(f"[AGENT] {node_id} response: {message.get('content', '')}")
+                response_content = message.get("content", "") or ""
+                preview = " ".join(str(response_content).split())[:500]
+                self._logger.info(
+                    f"[AGENT] {node_id} response content_len={len(response_content)} "
+                    f"preview={preview!r} schema={schema_summary}"
+                )
                 if message.get("tool_calls"):
                     self._logger.info(f"[AGENT] {node_id} requested tools: {[tc['function']['name'] for tc in message['tool_calls']]}")
 
@@ -317,6 +319,10 @@ class AgentNodeHandler:
                 except ValueError as validation_error:
                     if not output_schema:
                         raise
+                    self._logger.warning(
+                        f"[AGENT] {node_id} response failed schema validation: "
+                        f"{validation_error}; requesting JSON repair"
+                    )
                     repaired = repair_schema_json(
                         client=client,
                         messages=messages,
@@ -330,6 +336,7 @@ class AgentNodeHandler:
                         validation_error=str(validation_error),
                     )
                     result_data = coerce_or_fallback(repaired)
+                    self._logger.info(f"[AGENT] {node_id} repaired response passed schema validation")
             else:
                 inferred_result = infer_result_from_tools(
                     tool_results,
@@ -433,6 +440,82 @@ class AgentNodeHandler:
 
     def _validate_output_schema(self, data: Any, schema: Optional[Dict[str, Any]]) -> None:
         return validate_output_schema(data, schema)
+
+    @staticmethod
+    def _complete_output_schema(schema: Optional[Dict[str, Any]], contract: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Complete legacy schemas so they are valid strict Responses schemas."""
+        if not schema:
+            return schema
+        completed = dict(schema)
+        properties = dict(completed.get("properties") or {})
+        type_map = {"string": "string", "array": "array", "object": "object", "number": "number", "integer": "integer", "boolean": "boolean"}
+        for field in (contract or {}).get("produced", []):
+            name = field.get("name")
+            if name and name not in properties:
+                properties[name] = {"type": type_map.get(field.get("type"), "string")}
+        completed["properties"] = properties
+        completed.setdefault("additionalProperties", False)
+        return AgentNodeHandler._normalize_schema_node(completed)
+
+    @staticmethod
+    def _schema_summary(schema: Optional[Dict[str, Any]]) -> str:
+        """Return a compact schema summary useful in runtime logs."""
+        if not schema:
+            return "none"
+        arrays = []
+        def walk(node: Dict[str, Any], path: str) -> None:
+            if node.get("type") == "array":
+                items = node.get("items") or {}
+                arrays.append(
+                    f"{path}.items(type={items.get('type')},required={items.get('required', [])},"
+                    f"properties={list((items.get('properties') or {}).keys())})"
+                )
+                if isinstance(items, dict):
+                    walk(items, f"{path}.items")
+            for name, field in (node.get("properties") or {}).items():
+                if isinstance(field, dict):
+                    walk(field, f"{path}.{name}")
+
+        walk(schema, "$")
+        return f"required={schema.get('required', [])},arrays=[{'; '.join(arrays)}]"
+
+    @staticmethod
+    def _normalize_schema_node(schema: Dict[str, Any], field_name: Optional[str] = None) -> Dict[str, Any]:
+        """Make legacy nested schemas acceptable to strict Responses validation."""
+        normalized = dict(schema or {})
+        if "type" not in normalized:
+            if "properties" in normalized:
+                normalized["type"] = "object"
+            elif "items" in normalized:
+                normalized["type"] = "array"
+            elif any(key in normalized for key in ("anyOf", "oneOf", "allOf")):
+                normalized.pop("type", None)
+            else:
+                normalized["type"] = "string"
+
+        if normalized.get("type") == "object":
+            normalized["properties"] = {
+                name: AgentNodeHandler._normalize_schema_node(value, name)
+                for name, value in (normalized.get("properties") or {}).items()
+            }
+            normalized.setdefault("additionalProperties", False)
+            # Strict Responses schemas require every declared property to be
+            # required; callers can model nullable values with anyOf/type null.
+            normalized["required"] = list(normalized["properties"])
+        elif normalized.get("type") == "array":
+            items = normalized.get("items")
+            if not isinstance(items, dict) or not items:
+                item_type = "object" if field_name in {"steps", "nodes", "edges", "required", "optional", "produced"} else "string"
+                items = {"type": item_type}
+            normalized["items"] = AgentNodeHandler._normalize_schema_node(items, field_name)
+        for combinator in ("anyOf", "oneOf", "allOf"):
+            if combinator in normalized:
+                normalized[combinator] = [
+                    AgentNodeHandler._normalize_schema_node(option, field_name)
+                    for option in normalized[combinator]
+                    if isinstance(option, dict)
+                ]
+        return normalized
 
     def _infer_result_from_tools(
         self,

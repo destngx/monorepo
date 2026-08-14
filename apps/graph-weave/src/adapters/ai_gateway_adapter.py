@@ -1,6 +1,8 @@
 import os
 import logging
 import json
+import warnings
+from typing import Iterator
 from src.app_logging import get_logger
 from typing import Dict, Any, List, Optional, Union
 import httpx
@@ -9,6 +11,10 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 logger = get_logger(__name__)
 
 RETRYABLE_GATEWAY_STATUSES = {429, 502, 503, 504}
+
+
+class AIGatewayResponsesError(RuntimeError):
+    """Raised when a Responses request fails after its SSE stream has started."""
 
 
 def is_retryable_gateway_error(exc: BaseException) -> bool:
@@ -64,16 +70,23 @@ class AIGatewayClient:
             OpenAI-compatible response dictionary
         """
         if use_responses:
-            return self.responses(
+            events = list(self.messages_stream(
                 messages=messages,
                 provider=provider,
                 model=model,
                 tools=tools,
                 max_tokens=max_tokens,
-                stream=stream,
                 reasoning_effort=reasoning_effort,
                 output_schema=output_schema,
-            )
+            ))
+            body = "\n".join("data: " + json.dumps(event) for event in events)
+            result = self._chat_response_from_responses_stream(body, model)
+            message = result["choices"][0]["message"]
+            if output_schema and not message.get("content"):
+                raise AIGatewayResponsesError(
+                    "Responses stream completed without structured output"
+                )
+            return result
         handler = self.chat_completion
         return handler(
             messages=messages,
@@ -84,6 +97,57 @@ class AIGatewayClient:
             stream=stream,
             reasoning_effort=reasoning_effort,
         )
+
+    def messages_stream(
+        self,
+        messages: List[Dict[str, Any]],
+        provider: str,
+        model: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        max_tokens: int = 8000,
+        reasoning_effort: Optional[str] = None,
+        output_schema: Optional[Dict[str, Any]] = None,
+    ) -> Iterator[Dict[str, Any]]:
+        """Yield native Responses SSE events without buffering the completion.
+
+        Consumers must accumulate output text/tool arguments and validate the
+        assembled result after receiving ``response.completed``.
+        """
+        instructions, input_items = self._responses_input(messages)
+        payload: Dict[str, Any] = {
+            "model": model, "input": input_items, "max_output_tokens": max_tokens,
+            "stream": True, "store": False,
+        }
+        if instructions:
+            payload["instructions"] = instructions
+        if tools:
+            payload["tools"] = self._responses_tools(tools)
+        if reasoning_effort:
+            payload["reasoning"] = {"effort": reasoning_effort}
+        if output_schema:
+            payload["text"] = {"format": {"type": "json_schema", "name": "graph_weave_output", "schema": output_schema, "strict": True}}
+
+        url = f"{self.base_url}/responses"
+        headers = {"Content-Type": "application/json", "X-AI-Provider": provider}
+        with httpx.Client(timeout=self.timeout) as client:
+            with client.stream("POST", url, headers=headers, json=payload) as response:
+                if response.status_code != 200:
+                    response.raise_for_status()
+                for line in response.iter_lines():
+                    if isinstance(line, bytes):
+                        line = line.decode("utf-8", errors="replace")
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line[5:].lstrip()
+                    if data == "[DONE]":
+                        continue
+                    try:
+                        event = json.loads(data)
+                    except json.JSONDecodeError:
+                        logger.warning("Ignoring malformed Responses SSE event")
+                        continue
+                    self._raise_for_responses_event(event)
+                    yield event
 
     @retry(
         stop=stop_after_attempt(3),
@@ -108,6 +172,11 @@ class AIGatewayClient:
         Warning: Chat Completions is a compatibility path and will be deprecated
         in the future. Prefer :meth:`messages` or :meth:`responses`.
         """
+        warnings.warn(
+            "chat_completion() and /chat/completions are deprecated; use messages() or messages_stream().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         url = f"{self.base_url}/chat/completions"
         
         headers = {
@@ -271,6 +340,7 @@ class AIGatewayClient:
     @classmethod
     def _chat_response_from_responses_stream(cls, body: str, fallback_model: str) -> Dict[str, Any]:
         content = ""
+        completed_text = ""
         calls: Dict[str, Dict[str, Any]] = {}
         completed_response: Optional[Dict[str, Any]] = None
 
@@ -285,14 +355,25 @@ class AIGatewayClient:
             except json.JSONDecodeError:
                 continue
             event_type = event.get("type")
+            cls._raise_for_responses_event(event)
             if event_type == "response.completed":
                 completed_response = event.get("response")
                 continue
             if event_type == "response.output_text.delta":
                 content += event.get("delta", "")
                 continue
+            if event_type == "response.output_text.done":
+                completed_text = event.get("text", "")
+                continue
             if event_type in {"response.output_item.added", "response.output_item.done"}:
                 item = event.get("item") or {}
+                if item.get("type") == "message":
+                    completed_text = "".join(
+                        part.get("text", "")
+                        for part in item.get("content", [])
+                        if part.get("type") in {"output_text", "text"}
+                    ) or completed_text
+                    continue
                 if item.get("type") != "function_call":
                     continue
                 call_id = item.get("call_id") or item.get("id", "")
@@ -314,6 +395,8 @@ class AIGatewayClient:
 
         if completed_response and (completed_response.get("output") or completed_response.get("output_text")):
             return cls._chat_response_from_responses(completed_response, fallback_model)
+        if not content:
+            content = completed_text
         message: Dict[str, Any] = {"role": "assistant", "content": content}
         if calls:
             message["tool_calls"] = list(calls.values())
@@ -325,3 +408,26 @@ class AIGatewayClient:
             "usage": (completed_response or {}).get("usage", {}),
         }
         return result
+
+    @staticmethod
+    def _raise_for_responses_event(event: Dict[str, Any]) -> None:
+        """Raise for both native Responses failures and gateway SSE errors.
+
+        A streaming HTTP response is already committed as 200 before an
+        upstream failure can occur, so the error must be detected in-band.
+        """
+        event_type = event.get("type")
+        if event_type not in {"error", "response.failed"} and not (
+            not event_type and event.get("error")
+        ):
+            return
+
+        error: Any = event.get("error")
+        response = event.get("response")
+        if isinstance(response, dict) and response.get("error"):
+            error = response["error"]
+        if isinstance(error, dict):
+            message = error.get("message") or error.get("code") or json.dumps(error)
+        else:
+            message = str(error or event.get("message") or event)
+        raise AIGatewayResponsesError(f"AI Gateway Responses stream failed: {message}")
