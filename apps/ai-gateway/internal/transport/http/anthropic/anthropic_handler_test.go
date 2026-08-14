@@ -361,9 +361,11 @@ func TestConvertToAnthropicStreamPreservesArgumentsFromFirstToolChunk(t *testing
 		"data: [DONE]\n\n"
 
 	var output bytes.Buffer
-	count, err := convertToAnthropicStream(bytes.NewBufferString(input), &output)
+	count, err := convertToAnthropicStream(bytes.NewBufferString(input), &output, "claude-haiku-4-5-20251001")
 	assert.NoError(t, err)
 	assert.Positive(t, count)
+	assert.Contains(t, output.String(), `"model":"claude-haiku-4-5-20251001"`)
+	assert.NotContains(t, output.String(), `"model":"gpt-5.4-mini"`)
 	assert.Contains(t, output.String(), "git status --short")
 	assert.NotContains(t, output.String(), "partial_json\\\":\\\"{}")
 }
@@ -375,7 +377,7 @@ func TestConvertToAnthropicStreamSuppressesEmptyToolCall(t *testing.T) {
 		"data: [DONE]\n\n"
 
 	var output bytes.Buffer
-	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output)
+	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output, "claude-haiku-4-5-20251001")
 	assert.NoError(t, err)
 	assert.NotContains(t, output.String(), `"id":"empty"`)
 	assert.Contains(t, output.String(), `"id":"valid"`)
@@ -388,9 +390,23 @@ func TestConvertToAnthropicStreamCompletesParallelToolCallsBeforeStopping(t *tes
 		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n"
 
 	var output bytes.Buffer
-	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output)
+	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output, "claude-haiku-4-5-20251001")
 	assert.NoError(t, err)
 	result := output.String()
 	assert.Contains(t, result, `"partial_json":"{\"command\":\"ls\"}"`)
 	assert.Contains(t, result, `"partial_json":"{\"command\":\"pwd\"}"`)
+}
+
+func TestConvertToAnthropicStreamPreservesUsageAndCacheCounters(t *testing.T) {
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.6-luna\",\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n" +
+		"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":101,\"completion_tokens\":7,\"total_tokens\":108,\"prompt_tokens_details\":{\"cached_tokens\":80,\"cache_write_tokens\":12}}}\n\n" +
+		"data: [DONE]\n\n"
+
+	var output bytes.Buffer
+	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output, "claude-haiku-4-5-20251001")
+	assert.NoError(t, err)
+	assert.Contains(t, output.String(), `"input_tokens":101`)
+	assert.Contains(t, output.String(), `"output_tokens":7`)
+	assert.Contains(t, output.String(), `"cache_read_input_tokens":80`)
+	assert.Contains(t, output.String(), `"cache_creation_input_tokens":12`)
 }

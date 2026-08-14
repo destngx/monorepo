@@ -39,7 +39,7 @@ func (h *AnthropicHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 	if h.registry.Config.Verbose >= 1 {
 		writer = &common.StreamLogWriter{W: w, RID: rid}
 	}
-	eventCount, convertErr := convertToAnthropicStream(pr, writer)
+	eventCount, convertErr := convertToAnthropicStream(pr, writer, inputModel)
 	if convertErr != nil {
 		slog.Error("Stream convert error", "rid", rid, "error", convertErr)
 		sendAnthroEvent(writer, eventError, map[string]any{"error": map[string]any{"type": typeAnthroAPIError, "message": convertErr.Error()}})

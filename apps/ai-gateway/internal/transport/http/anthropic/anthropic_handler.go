@@ -392,7 +392,7 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 	return req
 }
 
-func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
+func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 1024*64), 1024*64)
 	flusher, _ := w.(http.Flusher)
@@ -409,6 +409,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		toolArgumentsSent = make(map[int]bool)
 		messageDeltaSent  = false
 		toolUseSeen       = false
+		usage             domain.Usage
 	)
 
 	writeEvent := func(eventType string, data any) {
@@ -469,7 +470,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 				if toolUseSeen {
 					stopReason = "tool_use"
 				}
-				writeEvent(eventMessageDelta, map[string]any{"delta": map[string]any{"stop_reason": stopReason}, "usage": map[string]any{"output_tokens": 0}})
+				writeEvent(eventMessageDelta, map[string]any{"delta": map[string]any{"stop_reason": stopReason}, "usage": anthropicStreamUsage(usage)})
 			}
 			writeEvent(eventMessageStop, map[string]any{})
 			break
@@ -479,9 +480,21 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			continue
 		}
+		if rawUsage, ok := chunk["usage"]; ok {
+			usageJSON, err := json.Marshal(rawUsage)
+			if err == nil {
+				var next domain.Usage
+				if json.Unmarshal(usageJSON, &next) == nil && (next.PromptTokens != 0 || next.CompletionTokens != 0 || next.TotalTokens != 0) {
+					usage = next
+				}
+			}
+		}
 
 		if first {
 			model, _ := chunk["model"].(string)
+			if clientModel != "" {
+				model = clientModel
+			}
 			id, _ := chunk["id"].(string)
 			writeEvent(eventMessageStart, map[string]any{
 				"message": map[string]any{
@@ -601,7 +614,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 				"delta": map[string]any{
 					"stop_reason": stopReason,
 				},
-				"usage": map[string]any{"output_tokens": 0},
+				"usage": anthropicStreamUsage(usage),
 			})
 			messageDeltaSent = true
 		}
@@ -614,12 +627,17 @@ func convertToAnthropicStream(r io.Reader, w io.Writer) (int, error) {
 	return emitted, scanner.Err()
 }
 
-func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp *domain.ChatResponse) {
+func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp *domain.ChatResponse, clientModel string) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
 	flusher, _ := w.(http.Flusher)
+
+	model := resp.Model
+	if clientModel != "" {
+		model = clientModel
+	}
 
 	// 1. message_start
 	sendAnthroEvent(w, eventMessageStart, map[string]any{
@@ -627,10 +645,12 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 			"id":    resp.ID,
 			"type":  "message",
 			"role":  "assistant",
-			"model": resp.Model,
-			"usage": map[string]int{
-				"input_tokens":  resp.Usage.PromptTokens,
-				"output_tokens": 0,
+			"model": model,
+			"usage": map[string]any{
+				"input_tokens":                resp.Usage.PromptTokens,
+				"output_tokens":               0,
+				"cache_creation_input_tokens": promptCacheWriteTokens(resp.Usage),
+				"cache_read_input_tokens":     promptCacheReadTokens(resp.Usage),
 			},
 		},
 	})
@@ -693,9 +713,7 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 			"delta": map[string]any{
 				"stop_reason": stopReason,
 			},
-			"usage": map[string]any{
-				"output_tokens": resp.Usage.CompletionTokens,
-			},
+			"usage": anthropicStreamUsage(resp.Usage),
 		})
 	}
 
@@ -704,4 +722,27 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 	if flusher != nil {
 		flusher.Flush()
 	}
+}
+
+func anthropicStreamUsage(usage domain.Usage) map[string]any {
+	return map[string]any{
+		"input_tokens":                usage.PromptTokens,
+		"output_tokens":               usage.CompletionTokens,
+		"cache_creation_input_tokens": promptCacheWriteTokens(usage),
+		"cache_read_input_tokens":     promptCacheReadTokens(usage),
+	}
+}
+
+func promptCacheWriteTokens(usage domain.Usage) int {
+	if usage.PromptTokensDetails == nil {
+		return 0
+	}
+	return usage.PromptTokensDetails.CacheWriteTokens
+}
+
+func promptCacheReadTokens(usage domain.Usage) int {
+	if usage.PromptTokensDetails == nil {
+		return 0
+	}
+	return usage.PromptTokensDetails.CachedTokens
 }

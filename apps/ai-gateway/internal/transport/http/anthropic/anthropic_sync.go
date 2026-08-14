@@ -28,11 +28,11 @@ func (h *AnthropicHandler) handleSync(w http.ResponseWriter, r *http.Request, p 
 
 	common.SetMetrics(r, p.Name(), req.Model, inputModel, resp.Usage, req.Stream, nil)
 	if wasStream {
-		h.writeAnthroStreamResponse(w, resp)
+		h.writeAnthroStreamResponse(w, resp, inputModel)
 		return
 	}
 
-	anthroResp := convertToAnthropicResponse(resp)
+	anthroResp := convertToAnthropicResponse(resp, inputModel)
 	if h.registry.Config.Verbose >= 1 {
 		body, _ := json.MarshalIndent(anthroResp, "", "  ")
 		slog.Info("FULL ANTHROPIC RESPONSE", "rid", rid, "body", string(body))
