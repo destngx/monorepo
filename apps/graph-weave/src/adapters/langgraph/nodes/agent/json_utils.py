@@ -173,7 +173,7 @@ def repair_schema_json(
         }
     ]
 
-    response = client.chat_completion(
+    response = client.messages(
         messages=repair_messages,
         provider=provider,
         model=model,

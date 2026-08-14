@@ -60,7 +60,7 @@ class OrchestratorReAct:
             # Trim context window before each LLM call
             messages = trim_context(messages, self.max_context_messages)
 
-            response = self.client.chat_completion(
+            response = self.client.messages(
                 messages=messages,
                 provider=config.provider or self.default_provider,
                 model=config.model or self.default_model,

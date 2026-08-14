@@ -22,7 +22,7 @@ def test_live_gateway_connectivity():
     messages = [{"role": "user", "content": "Respond with the word 'ACKNOWLEDGE'"}]
 
     try:
-        result = client.chat_completion(
+        result = client.messages(
             messages=messages,
             provider="github-copilot",
             model="gpt-5.4-mini",

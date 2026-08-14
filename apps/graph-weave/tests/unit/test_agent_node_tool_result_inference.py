@@ -52,7 +52,7 @@ class CaptureClient:
     def __init__(self):
         self.kwargs = None
 
-    def chat_completion(self, **kwargs):
+    def messages(self, **kwargs):
         self.kwargs = kwargs
         return {
             "choices": [{"message": {"content": '{"ok": true}'}}],
@@ -64,7 +64,7 @@ class DummyClient:
     def __init__(self):
         self.calls = 0
 
-    def chat_completion(self, **kwargs):
+    def messages(self, **kwargs):
         self.calls += 1
         if self.calls > 1:
             return {
@@ -111,7 +111,7 @@ class NullModelConfigExecutor(DummyExecutor):
 
 
 class EnvelopeClient:
-    def chat_completion(self, **kwargs):
+    def messages(self, **kwargs):
         return {
             "choices": [
                 {
@@ -141,7 +141,7 @@ class SchemaRepairClient:
     def __init__(self):
         self.calls = 0
 
-    def chat_completion(self, **kwargs):
+    def messages(self, **kwargs):
         self.calls += 1
         if self.calls == 1:
             return {
@@ -760,7 +760,7 @@ class RepairClient:
         self.calls = 0
         self.repaired_content = repaired_content
 
-    def chat_completion(self, **kwargs):
+    def messages(self, **kwargs):
         self.calls += 1
         content = "I will reason about this first." if self.calls == 1 else self.repaired_content
         return {

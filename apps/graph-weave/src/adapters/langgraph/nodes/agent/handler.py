@@ -222,7 +222,7 @@ class AgentNodeHandler:
 
             while turns < max_turns:
                 turns += 1
-                response = client.chat_completion(
+                response = client.messages(
                     messages=messages,
                     provider=provider,
                     model=model,

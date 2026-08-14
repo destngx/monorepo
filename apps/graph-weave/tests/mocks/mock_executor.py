@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 class _MockGatewayClient:
     """Local no-network gateway client used by MockLangGraphExecutor by default."""
 
-    def chat_completion(
+    def messages(
         self,
         messages: List[Dict[str, str]],
         provider: str,
@@ -260,7 +260,7 @@ class MockLangGraphExecutor(BaseLangGraphExecutor):
             provider_client = self.ai_provider_factory.get_provider_client(
                 provider or "openai", model
             )
-            response = provider_client.chat_completion(
+            response = provider_client.messages(
                 messages=messages,
                 provider=provider or "openai",
                 model=model or "gpt-5.4-mini",

@@ -12,7 +12,7 @@ class MockGatewayClient:
         self.last_payload = {}
         self.responses = {}
 
-    def chat_completion(
+    def messages(
         self,
         messages: List[Dict[str, str]],
         provider: str,
