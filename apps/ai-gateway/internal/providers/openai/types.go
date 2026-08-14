@@ -14,14 +14,15 @@ type oauthRefreshResponse struct {
 }
 
 type codexResponseRequest struct {
-	Model           string `json:"model"`
-	Instructions    string `json:"instructions"`
-	Input           []any  `json:"input"`
-	Stream          bool   `json:"stream"`
-	Store           bool   `json:"store"`
-	Tools           []any  `json:"tools,omitempty"`
-	ToolChoice      any    `json:"tool_choice,omitempty"`
-	MaxOutputTokens *int   `json:"max_output_tokens,omitempty"`
+	Model           string   `json:"model"`
+	Instructions    string   `json:"instructions"`
+	Input           []any    `json:"input"`
+	Stream          bool     `json:"stream"`
+	Store           bool     `json:"store"`
+	Tools           []any    `json:"tools,omitempty"`
+	ToolChoice      any      `json:"tool_choice,omitempty"`
+	Include         []string `json:"include,omitempty"`
+	MaxOutputTokens *int     `json:"max_output_tokens,omitempty"`
 }
 
 type codexInputMessage struct {
@@ -44,14 +45,16 @@ type codexStreamEvent struct {
 	Name      string           `json:"name,omitempty"`
 	Arguments string           `json:"arguments,omitempty"`
 	Item      *codexOutputItem `json:"item,omitempty"`
+	Action    map[string]any   `json:"action,omitempty"`
 }
 
 type codexOutputItem struct {
-	ID        string `json:"id,omitempty"`
-	Type      string `json:"type,omitempty"`
-	CallID    string `json:"call_id,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Arguments string `json:"arguments,omitempty"`
+	ID        string         `json:"id,omitempty"`
+	Type      string         `json:"type,omitempty"`
+	CallID    string         `json:"call_id,omitempty"`
+	Name      string         `json:"name,omitempty"`
+	Arguments string         `json:"arguments,omitempty"`
+	Action    map[string]any `json:"action,omitempty"`
 }
 
 type chatGPTModelsResponse struct {
@@ -65,10 +68,11 @@ type chatGPTModel struct {
 }
 
 type codexResponse struct {
-	ID        string      `json:"id"`
-	CreatedAt int64       `json:"created_at"`
-	Model     string      `json:"model"`
-	Usage     *codexUsage `json:"usage,omitempty"`
+	ID        string            `json:"id"`
+	CreatedAt int64             `json:"created_at"`
+	Model     string            `json:"model"`
+	Output    []codexOutputItem `json:"output,omitempty"`
+	Usage     *codexUsage       `json:"usage,omitempty"`
 }
 
 type codexUsage struct {

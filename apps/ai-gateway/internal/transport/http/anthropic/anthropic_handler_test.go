@@ -17,6 +17,41 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestIsWebSearchToolMatchesVersionedNames(t *testing.T) {
+	for _, value := range []string{"web_search", "web_search_20241022", "web_search_20250305", "WEB_SEARCH_PREVIEW"} {
+		if !isWebSearchTool(value) {
+			t.Errorf("expected %q to be recognized as web search", value)
+		}
+	}
+	for _, value := range []string{"search", "web_searchx", "code_execution"} {
+		if isWebSearchTool(value) {
+			t.Errorf("did not expect %q to be recognized as web search", value)
+		}
+	}
+}
+
+func TestConvertAnthropicWebSearchToolChoiceFallsBackToAuto(t *testing.T) {
+	req := convertFromAnthropicRequest(anthropic.Request{
+		Model: "claude-haiku-4-5-20251001",
+		ToolChoice: map[string]any{
+			"type": "tool",
+			"name": "web_search_20250305",
+		},
+	}, domain.ProviderOpenAI)
+
+	assert.Equal(t, "auto", req.ToolChoice)
+}
+
+func TestConvertAnthropicWebSearchToolPreservesHostedTool(t *testing.T) {
+	req := convertFromAnthropicRequest(anthropic.Request{
+		Tools: []anthropic.Tool{{Name: "web_search", Type: "web_search_20250305"}},
+	}, domain.ProviderOpenAI)
+
+	if len(req.Tools) != 1 || req.Tools[0].Type != domain.ToolTypeWebSearch {
+		t.Fatalf("expected hosted web-search tool, got %#v", req.Tools)
+	}
+}
+
 type MockTestProvider struct {
 	name                string
 	chatCallCount       int
@@ -151,7 +186,7 @@ func assertErrorType(t *testing.T, resp map[string]any, errType string) {
 	assert.Equal(t, errType, errObj["type"])
 }
 
-func TestAnthropicHandler_RejectsNativeTools_NonAnthropic(t *testing.T) {
+func TestAnthropicHandler_AllowsVersionedWebSearchTool_NonAnthropic(t *testing.T) {
 	handler, mockOpenAI, _ := setupTestDeps()
 
 	req := anthropic.Request{
@@ -162,16 +197,12 @@ func TestAnthropicHandler_RejectsNativeTools_NonAnthropic(t *testing.T) {
 		Messages: []anthropic.Message{{Role: "user", Content: "hello"}},
 	}
 
-	rr, resp := doReq(t, handler, domain.ProviderOpenAI, "gpt-4o", req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assertErrorType(t, resp, "unsupported_native_tool")
-
-	// INVARIANT: Provider must never be called!
-	assert.Equal(t, 0, mockOpenAI.chatCallCount)
-	assert.Equal(t, 0, mockOpenAI.streamCallCount)
+	rr, _ := doReq(t, handler, domain.ProviderOpenAI, "gpt-4o", req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, 1, mockOpenAI.chatCallCount)
 }
 
-func TestAnthropicHandler_RejectsNativeMessageBlock_NonAnthropic(t *testing.T) {
+func TestAnthropicHandler_AllowsVersionedWebSearchMessageBlock_NonAnthropic(t *testing.T) {
 	handler, mockOpenAI, _ := setupTestDeps()
 
 	req := anthropic.Request{
@@ -185,13 +216,12 @@ func TestAnthropicHandler_RejectsNativeMessageBlock_NonAnthropic(t *testing.T) {
 		},
 	}
 
-	rr, resp := doReq(t, handler, domain.ProviderOpenAI, "gpt-4o", req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assertErrorType(t, resp, "unsupported_native_tool")
-	assert.Equal(t, 0, mockOpenAI.chatCallCount)
+	rr, _ := doReq(t, handler, domain.ProviderOpenAI, "gpt-4o", req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, 1, mockOpenAI.chatCallCount)
 }
 
-func TestAnthropicHandler_RejectsUnmappedToolChoice_NonAnthropic(t *testing.T) {
+func TestAnthropicHandler_AllowsVersionedWebSearchToolChoice_NonAnthropic(t *testing.T) {
 	handler, mockOpenAI, _ := setupTestDeps()
 
 	req := anthropic.Request{
@@ -205,10 +235,9 @@ func TestAnthropicHandler_RejectsUnmappedToolChoice_NonAnthropic(t *testing.T) {
 		Messages: []anthropic.Message{{Role: "user", Content: "search this"}},
 	}
 
-	rr, resp := doReq(t, handler, domain.ProviderOpenAI, "gpt-4o", req)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	assertErrorType(t, resp, "unsupported_native_tool")
-	assert.Equal(t, 0, mockOpenAI.chatCallCount)
+	rr, _ := doReq(t, handler, domain.ProviderOpenAI, "gpt-4o", req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, 1, mockOpenAI.chatCallCount)
 }
 
 func TestAnthropicHandler_AllowsNative_AnthropicPassThrough(t *testing.T) {
@@ -226,7 +255,7 @@ func TestAnthropicHandler_AllowsNative_AnthropicPassThrough(t *testing.T) {
 	assert.Equal(t, 1, mockAnthro.chatCallCount)
 }
 
-func TestAnthropicHandler_RejectsStream_NonAnthropic(t *testing.T) {
+func TestAnthropicHandler_AllowsStreamVersionedWebSearch_NonAnthropic(t *testing.T) {
 	handler, mockOpenAI, _ := setupTestDeps()
 
 	req := anthropic.Request{
@@ -245,11 +274,9 @@ func TestAnthropicHandler_RejectsStream_NonAnthropic(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, httpReq)
 
-	assert.Equal(t, http.StatusOK, rr.Code) // Streams emit 200 and return event: error
-	assert.Contains(t, rr.Body.String(), "event: error")
-	assert.Contains(t, rr.Body.String(), "unsupported_native_tool")
+	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, 0, mockOpenAI.chatCallCount)
-	assert.Equal(t, 0, mockOpenAI.streamCallCount)
+	assert.Equal(t, 1, mockOpenAI.streamCallCount)
 }
 
 func TestAnthropicHandler_RouteInterceptorCanOverrideProviderAndModel(t *testing.T) {
@@ -409,4 +436,22 @@ func TestConvertToAnthropicStreamPreservesUsageAndCacheCounters(t *testing.T) {
 	assert.Contains(t, output.String(), `"output_tokens":7`)
 	assert.Contains(t, output.String(), `"cache_read_input_tokens":80`)
 	assert.Contains(t, output.String(), `"cache_creation_input_tokens":12`)
+}
+
+func TestConvertToAnthropicStreamReportsMissingWebSearchSourcesAsUnavailable(t *testing.T) {
+	input := "data: {\"object\":\"chat.completion.chunk\",\"web_search\":{\"id\":\"ws_1\",\"query\":\"current Node.js LTS\"},\"choices\":[]}\n\n" +
+		"data: {\"object\":\"chat.completion.chunk\",\"web_search_result\":{\"id\":\"ws_1\",\"error\":\"unavailable\"},\"choices\":[]}\n\n" +
+		"data: [DONE]\n\n"
+
+	var output bytes.Buffer
+	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output, "claude-haiku-4-5-20251001")
+	assert.NoError(t, err)
+	assert.Contains(t, output.String(), `"type":"web_search_tool_result_error"`)
+	assert.Contains(t, output.String(), `"error_code":"unavailable"`)
+	assert.NotContains(t, output.String(), "No search results were returned")
+	messageStart := bytes.Index(output.Bytes(), []byte("event: message_start"))
+	contentStart := bytes.Index(output.Bytes(), []byte("event: content_block_start"))
+	assert.GreaterOrEqual(t, messageStart, 0)
+	assert.Greater(t, contentStart, messageStart)
+	assert.Contains(t, output.String(), `"id":"msg_ai_gateway"`)
 }

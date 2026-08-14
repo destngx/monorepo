@@ -135,6 +135,9 @@ func toCodexResponseRequest(req domain.ChatRequest) codexResponseRequest {
 	if len(req.Tools) > 0 {
 		out.Tools = responsesToolsFromChat(req.Tools)
 	}
+	if hasWebSearchTool(req.Tools) {
+		out.Include = []string{responsesIncludeWebSearchSources}
+	}
 	if req.ToolChoice != nil {
 		out.ToolChoice = req.ToolChoice
 	}
@@ -181,6 +184,10 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 	toolCalls := make([]domain.ToolCall, 0)
 	callIndexes := make(map[string]int)
 	callNames := make(map[string]string)
+	webSearchEmitted := make(map[string]bool)
+	webSearchResultEmitted := make(map[string]bool)
+	pendingWebSearchResults := make(map[string]any)
+	webSearchOrder := make([]string, 0)
 	var usage domain.Usage
 	var responseID string
 	var created int64
@@ -217,6 +224,27 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 		}
 
 		switch event.Type {
+		case "response.web_search_call.searching", "response.web_search_call.in_progress":
+			query, _ := event.Action["query"].(string)
+			if query == "" {
+				if queries, ok := event.Action["queries"].([]any); ok && len(queries) > 0 {
+					query, _ = queries[0].(string)
+				}
+			}
+			if w != nil && query != "" && !webSearchEmitted[event.ItemID] {
+				webSearchEmitted[event.ItemID] = true
+				webSearchOrder = append(webSearchOrder, event.ItemID)
+				if err := writeOpenAIWebSearch(w, event.ItemID, query); err != nil {
+					return content.String(), toolCalls, usage, responseID, created, model, err
+				}
+				if sources, ok := pendingWebSearchResults[event.ItemID]; ok {
+					if err := writeOpenAIWebSearchResult(w, event.ItemID, sources); err != nil {
+						return content.String(), toolCalls, usage, responseID, created, model, err
+					}
+					webSearchResultEmitted[event.ItemID] = true
+					delete(pendingWebSearchResults, event.ItemID)
+				}
+			}
 		case "response.output_text.delta":
 			content.WriteString(event.Delta)
 			if w != nil {
@@ -232,6 +260,39 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 			}
 		case "response.output_item.added", "response.output_item.done":
 			item := event.Item
+			if item != nil && item.Type == "web_search_call" {
+				query, _ := item.Action["query"].(string)
+				if query == "" {
+					if queries, ok := item.Action["queries"].([]any); ok && len(queries) > 0 {
+						query, _ = queries[0].(string)
+					}
+				}
+				if w != nil && query != "" && !webSearchEmitted[item.ID] {
+					webSearchEmitted[item.ID] = true
+					webSearchOrder = append(webSearchOrder, item.ID)
+					if err := writeOpenAIWebSearch(w, item.ID, query); err != nil {
+						return content.String(), toolCalls, usage, responseID, created, model, err
+					}
+					if sources, ok := pendingWebSearchResults[item.ID]; ok {
+						if err := writeOpenAIWebSearchResult(w, item.ID, sources); err != nil {
+							return content.String(), toolCalls, usage, responseID, created, model, err
+						}
+						webSearchResultEmitted[item.ID] = true
+						delete(pendingWebSearchResults, item.ID)
+					}
+				}
+				if sources, ok := webSearchSources(item.Action); ok {
+					if w != nil && webSearchEmitted[item.ID] && !webSearchResultEmitted[item.ID] {
+						if err := writeOpenAIWebSearchResult(w, item.ID, sources); err != nil {
+							return content.String(), toolCalls, usage, responseID, created, model, err
+						}
+						webSearchResultEmitted[item.ID] = true
+					} else if !webSearchResultEmitted[item.ID] {
+						pendingWebSearchResults[item.ID] = sources
+					}
+				}
+				continue
+			}
 			if item == nil || item.Type != "function_call" {
 				continue
 			}
@@ -257,6 +318,42 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 				}
 				callNames[item.CallID] = item.Name
 				toolCalls = append(toolCalls, domain.ToolCall{ID: item.CallID, Type: domain.ToolTypeFunction, Function: &domain.FunctionCall{Name: item.Name, Arguments: item.Arguments}})
+			}
+		case "response.web_search_call.completed":
+			if event.ItemID != "" && !webSearchResultEmitted[event.ItemID] {
+				sources, hasSources := webSearchSources(event.Action)
+				if !hasSources {
+					continue
+				}
+				if w != nil && webSearchEmitted[event.ItemID] {
+					webSearchResultEmitted[event.ItemID] = true
+					if err := writeOpenAIWebSearchResult(w, event.ItemID, sources); err != nil {
+						return content.String(), toolCalls, usage, responseID, created, model, err
+					}
+				} else {
+					pendingWebSearchResults[event.ItemID] = sources
+				}
+			}
+		case "response.completed":
+			if event.Response == nil {
+				continue
+			}
+			for _, item := range event.Response.Output {
+				if item.Type != "web_search_call" || item.ID == "" || webSearchResultEmitted[item.ID] {
+					continue
+				}
+				sources, ok := webSearchSources(item.Action)
+				if !ok {
+					continue
+				}
+				if w != nil && webSearchEmitted[item.ID] {
+					if err := writeOpenAIWebSearchResult(w, item.ID, sources); err != nil {
+						return content.String(), toolCalls, usage, responseID, created, model, err
+					}
+					webSearchResultEmitted[item.ID] = true
+				} else {
+					pendingWebSearchResults[item.ID] = sources
+				}
 			}
 		case "response.function_call_arguments.delta", "response.function_call_arguments.done":
 			callID := event.CallID
@@ -309,6 +406,14 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
 	if w != nil {
+		for _, callID := range webSearchOrder {
+			if webSearchResultEmitted[callID] {
+				continue
+			}
+			if err := writeOpenAIWebSearchError(w, callID, webSearchResultErrorUnavailable); err != nil {
+				return content.String(), toolCalls, usage, responseID, created, model, err
+			}
+		}
 		if len(toolCalls) > 0 {
 			if err := writeOpenAIToolFinish(w, responseID, created, model); err != nil {
 				return content.String(), toolCalls, usage, responseID, created, model, err
@@ -318,6 +423,53 @@ func parseCodexStream(body io.Reader, w io.Writer) (string, []domain.ToolCall, d
 	}
 
 	return content.String(), toolCalls, usage, responseID, created, model, nil
+}
+
+func webSearchSources(action map[string]any) (any, bool) {
+	if action == nil {
+		return nil, false
+	}
+	sources, ok := action["sources"]
+	if !ok || sources == nil {
+		return nil, false
+	}
+	return sources, true
+}
+
+func writeOpenAIWebSearch(w io.Writer, callID, query string) error {
+	chunk := map[string]any{
+		"object":     "chat.completion.chunk",
+		"web_search": map[string]any{"id": callID, "query": query},
+		"choices":    []any{},
+	}
+	return writeSSEMap(w, chunk)
+}
+
+func writeOpenAIWebSearchResult(w io.Writer, callID string, sources any) error {
+	sources = limitWebSearchSources(sources)
+	chunk := map[string]any{
+		"object":            "chat.completion.chunk",
+		"web_search_result": map[string]any{"id": callID, "sources": sources},
+		"choices":           []any{},
+	}
+	return writeSSEMap(w, chunk)
+}
+
+func limitWebSearchSources(sources any) any {
+	items, ok := sources.([]any)
+	if !ok || len(items) <= maxWebSearchSources {
+		return sources
+	}
+	return items[:maxWebSearchSources]
+}
+
+func writeOpenAIWebSearchError(w io.Writer, callID, errorCode string) error {
+	chunk := map[string]any{
+		"object":            "chat.completion.chunk",
+		"web_search_result": map[string]any{"id": callID, "error": errorCode},
+		"choices":           []any{},
+	}
+	return writeSSEMap(w, chunk)
 }
 
 func codexFinishReason(calls []domain.ToolCall) string {

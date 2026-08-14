@@ -1,7 +1,9 @@
 package openai
 
 import (
+	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"apps/ai-gateway/internal/domain"
@@ -35,6 +37,46 @@ func TestResponsesRequestFromChatPreservesInstructionsAndCacheOptions(t *testing
 	}
 	if string(encoded) == "" {
 		t.Fatal("empty input payload")
+	}
+}
+
+func TestResponsesToolsPreservesHostedWebSearch(t *testing.T) {
+	tools := responsesToolsFromChat([]domain.Tool{{Type: domain.ToolTypeWebSearch}})
+	if len(tools) != 1 {
+		t.Fatalf("expected one hosted tool, got %#v", tools)
+	}
+	tool, ok := tools[0].(map[string]any)
+	if !ok || tool["type"] != domain.ToolTypeWebSearch {
+		t.Fatalf("unexpected hosted web-search tool: %#v", tools[0])
+	}
+}
+
+func TestResponsesRequestFromChatIncludesHostedWebSearchSources(t *testing.T) {
+	payload := responsesRequestFromChat(domain.ChatRequest{
+		Model: "gpt-5.6-luna",
+		Tools: []domain.Tool{{Type: domain.ToolTypeWebSearch}},
+	}, true).CloneBody()
+
+	include, ok := payload[responsesFieldInclude].([]string)
+	if !ok || len(include) != 1 || include[0] != responsesIncludeWebSearchSources {
+		t.Fatalf("expected web-search sources include, got %#v", payload[responsesFieldInclude])
+	}
+}
+
+func TestProxyResponsesAsChatSSEEmitsHostedWebSearchToolCall(t *testing.T) {
+	body := "data: {\"type\":\"response.web_search_call.searching\",\"item_id\":\"ws_1\",\"action\":{\"query\":\"Node.js LTS\"}}\n\n" +
+		"data: {\"type\":\"response.output_item.done\",\"item\":{\"id\":\"ws_1\",\"type\":\"web_search_call\",\"action\":{\"queries\":[\"Node.js LTS\"],\"sources\":[{\"type\":\"url\",\"url\":\"https://nodejs.org/en/about/previous-releases\",\"title\":\"Node.js releases\"}]}}}\n\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Node.js 22 is LTS.\"}\n\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"total_tokens\":1}}}\n\n"
+	var output bytes.Buffer
+	if _, err := proxyResponsesAsChatSSE(bytes.NewBufferString(body), &output); err != nil {
+		t.Fatalf("proxy failed: %v", err)
+	}
+	if !strings.Contains(output.String(), `"web_search":{"id":"ws_1","query":"Node.js LTS"}`) {
+		t.Fatalf("expected hosted web-search tool call, got %s", output.String())
+	}
+	if !strings.Contains(output.String(), `"web_search_result":{"id":"ws_1","sources":[{"title":"Node.js releases","type":"url","url":"https://nodejs.org/en/about/previous-releases"}]}`) {
+		t.Fatalf("expected hosted web-search sources, got %s", output.String())
 	}
 }
 

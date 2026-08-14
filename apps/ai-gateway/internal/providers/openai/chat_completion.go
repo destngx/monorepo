@@ -17,7 +17,7 @@ func (p *Provider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.Ch
 		return p.chatCodex(ctx, req)
 	}
 	req = withPromptCacheConfig(req)
-	if req.PromptCacheOptions != nil {
+	if req.PromptCacheOptions != nil || hasWebSearchTool(req.Tools) {
 		return p.chatViaResponses(ctx, req)
 	}
 	body, _ := json.Marshal(req)
@@ -45,7 +45,7 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 		return p.chatCodexStream(ctx, req, w)
 	}
 	req = withPromptCacheConfig(req)
-	if req.PromptCacheOptions != nil {
+	if req.PromptCacheOptions != nil || hasWebSearchTool(req.Tools) {
 		return p.chatStreamViaResponses(ctx, req, w)
 	}
 	req.Stream = true
@@ -57,6 +57,15 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	}
 	defer resp.Body.Close()
 	return shared.StreamSSEAndCountTokens(resp.Body, w)
+}
+
+func hasWebSearchTool(tools []domain.Tool) bool {
+	for _, tool := range tools {
+		if tool.Type == domain.ToolTypeWebSearch {
+			return true
+		}
+	}
+	return false
 }
 
 func withPromptCacheConfig(req domain.ChatRequest) domain.ChatRequest {

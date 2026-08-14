@@ -231,11 +231,18 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 					req.ToolChoice = "required"
 				case "tool":
 					name, _ := m["name"].(string)
-					req.ToolChoice = map[string]any{
-						"type": "function",
-						"function": map[string]string{
-							"name": name,
-						},
+					if isWebSearchTool(name) {
+						// The temporary web-search compatibility path strips the
+						// Anthropic native tool before calling OpenAI. A named
+						// function choice would therefore reference no tool.
+						req.ToolChoice = "auto"
+					} else {
+						req.ToolChoice = map[string]any{
+							"type": "function",
+							"function": map[string]string{
+								"name": name,
+							},
+						}
 					}
 				}
 			}
@@ -366,6 +373,11 @@ func convertFromAnthropicRequest(ar anthropic.Request, providerName string) doma
 			toolType = domain.ToolTypeFunction
 		}
 
+		if isWebSearchTool(toolType) || isWebSearchTool(t.Name) {
+			req.Tools = append(req.Tools, domain.Tool{Type: domain.ToolTypeWebSearch})
+			continue
+		}
+
 		if toolType != domain.ToolTypeFunction {
 			continue // Skip native tools, they will be stripped or handled by the proxy
 		}
@@ -489,13 +501,15 @@ func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int
 				}
 			}
 		}
-
 		if first {
 			model, _ := chunk["model"].(string)
 			if clientModel != "" {
 				model = clientModel
 			}
 			id, _ := chunk["id"].(string)
+			if id == "" {
+				id = fallbackAnthropicMessageID
+			}
 			writeEvent(eventMessageStart, map[string]any{
 				"message": map[string]any{
 					"id":            id,
@@ -509,6 +523,51 @@ func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int
 				},
 			})
 			first = false
+		}
+		if search, ok := chunk["web_search"].(map[string]any); ok {
+			ensureTextStopped()
+			blockIndex++
+			searchID, _ := search["id"].(string)
+			query, _ := search["query"].(string)
+			writeEvent(eventContentBlockStart, map[string]any{
+				"index":         blockIndex,
+				"content_block": map[string]any{"type": "server_tool_use", "id": searchID, "name": "web_search", "input": map[string]any{"query": query}},
+			})
+			writeEvent(eventContentBlockStop, map[string]any{"index": blockIndex})
+		}
+		if result, ok := chunk["web_search_result"].(map[string]any); ok {
+			ensureTextStopped()
+			blockIndex++
+			resultContent := []any{}
+			if errorCode, ok := result["error"].(string); ok && errorCode != "" {
+				resultContent = append(resultContent, map[string]any{
+					"type":       typeWebSearchResultError,
+					"error_code": errorCode,
+				})
+			}
+			if sources, ok := result["sources"].([]any); ok {
+				for _, source := range sources {
+					if sourceMap, ok := source.(map[string]any); ok {
+						resultContent = append(resultContent, map[string]any{
+							"type":  "web_search_result",
+							"title": sourceMap["title"],
+							"url":   sourceMap["url"],
+						})
+					}
+				}
+			}
+			var resultPayload any = resultContent
+			if len(resultContent) == 0 {
+				resultPayload = []any{map[string]any{
+					"type":       typeWebSearchResultError,
+					"error_code": webSearchErrorUnavailable,
+				}}
+			}
+			writeEvent(eventContentBlockStart, map[string]any{
+				"index":         blockIndex,
+				"content_block": map[string]any{"type": "web_search_tool_result", "tool_use_id": result["id"], "content": resultPayload},
+			})
+			writeEvent(eventContentBlockStop, map[string]any{"index": blockIndex})
 		}
 
 		choices, ok := chunk["choices"].([]any)
@@ -556,13 +615,17 @@ func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int
 					activeToolIndex = blockIndex
 					activeToolID = id
 					toolUseSeen = true
+					blockType := "tool_use"
+					if name == "web_search" {
+						blockType = "server_tool_use"
+					}
 
 					if args, ok := function["arguments"].(string); ok {
 						toolArguments[activeToolIndex] = args
 						if args != "" {
 							writeEvent(eventContentBlockStart, map[string]any{
 								"index":         activeToolIndex,
-								"content_block": map[string]any{"type": "tool_use", "id": id, "name": name, "input": map[string]any{}},
+								"content_block": map[string]any{"type": blockType, "id": id, "name": name, "input": map[string]any{}},
 							})
 							activeToolStarted = true
 						}
@@ -686,11 +749,15 @@ func (h *AnthropicHandler) writeAnthroStreamResponse(w http.ResponseWriter, resp
 				name = tc.Type
 			}
 			input = normalizeAnthropicToolInput(name, input)
+			blockType := "tool_use"
+			if name == "web_search" {
+				blockType = "server_tool_use"
+			}
 
 			sendAnthroEvent(w, eventContentBlockStart, map[string]any{
 				"index": blockIdx,
 				"content_block": map[string]any{
-					"type":  "tool_use",
+					"type":  blockType,
 					"id":    tc.ID,
 					"name":  name,
 					"input": input,

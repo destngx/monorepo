@@ -12,6 +12,14 @@ import (
 	"apps/ai-gateway/internal/domain"
 )
 
+const (
+	hostedWebSearchToolName          = "web_search"
+	responsesFieldInclude            = "include"
+	responsesIncludeWebSearchSources = "web_search_call.action.sources"
+	webSearchResultErrorUnavailable  = "unavailable"
+	maxWebSearchSources              = 8
+)
+
 // chatViaResponses adapts the internal chat contract to the Responses API while
 // retaining the ChatResponse shape expected by the Anthropic transport adapter.
 func (p *Provider) chatViaResponses(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
@@ -68,6 +76,9 @@ func responsesRequestFromChat(req domain.ChatRequest, stream bool) domain.Respon
 	if len(req.Tools) > 0 {
 		body["tools"] = responsesToolsFromChat(req.Tools)
 	}
+	if hasWebSearchTool(req.Tools) {
+		body[responsesFieldInclude] = []string{responsesIncludeWebSearchSources}
+	}
 	return domain.ResponsesRequest{Model: req.Model, Stream: stream, Body: body}
 }
 
@@ -108,6 +119,10 @@ func responsesInputFromMessages(messages []domain.Message) (string, []any) {
 func responsesToolsFromChat(tools []domain.Tool) []any {
 	result := make([]any, 0, len(tools))
 	for _, tool := range tools {
+		if tool.Type == domain.ToolTypeWebSearch {
+			result = append(result, map[string]any{"type": domain.ToolTypeWebSearch})
+			continue
+		}
 		if tool.Function == nil {
 			continue
 		}
@@ -160,6 +175,42 @@ func finishReason(calls []domain.ToolCall) string {
 
 func proxyResponsesAsChatSSE(body io.Reader, w io.Writer) (domain.Usage, error) {
 	var usage domain.Usage
+	webSearchEmitted := make(map[string]bool)
+	webSearchResultEmitted := make(map[string]bool)
+	pendingWebSearchResults := make(map[string]any)
+	webSearchOrder := make([]string, 0)
+	emitSearch := func(callID, query string) error {
+		if callID == "" || query == "" || webSearchEmitted[callID] {
+			return nil
+		}
+		webSearchEmitted[callID] = true
+		webSearchOrder = append(webSearchOrder, callID)
+		if err := writeOpenAIWebSearch(w, callID, query); err != nil {
+			return err
+		}
+		if sources, ok := pendingWebSearchResults[callID]; ok {
+			if err := writeOpenAIWebSearchResult(w, callID, sources); err != nil {
+				return err
+			}
+			webSearchResultEmitted[callID] = true
+			delete(pendingWebSearchResults, callID)
+		}
+		return nil
+	}
+	emitResult := func(callID string, sources any) error {
+		if callID == "" || webSearchResultEmitted[callID] {
+			return nil
+		}
+		if webSearchEmitted[callID] {
+			if err := writeOpenAIWebSearchResult(w, callID, sources); err != nil {
+				return err
+			}
+			webSearchResultEmitted[callID] = true
+			return nil
+		}
+		pendingWebSearchResults[callID] = sources
+		return nil
+	}
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	for scanner.Scan() {
@@ -173,14 +224,44 @@ func proxyResponsesAsChatSSE(body io.Reader, w io.Writer) (domain.Usage, error) 
 			continue
 		}
 		typeName, _ := event["type"].(string)
-		if typeName == "response.output_text.delta" {
+		switch typeName {
+		case "response.web_search_call.searching", "response.web_search_call.in_progress":
+			callID, _ := event["item_id"].(string)
+			action, _ := event["action"].(map[string]any)
+			if err := emitSearch(callID, webSearchQuery(action)); err != nil {
+				return usage, err
+			}
+		case "response.output_item.added", "response.output_item.done":
+			item, _ := event["item"].(map[string]any)
+			itemType, _ := item["type"].(string)
+			if itemType != "web_search_call" {
+				break
+			}
+			callID, _ := item["id"].(string)
+			action, _ := item["action"].(map[string]any)
+			if err := emitSearch(callID, webSearchQuery(action)); err != nil {
+				return usage, err
+			}
+			if sources, ok := webSearchSources(action); ok {
+				if err := emitResult(callID, sources); err != nil {
+					return usage, err
+				}
+			}
+		case "response.web_search_call.completed":
+			callID, _ := event["item_id"].(string)
+			action, _ := event["action"].(map[string]any)
+			if sources, ok := webSearchSources(action); ok {
+				if err := emitResult(callID, sources); err != nil {
+					return usage, err
+				}
+			}
+		case "response.output_text.delta":
 			delta, _ := event["delta"].(string)
 			chunk := map[string]any{"object": "chat.completion.chunk", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"role": "assistant", "content": delta}}}}
 			if err := writeSSEJSON(w, chunk); err != nil {
 				return usage, err
 			}
-		}
-		if typeName == "response.function_call_arguments.delta" {
+		case "response.function_call_arguments.delta":
 			delta, _ := event["delta"].(string)
 			callID, _ := event["call_id"].(string)
 			chunk := map[string]any{
@@ -198,15 +279,38 @@ func proxyResponsesAsChatSSE(body io.Reader, w io.Writer) (domain.Usage, error) 
 			if err := writeSSEJSON(w, chunk); err != nil {
 				return usage, err
 			}
-		}
-		if typeName == "response.completed" {
+		case "response.completed":
 			if response, ok := event["response"].(map[string]any); ok {
 				usage = domain.UsageFromResponsesValue(response)
+				if output, ok := response["output"].([]any); ok {
+					for _, rawItem := range output {
+						item, _ := rawItem.(map[string]any)
+						itemType, _ := item["type"].(string)
+						if itemType != "web_search_call" {
+							continue
+						}
+						callID, _ := item["id"].(string)
+						action, _ := item["action"].(map[string]any)
+						if sources, found := webSearchSources(action); found {
+							if err := emitResult(callID, sources); err != nil {
+								return usage, err
+							}
+						}
+					}
+				}
 			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return usage, err
+	}
+	for _, callID := range webSearchOrder {
+		if webSearchResultEmitted[callID] {
+			continue
+		}
+		if err := writeOpenAIWebSearchError(w, callID, webSearchResultErrorUnavailable); err != nil {
+			return usage, err
+		}
 	}
 	if usage.TotalTokens > 0 {
 		if err := writeSSEJSON(w, map[string]any{"object": "chat.completion.chunk", "choices": []any{}, "usage": usage}); err != nil {
@@ -218,6 +322,17 @@ func proxyResponsesAsChatSSE(body io.Reader, w io.Writer) (domain.Usage, error) 
 		f.Flush()
 	}
 	return usage, nil
+}
+
+func webSearchQuery(action map[string]any) string {
+	query, _ := action["query"].(string)
+	if query != "" {
+		return query
+	}
+	if queries, ok := action["queries"].([]any); ok && len(queries) > 0 {
+		query, _ = queries[0].(string)
+	}
+	return query
 }
 
 func writeSSEJSON(w io.Writer, value any) error {
