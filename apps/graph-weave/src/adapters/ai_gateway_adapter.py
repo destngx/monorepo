@@ -147,6 +147,7 @@ class AIGatewayClient:
             "input": input_items,
             "max_output_tokens": max_tokens,
             "stream": stream,
+            "store": False,
         }
         if instructions:
             payload["instructions"] = instructions

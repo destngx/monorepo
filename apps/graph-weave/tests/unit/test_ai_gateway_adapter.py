@@ -60,6 +60,7 @@ def test_openai_chat_completion_uses_responses_and_normalizes_result(mock_post):
     assert args[0] == "http://test-gateway/v1/responses"
     assert kwargs["json"]["instructions"] == "Be helpful."
     assert kwargs["json"]["input"] == [{"role": "user", "content": "Hi"}]
+    assert kwargs["json"]["store"] is False
     assert result["choices"][0]["message"] == {"role": "assistant", "content": "Hello!"}
     assert result["usage"]["total_tokens"] == 10
 
