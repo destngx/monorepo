@@ -11,6 +11,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 logger = get_logger(__name__)
 
 RETRYABLE_GATEWAY_STATUSES = {429, 502, 503, 504}
+RESPONSES_SEARCH_CONTEXT_SIZE = "low"
 
 
 class AIGatewayResponsesError(RuntimeError):
@@ -306,11 +307,13 @@ class AIGatewayClient:
 
     @staticmethod
     def _responses_tools(tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        return [
-            {"type": "function", **tool["function"]}
-            for tool in tools
-            if tool.get("type") == "function" and tool.get("function")
-        ]
+        responses_tools = []
+        for tool in tools:
+            if tool.get("type") == "web_search" or tool.get("name") == "web_search":
+                responses_tools.append({"type": "web_search", "search_context_size": RESPONSES_SEARCH_CONTEXT_SIZE})
+            elif tool.get("type") == "function" and tool.get("function"):
+                responses_tools.append({"type": "function", **tool["function"]})
+        return responses_tools
 
     @staticmethod
     def _chat_response_from_responses(response: Dict[str, Any], fallback_model: str) -> Dict[str, Any]:

@@ -20,6 +20,11 @@ def test_ai_gateway_client_initialization():
     assert client.base_url == "http://test-gateway/v1"
 
 
+def test_responses_tools_use_low_web_search_context():
+    tools = AIGatewayClient._responses_tools([{"type": "web_search"}])
+    assert tools == [{"type": "web_search", "search_context_size": "low"}]
+
+
 @patch("httpx.Client.post")
 def test_chat_completion_success(mock_post):
     # Mock response
