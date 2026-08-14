@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from src.app_logging import get_logger
 from typing import Dict, Any, List, Optional, Union
 import httpx
@@ -33,13 +34,7 @@ class AIGatewayClient:
         self.base_url = (base_url or os.getenv("AI_GATEWAY_URL", "http://localhost:8080/v1")).rstrip("/")
         self.timeout = 600.0
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception(is_retryable_gateway_error),
-        reraise=True
-    )
-    def chat_completion(
+    def messages(
         self,
         messages: List[Dict[str, str]],
         provider: str,
@@ -48,7 +43,8 @@ class AIGatewayClient:
         temperature: float = 0.7,
         max_tokens: int = 8000,
         stream: bool = False,
-        reasoning_effort: Optional[str] = None
+        reasoning_effort: Optional[str] = None,
+        use_responses: bool = True,
     ) -> Dict[str, Any]:
         """
         Send a chat completion request to the AI Gateway.
@@ -66,17 +62,39 @@ class AIGatewayClient:
         Returns:
             OpenAI-compatible response dictionary
         """
-        if provider == "openai":
-            return self.responses_completion(
-                messages=messages,
-                provider=provider,
-                model=model,
-                tools=tools,
-                max_tokens=max_tokens,
-                stream=stream,
-                reasoning_effort=reasoning_effort,
-            )
+        handler = self.responses if use_responses else self.chat_completion
+        return handler(
+            messages=messages,
+            provider=provider,
+            model=model,
+            tools=tools,
+            max_tokens=max_tokens,
+            stream=stream,
+            reasoning_effort=reasoning_effort,
+        )
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception(is_retryable_gateway_error),
+        reraise=True,
+    )
+    def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        provider: str,
+        model: str,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 8000,
+        stream: bool = False,
+        reasoning_effort: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Use the legacy OpenAI-compatible ``/chat/completions`` endpoint.
+
+        Warning: Chat Completions is a compatibility path and will be deprecated
+        in the future. Prefer :meth:`messages` or :meth:`responses`.
+        """
         url = f"{self.base_url}/chat/completions"
         
         headers = {
@@ -123,7 +141,7 @@ class AIGatewayClient:
         retry=retry_if_exception(is_retryable_gateway_error),
         reraise=True,
     )
-    def responses_completion(
+    def responses(
         self,
         messages: List[Dict[str, Any]],
         provider: str,
@@ -146,7 +164,9 @@ class AIGatewayClient:
             "model": model,
             "input": input_items,
             "max_output_tokens": max_tokens,
-            "stream": stream,
+            # Codex's Responses endpoint only supports SSE. We consume the
+            # stream here and retain Graph Weave's synchronous client contract.
+            "stream": True,
             "store": False,
         }
         if instructions:
@@ -163,7 +183,7 @@ class AIGatewayClient:
                 if response.status_code != 200:
                     logger.error(f"AI Gateway Responses error ({response.status_code}): {response.text}")
                     response.raise_for_status()
-                return self._chat_response_from_responses(response.json(), model)
+                return self._chat_response_from_responses_stream(response.text, model)
         except httpx.RequestError as exc:
             logger.error(f"An error occurred while requesting {exc.request.url!r}: {exc}")
             raise
@@ -224,3 +244,61 @@ class AIGatewayClient:
             "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls" if tool_calls else "stop"}],
             "usage": response.get("usage", {}),
         }
+
+    @classmethod
+    def _chat_response_from_responses_stream(cls, body: str, fallback_model: str) -> Dict[str, Any]:
+        content = ""
+        calls: Dict[str, Dict[str, Any]] = {}
+        completed_response: Optional[Dict[str, Any]] = None
+
+        for line in body.splitlines():
+            if not line.startswith("data: "):
+                continue
+            payload = line.removeprefix("data: ")
+            if payload == "[DONE]":
+                continue
+            try:
+                event = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            event_type = event.get("type")
+            if event_type == "response.completed":
+                completed_response = event.get("response")
+                continue
+            if event_type == "response.output_text.delta":
+                content += event.get("delta", "")
+                continue
+            if event_type in {"response.output_item.added", "response.output_item.done"}:
+                item = event.get("item") or {}
+                if item.get("type") != "function_call":
+                    continue
+                call_id = item.get("call_id") or item.get("id", "")
+                call = calls.setdefault(call_id, {"id": call_id, "type": "function", "function": {"name": "", "arguments": ""}})
+                call["function"]["name"] = item.get("name", call["function"]["name"])
+                if item.get("arguments"):
+                    call["function"]["arguments"] = item["arguments"]
+                continue
+            if event_type not in {"response.function_call_arguments.delta", "response.function_call_arguments.done"}:
+                continue
+            call_id = event.get("call_id", "")
+            call = calls.setdefault(call_id, {"id": call_id, "type": "function", "function": {"name": event.get("name", ""), "arguments": ""}})
+            if event.get("name"):
+                call["function"]["name"] = event["name"]
+            if event_type == "response.function_call_arguments.done" and event.get("arguments"):
+                call["function"]["arguments"] = event["arguments"]
+            else:
+                call["function"]["arguments"] += event.get("delta", "")
+
+        if completed_response and (completed_response.get("output") or completed_response.get("output_text")):
+            return cls._chat_response_from_responses(completed_response, fallback_model)
+        message: Dict[str, Any] = {"role": "assistant", "content": content}
+        if calls:
+            message["tool_calls"] = list(calls.values())
+        result = {
+            "id": (completed_response or {}).get("id", ""),
+            "object": "chat.completion",
+            "model": (completed_response or {}).get("model", fallback_model),
+            "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls" if calls else "stop"}],
+            "usage": (completed_response or {}).get("usage", {}),
+        }
+        return result

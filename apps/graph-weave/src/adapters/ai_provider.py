@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 class LLMClient(Protocol):
     """Protocol for LLM provider clients."""
 
-    def chat_completion(
+    def messages(
         self,
         messages: List[Dict[str, str]],
         provider: str,
@@ -16,7 +16,8 @@ class LLMClient(Protocol):
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        reasoning_effort: Optional[str] = None
+        reasoning_effort: Optional[str] = None,
+        use_responses: bool = True,
     ) -> Dict[str, Any]: ...
 
 

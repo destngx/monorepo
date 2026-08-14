@@ -41,16 +41,11 @@ def test_chat_completion_success(mock_post):
 def test_openai_chat_completion_uses_responses_and_normalizes_result(mock_post):
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "id": "resp_123",
-        "model": "gpt-5.4-mini",
-        "output_text": "Hello!",
-        "usage": {"input_tokens": 4, "output_tokens": 6, "total_tokens": 10},
-    }
+    mock_response.text = 'data: {"type":"response.completed","response":{"id":"resp_123","model":"gpt-5.4-mini","output_text":"Hello!","usage":{"input_tokens":4,"output_tokens":6,"total_tokens":10}}}\n\ndata: [DONE]\n'
     mock_post.return_value = mock_response
 
     client = AIGatewayClient(base_url="http://test-gateway/v1")
-    result = client.chat_completion(
+    result = client.messages(
         messages=[{"role": "system", "content": "Be helpful."}, {"role": "user", "content": "Hi"}],
         provider="openai",
         model="gpt-5.4-mini",
@@ -61,6 +56,7 @@ def test_openai_chat_completion_uses_responses_and_normalizes_result(mock_post):
     assert kwargs["json"]["instructions"] == "Be helpful."
     assert kwargs["json"]["input"] == [{"role": "user", "content": "Hi"}]
     assert kwargs["json"]["store"] is False
+    assert kwargs["json"]["stream"] is True
     assert result["choices"][0]["message"] == {"role": "assistant", "content": "Hello!"}
     assert result["usage"]["total_tokens"] == 10
 
@@ -69,23 +65,31 @@ def test_openai_chat_completion_uses_responses_and_normalizes_result(mock_post):
 def test_openai_responses_normalizes_function_calls(mock_post):
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "output": [{
-            "type": "function_call",
-            "call_id": "call_123",
-            "name": "search",
-            "arguments": '{"query":"OpenAI"}',
-        }],
-    }
+    mock_response.text = 'data: {"type":"response.completed","response":{"output":[{"type":"function_call","call_id":"call_123","name":"search","arguments":"{\\"query\\":\\"OpenAI\\"}"}]}}\n\ndata: [DONE]\n'
     mock_post.return_value = mock_response
 
-    result = AIGatewayClient(base_url="http://test-gateway/v1").chat_completion(
+    result = AIGatewayClient(base_url="http://test-gateway/v1").messages(
         messages=[{"role": "user", "content": "Search"}], provider="openai", model="gpt-5.4-mini"
     )
 
     assert result["choices"][0]["message"]["tool_calls"] == [{
         "id": "call_123", "type": "function", "function": {"name": "search", "arguments": '{"query":"OpenAI"}'},
     }]
+
+
+@patch("httpx.Client.post")
+def test_messages_can_select_chat_completion_handler(mock_post):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"choices": [{"message": {"role": "assistant", "content": "Legacy"}}]}
+    mock_post.return_value = mock_response
+
+    result = AIGatewayClient(base_url="http://test-gateway/v1").messages(
+        messages=[], provider="openai", model="gpt-5.4-mini", use_responses=False
+    )
+
+    assert mock_post.call_args.args[0] == "http://test-gateway/v1/chat/completions"
+    assert result["choices"][0]["message"]["content"] == "Legacy"
 
 
 @patch("httpx.Client.post")
@@ -126,7 +130,7 @@ def test_chat_completion_error_handling(mock_post):
     client = AIGatewayClient(base_url="http://test-gateway/v1")
 
     with pytest.raises(httpx.HTTPStatusError):
-        client.chat_completion(messages=[], provider="test", model="test")
+        client.messages(messages=[], provider="test", model="test")
 
 
 @patch("httpx.Client.post")
