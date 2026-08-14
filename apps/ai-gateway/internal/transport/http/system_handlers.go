@@ -6,8 +6,37 @@ import (
 
 	"apps/ai-gateway/internal/domain"
 	"apps/ai-gateway/internal/service"
+	"apps/ai-gateway/internal/transport/http/common"
 	"github.com/pkoukk/tiktoken-go"
 )
+
+const (
+	AnthropicHelloResponse       = `{"message": "hello"}`
+	AnthropicHelloResponseLength = "20"
+)
+
+// AnthropicCompatibilityHandler serves the lightweight connectivity probe used
+// by Claude Code when the gateway is configured as an Anthropic-compatible base URL.
+type AnthropicCompatibilityHandler struct{}
+
+func NewAnthropicCompatibilityHandler() *AnthropicCompatibilityHandler {
+	return &AnthropicCompatibilityHandler{}
+}
+
+func (h *AnthropicCompatibilityHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, common.ErrMsgMethodNotAllowed, http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set(common.HeaderContentType, common.ContentTypeJSON)
+	w.Header().Set(common.HeaderContentLength, AnthropicHelloResponseLength)
+	if r.Method == http.MethodHead {
+		return
+	}
+
+	_, _ = w.Write([]byte(AnthropicHelloResponse))
+}
 
 type ProviderInfo struct {
 	Name         string `json:"name"`

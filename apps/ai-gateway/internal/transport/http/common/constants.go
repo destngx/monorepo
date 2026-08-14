@@ -3,6 +3,7 @@ package common
 
 const (
 	HeaderContentType     = "Content-Type"
+	HeaderContentLength   = "Content-Length"
 	HeaderCacheControl    = "Cache-Control"
 	HeaderConnection      = "Connection"
 	HeaderXAccelBuffering = "X-Accel-Buffering"

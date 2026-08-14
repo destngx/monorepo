@@ -1,6 +1,6 @@
 # Go AI Gateway
 
-A stateless, OpenAI-compatible local AI proxy written in Go. The gateway acts as a unified abstraction layer for multiple AI providers (GitHub Models, OpenAI, Anthropic, Ollama), allowing client applications to switch between LLMs using a single header without handling individual API keys or specific provider formats.
+A stateless, OpenAI-compatible local AI proxy written in Go. The gateway acts as a unified abstraction layer for multiple AI providers (GitHub Copilot, OpenAI, Anthropic, Ollama), allowing client applications to switch between LLMs using a single header without handling individual API keys or specific provider formats.
 
 ## The "Why": Philosophy
 
@@ -36,7 +36,7 @@ The application is built following **Clean Architecture** and **Hexagonal** prin
 ### 1. Structure
 
 - [**`internal/domain`**](file:///Users/ez2/projects/personal/monorepo/apps/ai-gateway/internal/domain) — Core data structures and interface definitions. This is the "OpenAI-compatible" contract that the rest of the app speaks.
-- [**`internal/providers`**](file:///Users/ez2/projects/personal/monorepo/apps/ai-gateway/internal/providers) — Adapter layer. Contains specific implementations for Anthropic, OpenAI, GitHub Models, and Ollama. Each implements the common `Provider` interface.
+- [**`internal/providers`**](file:///Users/ez2/projects/personal/monorepo/apps/ai-gateway/internal/providers) — Adapter layer. Contains specific implementations for Anthropic, OpenAI, GitHub Copilot, Ollama, and other configured providers. Each implements the common `Provider` interface.
 - [**`internal/service`**](file:///Users/ez2/projects/personal/monorepo/apps/ai-gateway/internal/service) — The business logic layer. Manages the `Registry` (provider lifecycle) and `Mapper` (intelligent model routing).
 - [**`internal/transport`**](file:///Users/ez2/projects/personal/monorepo/apps/ai-gateway/internal/transport) — The delivery layer. Contains HTTP handlers, SSE logic, and middleware (CORS, Logger, Recovery).
 

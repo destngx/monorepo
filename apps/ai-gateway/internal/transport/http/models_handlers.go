@@ -103,7 +103,7 @@ func (e *EmbeddingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	providerName := r.Header.Get(common.HeaderAIProvider)
 	if providerName == "" {
-		providerName = domain.ProviderGitHubModels
+		providerName = domain.ProviderOpenAI
 	}
 	provider, err := e.registry.Get(providerName)
 	if err != nil {

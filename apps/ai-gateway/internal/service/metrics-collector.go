@@ -88,7 +88,6 @@ func NewMetricsCollector(bufferSize int, persistPath string, saveInterval time.D
 			domain.ProviderOpenAI:        true,
 			domain.ProviderAnthropic:     true,
 			domain.ProviderGitHubCopilot: true,
-			domain.ProviderGitHubModels:  true,
 			domain.ProviderOllama:        true,
 			domain.ProviderBedrock:       true,
 		},

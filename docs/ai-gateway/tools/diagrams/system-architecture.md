@@ -20,7 +20,7 @@ graph TD
     end
 
     subgraph "AI Infrastructure"
-        GH["GitHub Models"]
+        GH["GitHub Copilot"]
         OI["OpenAI"]
         OL["Local Ollama"]
     end

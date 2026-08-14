@@ -13,7 +13,6 @@ import (
 	"apps/ai-gateway/internal/providers/anthropic"
 	"apps/ai-gateway/internal/providers/bedrock"
 	"apps/ai-gateway/internal/providers/github_copilot"
-	"apps/ai-gateway/internal/providers/github_models"
 	"apps/ai-gateway/internal/providers/ollama"
 	"apps/ai-gateway/internal/providers/openai"
 	"apps/ai-gateway/internal/providers/shared"
@@ -56,11 +55,6 @@ func NewRegistry(cfg *config.Config) *Registry {
 			IntegrationID:       cfg.CopilotIntegrationID,
 			UserAgent:           cfg.CopilotUserAgent,
 		}),
-		cfg.GitHubRate.RPM, cfg.GitHubRate.Burst,
-	))
-
-	r.register(shared.NewRateLimitedProvider(
-		github_models.New(cfg.GitHubToken),
 		cfg.GitHubRate.RPM, cfg.GitHubRate.Burst,
 	))
 

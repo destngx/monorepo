@@ -40,6 +40,7 @@ const (
 	PathModelsSlash      = "/v1/models/"
 	PathEmbeddings       = "/v1/embeddings"
 	PathUsage            = "/v1/usage"
+	PathAnthropicHello   = "/api/hello"
 	PathHealth           = "/health"
 	PathMetrics          = "/metrics"
 	PathMetricsDashboard = "/metrics/dashboard"
@@ -69,6 +70,7 @@ func main() {
 	usageHandler := httptransport.NewUsageHandler(registry)
 	providersHandler := httptransport.NewProvidersHandler(registry)
 	healthHandler := httptransport.NewHealthHandler(registry)
+	anthropicCompatibilityHandler := httptransport.NewAnthropicCompatibilityHandler()
 	tokenizeHandler := httptransport.NewTokenizeHandler(registry)
 
 	// Metrics initialization
@@ -102,6 +104,7 @@ func main() {
 	mux.Handle(PathModelsSlash, modelsHandler)
 	mux.Handle(PathEmbeddings, embeddingsHandler)
 	mux.Handle(PathUsage, usageHandler)
+	mux.Handle(PathAnthropicHello, anthropicCompatibilityHandler)
 	mux.Handle("/tokenize", tokenizeHandler)
 
 	mux.Handle("/providers", providersHandler)
