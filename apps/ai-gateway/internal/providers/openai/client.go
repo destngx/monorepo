@@ -46,11 +46,15 @@ func (p *Provider) doOpenAIRequestOnce(ctx context.Context, method, path string,
 
 func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesRequest) (*http.Response, error) {
 	slog.Debug("OpenAI upstream request", "method", http.MethodPost, "path", pathResponses)
+	useCodex := p.useCodex()
+	if useCodex {
+		req = codexCompatibleResponsesRequest(req)
+	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
-	if !p.useCodex() {
+	if !useCodex {
 		return p.doOpenAIRequest(ctx, http.MethodPost, pathResponses, body, contentTypeJSON)
 	}
 
@@ -69,4 +73,15 @@ func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesR
 	httpReq.Header.Set(headerVersion, getEnv(envOpenAICodexVersion, codexDefaultVersion))
 
 	return p.client.Do(httpReq)
+}
+
+// codexCompatibleResponsesRequest removes standard Responses fields that the
+// ChatGPT Codex transport rejects. The public gateway continues accepting the
+// standard request shape; provider-specific compatibility stays in this adapter.
+func codexCompatibleResponsesRequest(req domain.ResponsesRequest) domain.ResponsesRequest {
+	body := req.CloneBody()
+	delete(body, responsesFieldMaxOutputTokens)
+	body[responsesFieldStore] = false
+	req.Body = body
+	return req
 }

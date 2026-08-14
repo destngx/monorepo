@@ -29,6 +29,31 @@ func TestToCodexResponseRequestOmitsMaxOutputTokens(t *testing.T) {
 	}
 }
 
+func TestCodexCompatibleResponsesRequestOmitsUnsupportedMaxOutputTokens(t *testing.T) {
+	req := domain.ResponsesRequest{
+		Model:  "gpt-5.6-luna",
+		Stream: true,
+		Body: map[string]any{
+			"model":             "gpt-5.6-luna",
+			"stream":            true,
+			"store":             true,
+			"max_output_tokens": 8000,
+			"input":             []any{},
+		},
+	}
+
+	payload := codexCompatibleResponsesRequest(req).CloneBody()
+	if _, exists := payload["max_output_tokens"]; exists {
+		t.Fatalf("expected Codex Responses payload to omit max_output_tokens: %#v", payload)
+	}
+	if payload["store"] != false {
+		t.Fatalf("expected Codex Responses payload to force store=false: %#v", payload)
+	}
+	if _, exists := req.Body["max_output_tokens"]; !exists {
+		t.Fatal("expected request normalization not to mutate the original body")
+	}
+}
+
 func ptrInt(v int) *int {
 	return &v
 }

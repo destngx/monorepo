@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	pathChatCompletions = "/v1/chat/completions"
-	pathResponses       = "/v1/responses"
-	pathModelsV1        = "/v1/models/"
+	pathChatCompletions  = "/v1/chat/completions"
+	pathResponses        = "/v1/responses"
+	pathModelsV1         = "/v1/models/"
+	responsesEventFailed = "response.failed"
 )
 
 // OpenAIHandler is the primary entry point for the AI Gateway's chat completion interface.
@@ -254,6 +255,7 @@ func (h *ResponsesHandler) handleStream(w http.ResponseWriter, r *http.Request, 
 			status = http.StatusTooManyRequests
 		}
 		errResp := map[string]interface{}{
+			"type":   responsesEventFailed,
 			"error":  err.Error(),
 			"stack":  string(debug.Stack()),
 			"status": status,

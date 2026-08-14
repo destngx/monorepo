@@ -43,12 +43,14 @@ const (
 	envOpenAIOAuthClientID = "OPENAI_OAUTH_CLIENT_ID"
 	envOpenAICodexVersion  = "OPENAI_CODEX_VERSION"
 
-	authProbeModel             = "__ai_gateway_auth_probe__"
-	codexDefaultVersion        = "0.144.6"
-	codexOriginator            = "codex_cli_rs"
-	codexResponsesExperimental = "responses=experimental"
-	codexUserAgent             = "codex-cli"
-	openAIInsufficientQuotaMsg = "openai upstream reports insufficient quota for api.openai.com; Codex/ChatGPT plan quota is separate from OpenAI API billing quota"
+	authProbeModel                = "__ai_gateway_auth_probe__"
+	codexDefaultVersion           = "0.144.6"
+	codexOriginator               = "codex_cli_rs"
+	codexResponsesExperimental    = "responses=experimental"
+	codexUserAgent                = "codex-cli"
+	openAIInsufficientQuotaMsg    = "openai upstream reports insufficient quota for api.openai.com; Codex/ChatGPT plan quota is separate from OpenAI API billing quota"
+	responsesFieldMaxOutputTokens = "max_output_tokens"
+	responsesFieldStore           = "store"
 )
 
 type Provider struct {

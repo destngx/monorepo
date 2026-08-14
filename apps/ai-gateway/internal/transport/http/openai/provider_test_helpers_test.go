@@ -13,6 +13,7 @@ type MockTestProvider struct {
 	responsesCallCount int
 	lastChatModel      string
 	lastResponsesModel string
+	responsesStreamErr error
 }
 
 func (m *MockTestProvider) Name() string { return m.name }
@@ -30,6 +31,9 @@ func (m *MockTestProvider) Responses(_ context.Context, req domain.ResponsesRequ
 	return &domain.ResponsesResponse{}, nil
 }
 func (m *MockTestProvider) ResponsesStream(context.Context, domain.ResponsesRequest, io.Writer) (domain.Usage, error) {
+	if m.responsesStreamErr != nil {
+		return domain.Usage{}, m.responsesStreamErr
+	}
 	return domain.Usage{}, nil
 }
 func (m *MockTestProvider) ListModels(context.Context) (*domain.ModelsResponse, error) {
