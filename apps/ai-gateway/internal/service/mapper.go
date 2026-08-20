@@ -16,6 +16,7 @@ var claudeModelRoutes = map[string]string{
 	domain.ClaudeModelFamilyHaiku:  domain.ModelGPT56Luna,
 	domain.ClaudeModelFamilySonnet: domain.ModelGPT56Terra,
 	domain.ClaudeModelFamilyOpus:   domain.ModelGPT56Sol,
+	domain.ClaudeModelFamilyFable:  domain.ModelGPT56Sol,
 }
 
 // RouteTarget defines the final destination for a request.

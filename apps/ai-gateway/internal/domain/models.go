@@ -24,6 +24,7 @@ const (
 	ClaudeModelFamilyHaiku  = "haiku"
 	ClaudeModelFamilySonnet = "sonnet"
 	ClaudeModelFamilyOpus   = "opus"
+	ClaudeModelFamilyFable  = "fable"
 )
 
 const (
