@@ -1,6 +1,6 @@
 module apps/wealth-management-engine
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/fatih/color v1.19.0
@@ -9,7 +9,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/oauth2 v0.36.0
-	google.golang.org/api v0.296.0
+	google.golang.org/api v0.297.0
 )
 
 require (
