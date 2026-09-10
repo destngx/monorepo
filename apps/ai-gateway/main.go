@@ -33,18 +33,19 @@ import (
 )
 
 const (
-	PathChatCompletions  = "/v1/chat/completions"
-	PathResponses        = "/v1/responses"
-	PathMessages         = "/v1/messages"
-	PathModels           = "/v1/models"
-	PathModelsSlash      = "/v1/models/"
-	PathEmbeddings       = "/v1/embeddings"
-	PathUsage            = "/v1/usage"
-	PathAnthropicHello   = "/api/hello"
-	PathHealth           = "/health"
-	PathMetrics          = "/metrics"
-	PathMetricsDashboard = "/metrics/dashboard"
-	PathMetricsReset     = "/metrics/reset"
+	PathChatCompletions     = "/v1/chat/completions"
+	PathResponses           = "/v1/responses"
+	PathMessages            = "/v1/messages"
+	PathMessagesCountTokens = "/v1/messages/count_tokens"
+	PathModels              = "/v1/models"
+	PathModelsSlash         = "/v1/models/"
+	PathEmbeddings          = "/v1/embeddings"
+	PathUsage               = "/v1/usage"
+	PathAnthropicHello      = "/api/hello"
+	PathHealth              = "/health"
+	PathMetrics             = "/metrics"
+	PathMetricsDashboard    = "/metrics/dashboard"
+	PathMetricsReset        = "/metrics/reset"
 
 	HeaderContentType = "Content-Type"
 	ContentTypeJSON   = "application/json"
@@ -100,6 +101,7 @@ func main() {
 	mux.Handle(PathChatCompletions, openaiHandler)
 	mux.Handle(PathResponses, responsesHandler)
 	mux.Handle(PathMessages, anthroHandler)
+	mux.Handle(PathMessagesCountTokens, anthroHandler)
 	mux.Handle(PathModels, modelsHandler)
 	mux.Handle(PathModelsSlash, modelsHandler)
 	mux.Handle(PathEmbeddings, embeddingsHandler)

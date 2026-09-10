@@ -144,6 +144,14 @@ type Usage struct {
 	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
 }
 
+// TokenCount is a provider-reported or locally estimated input token count.
+type TokenCount struct {
+	InputTokens int    `json:"input_tokens"`
+	Exact       bool   `json:"exact"`
+	Provider    string `json:"provider"`
+	Model       string `json:"model"`
+}
+
 type PromptTokensDetails struct {
 	CachedTokens     int `json:"cached_tokens,omitempty"`
 	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`

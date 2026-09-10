@@ -45,3 +45,10 @@ type Provider interface {
 	// SetReady manually updates the readiness status.
 	SetReady(bool)
 }
+
+// TokenCounter is an optional provider capability. Providers that can count
+// their native request format should implement it; the transport may use a
+// conservative fallback for providers that do not.
+type TokenCounter interface {
+	CountTokens(context.Context, domain.ChatRequest) (domain.TokenCount, error)
+}

@@ -46,7 +46,8 @@ const (
 	eventContentBlockStart = "content_block_start"
 	eventContentBlockDelta = "content_block_delta"
 
-	pathMessages = "/messages"
+	pathMessages    = "/messages"
+	pathCountTokens = "/messages/count_tokens"
 
 	objectChatCompletion      = "chat.completion"
 	objectChatCompletionChunk = "chat.completion.chunk"
@@ -59,6 +60,45 @@ type Provider struct {
 	apiKey string
 	client *http.Client
 	ready  bool
+}
+
+type CountTokensResponse struct {
+	InputTokens int `json:"input_tokens"`
+}
+
+func (p *Provider) CountTokens(ctx context.Context, req domain.ChatRequest) (domain.TokenCount, error) {
+	ar := p.ConvertToAnthropicRequest(req)
+	payload := struct {
+		Model    string    `json:"model"`
+		Messages []Message `json:"messages"`
+		System   any       `json:"system,omitempty"`
+		Tools    []Tool    `json:"tools,omitempty"`
+	}{ar.Model, ar.Messages, ar.System, ar.Tools}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return domain.TokenCount{}, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+pathCountTokens, bytes.NewReader(body))
+	if err != nil {
+		return domain.TokenCount{}, err
+	}
+	for k, v := range p.headers() {
+		httpReq.Header.Set(k, v)
+	}
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return domain.TokenCount{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return domain.TokenCount{}, fmt.Errorf("anthropic count tokens error %d: %s", resp.StatusCode, b)
+	}
+	var result CountTokensResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return domain.TokenCount{}, err
+	}
+	return domain.TokenCount{InputTokens: result.InputTokens, Exact: true, Provider: p.Name(), Model: req.Model}, nil
 }
 
 func New(apiKey string) *Provider {

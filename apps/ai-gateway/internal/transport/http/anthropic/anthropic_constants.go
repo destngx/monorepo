@@ -26,4 +26,5 @@ const (
 	logFormatStreamConvErr       = "[ID:%s] STREAM CONVERT ERROR: %v"
 
 	errMsgInvalidAnthroBody = "invalid anthropic request body: "
+	pathMessagesCountTokens = "/v1/messages/count_tokens"
 )

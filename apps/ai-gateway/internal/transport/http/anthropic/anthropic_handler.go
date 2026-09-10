@@ -53,6 +53,7 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		common.WriteError(w, r, http.StatusBadRequest, errMsgInvalidAnthroBody+err.Error())
 		return
 	}
+	isCountTokens := r.URL.Path == pathMessagesCountTokens
 
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 
@@ -89,6 +90,11 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			common.WriteError(w, r, http.StatusBadRequest, common.ErrMsgRoutingFailed+err.Error())
 			return
 		}
+	}
+
+	if isCountTokens {
+		h.handleCountTokens(w, r, route.Provider, route.Model, anthroReq)
+		return
 	}
 
 	r = common.SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, route.Model))
@@ -138,6 +144,37 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleStream(w, r, route.Provider, req, anthroReq.Model)
 	} else {
 		h.handleSync(w, r, route.Provider, req, anthroReq.Model, anthroReq.Stream)
+	}
+}
+
+func (h *AnthropicHandler) handleCountTokens(w http.ResponseWriter, r *http.Request, provider shared.Provider, model string, input anthropic.Request) {
+	req := convertFromAnthropicRequest(input, provider.Name())
+	req.Model = model
+
+	var result domain.TokenCount
+	var err error
+	if counter, ok := provider.(shared.TokenCounter); ok {
+		result, err = counter.CountTokens(r.Context(), req)
+	} else {
+		// Keep the compatibility endpoint usable for every registered backend.
+		// This is explicitly an estimate; actual usage remains authoritative.
+		result = estimateAnthropicInput(input, provider.Name(), model)
+	}
+	if err != nil {
+		common.WriteError(w, r, http.StatusBadGateway, err.Error())
+		return
+	}
+	w.Header().Set(common.HeaderContentType, common.ContentTypeJSON)
+	_ = json.NewEncoder(w).Encode(map[string]any{"input_tokens": result.InputTokens})
+}
+
+func estimateAnthropicInput(input anthropic.Request, providerName, model string) domain.TokenCount {
+	b, _ := json.Marshal(input)
+	return domain.TokenCount{
+		InputTokens: shared.EstimateTokens(string(b)),
+		Exact:       false,
+		Provider:    providerName,
+		Model:       model,
 	}
 }
 
