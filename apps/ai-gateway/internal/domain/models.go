@@ -2,17 +2,18 @@ package domain
 
 const (
 	ModelDefault          = ModelGPT56Luna
-	ModelGPT5Mini         = "gpt-5-mini"
-	ModelGPT55            = "gpt-5.5"
+	ModelGPT6Astra        = "gpt-6-astra"
 	ModelGPT56Luna        = "gpt-5.6-luna"
 	ModelGPT56Terra       = "gpt-5.6-terra"
 	ModelGPT56Sol         = "gpt-5.6-sol"
+	ModelGPT55            = "gpt-5.5"
 	ModelGPT54            = "gpt-5.4"
 	ModelGPT54Mini        = "gpt-5.4-mini"
+	ModelGPT5Mini         = "gpt-5-mini"
 	ModelGPT41            = "gpt-4.1"
 	ModelClaudeHaiku      = "claude-haiku-4.5"
-	ModelClaudeSonnet     = "claude-sonnet-4.6"
-	ModelClaudeOpus       = "claude-opus-4.7"
+	ModelClaudeSonnet     = "claude-sonnet-5"
+	ModelClaudeOpus       = "claude-opus-5.1"
 	ModelClaudeMythos     = "claude-mythos-4.8"
 	ModelMimoV25Pro       = "xiaomi-token-plan-sgp/mimo-v2.5-pro"
 	ModelMimoV25          = "xiaomi-token-plan-sgp/mimo-v2.5"
