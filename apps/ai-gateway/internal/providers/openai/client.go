@@ -70,7 +70,7 @@ func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesR
 	httpReq.Header.Set(headerOriginator, codexOriginator)
 	httpReq.Header.Set(headerSessionID, newCodexSessionID())
 	httpReq.Header.Set(headerUserAgent, "")
-	httpReq.Header.Set(headerVersion, getEnv(envOpenAICodexVersion, codexDefaultVersion))
+	httpReq.Header.Set(headerVersion, p.codexVersion)
 
 	return p.client.Do(httpReq)
 }

@@ -98,13 +98,14 @@ func isReasoningModel(model string) bool {
 	m := strings.ToLower(model)
 	return strings.HasPrefix(m, "o1") ||
 		strings.HasPrefix(m, "o3") ||
+		strings.HasPrefix(m, "gpt-6") ||
 		strings.HasPrefix(m, "gpt-5") ||
 		strings.Contains(m, "reasoning")
 }
 
 func isResponsesModel(model string) bool {
 	switch strings.ToLower(model) {
-	case domain.ModelGPT55, domain.ModelGPT56Sol, domain.ModelGPT56Luna, domain.ModelGPT54, domain.ModelGPT54Mini:
+	case domain.ModelGPT6Astra, domain.ModelGPT56Luna, domain.ModelGPT56Sol, domain.ModelGPT55, domain.ModelGPT54, domain.ModelGPT54Mini:
 		return true
 	default:
 		return false

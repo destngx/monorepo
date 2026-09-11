@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -44,7 +46,7 @@ const (
 	envOpenAICodexVersion  = "OPENAI_CODEX_VERSION"
 
 	authProbeModel                = "__ai_gateway_auth_probe__"
-	codexDefaultVersion           = "0.144.6"
+	codexDefaultVersion           = "0.154.0"
 	codexOriginator               = "codex_cli_rs"
 	codexResponsesExperimental    = "responses=experimental"
 	codexUserAgent                = "codex-cli"
@@ -54,23 +56,47 @@ const (
 )
 
 type Provider struct {
-	apiKey string
-	oauth  *config.OpenAIOAuth
-	source string
-	mu     sync.RWMutex
-	client *http.Client
-	ready  bool
+	apiKey       string
+	oauth        *config.OpenAIOAuth
+	source       string
+	codexVersion string
+	mu           sync.RWMutex
+	client       *http.Client
+	ready        bool
 }
 
 func New(apiKey string, oauth *config.OpenAIOAuth) *Provider {
 	return &Provider{
-		apiKey: apiKey,
-		oauth:  oauth,
-		client: &http.Client{Timeout: 120 * time.Second},
+		apiKey:       apiKey,
+		oauth:        oauth,
+		codexVersion: getEnv(envOpenAICodexVersion, loadCodexVersion()),
+		client:       &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
 func (p *Provider) Name() string { return domain.ProviderOpenAI }
+
+type codexVersionFile struct {
+	LatestVersion string `json:"latest_version"`
+}
+
+func loadCodexVersion() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return codexDefaultVersion
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".codex", "version.json"))
+	if err != nil {
+		return codexDefaultVersion
+	}
+
+	var version codexVersionFile
+	if err := json.Unmarshal(data, &version); err != nil || version.LatestVersion == "" {
+		return codexDefaultVersion
+	}
+	return version.LatestVersion
+}
 
 func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
 	req = req.WithStream(false)
@@ -173,7 +199,7 @@ func (p *Provider) listCodexModels(ctx context.Context) (*domain.ModelsResponse,
 	httpReq.Header.Set(headerOriginator, codexOriginator)
 	httpReq.Header.Set(headerSessionID, newCodexSessionID())
 	httpReq.Header.Set(headerUserAgent, "")
-	httpReq.Header.Set(headerVersion, getEnv(envOpenAICodexVersion, codexDefaultVersion))
+	httpReq.Header.Set(headerVersion, p.codexVersion)
 
 	resp, err := p.client.Do(httpReq)
 	if err != nil {

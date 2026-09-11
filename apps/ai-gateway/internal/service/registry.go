@@ -28,9 +28,11 @@ const (
 
 // Registry maps provider names to their implementations.
 type Registry struct {
-	providers map[string]shared.Provider
-	Mapper    *ModelMapper
-	Config    *config.Config
+	providers  map[string]shared.Provider
+	failover   map[string]shared.Provider
+	failoverMu sync.Mutex
+	Mapper     *ModelMapper
+	Config     *config.Config
 }
 
 // Providers returns all registered providers.
@@ -43,6 +45,7 @@ func (r *Registry) Providers() map[string]shared.Provider {
 func NewRegistry(cfg *config.Config) *Registry {
 	r := &Registry{
 		providers: make(map[string]shared.Provider),
+		failover:  make(map[string]shared.Provider),
 		Mapper:    NewModelMapper(cfg.DefaultProvider),
 		Config:    cfg,
 	}
@@ -258,5 +261,28 @@ func (r *Registry) ResolveRoute(httpReq *http.Request, inputModel string) (share
 		return nil, "", fmt.Errorf(errProviderNotReady, providerName)
 	}
 
-	return p, targetModel, nil
+	return r.withProviderFailover(p), targetModel, nil
+}
+
+// withProviderFailover applies the global provider-limit fallback policy. The
+// fallback is intentionally selected only when GitHub Copilot is ready; an
+// unavailable fallback must not prevent the primary provider from serving.
+func (r *Registry) withProviderFailover(primary shared.Provider) shared.Provider {
+	if primary.Name() == domain.ProviderGitHubCopilot {
+		return primary
+	}
+
+	r.failoverMu.Lock()
+	defer r.failoverMu.Unlock()
+	if wrapped, ok := r.failover[primary.Name()]; ok {
+		return wrapped
+	}
+
+	fallback, err := r.Get(domain.ProviderGitHubCopilot)
+	if err != nil || !fallback.IsReady() {
+		return primary
+	}
+	wrapped := shared.NewFailoverProvider(primary, fallback)
+	r.failover[primary.Name()] = wrapped
+	return wrapped
 }

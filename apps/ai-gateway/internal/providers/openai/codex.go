@@ -97,7 +97,7 @@ func (p *Provider) doCodexRequest(ctx context.Context, req domain.ChatRequest) (
 	httpReq.Header.Set(headerOriginator, codexOriginator)
 	httpReq.Header.Set(headerSessionID, newCodexSessionID())
 	httpReq.Header.Set(headerUserAgent, "")
-	httpReq.Header.Set(headerVersion, getEnv(envOpenAICodexVersion, codexDefaultVersion))
+	httpReq.Header.Set(headerVersion, p.codexVersion)
 
 	return p.client.Do(httpReq)
 }
