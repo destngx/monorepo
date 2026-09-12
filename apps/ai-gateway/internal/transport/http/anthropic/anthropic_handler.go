@@ -13,6 +13,7 @@ import (
 	"apps/ai-gateway/internal/providers/anthropic"
 	"apps/ai-gateway/internal/providers/shared"
 	"apps/ai-gateway/internal/service"
+	httptransport "apps/ai-gateway/internal/transport/http"
 	"apps/ai-gateway/internal/transport/http/common"
 )
 
@@ -97,10 +98,10 @@ func (h *AnthropicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r = common.SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, route.Model))
-	r = common.SetLogProvider(r, route.Provider.Name())
-	r = common.SetLogModel(r, anthroReq.Model)
-	r = common.SetLogReasoningEffort(r, route.ReasoningEffort)
+	r = httptransport.SetLogMapping(r, fmt.Sprintf("%s -> %s", anthroReq.Model, route.Model))
+	r = httptransport.SetLogProvider(r, route.Provider.Name())
+	r = httptransport.SetLogModel(r, anthroReq.Model)
+	r = httptransport.SetLogReasoningEffort(r, route.ReasoningEffort)
 
 	if hasUnsupported, _ := detectUnsupportedNativeTools(anthroReq, route.Provider.Name()); hasUnsupported {
 		if anthroReq.Stream {
