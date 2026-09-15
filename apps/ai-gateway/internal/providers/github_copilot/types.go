@@ -63,8 +63,13 @@ type responsesTool struct {
 }
 
 type responsesInputItem struct {
-	Role    string                  `json:"role"`
-	Content []responsesInputContent `json:"content"`
+	Type      string                  `json:"type,omitempty"`
+	Role      string                  `json:"role,omitempty"`
+	Content   []responsesInputContent `json:"content,omitempty"`
+	CallID    string                  `json:"call_id,omitempty"`
+	Name      string                  `json:"name,omitempty"`
+	Arguments string                  `json:"arguments,omitempty"`
+	Output    string                  `json:"output,omitempty"`
 }
 
 type responsesInputContent struct {
@@ -77,10 +82,22 @@ type responsesReasoning struct {
 }
 
 type responsesStreamEvent struct {
-	Type     string             `json:"type"`
-	Delta    string             `json:"delta,omitempty"`
-	Response *responsesEnvelope `json:"response,omitempty"`
-	Error    json.RawMessage    `json:"error,omitempty"`
+	Type     string               `json:"type"`
+	Delta    string               `json:"delta,omitempty"`
+	ItemID   string               `json:"item_id,omitempty"`
+	CallID   string               `json:"call_id,omitempty"`
+	Name     string               `json:"name,omitempty"`
+	Item     *responsesOutputItem `json:"item,omitempty"`
+	Response *responsesEnvelope   `json:"response,omitempty"`
+	Error    json.RawMessage      `json:"error,omitempty"`
+}
+
+type responsesOutputItem struct {
+	Type      string `json:"type"`
+	ID        string `json:"id,omitempty"`
+	CallID    string `json:"call_id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
 }
 
 type responsesEnvelope struct {

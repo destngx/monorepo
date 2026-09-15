@@ -397,6 +397,19 @@ func TestConvertToAnthropicStreamPreservesArgumentsFromFirstToolChunk(t *testing
 	assert.NotContains(t, output.String(), "partial_json\\\":\\\"{}")
 }
 
+func TestConvertToAnthropicStreamPreservesNameAcrossSplitToolCall(t *testing.T) {
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.6-luna\",\"choices\":[{" +
+		"\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"type\":\"function\",\"function\":{\"name\":\"bash\",\"arguments\":\"\"}}]},\"finish_reason\":null}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"type\":\"function\",\"function\":{\"name\":\"bash\",\"arguments\":\"{\\\"command\\\":\\\"pwd\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n" +
+		"data: [DONE]\n\n"
+
+	var output bytes.Buffer
+	_, err := convertToAnthropicStream(bytes.NewBufferString(input), &output, "claude-haiku-4-5-20251001")
+	assert.NoError(t, err)
+	assert.Contains(t, output.String(), `"name":"bash"`)
+	assert.Contains(t, output.String(), "pwd")
+}
+
 func TestConvertToAnthropicStreamSuppressesEmptyToolCall(t *testing.T) {
 	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.4-mini\",\"choices\":[{" +
 		"\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"empty\",\"type\":\"function\",\"function\":{\"name\":\"Read\",\"arguments\":\"\"}}]},\"finish_reason\":null}]}\n\n" +

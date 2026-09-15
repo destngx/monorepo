@@ -143,7 +143,11 @@ func (p *Provider) buildResponsesPayload(req domain.ChatRequest) ([]byte, error)
 			}
 			continue
 		}
-		if msg.Content == "" {
+		if msg.Content == "" && len(msg.ToolCalls) == 0 && msg.Role != domain.RoleTool {
+			continue
+		}
+		if msg.Role == domain.RoleTool {
+			input = append(input, responsesInputItem{Type: "function_call_output", CallID: msg.ToolCallID, Output: msg.Content})
 			continue
 		}
 
@@ -165,6 +169,11 @@ func (p *Provider) buildResponsesPayload(req domain.ChatRequest) ([]byte, error)
 				{Type: contentType, Text: msg.Content},
 			},
 		})
+		for _, call := range msg.ToolCalls {
+			if call.Function != nil && call.Function.Name != "" {
+				input = append(input, responsesInputItem{Type: "function_call", CallID: call.ID, Name: call.Function.Name, Arguments: call.Function.Arguments})
+			}
+		}
 	}
 
 	if len(input) == 0 {

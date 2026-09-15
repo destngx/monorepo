@@ -43,6 +43,7 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 	var created int64
 	model := fallbackModel
 	var completionTokens int
+	toolCallIndexes := make(map[string]int)
 
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 1024*64), 1024*1024)
@@ -92,6 +93,40 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 		}
 
 		switch event.Type {
+		case "response.output_item.added", "response.output_item.done":
+			if event.Item == nil || event.Item.Type != "function_call" {
+				break
+			}
+			callID := event.Item.CallID
+			if callID == "" {
+				callID = event.Item.ID
+			}
+			if callID == "" {
+				break
+			}
+			if _, ok := toolCallIndexes[callID]; !ok {
+				toolCallIndexes[callID] = len(toolCallIndexes)
+			}
+			if event.Item.Name == "" {
+				break
+			}
+			if err := writeToolCallDelta(w, responseID, created, model, toolCallIndexes[callID], callID, event.Item.Name, event.Item.Arguments); err != nil {
+				return usage, err
+			}
+		case "response.function_call_arguments.delta":
+			callID := event.CallID
+			if callID == "" {
+				callID = event.ItemID
+			}
+			if _, ok := toolCallIndexes[callID]; !ok {
+				toolCallIndexes[callID] = len(toolCallIndexes)
+			}
+			if event.Name == "" {
+				break
+			}
+			if err := writeToolCallDelta(w, responseID, created, model, toolCallIndexes[callID], callID, event.Name, event.Delta); err != nil {
+				return usage, err
+			}
 		case "response.output_text.delta", "response.text.delta", "response.content_part.delta":
 			completionTokens += shared.EstimateTokens(event.Delta)
 			if responseID == "" {
@@ -134,6 +169,27 @@ func transformResponsesStream(body io.Reader, w io.Writer, fallbackModel string)
 	}
 	shared.InjectUsageChunk(w, usage)
 	return usage, nil
+}
+
+func writeToolCallDelta(w io.Writer, id string, created int64, model string, index int, callID, name, arguments string) error {
+	if id == "" {
+		id = "chatcmpl-copilot-responses"
+	}
+	if created == 0 {
+		created = time.Now().Unix()
+	}
+	chunk := map[string]interface{}{"id": id, "object": "chat.completion.chunk", "created": created, "model": model, "choices": []map[string]interface{}{{"index": 0, "delta": map[string]interface{}{"tool_calls": []map[string]interface{}{{"index": index, "id": callID, "type": "function", "function": map[string]string{"name": name, "arguments": arguments}}}}, "finish_reason": nil}}}
+	b, err := json.Marshal(chunk)
+	if err != nil {
+		return err
+	}
+	if _, err = io.WriteString(w, sseDataPrefix+string(b)+"\n\n"); err != nil {
+		return err
+	}
+	if f, ok := w.(interface{ Flush() }); ok {
+		f.Flush()
+	}
+	return nil
 }
 
 func writeChatCompletionDelta(w io.Writer, id string, created int64, model string, content string, reasoningContent string) error {

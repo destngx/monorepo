@@ -454,6 +454,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int
 		blockIndex        = -1
 		activeToolIndex   = -1
 		activeToolID      = ""
+		activeToolName    = ""
 		activeToolStarted = false
 		toolArguments     = make(map[int]string)
 		toolArgumentsSent = make(map[int]bool)
@@ -652,6 +653,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int
 					blockIndex++
 					activeToolIndex = blockIndex
 					activeToolID = id
+					activeToolName = name
 					toolUseSeen = true
 					blockType := "tool_use"
 					if name == "web_search" {
@@ -669,11 +671,18 @@ func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int
 						}
 					}
 				} else if function, ok := t["function"].(map[string]any); ok {
+					if name, ok := function["name"].(string); ok && name != "" {
+						activeToolName = name
+					}
 					if args, ok := function["arguments"].(string); ok {
 						if args != "" && !activeToolStarted {
+							blockType := "tool_use"
+							if activeToolName == "web_search" {
+								blockType = "server_tool_use"
+							}
 							writeEvent(eventContentBlockStart, map[string]any{
 								"index":         activeToolIndex,
-								"content_block": map[string]any{"type": "tool_use", "id": activeToolID, "name": "", "input": map[string]any{}},
+								"content_block": map[string]any{"type": blockType, "id": activeToolID, "name": activeToolName, "input": map[string]any{}},
 							})
 							activeToolStarted = true
 						}
@@ -700,6 +709,7 @@ func convertToAnthropicStream(r io.Reader, w io.Writer, clientModel string) (int
 				writeEvent(eventContentBlockStop, map[string]any{"index": activeToolIndex})
 				activeToolIndex = -1
 				activeToolID = ""
+				activeToolName = ""
 				activeToolStarted = false
 			}
 
