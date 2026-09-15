@@ -30,7 +30,8 @@ func IsProviderLimitError(err error) bool {
 		strings.Contains(message, "usage_limit_reached") ||
 		strings.Contains(message, "usage limit has been reached") ||
 		strings.Contains(message, "rate limit") ||
-		strings.Contains(message, "quota exceeded")
+		strings.Contains(message, "quota exceeded") ||
+		strings.Contains(message, "server_is_overloaded")
 }
 
 // FailoverProvider retries a provider-limit failure against one fallback
