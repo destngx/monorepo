@@ -57,9 +57,10 @@ const (
 )
 
 type Provider struct {
-	apiKey string
-	client *http.Client
-	ready  bool
+	apiKey       string
+	client       *http.Client
+	streamClient *http.Client
+	ready        bool
 }
 
 type CountTokensResponse struct {
@@ -104,7 +105,13 @@ func (p *Provider) CountTokens(ctx context.Context, req domain.ChatRequest) (dom
 func New(apiKey string) *Provider {
 	return &Provider{
 		apiKey: apiKey,
+		// Keep a bounded timeout for regular request/response calls.
 		client: &http.Client{Timeout: 120 * time.Second},
+		// http.Client.Timeout covers reading the entire response body. A fixed
+		// value here therefore terminates otherwise healthy long-running SSE
+		// responses. Streaming lifetime is governed by the request context so it
+		// is still cancelled when the caller disconnects or supplies a deadline.
+		streamClient: &http.Client{},
 	}
 }
 
@@ -203,7 +210,7 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 		httpReq.Header.Set(k, v)
 	}
 
-	resp, err := p.client.Do(httpReq)
+	resp, err := p.streamClient.Do(httpReq)
 	if err != nil {
 		return domain.Usage{}, err
 	}

@@ -62,6 +62,7 @@ type Provider struct {
 	codexVersion string
 	mu           sync.RWMutex
 	client       *http.Client
+	streamClient *http.Client
 	ready        bool
 }
 
@@ -71,6 +72,9 @@ func New(apiKey string, oauth *config.OpenAIOAuth) *Provider {
 		oauth:        oauth,
 		codexVersion: getEnv(envOpenAICodexVersion, loadCodexVersion()),
 		client:       &http.Client{Timeout: 120 * time.Second},
+		// A whole-client timeout also limits the full SSE body. Stream lifetime
+		// is instead governed by the request context.
+		streamClient: &http.Client{},
 	}
 }
 
@@ -120,7 +124,7 @@ func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (
 
 func (p *Provider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
 	req = req.WithStream(true)
-	resp, err := p.doResponsesRequest(ctx, req)
+	resp, err := p.doResponsesStreamRequest(ctx, req)
 	if err != nil {
 		return domain.Usage{}, err
 	}

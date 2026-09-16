@@ -60,12 +60,13 @@ const (
 )
 
 type Provider struct {
-	githubToken string
-	accountType string
-	client      *http.Client
-	ready       bool
-	verbose     int
-	headers     ClientHeaders
+	githubToken  string
+	accountType  string
+	client       *http.Client
+	streamClient *http.Client
+	ready        bool
+	verbose      int
+	headers      ClientHeaders
 
 	mu             sync.Mutex
 	cachedToken    string
@@ -274,7 +275,7 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	p.vlogf(2, "[github-copilot] stream payload+session build took=%s", time.Since(payloadStart))
 
 	callStart := time.Now()
-	resp, err := p.client.Do(httpReq)
+	resp, err := p.streamingClient().Do(httpReq)
 	if err != nil {
 		return domain.Usage{}, err
 	}
@@ -289,6 +290,14 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	usage, err := shared.StreamSSEAndCountTokens(resp.Body, w)
 	p.vlogf(1, "[github-copilot] stream total took=%s", time.Since(start))
 	return usage, err
+}
+
+func (p *Provider) streamingClient() *http.Client {
+	if p.streamClient != nil {
+		return p.streamClient
+	}
+	// Preserve test and manually constructed provider compatibility.
+	return p.client
 }
 
 func (p *Provider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {

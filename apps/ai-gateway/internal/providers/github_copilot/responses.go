@@ -40,7 +40,7 @@ func (p *Provider) ResponsesStream(ctx context.Context, req domain.ResponsesRequ
 	if err != nil {
 		return domain.Usage{}, err
 	}
-	resp, err := p.client.Do(httpReq)
+	resp, err := p.streamingClient().Do(httpReq)
 	if err != nil {
 		return domain.Usage{}, err
 	}

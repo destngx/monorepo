@@ -15,8 +15,12 @@ func New(githubToken, accountType string, verbose int, headers ...ClientHeaders)
 		githubToken: githubToken,
 		accountType: accountType,
 		client:      &http.Client{Timeout: 1800 * time.Second},
-		verbose:     verbose,
-		headers:     clientHeaders,
+		// A client-wide timeout includes reading the full SSE body. Streaming
+		// requests use their context for cancellation instead, so long-running
+		// coding turns are not truncated after a fixed period.
+		streamClient: &http.Client{},
+		verbose:      verbose,
+		headers:      clientHeaders,
 	}
 }
 

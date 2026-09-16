@@ -63,7 +63,7 @@ func (p *Provider) chatCodex(ctx context.Context, req domain.ChatRequest) (*doma
 }
 
 func (p *Provider) chatCodexStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
-	resp, err := p.doCodexRequest(ctx, req)
+	resp, err := p.doCodexStreamRequest(ctx, req)
 	if err != nil {
 		return domain.Usage{}, err
 	}
@@ -79,6 +79,14 @@ func (p *Provider) chatCodexStream(ctx context.Context, req domain.ChatRequest, 
 }
 
 func (p *Provider) doCodexRequest(ctx context.Context, req domain.ChatRequest) (*http.Response, error) {
+	return p.doCodexRequestWithClient(ctx, req, p.client)
+}
+
+func (p *Provider) doCodexStreamRequest(ctx context.Context, req domain.ChatRequest) (*http.Response, error) {
+	return p.doCodexRequestWithClient(ctx, req, p.streamingClient())
+}
+
+func (p *Provider) doCodexRequestWithClient(ctx context.Context, req domain.ChatRequest, client *http.Client) (*http.Response, error) {
 	slog.Debug("OpenAI upstream request", "method", http.MethodPost, "path", pathCodexResponses)
 	body, err := json.Marshal(toCodexResponseRequest(req))
 	if err != nil {
@@ -99,7 +107,7 @@ func (p *Provider) doCodexRequest(ctx context.Context, req domain.ChatRequest) (
 	httpReq.Header.Set(headerUserAgent, "")
 	httpReq.Header.Set(headerVersion, p.codexVersion)
 
-	return p.client.Do(httpReq)
+	return client.Do(httpReq)
 }
 
 func toCodexResponseRequest(req domain.ChatRequest) codexResponseRequest {

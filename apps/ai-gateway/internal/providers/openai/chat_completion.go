@@ -51,7 +51,7 @@ func (p *Provider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.
 	req.Stream = true
 	req.StreamOptions = &domain.StreamOptions{IncludeUsage: true}
 	body, _ := json.Marshal(req)
-	resp, err := p.doOpenAIRequest(ctx, http.MethodPost, pathChatCompletions, body, contentTypeJSON)
+	resp, err := p.doOpenAIStreamRequest(ctx, http.MethodPost, pathChatCompletions, body, contentTypeJSON)
 	if err != nil {
 		return domain.Usage{}, err
 	}

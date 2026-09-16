@@ -44,6 +44,7 @@ func TestChat_UsesResponsesEndpointForGPT54Mini(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(body)),
 		}, nil
 	})}
+	p.streamClient = p.client
 	p.cachedToken = "copilot-token"
 	p.expiresAt = time.Now().Add(time.Hour).Unix()
 	p.copilotAPIBase = "https://copilot.example.test"
@@ -83,6 +84,13 @@ func TestNewChatRequest_SetsCopilotClientHeaders(t *testing.T) {
 	assert.Equal(t, "copilot-chat/9.9.9", req.Header.Get(headerEditorPluginVer))
 	assert.Equal(t, "test-integration", req.Header.Get(headerIntegrationID))
 	assert.Equal(t, "test-agent/1.0", req.Header.Get(headerUserAgent))
+}
+
+func TestNewUsesNoWholeStreamTimeout(t *testing.T) {
+	provider := New("gh-token", "individual", 0)
+
+	assert.Equal(t, 1800*time.Second, provider.client.Timeout)
+	assert.Zero(t, provider.streamClient.Timeout)
 }
 
 func TestBatchMessagesWithOversizedToolCalls(t *testing.T) {

@@ -11,7 +11,15 @@ import (
 )
 
 func (p *Provider) doOpenAIRequest(ctx context.Context, method, path string, body []byte, contentType string) (*http.Response, error) {
-	resp, err := p.doOpenAIRequestOnce(ctx, method, path, body, contentType)
+	return p.doOpenAIRequestWithClient(ctx, method, path, body, contentType, p.client)
+}
+
+func (p *Provider) doOpenAIStreamRequest(ctx context.Context, method, path string, body []byte, contentType string) (*http.Response, error) {
+	return p.doOpenAIRequestWithClient(ctx, method, path, body, contentType, p.streamingClient())
+}
+
+func (p *Provider) doOpenAIRequestWithClient(ctx context.Context, method, path string, body []byte, contentType string, client *http.Client) (*http.Response, error) {
+	resp, err := p.doOpenAIRequestOnce(ctx, method, path, body, contentType, client)
 	if err != nil || resp.StatusCode != http.StatusUnauthorized || !p.useCodex() {
 		return resp, err
 	}
@@ -22,10 +30,10 @@ func (p *Provider) doOpenAIRequest(ctx context.Context, method, path string, bod
 	if _, err := p.refreshAccessToken(ctx, true); err != nil {
 		return nil, err
 	}
-	return p.doOpenAIRequestOnce(ctx, method, path, body, contentType)
+	return p.doOpenAIRequestOnce(ctx, method, path, body, contentType, client)
 }
 
-func (p *Provider) doOpenAIRequestOnce(ctx context.Context, method, path string, body []byte, contentType string) (*http.Response, error) {
+func (p *Provider) doOpenAIRequestOnce(ctx context.Context, method, path string, body []byte, contentType string, client *http.Client) (*http.Response, error) {
 	slog.Debug("OpenAI upstream request", "method", method, "path", path)
 	var reader io.Reader
 	if body != nil {
@@ -41,10 +49,18 @@ func (p *Provider) doOpenAIRequestOnce(ctx context.Context, method, path string,
 	if contentType != "" {
 		httpReq.Header.Set(headerContentType, contentType)
 	}
-	return p.client.Do(httpReq)
+	return client.Do(httpReq)
 }
 
 func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesRequest) (*http.Response, error) {
+	return p.doResponsesRequestWithClient(ctx, req, p.client)
+}
+
+func (p *Provider) doResponsesStreamRequest(ctx context.Context, req domain.ResponsesRequest) (*http.Response, error) {
+	return p.doResponsesRequestWithClient(ctx, req, p.streamingClient())
+}
+
+func (p *Provider) doResponsesRequestWithClient(ctx context.Context, req domain.ResponsesRequest, client *http.Client) (*http.Response, error) {
 	slog.Debug("OpenAI upstream request", "method", http.MethodPost, "path", pathResponses)
 	useCodex := p.useCodex()
 	if useCodex {
@@ -55,7 +71,7 @@ func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesR
 		return nil, err
 	}
 	if !useCodex {
-		return p.doOpenAIRequest(ctx, http.MethodPost, pathResponses, body, contentTypeJSON)
+		return p.doOpenAIRequestWithClient(ctx, http.MethodPost, pathResponses, body, contentTypeJSON, client)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, chatGPTURL+pathCodexResponses, bytes.NewReader(body))
@@ -72,7 +88,14 @@ func (p *Provider) doResponsesRequest(ctx context.Context, req domain.ResponsesR
 	httpReq.Header.Set(headerUserAgent, "")
 	httpReq.Header.Set(headerVersion, p.codexVersion)
 
-	return p.client.Do(httpReq)
+	return client.Do(httpReq)
+}
+
+func (p *Provider) streamingClient() *http.Client {
+	if p.streamClient != nil {
+		return p.streamClient
+	}
+	return p.client
 }
 
 // codexCompatibleResponsesRequest removes standard Responses fields that the

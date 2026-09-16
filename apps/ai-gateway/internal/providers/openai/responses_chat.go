@@ -42,7 +42,7 @@ func (p *Provider) chatViaResponses(ctx context.Context, req domain.ChatRequest)
 
 func (p *Provider) chatStreamViaResponses(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
 	responsesReq := responsesRequestFromChat(req, true)
-	resp, err := p.doResponsesRequest(ctx, responsesReq)
+	resp, err := p.doResponsesStreamRequest(ctx, responsesReq)
 	if err != nil {
 		return domain.Usage{}, err
 	}
