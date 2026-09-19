@@ -161,7 +161,7 @@ importers:
         version: 2.27.5(@typescript-eslint/parser@7.18.0(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)
       eslint-plugin-prettier:
         specifier: ^4.2.1
-        version: 4.2.5(eslint-config-prettier@9.1.2(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0)))(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(prettier@3.9.6)
+        version: 4.2.5(eslint-config-prettier@9.1.2(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0)))(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(prettier@3.9.7)
       eslint-plugin-simple-import-sort:
         specifier: ^10.0.0
         version: 10.0.0(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))
@@ -191,13 +191,13 @@ importers:
         version: 8.5.28
       prettier:
         specifier: ^3.0.0
-        version: 3.9.6
+        version: 3.9.7
       prettier-plugin-svelte:
         specifier: ^3.5.1
-        version: 3.5.2(prettier@3.9.6)(svelte@5.57.0(@typescript-eslint/types@8.69.0))
+        version: 3.5.2(prettier@3.9.7)(svelte@5.57.0(@typescript-eslint/types@8.69.0))
       prettier-plugin-tailwindcss:
         specifier: ^0.8.0
-        version: 0.8.1(prettier-plugin-svelte@3.5.2(prettier@3.9.6)(svelte@5.57.0(@typescript-eslint/types@8.69.0)))(prettier@3.9.6)
+        version: 0.8.1(prettier-plugin-svelte@3.5.2(prettier@3.9.7)(svelte@5.57.0(@typescript-eslint/types@8.69.0)))(prettier@3.9.7)
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
@@ -2558,9 +2558,6 @@ packages:
 
   '@types/node@22.20.1':
     resolution: {integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==}
-
-  '@types/node@22.20.2':
-    resolution: {integrity: sha512-xlvWf4Vs9n1PEVYwP1n4vvG07M6y8WgvJ2t0vbrWTmijsIHp1cS+uJ2kMIRdY3nHZK0nCYKrPeD171+SzF4/zw==}
 
   '@types/node@22.20.3':
     resolution: {integrity: sha512-DZmzkmwHzXrLPAXPyKNDzlIwMMUZCVacoD25ywdy5YTKGbOx/2ld+Q38Im2zJ0vBuZP5Prd3VZutKZyXwkOS8A==}
@@ -6334,8 +6331,8 @@ packages:
       prettier-plugin-svelte:
         optional: true
 
-  prettier@3.9.6:
-    resolution: {integrity: sha512-OpN0zzVdiaiAhxpuuj5efpIS4sY9j7bY6uR5mnj5yPzGkdkjNKSJeUThPb60Jw29QuAZgA4o+/iB49kFiaBX6g==}
+  prettier@3.9.7:
+    resolution: {integrity: sha512-T3mF5P7HFzZVLDQuCUNtJj6WK1pcpLMweMNUVwGb01bLNkH9AkKxtZvmInw8K6bnn2O3d6/5RHl6zSHiBAD0Og==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -8863,7 +8860,7 @@ snapshots:
 
   '@jest/pattern@30.4.0':
     dependencies:
-      '@types/node': 22.20.2
+      '@types/node': 22.20.3
       jest-regex-util: 30.4.0
 
   '@jest/pattern@30.5.0':
@@ -8973,7 +8970,7 @@ snapshots:
       '@jest/schemas': 30.4.1
       '@types/istanbul-lib-coverage': 2.0.6
       '@types/istanbul-reports': 3.0.4
-      '@types/node': 22.20.2
+      '@types/node': 22.20.3
       '@types/yargs': 17.0.35
       chalk: 4.1.2
 
@@ -10327,10 +10324,6 @@ snapshots:
   '@types/minimist@1.2.5': {}
 
   '@types/node@22.20.1':
-    dependencies:
-      undici-types: 6.21.0
-
-  '@types/node@22.20.2':
     dependencies:
       undici-types: 6.21.0
 
@@ -11913,10 +11906,10 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-prettier@4.2.5(eslint-config-prettier@9.1.2(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0)))(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(prettier@3.9.6):
+  eslint-plugin-prettier@4.2.5(eslint-config-prettier@9.1.2(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0)))(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(prettier@3.9.7):
     dependencies:
       eslint: 9.39.4(jiti@2.7.0)(supports-color@7.2.0)
-      prettier: 3.9.6
+      prettier: 3.9.7
       prettier-linter-helpers: 1.0.1
     optionalDependencies:
       eslint-config-prettier: 9.1.2(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))
@@ -14350,18 +14343,18 @@ snapshots:
     dependencies:
       fast-diff: 1.3.0
 
-  prettier-plugin-svelte@3.5.2(prettier@3.9.6)(svelte@5.57.0(@typescript-eslint/types@8.69.0)):
+  prettier-plugin-svelte@3.5.2(prettier@3.9.7)(svelte@5.57.0(@typescript-eslint/types@8.69.0)):
     dependencies:
-      prettier: 3.9.6
+      prettier: 3.9.7
       svelte: 5.57.0(@typescript-eslint/types@8.69.0)
 
-  prettier-plugin-tailwindcss@0.8.1(prettier-plugin-svelte@3.5.2(prettier@3.9.6)(svelte@5.57.0(@typescript-eslint/types@8.69.0)))(prettier@3.9.6):
+  prettier-plugin-tailwindcss@0.8.1(prettier-plugin-svelte@3.5.2(prettier@3.9.7)(svelte@5.57.0(@typescript-eslint/types@8.69.0)))(prettier@3.9.7):
     dependencies:
-      prettier: 3.9.6
+      prettier: 3.9.7
     optionalDependencies:
-      prettier-plugin-svelte: 3.5.2(prettier@3.9.6)(svelte@5.57.0(@typescript-eslint/types@8.69.0))
+      prettier-plugin-svelte: 3.5.2(prettier@3.9.7)(svelte@5.57.0(@typescript-eslint/types@8.69.0))
 
-  prettier@3.9.6: {}
+  prettier@3.9.7: {}
 
   pretty-format@29.7.0:
     dependencies:
