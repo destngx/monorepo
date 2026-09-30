@@ -1,0 +1,43 @@
+{
+  "name": "posturify",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/posturify/Sources",
+  "tags": ["type:app", "platform:macos", "lang:swift"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "swift build",
+        "cwd": "apps/posturify"
+      },
+      "configurations": {
+        "production": {
+          "command": "swift build -c release",
+          "cwd": "apps/posturify"
+        }
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "swift test",
+        "cwd": "apps/posturify"
+      }
+    },
+    "run": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "swift run",
+        "cwd": "apps/posturify"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "make bundle",
+        "cwd": "apps/posturify"
+      }
+    }
+  }
+}

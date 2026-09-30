@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background Gradient: Deep Slate Obsidian to Midnight Blue -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141824" />
+      <stop offset="50%" stop-color="#0E121A" />
+      <stop offset="100%" stop-color="#070A0F" />
+    </linearGradient>
+
+    <!-- Cervical Spine Gradient: Cyan / Aqua into Emerald Pulse -->
+    <linearGradient id="spineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="40%" stop-color="#00F2FE" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+
+    <!-- Outer Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Soft Drop Shadow for Tile -->
+    <filter id="tileShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.65" />
+    </filter>
+  </defs>
+
+  <!-- macOS App Icon Squircle Base with Shadow -->
+  <g filter="url(#tileShadow)">
+    <rect x="80" y="80" width="864" height="864" rx="192" fill="url(#bgGrad)" stroke="#38BDF8" stroke-opacity="0.18" stroke-width="4" />
+  </g>
+
+  <!-- Subtle Ergonomic / Biometric Measurement Rings -->
+  <circle cx="512" cy="512" r="320" fill="none" stroke="#38BDF8" stroke-opacity="0.08" stroke-width="2" stroke-dasharray="8 8" />
+  <circle cx="512" cy="512" r="230" fill="none" stroke="#10B981" stroke-opacity="0.10" stroke-width="2" />
+
+  <!-- Alignment Axis Guides -->
+  <line x1="512" y1="160" x2="512" y2="864" stroke="#38BDF8" stroke-opacity="0.12" stroke-width="2" stroke-dasharray="12 12" />
+
+  <!-- Stylized Biometric Human Head & Cervical Curve -->
+  <!-- Head Silhouette (Tragus / Cranium Anchor) -->
+  <g filter="url(#glow)">
+    <!-- Cranium / Head circle -->
+    <circle cx="512" cy="270" r="76" fill="none" stroke="#38BDF8" stroke-width="14" stroke-linecap="round" />
+    <!-- Center Biometric Core (Tragus node) -->
+    <circle cx="512" cy="270" r="22" fill="#38BDF8" />
+  </g>
+
+  <!-- Elegant Discrete Vertebrae Spinal Arch (C1 -> C7 -> Thoracic) -->
+  <g filter="url(#glow)">
+    <!-- Smooth Curvature Vector (C1 to T1) -->
+    <path d="M 512 346 C 512 390, 526 430, 532 470 C 538 510, 532 560, 512 600 C 492 640, 482 690, 482 740" 
+          fill="none" stroke="url(#spineGrad)" stroke-width="12" stroke-linecap="round" />
+
+    <!-- Vertebrae Nodes (Discrete Cervical Segment Discs) -->
+    <ellipse cx="515" cy="390" rx="36" ry="12" fill="#38BDF8" opacity="0.9" />
+    <ellipse cx="523" cy="445" rx="42" ry="13" fill="#00F2FE" opacity="0.95" />
+    <ellipse cx="530" cy="505" rx="48" ry="14" fill="#00E5FF" />
+    <!-- C7 / Prominens Key Anatomical Landmark (Highlighted) -->
+    <ellipse cx="525" cy="565" rx="54" ry="15" fill="#34D399" />
+    <circle cx="525" cy="565" r="7" fill="#FFFFFF" />
+
+    <ellipse cx="508" cy="630" rx="60" ry="16" fill="#10B981" />
+    <ellipse cx="492" cy="695" rx="66" ry="17" fill="#059669" />
+  </g>
+
+  <!-- Ergonomic Precision Collar / Acromion Wings (Shoulder Balance Line) -->
+  <path d="M 280 620 C 370 595, 450 575, 525 565 C 600 575, 680 595, 744 620" 
+        fill="none" stroke="#34D399" stroke-opacity="0.6" stroke-width="10" stroke-linecap="round" stroke-dasharray="16 10" />
+
+  <!-- Shoulder / Acromion Anchors -->
+  <circle cx="280" cy="620" r="14" fill="#34D399" opacity="0.8" />
+  <circle cx="744" cy="620" r="14" fill="#34D399" opacity="0.8" />
+
+  <!-- CVA Tangent Vector Angle Indicator (Clinical Measurement Arch) -->
+  <path d="M 525 565 L 680 435" stroke="#F59E0B" stroke-width="5" stroke-linecap="round" stroke-dasharray="6 6" />
+  <circle cx="680" cy="435" r="8" fill="#F59E0B" />
+</svg>
