@@ -173,3 +173,38 @@ func TestBatchMessagesWithOversizedToolCalls(t *testing.T) {
 		assert.Equal(t, 2, len(result[1].ToolCalls))
 	})
 }
+
+func TestGPT6AndFallback56ModelsRecognition(t *testing.T) {
+	gpt6Models := []string{
+		domain.ModelGPT6,
+		domain.ModelGPT6Astra,
+		domain.ModelGPT6Luna,
+		domain.ModelGPT6Terra,
+		domain.ModelGPT6Sol,
+	}
+
+	fallback56Models := []string{
+		domain.ModelGPT56Luna,
+		domain.ModelGPT56Terra,
+		domain.ModelGPT56Sol,
+	}
+
+	for _, m := range gpt6Models {
+		t.Run("gpt6_"+m, func(t *testing.T) {
+			assert.True(t, isReasoningModel(m), "expected %s to be reasoning model", m)
+			assert.True(t, isResponsesModel(m), "expected %s to be responses model", m)
+			assert.True(t, isNoTemperatureModel(m), "expected %s to be no-temperature model", m)
+		})
+	}
+
+	for _, m := range fallback56Models {
+		t.Run("fallback56_"+m, func(t *testing.T) {
+			assert.True(t, isReasoningModel(m), "expected %s to be reasoning model", m)
+			assert.True(t, isResponsesModel(m), "expected %s to be responses model", m)
+			assert.True(t, isNoTemperatureModel(m), "expected %s to be no-temperature model", m)
+		})
+	}
+
+	assert.False(t, isResponsesModel(domain.ModelGPT41))
+	assert.False(t, isResponsesModel(ModelGPT4o))
+}

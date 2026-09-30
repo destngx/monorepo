@@ -80,7 +80,7 @@ func TestResponsesHandler_EmitsTypedFailureEventAfterStreamStarts(t *testing.T) 
 	}
 	reg.RegisterForTest(mockOpenAI)
 
-	body := []byte(`{"model":"gpt-5.6-luna","input":[],"stream":true}`)
+	body := []byte(`{"model":"gpt-6-luna","input":[],"stream":true}`)
 	req := httptest.NewRequest(http.MethodPost, pathResponses, bytes.NewReader(body))
 	req.Header.Set(domain.HeaderAIProvider, domain.ProviderOpenAI)
 	rr := httptest.NewRecorder()

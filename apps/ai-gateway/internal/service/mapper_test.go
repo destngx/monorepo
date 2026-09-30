@@ -58,9 +58,9 @@ func TestModelMapper_RoutesClaudeFamiliesToGatewayModels(t *testing.T) {
 		input  string
 		output string
 	}{
-		{name: "haiku", input: "claude-haiku-4-5-20251001", output: domain.ModelGPT56Luna},
-		{name: "sonnet", input: "claude-sonnet-4-6", output: domain.ModelGPT56Terra},
-		{name: "opus", input: "claude-opus-4-7", output: domain.ModelGPT56Sol},
+		{name: "haiku", input: "claude-haiku-4-5-20251001", output: domain.ModelGPT6Luna},
+		{name: "sonnet", input: "claude-sonnet-4-6", output: domain.ModelGPT6Terra},
+		{name: "opus", input: "claude-opus-4-7", output: domain.ModelGPT6Sol},
 		{name: "fable", input: "claude-fable", output: domain.ModelGPT6Astra},
 	}
 

@@ -13,9 +13,9 @@ const (
 // equivalents. Keep this table centralized so model replacements are easy to
 // make when an upstream model is deprecated.
 var claudeModelRoutes = map[string]string{
-	domain.ClaudeModelFamilyHaiku:  domain.ModelGPT56Luna,
-	domain.ClaudeModelFamilySonnet: domain.ModelGPT56Terra,
-	domain.ClaudeModelFamilyOpus:   domain.ModelGPT56Sol,
+	domain.ClaudeModelFamilyHaiku:  domain.ModelGPT6Luna,
+	domain.ClaudeModelFamilySonnet: domain.ModelGPT6Terra,
+	domain.ClaudeModelFamilyOpus:   domain.ModelGPT6Sol,
 	domain.ClaudeModelFamilyFable:  domain.ModelGPT6Astra,
 }
 

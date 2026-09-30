@@ -398,7 +398,7 @@ func TestConvertToAnthropicStreamPreservesArgumentsFromFirstToolChunk(t *testing
 }
 
 func TestConvertToAnthropicStreamPreservesNameAcrossSplitToolCall(t *testing.T) {
-	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.6-luna\",\"choices\":[{" +
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-6-luna\",\"choices\":[{" +
 		"\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"type\":\"function\",\"function\":{\"name\":\"bash\",\"arguments\":\"\"}}]},\"finish_reason\":null}]}\n\n" +
 		"data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"type\":\"function\",\"function\":{\"name\":\"bash\",\"arguments\":\"{\\\"command\\\":\\\"pwd\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n" +
 		"data: [DONE]\n\n"
@@ -425,7 +425,7 @@ func TestConvertToAnthropicStreamSuppressesEmptyToolCall(t *testing.T) {
 }
 
 func TestConvertToAnthropicStreamCompletesParallelToolCallsBeforeStopping(t *testing.T) {
-	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.6\",\"choices\":[{" +
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-6\",\"choices\":[{" +
 		"\"delta\":{\"tool_calls\":[{\"id\":\"call-0\",\"index\":0,\"function\":{\"name\":\"Bash\",\"arguments\":\"{\\\"command\\\":\\\"ls\\\"}\"}},{\"id\":\"call-1\",\"index\":1,\"function\":{\"name\":\"Bash\",\"arguments\":\"{\\\"command\\\":\\\"pwd\\\"}\"}}]},\"finish_reason\":null}]}\n\n" +
 		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n"
 
@@ -438,7 +438,7 @@ func TestConvertToAnthropicStreamCompletesParallelToolCallsBeforeStopping(t *tes
 }
 
 func TestConvertToAnthropicStreamPreservesUsageAndCacheCounters(t *testing.T) {
-	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-5.6-luna\",\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n" +
+	input := "data: {\"id\":\"chat-1\",\"model\":\"gpt-6-luna\",\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n" +
 		"data: {\"choices\":[],\"usage\":{\"prompt_tokens\":101,\"completion_tokens\":7,\"total_tokens\":108,\"prompt_tokens_details\":{\"cached_tokens\":80,\"cache_write_tokens\":12}}}\n\n" +
 		"data: [DONE]\n\n"
 

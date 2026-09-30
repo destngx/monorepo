@@ -9,7 +9,7 @@ import (
 )
 
 func TestConvertToAnthropicResponsePreservesClientModel(t *testing.T) {
-	resp := &domain.ChatResponse{ID: "response-1", Model: domain.ModelGPT56Luna, Usage: domain.Usage{PromptTokensDetails: &domain.PromptTokensDetails{CachedTokens: 80, CacheWriteTokens: 12}}}
+	resp := &domain.ChatResponse{ID: "response-1", Model: domain.ModelGPT6Luna, Usage: domain.Usage{PromptTokensDetails: &domain.PromptTokensDetails{CachedTokens: 80, CacheWriteTokens: 12}}}
 
 	got := convertToAnthropicResponse(resp, "claude-haiku-4-5-20251001")
 

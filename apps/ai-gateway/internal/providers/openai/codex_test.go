@@ -11,7 +11,7 @@ import (
 
 func TestCodexRequestIncludesHostedWebSearchSources(t *testing.T) {
 	payload := toCodexResponseRequest(domain.ChatRequest{
-		Model: "gpt-5.6-luna",
+		Model: "gpt-6-luna",
 		Tools: []domain.Tool{{Type: domain.ToolTypeWebSearch}},
 	})
 
@@ -64,10 +64,10 @@ func TestToCodexResponseRequestOmitsMaxOutputTokens(t *testing.T) {
 
 func TestCodexCompatibleResponsesRequestOmitsUnsupportedMaxOutputTokens(t *testing.T) {
 	req := domain.ResponsesRequest{
-		Model:  "gpt-5.6-luna",
+		Model:  "gpt-6-luna",
 		Stream: true,
 		Body: map[string]any{
-			"model":             "gpt-5.6-luna",
+			"model":             "gpt-6-luna",
 			"stream":            true,
 			"store":             true,
 			"max_output_tokens": 8000,

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"apps/ai-gateway/config"
+	"apps/ai-gateway/internal/domain"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -199,5 +200,37 @@ func TestCodexPriorityOverAPIKey(t *testing.T) {
 	}
 	if captured.Header.Get(headerAuthorization) != tokenPrefixBearer+"oauth-token" {
 		t.Fatalf("expected oauth authorization header, got %s", captured.Header.Get(headerAuthorization))
+	}
+}
+
+func TestStaticModelsContainsGPT6AndFallback56(t *testing.T) {
+	models := staticModels()
+	modelSet := make(map[string]bool)
+	for _, m := range models.Data {
+		modelSet[m.ID] = true
+	}
+
+	expectedGPT6 := []string{
+		domain.ModelGPT6,
+		domain.ModelGPT6Astra,
+		domain.ModelGPT6Luna,
+		domain.ModelGPT6Terra,
+		domain.ModelGPT6Sol,
+	}
+	for _, m := range expectedGPT6 {
+		if !modelSet[m] {
+			t.Errorf("expected GPT-6 model %s in staticModels", m)
+		}
+	}
+
+	expectedFallback56 := []string{
+		domain.ModelGPT56Luna,
+		domain.ModelGPT56Terra,
+		domain.ModelGPT56Sol,
+	}
+	for _, m := range expectedFallback56 {
+		if !modelSet[m] {
+			t.Errorf("expected fallback 5.6 model %s in staticModels", m)
+		}
 	}
 }

@@ -11,7 +11,7 @@ import (
 
 func TestResponsesRequestFromChatPreservesInstructionsAndCacheOptions(t *testing.T) {
 	req := domain.ChatRequest{
-		Model: "gpt-5.6-terra",
+		Model: "gpt-6-terra",
 		Messages: []domain.Message{
 			{Role: domain.RoleSystem, Content: "stable instructions"},
 			{Role: domain.RoleUser, Parts: []domain.ContentPart{{Type: "text", Text: "question", PromptCacheBreakpoint: &domain.CacheBreakpoint{Mode: "explicit"}}}},
@@ -53,7 +53,7 @@ func TestResponsesToolsPreservesHostedWebSearch(t *testing.T) {
 
 func TestResponsesRequestFromChatIncludesHostedWebSearchSources(t *testing.T) {
 	payload := responsesRequestFromChat(domain.ChatRequest{
-		Model: "gpt-5.6-luna",
+		Model: "gpt-6-luna",
 		Tools: []domain.Tool{{Type: domain.ToolTypeWebSearch}},
 	}, true).CloneBody()
 
@@ -89,7 +89,7 @@ func TestChatResponseFromResponsesParsesOutputAndCacheUsage(t *testing.T) {
 			"input_tokens_details": map[string]any{"cached_tokens": float64(80), "cache_write_tokens": float64(10)},
 		},
 	}
-	resp := chatResponseFromResponses(raw, "gpt-5.6-terra")
+	resp := chatResponseFromResponses(raw, "gpt-6-terra")
 	if resp.Choices[0].Message.Content != "answer" {
 		t.Fatalf("unexpected content: %#v", resp.Choices[0].Message.Content)
 	}
@@ -99,7 +99,7 @@ func TestChatResponseFromResponsesParsesOutputAndCacheUsage(t *testing.T) {
 }
 
 func TestResponsesConversionPreservesFunctionCallsAndResults(t *testing.T) {
-	req := domain.ChatRequest{Model: "gpt-5.6-terra", Messages: []domain.Message{
+	req := domain.ChatRequest{Model: "gpt-6-terra", Messages: []domain.Message{
 		{Role: domain.RoleAssistant, ToolCalls: []domain.ToolCall{{ID: "call_1", Type: domain.ToolTypeFunction, Function: &domain.FunctionCall{Name: "lookup", Arguments: `{"q":"x"}`}}}},
 		{Role: domain.RoleTool, ToolCallID: "call_1", Content: "result"},
 	}, Tools: []domain.Tool{{Type: domain.ToolTypeFunction, Function: &domain.FunctionDefinition{Name: "lookup", Description: "look up", Parameters: map[string]any{"type": "object"}}}},
@@ -124,7 +124,7 @@ func TestResponsesConversionPreservesFunctionCallsAndResults(t *testing.T) {
 func TestChatResponseFromResponsesParsesFunctionCall(t *testing.T) {
 	resp := chatResponseFromResponses(map[string]any{
 		"id": "resp_1", "output": []any{map[string]any{"type": "function_call", "call_id": "call_1", "name": "lookup", "arguments": `{"q":"x"}`}},
-	}, "gpt-5.6-terra")
+	}, "gpt-6-terra")
 	if len(resp.Choices[0].Message.ToolCalls) != 1 {
 		t.Fatalf("expected one tool call: %#v", resp)
 	}
@@ -135,7 +135,7 @@ func TestChatResponseFromResponsesParsesFunctionCall(t *testing.T) {
 }
 
 func TestCodexRequestPreservesPromptCacheConfiguration(t *testing.T) {
-	req := domain.ChatRequest{Model: "gpt-5.6-luna", PromptCacheKey: "cc:test", PromptCacheOptions: &domain.PromptCacheOptions{Mode: "explicit"}, Messages: []domain.Message{{Role: domain.RoleUser, Parts: []domain.ContentPart{{Type: "text", Text: "stable", PromptCacheBreakpoint: &domain.CacheBreakpoint{Mode: "explicit"}}}}}}
+	req := domain.ChatRequest{Model: "gpt-6-luna", PromptCacheKey: "cc:test", PromptCacheOptions: &domain.PromptCacheOptions{Mode: "explicit"}, Messages: []domain.Message{{Role: domain.RoleUser, Parts: []domain.ContentPart{{Type: "text", Text: "stable", PromptCacheBreakpoint: &domain.CacheBreakpoint{Mode: "explicit"}}}}}}
 	payload := toCodexResponseRequest(req)
 	first, ok := payload.Input[0].(map[string]any)
 	if !ok {
