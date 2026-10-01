@@ -39,7 +39,7 @@ public final class WindowManager: ObservableObject, @unchecked Sendable {
     private func createWindow(appState: AppState) {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 920, height: 560),
-            styleMask: [.titled, .closable, .miniaturizable, .nonactivatingPanel, .fullSizeContentView],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -47,8 +47,6 @@ public final class WindowManager: ObservableObject, @unchecked Sendable {
         panel.title = "Posturify"
         panel.isFloatingPanel = true
         panel.level = .floating
-        panel.titlebarAppearsTransparent = true
-        panel.titleVisibility = .hidden
         panel.isMovableByWindowBackground = true
         panel.backgroundColor = .clear
         panel.isOpaque = false

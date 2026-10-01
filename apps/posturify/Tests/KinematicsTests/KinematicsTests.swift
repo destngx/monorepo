@@ -1023,6 +1023,62 @@ final class KinematicsTests: XCTestCase {
         print("=================================================================\n")
     }
     
+    func testLiveVisionTrackerOnUserCollarImage() {
+        let imagePath = "/Users/destnguyxn/.gemini/antigravity/brain/848cf3b5-67f2-44fd-aecf-f2aee65e6e4e/.user_uploaded/media_1790826792852.jpg"
+        guard FileManager.default.fileExists(atPath: imagePath),
+              let image = NSImage(contentsOfFile: imagePath),
+              let tiffData = image.tiffRepresentation,
+              let bitmapImage = NSBitmapImageRep(data: tiffData),
+              let cgImage = bitmapImage.cgImage else {
+            return
+        }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            kCVPixelFormatType_32ARGB,
+            [
+                kCVPixelBufferCGImageCompatibilityKey as String: true,
+                kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+            ] as CFDictionary,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let buffer = pixelBuffer else { return }
+        
+        CVPixelBufferLockBaseAddress(buffer, [])
+        let pxData = CVPixelBufferGetBaseAddress(buffer)
+        let rgbColorSpace = CGColorSpaceCreateDeviceRGB()
+        if let context = CGContext(
+            data: pxData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+            space: rgbColorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) {
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        CVPixelBufferUnlockBaseAddress(buffer, [])
+        
+        let tracker = VisionTracker()
+        tracker.c7DepthRatio = 0.15 // Keep C7 at correct anatomical neck location
+        for jRatio in [0.15, 0.30, 0.45, 0.60] {
+            tracker.jDepthRatio = jRatio
+            let state = tracker.processFrame(buffer, cameraAngle: .diagonal45, cameraElevation: .eyeLevel)
+            print("\n================ J RATIO \(jRatio) (C7=0.15) ================")
+            print("C7: \(state.keypoints.c7 ?? .zero)")
+            print("Acromion: \(state.keypoints.acromion ?? .zero)")
+            print("Jugular Notch (J): \(state.keypoints.jugularNotch ?? .zero)")
+            print("CVA: \(state.posture.cvaDegrees)°")
+        }
+        print("===================================================================\n")
+    }
+    
     // MARK: - Advanced Relative CVA & Calibration Engine Tests
     
     func testRigidFacialConstellationCentroidAndRMS() {

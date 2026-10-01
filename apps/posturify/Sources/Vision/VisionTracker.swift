@@ -18,6 +18,14 @@ public final class VisionTracker: @unchecked Sendable {
     private var isBaselineCalibrated: Bool = false
     private var lastCameraAngle: CameraAngleMode? = nil
     
+    /// Tuneable C7 search depth ratio: controls how far below the chin C7 target is placed.
+    /// Default 0.15 is optimal for bare-neck and preserves true C7 vertebra location.
+    public var c7DepthRatio: Double = 0.15
+    
+    /// Tuneable Jugular Notch (J) depth ratio: controls how far below the chin / acromion J is placed.
+    /// Default 0.15 works for bare neck. Increasing this lowers point J independently without moving C7!
+    public var jDepthRatio: Double = 0.15
+    
     public init() {
         self.faceRequest = VNDetectFaceLandmarksRequest()
         self.bodyRequest = VNDetectHumanBodyPoseRequest()
@@ -179,8 +187,9 @@ public final class VisionTracker: @unchecked Sendable {
                 ? (neckSlice.min(by: { $0.x < $1.x }) ?? CGPoint(x: tragusPoint.x + 0.05, y: chinPoint.y))
                 : (neckSlice.max(by: { $0.x < $1.x }) ?? CGPoint(x: tragusPoint.x - 0.05, y: chinPoint.y))
             
-            let c7YTarget = chinPoint.y - headHeight * 0.15
-            let c7Candidates = posteriorPoints.filter { $0.y <= lordosisMin.y && $0.y >= chinPoint.y - headHeight * 0.4 }
+            let c7YTarget = chinPoint.y - headHeight * c7DepthRatio
+            let c7SearchFloor = max(0.4, c7DepthRatio + 0.3)
+            let c7Candidates = posteriorPoints.filter { $0.y <= lordosisMin.y && $0.y >= chinPoint.y - headHeight * c7SearchFloor }
             let detectedC7 = c7Candidates.min(by: { abs($0.y - c7YTarget) < abs($1.y - c7YTarget) })
                 ?? CGPoint(x: lordosisMin.x - facingSign * 0.04, y: c7YTarget)
             c7Point = detectedC7
@@ -198,8 +207,9 @@ public final class VisionTracker: @unchecked Sendable {
             
             // 3. Dynamic Jugular Notch (J / Hõm ức):
             // Medial end of the clavicle at the suprasternal fossa between clavicular heads
+            // Independently adjustable via jDepthRatio without displacing C7
             let throatX = chinPoint.x + (tragusPoint.x - chinPoint.x) * 0.55
-            let throatY = acromionPoint.y - headHeight * 0.15
+            let throatY = acromionPoint.y - headHeight * jDepthRatio
             jugularNotchPoint = CGPoint(x: throatX, y: throatY)
         } else {
             // Dynamic Acromion (A) fallback
@@ -222,7 +232,7 @@ public final class VisionTracker: @unchecked Sendable {
             
             // Dynamic Jugular Notch (J) fallback: at suprasternal level
             let throatX = chinPoint.x + (tragusPoint.x - chinPoint.x) * 0.55
-            let throatY = acromionPoint.y - headHeight * 0.15
+            let throatY = acromionPoint.y - headHeight * jDepthRatio
             jugularNotchPoint = CGPoint(x: throatX, y: throatY)
         }
         

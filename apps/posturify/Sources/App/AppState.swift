@@ -21,6 +21,12 @@ public final class AppState: ObservableObject {
     @Published public var isPortraitEffectActive: Bool = false
     @Published public var calibrationPhaseText: String = "Calibrate"
     @Published public var isCalibrated: Bool = false
+    @Published public var c7DepthRatio: Double = 0.15 {
+        didSet { visionTracker.c7DepthRatio = c7DepthRatio }
+    }
+    @Published public var jDepthRatio: Double = 0.15 {
+        didSet { visionTracker.jDepthRatio = jDepthRatio }
+    }
     
     public let cameraManager = CameraManager.shared
     public let visionTracker = VisionTracker.shared

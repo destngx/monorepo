@@ -5,6 +5,7 @@ import AVFoundation
 /// Hosts the live camera feed with 2D skeleton overlay and real-time biometric telemetry.
 public struct DualDisplayMainView: View {
     @ObservedObject var appState: AppState
+    @State private var isShowingNeckDepthPopover: Bool = false
     
     public init(appState: AppState) {
         self.appState = appState
@@ -34,12 +35,11 @@ public struct DualDisplayMainView: View {
                 .background(Color.black.opacity(0.18))
         }
         .frame(width: 920, height: 560)
-        .background(.ultraThinMaterial)
-        .background(Color(red: 0.08, green: 0.10, blue: 0.14).opacity(0.55))
+        .background(Color(red: 0.08, green: 0.10, blue: 0.14))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
     
@@ -171,6 +171,9 @@ public struct DualDisplayMainView: View {
             .buttonStyle(.plain)
             .help(appState.isCalibrated ? "Calibrated (Relative CVA Active). Click to re-calibrate." : "Posture Calibration: \(appState.calibrationPhaseText). Click to run 2s calibration.")
             
+            // Neck / Collar Depth Ratio Slider Popover Button
+            neckDepthSliderButton
+            
             // Close Panel Button
             Button(action: {
                 WindowManager.shared.closeWindow()
@@ -202,6 +205,163 @@ public struct DualDisplayMainView: View {
             .keyboardShortcut("q", modifiers: [.command])
         }
         .padding(.horizontal, 12)
+    }
+    
+    // MARK: - Neck / Collar Depth Ratio Slider Popover
+    
+    private var neckDepthSliderButton: some View {
+        Button(action: {
+            isShowingNeckDepthPopover.toggle()
+        }) {
+            Image(systemName: "slider.vertical.3")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor((appState.jDepthRatio > 0.20 || appState.c7DepthRatio != 0.15) ? .cyan : .white.opacity(0.85))
+                .frame(width: 26, height: 26)
+                .background((appState.jDepthRatio > 0.20 || appState.c7DepthRatio != 0.15) ? Color.cyan.opacity(0.18) : Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .help("Adjust Jugular Notch (J) and C7 Landmark Positions")
+        .popover(isPresented: $isShowingNeckDepthPopover, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Section 1: Jugular Notch (J) Offset
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text("J Point (Jugular Notch)")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            if (0.35...0.55).contains(appState.jDepthRatio) || (0.12...0.18).contains(appState.jDepthRatio) {
+                                Text("Rec")
+                                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color(red: 0.20, green: 0.85, blue: 0.48).opacity(0.20))
+                                    .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.48))
+                                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                            }
+                            Text(String(format: "%.2f×", appState.jDepthRatio))
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(isJRecommended(appState.jDepthRatio) ? Color(red: 0.20, green: 0.85, blue: 0.48) : .cyan)
+                        }
+                    }
+                    
+                    Slider(value: $appState.jDepthRatio, in: 0.10...0.90, step: 0.05)
+                        .tint(isJRecommended(appState.jDepthRatio) ? Color(red: 0.20, green: 0.85, blue: 0.48) : .cyan)
+                    
+                    // Track Bar indicating Recommended Zones (Bare: ~0.15, Collar: 0.35-0.55)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            // Background track guide
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white.opacity(0.12))
+                                .frame(height: 3)
+                            
+                            // Bare Neck recommended zone (~0.12 - 0.18) -> normalized (0.15 - 0.10)/0.80 = 6%
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(red: 0.20, green: 0.85, blue: 0.48).opacity(0.85))
+                                .frame(width: max(4, geo.size.width * (0.08 / 0.80)), height: 3)
+                                .offset(x: geo.size.width * ((0.12 - 0.10) / 0.80))
+                            
+                            // Collar recommended zone (0.35 - 0.55) -> normalized (0.35 - 0.10)/0.80 = 31% to 56%
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(red: 0.20, green: 0.85, blue: 0.48).opacity(0.85))
+                                .frame(width: geo.size.width * ((0.55 - 0.35) / 0.80), height: 3)
+                                .offset(x: geo.size.width * ((0.35 - 0.10) / 0.80))
+                        }
+                    }
+                    .frame(height: 3)
+                    
+                    HStack {
+                        Text("0.15 (Bare)")
+                            .font(.system(size: 8.5, design: .monospaced))
+                            .foregroundColor(isBareJ(appState.jDepthRatio) ? Color(red: 0.20, green: 0.85, blue: 0.48) : .white.opacity(0.50))
+                        Spacer()
+                        Text("0.35–0.55 (Collar Rec)")
+                            .font(.system(size: 8.5, design: .monospaced))
+                            .foregroundColor(isCollarJ(appState.jDepthRatio) ? Color(red: 0.20, green: 0.85, blue: 0.48) : .white.opacity(0.50))
+                    }
+                }
+                
+                Divider().background(Color.white.opacity(0.15))
+                
+                // Section 2: C7 (Vertebra) Depth Offset
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text("C7 (Posterior Neck)")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            if (0.12...0.20).contains(appState.c7DepthRatio) {
+                                Text("Rec")
+                                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color(red: 0.20, green: 0.85, blue: 0.48).opacity(0.20))
+                                    .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.48))
+                                    .clipShape(RoundedRectangle(cornerRadius: 3))
+                            }
+                            Text(String(format: "%.2f×", appState.c7DepthRatio))
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(isC7Recommended(appState.c7DepthRatio) ? Color(red: 0.20, green: 0.85, blue: 0.48) : .orange)
+                        }
+                    }
+                    
+                    Slider(value: $appState.c7DepthRatio, in: 0.10...0.50, step: 0.05)
+                        .tint(isC7Recommended(appState.c7DepthRatio) ? Color(red: 0.20, green: 0.85, blue: 0.48) : .orange)
+                    
+                    // Track Bar indicating Recommended Zone for C7 (0.12 - 0.20)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.white.opacity(0.12))
+                                .frame(height: 3)
+                            
+                            // Recommended zone (0.12 - 0.20)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color(red: 0.20, green: 0.85, blue: 0.48).opacity(0.85))
+                                .frame(width: geo.size.width * ((0.20 - 0.12) / 0.40), height: 3)
+                                .offset(x: geo.size.width * ((0.12 - 0.10) / 0.40))
+                        }
+                    }
+                    .frame(height: 3)
+                    
+                    HStack {
+                        Text("0.15 (Optimal Rec)")
+                            .font(.system(size: 8.5, design: .monospaced))
+                            .foregroundColor(isC7Recommended(appState.c7DepthRatio) ? Color(red: 0.20, green: 0.85, blue: 0.48) : .white.opacity(0.50))
+                        Spacer()
+                        Text("0.50 (Too Low)")
+                            .font(.system(size: 8.5, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.50))
+                    }
+                }
+                
+                Divider().background(Color.white.opacity(0.15))
+                
+                // Quick Presets
+                HStack(spacing: 8) {
+                    Button("Default (0.15)") {
+                        appState.jDepthRatio = 0.15
+                        appState.c7DepthRatio = 0.15
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Button("Collar (J: 0.45)") {
+                        appState.jDepthRatio = 0.45
+                        appState.c7DepthRatio = 0.15
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+            .padding(14)
+            .frame(width: 250)
+            .background(Color(red: 0.12, green: 0.14, blue: 0.18))
+        }
     }
     
     // MARK: - Bottom Status Toolbar
@@ -273,5 +433,23 @@ public struct DualDisplayMainView: View {
         case .slouching:
             return Color(red: 0.85, green: 0.40, blue: 0.95)
         }
+    }
+    
+    // MARK: - Recommended Landmark Range Helpers
+    
+    private func isBareJ(_ val: Double) -> Bool {
+        (0.12...0.18).contains(val)
+    }
+    
+    private func isCollarJ(_ val: Double) -> Bool {
+        (0.35...0.55).contains(val)
+    }
+    
+    private func isJRecommended(_ val: Double) -> Bool {
+        isBareJ(val) || isCollarJ(val)
+    }
+    
+    private func isC7Recommended(_ val: Double) -> Bool {
+        (0.12...0.20).contains(val)
     }
 }
