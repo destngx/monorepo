@@ -48,7 +48,7 @@ class AgentNodeHandler:
 
         default_provider = getattr(self.executor.config, "DEFAULT_PROVIDER", None)
         default_model = getattr(self.executor.config, "DEFAULT_MODEL", None)
-        default_large_context_model = getattr(self.executor.config, "DEFAULT_LARGE_CONTEXT_MODEL", "gpt-5.6-sol")
+        default_large_context_model = getattr(self.executor.config, "DEFAULT_LARGE_CONTEXT_MODEL", "gpt-6.1-sol")
         default_reasoning_effort = getattr(
             self.executor.config,
             "DEFAULT_REASONING_EFFORT",

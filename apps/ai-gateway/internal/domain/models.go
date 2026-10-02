@@ -5,6 +5,7 @@ const (
 	ModelGPT6Astra        = "gpt-6-astra"
 	ModelGPT6Luna         = "gpt-6-luna"
 	ModelGPT6Terra        = "gpt-6-terra"
+	ModelGPT61Sol         = "gpt-6.1-sol"
 	ModelGPT6Sol          = "gpt-6-sol"
 	ModelGPT56Luna        = "gpt-5.6-luna"
 	ModelGPT56Terra       = "gpt-5.6-terra"

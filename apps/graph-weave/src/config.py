@@ -45,7 +45,7 @@ class GraphWeaveConfig:
 
     DEFAULT_PROVIDER = os.getenv("DEFAULT_PROVIDER", "github-copilot")
     DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gpt-5.6-luna")
-    DEFAULT_LARGE_CONTEXT_MODEL = os.getenv("DEFAULT_LARGE_CONTEXT_MODEL", "gpt-5.6-sol")
+    DEFAULT_LARGE_CONTEXT_MODEL = os.getenv("DEFAULT_LARGE_CONTEXT_MODEL", "gpt-6.1-sol")
     DEFAULT_REASONING_EFFORT = os.getenv("DEFAULT_REASONING_EFFORT", "low")
 
     @staticmethod
