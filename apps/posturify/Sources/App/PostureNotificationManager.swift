@@ -44,9 +44,9 @@ public final class PostureNotificationManager: NSObject, UNUserNotificationCente
         let timeSinceLast = now - lastNotificationTime
         
         // Trigger notification if:
-        // 1. It escalated from Level 1 to Level 2 (Turtle Neck), or
-        // 2. Cooldown period (120s) has passed
-        let escalated = (warningLevel == 2 && previousWarningLevel < 2)
+        // 1. It escalated to Turtle Neck (2) or Overextended (3), or
+        // 2. Cooldown period (30s) has passed
+        let escalated = (warningLevel >= 2 && previousWarningLevel < 2)
         guard escalated || timeSinceLast >= notificationCooldown else {
             previousWarningLevel = warningLevel
             return
@@ -56,7 +56,12 @@ public final class PostureNotificationManager: NSObject, UNUserNotificationCente
         previousWarningLevel = warningLevel
         
         let content = UNMutableNotificationContent()
-        if warningLevel == 2 {
+        if warningLevel == 3 {
+            content.title = "Head Hyperextension Alert"
+            content.subtitle = String(format: "Backward tilt: ΔCVA %+.1f° (rel %.1f°)", deltaCVA, relativeCVA)
+            content.body = "Your head is tilted back too far. Lower your chin to neutral and avoid backward strain on cervical facet joints."
+            content.sound = UNNotificationSound.default
+        } else if warningLevel == 2 {
             content.title = "Turtle Neck Posture Alert"
             content.subtitle = String(format: "Head forward drift: ΔCVA %.1f° (rel %.1f°)", deltaCVA, relativeCVA)
             content.body = "Your head has drifted significantly forward. Pull your chin back and align your ears over your shoulders."

@@ -30,11 +30,11 @@ public final class VisionTracker: @unchecked Sendable {
         self.faceRequest = VNDetectFaceLandmarksRequest()
         self.bodyRequest = VNDetectHumanBodyPoseRequest()
         self.segmentationRequest = VNGeneratePersonSegmentationRequest()
-        self.segmentationRequest.qualityLevel = .accurate
+        self.segmentationRequest.qualityLevel = .balanced
         self.contourRequest = VNDetectContoursRequest()
         self.contourRequest.contrastAdjustment = 1.0
         self.contourRequest.detectsDarkOnLight = false
-        self.contourRequest.maximumImageDimension = 512
+        self.contourRequest.maximumImageDimension = 256
     }
     
     /// Processes a camera frame pixel buffer and resolves the full 3D skeletal kinematic state.
@@ -143,6 +143,14 @@ public final class VisionTracker: @unchecked Sendable {
             return chinPoint
         }()
         
+        // Mandibular jawline inclination angle (Tragus to Gnathion chin vector)
+        let jawlineAngleDegrees: Float = {
+            guard tragusPoint != .zero && chinPoint != .zero else { return 0.0 }
+            let dy = Float(chinPoint.y - tragusPoint.y)
+            let dx = Float(abs(chinPoint.x - tragusPoint.x))
+            return atan2(dy, max(0.01, dx)) * 180.0 / .pi
+        }()
+        
         // Compute anatomical head yaw relative to torso / screen (compensates for oblique camera angle)
         if faceMetrics.confidence > 0.25 {
             faceMetrics.anatomicalYawDegrees = KinematicsCalculator.computeAnatomicalYaw(
@@ -158,7 +166,12 @@ public final class VisionTracker: @unchecked Sendable {
         let acromionPoint: CGPoint
         let jugularNotchPoint: CGPoint
         let c7Point: CGPoint
-        let headHeight = max(0.12, abs(tragusPoint.y - chinPoint.y))
+        let headHeight: CGFloat = {
+            let dy = abs(tragusPoint.y - chinPoint.y)
+            let bboxH = faceObs?.boundingBox.height ?? 0.0
+            let bboxW = (faceObs?.boundingBox.width ?? 0.0) * 1.25
+            return max(0.18, max(dy, max(bboxH, bboxW)))
+        }()
         
         if !contourPoints.isEmpty && chinPoint != .zero && tragusPoint != .zero {
             // Anatomical Spatial ROI Gating:
@@ -181,15 +194,18 @@ public final class VisionTracker: @unchecked Sendable {
             let posteriorPoints = activeContourPoints.filter { facingSign < 0 ? ($0.x > tragusPoint.x) : ($0.x < tragusPoint.x) }
             
             // 1. Dynamic C7 (Vertebra Prominens):
-            // Sits at the posterior base of the neck below the cervical lordosis concavity
-            let neckSlice = posteriorPoints.filter { $0.y <= tragusPoint.y - 0.03 && $0.y >= chinPoint.y - headHeight * 0.5 }
+            // Sits at the posterior base of the neck below the cervical lordosis concavity.
+            // Search corridor extends downward from below the tragus down to the thoracic inlet.
+            let neckSearchFloor = tragusPoint.y - headHeight * 1.6
+            let neckSlice = posteriorPoints.filter { $0.y <= tragusPoint.y - 0.02 && $0.y >= neckSearchFloor }
             let lordosisMin = (facingSign < 0)
-                ? (neckSlice.min(by: { $0.x < $1.x }) ?? CGPoint(x: tragusPoint.x + 0.05, y: chinPoint.y))
-                : (neckSlice.max(by: { $0.x < $1.x }) ?? CGPoint(x: tragusPoint.x - 0.05, y: chinPoint.y))
+                ? (neckSlice.min(by: { $0.x < $1.x }) ?? CGPoint(x: tragusPoint.x + 0.05, y: tragusPoint.y - headHeight * 0.95))
+                : (neckSlice.max(by: { $0.x < $1.x }) ?? CGPoint(x: tragusPoint.x - 0.05, y: tragusPoint.y - headHeight * 0.95))
             
-            let c7YTarget = chinPoint.y - headHeight * c7DepthRatio
-            let c7SearchFloor = max(0.4, c7DepthRatio + 0.3)
-            let c7Candidates = posteriorPoints.filter { $0.y <= lordosisMin.y && $0.y >= chinPoint.y - headHeight * c7SearchFloor }
+            // C7 is situated at the cervico-thoracic junction (base of the lordosis concavity).
+            // c7DepthRatio allows user fine-tuning around this anatomical landmark (default 0.15).
+            let c7YTarget = lordosisMin.y - headHeight * CGFloat(c7DepthRatio - 0.15)
+            let c7Candidates = posteriorPoints.filter { abs($0.y - c7YTarget) <= headHeight * 0.30 }
             let detectedC7 = c7Candidates.min(by: { abs($0.y - c7YTarget) < abs($1.y - c7YTarget) })
                 ?? CGPoint(x: lordosisMin.x - facingSign * 0.04, y: c7YTarget)
             c7Point = detectedC7
@@ -197,7 +213,7 @@ public final class VisionTracker: @unchecked Sendable {
             
             // 2. Dynamic Acromion (A):
             // Lateral shelf of the shoulder shelf before the vertical arm drop
-            let shoulderCandidates = posteriorPoints.filter { $0.y <= c7Point.y - 0.02 && $0.y >= c7Point.y - headHeight * 1.0 }
+            let shoulderCandidates = posteriorPoints.filter { $0.y <= c7Point.y + 0.02 && $0.y >= c7Point.y - headHeight * 1.2 }
             let maxArmX = (facingSign < 0)
                 ? (shoulderCandidates.map(\.x).max() ?? (c7Point.x + 0.25))
                 : (shoulderCandidates.map(\.x).min() ?? (c7Point.x - 0.25))
@@ -209,7 +225,7 @@ public final class VisionTracker: @unchecked Sendable {
             // Medial end of the clavicle at the suprasternal fossa between clavicular heads
             // Independently adjustable via jDepthRatio without displacing C7
             let throatX = chinPoint.x + (tragusPoint.x - chinPoint.x) * 0.55
-            let throatY = acromionPoint.y - headHeight * jDepthRatio
+            let throatY = acromionPoint.y - headHeight * CGFloat(jDepthRatio - 0.15)
             jugularNotchPoint = CGPoint(x: throatX, y: throatY)
         } else {
             // Dynamic Acromion (A) fallback
@@ -220,7 +236,7 @@ public final class VisionTracker: @unchecked Sendable {
             } else if let sh = shL ?? shR {
                 acromionPoint = sh
             } else {
-                let estShoulderY = min(tragusPoint.y, chinPoint.y) - headHeight * 0.35
+                let estShoulderY = tragusPoint.y - headHeight * 0.95
                 let estShoulderX = tragusPoint.x - facingSign * headHeight * 0.85
                 acromionPoint = CGPoint(x: estShoulderX, y: estShoulderY)
             }
@@ -232,7 +248,7 @@ public final class VisionTracker: @unchecked Sendable {
             
             // Dynamic Jugular Notch (J) fallback: at suprasternal level
             let throatX = chinPoint.x + (tragusPoint.x - chinPoint.x) * 0.55
-            let throatY = acromionPoint.y - headHeight * jDepthRatio
+            let throatY = acromionPoint.y - headHeight * CGFloat(jDepthRatio - 0.15)
             jugularNotchPoint = CGPoint(x: throatX, y: throatY)
         }
         
@@ -252,9 +268,19 @@ public final class VisionTracker: @unchecked Sendable {
             cameraAngle: cameraAngle
         )
         
-        // Direct Angle Detection (Frontal / Direct facing camera, |yaw| < 12°)
-        // In direct frontal view, sagittal cervical depth is severely foreshortened and CVA cannot be accurately computed
-        let isDirectAngle = abs(faceMetrics.yawDegrees) < 12.0 && faceMetrics.confidence > 0.35
+        // Direct Angle Detection (Frontal / Direct facing camera, |yaw| < 12° and chin centered)
+        // In direct frontal view, sagittal cervical depth is severely foreshortened and CVA cannot be accurately computed.
+        // If chin is displaced laterally (|chinPoint.x - headMidX| > 0.035), user is in oblique/profile view.
+        let chinMidOffset: CGFloat = {
+            if faceMetrics.jawlinePoints.count >= 17 {
+                let p1 = faceMetrics.jawlinePoints[1]
+                let p15 = faceMetrics.jawlinePoints[15]
+                let headMidX = (p1.x + p15.x) * 0.5
+                return abs(chinPoint.x - headMidX)
+            }
+            return 0.0
+        }()
+        let isDirectAngle = abs(faceMetrics.yawDegrees) < 12.0 && chinMidOffset < 0.035 && faceMetrics.confidence > 0.35
         if isDirectAngle {
             posture.isDirectAngleFacing = true
             posture.guidanceCue = "Direct angle detected. Move camera 45° to side for accurate tracking"
@@ -270,7 +296,11 @@ public final class VisionTracker: @unchecked Sendable {
         )
         
         if CalibrationEngine.shared.currentPhase != .calibrated && CalibrationEngine.shared.currentPhase != .idle {
-            CalibrationEngine.shared.recordCalibrationFrame(constellation: constellation)
+            CalibrationEngine.shared.recordCalibrationFrame(
+                constellation: constellation,
+                pitch: faceMetrics.pitchDegrees,
+                jawAngle: jawlineAngleDegrees
+            )
         }
         
         if CalibrationEngine.shared.baseline.isCalibrated {
@@ -279,12 +309,16 @@ public final class VisionTracker: @unchecked Sendable {
             let relResult = CalibrationEngine.shared.evaluateFrame(
                 constellation: constellation,
                 bodyAnchorDisplacement: bodyAnchorY.map { Double(constellation.centroid.y) - $0 },
+                pitch: faceMetrics.pitchDegrees,
+                jawAngle: jawlineAngleDegrees,
                 timestamp: timestamp
             )
             
             // Map status guidance with relative delta:
-            // - Level 2 or acute severe drop (Δ <= -15°): Turtle Neck
-            // - Level 1 or noticeable drop (Δ <= -6°): Caution
+            // 1. Turtle Neck: Level 2 or acute severe drop (Δ <= -15°)
+            // 2. Caution: Level 1 or noticeable drop (Δ <= -6°)
+            // 3. Overextended: Significant backward hyperextension (ΔPitch >= +12° or ΔJaw >= +12° or ΔCVA >= +8°)
+            // 4. Optimal: Neutral alignment
             let relGuidance: String
             let relStatus: PostureStatus
             if relResult.warningLevel == 2 || relResult.deltaCVA <= -15.0 {
@@ -293,13 +327,30 @@ public final class VisionTracker: @unchecked Sendable {
             } else if relResult.warningLevel == 1 || relResult.deltaCVA <= -6.0 {
                 relStatus = .caution
                 relGuidance = String(format: "Mild Forward Drift: ΔCVA %.1f° (rel %.1f°)", relResult.deltaCVA, relResult.relativeCVA)
+            } else if relResult.deltaPitch >= 12.0 || relResult.deltaJawAngle >= 12.0 || relResult.deltaCVA >= 8.0 {
+                relStatus = .overextended
+                if relResult.deltaPitch >= 12.0 || relResult.deltaJawAngle >= 12.0 {
+                    relGuidance = String(format: "Overextended: ΔPitch %+.1f° (tilt back). Lower chin to neutral!", relResult.deltaPitch)
+                } else {
+                    relGuidance = String(format: "Overextended: ΔCVA %+.1f°. Lower chin to neutral!", relResult.deltaCVA)
+                }
             } else {
                 relStatus = .optimal
                 relGuidance = String(format: "Neutral Alignment (ΔCVA %.1f°)", relResult.deltaCVA)
             }
             
             // Dispatch macOS system notification if posture alert is active
-            let activeWarningLevel = relStatus == .turtleNeck ? 2 : (relStatus == .caution ? 1 : 0)
+            let activeWarningLevel: Int
+            if relStatus == .overextended {
+                activeWarningLevel = 3
+            } else if relStatus == .turtleNeck {
+                activeWarningLevel = 2
+            } else if relStatus == .caution {
+                activeWarningLevel = 1
+            } else {
+                activeWarningLevel = 0
+            }
+            
             if activeWarningLevel > 0 {
                 PostureNotificationManager.shared.checkAndNotify(
                     warningLevel: activeWarningLevel,

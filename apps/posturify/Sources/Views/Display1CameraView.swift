@@ -176,12 +176,14 @@ struct SkeletonOverlayCanvas: View {
             
             let statusCol = postureColor(kinematics.posture.status)
             let clavicleColor = Color(red: 0.20, green: 0.85, blue: 0.50)
+            let jawlineColor = Color(red: 1.0, green: 0.78, blue: 0.28)
             let cvaLineColor = statusCol
             
             let vT = kinematics.keypoints.tragus.map { toViewCoord($0) }
             let vA = kinematics.keypoints.acromion.map { toViewCoord($0) }
             let vJ = kinematics.keypoints.jugularNotch.map { toViewCoord($0) }
             let vC7 = kinematics.keypoints.c7.map { toViewCoord($0) }
+            let vChin = (kinematics.face.chinGnathionPoint != .zero) ? toViewCoord(kinematics.face.chinGnathionPoint) : nil
             
             // 1. Draw Dynamic Body Outline (Apple Vision Segmentation Silhouette)
             if kinematics.silhouetteContour.count >= 10 {
@@ -207,7 +209,54 @@ struct SkeletonOverlayCanvas: View {
                 )
             }
             
-            // 1. Draw Clavicles / Xương Quai Xanh (From Jugular Notch J to Acromion A and far shoulder)
+            // 2. Draw Mandibular Jawline Contour (Tragus to Chin)
+            let jawlineIndices: [Int] = {
+                guard kinematics.face.jawlinePoints.count >= 17 else {
+                    return Array(kinematics.face.jawlinePoints.indices)
+                }
+                let yawMag = abs(kinematics.face.anatomicalYawDegrees != 0 ? kinematics.face.anatomicalYawDegrees : kinematics.face.yawDegrees)
+                if yawMag < 22.0 {
+                    // Frontal: complete mandibular jawline from ear to ear
+                    return Array(2...14)
+                } else if kinematics.facingSign < 0 {
+                    // Facing camera-left (right profile visible): right ear to chin
+                    return Array(2...8)
+                } else {
+                    // Facing camera-right (left profile visible): chin to left ear
+                    return Array(8...14)
+                }
+            }()
+            
+            if jawlineIndices.count >= 2 {
+                var jawPath = Path()
+                let firstPt = toViewCoord(kinematics.face.jawlinePoints[jawlineIndices[0]])
+                jawPath.move(to: firstPt)
+                for idx in jawlineIndices.dropFirst() {
+                    jawPath.addLine(to: toViewCoord(kinematics.face.jawlinePoints[idx]))
+                }
+                
+                // Outer glow
+                context.stroke(
+                    jawPath,
+                    with: .color(jawlineColor.opacity(0.35)),
+                    lineWidth: 5.5
+                )
+                // Crisp core stroke
+                context.stroke(
+                    jawPath,
+                    with: .color(jawlineColor.opacity(0.90)),
+                    style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round)
+                )
+            } else if let t = vT, let chin = vChin {
+                // Fallback direct mandibular chord if discrete contour points are absent
+                var chordPath = Path()
+                chordPath.move(to: t)
+                chordPath.addLine(to: chin)
+                context.stroke(chordPath, with: .color(jawlineColor.opacity(0.35)), lineWidth: 5.0)
+                context.stroke(chordPath, with: .color(jawlineColor.opacity(0.85)), style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+            }
+            
+            // 3. Draw Clavicles / Xương Quai Xanh (From Jugular Notch J to Acromion A and far shoulder)
             if let j = vJ {
                 // Primary near clavicle: from Jugular Notch J to Acromion A
                 if let a = vA {
@@ -227,7 +276,7 @@ struct SkeletonOverlayCanvas: View {
                 }
             }
             
-            // 2. Draw CVA Line (C7 to T) and Horizontal Baseline at C7
+            // 4. Draw CVA Line (C7 to T) and Horizontal Baseline at C7
             if let c7 = vC7, let t = vT {
                 // Horizontal reference baseline through C7
                 let baselineLen: CGFloat = 55.0
@@ -246,10 +295,15 @@ struct SkeletonOverlayCanvas: View {
                 context.stroke(cvaPath, with: .color(cvaLineColor), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
             }
             
-            // 4. Draw Landmark Indicators & Badges (T, A, J, C7)
+            // 5. Draw Landmark Indicators & Badges (T, Chin, A, J, C7)
             if let t = vT {
                 drawLandmarkDot(context: &context, at: t, color: .cyan, radius: 5.0)
                 drawBadge(context: &context, text: "T (Tragus)", at: CGPoint(x: t.x - 36, y: t.y - 12), color: .cyan)
+            }
+            
+            if let chin = vChin {
+                drawLandmarkDot(context: &context, at: chin, color: jawlineColor, radius: 4.5)
+                drawBadge(context: &context, text: "Chin", at: CGPoint(x: chin.x, y: chin.y + 14), color: jawlineColor)
             }
             
             if let c7 = vC7 {
@@ -315,6 +369,7 @@ struct SkeletonOverlayCanvas: View {
         case .caution: return Color(red: 1.0, green: 0.75, blue: 0.20)
         case .turtleNeck: return Color(red: 0.95, green: 0.25, blue: 0.25)
         case .slouching: return Color(red: 1.0, green: 0.55, blue: 0.20)
+        case .overextended: return Color(red: 0.85, green: 0.40, blue: 0.95)
         }
     }
 }

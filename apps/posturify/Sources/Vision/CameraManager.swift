@@ -166,7 +166,11 @@ public final class CameraManager: NSObject, ObservableObject, AVCaptureVideoData
             guard !self.captureSession.isRunning else { return }
             
             self.captureSession.beginConfiguration()
-            self.captureSession.sessionPreset = .high
+            if self.captureSession.canSetSessionPreset(.medium) {
+                self.captureSession.sessionPreset = .medium
+            } else {
+                self.captureSession.sessionPreset = .high
+            }
             
             // Remove previous inputs
             for input in self.captureSession.inputs {

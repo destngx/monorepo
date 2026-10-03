@@ -24,6 +24,8 @@ public final class CalibrationEngine: @unchecked Sendable {
     private var forwardSamples: [CameraDisplacement3D] = []
     private var neutralCentroids: [CGPoint] = []
     private var neutralSpreads: [CGFloat] = []
+    private var neutralPitches: [Float] = []
+    private var neutralJawAngles: [Float] = []
     
     // Temporal EMA filter on displacement D
     private var emaDisplacement: Double = 0.0
@@ -44,6 +46,8 @@ public final class CalibrationEngine: @unchecked Sendable {
         forwardSamples.removeAll()
         neutralCentroids.removeAll()
         neutralSpreads.removeAll()
+        neutralPitches.removeAll()
+        neutralJawAngles.removeAll()
         isEmaInitialized = false
         sustainedWarningStartTime = nil
         sustainedRecoveryStartTime = nil
@@ -51,11 +55,17 @@ public final class CalibrationEngine: @unchecked Sendable {
     }
     
     /// Feeds live constellation during calibration to learn neutral baseline and forward vector g.
-    public func recordCalibrationFrame(constellation: FacialConstellation) {
+    public func recordCalibrationFrame(
+        constellation: FacialConstellation,
+        pitch: Float = 0.0,
+        jawAngle: Float = 0.0
+    ) {
         switch currentPhase {
         case .collectingNeutral:
             neutralCentroids.append(constellation.centroid)
             neutralSpreads.append(constellation.rmsSpread)
+            neutralPitches.append(pitch)
+            neutralJawAngles.append(jawAngle)
             if neutralCentroids.count >= 20 { // ~0.7s at 30fps
                 finalizeNeutralBaseline(constellation: constellation)
                 currentPhase = .collectingForward
@@ -90,6 +100,13 @@ public final class CalibrationEngine: @unchecked Sendable {
         baseline.centroid0 = CGPoint(x: avgX, y: avgY)
         baseline.rmsSpread0 = max(0.01, avgSpread)
         baseline.facePoints0 = constellation.points
+        
+        if !neutralPitches.isEmpty {
+            baseline.baselinePitch = neutralPitches.reduce(0, +) / Float(neutralPitches.count)
+        }
+        if !neutralJawAngles.isEmpty {
+            baseline.baselineJawAngle = neutralJawAngles.reduce(0, +) / Float(neutralJawAngles.count)
+        }
         
         // Compute diagonal noise variance during neutral hold
         var varX: Double = 0.0005
@@ -134,6 +151,8 @@ public final class CalibrationEngine: @unchecked Sendable {
         constellation: FacialConstellation,
         bodyAnchorDisplacement: Double? = nil,
         bodyAnchorConfidence: Double = 1.0,
+        pitch: Float = 0.0,
+        jawAngle: Float = 0.0,
         timestamp: TimeInterval = CACurrentMediaTime()
     ) -> RelativeCVAResult {
         guard baseline.isCalibrated else {
@@ -141,7 +160,9 @@ public final class CalibrationEngine: @unchecked Sendable {
                 relativeCVA: baseline.baseCvaDegrees,
                 deltaCVA: 0.0,
                 forwardDisplacementD: 0.0,
-                warningLevel: 0
+                warningLevel: 0,
+                deltaPitch: 0.0,
+                deltaJawAngle: 0.0
             )
         }
         
@@ -212,6 +233,9 @@ public final class CalibrationEngine: @unchecked Sendable {
             timestamp: timestamp
         )
         
+        let dPitch = pitch - baseline.baselinePitch
+        let dJaw = jawAngle - baseline.baselineJawAngle
+        
         return RelativeCVAResult(
             relativeCVA: cvaRel,
             deltaCVA: deltaCva,
@@ -220,7 +244,9 @@ public final class CalibrationEngine: @unchecked Sendable {
             displacementBody: dBody,
             quality: qualityGate,
             isSustainedForwardHead: warningLevel > 0,
-            warningLevel: warningLevel
+            warningLevel: warningLevel,
+            deltaPitch: dPitch,
+            deltaJawAngle: dJaw
         )
     }
     
@@ -284,6 +310,8 @@ public final class CalibrationEngine: @unchecked Sendable {
     public func resetCalibration() {
         baseline = PostureCalibrationBaseline()
         currentPhase = .idle
+        neutralPitches.removeAll()
+        neutralJawAngles.removeAll()
         isEmaInitialized = false
         sustainedWarningStartTime = nil
         sustainedRecoveryStartTime = nil

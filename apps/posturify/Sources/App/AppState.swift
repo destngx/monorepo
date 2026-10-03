@@ -28,11 +28,22 @@ public final class AppState: ObservableObject {
         didSet { visionTracker.jDepthRatio = jDepthRatio }
     }
     
+    /// Controls whether the UI window is visible. When false, background throttling drops inference to backgroundVisionFPS.
+    @Published public var isWindowVisible: Bool = true
+    
+    /// Target Vision inference rate while window is actively visible (Solution A: decoupled from 30 FPS camera preview).
+    @Published public var targetVisionFPS: Double = 10.0
+    
+    /// Target Vision inference rate when floating window is closed/hidden (Solution D: 0.5 FPS = 1 frame every 2s).
+    @Published public var backgroundVisionFPS: Double = 0.5
+    
     public let cameraManager = CameraManager.shared
     public let visionTracker = VisionTracker.shared
     public let calibrationEngine = CalibrationEngine.shared
     
     private var lastFrameTime: TimeInterval = 0.0
+    private var lastInferenceTime: TimeInterval = 0.0
+    private let inferenceLock = NSLock()
     private var frameCount: Int = 0
     private var fpsTimer: Timer?
     
@@ -63,14 +74,28 @@ public final class AppState: ObservableObject {
         cameraManager.onFrameCaptured = { [weak self] pixelBuffer, timestamp in
             guard let self = self else { return }
             
-            // Vision processing on background thread with selected perspective angle and elevation
+            let now = CACurrentMediaTime()
+            let targetFPS = self.isWindowVisible ? self.targetVisionFPS : self.backgroundVisionFPS
+            let minInterval = 1.0 / max(0.05, targetFPS)
+            
+            // Solution A & D: Throttle Vision inference (30fps camera preview, targetFPS inference)
+            guard now - self.lastInferenceTime >= minInterval else { return }
+            
+            // Solution B: Concurrency guard - immediately drop frame if previous inference is still running
+            guard self.inferenceLock.try() else { return }
+            self.lastInferenceTime = now
+            
             let currentAngle = self.cameraAngle
             let currentElevation = self.cameraElevation
+            
+            // Vision processing on background thread with selected perspective angle and elevation
             let state = self.visionTracker.processFrame(
                 pixelBuffer,
                 cameraAngle: currentAngle,
                 cameraElevation: currentElevation
             )
+            
+            self.inferenceLock.unlock()
             
             DispatchQueue.main.async {
                 self.kinematics = state

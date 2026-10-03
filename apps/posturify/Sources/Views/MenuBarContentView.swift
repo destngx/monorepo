@@ -24,6 +24,8 @@ public struct MenuBarStatusLabel: View {
             return "exclamationmark.triangle.fill"
         case .slouching:
             return "arrow.down.right.and.arrow.up.left"
+        case .overextended:
+            return "arrow.up.and.line.horizontal.and.arrow.down"
         }
     }
 }

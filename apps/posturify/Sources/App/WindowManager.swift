@@ -3,17 +3,21 @@ import AppKit
 
 /// Floating utility window controller for Posturify.
 /// Manages a borderless floating panel positioned neatly in the top-right corner of the active screen.
-public final class WindowManager: ObservableObject, @unchecked Sendable {
+@MainActor
+public final class WindowManager: NSObject, ObservableObject, NSWindowDelegate {
     public static let shared = WindowManager()
     
     private var window: NSPanel?
+    private weak var activeAppState: AppState?
     
-    public init() {}
+    public override init() {
+        super.init()
+    }
     
     /// Toggles visibility of the top-right aligned utility window
     public func toggleWindow(appState: AppState) {
         if let win = window, win.isVisible {
-            win.orderOut(nil)
+            closeWindow()
         } else {
             showWindow(appState: appState)
         }
@@ -21,6 +25,9 @@ public final class WindowManager: ObservableObject, @unchecked Sendable {
     
     /// Displays and positions the window at the top-right of the current visible screen frame
     public func showWindow(appState: AppState) {
+        self.activeAppState = appState
+        appState.isWindowVisible = true
+        
         if window == nil {
             createWindow(appState: appState)
         }
@@ -34,6 +41,11 @@ public final class WindowManager: ObservableObject, @unchecked Sendable {
     
     public func closeWindow() {
         window?.orderOut(nil)
+        activeAppState?.isWindowVisible = false
+    }
+    
+    public func windowWillClose(_ notification: Notification) {
+        activeAppState?.isWindowVisible = false
     }
     
     private func createWindow(appState: AppState) {
@@ -52,6 +64,7 @@ public final class WindowManager: ObservableObject, @unchecked Sendable {
         panel.isOpaque = false
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
+        panel.delegate = self
         
         let contentView = NSHostingView(
             rootView: DualDisplayMainView(appState: appState)

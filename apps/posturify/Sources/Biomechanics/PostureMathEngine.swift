@@ -61,6 +61,8 @@ public struct PostureCalibrationBaseline: Equatable, Sendable {
     public var forwardVectorG: SIMD3<Double>          // Unit direction of forward head movement in camera frame
     public var baseCvaDegrees: Double                // CVA_0 (e.g. 55.0° or 60.0°)
     public var kappa: Double                         // Anatomical ratio h / L_real (default ~0.83)
+    public var baselinePitch: Float                  // Neutral head pitch in camera frame (degrees)
+    public var baselineJawAngle: Float               // Neutral mandibular angle (degrees)
     public var isCalibrated: Bool
     
     public init(
@@ -71,6 +73,8 @@ public struct PostureCalibrationBaseline: Equatable, Sendable {
         forwardVectorG: SIMD3<Double> = SIMD3<Double>(0.7071, 0.20, 0.675),
         baseCvaDegrees: Double = 55.0,
         kappa: Double = 0.83,
+        baselinePitch: Float = 0.0,
+        baselineJawAngle: Float = 0.0,
         isCalibrated: Bool = false
     ) {
         self.centroid0 = centroid0
@@ -80,6 +84,8 @@ public struct PostureCalibrationBaseline: Equatable, Sendable {
         self.forwardVectorG = forwardVectorG
         self.baseCvaDegrees = baseCvaDegrees
         self.kappa = kappa
+        self.baselinePitch = baselinePitch
+        self.baselineJawAngle = baselineJawAngle
         self.isCalibrated = isCalibrated
     }
 }
@@ -125,6 +131,8 @@ public struct RelativeCVAResult: Equatable, Sendable {
     public var quality: PostureQualityGate
     public var isSustainedForwardHead: Bool
     public var warningLevel: Int     // 0: Normal, 1: Mild (-5° for 30s), 2: Severe (-10° for 20s)
+    public var deltaPitch: Float     // Head pitch rotation relative to calibrated neutral baseline (degrees)
+    public var deltaJawAngle: Float  // Mandibular jawline inclination relative to baseline (degrees)
     
     public init(
         relativeCVA: Double = 55.0,
@@ -134,7 +142,9 @@ public struct RelativeCVAResult: Equatable, Sendable {
         displacementBody: Double = 0.0,
         quality: PostureQualityGate = PostureQualityGate(),
         isSustainedForwardHead: Bool = false,
-        warningLevel: Int = 0
+        warningLevel: Int = 0,
+        deltaPitch: Float = 0.0,
+        deltaJawAngle: Float = 0.0
     ) {
         self.relativeCVA = relativeCVA
         self.deltaCVA = deltaCVA
@@ -144,6 +154,8 @@ public struct RelativeCVAResult: Equatable, Sendable {
         self.quality = quality
         self.isSustainedForwardHead = isSustainedForwardHead
         self.warningLevel = warningLevel
+        self.deltaPitch = deltaPitch
+        self.deltaJawAngle = deltaJawAngle
     }
 }
 

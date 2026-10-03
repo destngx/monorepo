@@ -111,6 +111,7 @@ public enum PostureStatus: String, Sendable {
     case caution = "Caution"
     case turtleNeck = "Turtle Neck"
     case slouching = "Slouching"
+    case overextended = "Overextended"
     
     public var description: String {
         switch self {
@@ -118,6 +119,7 @@ public enum PostureStatus: String, Sendable {
         case .caution: return "Mild forward head drift detected, approaching strain threshold"
         case .turtleNeck: return "Excessive forward head translation (high cervical spine load)"
         case .slouching: return "Thoracic kyphosis / spine compressed downward"
+        case .overextended: return "Excessive backward head tilt or cervical hyperextension (facet joint strain)"
         }
     }
 }

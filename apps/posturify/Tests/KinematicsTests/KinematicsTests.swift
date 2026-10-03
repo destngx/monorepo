@@ -1,6 +1,7 @@
 import XCTest
 import CoreGraphics
 import simd
+import Vision
 @testable import Posturify
 
 final class KinematicsTests: XCTestCase {
@@ -1066,16 +1067,96 @@ final class KinematicsTests: XCTestCase {
         CVPixelBufferUnlockBaseAddress(buffer, [])
         
         let tracker = VisionTracker()
-        tracker.c7DepthRatio = 0.15 // Keep C7 at correct anatomical neck location
-        for jRatio in [0.15, 0.30, 0.45, 0.60] {
-            tracker.jDepthRatio = jRatio
-            let state = tracker.processFrame(buffer, cameraAngle: .diagonal45, cameraElevation: .eyeLevel)
-            print("\n================ J RATIO \(jRatio) (C7=0.15) ================")
-            print("C7: \(state.keypoints.c7 ?? .zero)")
-            print("Acromion: \(state.keypoints.acromion ?? .zero)")
-            print("Jugular Notch (J): \(state.keypoints.jugularNotch ?? .zero)")
-            print("CVA: \(state.posture.cvaDegrees)°")
+        tracker.c7DepthRatio = 0.15
+        let state = tracker.processFrame(buffer, cameraAngle: .diagonal45, cameraElevation: .eyeLevel)
+        print("\n================ USER COLLAR IMAGE TRACKER DIAGNOSTICS ================")
+        print("Tragus: \(state.keypoints.tragus ?? CGPoint.zero)")
+        print("Chin: \(state.face.chinGnathionPoint)")
+        print("C7: \(state.keypoints.c7 ?? CGPoint.zero)")
+        print("Acromion: \(state.keypoints.acromion ?? CGPoint.zero)")
+        print("Jugular Notch (J): \(state.keypoints.jugularNotch ?? CGPoint.zero)")
+        print("CVA: \(state.posture.cvaDegrees)°")
+        print("FacingSign: \(state.facingSign)")
+        print("===================================================================\n")
+    }
+    
+    func testLiveVisionTrackerOnUserNguaCoImage() {
+        let imagePath = "/Users/destnguyxn/.gemini/antigravity/brain/848cf3b5-67f2-44fd-aecf-f2aee65e6e4e/.user_uploaded/media_1791010174531.png"
+        guard FileManager.default.fileExists(atPath: imagePath),
+              let image = NSImage(contentsOfFile: imagePath),
+              let tiffData = image.tiffRepresentation,
+              let bitmapImage = NSBitmapImageRep(data: tiffData),
+              let cgImage = bitmapImage.cgImage else {
+            return
         }
+        
+        let width = cgImage.width
+        let height = cgImage.height
+        var pixelBuffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            width,
+            height,
+            kCVPixelFormatType_32ARGB,
+            [
+                kCVPixelBufferCGImageCompatibilityKey as String: true,
+                kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
+            ] as CFDictionary,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let buffer = pixelBuffer else { return }
+        
+        CVPixelBufferLockBaseAddress(buffer, [])
+        let pxData = CVPixelBufferGetBaseAddress(buffer)
+        let rgbColorSpace = CGColorSpaceCreateDeviceRGB()
+        if let context = CGContext(
+            data: pxData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+            space: rgbColorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) {
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        CVPixelBufferUnlockBaseAddress(buffer, [])
+        
+        let tracker = VisionTracker()
+        let state = tracker.processFrame(buffer, cameraAngle: .diagonal45, cameraElevation: .eyeLevel)
+        
+        print("\n================ NGUA CO IMAGE TRACKER DIAGNOSTICS ================")
+        print("Tragus (T): \(state.keypoints.tragus ?? .zero)")
+        print("Chin: \(state.face.chinGnathionPoint)")
+        print("C7: \(state.keypoints.c7 ?? .zero)")
+        print("Acromion (A): \(state.keypoints.acromion ?? .zero)")
+        print("Jugular Notch (J): \(state.keypoints.jugularNotch ?? .zero)")
+        print("CVA: \(state.posture.cvaDegrees)°")
+        print("ATJ: \(state.posture.atjDegrees)°")
+        print("SHJ: \(state.posture.shjRatio)")
+        print("Status: \(state.posture.status.rawValue)")
+        print("Guidance Cue: \(state.posture.guidanceCue)")
+        print("Face Pitch: \(state.face.pitchDegrees)°")
+        print("Face Yaw: \(state.face.yawDegrees)°")
+        print("Face Roll: \(state.face.rollDegrees)°")
+        print("Jawline points count: \(state.face.jawlinePoints.count)")
+        print("FacingSign: \(state.facingSign)")
+        print("Silhouette count: \(state.silhouetteContour.count)")
+        
+        let handler = VNImageRequestHandler(cvPixelBuffer: buffer, options: [:])
+        let faceReq = VNDetectFaceLandmarksRequest()
+        try? handler.perform([faceReq])
+        if let obs = faceReq.results?.first {
+            print("Face BBox: \(obs.boundingBox)")
+        }
+        
+        XCTAssertNotNil(state.keypoints.c7)
+        XCTAssertNotNil(state.keypoints.acromion)
+        XCTAssertLessThan(state.keypoints.c7?.y ?? 1.0, 0.38, "C7 must be located at the base of the neck, not up near the chin")
+        XCTAssertGreaterThan(state.keypoints.acromion?.x ?? 0.0, 0.85, "Acromion must be situated on the lateral shoulder shelf")
+        XCTAssertGreaterThan(state.posture.cvaDegrees, 55.0, "Backward head tilt must not falsely trigger Turtle Neck")
+        XCTAssertNotEqual(state.posture.status, .turtleNeck, "Head tilt backward should never report Turtle Neck")
+        XCTAssertFalse(state.posture.isDirectAngleFacing, "Profile/diagonal head tilt must not report direct facing angle")
         print("===================================================================\n")
     }
     
@@ -1179,5 +1260,80 @@ final class KinematicsTests: XCTestCase {
         )
         XCTAssertEqual(neutralEval.warningLevel, 0)
         XCTAssertGreaterThan(neutralEval.relativeCVA, 53.0)
+    }
+    
+    @MainActor
+    func testResourceOptimizationThrottlingAndWindowVisibility() {
+        let appState = AppState()
+        
+        // Default decoupled inference FPS settings
+        XCTAssertEqual(appState.targetVisionFPS, 10.0, "Active window vision FPS should default to 10.0")
+        XCTAssertEqual(appState.backgroundVisionFPS, 0.5, "Background vision FPS should drop to 0.5 for low CPU idle")
+        XCTAssertTrue(appState.isWindowVisible, "Window should be visible by default")
+        
+        // Toggle visibility to background mode
+        appState.isWindowVisible = false
+        XCTAssertFalse(appState.isWindowVisible)
+        
+        // Restore visibility
+        appState.isWindowVisible = true
+        XCTAssertTrue(appState.isWindowVisible)
+    }
+    
+    func testOverextendedHeadPostureDetection() {
+        // 1. PostureStatus enum verification
+        let overextended = PostureStatus.overextended
+        XCTAssertEqual(overextended.rawValue, "Overextended")
+        XCTAssertTrue(overextended.description.contains("hyperextension"))
+        
+        // 2. Relative CVA evaluation during backward head displacement
+        let (cvaBack, deltaBack) = PostureMathEngine.computeRelativeCVA(
+            forwardDisplacementD: -0.15,
+            baseCvaDegrees: 60.0,
+            kappa: 0.83
+        )
+        XCTAssertGreaterThan(deltaBack, 8.0, "Backward head translation must produce positive delta CVA exceeding overextended threshold")
+        XCTAssertGreaterThan(cvaBack, 68.0)
+        
+        // 3. Calibration of baseline pitch and mandibular jawline angle
+        let engine = CalibrationEngine()
+        engine.startCalibration()
+        
+        // Feed 20 neutral frames with desk-camera tilt (pitch = +33°, jawline = -50°)
+        for _ in 0..<20 {
+            let constellation = FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15)
+            engine.recordCalibrationFrame(constellation: constellation, pitch: 33.0, jawAngle: -50.0)
+        }
+        XCTAssertEqual(engine.currentPhase, .collectingForward)
+        XCTAssertEqual(engine.baseline.baselinePitch, 33.0, accuracy: 0.1)
+        XCTAssertEqual(engine.baseline.baselineJawAngle, -50.0, accuracy: 0.1)
+        
+        // Feed 25 forward frames
+        for _ in 0..<25 {
+            let forward = FacialConstellation(centroid: CGPoint(x: 0.48, y: 0.46), rmsSpread: 0.17, scaleFactor: 1.13)
+            engine.recordCalibrationFrame(constellation: forward, pitch: 33.0, jawAngle: -50.0)
+        }
+        XCTAssertEqual(engine.currentPhase, .calibrated)
+        
+        // Evaluate neutral frame -> ΔPitch = 0°, ΔJaw = 0°
+        let neutralEval = engine.evaluateFrame(
+            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15, scaleFactor: 1.0),
+            pitch: 33.0,
+            jawAngle: -50.0
+        )
+        XCTAssertEqual(neutralEval.deltaPitch, 0.0, accuracy: 0.1)
+        XCTAssertEqual(neutralEval.deltaJawAngle, 0.0, accuracy: 0.1)
+        XCTAssertEqual(neutralEval.warningLevel, 0)
+        
+        // Evaluate backward head tilt (ngửa cổ): pitch rises to +48° (ΔPitch = +15°) and jawline tilts up to -32° (ΔJaw = +18°)
+        let tiltBackEval = engine.evaluateFrame(
+            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15, scaleFactor: 1.0),
+            pitch: 48.0,
+            jawAngle: -32.0
+        )
+        XCTAssertEqual(tiltBackEval.deltaPitch, 15.0, accuracy: 0.1)
+        XCTAssertEqual(tiltBackEval.deltaJawAngle, 18.0, accuracy: 0.1)
+        XCTAssertGreaterThanOrEqual(tiltBackEval.deltaPitch, 12.0, "Backward head tilt must exceed 12° delta pitch threshold")
+        XCTAssertGreaterThanOrEqual(tiltBackEval.deltaJawAngle, 12.0, "Mandibular jawline tilt must exceed 12° delta jaw threshold")
     }
 }

@@ -431,6 +431,8 @@ public struct DualDisplayMainView: View {
         case .turtleNeck:
             return Color(red: 0.95, green: 0.22, blue: 0.22)
         case .slouching:
+            return Color(red: 1.0, green: 0.55, blue: 0.20)
+        case .overextended:
             return Color(red: 0.85, green: 0.40, blue: 0.95)
         }
     }
