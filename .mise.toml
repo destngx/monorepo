@@ -1,0 +1,9 @@
+[settings]
+python.github_attestations = false
+
+[tools]
+node = "26.11.1"
+pnpm = "latest"
+go = "1.27.1"
+rust = "1.99.0"
+python = "3.14.8"
