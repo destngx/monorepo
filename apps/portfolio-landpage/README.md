@@ -47,12 +47,12 @@ conventions are in [docs/portfolio-landpage/writing-content.md](../../docs/portf
 
 All build settings live in `vercel.json`, which Vercel reads from the project's Root Directory:
 
-| Step          | Command                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| Ignored build | `cd ../.. && pnpm dlx nx-ignore portfolio-landpage` (skips deploys when Nx says the app is unaffected)  |
-| Install       | `cd ../.. && pnpm install --frozen-lockfile` (the whole workspace, from the repo root)                  |
-| Build         | `pnpm exec vite build`                                                                                  |
-| Output        | `build/`, served with clean URLs (`/projects/ai-gateway`, not `.html`) and `404.html` for unknown paths |
+| Step          | Command                                                                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ignored build | `cd ../.. && pnpm dlx nx-ignore portfolio-landpage` (skips deploys when Nx says the app is unaffected)                                                            |
+| Install       | `cd ../.. && pnpm install --frozen-lockfile --ignore-scripts` (the whole workspace, from the repo root; skips lifecycle scripts such as the husky `prepare` hook) |
+| Build         | `pnpm --ignore-scripts exec vite build`                                                                                                                           |
+| Output        | `build/`, served with clean URLs (`/projects/ai-gateway`, not `.html`) and `404.html` for unknown paths                                                           |
 
 pnpm is pinned by `packageManager` in the root `package.json`. Vercel project settings:
 
