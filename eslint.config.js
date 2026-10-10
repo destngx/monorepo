@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import sveltePlugin from 'eslint-plugin-svelte';
 import prettierConfig from 'eslint-config-prettier';
+import globals from 'globals';
 
 export default [
   // Global ignores
@@ -9,9 +10,9 @@ export default [
     ignores: [
       'node_modules/**',
       'dist/**',
-      'build/**',
+      '**/build/**',
       '.next/**',
-      '.svelte-kit/**',
+      '**/.svelte-kit/**',
       'coverage/**',
       '.nx/**',
       '.pytest_cache/**',
@@ -21,10 +22,8 @@ export default [
       '**/*.svelte.d.ts',
       // Legacy/reference surfaces not in active scope
       'apps/cloudinary-photos-app/**',
-      'apps/portfolio-landpage/**',
       'apps/wealth-management-legacy/**',
       'libs/cloudinary-photos-app/**',
-      'libs/portfolio-landpage/**',
       'libs/wealth-management-legacy/**',
     ],
   },
@@ -40,31 +39,32 @@ export default [
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parserOptions: {
-        project: './tsconfig.base.json',
-        tsconfigRootDir: process.cwd(),
+        // Resolve the nearest tsconfig per file so app-specific configs (e.g. SvelteKit's $lib alias) apply
+        // regardless of the directory ESLint is launched from.
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
   },
   // Svelte
   ...sveltePlugin.configs['flat/prettier'],
+  {
+    files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
+    languageOptions: {
+      parserOptions: {
+        parser: ts.parser,
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+        extraFileExtensions: ['.svelte'],
+      },
+    },
+  },
   // Browser + Node globals
   {
     languageOptions: {
       globals: {
-        // Node.js
-        process: 'readonly',
-        // Browser globals
-        window: 'readonly',
-        alert: 'readonly',
-        confirm: 'readonly',
-        fetch: 'readonly',
-        Request: 'readonly',
-        Response: 'readonly',
-        localStorage: 'readonly',
-        sessionStorage: 'readonly',
-        console: 'readonly',
-        // SvelteKit
-        string: 'readonly',
+        ...globals.browser,
+        ...globals.node,
       },
     },
   },
@@ -95,6 +95,8 @@ export default [
           types: ['boolean'],
           format: ['PascalCase'],
           prefix: ['is', 'should', 'has', 'can', 'did', 'will'],
+          // SvelteKit page options must use these exact export names.
+          filter: { regex: '^(prerender|ssr|csr)$', match: false },
         },
         { selector: 'memberLike', modifiers: ['private'], format: ['camelCase'], leadingUnderscore: 'require' },
       ],
