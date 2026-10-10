@@ -1,8 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "buildCommand": "pnpm exec vite build",
   "outputDirectory": "build",
+  "ignoreCommand": "cd ../.. && pnpm dlx nx-ignore portfolio-landpage",
   "cleanUrls": true,
   "trailingSlash": false
 }
