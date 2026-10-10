@@ -4,7 +4,7 @@
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile --ignore-scripts",
   "buildCommand": "pnpm --ignore-scripts exec vite build",
   "outputDirectory": "build",
-  "ignoreCommand": "cd ../.. && pnpm dlx nx-ignore portfolio-landpage",
+  "ignoreCommand": "cd ../.. && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm dlx nx-ignore portfolio-landpage",
   "cleanUrls": true,
   "trailingSlash": false
 }
