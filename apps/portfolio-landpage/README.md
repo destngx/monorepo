@@ -49,24 +49,19 @@ All build settings live in `vercel.json`, which Vercel reads from the project's 
 
 | Step          | Command                                                                                                                                                           |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ignored build | `cd ../.. && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm dlx nx-ignore portfolio-landpage` (skips deploys when Nx says the app is unaffected)                 |
+| Ignored build | `cd ../.. && npx -y nx-ignore@latest portfolio-landpage` (skips deploys when Nx says the app is unaffected)                                                       |
 | Install       | `cd ../.. && pnpm install --frozen-lockfile --ignore-scripts` (the whole workspace, from the repo root; skips lifecycle scripts such as the husky `prepare` hook) |
 | Build         | `pnpm --ignore-scripts exec vite build`                                                                                                                           |
 | Output        | `build/`, served with clean URLs (`/projects/ai-gateway`, not `.html`) and `404.html` for unknown paths                                                           |
 
-pnpm is pinned by `packageManager` in the root `package.json`. Vercel project settings:
+Vercel picks the pnpm version from `pnpm-lock.yaml`, so the root `package.json` has no `packageManager` pin. Vercel project settings:
 
 - **Build and Deployment > Root Directory**: `apps/portfolio-landpage`, with "Include files outside the root
   directory" enabled (the workspace lockfile and `node_modules` live at the repo root).
 - **Build and Deployment > Framework Settings**: preset **Other**, every override switched off, so `vercel.json`
   is the single source of truth. Same for **Ignored Build Step**: behaviour **Automatic**.
 - **Build and Deployment > Node.js Version**: 24.x (Vite 8 needs Node 20.19+ or 22.12+).
-- **Environment Variables**: `ENABLE_EXPERIMENTAL_COREPACK=1`, so the install uses the pinned pnpm.
 - **Git > Git LFS**: enabled. Images and `og.png` are LFS-tracked by `.gitattributes`.
-
-The ignored build step runs before Vercel switches pnpm through Corepack. A bare `pnpm` there is Vercel's own
-fallback, which cannot read the pnpm 12 lockfile and fails on Node 24 with `ERR_INVALID_THIS`, so the step calls
-`corepack pnpm` to get the pinned version.
 
 ### Changing the domain
 

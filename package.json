@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "type": "module",
   "license": "MIT",
-  "packageManager": "pnpm@12.10.1",
   "scripts": {
     "serve": "nx serve",
     "build": "nx build",
