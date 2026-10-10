@@ -1,3 +1,10 @@
 #!/usr/bin/env bash
 
+# Husky's core.hooksPath shadows any global hooks path, so chain to the personal
+# dotfiles hook (strips AI co-author trailers) when it exists. No-op for everyone else.
+personal_hook="$HOME/projects/dotfiles/git/hooks/commit-msg"
+if [ -x "$personal_hook" ]; then
+  "$personal_hook" "$1"
+fi
+
 pnpm commitlint --edit "$1"
