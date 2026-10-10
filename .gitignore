@@ -72,6 +72,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+# SvelteKit keeps app code in src/lib; the Python packaging rule above must not hide it.
+!**/src/lib/
 lib64/
 parts/
 sdist/

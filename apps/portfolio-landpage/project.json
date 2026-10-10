@@ -1,75 +1,52 @@
 {
   "name": "portfolio-landpage",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "apps/portfolio-landpage",
   "projectType": "application",
-  "tags": [
-    "type:app",
-    "app:portfolio-landpage",
-    "scope:frontend"
-  ],
+  "sourceRoot": "apps/portfolio-landpage/src",
+  "tags": ["type:app", "app:portfolio-landpage", "scope:frontend"],
   "targets": {
     "build": {
-      "executor": "@nx/next:build",
-      "outputs": [
-        "{options.outputPath}"
-      ],
-      "assets": [
-        "apps/portfolio-landpage/public"
-      ],
-      "defaultConfiguration": "production",
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/build"],
       "options": {
-        "outputPath": "dist/apps/portfolio-landpage"
-      },
-      "configurations": {
-        "development": {
-          "outputPath": "apps/portfolio-landpage"
-        },
-        "production": {}
+        "command": "pnpm exec vite build",
+        "cwd": "apps/portfolio-landpage"
       }
     },
     "serve": {
-      "executor": "@nx/next:server",
-      "defaultConfiguration": "development",
+      "executor": "nx:run-commands",
       "options": {
-        "buildTarget": "portfolio-landpage:build",
-        "dev": true
-      },
-      "configurations": {
-        "development": {
-          "buildTarget": "portfolio-landpage:build:development",
-          "dev": true
-        },
-        "production": {
-          "buildTarget": "portfolio-landpage:build:production",
-          "dev": false
-        }
+        "command": "pnpm exec vite dev --host --port 8083",
+        "cwd": "apps/portfolio-landpage"
       }
     },
-    "export": {
-      "executor": "@nx/next:export",
+    "preview": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
       "options": {
-        "buildTarget": "portfolio-landpage:build:production"
+        "command": "pnpm exec vite preview --port 8083",
+        "cwd": "apps/portfolio-landpage"
       }
     },
-    "test": {
-      "executor": "@nx/jest:jest",
-      "outputs": [
-        "{workspaceRoot}/coverage/{projectRoot}"
-      ],
+    "check": {
+      "executor": "nx:run-commands",
       "options": {
-        "jestConfig": "apps/portfolio-landpage/jest.config.ts"
+        "command": "pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json",
+        "cwd": "apps/portfolio-landpage"
       }
     },
     "lint": {
-      "executor": "@nx/eslint:lint",
-      "outputs": [
-        "{options.outputFile}"
-      ],
+      "executor": "nx:run-commands",
       "options": {
-        "lintFilePatterns": [
-          "apps/portfolio-landpage/**/*.{ts,tsx,js,jsx}"
-        ]
+        "command": "pnpm exec eslint .",
+        "cwd": "apps/portfolio-landpage"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run",
+        "cwd": "apps/portfolio-landpage"
       }
     }
   }
