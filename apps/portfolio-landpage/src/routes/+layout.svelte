@@ -8,6 +8,7 @@
   import IntroSplash from '$lib/ui/IntroSplash.svelte';
   import SiteFooter from '$lib/ui/SiteFooter.svelte';
   import SiteHeader from '$lib/ui/SiteHeader.svelte';
+  import SoundCloudPlayer from '$lib/ui/SoundCloudPlayer.svelte';
 
   let { children } = $props();
 
@@ -43,3 +44,4 @@
 </main>
 
 <SiteFooter />
+<SoundCloudPlayer />
