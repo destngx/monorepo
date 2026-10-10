@@ -26,7 +26,7 @@ src/
   lib/data/               profile (roles, milestones, skills, hobbies) and site config
   lib/three/              hero plane scene and toon shading helpers
   lib/ui/                 shared components
-  routes/                 pages, rss.xml and sitemap.xml
+  routes/                 pages, rss.xml, sitemap.xml and robots.txt
 static/                   images, og.png, models/plane.glb
 ```
 
@@ -52,9 +52,9 @@ conventions are in [docs/portfolio-landpage/writing-content.md](../../docs/portf
 ### Changing the domain
 
 The production origin lives in one place, `site.url` in `src/lib/data/site.ts`. It feeds canonical URLs, Open Graph
-tags, RSS and the sitemap. To move to a new domain:
+tags, RSS, the sitemap and robots.txt. To move to a new domain:
 
 1. In Vercel, open the project, then **Settings > Domains**, and add the new domain (for example
-   `destngx.vercel.app`; `*.vercel.app` names are first come, first served).
+   `<name>.vercel.app`; `*.vercel.app` names are first come, first served).
 2. Edit the old domain there and set it to redirect (308) to the new one, so existing links and search results follow.
 3. Update `site.url`, commit, and let it deploy.

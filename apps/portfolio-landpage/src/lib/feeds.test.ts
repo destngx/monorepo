@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRss, buildSitemap, escapeXml } from './feeds';
+import { buildRobots, buildRss, buildSitemap, escapeXml } from './feeds';
 import type { Post } from './content/schema';
 
 const site = { url: 'https://example.dev', title: 'Example', description: 'Desc' };
@@ -37,5 +37,13 @@ describe('buildSitemap', () => {
 
     expect(xml).toContain('<loc>https://example.dev/</loc>');
     expect(xml).toContain('<loc>https://example.dev/blog/a</loc><lastmod>2026-05-01</lastmod>');
+  });
+});
+
+describe('buildRobots', () => {
+  it('allows every crawler and points at the sitemap on the site origin', () => {
+    expect(buildRobots('https://example.dev')).toBe(
+      'User-agent: *\nAllow: /\n\nSitemap: https://example.dev/sitemap.xml\n',
+    );
   });
 });
