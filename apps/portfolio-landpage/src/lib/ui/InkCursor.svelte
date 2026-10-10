@@ -6,6 +6,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { prefersReducedMotion } from 'svelte/motion';
+  import { BUBBLE_GAP, BUBBLE_SIZE, bubblePlacement, type BubblePlacement } from './cursor';
 
   const INTERACTIVE = 'a, button, [data-cursor], summary, label';
 
@@ -14,6 +15,9 @@
   let label = $state('');
   let x = $state(0);
   let y = $state(0);
+  // Kept as two primitives so a pointer move that lands on the same placement does not re-render.
+  let horizontal = $state<BubblePlacement['horizontal']>('right');
+  let vertical = $state<BubblePlacement['vertical']>('above');
 
   const labelFor = (element: Element): string => {
     const custom = element.getAttribute('data-cursor');
@@ -42,6 +46,10 @@
     const onMove = (event: PointerEvent) => {
       targetX = event.clientX;
       targetY = event.clientY;
+      ({ horizontal, vertical } = bubblePlacement(
+        { x: targetX, y: targetY },
+        { width: window.innerWidth, height: window.innerHeight },
+      ));
       if (!isVisible) {
         x = targetX;
         y = targetY;
@@ -75,6 +83,10 @@
     class="cursor pointer-events-none fixed top-0 left-0 z-[90]"
     class:active={label !== ''}
     class:hidden-cursor={!isVisible}
+    data-horizontal={horizontal}
+    data-vertical={vertical}
+    style:--bubble-size="{BUBBLE_SIZE}px"
+    style:--bubble-gap="{BUBBLE_GAP}px"
     style:transform="translate3d({x}px, {y}px, 0)"
     aria-hidden="true"
   >
@@ -113,11 +125,44 @@
     transition: opacity 120ms ease;
   }
 
+  /* The bubble grows out of the pointer: its tail (the one sharp corner) always sits next to the hotspot. */
   .active .blob {
-    width: 64px;
-    height: 64px;
-    transform: translate(10%, 10%);
-    border-radius: 50% 50% 50% 8px;
+    width: var(--bubble-size);
+    height: var(--bubble-size);
+    transform: translate(var(--shift-x), var(--shift-y));
+    border-radius: 50%;
+  }
+
+  .cursor[data-horizontal='right'] {
+    --shift-x: var(--bubble-gap);
+  }
+
+  .cursor[data-horizontal='left'] {
+    --shift-x: calc(-100% - var(--bubble-gap));
+  }
+
+  .cursor[data-vertical='above'] {
+    --shift-y: calc(-100% - var(--bubble-gap));
+  }
+
+  .cursor[data-vertical='below'] {
+    --shift-y: var(--bubble-gap);
+  }
+
+  .active[data-horizontal='right'][data-vertical='above'] .blob {
+    border-bottom-left-radius: 8px;
+  }
+
+  .active[data-horizontal='right'][data-vertical='below'] .blob {
+    border-top-left-radius: 8px;
+  }
+
+  .active[data-horizontal='left'][data-vertical='above'] .blob {
+    border-bottom-right-radius: 8px;
+  }
+
+  .active[data-horizontal='left'][data-vertical='below'] .blob {
+    border-top-right-radius: 8px;
   }
 
   .active .blob span {
