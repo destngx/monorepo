@@ -49,7 +49,7 @@ All build settings live in `vercel.json`, which Vercel reads from the project's 
 
 | Step          | Command                                                                                                                                                           |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ignored build | `cd ../.. && corepack enable pnpm && npx -y nx-ignore@latest portfolio-landpage` (skips deploys when Nx says the app is unaffected)                               |
+| Ignored build | `sh scripts/vercel-ignore-build.sh` (skips deploys when nothing the app depends on changed since the last deploy; see below)                                      |
 | Install       | `cd ../.. && pnpm install --frozen-lockfile --ignore-scripts` (the whole workspace, from the repo root; skips lifecycle scripts such as the husky `prepare` hook) |
 | Build         | `pnpm --ignore-scripts exec vite build`                                                                                                                           |
 | Output        | `build/`, served with clean URLs (`/projects/ai-gateway`, not `.html`) and `404.html` for unknown paths                                                           |
@@ -64,8 +64,11 @@ pnpm is pinned by `packageManager` in the root `package.json`. Vercel project se
 - **Environment Variables**: `ENABLE_EXPERIMENTAL_COREPACK=1`, so the install uses the pinned pnpm.
 - **Git > Git LFS**: enabled. Images and `og.png` are LFS-tracked by `.gitattributes`.
 
-The ignored build step runs before Vercel enables Corepack, and nx-ignore runs its own `pnpm install`, so the step
-calls `corepack enable pnpm` first to make every `pnpm` in it the pinned version.
+`scripts/vercel-ignore-build.sh` diffs `HEAD` against `VERCEL_GIT_PREVIOUS_SHA`, the last successful deploy of the
+branch, over the app folder plus the root `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` and `.npmrc`. It
+needs no install, so it runs in about a second. `nx-ignore` is not used: with the `@nx-go/nx-go` plugin in `nx.json`
+it runs a full workspace `pnpm install` before answering, which failed on Vercel. If the app starts importing from
+`libs/`, add that folder to the script.
 
 ### Changing the domain
 
