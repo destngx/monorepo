@@ -1,5 +1,5 @@
 <!--
-  First-visit title card: DEST / NGUYXN stamps in over speed lines, then the panel
+  First-visit title card: DEST / NGX stamps in over speed lines, then the panel
   wipes away. Client-only and once per session, so it never hides content from
   crawlers or no-JS visitors. Skipped entirely for reduced motion.
 -->
@@ -47,7 +47,7 @@
     <div class="speedlines absolute inset-0 opacity-25"></div>
     <div class="relative text-center">
       <p class="stamp stamp-1 font-display text-[22vw] leading-[0.85] md:text-[14vw]">DEST</p>
-      <p class="stamp stamp-2 font-display text-[22vw] leading-[0.85] text-accent md:text-[14vw]">NGUYXN</p>
+      <p class="stamp stamp-2 font-display text-[22vw] leading-[0.85] text-accent md:text-[14vw]">NGX</p>
       <p class="sfx stamp-3 absolute -top-8 -right-4 rotate-12 text-6xl md:text-8xl">ドン!</p>
     </div>
     <p class="absolute bottom-8 font-mono text-xs tracking-[0.3em] text-ink-soft uppercase">click to skip</p>

@@ -49,7 +49,7 @@
     </h1>
 
     <p class="hero-pop mt-6 max-w-xl text-lg text-ink-soft md:text-xl" style="--pop-delay: 240ms">
-      {profile.name}, {profile.role.toLowerCase()} in {profile.location}. {profile.intro}
+      {profile.name}, {profile.role} in {profile.location}. {profile.intro}
     </p>
 
     <div class="hero-pop mt-10 flex flex-wrap gap-4" style="--pop-delay: 360ms">

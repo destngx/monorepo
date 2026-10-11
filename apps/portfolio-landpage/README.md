@@ -27,6 +27,7 @@ src/
   lib/three/              hero plane scene and toon shading helpers
   lib/ui/                 shared components
   routes/                 pages, rss.xml, sitemap.xml and robots.txt
+og/og-card.html           source of static/og.png (see Design notes)
 static/                   images, og.png, models/plane.glb
 ```
 
@@ -42,6 +43,8 @@ conventions are in [docs/portfolio-landpage/writing-content.md](../../docs/portf
 - Motion respects `prefers-reduced-motion`: the intro splash, reveals and the 3D plane are all skipped.
 - The plane is a progressive enhancement. It loads only after mount, only with WebGL2, and the page is complete
   without it.
+- `static/og.png` is a screenshot of `og/og-card.html`, which shows the handle and domain. After changing either,
+  edit the card and re-render it with the Chrome command in its header comment.
 
 ## Deploy
 
@@ -83,4 +86,4 @@ tags, RSS, the sitemap and robots.txt. To move to a new domain:
 1. In Vercel, open the project, then **Settings > Domains**, and add the new domain (for example
    `<name>.vercel.app`; `*.vercel.app` names are first come, first served).
 2. Edit the old domain there and set it to redirect (308) to the new one, so existing links and search results follow.
-3. Update `site.url`, commit, and let it deploy.
+3. Update `site.url` and the domain in `og/og-card.html`, re-render `static/og.png`, commit, and let it deploy.

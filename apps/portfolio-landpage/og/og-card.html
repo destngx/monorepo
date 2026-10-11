@@ -1,0 +1,134 @@
+<!doctype html>
+<!--
+  Source of static/og.png (1200x630). Render from apps/portfolio-landpage after `pnpm install`:
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --disable-gpu --hide-scrollbars \
+    --allow-file-access-from-files --virtual-time-budget=3000 --window-size=1200,630 \
+    --screenshot="$PWD/static/og.png" "file://$PWD/og/og-card.html"
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../node_modules/@fontsource/dela-gothic-one/index.css" />
+    <link rel="stylesheet" href="../../../node_modules/@fontsource-variable/space-grotesk/index.css" />
+    <link rel="stylesheet" href="../../../node_modules/@fontsource-variable/jetbrains-mono/index.css" />
+    <style>
+      * {
+        margin: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+      body {
+        background: #f7f2e8;
+        font-family: 'Space Grotesk Variable';
+        color: #121110;
+        position: relative;
+      }
+      .blob {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(70px);
+      }
+      .dots {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(rgb(18 17 16 / 0.14) 1.2px, transparent 1.4px);
+        background-size: 9px 9px;
+      }
+      .panel {
+        position: absolute;
+        inset: 48px;
+        background: #fffdf8;
+        border: 5px solid #121110;
+        box-shadow: 12px 12px 0 #121110;
+        overflow: hidden;
+        padding: 56px 64px;
+      }
+      .speed {
+        position: absolute;
+        right: -500px;
+        top: -560px;
+        width: 1400px;
+        height: 1400px;
+        background: repeating-conic-gradient(#121110 0 1.2deg, transparent 1.2deg 7deg);
+        mask-image: radial-gradient(circle, transparent 28%, black 70%);
+        opacity: 0.09;
+      }
+      .label {
+        font-family: 'JetBrains Mono Variable';
+        font-weight: 700;
+        letter-spacing: 0.3em;
+        font-size: 20px;
+        color: #57524a;
+        text-transform: uppercase;
+      }
+      h1 {
+        font-family: 'Dela Gothic One';
+        font-weight: 400;
+        font-size: 84px;
+        line-height: 1.08;
+        margin-top: 26px;
+        white-space: nowrap;
+      }
+      h1 mark {
+        background: #e2306c;
+        color: #fff;
+        padding: 0 14px;
+        display: inline-block;
+        transform: rotate(-2deg);
+      }
+      p {
+        margin-top: 28px;
+        font-size: 34px;
+        font-weight: 500;
+        color: #57524a;
+      }
+      .sfx {
+        position: absolute;
+        right: 56px;
+        bottom: 28px;
+        font-family: 'Dela Gothic One';
+        font-size: 140px;
+        color: #fffdf8;
+        -webkit-text-stroke: 7px #121110;
+        paint-order: stroke fill;
+        text-shadow: 6px 6px 0 #e2306c;
+        transform: rotate(-8deg);
+      }
+      .url {
+        position: absolute;
+        left: 64px;
+        bottom: 48px;
+        font-family: 'JetBrains Mono Variable';
+        font-weight: 700;
+        font-size: 24px;
+        border: 3px solid #121110;
+        padding: 6px 14px;
+        background: #f7f2e8;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="blob"
+      style="width: 520px; height: 520px; left: -120px; top: -160px; background: rgb(19 140 114 / 0.55)"
+    ></div>
+    <div
+      class="blob"
+      style="width: 560px; height: 560px; right: -140px; bottom: -220px; background: rgb(245 124 172 / 0.55)"
+    ></div>
+    <div class="dots"></div>
+    <div class="panel">
+      <div class="speed"></div>
+      <div class="label">Vol. 1 / destngx</div>
+      <h1>Dinh Nguyen<br /><mark>DevOps</mark> &amp; Software</h1>
+      <p>Calm clusters. Odd little tools.</p>
+      <div class="url">destngx.vercel.app</div>
+      <div class="sfx">ドン!</div>
+    </div>
+  </body>
+</html>

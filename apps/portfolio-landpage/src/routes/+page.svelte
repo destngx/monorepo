@@ -1,5 +1,14 @@
 <script lang="ts">
-  import { hobbies, milestones, photographyUrl, profile, roles, skillGroups, socials } from '$lib/data/profile';
+  import {
+    hobbies,
+    linkedinUrl,
+    milestones,
+    photographyUrl,
+    profile,
+    roles,
+    skillGroups,
+    socials,
+  } from '$lib/data/profile';
   import { reveal } from '$lib/motion/reveal';
   import ChapterHeading from '$lib/ui/ChapterHeading.svelte';
   import Hero from '$lib/ui/Hero.svelte';
@@ -8,19 +17,6 @@
   import Seo from '$lib/ui/Seo.svelte';
 
   let { data } = $props();
-
-  let hasCopied = $state(false);
-
-  const copyEmail = async () => {
-    try {
-      await navigator.clipboard.writeText(profile.email);
-      hasCopied = true;
-      setTimeout(() => (hasCopied = false), 1800);
-    } catch (error) {
-      console.warn('Clipboard unavailable, falling back to mailto', error);
-      window.location.href = `mailto:${profile.email}`;
-    }
-  };
 
   // Alternate wide panels so the grid reads like a manga page: wide, narrow / narrow, wide.
   const isWide = (index: number) => index % 4 === 0 || index % 4 === 3;
@@ -180,11 +176,7 @@
     </p>
 
     <div class="relative mt-10 flex flex-wrap items-center gap-4">
-      <a class="btn btn-primary" href="mailto:{profile.email}">Email me</a>
-      <button type="button" class="btn btn-ghost" onclick={copyEmail} data-cursor={hasCopied ? 'got it' : 'copy'}>
-        {hasCopied ? 'Copied!' : 'Copy address'}
-      </button>
-      <span class="sr-only" aria-live="polite">{hasCopied ? 'Email address copied to clipboard' : ''}</span>
+      <a class="btn btn-primary" href={linkedinUrl} rel="me noopener" target="_blank">Message me on LinkedIn</a>
     </div>
 
     <ul class="relative mt-10 flex flex-wrap gap-6 font-mono text-sm font-semibold">

@@ -17,10 +17,9 @@ export type SkillGroup = { title: string; skills: string[] };
 export const profile = {
   name: 'Quang Dinh Nguyen Pham',
   shortName: 'Dinh',
-  handle: 'destnguyxn',
-  role: 'DevOps & Software Engineer',
+  handle: 'destngx',
+  role: 'DevOps, AI Platform & Software Engineer',
   location: 'Ho Chi Minh City, Vietnam',
-  email: 'nguyenphamquangdinh99@gmail.com',
   greeting: "Yo! I'm Dinh.",
   tagline: 'I keep clusters calm, pipelines fast, and I build odd little tools on the side.',
   intro:
@@ -29,10 +28,12 @@ export const profile = {
     'Go AI gateway to a macOS posture coach.',
 } as const;
 
+/** Where the contact section sends people, since the site does not publish an email address. */
+export const linkedinUrl = 'https://www.linkedin.com/in/erudi-lumos/';
+
 export const socials: Social[] = [
   { label: 'GitHub', href: 'https://github.com/destngx', handle: '@destngx' },
-  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/erudi-lumos/', handle: 'erudi-lumos' },
-  { label: 'Email', href: `mailto:${profile.email}`, handle: profile.email },
+  { label: 'LinkedIn', href: linkedinUrl, handle: 'erudi-lumos' },
 ];
 
 export const roles: Role[] = [
@@ -81,7 +82,10 @@ export const milestones: Milestone[] = [
 ];
 
 export const skillGroups: SkillGroup[] = [
-  { title: 'Cloud & infra', skills: ['AWS', 'Terraform', 'Kubernetes', 'Docker', 'GitOps', 'NGINX'] },
+  {
+    title: 'Cloud & infra',
+    skills: ['AWS', 'Azure', 'Google Cloud', 'Cloudflare', 'Terraform', 'Kubernetes', 'Docker', 'GitOps', 'NGINX'],
+  },
   { title: 'Delivery', skills: ['GitLab CI', 'GitHub Actions', 'Nx', 'Zero-downtime deploys'] },
   { title: 'Observability', skills: ['Prometheus', 'Grafana', 'Loki', 'Alerting'] },
   { title: 'Languages', skills: ['TypeScript', 'Go', 'Python', 'Swift', 'Shell'] },
