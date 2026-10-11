@@ -47,5 +47,12 @@
     }
   },
   "analytics": false,
-  "plugins": ["@nx-go/nx-go"]
+  "plugins": [
+    {
+      "plugin": "@nx-go/nx-go",
+      "options": {
+        "skipGoDependencyCheck": true
+      }
+    }
+  ]
 }

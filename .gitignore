@@ -7,8 +7,10 @@ tmp
 scratch
 /out-tsc
 
-# Log files
-*log*
+# Log files (match by extension: a bare *log* pattern also hides paths like blog/, catalog/ or Dialog.svelte)
+*.log
+*.log.*
+logs/
 # Dependencies
 node_modules
 
@@ -72,6 +74,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+# SvelteKit keeps app code in src/lib; the Python packaging rule above must not hide it.
+!**/src/lib/
 lib64/
 parts/
 sdist/
@@ -130,5 +134,5 @@ profile.cov
 # Native Tools
 apps/**/bin/
 
-# scrape data
-**/data/**
+# Scraped data and browser profiles written by the web crawler (see apps/web-crawler/src/config.py)
+apps/web-crawler/data/

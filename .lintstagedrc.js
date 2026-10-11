@@ -1,10 +1,8 @@
 const legacyPrefixes = [
   'apps/wealth-management-legacy/',
   'apps/cloudinary-photos-app/',
-  'apps/portfolio-landpage/',
   'libs/wealth-management-legacy/',
   'libs/cloudinary-photos-app/',
-  'libs/portfolio-landpage/',
 ];
 
 const isLegacyFile = (file) => legacyPrefixes.some((prefix) => file.startsWith(prefix));

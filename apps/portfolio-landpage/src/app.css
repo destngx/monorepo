@@ -1,0 +1,341 @@
+@import 'tailwindcss';
+@import '@fontsource/dela-gothic-one';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* ---------- Tokens ---------- */
+
+:root {
+  --paper: #f7f2e8;
+  --panel: #fffdf8;
+  --ink: #121110;
+  --ink-soft: #57524a;
+  --rule: #121110;
+  --accent: #e2306c;
+  --accent-ink: #ffffff;
+  --teal: #0f8f7b;
+  --aurora-1: rgb(19 140 114 / 0.55);
+  --aurora-2: rgb(245 124 172 / 0.55);
+  --aurora-3: rgb(5 124 172 / 0.45);
+  --aurora-4: rgb(183 253 52 / 0.35);
+  --dot: rgb(18 17 16 / 0.14);
+  --shadow: 6px 6px 0 var(--rule);
+  --shadow-sm: 3px 3px 0 var(--rule);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --paper: #0f0e0d;
+  --panel: #191816;
+  --ink: #f4efe6;
+  --ink-soft: #b3ab9f;
+  --rule: #f4efe6;
+  --accent: #ff6fa3;
+  --accent-ink: #121110;
+  --teal: #45d6bb;
+  --aurora-1: rgb(19 140 114 / 0.4);
+  --aurora-2: rgb(199 10 114 / 0.38);
+  --aurora-3: rgb(5 124 172 / 0.35);
+  --aurora-4: rgb(183 253 52 / 0.16);
+  --dot: rgb(244 239 230 / 0.1);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-display: 'Dela Gothic One', 'Space Grotesk Variable', system-ui, sans-serif;
+  --font-sans: 'Space Grotesk Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --color-paper: var(--paper);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-teal: var(--teal);
+
+  --shadow-ink: var(--shadow);
+  --shadow-ink-sm: var(--shadow-sm);
+}
+
+/* ---------- Base ---------- */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---------- Manga primitives ---------- */
+
+@layer components {
+  /* A comic panel: thick ink border with a hard offset shadow. */
+  .panel {
+    @apply bg-panel relative border-[3px] border-rule;
+    box-shadow: var(--shadow);
+  }
+
+  .panel-hover {
+    transition:
+      transform 180ms cubic-bezier(0.3, 1.6, 0.5, 1),
+      box-shadow 180ms ease;
+  }
+
+  .panel-hover:hover,
+  .panel-hover:focus-within {
+    transform: translate(-3px, -3px) rotate(-0.4deg);
+    box-shadow: 9px 9px 0 var(--rule);
+  }
+
+  /* Halftone dot screen. */
+  .halftone {
+    background-image: radial-gradient(var(--dot) 1.2px, transparent 1.4px);
+    background-size: 9px 9px;
+  }
+
+  /* Radial speed lines, the classic manga "impact" background. */
+  .speedlines {
+    background: repeating-conic-gradient(from 0deg at 50% 50%, var(--ink) 0deg 1.2deg, transparent 1.2deg 7deg);
+    mask-image: radial-gradient(circle at 50% 50%, transparent 28%, black 70%);
+  }
+
+  /* Katakana sound effect lettering. */
+  .sfx {
+    @apply font-display pointer-events-none select-none leading-none;
+    color: var(--panel);
+    -webkit-text-stroke: 2px var(--ink);
+    paint-order: stroke fill;
+    text-shadow: 3px 3px 0 var(--accent);
+  }
+
+  /* Speech bubble with a tail. */
+  .bubble {
+    @apply bg-panel relative rounded-[2rem] border-[3px] border-rule px-6 py-4;
+  }
+
+  .bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -18px;
+    left: 2.5rem;
+    width: 26px;
+    height: 20px;
+    background: var(--panel);
+    border-right: 3px solid var(--rule);
+    border-bottom: 3px solid var(--rule);
+    transform: skewX(35deg);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 border-2 border-rule bg-paper px-2 py-0.5 font-mono text-xs font-medium;
+  }
+
+  .btn {
+    @apply inline-flex items-center gap-2 border-[3px] border-rule px-5 py-2.5 font-display text-sm tracking-wide uppercase;
+    box-shadow: var(--shadow-sm);
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0 var(--rule);
+  }
+
+  .btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 var(--rule);
+  }
+
+  .btn-primary {
+    @apply bg-accent text-accent-ink;
+  }
+
+  .btn-ghost {
+    @apply bg-panel text-ink;
+  }
+
+  .ink-link {
+    @apply font-medium underline decoration-2 underline-offset-4;
+    text-decoration-color: var(--accent);
+  }
+
+  .ink-link:hover {
+    background: color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+
+  .chapter-label {
+    @apply font-mono text-xs font-semibold tracking-[0.3em] uppercase text-ink-soft;
+  }
+}
+
+/* ---------- Long-form content (case studies, posts) ---------- */
+
+.prose-manga {
+  @apply max-w-none text-[1.075rem] leading-[1.75];
+}
+
+.prose-manga > * + * {
+  margin-top: 1.1em;
+}
+
+.prose-manga h2 {
+  @apply font-display mt-14 mb-4 text-2xl md:text-3xl;
+}
+
+.prose-manga h2::before {
+  content: '';
+  @apply mr-3 inline-block h-[0.7em] w-[0.7em] -translate-y-0.5 border-[3px] border-rule bg-accent;
+}
+
+.prose-manga h3 {
+  @apply font-display mt-10 text-xl;
+}
+
+.prose-manga a {
+  @apply font-medium underline decoration-2 underline-offset-4;
+  text-decoration-color: var(--accent);
+}
+
+.prose-manga a:hover {
+  background: color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+.prose-manga ul {
+  @apply list-none pl-0;
+}
+
+.prose-manga ul > li {
+  @apply relative pl-6;
+}
+
+.prose-manga ul > li + li {
+  margin-top: 0.5em;
+}
+
+.prose-manga ul > li::before {
+  content: '';
+  @apply absolute top-[0.7em] left-0 h-2 w-2 rotate-45 bg-ink;
+}
+
+.prose-manga ol {
+  @apply list-decimal pl-6;
+}
+
+.prose-manga blockquote {
+  @apply bg-panel border-rule rounded-3xl border-[3px] px-6 py-4 text-lg italic;
+}
+
+.prose-manga :not(pre) > code {
+  @apply border-rule bg-paper border px-1.5 py-0.5 font-mono text-[0.88em];
+}
+
+.prose-manga pre {
+  box-shadow: var(--shadow);
+  @apply border-rule border-[3px] overflow-x-auto p-5 font-mono text-sm leading-relaxed;
+}
+
+.prose-manga hr {
+  @apply border-rule my-12 border-t-[3px] border-dashed;
+}
+
+.prose-manga img {
+  @apply border-rule border-[3px];
+  box-shadow: var(--shadow);
+}
+
+/* Shiki dual themes: colours come from CSS variables set per token. */
+.shiki,
+.shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg) !important;
+}
+
+[data-theme='dark'] .shiki,
+[data-theme='dark'] .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg) !important;
+}
+
+/* ---------- Page transitions (View Transitions API) ---------- */
+
+@keyframes page-out {
+  to {
+    opacity: 0;
+    transform: translateX(-4%) skewX(4deg);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateX(4%) skewX(-4deg);
+  }
+}
+
+::view-transition-old(root) {
+  animation: 220ms cubic-bezier(0.4, 0, 1, 1) both page-out;
+}
+
+::view-transition-new(root) {
+  animation: 320ms cubic-bezier(0, 0, 0.2, 1) 60ms both page-in;
+}
+
+::view-transition-old(site-header),
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+/* ---------- Scroll reveal (see $lib/motion/reveal.ts) ---------- */
+
+[data-reveal] {
+  transition:
+    opacity 600ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms),
+    transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--reveal-delay, 0ms);
+}
+
+[data-reveal='hidden'] {
+  opacity: 0;
+  transform: translateY(28px) rotate(-1deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal='hidden'] {
+    opacity: 1;
+    transform: none;
+  }
+}

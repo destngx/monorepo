@@ -6,6 +6,7 @@
 - [Web Crawler](./web-crawler/AGENTS.md)
 - [Graph Weave](./graph-weave/README.md)
 - [Wealth Management](./wealth-management/README.md)
+- [Portfolio Landpage: Writing Content](./portfolio-landpage/writing-content.md)
 
 ## Web Crawler
 
