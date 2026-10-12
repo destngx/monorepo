@@ -14,8 +14,8 @@ const (
 // make when an upstream model is deprecated.
 var claudeModelRoutes = map[string]string{
 	domain.ClaudeModelFamilyHaiku:  domain.ModelGPT6Luna,
-	domain.ClaudeModelFamilySonnet: domain.ModelGPT6Terra,
-	domain.ClaudeModelFamilyOpus:   domain.ModelGPT6Sol,
+	domain.ClaudeModelFamilySonnet: domain.ModelGPT56Terra,
+	domain.ClaudeModelFamilyOpus:   domain.ModelGPT61Sol,
 	domain.ClaudeModelFamilyFable:  domain.ModelGPT6Astra,
 }
 

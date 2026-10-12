@@ -176,11 +176,9 @@ func TestBatchMessagesWithOversizedToolCalls(t *testing.T) {
 
 func TestGPT6AndFallback56ModelsRecognition(t *testing.T) {
 	gpt6Models := []string{
-		domain.ModelGPT6,
 		domain.ModelGPT6Astra,
 		domain.ModelGPT6Luna,
-		domain.ModelGPT6Terra,
-		domain.ModelGPT6Sol,
+		domain.ModelGPT61Sol,
 	}
 
 	fallback56Models := []string{

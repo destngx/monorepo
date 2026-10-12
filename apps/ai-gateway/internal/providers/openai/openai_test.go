@@ -211,11 +211,9 @@ func TestStaticModelsContainsGPT6AndFallback56(t *testing.T) {
 	}
 
 	expectedGPT6 := []string{
-		domain.ModelGPT6,
 		domain.ModelGPT6Astra,
 		domain.ModelGPT6Luna,
-		domain.ModelGPT6Terra,
-		domain.ModelGPT6Sol,
+		domain.ModelGPT61Sol,
 	}
 	for _, m := range expectedGPT6 {
 		if !modelSet[m] {

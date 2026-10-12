@@ -105,7 +105,7 @@ func isReasoningModel(model string) bool {
 
 func isResponsesModel(model string) bool {
 	switch strings.ToLower(model) {
-	case domain.ModelGPT6Astra, domain.ModelGPT6Luna, domain.ModelGPT6Terra, domain.ModelGPT6Sol,
+	case domain.ModelGPT6Astra, domain.ModelGPT6Luna, domain.ModelGPT61Sol,
 		domain.ModelGPT56Luna, domain.ModelGPT56Terra, domain.ModelGPT56Sol,
 		domain.ModelGPT55, domain.ModelGPT54, domain.ModelGPT54Mini:
 		return true
