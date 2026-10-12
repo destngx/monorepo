@@ -23,13 +23,15 @@ type sheetAppend struct {
 
 // fakeSheetClient serves fixed ranges and records writes.
 type fakeSheetClient struct {
-	ranges   map[string][][]string
-	readErr  map[string]error
-	titles   []string
-	nextRow  int
-	updates  []sheetUpdate
-	appends  []sheetAppend
-	reads    []string
+	ranges  map[string][][]string
+	readErr map[string]error
+	titles  []string
+	nextRow int
+	updates []sheetUpdate
+	appends []sheetAppend
+	reads   []string
+	// requests counts client calls; a batch read of several ranges is one.
+	requests int
 	writeErr error
 	// writeErrFor fails UpdateRow for one range only.
 	writeErrFor map[string]error
@@ -43,6 +45,24 @@ func newFakeSheetClient() *fakeSheetClient {
 }
 
 func (f *fakeSheetClient) ReadSheet(rangeValue string) ([][]string, error) {
+	f.requests++
+	return f.read(rangeValue)
+}
+
+func (f *fakeSheetClient) ReadSheets(ranges []string) ([][][]string, error) {
+	f.requests++
+	result := make([][][]string, 0, len(ranges))
+	for _, rangeValue := range ranges {
+		rows, err := f.read(rangeValue)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, rows)
+	}
+	return result, nil
+}
+
+func (f *fakeSheetClient) read(rangeValue string) ([][]string, error) {
 	f.reads = append(f.reads, rangeValue)
 	if err := f.readErr[rangeValue]; err != nil {
 		return nil, err

@@ -135,5 +135,5 @@ func (h *MarketHandler) providerError(c *fiber.Ctx, scope string, err error) err
 
 func withBypassCache(c *fiber.Ctx) context.Context {
 	skipCache := strings.EqualFold(c.Query("skipCache"), "true")
-	return domain.WithBypassCache(context.Background(), skipCache)
+	return domain.WithBypassCache(c.UserContext(), skipCache)
 }

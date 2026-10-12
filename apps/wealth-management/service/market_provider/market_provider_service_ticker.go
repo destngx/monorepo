@@ -14,7 +14,7 @@ func (s *marketProviderService) GetTicker(ctx context.Context, symbol string, ti
 	}
 	key := fmt.Sprintf("market:getTicker:%s:%s", tickerType, symbol)
 	operation := fmt.Sprintf("get ticker %s/%s", tickerType, symbol)
-	return cachedRoute(ctx, s, key, operation, s.routing.GetTicker[tickerType], func(provider port.MarketProvider) (domain.Ticker, error) {
+	return cachedRoute(ctx, s, key, s.routing.CacheTTL.Ticker, operation, s.routing.GetTicker[tickerType], func(provider port.MarketProvider) (domain.Ticker, error) {
 		capable, ok := provider.(port.TickerProvider)
 		if !ok {
 			return domain.Ticker{}, errCapabilityMissing

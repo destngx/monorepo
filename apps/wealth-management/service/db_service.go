@@ -6,6 +6,7 @@ import (
 	"apps/wealth-management/port"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -70,6 +71,7 @@ type dbService struct {
 	writeMu       sync.Mutex
 	localReplays  map[string]domain.TransactionBatchResult
 	replayHistory []string
+	stale         *staleTracker
 
 	// lastSyncAt is the last successful SyncCache, zero until one (WM-SET-2).
 	syncMu     sync.Mutex
@@ -92,6 +94,7 @@ func NewDatabaseService(client port.DatabaseClient, cache port.CacheService, log
 		now:            options.Now,
 		spreadsheetID:  options.SpreadsheetID,
 		localReplays:   map[string]domain.TransactionBatchResult{},
+		stale:          newStaleTracker(),
 	}
 }
 
@@ -101,7 +104,8 @@ func (s *dbService) today() time.Time {
 
 // cachedRead returns the cached value for key unless force is set, otherwise
 // loads it and caches the result. Cache failures are logged and degrade to a
-// direct load; they never fail the request (WM-OPS-2).
+// direct load; they never fail the request (WM-OPS-2). A failed load serves
+// the last good copy when there is one (WM-NFR-4).
 func cachedRead[T any](s *dbService, key string, ttlSeconds int, force bool, load func() (T, error)) (T, error) {
 	if !force {
 		if value, ok := readCached[T](s, key); ok {
@@ -110,11 +114,23 @@ func cachedRead[T any](s *dbService, key string, ttlSeconds int, force bool, loa
 	}
 	value, err := load()
 	if err != nil {
-		var zero T
-		return zero, err
+		return serveLastGood[T](s, key, err)
 	}
-	s.writeCache(key, value, ttlSeconds)
+	s.storeFresh(key, value, ttlSeconds)
 	return value, nil
+}
+
+// readRanges reads several ranges in one Sheets request (WM-NFR-3); rows
+// come back in the order of ranges.
+func (s *dbService) readRanges(ranges ...string) ([][][]string, error) {
+	rows, err := s.client.ReadSheets(ranges)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", strings.Join(ranges, ", "), err)
+	}
+	if len(rows) != len(ranges) {
+		return nil, fmt.Errorf("read %s: the sheet returned %d ranges for %d requested", strings.Join(ranges, ", "), len(rows), len(ranges))
+	}
+	return rows, nil
 }
 
 func readCached[T any](s *dbService, key string) (T, bool) {
@@ -124,14 +140,14 @@ func readCached[T any](s *dbService, key string) (T, bool) {
 	}
 	entry, err := s.cache.Get(context.Background(), key)
 	if err != nil {
-		s.log.LogError(context.Background(), "cache read failed, reading the sheet instead", err, slog.String("key", key))
+		s.log.LogError(context.Background(), "cache read failed", err, slog.String("key", key))
 		return value, false
 	}
 	if !entry.Found || strings.TrimSpace(entry.Value) == "" {
 		return value, false
 	}
 	if err := json.Unmarshal([]byte(entry.Value), &value); err != nil {
-		s.log.LogError(context.Background(), "cached value is not valid JSON, reading the sheet instead", err, slog.String("key", key))
+		s.log.LogError(context.Background(), "cached value is not valid JSON, ignoring it", err, slog.String("key", key))
 		var zero T
 		return zero, false
 	}
@@ -199,14 +215,11 @@ func (s *dbService) WarmAIContent(forceFresh bool) (domain.InitResult, error) {
 // knowledge base (WM-AI-1). Rows missing a key or content are skipped.
 func (s *dbService) LoadAIContent(forceFresh bool) (domain.AIContent, error) {
 	return cachedRead(s, cacheKeyAIContent, promptsTTL, forceFresh, func() (domain.AIContent, error) {
-		prompts, err := s.client.ReadSheet(promptsSheetRange)
+		tabs, err := s.readRanges(promptsSheetRange, knowledgeSheetRange)
 		if err != nil {
 			return domain.AIContent{}, err
 		}
-		knowledge, err := s.client.ReadSheet(knowledgeSheetRange)
-		if err != nil {
-			return domain.AIContent{}, err
-		}
+		prompts, knowledge := tabs[0], tabs[1]
 		content := domain.AIContent{Prompts: map[string]string{}, Knowledge: map[string]string{}}
 		for _, row := range prompts {
 			domainName, name, text := strings.TrimSpace(cellAt(row, 0)), strings.TrimSpace(cellAt(row, 1)), strings.TrimSpace(cellAt(row, 2))

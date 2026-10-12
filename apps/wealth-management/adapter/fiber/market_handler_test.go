@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -120,6 +121,7 @@ type fakeMarketService struct {
 	err             error
 	lastBypassCache bool
 	candleCalls     []string
+	staleAt         time.Time
 }
 
 func (f *fakeMarketService) Health(_ context.Context, _ string) (domain.MarketProviderHealth, error) {
@@ -128,6 +130,9 @@ func (f *fakeMarketService) Health(_ context.Context, _ string) (domain.MarketPr
 
 func (f *fakeMarketService) GetTicker(ctx context.Context, _ string, _ domain.TickerType) (domain.Ticker, error) {
 	f.lastBypassCache = domain.ShouldBypassCache(ctx)
+	if !f.staleAt.IsZero() {
+		domain.MarkStale(ctx, f.staleAt)
+	}
 	return f.ticker, f.err
 }
 

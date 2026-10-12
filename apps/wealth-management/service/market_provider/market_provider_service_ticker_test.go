@@ -28,7 +28,6 @@ func TestGivenTickerTypeWhenPrimaryProviderFailsThenFallbackProviderIsUsed(t *te
 			GetTicker: map[domain.TickerType][]string{
 				domain.TickerTypeEquity: {"fmarket", "vnstock"},
 			},
-			CacheTTLSeconds: 300,
 		},
 		nil,
 		testLog,
@@ -69,7 +68,6 @@ func TestGivenCachedTickerWhenGetTickerThenReturnsFromCacheWithoutProviderCall(t
 			GetTicker: map[domain.TickerType][]string{
 				domain.TickerTypeEquity: {"vnstock"},
 			},
-			CacheTTLSeconds: 300,
 		},
 		cache,
 		testLog,
@@ -108,7 +106,6 @@ func TestGivenSkipCacheContextWhenGetTickerThenBypassesCachedValue(t *testing.T)
 			GetTicker: map[domain.TickerType][]string{
 				domain.TickerTypeEquity: {"vnstock"},
 			},
-			CacheTTLSeconds: 300,
 		},
 		cache,
 		testLog,

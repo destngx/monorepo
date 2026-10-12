@@ -138,3 +138,43 @@ func TestLoadTestMode(t *testing.T) {
 		}
 	}
 }
+
+func setSheetsEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("GOOGLE_CLIENT_ID", "id")
+	t.Setenv("GOOGLE_CLIENT_SECRET", "secret")
+	t.Setenv("GOOGLE_REFRESH_TOKEN", "token")
+	t.Setenv("GOOGLE_SHEETS_ID", "sheet")
+}
+
+func TestGivenNoReadQuotaWhenLoadingSheetsConfigThenItDefaultsToSixtyPerMinute(t *testing.T) {
+	setSheetsEnv(t)
+	t.Setenv("SHEETS_READS_PER_MINUTE", "")
+
+	config, err := LoadSheetsConfig()
+
+	if err != nil || config.ReadsPerMinute != 60 {
+		t.Fatalf("config = %+v err = %v", config.ReadsPerMinute, err)
+	}
+}
+
+func TestGivenAReadQuotaWhenLoadingSheetsConfigThenItIsUsed(t *testing.T) {
+	setSheetsEnv(t)
+	t.Setenv("SHEETS_READS_PER_MINUTE", "300")
+
+	config, err := LoadSheetsConfig()
+
+	if err != nil || config.ReadsPerMinute != 300 {
+		t.Fatalf("config = %+v err = %v", config.ReadsPerMinute, err)
+	}
+}
+
+func TestGivenAnInvalidReadQuotaWhenLoadingSheetsConfigThenItFails(t *testing.T) {
+	setSheetsEnv(t)
+	for _, value := range []string{"0", "-5", "fast"} {
+		t.Setenv("SHEETS_READS_PER_MINUTE", value)
+		if _, err := LoadSheetsConfig(); !errors.Is(err, ErrInvalidSheetsConfig) {
+			t.Fatalf("value %q: err = %v, want ErrInvalidSheetsConfig", value, err)
+		}
+	}
+}

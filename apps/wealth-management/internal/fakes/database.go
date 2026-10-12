@@ -6,6 +6,7 @@ import (
 	"apps/wealth-management/port"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Database is a port.DatabaseService that returns canned data and records
@@ -26,6 +27,8 @@ type Database struct {
 	AIContent    domain.AIContent
 	CaptureRules []domain.CaptureRule
 	Err          error
+	// StaleAt, when set, is reported as the time of stale data served.
+	StaleAt time.Time
 
 	CreatedAccounts     []domain.AccountCreateInput
 	UpdatedAccounts     map[string]domain.AccountUpdateInput
@@ -199,3 +202,13 @@ func (f *Database) SyncCache() (domain.SyncResult, error) {
 func (f *Database) SheetInfo() (domain.SheetInfo, error) { return f.Info, f.Err }
 
 func (f *Database) Ping() error { return f.Err }
+
+func (f *Database) ReadLedger(bool) (domain.LedgerSnapshot, error) {
+	return domain.LedgerSnapshot{Accounts: nonNil(f.Accounts), Loans: nonNil(f.Loans), Transactions: nonNil(f.Transactions)}, f.Err
+}
+
+func (f *Database) StaleCursor() uint64 { return 0 }
+
+func (f *Database) StaleSince(uint64) (time.Time, bool) {
+	return f.StaleAt, !f.StaleAt.IsZero()
+}

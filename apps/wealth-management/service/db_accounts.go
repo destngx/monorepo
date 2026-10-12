@@ -12,14 +12,18 @@ func (s *dbService) ListAccounts(forceFresh bool) ([]domain.Account, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read accounts: %w", err)
 		}
-		accounts := make([]domain.Account, 0, len(rows))
-		for _, row := range rows {
-			if account, ok := mapAccount(row); ok {
-				accounts = append(accounts, account)
-			}
-		}
-		return accounts, nil
+		return parseAccounts(rows), nil
 	})
+}
+
+func parseAccounts(rows [][]string) []domain.Account {
+	accounts := make([]domain.Account, 0, len(rows))
+	for _, row := range rows {
+		if account, ok := mapAccount(row); ok {
+			accounts = append(accounts, account)
+		}
+	}
+	return accounts
 }
 
 func (s *dbService) CreateAccount(input domain.AccountCreateInput) error {

@@ -60,6 +60,27 @@ The current layer definitions and targets are in [REQUIREMENTS.md §14](../REQUI
 - **E2E Layer (Playwright)**: Testing critical "Wealth Journeys" in the UI against the engine wired to the test copy.
 - **AI Regression**: Using fixed seeds to ensure AI briefings remain consistent across deployments.
 
+### 4.1 Performance and money precision (WM-NFR-1, WM-NFR-5)
+
+Domain benchmarks (`apps/wealth-management/domain/perf_bench_test.go`) run over a deterministic ledger of 5000 transactions across two years, 8 accounts (VND, USD, USDT) and 11 categories. Rerun from `apps/wealth-management`:
+
+```sh
+go test ./domain/ -run '^$' -bench . -benchmem
+```
+
+Baseline (Apple M1, darwin/arm64, Go 1.26, 2026-10-13):
+
+| Benchmark               | Time/op  | Allocs/op | WM-NFR-1 target              |
+| :---------------------- | :------- | :-------- | :--------------------------- |
+| `ComputeBudgetReport`   | 0.40 ms  | 5555      | cached read p95 < 300 ms     |
+| `ComputeBalanceSheet`   | 28 ns    | 0         | net worth < 100 ms uncached  |
+| `ComputeDashboardSummary` | 2.4 ms | 7331      | cached read p95 < 300 ms     |
+| `ComputeFinancialHealth` | 0.48 ms | 1606      | cached read p95 < 300 ms     |
+
+The domain math is two to five orders of magnitude inside the budget; request latency is dominated by the cache or the Sheets API, not by the rules.
+
+Money precision (`apps/wealth-management/domain/money_exactness_test.go`, run with `go test ./domain/ -run Given -race`): amounts are `float64`, which holds every whole number up to 2^53 (about 9.007e15 VND) exactly. The tests sum 10^5 whole VND amounts of up to 10^10 each through `ComputeBudgetReport`, `ComputeCashFlow` and `ComputeBalanceSheet` and compare with a `big.Int` total: all exact. USD to VND conversion (`ValuePortfolio`) is checked against `big.Rat`: a single value is within 0.01 VND and rounds half up to the exact whole VND, and 10^4 USD holdings with cents sum within 1 VND of exact. The engine does not round converted values to whole VND; fractions of a VND are carried in the JSON. A ledger whose running totals pass 9e15 VND would lose exactness and would need integer or decimal amounts.
+
 ---
 
 ## 5. Deployment Quality Gates (CI/CD)

@@ -38,6 +38,7 @@ func NewServiceWithRouting(
 		registry[strings.ToLower(provider.Name())] = provider
 	}
 
+	routing.CacheTTL = routing.CacheTTL.WithDefaults()
 	return &marketProviderService{
 		providers: registry,
 		routing:   routing,

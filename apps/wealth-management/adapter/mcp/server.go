@@ -43,6 +43,8 @@ type Server struct {
 	fmarketService   port.FmarketService
 	marketService    port.MarketProviderService
 	aiService        port.AIService
+	marketAnalysis   port.MarketAnalysisService
+	portfolio        port.PortfolioService
 	log              *logger.Logger
 	now              func() time.Time
 	maxRequestBytes  int
@@ -196,8 +198,15 @@ func (s *Server) tools() []tool {
 	if s.marketService != nil {
 		tools = append(tools, s.marketTools()...)
 	}
+	if s.marketAnalysis != nil {
+		tools = append(tools, s.marketAnalysisTools()...)
+	}
+	if s.portfolio != nil {
+		tools = append(tools, s.portfolioTools()...)
+	}
 	if s.aiService != nil {
 		tools = append(tools, s.aiTools()...)
+		tools = append(tools, s.aiInvestmentTools()...)
 	}
 	if s.fmarketService != nil {
 		tools = append(tools, tool{
@@ -432,51 +441,6 @@ func (s *Server) analyticsTools() []tool {
 				return analytics.AccountHistories(args.Days, args.Force)
 			},
 		},
-	}
-}
-
-func (s *Server) marketTools() []tool {
-	market := s.marketService
-	type marketArgs struct {
-		Provider string `json:"provider"`
-		Symbol   string `json:"symbol"`
-		Type     string `json:"type"`
-		From     string `json:"from"`
-		To       string `json:"to"`
-	}
-	marketTool := func(name, description string, schema map[string]any, call func(context.Context, marketArgs) (any, error)) tool {
-		return tool{
-			definition: definition(name, description, schema),
-			handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
-				var args marketArgs
-				if err := decodeArguments(arguments, &args); err != nil {
-					return nil, err
-				}
-				return call(ctx, args)
-			},
-		}
-	}
-	return []tool{
-		marketTool("GetMarketProviderHealth", "Reports a market data provider's health (fmarket or vnstock).",
-			object(map[string]any{"provider": map[string]any{"type": "string", "enum": []string{"fmarket", "vnstock"}}}, "provider"),
-			func(ctx context.Context, args marketArgs) (any, error) { return market.Health(ctx, args.Provider) }),
-		marketTool("GetMarketTicker", "Returns the latest price for a fund certificate or gold.",
-			object(map[string]any{"symbol": stringSchema, "type": map[string]any{"type": "string", "enum": []string{string(domain.TickerTypeIFC), string(domain.TickerTypeGold)}}}, "symbol", "type"),
-			func(ctx context.Context, args marketArgs) (any, error) {
-				return market.GetTicker(ctx, args.Symbol, domain.TickerType(args.Type))
-			}),
-		marketTool("GetExchangeRate", "Returns an exchange rate, e.g. USD to VND.",
-			object(map[string]any{"from": stringSchema, "to": stringSchema}, "from", "to"),
-			func(ctx context.Context, args marketArgs) (any, error) {
-				return market.GetExchangeRate(ctx, args.From, args.To)
-			}),
-		marketTool("GetPriceSeries", "Returns a historical price series.",
-			object(map[string]any{"symbol": stringSchema, "type": map[string]any{"type": "string", "enum": []string{string(domain.SeriesTypeGoldUSD)}}}, "type"),
-			func(ctx context.Context, args marketArgs) (any, error) {
-				return market.GetPriceSeries(ctx, args.Symbol, domain.SeriesType(args.Type))
-			}),
-		marketTool("GetBankRates", "Returns current bank deposit interest rates.", nil,
-			func(ctx context.Context, _ marketArgs) (any, error) { return market.GetBankInterestRate(ctx) }),
 	}
 }
 

@@ -102,11 +102,7 @@ func (s *analyticsService) BudgetHistory(month string, months int, forceFresh bo
 }
 
 func (s *analyticsService) CardReports(forceFresh bool) ([]domain.CardBankReport, error) {
-	accounts, err := s.db.ListAccounts(forceFresh)
-	if err != nil {
-		return nil, err
-	}
-	transactions, err := s.db.ListTransactions(forceFresh)
+	accounts, _, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +121,7 @@ func (s *analyticsService) AccountHistories(days int, forceFresh bool) (map[stri
 	if days < 1 || days > maxHistoryDays {
 		return nil, fmt.Errorf("%w: days must be between 1 and %d", domain.ErrValidation, maxHistoryDays)
 	}
-	accounts, err := s.db.ListAccounts(forceFresh)
-	if err != nil {
-		return nil, err
-	}
-	transactions, err := s.db.ListTransactions(forceFresh)
+	accounts, _, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return nil, err
 	}
@@ -146,17 +138,9 @@ func (s *analyticsService) AccountHistories(days int, forceFresh bool) (map[stri
 }
 
 func (s *analyticsService) position(forceFresh bool) ([]domain.Account, []domain.Loan, []domain.Transaction, error) {
-	accounts, err := s.db.ListAccounts(forceFresh)
+	ledger, err := s.db.ReadLedger(forceFresh)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	loans, err := s.db.ListLoans(forceFresh)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	transactions, err := s.db.ListTransactions(forceFresh)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return accounts, loans, transactions, nil
+	return ledger.Accounts, ledger.Loans, ledger.Transactions, nil
 }

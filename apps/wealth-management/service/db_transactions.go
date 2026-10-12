@@ -9,31 +9,65 @@ import (
 
 var transactionWritePatterns = []string{"transactions:*", "budget:*", "accounts:*"}
 
+// ListTransactions reads the transactions and the categories that type them
+// in one request when neither is cached.
 func (s *dbService) ListTransactions(forceFresh bool) ([]domain.Transaction, error) {
-	return cachedRead(s, cacheKeyTxs, sheetDataTTL, forceFresh, func() ([]domain.Transaction, error) {
-		rows, err := s.client.ReadSheet(transactionsSheetRange)
-		if err != nil {
-			return nil, fmt.Errorf("read transactions: %w", err)
+	var categories []domain.Category
+	var transactions []domain.Transaction
+	err := s.batchRead(forceFresh, categoriesDataset(s, &categories), transactionsDataset(s, &transactions, &categories))
+	return transactions, err
+}
+
+// ReadLedger fills a LedgerSnapshot with one request for whatever is not
+// cached (WM-NFR-3).
+func (s *dbService) ReadLedger(forceFresh bool) (domain.LedgerSnapshot, error) {
+	var ledger domain.LedgerSnapshot
+	var categories []domain.Category
+	err := s.batchRead(forceFresh,
+		dataset(s, cacheKeyAccounts, &ledger.Accounts, func(rows [][][]string) ([]domain.Account, error) {
+			return parseAccounts(rows[0]), nil
+		}, accountsSheetRange),
+		dataset(s, cacheKeyLoans, &ledger.Loans, func(rows [][][]string) ([]domain.Loan, error) {
+			return parseLoans(rows[0]), nil
+		}, loansSheetRange),
+		categoriesDataset(s, &categories),
+		transactionsDataset(s, &ledger.Transactions, &categories),
+	)
+	if err != nil {
+		return domain.LedgerSnapshot{}, err
+	}
+	return ledger, nil
+}
+
+func categoriesDataset(s *dbService, target *[]domain.Category) sheetDataset {
+	return dataset(s, cacheKeyCats, target, func(rows [][][]string) ([]domain.Category, error) {
+		return parseCategories(rows[0]), nil
+	}, categoriesSheetRange)
+}
+
+// transactionsDataset types each transaction from *categories, so it must
+// come after the categories dataset in the same batch.
+func transactionsDataset(s *dbService, target *[]domain.Transaction, categories *[]domain.Category) sheetDataset {
+	return dataset(s, cacheKeyTxs, target, func(rows [][][]string) ([]domain.Transaction, error) {
+		return parseTransactions(rows[0], *categories), nil
+	}, transactionsSheetRange)
+}
+
+func parseTransactions(rows [][]string, categories []domain.Category) []domain.Transaction {
+	categoryIndex := buildCategoryIndex(categories)
+	transactions := make([]domain.Transaction, 0, len(rows))
+	for i, row := range rows {
+		transaction, ok := mapTransaction(row, transactionsFirstRow+i)
+		if !ok {
+			continue
 		}
-		categories, err := s.ListCategories(forceFresh)
-		if err != nil {
-			return nil, err
+		if categoryType, ok := categoryIndex[normalizeKey(transaction.Category)]; ok {
+			transaction.CategoryType = categoryType
 		}
-		categoryIndex := buildCategoryIndex(categories)
-		transactions := make([]domain.Transaction, 0, len(rows))
-		for i, row := range rows {
-			transaction, ok := mapTransaction(row, transactionsFirstRow+i)
-			if !ok {
-				continue
-			}
-			if categoryType, ok := categoryIndex[normalizeKey(transaction.Category)]; ok {
-				transaction.CategoryType = categoryType
-			}
-			transactions = append(transactions, transaction)
-		}
-		sortTransactionsNewestFirst(transactions)
-		return transactions, nil
-	})
+		transactions = append(transactions, transaction)
+	}
+	sortTransactionsNewestFirst(transactions)
+	return transactions
 }
 
 func (s *dbService) CreateTransaction(input domain.TransactionCreateInput) (domain.TransactionWriteResult, error) {

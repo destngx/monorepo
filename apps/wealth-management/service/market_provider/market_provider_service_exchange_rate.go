@@ -18,7 +18,7 @@ func (s *marketProviderService) GetExchangeRate(ctx context.Context, from string
 	from, to = strings.ToUpper(strings.TrimSpace(from)), strings.ToUpper(strings.TrimSpace(to))
 	pair := from + "_" + to
 	key := "market:getExchangeRate:" + pair
-	return cachedRoute(ctx, s, key, "get exchange rate "+pair, s.routing.GetExchangeRate[pair], func(provider port.MarketProvider) (domain.ExchangeRate, error) {
+	return cachedRoute(ctx, s, key, s.routing.CacheTTL.ExchangeRate, "get exchange rate "+pair, s.routing.GetExchangeRate[pair], func(provider port.MarketProvider) (domain.ExchangeRate, error) {
 		capable, ok := provider.(port.ExchangeRateProvider)
 		if !ok {
 			return domain.ExchangeRate{}, errCapabilityMissing

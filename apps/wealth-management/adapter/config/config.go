@@ -69,7 +69,31 @@ func LoadSheetsConfig() (domain.SheetsConfig, error) {
 		return domain.SheetsConfig{}, fmt.Errorf("%w: %v", ErrMissingSheetsConfig, missing)
 	}
 
+	readsPerMinute, err := loadSheetsReadsPerMinute()
+	if err != nil {
+		return domain.SheetsConfig{}, err
+	}
+	config.ReadsPerMinute = readsPerMinute
+
 	return config, nil
+}
+
+// DefaultSheetsReadsPerMinute matches the Sheets API default read quota per
+// user (WM-NFR-3).
+const DefaultSheetsReadsPerMinute = 60
+
+// loadSheetsReadsPerMinute reads SHEETS_READS_PER_MINUTE, the pace of Sheets
+// read requests (default 60).
+func loadSheetsReadsPerMinute() (int, error) {
+	value := strings.TrimSpace(os.Getenv("SHEETS_READS_PER_MINUTE"))
+	if value == "" {
+		return DefaultSheetsReadsPerMinute, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 {
+		return 0, fmt.Errorf("%w: SHEETS_READS_PER_MINUTE must be a positive integer", ErrInvalidSheetsConfig)
+	}
+	return parsed, nil
 }
 
 func getOrDefault(key string, fallback string) string {
@@ -82,6 +106,7 @@ func getOrDefault(key string, fallback string) string {
 }
 
 var ErrMissingSheetsConfig = errors.New("missing Google Sheets configuration")
+var ErrInvalidSheetsConfig = errors.New("invalid Google Sheets configuration")
 var ErrMissingCacheConfig = errors.New("missing Upstash Redis configuration")
 
 func LoadCacheConfig() (domain.CacheConfig, error) {

@@ -56,6 +56,7 @@ All four of `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, 
 | `GOOGLE_SHEETS_ID`      | none                    | Spreadsheet id from the sheet URL.                                                       |
 | `GOOGLE_REDIRECT_URL`   | `http://127.0.0.1:3000` | OAuth redirect URL; must match the OAuth client. Used by the engine and `auth-sheets`.   |
 | `BUDGET_SHEET_TEMPLATE` | `Budget_{year}`         | Budget tab name; `{year}` is replaced with the requested year (WM-DATA-2).               |
+| `SHEETS_READS_PER_MINUTE` | `60` | Pace of Sheets read requests (WM-NFR-3); bursts up to a sixth of it, then excess reads wait their turn instead of failing. Must be a positive integer, or the sheet routes are disabled at startup. |
 
 ### 3.3 Cache (Upstash Redis REST)
 

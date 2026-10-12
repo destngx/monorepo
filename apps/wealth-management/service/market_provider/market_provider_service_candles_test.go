@@ -30,7 +30,7 @@ func newCandleService(t *testing.T, cache *fakeMarketCacheClient, now time.Time,
 	if cache != nil {
 		cacheClient = cache
 	}
-	routing := domain.MarketRoutingConfig{GetCandles: []string{"basic", "vnstock", "yahoo"}, CacheTTLSeconds: 300}
+	routing := domain.MarketRoutingConfig{GetCandles: []string{"basic", "vnstock", "yahoo"}}
 	service := NewServiceWithRouting(routing, cacheClient, logger.NewTestLogger(t), registered...).(*marketProviderService)
 	service.now = func() time.Time { return now }
 	return service

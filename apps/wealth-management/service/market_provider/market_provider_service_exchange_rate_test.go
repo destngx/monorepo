@@ -28,7 +28,6 @@ func TestGivenCacheMissWhenGetExchangeRateThenProviderResultIsStoredWithCapabili
 			GetExchangeRate: map[string][]string{
 				"USD_VND": {"fmarket"},
 			},
-			CacheTTLSeconds: 300,
 		},
 		cache,
 		testLog,

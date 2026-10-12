@@ -70,6 +70,8 @@ func main() {
 	app.Use(fiberAdapter.RequestIDMiddleware(log))
 	app.Use(fiberAdapter.LoggingMiddleware(log))
 	app.Use(fiberAdapter.RecoveryMiddleware(log))
+	staleData := fiberAdapter.NewStaleDataMiddleware()
+	app.Use(staleData.Handler())
 
 	guard := fiberAdapter.NewWriteGuard(serverConfig.APIToken, serverConfig.Host)
 	if serverConfig.APIToken == "" {
@@ -83,17 +85,22 @@ func main() {
 
 	cacheClient, cacheSvc := setupCache(ctx, log, health, api)
 	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig)
+	if dbSvc != nil {
+		staleData.Watch(dbSvc)
+	}
 	marketSvc := setupMarket(ctx, log, health, api, mcpServer, cacheClient)
 	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc)}
 	if marketSvc != nil {
 		analysisSvc := service.NewMarketAnalysisService(marketSvc, nil)
 		fiberAdapter.RegisterMarketAnalysisRoutes(api, fiberAdapter.NewMarketAnalysisHandler(analysisSvc, log))
 		aiOptions.Market = analysisSvc
+		mcpServer.SetMarketAnalysisService(analysisSvc)
 	}
 	if dbSvc != nil && marketSvc != nil {
 		portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil)
 		fiberAdapter.RegisterPortfolioRoutes(api, fiberAdapter.NewPortfolioHandler(portfolioSvc, log))
 		aiOptions.Portfolio = portfolioSvc
+		mcpServer.SetPortfolioService(portfolioSvc)
 	}
 	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions)
 

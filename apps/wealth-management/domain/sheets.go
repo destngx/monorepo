@@ -6,4 +6,7 @@ type SheetsConfig struct {
 	RefreshToken  string
 	SpreadsheetID string
 	RedirectURL   string
+	// ReadsPerMinute paces read requests to the Sheets quota (WM-NFR-3);
+	// 0 uses the default of 60.
+	ReadsPerMinute int
 }

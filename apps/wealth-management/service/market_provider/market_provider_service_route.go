@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 var errCapabilityMissing = errors.New("capability not implemented")
@@ -73,11 +74,14 @@ func route[T any](
 }
 
 // cachedRoute serves key from the cache unless the request bypasses it, and
-// otherwise routes and caches the answer for the routing TTL.
+// otherwise routes and caches the answer for ttlSeconds (WM-RULE-10). When
+// every provider fails it serves the last good answer, marked stale
+// (WM-NFR-4).
 func cachedRoute[T any](
 	ctx context.Context,
 	s *marketProviderService,
 	key string,
+	ttlSeconds int,
 	operation string,
 	chain []string,
 	call func(port.MarketProvider) (T, error),
@@ -87,10 +91,42 @@ func cachedRoute[T any](
 	}
 	result, err := route(ctx, s, operation, chain, call)
 	if err != nil {
-		return result.value, err
+		return serveLastGood[T](ctx, s, key, err)
 	}
-	s.setCache(ctx, key, result.value)
+	s.storeFresh(ctx, key, result.value, ttlSeconds)
 	return result.value, nil
+}
+
+// storeFresh caches a provider answer and its last good copy.
+func (s *marketProviderService) storeFresh(ctx context.Context, key string, value any, ttlSeconds int) {
+	s.setCache(ctx, key, value, ttlSeconds)
+	s.setCache(ctx, domain.LastGoodKey(key), domain.LastGood[any]{AsOf: s.now().UTC(), Value: value}, domain.LastGoodTTLSeconds)
+}
+
+// serveLastGood answers a failed route with the key's last good copy, even
+// when the request bypasses the cache, and records its time on the request
+// (domain.MarkStale). Validation errors (no provider covers the request) and
+// failures without a copy are returned as they are.
+func serveLastGood[T any](ctx context.Context, s *marketProviderService, key string, cause error) (T, error) {
+	var zero T
+	if s.cache == nil || errors.Is(cause, domain.ErrValidation) {
+		return zero, cause
+	}
+	raw, found, err := s.cache.Get(ctx, domain.LastGoodKey(key))
+	if err != nil {
+		return zero, errors.Join(cause, fmt.Errorf("read last good copy: %w", err))
+	}
+	if !found {
+		return zero, cause
+	}
+	var lastGood domain.LastGood[T]
+	if err := json.Unmarshal([]byte(raw), &lastGood); err != nil {
+		return zero, errors.Join(cause, fmt.Errorf("decode last good copy: %w", err))
+	}
+	s.log.LogError(ctx, "every market provider failed, serving the last good copy", cause,
+		slog.String("key", key), slog.String("as_of", lastGood.AsOf.Format(time.RFC3339)))
+	domain.MarkStale(ctx, lastGood.AsOf)
+	return lastGood.Value, nil
 }
 
 func getCached[T any](ctx context.Context, s *marketProviderService, key string) (T, bool) {
@@ -113,13 +149,13 @@ func getCached[T any](ctx context.Context, s *marketProviderService, key string)
 	return value, true
 }
 
-func (s *marketProviderService) setCache(ctx context.Context, key string, payload any) {
+func (s *marketProviderService) setCache(ctx context.Context, key string, payload any, ttlSeconds int) {
 	if s.cache == nil {
 		return
 	}
 	data, err := json.Marshal(payload)
 	if err == nil {
-		err = s.cache.Set(ctx, key, string(data), s.routing.CacheTTLSeconds)
+		err = s.cache.Set(ctx, key, string(data), ttlSeconds)
 	}
 	if err != nil {
 		s.log.LogApplicationEvent(ctx, "market cache write failed", slog.String("key", key), slog.String("error", err.Error()))

@@ -38,14 +38,18 @@ func (s *dbService) ListLoans(forceFresh bool) ([]domain.Loan, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read loans: %w", err)
 		}
-		loans := make([]domain.Loan, 0)
-		for _, row := range rows {
-			if loan, ok := mapLoan(row); ok {
-				loans = append(loans, loan)
-			}
-		}
-		return loans, nil
+		return parseLoans(rows), nil
 	})
+}
+
+func parseLoans(rows [][]string) []domain.Loan {
+	loans := make([]domain.Loan, 0)
+	for _, row := range rows {
+		if loan, ok := mapLoan(row); ok {
+			loans = append(loans, loan)
+		}
+	}
+	return loans
 }
 
 func (s *dbService) ListTags(forceFresh bool) ([]string, error) {
@@ -71,17 +75,13 @@ func (s *dbService) ListTags(forceFresh bool) ([]string, error) {
 
 func (s *dbService) GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error) {
 	return cachedRead(s, cacheKeyInvest, sheetDataTTL, forceFresh, func() (domain.InvestmentAssets, error) {
-		cryptoRows, err := s.client.ReadSheet(cryptoSheetRange)
+		tabs, err := s.readRanges(cryptoSheetRange, fundsSheetRange)
 		if err != nil {
-			return domain.InvestmentAssets{}, fmt.Errorf("read crypto holdings: %w", err)
-		}
-		fundRows, err := s.client.ReadSheet(fundsSheetRange)
-		if err != nil {
-			return domain.InvestmentAssets{}, fmt.Errorf("read fund holdings: %w", err)
+			return domain.InvestmentAssets{}, err
 		}
 		return domain.InvestmentAssets{
-			Crypto: parseHoldings(cryptoRows, cryptoSection),
-			Funds:  parseHoldings(fundRows, fundSection),
+			Crypto: parseHoldings(tabs[0], cryptoSection),
+			Funds:  parseHoldings(tabs[1], fundSection),
 		}, nil
 	})
 }

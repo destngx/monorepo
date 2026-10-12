@@ -1,11 +1,17 @@
 package port
 
-import "apps/wealth-management/domain"
+import (
+	"apps/wealth-management/domain"
+	"time"
+)
 
 // DatabaseService reads and writes the Google Sheet system of record. Errors
 // wrap domain.ErrValidation, ErrNotFound or ErrConflict where applicable.
 type DatabaseService interface {
 	ListAccounts(forceFresh bool) ([]domain.Account, error)
+	// ReadLedger returns accounts, loans and transactions, reading every
+	// dataset the cache misses in one batched Sheets request (WM-NFR-3).
+	ReadLedger(forceFresh bool) (domain.LedgerSnapshot, error)
 	CreateAccount(input domain.AccountCreateInput) error
 	UpdateAccount(name string, input domain.AccountUpdateInput) (domain.Account, error)
 	DeleteAccount(name string) error
@@ -41,10 +47,24 @@ type DatabaseService interface {
 	SheetInfo() (domain.SheetInfo, error)
 	// Ping checks the spreadsheet is reachable.
 	Ping() error
+	StaleReporter
+}
+
+// StaleReporter reports reads served from a last good copy because the
+// sheet failed (WM-NFR-4). Sheet reads carry no context, so a caller takes
+// a cursor before its work and asks afterwards what was served stale since;
+// a concurrent request in the same outage may also be counted.
+type StaleReporter interface {
+	StaleCursor() uint64
+	// StaleSince returns the oldest data time served stale after cursor.
+	StaleSince(cursor uint64) (time.Time, bool)
 }
 
 type DatabaseClient interface {
 	ReadSheet(rangeValue string) ([][]string, error)
+	// ReadSheets reads several ranges in one request; rows are returned in
+	// the order of ranges.
+	ReadSheets(ranges []string) ([][][]string, error)
 	UpdateRow(rangeValue string, values []any) error
 	// WriteRowsAtFirstEmptyRow writes rows below the anchor column's last value
 	// and returns the first sheet row written.

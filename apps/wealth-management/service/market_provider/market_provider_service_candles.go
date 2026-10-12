@@ -63,7 +63,7 @@ func (s *marketProviderService) GetCandles(
 		return series, nil
 	})
 	if err != nil {
-		return domain.CandleSeries{}, err
+		return serveLastGood[domain.CandleSeries](ctx, s, key, err)
 	}
 
 	series := result.value
@@ -74,6 +74,6 @@ func (s *marketProviderService) GetCandles(
 	series.Timeframe = timeframe
 	series.Provider = result.provider
 	series.Fallback = strings.Join(result.failures, "; ")
-	s.setCache(ctx, key, series)
+	s.storeFresh(ctx, key, series, s.routing.CacheTTL.Candles)
 	return series, nil
 }
