@@ -1,15 +1,15 @@
 ---
 name: rebase-merge
-description: Land a feature branch on main locally with linear history - rebase the branch onto origin/main, fast-forward main to it (no merge commit), push, watch the deploy, then remove the worktree and branch. Use when the user asks to rebase-merge, "merge no ff", or land a branch/PR on main without the GitHub merge button.
+description: Land a feature branch on main locally with linear history - rebase the branch onto origin/main, fast-forward main to it (no merge commit), push, watch the deploy, then remove the worktree and branch. Use when the user asks to rebase-merge, "merge rebase", "proceed merge", "merge no ff", or land a branch/PR on main without the GitHub merge button.
 argument-hint: '[branch] (defaults to the current branch)'
-disable-model-invocation: true
 ---
 
 # Rebase merge to main
 
 Lands a branch on `main` the way GitHub's "Rebase and merge" would, but from the local checkout. `main` only
 fast-forwards: the repo ruleset rejects merge commits ("Merge commits are not allowed in this repository"), so
-`git merge --no-ff` is never used, even when the user says "no ff". Running this skill is the user's approval to
+`git merge --no-ff` is never used, even when the user says "no ff". The user asking for a rebase merge (by
+slash command or in plain words such as "merge rebase") is their approval to
 push to `main`, to force-push the feature branch with `--force-with-lease`, and to delete the branch (local and
 remote) and its worktree once the merge and deploy are verified.
 
