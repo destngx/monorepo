@@ -199,6 +199,14 @@ type InvestmentAssets struct {
 	Funds  InvestmentHoldingSection `json:"funds"`
 }
 
+// SheetInfo describes the connected spreadsheet (WM-SET-2). LastSyncAt
+// (RFC3339) is the engine's last successful sync, kept in memory only.
+type SheetInfo struct {
+	SpreadsheetID string  `json:"spreadsheetId"`
+	Title         string  `json:"title"`
+	LastSyncAt    *string `json:"lastSyncAt"`
+}
+
 type SyncResult struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`

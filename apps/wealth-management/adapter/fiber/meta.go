@@ -30,6 +30,8 @@ type RouteRegistrar struct {
 	router     fiber.Router
 	base       string
 	defaultTag string
+	// answer, when set, replaces every registered handler (see Answering).
+	answer fiber.Handler
 }
 
 type routeMetaStore struct {
@@ -53,7 +55,15 @@ func (r RouteRegistrar) Group(path string, tag string) RouteRegistrar {
 	if fullPath != "" && fullPath != normalizeRoutePath(path) {
 		grouped = r.router.Group(path)
 	}
-	return RouteRegistrar{router: grouped, base: fullPath, defaultTag: tag}
+	return RouteRegistrar{router: grouped, base: fullPath, defaultTag: tag, answer: r.answer}
+}
+
+// Answering returns a registrar whose routes all run handler instead of the
+// one they are registered with. Routes keep their paths and OpenAPI
+// metadata, so an unavailable feature still documents and answers them.
+func (r RouteRegistrar) Answering(handler fiber.Handler) RouteRegistrar {
+	r.answer = handler
+	return r
 }
 
 func (r RouteRegistrar) Get(path string, handler fiber.Handler, meta RouteMeta) {
@@ -78,6 +88,9 @@ func (r RouteRegistrar) register(method string, path string, handler fiber.Handl
 		meta.Tags = []string{r.defaultTag}
 	}
 	storeRouteMeta(method, fullPath, meta)
+	if r.answer != nil {
+		handler = r.answer
+	}
 	switch method {
 	case fiber.MethodGet:
 		r.router.Get(path, handler)

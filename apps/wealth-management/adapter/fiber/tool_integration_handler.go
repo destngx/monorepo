@@ -4,8 +4,6 @@ import (
 	"apps/wealth-management/adapter/logger"
 	"apps/wealth-management/port"
 	"context"
-	"log/slog"
-	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,7 +23,7 @@ func (h *ToolIntegrationHandler) Run(c *fiber.Ctx) error {
 		Prompt string `json:"prompt"`
 	}
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return badRequest(c, "invalid request body")
 	}
 	if strings.TrimSpace(body.Prompt) == "" {
 		body.Prompt = "Check cash balance and market outlook for BTC"
@@ -33,12 +31,7 @@ func (h *ToolIntegrationHandler) Run(c *fiber.Ctx) error {
 
 	conversation, err := h.service.RunConversation(context.Background(), body.Prompt)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "tool_integration_handler: conversation failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-		)
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return respondError(c, h.log, "tool_integration_handler: conversation", err)
 	}
 
 	return c.JSON(conversation)

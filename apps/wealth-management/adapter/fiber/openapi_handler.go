@@ -136,7 +136,8 @@ func buildOpenAPISpec(app *fiber.App, serverURL string) map[string]any {
 		"servers": []map[string]any{
 			{"url": serverURL},
 		},
-		"paths": paths,
+		"paths":      paths,
+		"components": map[string]any{"schemas": map[string]any{"Error": errorSchema()}},
 	}
 }
 
@@ -174,14 +175,44 @@ func requestBodyForRoute(method string, path string) map[string]any {
 }
 
 func responsesForRoute(method string, path string) map[string]any {
-	responses := map[string]any{"200": map[string]any{"description": "OK"}}
+	responses := map[string]any{
+		"200":     map[string]any{"description": "OK"},
+		"default": errorResponse("Error envelope; code is one of " + strings.Join(ErrorCodes, ", ") + "."),
+	}
 	if method == fiber.MethodPost && path == "/api/transactions" {
-		responses["400"] = map[string]any{"description": "Invalid transaction payload"}
+		responses["400"] = errorResponse("Invalid transaction payload (VALIDATION)")
 	}
 	if strings.HasPrefix(path, "/api/") && path != "/api/health" {
-		responses["503"] = map[string]any{"description": "Google Sheets configuration unavailable"}
+		responses["503"] = errorResponse("Dependency not configured: SHEETS_NOT_CONFIGURED names the missing Google variables; UNAVAILABLE for AI or market services")
 	}
 	return responses
+}
+
+func errorResponse(description string) map[string]any {
+	return map[string]any{
+		"description": description,
+		"content": map[string]any{"application/json": map[string]any{
+			"schema": map[string]any{"$ref": "#/components/schemas/Error"},
+		}},
+	}
+}
+
+// errorSchema documents the {"error", "code"} envelope of every error.
+func errorSchema() map[string]any {
+	return map[string]any{
+		"type":     "object",
+		"required": []string{"error", "code"},
+		"properties": map[string]any{
+			"error": map[string]any{"type": "string", "description": "Human readable message."},
+			"code": map[string]any{
+				"type": "string",
+				"enum": ErrorCodes,
+				"description": "VALIDATION 400, UNAUTHORIZED 401, FORBIDDEN 403, NOT_FOUND 404, CONFLICT 409, " +
+					"SHEETS_NOT_CONFIGURED 503, UNAVAILABLE 503 (AI or market service), OAUTH_EXPIRED 502 (Google refresh token " +
+					"expired or revoked), UPSTREAM 502 (other provider failure), INTERNAL 500.",
+			},
+		},
+	}
 }
 
 func queryParameter(name string, parameterType string, description string) map[string]any {

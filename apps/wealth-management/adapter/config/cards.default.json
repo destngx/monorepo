@@ -13,7 +13,7 @@
           "defaultLimit": 40000000,
           "expiry": "08/2029",
           "annualFee": 599000,
-          "monthlyCap": 600000,
+          "monthlyCap": 300000,
           "statementDay": 5,
           "dueDay": 30,
           "rules": [

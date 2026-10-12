@@ -4,6 +4,7 @@ package fakes
 import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
+	"fmt"
 	"sync"
 )
 
@@ -15,6 +16,9 @@ type Database struct {
 	Accounts     []domain.Account
 	Transactions []domain.Transaction
 	Budget       []domain.BudgetItem
+	// BudgetByYear, when set, replaces Budget: a missing year is ErrNotFound.
+	BudgetByYear map[int][]domain.BudgetItem
+	Info         domain.SheetInfo
 	Categories   []domain.Category
 	Loans        []domain.Loan
 	Goals        []domain.Goal
@@ -32,6 +36,7 @@ type Database struct {
 	DeletedTransactions map[string]string
 	BudgetYears         []int
 	BudgetUpdates       []domain.BudgetLimitUpdate
+	Reallocations       []domain.BudgetReallocation
 	Syncs               int
 	SavedCaptureRules   [][]domain.CaptureRule
 }
@@ -119,7 +124,27 @@ func (f *Database) ListBudget(year int, _ bool) ([]domain.BudgetItem, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.BudgetYears = append(f.BudgetYears, year)
-	return f.Budget, f.Err
+	if f.Err != nil || f.BudgetByYear == nil {
+		return f.Budget, f.Err
+	}
+	items, ok := f.BudgetByYear[year]
+	if !ok {
+		return nil, fmt.Errorf("%w: budget tab for %d", domain.ErrNotFound, year)
+	}
+	return items, nil
+}
+
+func (f *Database) ReallocateBudget(input domain.BudgetReallocation) (domain.BudgetReallocationResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.BudgetReallocationResult{}, err
+	}
+	f.Reallocations = append(f.Reallocations, input)
+	return domain.BudgetReallocationResult{
+		From: domain.BudgetCategoryLimit{Category: input.From},
+		To:   domain.BudgetCategoryLimit{Category: input.To, Limit: input.Amount},
+	}, f.Err
 }
 
 func (f *Database) UpdateBudgetLimit(input domain.BudgetLimitUpdate) error {
@@ -170,5 +195,7 @@ func (f *Database) SyncCache() (domain.SyncResult, error) {
 	f.Syncs++
 	return domain.SyncResult{Success: f.Err == nil}, f.Err
 }
+
+func (f *Database) SheetInfo() (domain.SheetInfo, error) { return f.Info, f.Err }
 
 func (f *Database) Ping() error { return f.Err }

@@ -145,6 +145,18 @@ func (h *DatabaseHandler) UpdateBudgetLimit(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
+func (h *DatabaseHandler) ReallocateBudget(c *fiber.Ctx) error {
+	var body domain.BudgetReallocation
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return h.respond(c)(h.databaseService.ReallocateBudget(body))
+}
+
+func (h *DatabaseHandler) GetSheetInfo(c *fiber.Ctx) error {
+	return h.respond(c)(h.databaseService.SheetInfo())
+}
+
 func (h *DatabaseHandler) GetCategories(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.ListCategories(forceFresh(c)))
 }
@@ -168,11 +180,11 @@ func (h *DatabaseHandler) Sync(c *fiber.Ctx) error {
 func (h *DatabaseHandler) Init(c *fiber.Ctx) error {
 	result, err := h.databaseService.WarmAIContent(forceFresh(c))
 	if err != nil {
-		status := statusForError(err)
+		status, code := classifyError(err)
 		if status >= http.StatusInternalServerError {
 			h.log.LogError(c.UserContext(), "db_handler: warm AI content failed", err)
 		}
-		return c.Status(status).JSON(fiber.Map{"ready": false, "error": err.Error()})
+		return c.Status(status).JSON(fiber.Map{"ready": false, "error": err.Error(), "code": code})
 	}
 	return c.JSON(result)
 }

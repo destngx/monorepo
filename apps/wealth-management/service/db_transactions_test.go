@@ -65,6 +65,7 @@ func TestListTransactionsDegradesWhenCacheIsDown(t *testing.T) {
 
 func TestCreateTransactionReturnsRowIDAndInvalidatesBalances(t *testing.T) {
 	client := newFakeSheetClient()
+	seedAccounts(client)
 	cache := newFakeCache()
 	svc := newTestDBService(t, client, cache)
 
@@ -100,6 +101,7 @@ func TestCreateTransactionRejectsInvalidInput(t *testing.T) {
 
 func TestBatchCreateReportsPerRowAndIsIdempotent(t *testing.T) {
 	client := newFakeSheetClient()
+	seedAccounts(client)
 	cache := newFakeCache()
 	svc := newTestDBService(t, client, cache)
 	bad := validTransactionInput()
@@ -129,6 +131,7 @@ func TestBatchCreateReportsPerRowAndIsIdempotent(t *testing.T) {
 
 func TestBatchReplayFromCacheAfterRestart(t *testing.T) {
 	client := newFakeSheetClient()
+	seedAccounts(client)
 	cache := newFakeCache()
 	input := domain.TransactionBatchInput{BatchID: "b2", Transactions: []domain.TransactionCreateInput{validTransactionInput()}}
 	if _, err := newTestDBService(t, client, cache).CreateTransactions(input); err != nil {
@@ -146,6 +149,7 @@ func TestUpdateTransactionChecksETag(t *testing.T) {
 	etag := rowETag(stored, transactionWriteColumns)
 	update := func(id string, etag string) (*fakeSheetClient, error) {
 		client := newFakeSheetClient()
+		seedAccounts(client)
 		client.ranges["Transactions!A7:J7"] = [][]string{stored}
 		client.ranges["Transactions!A8:J8"] = [][]string{}
 		svc := newTestDBService(t, client, newFakeCache())
@@ -188,5 +192,44 @@ func TestDeleteTransactionClearsUserColumns(t *testing.T) {
 	}
 	if err := svc.DeleteTransaction("row-3", ""); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("missing etag err = %v", err)
+	}
+}
+
+func TestGivenAccountCurrencyColumnWhenWritingAmountsThenOnlyUSDAccountsConvertToVND(t *testing.T) {
+	client := newFakeSheetClient()
+	client.ranges[accountsSheetRange] = [][]string{
+		{"Wise", "", "", "", "0", "10", "bank", "", "USD"},
+		{"Binance VND", "", "", "", "0", "10", "crypto", "", "VND"},
+		{"Binance", "", "", "", "0", "10", "crypto", "", "USDT"},
+	}
+	svc := newTestDBService(t, client, newFakeCache())
+	write := func(account string) any {
+		input := validTransactionInput()
+		input.AccountName = account
+		if _, err := svc.CreateTransaction(input); err != nil {
+			t.Fatal(err)
+		}
+		return client.appends[len(client.appends)-1].rows[0][8]
+	}
+
+	if got := write("Wise"); got != `=50000 * IF(INDIRECT("A" & ROW())="Wise"; GOOGLEFINANCE("CURRENCY:USDVND"); 1)` {
+		t.Fatalf("USD account amount = %#v", got)
+	}
+	if got := write("Binance"); got == 50000.0 {
+		t.Fatalf("USDT account amount must convert, got %#v", got)
+	}
+	if got := write("Binance VND"); got != 50000.0 {
+		t.Fatalf("VND account named Binance must not convert, got %#v", got)
+	}
+	if got := write("Unknown"); got != 50000.0 {
+		t.Fatalf("unknown account must be written as entered, got %#v", got)
+	}
+}
+
+func TestGivenAccountsUnreadableWhenWritingTransactionThenNothingIsWritten(t *testing.T) {
+	client := newFakeSheetClient()
+	svc := newTestDBService(t, client, newFakeCache())
+	if _, err := svc.CreateTransaction(validTransactionInput()); err == nil || len(client.appends) != 0 {
+		t.Fatalf("err = %v, appends = %d", err, len(client.appends))
 	}
 }

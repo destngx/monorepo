@@ -21,7 +21,14 @@ const (
 	ReferenceDebtToIncome = 35.0
 
 	healthLookbackMonths = 3
+
+	// CardMinimumPaymentPercent is the assumed monthly minimum payment on a
+	// card balance owed, used for debt to income (WM-HEA-2).
+	CardMinimumPaymentPercent = 5.0
 )
+
+// ProjectionYears are the net worth projection horizons (WM-RULE-12).
+var ProjectionYears = []int{5, 10, 20}
 
 type HealthBand string
 
@@ -112,6 +119,17 @@ type FinancialHealth struct {
 	Allocation         map[AssetClass]float64 `json:"allocation"`
 	LookbackMonths     int                    `json:"lookbackMonths"`
 	InsufficientIncome bool                   `json:"insufficientIncome"`
+	// MonthlyDebtPayments = loan monthly payments + the card minimums.
+	MonthlyDebtPayments float64              `json:"monthlyDebtPayments"`
+	Projection          []NetWorthProjection `json:"projection"`
+}
+
+// NetWorthProjection is net worth after Years at the fallback return,
+// before (Nominal) and after (Real) VND inflation (WM-RULE-12).
+type NetWorthProjection struct {
+	Years   int     `json:"years"`
+	Nominal float64 `json:"nominal"`
+	Real    float64 `json:"real"`
 }
 
 // ComputeFinancialHealth scores the last full months of activity against the targets.
@@ -132,10 +150,12 @@ func ComputeFinancialHealth(accounts []Account, loans []Loan, transactions []Tra
 	case liquid > 0:
 		emergencyMonths = TargetEmergencyMonths
 	}
+	loanPayments, cardMinimums := monthlyDebtPayments(accounts, loans)
+	debtPayments := loanPayments + cardMinimums
 	debtToIncome := 0.0
 	if income > 0 {
-		debtToIncome = round2(sheet.Liabilities / (income * 12) * 100)
-	} else if sheet.Liabilities > 0 {
+		debtToIncome = round2(debtPayments / income * 100)
+	} else if debtPayments > 0 {
 		debtToIncome = 100
 	}
 	hhi, diversification := diversificationScore(allocation)
@@ -156,8 +176,8 @@ func ComputeFinancialHealth(accounts []Account, loans []Loan, transactions []Tra
 		{
 			Key: "debt", Label: "Debt to income", Value: debtToIncome, Target: ReferenceDebtToIncome, Unit: "%", MaxScore: healthDebtMax,
 			Score:   round2(healthDebtMax * clampUnit(1-debtToIncome/(2*ReferenceDebtToIncome))),
-			Formula: "liabilities / annual income x 100; full score at 0%, half at 35%, zero at 70%",
-			Detail:  fmt.Sprintf("%.0f / (%.0f x 12) = %.2f%%", sheet.Liabilities, income, debtToIncome),
+			Formula: "(loan monthly payments + 5% of each negative account balance) / avg monthly income x 100; full score at 0%, half at 35%, zero at 70%",
+			Detail:  fmt.Sprintf("(%.0f + %.0f) / %.0f = %.2f%%", loanPayments, cardMinimums, income, debtToIncome),
 		},
 		{
 			Key: "diversification", Label: "Diversification", Value: round2(hhi), Target: 1 / float64(len(assetClasses)), Unit: "HHI", MaxScore: healthDiversificationMax,
@@ -177,9 +197,40 @@ func ComputeFinancialHealth(accounts []Account, loans []Loan, transactions []Tra
 		AvgMonthlyIncome: income, AvgMonthlyExpense: expense, NetWorth: sheet.NetWorth,
 		FreedomMonths: FreedomMonths(sheet.NetWorth, expense), Allocation: allocation,
 		LookbackMonths: healthLookbackMonths, InsufficientIncome: income == 0,
+		MonthlyDebtPayments: debtPayments, Projection: ProjectNetWorth(sheet.NetWorth),
 	}
 	health.Recommendations = doctorsOrders(components, health)
 	return health
+}
+
+// monthlyDebtPayments returns the loans' monthly payments and the card
+// minimums: 5% of every negative account balance, liabilities being decided
+// by balance sign as in WM-RULE-2.
+func monthlyDebtPayments(accounts []Account, loans []Loan) (float64, float64) {
+	var loanPayments, cardMinimums float64
+	for _, loan := range loans {
+		loanPayments += loan.MonthlyDebt
+	}
+	for _, account := range accounts {
+		if account.Balance < 0 {
+			cardMinimums += -account.Balance * CardMinimumPaymentPercent / 100
+		}
+	}
+	return math.Round(loanPayments), math.Round(cardMinimums)
+}
+
+// ProjectNetWorth projects net worth over ProjectionYears at the 8% fallback
+// return; Real deducts VND inflation via ProjectRealValue (WM-RULE-12).
+func ProjectNetWorth(netWorth float64) []NetWorthProjection {
+	projection := make([]NetWorthProjection, 0, len(ProjectionYears))
+	for _, years := range ProjectionYears {
+		projection = append(projection, NetWorthProjection{
+			Years:   years,
+			Nominal: math.Round(netWorth * math.Pow(1+DefaultAnnualReturn/100, float64(years))),
+			Real:    ProjectRealValue(netWorth, 0, CurrencyVND, float64(years)),
+		})
+	}
+	return projection
 }
 
 func averageIncomeExpense(transactions []Transaction, today time.Time, months int) (float64, float64) {
@@ -262,7 +313,7 @@ func recommendationFor(component HealthComponent, health FinancialHealth) Health
 		if full {
 			return HealthRecommendation{component.Key, "Stay debt free", "No outstanding liabilities. Keep paying cards in full each cycle."}
 		}
-		return HealthRecommendation{component.Key, "Pay down debt", fmt.Sprintf("Debt is %.1f%% of annual income (reference 35%%). Clear card balances first, then loans.", component.Value)}
+		return HealthRecommendation{component.Key, "Pay down debt", fmt.Sprintf("Debt payments take %.1f%% of monthly income (reference 35%%). Clear card balances first, then loans.", component.Value)}
 	default:
 		if full {
 			return HealthRecommendation{component.Key, "Well diversified", "Assets are spread evenly across cash, investments and crypto."}

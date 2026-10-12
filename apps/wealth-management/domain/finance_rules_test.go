@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 )
@@ -144,5 +146,43 @@ func TestAverageMonthlyExpenseUsesFullMonthsOnly(t *testing.T) {
 	}
 	if got := AverageMonthlyExpense(transactions, day(2026, 3, 15), 2); got != 450 {
 		t.Fatalf("got %v", got)
+	}
+}
+
+func TestGivenRefundWithMemoMonthWhenEncodedThenEffectiveDateIsTheAttributedDay(t *testing.T) {
+	refund := txn(day(2026, 4, 10), "Refunds/Reimbursements", CategoryTypeIncome, 0, 150000)
+	refund.Memo = text("03-2026")
+	payload, err := json.Marshal(refund)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(payload), `"effectiveDate":"2026-03-01"`) {
+		t.Fatalf("payload = %s", payload)
+	}
+	var decoded Transaction
+	if err := json.Unmarshal(payload, &decoded); err != nil || decoded.Payee != refund.Payee || !decoded.Date.Equal(refund.Date) {
+		t.Fatalf("round trip = %+v, %v", decoded, err)
+	}
+}
+
+func TestGivenTransactionWithoutDateWhenEncodedThenEffectiveDateIsNull(t *testing.T) {
+	payload, err := json.Marshal(Transaction{Issues: []string{"bad date"}})
+	if err != nil || !strings.Contains(string(payload), `"effectiveDate":null`) {
+		t.Fatalf("payload = %s, %v", payload, err)
+	}
+}
+
+// Balance reconstruction undoes real cash movements, so it must use the
+// booking date even for a refund attributed to an earlier month (WM-RULE-4
+// applies to reporting, not to balances).
+func TestGivenRefundAttributedToLastMonthWhenReconstructingBalancesThenBookingDateIsUsed(t *testing.T) {
+	refund := txn(day(2026, 4, 10), "Refunds/Reimbursements", CategoryTypeIncome, 0, 100)
+	refund.Memo = text("03-2026")
+	if flow := MonthNetFlow([]Transaction{refund}, day(2026, 4, 15)); flow != 100 {
+		t.Fatalf("april net flow = %v, want the refund counted when it arrived", flow)
+	}
+	series := BackCalculateSeries(1000, []Transaction{refund}, day(2026, 4, 15), 10)
+	if series[0].Value != 900 || series[9].Value != 1000 {
+		t.Fatalf("series = %+v", series)
 	}
 }

@@ -53,6 +53,8 @@ type DatabaseServiceOptions struct {
 	BudgetSheetTemplate string
 	// Now is the clock, for tests.
 	Now func() time.Time
+	// SpreadsheetID is reported by SheetInfo.
+	SpreadsheetID string
 }
 
 type dbService struct {
@@ -61,12 +63,17 @@ type dbService struct {
 	log            *logger.Logger
 	budgetTemplate string
 	now            func() time.Time
+	spreadsheetID  string
 
 	// writeMu serialises read-compare-write operations (WM-DATA-4); the
 	// client separately serialises its own first-empty-row appends.
 	writeMu       sync.Mutex
 	localReplays  map[string]domain.TransactionBatchResult
 	replayHistory []string
+
+	// lastSyncAt is the last successful SyncCache, zero until one (WM-SET-2).
+	syncMu     sync.Mutex
+	lastSyncAt time.Time
 }
 
 func NewDatabaseService(client port.DatabaseClient, cache port.CacheService, log *logger.Logger, options DatabaseServiceOptions) port.DatabaseService {
@@ -83,6 +90,7 @@ func NewDatabaseService(client port.DatabaseClient, cache port.CacheService, log
 		log:            log,
 		budgetTemplate: options.BudgetSheetTemplate,
 		now:            options.Now,
+		spreadsheetID:  options.SpreadsheetID,
 		localReplays:   map[string]domain.TransactionBatchResult{},
 	}
 }
@@ -162,6 +170,7 @@ func (s *dbService) SyncCache() (domain.SyncResult, error) {
 	result := domain.SyncResult{Success: true, Message: "Cache cleared successfully"}
 	if s.cache == nil {
 		result.Message = "No cache configured"
+		s.markSynced()
 		return result, nil
 	}
 	for _, pattern := range sheetCachePatterns {
@@ -171,6 +180,7 @@ func (s *dbService) SyncCache() (domain.SyncResult, error) {
 		}
 		result.Deleted += deleted
 	}
+	s.markSynced()
 	return result, nil
 }
 

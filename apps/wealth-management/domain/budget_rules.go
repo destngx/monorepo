@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -47,6 +48,10 @@ type BudgetLine struct {
 	YearlyRemaining float64      `json:"yearlyRemaining"`
 	// Unbudgeted marks expense spending in a category that has no budget row.
 	Unbudgeted bool `json:"unbudgeted,omitempty"`
+	// BurnOutDate ("YYYY-MM-DD") is the day the limit runs out at the
+	// month's daily burn so far (WM-BUD-7); null when it will not run out
+	// this month, the month is not the current one, or there is no limit.
+	BurnOutDate *string `json:"burnOutDate"`
 }
 
 // BudgetReport is the month overview (WM-BUD-1, WM-BUD-3). Totals cover expense categories only.
@@ -132,6 +137,11 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 	sort.SliceStable(report.Lines, func(i, j int) bool {
 		return report.Lines[i].PercentUsed > report.Lines[j].PercentUsed
 	})
+	if SameMonth(month, today) {
+		for i := range report.Lines {
+			report.Lines[i].BurnOutDate = burnOutDate(report.Lines[i], today)
+		}
+	}
 
 	for _, line := range report.Lines {
 		if line.CategoryType != CategoryTypeExpense {
@@ -162,6 +172,90 @@ func newBudgetLine(category string, categoryType CategoryType, limit float64, ne
 		PercentUsed:  percent,
 		Status:       BudgetStatusFor(percent),
 	}
+}
+
+// burnOutDate projects an expense line's daily burn (spent / days so far,
+// today included) forward; the limit runs out on the day the cumulative
+// spend reaches it. An exhausted limit has run out by today.
+func burnOutDate(line BudgetLine, today time.Time) *string {
+	if line.CategoryType != CategoryTypeExpense || line.Limit <= 0 || line.Spent <= 0 {
+		return nil
+	}
+	day := today
+	if line.Spent < line.Limit {
+		dailyBurn := line.Spent / float64(today.Day())
+		day = today.AddDate(0, 0, int(math.Ceil((line.Limit-line.Spent)/dailyBurn)))
+		if !SameMonth(day, today) {
+			return nil
+		}
+	}
+	value := day.Format(time.DateOnly)
+	return &value
+}
+
+// BudgetHistoryValue is one month of a category in the budget history.
+type BudgetHistoryValue struct {
+	Month string  `json:"month"`
+	Limit float64 `json:"limit"`
+	Spent float64 `json:"spent"`
+}
+
+// BudgetHistoryRow is one expense category across the history months.
+type BudgetHistoryRow struct {
+	Category string               `json:"category"`
+	Values   []BudgetHistoryValue `json:"values"`
+}
+
+// BudgetHistory is the month-by-month comparison ("The Wall", WM-BUD-7).
+type BudgetHistory struct {
+	Months []string           `json:"months"`
+	Rows   []BudgetHistoryRow `json:"rows"`
+}
+
+// BudgetHistoryMonths returns `count` month starts ending at end, oldest first.
+func BudgetHistoryMonths(end time.Time, count int) []time.Time {
+	last := time.Date(end.Year(), end.Month(), 1, 0, 0, 0, 0, time.UTC)
+	months := make([]time.Time, 0, count)
+	for i := count - 1; i >= 0; i-- {
+		months = append(months, last.AddDate(0, -i, 0))
+	}
+	return months
+}
+
+// ComputeBudgetHistory applies the WM-RULE-5 report to each month and keeps
+// expense lines. itemsByYear holds each year's budget tab; a year without one
+// contributes spend but no limits. Rows are ordered by total spend.
+func ComputeBudgetHistory(itemsByYear map[int][]BudgetItem, transactions []Transaction, months []time.Time, today time.Time) BudgetHistory {
+	history := BudgetHistory{Months: make([]string, len(months)), Rows: []BudgetHistoryRow{}}
+	rowIndex := map[string]int{}
+	totals := map[string]float64{}
+	for m, month := range months {
+		history.Months[m] = MonthKey(month)
+		report := ComputeBudgetReport(itemsByYear[month.Year()], transactions, month, today)
+		for _, line := range report.Lines {
+			if line.CategoryType != CategoryTypeExpense {
+				continue
+			}
+			key := normalizeCategory(line.Category)
+			index, ok := rowIndex[key]
+			if !ok {
+				index = len(history.Rows)
+				rowIndex[key] = index
+				values := make([]BudgetHistoryValue, len(months))
+				for i, other := range months {
+					values[i] = BudgetHistoryValue{Month: MonthKey(other)}
+				}
+				history.Rows = append(history.Rows, BudgetHistoryRow{Category: line.Category, Values: values})
+			}
+			history.Rows[index].Values[m].Limit = line.Limit
+			history.Rows[index].Values[m].Spent = line.Spent
+			totals[key] += line.Spent
+		}
+	}
+	sort.SliceStable(history.Rows, func(i, j int) bool {
+		return totals[normalizeCategory(history.Rows[i].Category)] > totals[normalizeCategory(history.Rows[j].Category)]
+	})
+	return history
 }
 
 // daysElapsed counts days of the month that have started: all of a past month,

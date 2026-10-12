@@ -158,6 +158,49 @@ func (input BudgetLimitUpdate) Validate() error {
 	return validationError(problems)
 }
 
+// BudgetReallocation moves Amount of one month's limit from one category to
+// another, keeping the month's total unchanged (WM-BUD-7).
+type BudgetReallocation struct {
+	Year   int     `json:"year"`
+	Month  string  `json:"month"`
+	From   string  `json:"from"`
+	To     string  `json:"to"`
+	Amount float64 `json:"amount"`
+}
+
+// Validate checks the shape of the move; whether From has enough limit is
+// checked against the sheet.
+func (input BudgetReallocation) Validate() error {
+	var problems []string
+	if strings.TrimSpace(input.From) == "" || strings.TrimSpace(input.To) == "" {
+		problems = append(problems, "from and to are required")
+	} else if normalizeCategory(input.From) == normalizeCategory(input.To) {
+		problems = append(problems, "from and to must be different categories")
+	}
+	if input.Amount <= 0 {
+		problems = append(problems, "amount must be positive")
+	}
+	month, err := ParseMonthKey(input.Month)
+	switch {
+	case err != nil:
+		problems = append(problems, "month must be YYYY-MM")
+	case input.Year != 0 && month.Year() != input.Year:
+		problems = append(problems, "month must be in the given year")
+	}
+	return validationError(problems)
+}
+
+// BudgetCategoryLimit is a category's monthly limit after a reallocation.
+type BudgetCategoryLimit struct {
+	Category string  `json:"category"`
+	Limit    float64 `json:"limit"`
+}
+
+type BudgetReallocationResult struct {
+	From BudgetCategoryLimit `json:"from"`
+	To   BudgetCategoryLimit `json:"to"`
+}
+
 const DeletedAccountPrefix = "[DELETED]"
 
 var accountTypes = map[AccountType]bool{

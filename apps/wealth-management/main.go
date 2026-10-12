@@ -61,7 +61,12 @@ func main() {
 
 	// No startup banner: stdout carries the MCP stdio stream. Immutable keeps
 	// request strings valid after a handler returns (they reach caches and logs).
-	app := fiber.New(fiber.Config{DisableStartupMessage: true, Immutable: true, BodyLimit: bodyLimit(captureLimits)})
+	app := fiber.New(fiber.Config{
+		DisableStartupMessage: true,
+		Immutable:             true,
+		BodyLimit:             bodyLimit(captureLimits),
+		ErrorHandler:          fiberAdapter.FiberErrorHandler(log),
+	})
 	app.Use(fiberAdapter.RequestIDMiddleware(log))
 	app.Use(fiberAdapter.LoggingMiddleware(log))
 	app.Use(fiberAdapter.RecoveryMiddleware(log))
@@ -130,18 +135,22 @@ func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.H
 	return client, cacheSvc
 }
 
-// setupSheets returns nil services when the sheet is not configured.
+// setupSheets returns nil services when the sheet is not configured; its
+// routes are still registered and answer 503 SHEETS_NOT_CONFIGURED naming
+// the missing variables (or the client error) so clients can say what to fix.
 func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, cards domain.CardConfig) (port.DatabaseService, port.AnalyticsService) {
 	sheetsConfig, err := configAdapter.LoadSheetsConfig()
 	if err != nil {
 		log.LogError(ctx, "sheet features disabled", err)
 		health.Register(port.HealthCheck{Name: "sheets"})
+		fiberAdapter.RegisterUnconfiguredSheetRoutes(api, err, log)
 		return nil, nil
 	}
 	client, err := dbAdapter.NewSheetsClient(ctx, sheetsConfig, log)
 	if err != nil {
 		log.LogError(ctx, "failed to initialize google sheets client", err)
 		health.Register(port.HealthCheck{Name: "sheets"})
+		fiberAdapter.RegisterUnconfiguredSheetRoutes(api, fmt.Errorf("%w: google sheets client could not be built: %w", configAdapter.ErrMissingSheetsConfig, err), log)
 		return nil, nil
 	}
 	if configAdapter.LoadTestMode() {
@@ -152,7 +161,10 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 		}
 		log.LogApplicationEvent(ctx, "test mode: using a disposable spreadsheet copy")
 	}
-	dbSvc := service.NewDatabaseService(client, cacheSvc, log, service.DatabaseServiceOptions{BudgetSheetTemplate: configAdapter.BudgetSheetTemplate()})
+	dbSvc := service.NewDatabaseService(client, cacheSvc, log, service.DatabaseServiceOptions{
+		BudgetSheetTemplate: configAdapter.BudgetSheetTemplate(),
+		SpreadsheetID:       sheetsConfig.SpreadsheetID,
+	})
 	analyticsSvc := service.NewAnalyticsService(dbSvc, cards, nil)
 	health.Register(port.HealthCheck{Name: "sheets", Probe: func(context.Context) error { return dbSvc.Ping() }})
 	mcpServer.SetDatabaseService(dbSvc)

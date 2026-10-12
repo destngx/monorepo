@@ -39,7 +39,7 @@ func (h *MarketProviderHandler) Health(c *fiber.Ctx) error {
 			slog.String("endpoint", c.Path()),
 			slog.String("provider", provider),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 
 	return c.JSON(health)

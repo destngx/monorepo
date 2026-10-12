@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"math"
 	"regexp"
 	"strconv"
@@ -72,6 +73,21 @@ func EffectiveDate(t Transaction) time.Time {
 		return firstOfMonth(match[1], match[2])
 	}
 	return t.Date
+}
+
+// MarshalJSON adds effectiveDate ("YYYY-MM-DD", null without a date) so
+// every client groups by month the same way the rules do (WM-RULE-4).
+func (t Transaction) MarshalJSON() ([]byte, error) {
+	type plain Transaction
+	var effective *string
+	if !t.Date.IsZero() {
+		value := EffectiveDate(t).Format(time.DateOnly)
+		effective = &value
+	}
+	return json.Marshal(struct {
+		plain
+		EffectiveDate *string `json:"effectiveDate"`
+	}{plain(t), effective})
 }
 
 func firstOfMonth(year string, month string) time.Time {
@@ -172,6 +188,8 @@ type TrendPoint struct {
 
 // BackCalculateSeries rebuilds end-of-day values for the last `days` days by
 // walking backwards from the current value and undoing each day's net flow.
+// It uses booking dates, not WM-RULE-4 effective dates: balances move when
+// the money moves.
 func BackCalculateSeries(current float64, transactions []Transaction, today time.Time, days int) []TrendPoint {
 	if days <= 0 {
 		return []TrendPoint{}
@@ -194,7 +212,9 @@ func BackCalculateSeries(current float64, transactions []Transaction, today time
 	return points
 }
 
-// MonthNetFlow is total deposits minus total payments dated in the month.
+// MonthNetFlow is total deposits minus total payments booked in the month.
+// Like BackCalculateSeries it reconstructs a balance (net worth at the start
+// of the month), so it uses booking dates rather than effective dates.
 func MonthNetFlow(transactions []Transaction, month time.Time) float64 {
 	flow := 0.0
 	for _, t := range transactions {

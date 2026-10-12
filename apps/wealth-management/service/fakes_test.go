@@ -31,11 +31,15 @@ type fakeSheetClient struct {
 	appends  []sheetAppend
 	reads    []string
 	writeErr error
-	created  []string
+	// writeErrFor fails UpdateRow for one range only.
+	writeErrFor map[string]error
+	created     []string
+	title       string
+	titleErr    error
 }
 
 func newFakeSheetClient() *fakeSheetClient {
-	return &fakeSheetClient{ranges: map[string][][]string{}, readErr: map[string]error{}, nextRow: 100}
+	return &fakeSheetClient{ranges: map[string][][]string{}, readErr: map[string]error{}, writeErrFor: map[string]error{}, nextRow: 100}
 }
 
 func (f *fakeSheetClient) ReadSheet(rangeValue string) ([][]string, error) {
@@ -54,6 +58,9 @@ func (f *fakeSheetClient) UpdateRow(rangeValue string, values []any) error {
 	if f.writeErr != nil {
 		return f.writeErr
 	}
+	if err := f.writeErrFor[rangeValue]; err != nil {
+		return err
+	}
 	f.updates = append(f.updates, sheetUpdate{rangeValue: rangeValue, values: values})
 	return nil
 }
@@ -66,6 +73,10 @@ func (f *fakeSheetClient) WriteRowsAtFirstEmptyRow(sheetName string, anchor stri
 	row := f.nextRow
 	f.nextRow += len(rows)
 	return row, nil
+}
+
+func (f *fakeSheetClient) SpreadsheetTitle() (string, error) {
+	return f.title, f.titleErr
 }
 
 func (f *fakeSheetClient) SheetTitles() ([]string, error) {

@@ -28,12 +28,12 @@ func (g WriteGuard) Wrap(handler fiber.Handler) fiber.Handler {
 			if g.loopbackOnly {
 				return handler(c)
 			}
-			return c.Status(http.StatusForbidden).JSON(fiber.Map{"error": "writes are disabled: set API_TOKEN when binding to a non-loopback host"})
+			return writeError(c, http.StatusForbidden, CodeForbidden, "writes are disabled: set API_TOKEN when binding to a non-loopback host")
 		}
 		presented, found := strings.CutPrefix(c.Get(fiber.HeaderAuthorization), "Bearer ")
 		if !found || subtle.ConstantTimeCompare([]byte(strings.TrimSpace(presented)), []byte(g.token)) != 1 {
 			c.Set(fiber.HeaderWWWAuthenticate, "Bearer")
-			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{"error": "missing or invalid API token"})
+			return writeError(c, http.StatusUnauthorized, CodeUnauthorized, "missing or invalid API token")
 		}
 		return handler(c)
 	}

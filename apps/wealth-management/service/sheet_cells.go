@@ -159,13 +159,14 @@ func boolToCheckmark(value bool) string {
 	return ""
 }
 
-// formatTransactionAmount writes Binance amounts (entered in USD) as a
-// formula that converts to VND at the sheet's live USD/VND rate.
-func formatTransactionAmount(amount *float64, accountName string) any {
+// formatTransactionAmount writes amounts of USD and USDT accounts (entered
+// in USD) as a formula that converts to VND at the sheet's live USD/VND rate.
+// The account's currency comes from its column I (WM-TX-9).
+func formatTransactionAmount(amount *float64, accountName string, currency domain.Currency) any {
 	if amount == nil {
 		return ""
 	}
-	if strings.Contains(strings.ToLower(accountName), "binance") {
+	if currency == domain.CurrencyUSD || currency == domain.CurrencyUSDT {
 		return fmt.Sprintf(`=%v * IF(INDIRECT("A" & ROW())="%s"; GOOGLEFINANCE("CURRENCY:USDVND"); 1)`, *amount, accountName)
 	}
 	return *amount

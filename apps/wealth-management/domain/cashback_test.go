@@ -10,7 +10,7 @@ func testCardConfig() CardConfig {
 		Name: "Sacombank", SharedAccount: "Credit Card Sacombank", DefaultCardKeyword: "platinum", SharedMonthlyCap: 600_000,
 		Cards: []CardProgram{
 			{
-				Name: "UNIQ", Bank: "Sacombank", Keyword: "uniq", DefaultLimit: 40_000_000, AnnualFee: 599_000, MonthlyCap: 600_000,
+				Name: "UNIQ", Bank: "Sacombank", Keyword: "uniq", DefaultLimit: 40_000_000, AnnualFee: 599_000, MonthlyCap: 300_000,
 				StatementDay: 5, DueDay: 30,
 				Rules: []CashbackRule{
 					{Name: "Supermarket & Transport", Tag: "uniq supermarket and transport", Rate: 20, CapMonthly: 300_000},
@@ -87,7 +87,8 @@ func TestComputeCardReportsSharedAccount(t *testing.T) {
 		t.Fatalf("unexpected group %+v", group)
 	}
 	uniq, platinum := group.Cards[0], group.Cards[1]
-	if uniq.EstimatedCashback != 305_000 || uniq.SpentThisCycle != 3_000_000 || uniq.TransactionCount != 2 {
+	// 300k + 5k exceeds UNIQ's 300k total cap
+	if uniq.EstimatedCashback != 300_000 || uniq.SpentThisCycle != 3_000_000 || uniq.TransactionCount != 2 {
 		t.Fatalf("unexpected uniq %+v", uniq)
 	}
 	if platinum.EstimatedCashback != 210_000 || platinum.SpentThisCycle != 6_000_000 {
@@ -99,7 +100,7 @@ func TestComputeCardReportsSharedAccount(t *testing.T) {
 	if platinum.RefundYTD != 250_000 || platinum.NetEarnYTD != 250_000-599_000 || uniq.RefundYTD != 0 {
 		t.Fatalf("expected the untagged refund to belong to platinum, got %+v / %+v", platinum.RefundYTD, uniq.RefundYTD)
 	}
-	if group.EstimatedCashback != 515_000 || group.AnnualFees != 1_198_000 {
+	if group.EstimatedCashback != 510_000 || group.AnnualFees != 1_198_000 {
 		t.Fatalf("unexpected group totals %+v", group)
 	}
 	if len(platinum.CycleTransactions) == 0 || !platinum.CycleTransactions[0].Date.Equal(day(2026, 3, 10)) {

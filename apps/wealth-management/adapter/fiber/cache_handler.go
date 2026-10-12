@@ -26,7 +26,7 @@ func (h *CacheHandler) Ping(c *fiber.Ctx) error {
 			slog.String("request_id", c.Get("X-Request-ID")),
 			slog.String("endpoint", c.Path()),
 		)
-		return c.Status(http.StatusServiceUnavailable).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusServiceUnavailable, CodeUnavailable, err.Error())
 	}
 	return c.JSON(fiber.Map{"status": "OK"})
 }

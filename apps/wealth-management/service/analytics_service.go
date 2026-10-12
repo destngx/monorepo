@@ -3,6 +3,7 @@ package service
 import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 const (
 	dashboardHistoryMonths = 12
 	maxHistoryDays         = 366
+	maxBudgetHistoryMonths = 24
 )
 
 type analyticsService struct {
@@ -56,6 +58,47 @@ func (s *analyticsService) BudgetReport(month string, forceFresh bool) (domain.B
 		return domain.BudgetReport{}, err
 	}
 	return domain.ComputeBudgetReport(items, transactions, target, today), nil
+}
+
+// BudgetHistory returns limit and spending per expense category for the
+// `months` months ending at `month` (default: the current month). Each month
+// reads its own year's tab; an earlier year without a tab has no limits,
+// while a missing tab for the target year is NOT_FOUND.
+func (s *analyticsService) BudgetHistory(month string, months int, forceFresh bool) (domain.BudgetHistory, error) {
+	if months < 1 || months > maxBudgetHistoryMonths {
+		return domain.BudgetHistory{}, fmt.Errorf("%w: months must be between 1 and %d", domain.ErrValidation, maxBudgetHistoryMonths)
+	}
+	today := s.today()
+	end := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
+	if month != "" {
+		parsed, err := domain.ParseMonthKey(month)
+		if err != nil {
+			return domain.BudgetHistory{}, fmt.Errorf("%w: month must be YYYY-MM", domain.ErrValidation)
+		}
+		end = parsed
+	}
+	window := domain.BudgetHistoryMonths(end, months)
+	itemsByYear := map[int][]domain.BudgetItem{}
+	for _, monthStart := range window {
+		year := monthStart.Year()
+		if _, seen := itemsByYear[year]; seen {
+			continue
+		}
+		items, err := s.db.ListBudget(year, forceFresh)
+		if err != nil {
+			if year != end.Year() && errors.Is(err, domain.ErrNotFound) {
+				itemsByYear[year] = nil
+				continue
+			}
+			return domain.BudgetHistory{}, err
+		}
+		itemsByYear[year] = items
+	}
+	transactions, err := s.db.ListTransactions(forceFresh)
+	if err != nil {
+		return domain.BudgetHistory{}, err
+	}
+	return domain.ComputeBudgetHistory(itemsByYear, transactions, window, today), nil
 }
 
 func (s *analyticsService) CardReports(forceFresh bool) ([]domain.CardBankReport, error) {

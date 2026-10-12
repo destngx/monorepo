@@ -20,6 +20,9 @@ type DatabaseService interface {
 	// ListBudget reads the budget tab of a year; 0 means the current year.
 	ListBudget(year int, forceFresh bool) ([]domain.BudgetItem, error)
 	UpdateBudgetLimit(input domain.BudgetLimitUpdate) error
+	// ReallocateBudget moves part of a month's limit between categories,
+	// re-reading the sheet first (WM-BUD-7).
+	ReallocateBudget(input domain.BudgetReallocation) (domain.BudgetReallocationResult, error)
 	ListGoals(forceFresh bool) ([]domain.Goal, error)
 	ListLoans(forceFresh bool) ([]domain.Loan, error)
 	ListTags(forceFresh bool) ([]string, error)
@@ -33,6 +36,9 @@ type DatabaseService interface {
 	// SaveCaptureRules upserts rules, creating the tab on first use.
 	SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureRulesSaveResult, error)
 	SyncCache() (domain.SyncResult, error)
+	// SheetInfo returns the spreadsheet id and title and the time of the
+	// last successful SyncCache (WM-SET-2).
+	SheetInfo() (domain.SheetInfo, error)
 	// Ping checks the spreadsheet is reachable.
 	Ping() error
 }
@@ -44,6 +50,8 @@ type DatabaseClient interface {
 	// and returns the first sheet row written.
 	WriteRowsAtFirstEmptyRow(sheetName string, anchorRange string, rows [][]any) (int, error)
 	SheetTitles() ([]string, error)
+	// SpreadsheetTitle is the document title, not a tab name.
+	SpreadsheetTitle() (string, error)
 	// CreateSheet adds a tab with a header row.
 	CreateSheet(title string, header []any) error
 }

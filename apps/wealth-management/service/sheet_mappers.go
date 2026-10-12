@@ -99,8 +99,9 @@ func parseTransactionID(id string) (int, error) {
 	return row, nil
 }
 
-// transactionRowValues renders columns A-J in the sheet's write format.
-func transactionRowValues(input domain.TransactionCreateInput) ([]any, error) {
+// transactionRowValues renders columns A-J in the sheet's write format;
+// currency is the account's, which decides USD conversion.
+func transactionRowValues(input domain.TransactionCreateInput, currency domain.Currency) ([]any, error) {
 	date, err := domain.ParseSheetDate(input.Date)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrValidation, err)
@@ -114,8 +115,8 @@ func transactionRowValues(input domain.TransactionCreateInput) ([]any, error) {
 		nilToString(input.Memo),
 		strings.TrimSpace(input.Category),
 		boolToCheckmark(input.Cleared),
-		formatTransactionAmount(input.Payment, input.AccountName),
-		formatTransactionAmount(input.Deposit, input.AccountName),
+		formatTransactionAmount(input.Payment, input.AccountName, currency),
+		formatTransactionAmount(input.Deposit, input.AccountName, currency),
 	}, nil
 }
 

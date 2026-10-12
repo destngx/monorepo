@@ -143,3 +143,23 @@ func TestGivenForwardedProtoWhenOpenAPISpecRequestedThenUsesForwardedScheme(t *t
 		t.Fatalf("expected forwarded proto aware server url, got body=%s", string(body))
 	}
 }
+
+func TestGivenAnyRouteWhenBuildingTheSpecThenErrorsReferenceTheEnvelopeSchema(t *testing.T) {
+	app := fiber.New()
+	NewRouteRegistrar(app, "/api", "").Get("/accounts", func(c *fiber.Ctx) error { return nil }, RouteMeta{Summary: "accounts"})
+
+	spec := buildOpenAPISpec(app, "http://example.com")
+
+	schema := spec["components"].(map[string]any)["schemas"].(map[string]any)["Error"].(map[string]any)
+	code := schema["properties"].(map[string]any)["code"].(map[string]any)
+	if codes, ok := code["enum"].([]string); !ok || len(codes) != len(ErrorCodes) {
+		t.Fatalf("error schema = %+v", schema)
+	}
+	responses := spec["paths"].(map[string]any)["/api/accounts"].(map[string]any)["get"].(map[string]any)["responses"].(map[string]any)
+	for _, status := range []string{"default", "503"} {
+		content := responses[status].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)
+		if content["schema"].(map[string]any)["$ref"] != "#/components/schemas/Error" {
+			t.Fatalf("%s response = %+v", status, responses[status])
+		}
+	}
+}

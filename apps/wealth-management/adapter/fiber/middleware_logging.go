@@ -75,7 +75,7 @@ func RecoveryMiddleware(log *logger.Logger) fiberLib.Handler {
 					slog.String("path", c.Path()),
 				)
 				c.Status(http.StatusInternalServerError)
-				_ = c.JSON(fiberLib.Map{"error": "internal server error"})
+				_ = c.JSON(ErrorBody{Error: "internal server error", Code: CodeInternal})
 			}
 		}()
 		return c.Next()

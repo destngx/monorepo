@@ -40,7 +40,11 @@ func (s *dbService) CreateTransaction(input domain.TransactionCreateInput) (doma
 	if err := input.Validate(); err != nil {
 		return domain.TransactionWriteResult{}, err
 	}
-	values, err := transactionRowValues(input)
+	currencies, err := s.accountCurrencies()
+	if err != nil {
+		return domain.TransactionWriteResult{}, err
+	}
+	values, err := transactionRowValues(input, currencies.of(input.AccountName))
 	if err != nil {
 		return domain.TransactionWriteResult{}, err
 	}
@@ -59,6 +63,10 @@ func (s *dbService) CreateTransactions(input domain.TransactionBatchInput) (doma
 	if err := input.Validate(); err != nil {
 		return domain.TransactionBatchResult{}, err
 	}
+	currencies, err := s.accountCurrencies()
+	if err != nil {
+		return domain.TransactionBatchResult{}, err
+	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 	if previous, ok := s.batchReplay(input.BatchID); ok {
@@ -71,7 +79,7 @@ func (s *dbService) CreateTransactions(input domain.TransactionBatchInput) (doma
 	var written []int
 	for i, entry := range input.Transactions {
 		result.Rows[i].Index = i
-		rowValues, err := validTransactionRow(entry)
+		rowValues, err := validTransactionRow(entry, currencies.of(entry.AccountName))
 		if err != nil {
 			result.Rows[i].Error = err.Error()
 			result.Failed++
@@ -95,11 +103,35 @@ func (s *dbService) CreateTransactions(input domain.TransactionBatchInput) (doma
 	return result, nil
 }
 
-func validTransactionRow(input domain.TransactionCreateInput) ([]any, error) {
+func validTransactionRow(input domain.TransactionCreateInput, currency domain.Currency) ([]any, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
-	return transactionRowValues(input)
+	return transactionRowValues(input, currency)
+}
+
+// accountCurrencyIndex maps trimmed account names to their currency.
+type accountCurrencyIndex map[string]domain.Currency
+
+// of returns the account's currency; an unknown account is written as
+// entered, in VND.
+func (index accountCurrencyIndex) of(accountName string) domain.Currency {
+	if currency, ok := index[strings.TrimSpace(accountName)]; ok {
+		return currency
+	}
+	return domain.CurrencyVND
+}
+
+func (s *dbService) accountCurrencies() (accountCurrencyIndex, error) {
+	accounts, err := s.ListAccounts(false)
+	if err != nil {
+		return nil, fmt.Errorf("read account currencies: %w", err)
+	}
+	index := make(accountCurrencyIndex, len(accounts))
+	for _, account := range accounts {
+		index[strings.TrimSpace(account.Name)] = account.Currency
+	}
+	return index, nil
 }
 
 // UpdateTransaction replaces columns A-J when the row still matches the ETag
@@ -108,7 +140,11 @@ func (s *dbService) UpdateTransaction(id string, input domain.TransactionUpdateI
 	if err := input.Validate(); err != nil {
 		return domain.TransactionWriteResult{}, err
 	}
-	values, err := transactionRowValues(input.TransactionCreateInput)
+	currencies, err := s.accountCurrencies()
+	if err != nil {
+		return domain.TransactionWriteResult{}, err
+	}
+	values, err := transactionRowValues(input.TransactionCreateInput, currencies.of(input.AccountName))
 	if err != nil {
 		return domain.TransactionWriteResult{}, err
 	}

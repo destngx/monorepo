@@ -1,5 +1,11 @@
 package fiber
 
+import (
+	"apps/wealth-management/adapter/logger"
+
+	"github.com/gofiber/fiber/v2"
+)
+
 // Route registration for sheet-backed data and analytics. Every write goes
 // through the WriteGuard (WM-SEC-1).
 
@@ -42,7 +48,7 @@ func transactionProperties() map[string]any {
 
 func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuard) {
 	accounts := api.Group("/accounts", "accounts")
-	accounts.Get("/", h.GetAccounts, RouteMeta{Summary: "Lists live accounts (soft-deleted rows excluded) with type, balance and currency.", QueryParams: []RouteParameter{forceParam()}})
+	accounts.Get("/", h.GetAccounts, RouteMeta{Summary: "Lists live accounts (soft-deleted rows excluded) with type, balance and currency. Balances are derived from transactions only.", QueryParams: []RouteParameter{forceParam()}})
 	accounts.Post("/", guard.Wrap(h.CreateAccount), RouteMeta{
 		Summary:     "Creates an account row. Currency defaults to USDT for Binance accounts, else VND, and is stored in column I.",
 		RequestBody: jsonBody(map[string]any{"name": schemaString, "type": schemaString, "balance": schemaNumber, "currency": schemaString, "note": schemaString}, "name", "type"),
@@ -58,9 +64,9 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 	})
 
 	transactions := api.Group("/transactions", "transactions")
-	transactions.Get("/", h.GetTransactions, RouteMeta{Summary: "Lists transactions newest first with categoryType, etag and data issues.", QueryParams: []RouteParameter{forceParam()}})
+	transactions.Get("/", h.GetTransactions, RouteMeta{Summary: "Lists transactions newest first with categoryType, etag, data issues and effectiveDate (yyyy-mm-dd used for budgets and cash flow: a refund deposit counts in the month named in its memo, any other transaction on its own date; null without a date).", QueryParams: []RouteParameter{forceParam()}})
 	transactions.Post("/", guard.Wrap(h.CreateTransaction), RouteMeta{
-		Summary:     "Appends a transaction and returns its id. Requires accountName, date, payee, category and payment or deposit.",
+		Summary:     "Appends a transaction and returns its id. Requires accountName, date, payee, category and payment or deposit. Amounts of USD and USDT accounts (by currency column) are entered in USD and converted to VND by a sheet formula.",
 		RequestBody: jsonBody(transactionProperties(), "accountName", "date", "payee", "category"),
 	})
 	transactions.Post("/batch", guard.Wrap(h.CreateTransactionBatch), RouteMeta{
@@ -89,6 +95,10 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 		Summary:     "Sets a category's monthly limit (month = YYYY-MM) or, without month, its yearly limit.",
 		RequestBody: jsonBody(map[string]any{"year": map[string]any{"type": "integer"}, "category": schemaString, "month": schemaString, "limit": schemaNumber}, "category", "limit"),
 	})
+	budget.Post("/reallocate", guard.Wrap(h.ReallocateBudget), RouteMeta{
+		Summary:     "Moves amount of a month's limit from one category to another after re-reading the sheet; returns both new limits as {from:{category,limit},to:{category,limit}}. 400 when amount <= 0, the categories are the same or from has less limit than amount.",
+		RequestBody: jsonBody(map[string]any{"year": map[string]any{"type": "integer"}, "month": map[string]any{"type": "string", "description": "YYYY-MM"}, "from": schemaString, "to": schemaString, "amount": schemaNumber}, "month", "from", "to", "amount"),
+	})
 
 	api.Group("/categories", "categories").Get("/", h.GetCategories, RouteMeta{Summary: "Lists income, expense and non-budget categories.", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/goals", "goals").Get("/", h.GetGoals, RouteMeta{Summary: "Lists savings goals with progress and status.", QueryParams: []RouteParameter{forceParam()}})
@@ -105,15 +115,28 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 			"value":   map[string]any{"type": "string", "description": "Account name (alias) or category (payee)."},
 		}}}}, "rules"),
 	})
-	api.Group("/sync", "sync").Post("/", guard.Wrap(h.Sync), RouteMeta{Summary: "Invalidates every sheet-derived cache key so the next reads come from the sheet."})
+	api.Group("/sync", "sync").Post("/", guard.Wrap(h.Sync), RouteMeta{Summary: "Invalidates every sheet-derived cache key so the next reads come from the sheet, and records lastSyncAt."})
+	api.Group("/sheets", "sheets").Get("/info", h.GetSheetInfo, RouteMeta{Summary: "Returns {spreadsheetId, title, lastSyncAt}; lastSyncAt is the RFC3339 time of the last successful sync, null before the first."})
 	api.Group("/init", "init").Get("/", h.Init, RouteMeta{Summary: "Warms AI prompts and knowledge from the sheet and returns row counts.", QueryParams: []RouteParameter{forceParam()}})
 }
 
 func RegisterAnalyticsRoutes(api RouteRegistrar, h *AnalyticsHandler) {
 	analytics := api.Group("/analytics", "analytics")
 	analytics.Get("/dashboard", h.GetDashboard, RouteMeta{Summary: "Dashboard summary: balance sheet, month-over-month change, 30-day net worth trend, cash flow history and top accounts.", QueryParams: []RouteParameter{forceParam()}})
-	analytics.Get("/budget", h.GetBudgetReport, RouteMeta{Summary: "Budget actuals for a month: spent, remaining and status per category, with burn rate.", QueryParams: []RouteParameter{forceParam(), QueryParam("month", "string", "YYYY-MM; defaults to the current month.")}})
+	analytics.Get("/budget", h.GetBudgetReport, RouteMeta{Summary: "Budget actuals for a month: spent, remaining and status per category, with burn rate and, for the current month, burnOutDate (yyyy-mm-dd the limit runs out at the current pace; null when it will not this month).", QueryParams: []RouteParameter{forceParam(), QueryParam("month", "string", "YYYY-MM; defaults to the current month.")}})
+	analytics.Get("/budget/history", h.GetBudgetHistory, RouteMeta{Summary: "Limit and spending per expense category for the months ending at month, oldest first: {months:[YYYY-MM], rows:[{category, values:[{month, limit, spent}]}]}.", QueryParams: []RouteParameter{forceParam(), QueryParam("month", "string", "Last month, YYYY-MM; defaults to the current month."), QueryParam("months", "integer", "Number of months, 1-24.", defaultBudgetHistory)}})
 	analytics.Get("/cards", h.GetCards, RouteMeta{Summary: "Credit card cashback, cycle, utilisation and 36-month history grouped by bank and account.", QueryParams: []RouteParameter{forceParam()}})
-	analytics.Get("/health", h.GetFinancialHealth, RouteMeta{Summary: "Financial health score with per-pillar formulas and recommendations.", QueryParams: []RouteParameter{forceParam()}})
+	analytics.Get("/health", h.GetFinancialHealth, RouteMeta{Summary: "Financial health score with per-pillar formulas and recommendations. Debt-to-income is monthly debt payments / average monthly income (reference 35%). projection gives net worth in 5, 10 and 20 years, nominal and inflation-adjusted (real).", QueryParams: []RouteParameter{forceParam()}})
 	analytics.Get("/account-histories", h.GetAccountHistories, RouteMeta{Summary: "Back-calculated daily balances per account.", QueryParams: []RouteParameter{forceParam(), QueryParam("days", "integer", "Number of days, 1-366.", defaultHistoryDays)}})
+}
+
+// RegisterUnconfiguredSheetRoutes registers the sheet and analytics routes
+// when the Google Sheet cannot be used, each answering with cause (503
+// SHEETS_NOT_CONFIGURED naming the missing variables when config is absent).
+func RegisterUnconfiguredSheetRoutes(api RouteRegistrar, cause error, log *logger.Logger) {
+	unavailable := api.Answering(func(c *fiber.Ctx) error {
+		return respondError(c, log, "sheets", cause)
+	})
+	RegisterSheetRoutes(unavailable, NewDatabaseHandler(nil, log), WriteGuard{})
+	RegisterAnalyticsRoutes(unavailable, NewAnalyticsHandler(nil, log))
 }

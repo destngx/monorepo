@@ -25,10 +25,10 @@ func NewFmarketHandler(service port.FmarketService, market port.MarketProviderSe
 func (h *FmarketHandler) Action(c *fiber.Ctx) error {
 	var body domain.FmarketRequest
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return badRequest(c, "invalid request body")
 	}
 	if strings.TrimSpace(string(body.Action)) == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "action is required"})
+		return badRequest(c, "action is required")
 	}
 	result, err := h.service.RunAction(context.Background(), body, strings.EqualFold(c.Query("force"), "true"))
 	if err != nil {
@@ -38,14 +38,14 @@ func (h *FmarketHandler) Action(c *fiber.Ctx) error {
 			slog.String("endpoint", c.Path()),
 			slog.String("action", string(body.Action)),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 	return c.JSON(result)
 }
 
 func (h *FmarketHandler) Health(c *fiber.Ctx) error {
 	if h.market == nil {
-		return c.Status(http.StatusServiceUnavailable).JSON(fiber.Map{"error": "market service unavailable"})
+		return writeError(c, http.StatusServiceUnavailable, CodeUnavailable, "market service unavailable")
 	}
 	health, err := h.market.Health(context.Background(), "fmarket")
 	if err != nil {
@@ -54,19 +54,19 @@ func (h *FmarketHandler) Health(c *fiber.Ctx) error {
 			slog.String("request_id", requestID),
 			slog.String("endpoint", c.Path()),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 	return c.JSON(health)
 }
 
 func (h *FmarketHandler) GetTicker(c *fiber.Ctx) error {
 	if h.market == nil {
-		return c.Status(http.StatusServiceUnavailable).JSON(fiber.Map{"error": "market service unavailable"})
+		return writeError(c, http.StatusServiceUnavailable, CodeUnavailable, "market service unavailable")
 	}
 	symbol := strings.TrimSpace(c.Query("symbol"))
 	tickerType := domain.TickerType(strings.ToLower(strings.TrimSpace(c.Query("type"))))
 	if symbol == "" || tickerType == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "symbol and type are required"})
+		return badRequest(c, "symbol and type are required")
 	}
 	ctx := withBypassCache(c)
 	ticker, err := h.market.GetTicker(ctx, symbol, tickerType)
@@ -77,19 +77,19 @@ func (h *FmarketHandler) GetTicker(c *fiber.Ctx) error {
 			slog.String("endpoint", c.Path()),
 			slog.String("symbol", symbol),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 	return c.JSON(ticker)
 }
 
 func (h *FmarketHandler) GetExchangeRate(c *fiber.Ctx) error {
 	if h.market == nil {
-		return c.Status(http.StatusServiceUnavailable).JSON(fiber.Map{"error": "market service unavailable"})
+		return writeError(c, http.StatusServiceUnavailable, CodeUnavailable, "market service unavailable")
 	}
 	from := strings.TrimSpace(c.Query("from"))
 	to := strings.TrimSpace(c.Query("to"))
 	if from == "" || to == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "from and to are required"})
+		return badRequest(c, "from and to are required")
 	}
 	rate, err := h.market.GetExchangeRate(withBypassCache(c), from, to)
 	if err != nil {
@@ -100,19 +100,19 @@ func (h *FmarketHandler) GetExchangeRate(c *fiber.Ctx) error {
 			slog.String("from", from),
 			slog.String("to", to),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 	return c.JSON(rate)
 }
 
 func (h *FmarketHandler) GetPriceSeries(c *fiber.Ctx) error {
 	if h.market == nil {
-		return c.Status(http.StatusServiceUnavailable).JSON(fiber.Map{"error": "market service unavailable"})
+		return writeError(c, http.StatusServiceUnavailable, CodeUnavailable, "market service unavailable")
 	}
 	symbol := strings.TrimSpace(c.Query("symbol"))
 	seriesType := domain.SeriesType(strings.ToLower(strings.TrimSpace(c.Query("type"))))
 	if symbol == "" || seriesType == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "symbol and type are required"})
+		return badRequest(c, "symbol and type are required")
 	}
 	series, err := h.market.GetPriceSeries(withBypassCache(c), symbol, seriesType)
 	if err != nil {
@@ -122,14 +122,14 @@ func (h *FmarketHandler) GetPriceSeries(c *fiber.Ctx) error {
 			slog.String("endpoint", c.Path()),
 			slog.String("symbol", symbol),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 	return c.JSON(series)
 }
 
 func (h *FmarketHandler) GetBankRates(c *fiber.Ctx) error {
 	if h.market == nil {
-		return c.Status(http.StatusServiceUnavailable).JSON(fiber.Map{"error": "market service unavailable"})
+		return writeError(c, http.StatusServiceUnavailable, CodeUnavailable, "market service unavailable")
 	}
 	rates, err := h.market.GetBankInterestRate(withBypassCache(c))
 	if err != nil {
@@ -138,7 +138,7 @@ func (h *FmarketHandler) GetBankRates(c *fiber.Ctx) error {
 			slog.String("request_id", requestID),
 			slog.String("endpoint", c.Path()),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 	return c.JSON(rates)
 }

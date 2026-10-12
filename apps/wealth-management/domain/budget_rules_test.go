@@ -78,3 +78,96 @@ func TestBudgetReportDaysForPastAndFutureMonths(t *testing.T) {
 		t.Fatalf("future month: %+v", future)
 	}
 }
+
+func budgetHistoryFixture() ([]BudgetItem, []Transaction) {
+	items := []BudgetItem{
+		{Category: "Food", CategoryType: categoryType(CategoryTypeExpense), MonthlyLimit: 4_000_000, MonthlyLimits: map[string]float64{"2026-03": 5_000_000}},
+		{Category: "Fun", CategoryType: categoryType(CategoryTypeExpense), MonthlyLimit: 1_000_000},
+		{Category: "Rent", CategoryType: categoryType(CategoryTypeExpense), MonthlyLimit: 10_000_000},
+		{Category: "Salary", CategoryType: categoryType(CategoryTypeIncome), MonthlyLimit: 30_000_000},
+	}
+	transactions := []Transaction{
+		txn(day(2026, 2, 4), "Food", CategoryTypeExpense, 1_000_000, 0),
+		txn(day(2026, 3, 2), "Food", CategoryTypeExpense, 2_500_000, 0),
+		txn(day(2026, 3, 5), "Gifts", CategoryTypeExpense, 700_000, 0),
+		txn(day(2026, 3, 9), "Rent", CategoryTypeExpense, 12_000_000, 0),
+		txn(day(2026, 3, 5), "Salary", CategoryTypeIncome, 0, 20_000_000),
+	}
+	return items, transactions
+}
+
+func TestGivenCurrentMonthBurnWhenComputingBudgetThenBurnOutDateIsWhenTheLimitRunsOut(t *testing.T) {
+	items, transactions := budgetHistoryFixture()
+	items = append(items, BudgetItem{Category: "Travel", CategoryType: categoryType(CategoryTypeExpense), MonthlyLimit: 100_000_000})
+	transactions = append(transactions, txn(day(2026, 3, 1), "Travel", CategoryTypeExpense, 1_000_000, 0))
+	report := ComputeBudgetReport(items, transactions, day(2026, 3, 1), day(2026, 3, 10))
+
+	burnOut := map[string]*string{}
+	for _, line := range report.Lines {
+		burnOut[line.Category] = line.BurnOutDate
+	}
+	// Food: 2.5M over 10 days = 250k/day; the 2.5M left lasts 10 more days.
+	if got := burnOut["Food"]; got == nil || *got != "2026-03-20" {
+		t.Fatalf("food burn-out = %v", got)
+	}
+	// Rent is already over its limit, so it ran out by today.
+	if got := burnOut["Rent"]; got == nil || *got != "2026-03-10" {
+		t.Fatalf("rent burn-out = %v", got)
+	}
+	for _, category := range []string{"Fun", "Gifts", "Travel", "Salary"} {
+		if got := burnOut[category]; got != nil {
+			t.Fatalf("%s burn-out = %s, want null (no spend, no limit, after month end or income)", category, *got)
+		}
+	}
+}
+
+func TestGivenPastMonthWhenComputingBudgetThenBurnOutDateIsNull(t *testing.T) {
+	items, transactions := budgetHistoryFixture()
+	report := ComputeBudgetReport(items, transactions, day(2026, 3, 1), day(2026, 4, 2))
+	for _, line := range report.Lines {
+		if line.BurnOutDate != nil {
+			t.Fatalf("%s burn-out = %s in a closed month", line.Category, *line.BurnOutDate)
+		}
+	}
+}
+
+func TestGivenSeveralMonthsWhenComputingBudgetHistoryThenRowsHoldLimitAndSpentPerMonth(t *testing.T) {
+	items, transactions := budgetHistoryFixture()
+	months := BudgetHistoryMonths(day(2026, 3, 1), 2)
+	history := ComputeBudgetHistory(map[int][]BudgetItem{2026: items}, transactions, months, day(2026, 3, 10))
+
+	if len(history.Months) != 2 || history.Months[0] != "2026-02" || history.Months[1] != "2026-03" {
+		t.Fatalf("months = %v", history.Months)
+	}
+	order := []string{}
+	rows := map[string]BudgetHistoryRow{}
+	for _, row := range history.Rows {
+		order = append(order, row.Category)
+		rows[row.Category] = row
+	}
+	if len(order) != 4 || order[0] != "Rent" || order[1] != "Food" || order[2] != "Gifts" || order[3] != "Fun" {
+		t.Fatalf("rows ordered by total spent, got %v", order)
+	}
+	food := rows["Food"].Values
+	if len(food) != 2 || food[0] != (BudgetHistoryValue{Month: "2026-02", Limit: 4_000_000, Spent: 1_000_000}) ||
+		food[1] != (BudgetHistoryValue{Month: "2026-03", Limit: 5_000_000, Spent: 2_500_000}) {
+		t.Fatalf("food = %+v", food)
+	}
+	if gifts := rows["Gifts"].Values; gifts[0] != (BudgetHistoryValue{Month: "2026-02"}) || gifts[1].Spent != 700_000 || gifts[1].Limit != 0 {
+		t.Fatalf("unbudgeted gifts = %+v", gifts)
+	}
+}
+
+func TestGivenMissingYearWhenComputingBudgetHistoryThenThatYearHasNoLimits(t *testing.T) {
+	items, transactions := budgetHistoryFixture()
+	transactions = append(transactions, txn(day(2025, 12, 3), "Food", CategoryTypeExpense, 300_000, 0))
+	history := ComputeBudgetHistory(map[int][]BudgetItem{2026: items}, transactions, BudgetHistoryMonths(day(2026, 1, 1), 2), day(2026, 3, 10))
+	if history.Months[0] != "2025-12" {
+		t.Fatalf("months = %v", history.Months)
+	}
+	for _, row := range history.Rows {
+		if row.Category == "Food" && row.Values[0] != (BudgetHistoryValue{Month: "2025-12", Spent: 300_000}) {
+			t.Fatalf("food december = %+v", row.Values[0])
+		}
+	}
+}

@@ -26,7 +26,7 @@ func (h *MarketHandler) GetTicker(c *fiber.Ctx) error {
 	symbol := strings.TrimSpace(c.Query("symbol"))
 	tickerType := domain.TickerType(strings.ToLower(strings.TrimSpace(c.Query("type"))))
 	if symbol == "" || tickerType == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "symbol and type are required"})
+		return badRequest(c, "symbol and type are required")
 	}
 	ctx := withBypassCache(c)
 
@@ -41,7 +41,7 @@ func (h *MarketHandler) GetTicker(c *fiber.Ctx) error {
 			slog.String("endpoint", c.Path()),
 			slog.String("symbol", symbol),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 
 	return c.JSON(ticker)
@@ -51,7 +51,7 @@ func (h *MarketHandler) GetExchangeRate(c *fiber.Ctx) error {
 	from := strings.TrimSpace(c.Query("from"))
 	to := strings.TrimSpace(c.Query("to"))
 	if from == "" || to == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "from and to are required"})
+		return badRequest(c, "from and to are required")
 	}
 	ctx := withBypassCache(c)
 
@@ -64,7 +64,7 @@ func (h *MarketHandler) GetExchangeRate(c *fiber.Ctx) error {
 			slog.String("from", from),
 			slog.String("to", to),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 
 	return c.JSON(rate)
@@ -74,7 +74,7 @@ func (h *MarketHandler) GetPriceSeries(c *fiber.Ctx) error {
 	symbol := strings.TrimSpace(c.Query("symbol"))
 	seriesType := domain.SeriesType(strings.ToLower(strings.TrimSpace(c.Query("type"))))
 	if symbol == "" || seriesType == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "symbol and type are required"})
+		return badRequest(c, "symbol and type are required")
 	}
 	ctx := withBypassCache(c)
 
@@ -86,7 +86,7 @@ func (h *MarketHandler) GetPriceSeries(c *fiber.Ctx) error {
 			slog.String("endpoint", c.Path()),
 			slog.String("symbol", symbol),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 
 	return c.JSON(series)
@@ -101,7 +101,7 @@ func (h *MarketHandler) GetBankInterestRate(c *fiber.Ctx) error {
 			slog.String("request_id", requestID),
 			slog.String("endpoint", c.Path()),
 		)
-		return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
 	}
 
 	return c.JSON(rates)
@@ -131,19 +131,6 @@ func (h *MarketHandler) GetCandles(c *fiber.Ctx) error {
 
 func (h *MarketHandler) providerError(c *fiber.Ctx, scope string, err error) error {
 	return upstreamError(c, h.log, "market_handler: "+scope, err)
-}
-
-// upstreamError answers 400 for invalid input and 502 when every provider in
-// the chain failed.
-func upstreamError(c *fiber.Ctx, log *logger.Logger, scope string, err error) error {
-	if errors.Is(err, domain.ErrValidation) {
-		return badRequest(c, err.Error())
-	}
-	log.LogError(c.UserContext(), scope+" failed", err,
-		slog.String("request_id", c.Get("X-Request-ID")),
-		slog.String("endpoint", c.Path()),
-	)
-	return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
 }
 
 func withBypassCache(c *fiber.Ctx) context.Context {

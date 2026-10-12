@@ -9,7 +9,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-const defaultHistoryDays = 60
+const (
+	defaultHistoryDays   = 60
+	defaultBudgetHistory = 6
+)
 
 type AnalyticsHandler struct {
 	analytics port.AnalyticsService
@@ -30,6 +33,18 @@ func (h *AnalyticsHandler) GetDashboard(c *fiber.Ctx) error {
 
 func (h *AnalyticsHandler) GetBudgetReport(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.BudgetReport(strings.TrimSpace(c.Query("month")), forceFresh(c)))
+}
+
+func (h *AnalyticsHandler) GetBudgetHistory(c *fiber.Ctx) error {
+	months := defaultBudgetHistory
+	if raw := strings.TrimSpace(c.Query("months")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return badRequest(c, "months must be a number")
+		}
+		months = parsed
+	}
+	return h.respond(c)(h.analytics.BudgetHistory(strings.TrimSpace(c.Query("month")), months, forceFresh(c)))
 }
 
 func (h *AnalyticsHandler) GetCards(c *fiber.Ctx) error {
