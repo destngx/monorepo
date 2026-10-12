@@ -1,43 +1,25 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
+  import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import BudgetAdvisor from '$lib/ai/BudgetAdvisor.svelte';
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { api } from '$lib/api/endpoints';
-  import type { BudgetLine, BudgetStatus } from '$lib/api/types';
+  import type { BudgetLine } from '$lib/api/types';
+  import BudgetOverview from '$lib/budget/BudgetOverview.svelte';
   import BudgetWall from '$lib/budget/BudgetWall.svelte';
-  import { categoryTransactions, dailySpend, detailEnd } from '$lib/budget/detail';
-  import { reallocationPreview, reallocationProblems, type ReallocationDraft } from '$lib/budget/reallocate';
-  import BarChart from '$lib/charts/BarChart.svelte';
-  import Donut from '$lib/charts/Donut.svelte';
-  import { EXPENSE } from '$lib/charts/palette';
-  import Badge from '$lib/components/Badge.svelte';
+  import CategoryDetailModal from '$lib/budget/CategoryDetailModal.svelte';
+  import ExpenseCategoriesCard from '$lib/budget/ExpenseCategoriesCard.svelte';
+  import LimitModal from '$lib/budget/LimitModal.svelte';
+  import ReallocateModal from '$lib/budget/ReallocateModal.svelte';
+  import type { ReallocationDraft } from '$lib/budget/reallocate';
   import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import ProgressBar from '$lib/components/ProgressBar.svelte';
-  import Stat from '$lib/components/Stat.svelte';
-  import { currentMonth, formatDate, formatMonth, formatPercent, shiftMonth, todayISO } from '$lib/format';
-  import { toasts } from '$lib/state/toasts.svelte';
+  import { currentMonth, formatMonth, shiftMonth } from '$lib/format';
 
   let { data } = $props();
   const report = $derived(data.report);
-
-  // WM-BUD-3 status colours and labels.
-  const statusTone: Record<BudgetStatus, 'green' | 'amber' | 'red'> = {
-    healthy: 'green',
-    warning: 'amber',
-    urgent: 'red',
-  };
-  const statusLabel: Record<BudgetStatus, string> = { healthy: 'Healthy', warning: 'Warning', urgent: 'Urgent' };
-  const statusBar: Record<BudgetStatus, string> = {
-    healthy: 'bg-emerald-500',
-    warning: 'bg-amber-400',
-    urgent: 'bg-rose-500',
-  };
 
   const expenseLines = $derived(
     report.lines.filter((line) => line.categoryType === 'expense').sort((a, b) => b.percentUsed - a.percentUsed),
@@ -53,17 +35,10 @@
 
   // Category detail (WM-BUD-4).
   let selected = $state<BudgetLine | null>(null);
-  const detailRows = $derived(selected ? categoryTransactions(data.transactions, selected.category, data.month) : []);
-  const detailDays = $derived(
-    selected ? dailySpend(data.transactions, selected.category, detailEnd(data.month, todayISO())) : [],
-  );
-
   // Limit editing (WM-BUD-6).
   let editing = $state<BudgetLine | null>(null);
   let limitScope = $state<'month' | 'year'>('month');
   let limitValue = $state<number | null>(null);
-  let saving = $state(false);
-
   function openEditor(line: BudgetLine) {
     editing = line;
     limitScope = 'month';
@@ -74,61 +49,13 @@
   let reallocating = $state(false);
   let draft = $state<ReallocationDraft>({ from: '', to: '', amount: null });
   let draftTouched = $state(false);
-  let moving = $state(false);
   // Only a category with a limit can give; any expense category can receive.
   const givers = $derived(expenseLines.filter((line) => line.limit > 0));
-  const draftProblems = $derived(reallocationProblems(expenseLines, draft));
-  const draftPreview = $derived(reallocationPreview(expenseLines, draft));
 
   function openReallocate(from = '') {
     draft = { from, to: '', amount: null };
     draftTouched = false;
     reallocating = true;
-  }
-
-  async function reallocate(event: SubmitEvent) {
-    event.preventDefault();
-    draftTouched = true;
-    if (draftProblems.length || draft.amount === null) return;
-    moving = true;
-    try {
-      await api.reallocateBudget({
-        year: Number(data.month.slice(0, 4)),
-        month: data.month,
-        from: draft.from,
-        to: draft.to,
-        amount: draft.amount,
-      });
-      toasts.push('success', `Limit moved from ${draft.from} to ${draft.to}.`);
-      reallocating = false;
-      await invalidateAll();
-    } catch (error) {
-      toasts.error(error, 'Could not move the limit');
-    } finally {
-      moving = false;
-    }
-  }
-
-  async function saveLimit(event: SubmitEvent) {
-    event.preventDefault();
-    if (!editing || limitValue === null || limitValue < 0) return;
-    saving = true;
-    try {
-      await api.updateBudgetLimit({
-        year: Number(data.month.slice(0, 4)),
-        category: editing.category,
-        // An empty month writes the yearly limit column.
-        month: limitScope === 'month' ? data.month : undefined,
-        limit: limitValue,
-      });
-      toasts.push('success', `Limit for ${editing.category} updated.`);
-      editing = null;
-      await invalidateAll();
-    } catch (error) {
-      toasts.error(error, 'Could not update the limit');
-    } finally {
-      saving = false;
-    }
   }
 </script>
 
@@ -164,78 +91,9 @@
 </PageHeader>
 
 <!-- WM-BUD-3 overview -->
-<Card>
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <p class="muted text-xs tracking-wide uppercase">Spent of expense budget</p>
-      <p class="mt-1 text-2xl font-semibold">
-        <Money value={report.totalSpent} />
-        <span class="muted text-base font-normal">/ <Money value={report.totalLimit} /></span>
-      </p>
-    </div>
-    <div class="flex items-center gap-2">
-      {#if report.percentUsed > 100}<Badge tone="red">Budget Burst</Badge>{/if}
-      <Badge tone={statusTone[report.status]}
-        >{statusLabel[report.status]} · {formatPercent(report.percentUsed, 0)}</Badge
-      >
-    </div>
-  </div>
-  <div class="mt-4">
-    <ProgressBar percent={report.percentUsed} color={statusBar[report.status]} label="Budget used" />
-  </div>
-  <div class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-    <Stat label="Remaining" value={report.totalRemaining} />
-    <Stat label="Daily burn" value={report.dailyBurn} />
-    <Stat label="Projected spend" value={report.projectedSpend} />
-    <Stat label="Days remaining">
-      <span class="tabular">{report.daysRemaining}</span>
-      <span class="muted text-sm font-normal">of {report.daysInMonth}</span>
-    </Stat>
-  </div>
-</Card>
+<BudgetOverview {report} />
 
-<Card title="Expense categories" subtitle="Click a category for detail" class="mt-4">
-  {#if expenseLines.length}
-    <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
-      {#each expenseLines as line (line.category)}
-        <li class="flex items-center gap-3 py-3">
-          <button type="button" class="min-w-0 flex-1 text-left" onclick={() => (selected = line)}>
-            <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span class="flex items-center gap-2 font-medium">
-                {line.category}
-                {#if line.unbudgeted}<Badge tone="violet">No limit</Badge>{/if}
-              </span>
-              <span class="muted tabular text-xs"
-                ><Money value={line.spent} /> / <Money value={line.limit} /> · <Money value={line.remaining} /> left</span
-              >
-            </div>
-            {#if line.burnOutDate}
-              <p class="mb-1 text-xs text-orange-600 dark:text-orange-400">
-                Runs out on {formatDate(line.burnOutDate)} at the current pace
-              </p>
-            {/if}
-            <ProgressBar
-              percent={line.unbudgeted ? 100 : line.percentUsed}
-              color={statusBar[line.status]}
-              label={line.category}
-            />
-          </button>
-          <button
-            type="button"
-            class="btn-ghost px-2"
-            aria-label="Edit limit for {line.category}"
-            onclick={() => openEditor(line)}><Icon name="pencil" size={15} /></button
-          >
-        </li>
-      {/each}
-    </ul>
-  {:else}
-    <EmptyState
-      title="No expense budget for this month"
-      detail="Set limits in the Budget sheet or edit a category limit here."
-    />
-  {/if}
-</Card>
+<ExpenseCategoriesCard lines={expenseLines} onselect={(line) => (selected = line)} onedit={openEditor} />
 
 {#if otherLines.length}
   <Card title="Income and non-budget" class="mt-4">
@@ -262,165 +120,31 @@
 
 <BudgetWall month={data.month} />
 
-<Modal open={selected !== null} title={selected?.category ?? ''} onclose={() => (selected = null)} wide>
-  {#if selected}
-    <div class="grid items-center gap-6 sm:grid-cols-[auto_1fr]">
-      <Donut
-        items={[
-          { label: 'Spent', value: selected.spent, color: EXPENSE },
-          { label: 'Remaining', value: selected.remaining, color: '#10b981' },
-        ]}
-        size={160}
-        label="Spent vs remaining"
-      >
-        {#snippet center()}
-          <span class="text-lg font-semibold">{formatPercent(selected?.percentUsed, 0)}</span>
-          <span class="muted text-xs">used</span>
-        {/snippet}
-      </Donut>
-      <dl class="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt class="muted text-xs">Spent</dt>
-          <dd><Money value={selected.spent} /></dd>
-        </div>
-        <div>
-          <dt class="muted text-xs">Limit</dt>
-          <dd><Money value={selected.limit} /></dd>
-        </div>
-        <div>
-          <dt class="muted text-xs">Year spent</dt>
-          <dd><Money value={selected.yearlySpent} /></dd>
-        </div>
-        <div>
-          <dt class="muted text-xs">Year remaining</dt>
-          <dd><Money value={selected.yearlyRemaining} /></dd>
-        </div>
-        {#if selected.burnOutDate}<div class="col-span-2">
-            <dt class="muted text-xs">Runs out on</dt>
-            <dd class="text-orange-600 dark:text-orange-400">{formatDate(selected.burnOutDate)} at the current pace</dd>
-          </div>{/if}
-        {#if selected.note}<div class="col-span-2">
-            <dt class="muted text-xs">Note</dt>
-            <dd>{selected.note}</dd>
-          </div>{/if}
-      </dl>
-    </div>
-    <h3 class="mt-6 mb-2 text-sm font-semibold">Daily spend, last 30 days</h3>
-    <BarChart
-      labels={detailDays.map((d, i) => (i % 5 === 0 ? d.date.slice(8, 10) : ''))}
-      series={[{ name: 'Spend', color: EXPENSE, values: detailDays.map((d) => d.value) }]}
-      height={160}
-      label="Daily spend"
-    />
-    <h3 class="mt-6 mb-2 text-sm font-semibold">Transactions in {formatMonth(data.month)}</h3>
-    {#if detailRows.length}
-      <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
-        {#each detailRows as tx (tx.id)}
-          <li class="flex justify-between gap-3 py-2">
-            <span><span class="muted tabular mr-2">{formatDate(tx.date)}</span>{tx.payee}</span>
-            <Money value={(tx.deposit ?? 0) - (tx.payment ?? 0)} tone />
-          </li>
-        {/each}
-      </ul>
-    {:else}
-      <p class="muted text-sm">No transactions this month.</p>
-    {/if}
-    {#if selected.limit > 0 && selected.categoryType === 'expense'}
-      {@const from = selected.category}
-      <button
-        type="button"
-        class="btn-ghost mt-4"
-        onclick={() => {
-          selected = null;
-          openReallocate(from);
-        }}>Move money from {from}</button
-      >
-    {/if}
-  {/if}
-</Modal>
+<CategoryDetailModal
+  line={selected}
+  month={data.month}
+  transactions={data.transactions}
+  onclose={() => (selected = null)}
+  onmove={(from) => {
+    selected = null;
+    openReallocate(from);
+  }}
+/>
 
-<Modal open={editing !== null} title="Limit for {editing?.category ?? ''}" onclose={() => (editing = null)}>
-  <form id="limit-form" class="space-y-4" onsubmit={saveLimit}>
-    <fieldset class="space-y-2 text-sm">
-      <legend class="label">Apply to</legend>
-      <label class="flex items-center gap-2"
-        ><input
-          type="radio"
-          bind:group={limitScope}
-          value="month"
-          class="accent-indigo-600"
-          onchange={() => (limitValue = editing?.limit ?? 0)}
-        />
-        Monthly limit for {formatMonth(data.month)}</label
-      >
-      <label class="flex items-center gap-2"
-        ><input
-          type="radio"
-          bind:group={limitScope}
-          value="year"
-          class="accent-indigo-600"
-          onchange={() => (limitValue = editing?.yearlyLimit ?? 0)}
-        />
-        Yearly limit for {data.month.slice(0, 4)}</label
-      >
-    </fieldset>
-    <div>
-      <label class="label" for="limit-value">Limit (VND)</label>
-      <input id="limit-value" type="number" min="0" step="1000" class="field" bind:value={limitValue} required />
-    </div>
-  </form>
-  {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={() => (editing = null)}>Cancel</button>
-    <button type="submit" form="limit-form" class="btn-primary" disabled={saving}
-      >{saving ? 'Saving…' : 'Save limit'}</button
-    >
-  {/snippet}
-</Modal>
+<LimitModal
+  line={editing}
+  month={data.month}
+  bind:scope={limitScope}
+  bind:value={limitValue}
+  onclose={() => (editing = null)}
+/>
 
-<Modal open={reallocating} title="Move money between categories" onclose={() => (reallocating = false)}>
-  <form id="reallocate-form" class="space-y-4" onsubmit={reallocate} novalidate>
-    <p class="muted text-sm">
-      Moves part of one category's {formatMonth(data.month)} limit to another. The total budget stays the same.
-    </p>
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div>
-        <label class="label" for="move-from">From</label>
-        <select id="move-from" class="field" bind:value={draft.from}>
-          <option value="" disabled>Choose a category</option>
-          {#each givers as line (line.category)}
-            <option value={line.category}>{line.category}</option>
-          {/each}
-        </select>
-      </div>
-      <div>
-        <label class="label" for="move-to">To</label>
-        <select id="move-to" class="field" bind:value={draft.to}>
-          <option value="" disabled>Choose a category</option>
-          {#each expenseLines as line (line.category)}
-            <option value={line.category} disabled={line.category === draft.from}>{line.category}</option>
-          {/each}
-        </select>
-      </div>
-    </div>
-    <div>
-      <label class="label" for="move-amount">Amount (VND)</label>
-      <input id="move-amount" type="number" min="0" step="1000" class="field" bind:value={draft.amount} />
-    </div>
-    {#if draftPreview}
-      <p class="text-sm">
-        {draft.from}: <Money value={draftPreview.from} /> · {draft.to}: <Money value={draftPreview.to} />
-      </p>
-    {/if}
-    {#if draftTouched && draftProblems.length}
-      <ul role="alert" class="space-y-0.5 text-sm text-orange-600 dark:text-orange-400">
-        {#each draftProblems as problem (problem)}<li>{problem}</li>{/each}
-      </ul>
-    {/if}
-  </form>
-  {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={() => (reallocating = false)}>Cancel</button>
-    <button type="submit" form="reallocate-form" class="btn-primary" disabled={moving}
-      >{moving ? 'Moving…' : 'Move'}</button
-    >
-  {/snippet}
-</Modal>
+<ReallocateModal
+  open={reallocating}
+  month={data.month}
+  {expenseLines}
+  {givers}
+  bind:draft
+  bind:touched={draftTouched}
+  onclose={() => (reallocating = false)}
+/>

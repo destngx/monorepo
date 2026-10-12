@@ -140,3 +140,6 @@ export function confidenceLevel(confidence: number): ConfidenceLevel {
   if (confidence >= 0.7) return 'medium';
   return 'low';
 }
+
+/** Stable identity of a learned rule, used to track which were saved or skipped. */
+export const ruleKey = (rule: CaptureRule) => `${rule.kind}:${rule.pattern.toLowerCase()}=${rule.value}`;

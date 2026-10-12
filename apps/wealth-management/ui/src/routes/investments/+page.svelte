@@ -1,9 +1,8 @@
 <script lang="ts">
   import { api } from '$lib/api/endpoints';
-  import type { PortfolioSection, PortfolioValuation, ValuedHolding } from '$lib/api/types';
+  import type { PortfolioSection, PortfolioValuation } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -19,6 +18,8 @@
     targetsError,
     type Targets,
   } from '$lib/investments/allocation';
+  import HoldingsCard from '$lib/investments/HoldingsCard.svelte';
+  import { nf } from '$lib/investments/holdings';
   import { targetAllocation } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
 
@@ -48,11 +49,6 @@
       return { key, title: sectionTitles[key], rows, total: rows.reduce((sum, h) => sum + (h.valueVND ?? 0), 0) };
     }),
   );
-
-  const nf = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 8 });
-  const quantity = (value: number | null) => (value === null ? '-' : nf.format(value));
-  const source = (h: ValuedHolding) =>
-    ({ quantity_x_price: 'qty × sheet price', quantity_x_live_price: 'qty × live price' })[h.valueSource];
 
   // Target allocation and drift (WM-INV-20); targets live in this browser only.
   const targets = $derived(parseTargets(targetAllocation.value));
@@ -221,71 +217,7 @@
 </Card>
 
 {#each sections as { key, title, rows, total } (key)}
-  <Card {title} subtitle="{rows.length} holdings" class="mt-4">
-    {#if rows.length}
-      <div class="-mx-5 overflow-x-auto">
-        <table class="w-full min-w-[52rem] text-sm">
-          <thead>
-            <tr class="muted text-left text-xs uppercase">
-              <th class="px-5 py-2">Platform</th>
-              <th class="px-5 py-2">Symbol</th>
-              <th class="px-5 py-2 text-right">Quantity</th>
-              <th class="px-5 py-2 text-right">Sheet price</th>
-              <th class="px-5 py-2 text-right">Live price</th>
-              <th class="px-5 py-2 text-right">Value</th>
-              <th class="px-5 py-2 text-right">VND</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
-            {#each rows as holding, i (i)}
-              {@const label = source(holding)}
-              <tr>
-                <td class="px-5 py-2">{holding.platform}</td>
-                <td class="px-5 py-2 font-medium">{holding.symbol || '-'}</td>
-                <td class="tabular px-5 py-2 text-right">{quantity(holding.quantity)}</td>
-                <td class="px-5 py-2 text-right"
-                  >{#if holding.price !== null}<Money value={holding.price} currency={holding.currency} />{:else}<span
-                      class="muted">-</span
-                    >{/if}</td
-                >
-                <td class="px-5 py-2 text-right">
-                  {#if holding.livePrice}
-                    <Money value={holding.livePrice.price} currency={holding.livePrice.currency} />
-                    <span class="muted block text-xs"
-                      >{holding.livePrice.provider}{holding.livePrice.timestamp
-                        ? ` · ${formatDate(holding.livePrice.timestamp)}`
-                        : ''}</span
-                    >
-                  {:else}<span class="muted">-</span>{/if}
-                </td>
-                <td class="px-5 py-2 text-right">
-                  {#if holding.value !== null}
-                    <Money value={holding.value} currency={holding.currency} />
-                    {#if label}<Badge tone={holding.valueSource === 'quantity_x_live_price' ? 'blue' : 'neutral'}
-                        >{label}</Badge
-                      >{/if}
-                  {:else}<span class="muted">No value</span>{/if}
-                </td>
-                <td class="px-5 py-2 text-right">
-                  {#if holding.valueVND !== null}<Money value={holding.valueVND} />{:else}
-                    <span class="text-xs text-amber-700 dark:text-amber-300">{holding.issue || 'Not valued'}</span>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-          <tfoot>
-            <tr class="border-t border-slate-900/10 font-semibold dark:border-white/10">
-              <td class="px-5 py-2" colspan="6">Total</td>
-              <td class="px-5 py-2 text-right"><Money value={total} /></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    {:else}
-      <EmptyState title="No {title.toLowerCase()} holdings" />
-    {/if}
-  </Card>
+  <HoldingsCard {title} {rows} {total} />
 {/each}
 
 <p class="muted mt-2 text-right text-xs">Valued {formatDate(valuation.generatedAt)}</p>
