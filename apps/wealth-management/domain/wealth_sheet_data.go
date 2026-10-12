@@ -167,9 +167,28 @@ type Loan struct {
 	YearlyRemaining  float64 `json:"yearlyRemaining"`
 }
 
+// Holding is one typed investment position (WM-DATA-7). Value is in
+// Currency; it is nil when neither the sheet nor quantity x price give one,
+// in which case a live price is needed.
+type Holding struct {
+	Platform    string   `json:"platform"`
+	Symbol      string   `json:"symbol"`
+	Quantity    *float64 `json:"quantity"`
+	Price       *float64 `json:"price"`
+	Currency    Currency `json:"currency"`
+	Value       *float64 `json:"value"`
+	ValueSource string   `json:"valueSource"`
+}
+
+const (
+	HoldingValueFromSheet         = "sheet"
+	HoldingValueFromQuantityPrice = "quantity_x_price"
+)
+
 type InvestmentHoldingSection struct {
 	Headers  []string         `json:"headers"`
 	Holdings []map[string]any `json:"holdings"`
+	Items    []Holding        `json:"items"`
 }
 
 type InvestmentAssets struct {

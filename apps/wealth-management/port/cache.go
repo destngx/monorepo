@@ -15,7 +15,9 @@ type CacheService interface {
 type CacheClient interface {
 	Set(ctx context.Context, key string, value string, ttlSeconds int) error
 	Get(ctx context.Context, key string) (string, bool, error)
-	Keys(ctx context.Context, pattern string) ([]string, error)
-	Delete(ctx context.Context, key string) error
+	// Scan lists keys matching a glob pattern (cursor based, never KEYS).
+	Scan(ctx context.Context, pattern string) ([]string, error)
+	// Delete removes keys and returns how many existed.
+	Delete(ctx context.Context, keys ...string) (int, error)
 	Ping(ctx context.Context) error
 }

@@ -3,8 +3,10 @@ package fiber
 import (
 	"apps/wealth-management/adapter/logger"
 	"apps/wealth-management/domain"
-	"context"
+	"apps/wealth-management/internal/fakes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,117 +16,159 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func TestGivenAccountsRequestWhenDatabaseHandlerCalledThenReturnsTypedAccounts(t *testing.T) {
+const testToken = "secret"
+
+// newSheetsApp registers the real sheet routes behind a token guard.
+func newSheetsApp(t *testing.T, db *fakes.Database) *fiber.App {
+	t.Helper()
 	app := fiber.New()
-	testLog := logger.NewTestLogger(t)
-	handler := NewDatabaseHandler(&fakeDatabaseServiceForHandler{
-		accounts: []domain.Account{{Name: "Cash", Balance: 1000, ClearedBalance: 1000, Type: domain.AccountTypeCash, Currency: domain.CurrencyVND}},
-	}, testLog)
-	app.Get("/api/accounts", handler.GetAccounts)
-	request := httptest.NewRequest(http.MethodGet, "/api/accounts", nil)
-	response, err := app.Test(request, -1)
-	if err != nil {
-		t.Fatalf("fiber test request failed: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", response.StatusCode)
-	}
-	var payload []domain.Account
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if len(payload) != 1 || payload[0].Name != "Cash" {
-		t.Fatalf("unexpected payload: %+v", payload)
-	}
+	api := NewRouteRegistrar(app, "/api", "")
+	RegisterSheetRoutes(api, NewDatabaseHandler(db, logger.NewTestLogger(t)), NewWriteGuard(testToken, "0.0.0.0"))
+	return app
 }
 
-func TestGivenTransactionsCreateRequestWhenDatabaseHandlerCalledThenReturnsSuccess(t *testing.T) {
-	app := fiber.New()
-	fake := &fakeDatabaseServiceForHandler{}
-	testLog := logger.NewTestLogger(t)
-	handler := NewDatabaseHandler(fake, testLog)
-	app.Post("/api/transactions", handler.CreateTransaction)
-	request := httptest.NewRequest(http.MethodPost, "/api/transactions", strings.NewReader(`{"accountName":"Cash","date":"2026-03-31","payee":"Coffee","category":"Food","tags":["daily"],"cleared":true,"payment":42}`))
+func call(t *testing.T, app *fiber.App, method, target, body string, headers ...string) (int, string) {
+	t.Helper()
+	var reader io.Reader
+	if body != "" {
+		reader = strings.NewReader(body)
+	}
+	request := httptest.NewRequest(method, target, reader)
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	for i := 0; i+1 < len(headers); i += 2 {
+		request.Header.Set(headers[i], headers[i+1])
+	}
 	response, err := app.Test(request, -1)
 	if err != nil {
-		t.Fatalf("fiber test request failed: %v", err)
+		t.Fatalf("%s %s: %v", method, target, err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", response.StatusCode)
-	}
-	if fake.createdTransaction == nil || fake.createdTransaction.Payee != "Coffee" {
-		t.Fatalf("expected transaction to be forwarded, got %+v", fake.createdTransaction)
-	}
-}
-
-func TestGivenInitRequestWhenDatabaseHandlerCalledThenReturnsReadyPayload(t *testing.T) {
-	app := fiber.New()
-	testLog := logger.NewTestLogger(t)
-	handler := NewDatabaseHandler(&fakeDatabaseServiceForHandler{initResult: domain.InitResult{Ready: true}}, testLog)
-	app.Get("/api/init", handler.Init)
-	request := httptest.NewRequest(http.MethodGet, "/api/init", nil)
-	response, err := app.Test(request, -1)
+	payload, err := io.ReadAll(response.Body)
 	if err != nil {
-		t.Fatalf("fiber test request failed: %v", err)
+		t.Fatalf("read body: %v", err)
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", response.StatusCode)
+	return response.StatusCode, string(payload)
+}
+
+func TestGetAccountsReturnsTypedAccounts(t *testing.T) {
+	app := newSheetsApp(t, &fakes.Database{
+		Accounts: []domain.Account{{Name: "Cash", Balance: 1000, Type: domain.AccountTypeCash, Currency: domain.CurrencyVND}},
+	})
+
+	status, body := call(t, app, http.MethodGet, "/api/accounts", "")
+
+	var payload []domain.Account
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &payload) != nil || len(payload) != 1 || payload[0].Name != "Cash" {
+		t.Fatalf("status = %d, body = %s", status, body)
 	}
-	body, _ := io.ReadAll(response.Body)
-	if !strings.Contains(string(body), `"ready":true`) {
-		t.Fatalf("expected ready payload, got %s", string(body))
+}
+
+func TestCreateTransactionReturnsCreatedID(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+
+	status, body := call(t, app, http.MethodPost, "/api/transactions", `{"accountName":"Cash","date":"2026-03-31","payee":"Coffee","category":"Food","tags":["daily"],"payment":42}`)
+
+	if status != http.StatusCreated || !strings.Contains(body, `"id":"row-100"`) {
+		t.Fatalf("status = %d, body = %s", status, body)
+	}
+	if len(db.CreatedTransactions) != 1 || db.CreatedTransactions[0].Payee != "Coffee" {
+		t.Fatalf("created = %+v", db.CreatedTransactions)
 	}
 }
 
-type fakeDatabaseServiceForHandler struct {
-	accounts           []domain.Account
-	createdTransaction *domain.TransactionCreateInput
-	initResult         domain.InitResult
+func TestWritesRequireToken(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+	request := httptest.NewRequest(http.MethodPost, "/api/sync", nil)
+
+	response, err := app.Test(request, -1)
+
+	if err != nil || response.StatusCode != http.StatusUnauthorized || db.Syncs != 0 {
+		t.Fatalf("err = %v, status = %d, syncs = %d", err, response.StatusCode, db.Syncs)
+	}
 }
 
-func (f *fakeDatabaseServiceForHandler) ReadAccounts() (domain.Accounts, error) {
-	return domain.Accounts{Range: "Accounts!A2:I", Rows: [][]string{{"Cash"}}}, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListAccounts() ([]domain.Account, error) {
-	return f.accounts, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListTransactions(bool) ([]domain.Transaction, error) {
-	return []domain.Transaction{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) CreateTransaction(input domain.TransactionCreateInput) error {
-	f.createdTransaction = &input
-	return nil
-}
-func (f *fakeDatabaseServiceForHandler) CreateAccount(domain.AccountCreateInput) error { return nil }
-func (f *fakeDatabaseServiceForHandler) DeleteAccount(string) error                    { return nil }
+func TestDomainErrorsMapToStatusCodes(t *testing.T) {
+	cases := []struct {
+		err  error
+		want int
+	}{
+		{fmt.Errorf("%w: payee is required", domain.ErrValidation), http.StatusBadRequest},
+		{fmt.Errorf("%w: row-9", domain.ErrNotFound), http.StatusNotFound},
+		{fmt.Errorf("%w: row changed", domain.ErrConflict), http.StatusConflict},
+		{errors.New("sheets api down"), http.StatusInternalServerError},
+	}
+	for _, tc := range cases {
+		t.Run(tc.err.Error(), func(t *testing.T) {
+			app := newSheetsApp(t, &fakes.Database{Err: tc.err})
 
-func (f *fakeDatabaseServiceForHandler) ListCategories(bool) ([]domain.Category, error) {
-	return []domain.Category{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListBudget(bool) ([]domain.BudgetItem, error) {
-	return []domain.BudgetItem{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListGoals(bool) ([]domain.Goal, error) {
-	return []domain.Goal{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListLoans(bool) ([]domain.Loan, error) {
-	return []domain.Loan{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListTags(bool) ([]string, error) {
-	return []string{"salary"}, nil
-}
-func (f *fakeDatabaseServiceForHandler) GetInvestmentAssets(bool) (domain.InvestmentAssets, error) {
-	return domain.InvestmentAssets{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) WarmAIContent(bool) (domain.InitResult, error) {
-	return f.initResult, nil
-}
-func (f *fakeDatabaseServiceForHandler) SyncCache() (domain.SyncResult, error) {
-	return domain.SyncResult{Success: true}, nil
+			status, body := call(t, app, http.MethodDelete, "/api/transactions/row-9", "", "If-Match", `"abc"`)
+
+			if status != tc.want || !strings.Contains(body, `"error"`) {
+				t.Fatalf("status = %d, want %d, body = %s", status, tc.want, body)
+			}
+		})
+	}
 }
 
-var _ context.Context
+func TestTransactionETagSources(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+	update := `{"accountName":"Cash","date":"2026-03-31","payee":"Tea","category":"Food","payment":1}`
+
+	if status, body := call(t, app, http.MethodPatch, "/api/transactions/row-5", update, "If-Match", "tag-1"); status != http.StatusOK {
+		t.Fatalf("update status = %d, body = %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodDelete, "/api/transactions/row-6?etag=tag-2", ""); status != http.StatusOK {
+		t.Fatalf("delete status = %d", status)
+	}
+
+	if db.UpdatedTransactions["row-5"].ETag != "tag-1" || db.DeletedTransactions["row-6"] != "tag-2" {
+		t.Fatalf("updated = %+v, deleted = %+v", db.UpdatedTransactions, db.DeletedTransactions)
+	}
+}
+
+func TestAccountRoutesDecodeName(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+
+	if status, body := call(t, app, http.MethodPatch, "/api/accounts/VCB%20Saving", `{"note":"rainy day"}`); status != http.StatusOK {
+		t.Fatalf("update status = %d, body = %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodDelete, "/api/accounts/VCB%20Saving", ""); status != http.StatusOK {
+		t.Fatalf("delete status = %d", status)
+	}
+
+	if _, ok := db.UpdatedAccounts["VCB Saving"]; !ok || len(db.DeletedAccounts) != 1 || db.DeletedAccounts[0] != "VCB Saving" {
+		t.Fatalf("updated = %+v, deleted = %v", db.UpdatedAccounts, db.DeletedAccounts)
+	}
+}
+
+func TestGetBudgetYearParameter(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+
+	if status, _ := call(t, app, http.MethodGet, "/api/budget?year=2025", ""); status != http.StatusOK {
+		t.Fatalf("status = %d", status)
+	}
+	if status, _ := call(t, app, http.MethodGet, "/api/budget?year=abc", ""); status != http.StatusBadRequest {
+		t.Fatalf("invalid year status = %d", status)
+	}
+	if len(db.BudgetYears) != 1 || db.BudgetYears[0] != 2025 {
+		t.Fatalf("years = %v", db.BudgetYears)
+	}
+}
+
+func TestInitReportsReadiness(t *testing.T) {
+	app := newSheetsApp(t, &fakes.Database{Init: domain.InitResult{Ready: true}})
+	if status, body := call(t, app, http.MethodGet, "/api/init", ""); status != http.StatusOK || !strings.Contains(body, `"ready":true`) {
+		t.Fatalf("status = %d, body = %s", status, body)
+	}
+
+	failing := newSheetsApp(t, &fakes.Database{Err: errors.New("boom")})
+	if status, body := call(t, failing, http.MethodGet, "/api/init", ""); status != http.StatusInternalServerError || !strings.Contains(body, `"ready":false`) {
+		t.Fatalf("status = %d, body = %s", status, body)
+	}
+}

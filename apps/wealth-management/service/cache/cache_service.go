@@ -52,19 +52,16 @@ func (s *cacheService) Get(ctx context.Context, key string) (domain.CacheEntry, 
 }
 
 func (s *cacheService) Invalidate(ctx context.Context, pattern string) (int, error) {
-	keys, err := s.client.Keys(ctx, pattern)
+	keys, err := s.client.Scan(ctx, pattern)
 	if err != nil {
 		s.log.LogError(ctx, "cache invalidate failed", err, slog.String("pattern", pattern))
 		return 0, err
 	}
 
-	deleted := 0
-	for _, key := range keys {
-		if err := s.client.Delete(ctx, key); err != nil {
-			s.log.LogError(ctx, "cache delete failed", err, slog.String("key", key))
-			return deleted, err
-		}
-		deleted++
+	deleted, err := s.client.Delete(ctx, keys...)
+	if err != nil {
+		s.log.LogError(ctx, "cache delete failed", err, slog.String("pattern", pattern))
+		return 0, err
 	}
 
 	s.log.LogApplicationEvent(ctx, "cache invalidated",

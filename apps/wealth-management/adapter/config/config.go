@@ -67,6 +67,7 @@ func LoadCacheConfig() (domain.CacheConfig, error) {
 	config := domain.CacheConfig{
 		RESTURL:   os.Getenv("UPSTASH_REDIS_REST_URL"),
 		RESTToken: os.Getenv("UPSTASH_REDIS_REST_TOKEN"),
+		KeyPrefix: getOrDefault("CACHE_KEY_PREFIX", "wm:"),
 	}
 
 	var missing []string
@@ -100,6 +101,27 @@ func getOrDefaultInt(key string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+// LoadServerConfig reads HOST (default 127.0.0.1), PORT (default 8080) and
+// API_TOKEN, which guards write endpoints when set.
+func LoadServerConfig() (domain.ServerConfig, error) {
+	port, err := strconv.Atoi(getOrDefault("PORT", "8080"))
+	if err != nil || port < 1 || port > 65535 {
+		return domain.ServerConfig{}, fmt.Errorf("%w: PORT must be 1-65535", ErrInvalidServerConfig)
+	}
+	return domain.ServerConfig{
+		Host:     getOrDefault("HOST", "127.0.0.1"),
+		Port:     port,
+		APIToken: os.Getenv("API_TOKEN"),
+	}, nil
+}
+
+var ErrInvalidServerConfig = errors.New("invalid server configuration")
+
+// BudgetSheetTemplate names the budget tab; "{year}" is replaced (WM-DATA-2).
+func BudgetSheetTemplate() string {
+	return getOrDefault("BUDGET_SHEET_TEMPLATE", "Budget_{year}")
 }
 
 func LoadLoggerConfig() (logLevel string, colorEnabled bool) {

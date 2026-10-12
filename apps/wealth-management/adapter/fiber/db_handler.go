@@ -1,16 +1,16 @@
 package fiber
 
 import (
-	configAdapter "apps/wealth-management/adapter/config"
 	"apps/wealth-management/adapter/logger"
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
-	"errors"
-	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 )
 
 type DatabaseHandler struct {
@@ -22,158 +22,175 @@ func NewDatabaseHandler(service port.DatabaseService, log *logger.Logger) *Datab
 	return &DatabaseHandler{databaseService: service, log: log}
 }
 
-func (h *DatabaseHandler) GetSheetsAccounts(c *fiber.Ctx) error {
-	accounts, err := h.databaseService.ReadAccounts()
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(accounts)
+func (h *DatabaseHandler) fail(c *fiber.Ctx, err error) error {
+	return respondError(c, h.log, "db_handler", err)
 }
 
 func (h *DatabaseHandler) GetAccounts(c *fiber.Ctx) error {
-	accounts, err := h.databaseService.ListAccounts()
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(accounts)
+	return h.respond(c)(h.databaseService.ListAccounts(forceFresh(c)))
 }
 
 func (h *DatabaseHandler) CreateAccount(c *fiber.Ctx) error {
 	var body domain.AccountCreateInput
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
-	}
-	if strings.TrimSpace(body.Name) == "" || body.Type == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "name and type are required"})
+		return badRequest(c, "invalid request body")
 	}
 	if err := h.databaseService.CreateAccount(body); err != nil {
-		return h.handleError(c, err)
+		return h.fail(c, err)
 	}
-	return c.JSON(fiber.Map{"success": true})
+	return c.Status(http.StatusCreated).JSON(fiber.Map{"success": true})
+}
+
+func (h *DatabaseHandler) UpdateAccount(c *fiber.Ctx) error {
+	var body domain.AccountUpdateInput
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return h.respond(c)(h.databaseService.UpdateAccount(pathParam(c, "name"), body))
 }
 
 func (h *DatabaseHandler) DeleteAccount(c *fiber.Ctx) error {
-	name := c.Params("name")
-	if strings.TrimSpace(name) == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "account name is required"})
+	name := pathParam(c, "name")
+	if name == "" {
+		return badRequest(c, "account name is required")
 	}
 	if err := h.databaseService.DeleteAccount(name); err != nil {
-		return h.handleError(c, err)
+		return h.fail(c, err)
 	}
 	return c.JSON(fiber.Map{"success": true})
 }
 
 func (h *DatabaseHandler) GetTransactions(c *fiber.Ctx) error {
-	transactions, err := h.databaseService.ListTransactions(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(transactions)
+	return h.respond(c)(h.databaseService.ListTransactions(forceFresh(c)))
 }
 
 func (h *DatabaseHandler) CreateTransaction(c *fiber.Ctx) error {
 	var body domain.TransactionCreateInput
 	if err := c.BodyParser(&body); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return badRequest(c, "invalid request body")
 	}
-	if strings.TrimSpace(body.AccountName) == "" || strings.TrimSpace(body.Payee) == "" || strings.TrimSpace(body.Category) == "" || strings.TrimSpace(body.Date) == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "accountName, date, payee, and category are required"})
+	result, err := h.databaseService.CreateTransaction(body)
+	if err != nil {
+		return h.fail(c, err)
 	}
-	body.Tags = ensureSlice(body.Tags)
-	if err := h.databaseService.CreateTransaction(body); err != nil {
-		return h.handleError(c, err)
+	return c.Status(http.StatusCreated).JSON(result)
+}
+
+func (h *DatabaseHandler) CreateTransactionBatch(c *fiber.Ctx) error {
+	var body domain.TransactionBatchInput
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return h.respond(c)(h.databaseService.CreateTransactions(body))
+}
+
+func (h *DatabaseHandler) UpdateTransaction(c *fiber.Ctx) error {
+	var body domain.TransactionUpdateInput
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	if body.ETag == "" {
+		body.ETag = utils.CopyString(c.Get(fiber.HeaderIfMatch))
+	}
+	body.ETag = strings.Trim(body.ETag, `"`)
+	return h.respond(c)(h.databaseService.UpdateTransaction(pathParam(c, "id"), body))
+}
+
+// DeleteTransaction takes the ETag from If-Match or the ?etag= query.
+func (h *DatabaseHandler) DeleteTransaction(c *fiber.Ctx) error {
+	etag := c.Get(fiber.HeaderIfMatch)
+	if etag == "" {
+		etag = c.Query("etag")
+	}
+	if err := h.databaseService.DeleteTransaction(pathParam(c, "id"), strings.Trim(utils.CopyString(etag), `"`)); err != nil {
+		return h.fail(c, err)
 	}
 	return c.JSON(fiber.Map{"success": true})
 }
 
 func (h *DatabaseHandler) GetBudget(c *fiber.Ctx) error {
-	items, err := h.databaseService.ListBudget(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
+	year := 0
+	if raw := strings.TrimSpace(c.Query("year")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 2000 || parsed > 2100 {
+			return badRequest(c, "year must be a four-digit year")
+		}
+		year = parsed
 	}
-	return c.JSON(items)
+	return h.respond(c)(h.databaseService.ListBudget(year, forceFresh(c)))
+}
+
+func (h *DatabaseHandler) UpdateBudgetLimit(c *fiber.Ctx) error {
+	var body domain.BudgetLimitUpdate
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	if err := h.databaseService.UpdateBudgetLimit(body); err != nil {
+		return h.fail(c, err)
+	}
+	return c.JSON(fiber.Map{"success": true})
 }
 
 func (h *DatabaseHandler) GetCategories(c *fiber.Ctx) error {
-	items, err := h.databaseService.ListCategories(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(items)
+	return h.respond(c)(h.databaseService.ListCategories(forceFresh(c)))
 }
 
 func (h *DatabaseHandler) GetGoals(c *fiber.Ctx) error {
-	items, err := h.databaseService.ListGoals(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(items)
+	return h.respond(c)(h.databaseService.ListGoals(forceFresh(c)))
 }
 
 func (h *DatabaseHandler) GetLoans(c *fiber.Ctx) error {
-	items, err := h.databaseService.ListLoans(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(items)
+	return h.respond(c)(h.databaseService.ListLoans(forceFresh(c)))
 }
 
 func (h *DatabaseHandler) GetTags(c *fiber.Ctx) error {
-	tags, err := h.databaseService.ListTags(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(tags)
+	return h.respond(c)(h.databaseService.ListTags(forceFresh(c)))
 }
 
 func (h *DatabaseHandler) Sync(c *fiber.Ctx) error {
-	result, err := h.databaseService.SyncCache()
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(result)
+	return h.respond(c)(h.databaseService.SyncCache())
 }
 
 func (h *DatabaseHandler) Init(c *fiber.Ctx) error {
 	result, err := h.databaseService.WarmAIContent(forceFresh(c))
 	if err != nil {
-		statusCode := http.StatusInternalServerError
-		if errors.Is(err, configAdapter.ErrMissingSheetsConfig) {
-			statusCode = http.StatusServiceUnavailable
+		status := statusForError(err)
+		if status >= http.StatusInternalServerError {
+			h.log.LogError(c.UserContext(), "db_handler: warm AI content failed", err)
 		}
-		return c.Status(statusCode).JSON(fiber.Map{"ready": false, "error": err.Error()})
+		return c.Status(status).JSON(fiber.Map{"ready": false, "error": err.Error()})
 	}
 	return c.JSON(result)
 }
 
 func (h *DatabaseHandler) GetInvestmentAssets(c *fiber.Ctx) error {
-	assets, err := h.databaseService.GetInvestmentAssets(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(assets)
+	return h.respond(c)(h.databaseService.GetInvestmentAssets(forceFresh(c)))
 }
 
-func (h *DatabaseHandler) handleError(c *fiber.Ctx, err error) error {
-	requestID := c.Get("X-Request-ID")
-	statusCode := fiber.StatusInternalServerError
-	if errors.Is(err, configAdapter.ErrMissingSheetsConfig) {
-		statusCode = fiber.StatusServiceUnavailable
+// respond writes value as JSON, or the mapped error.
+func (h *DatabaseHandler) respond(c *fiber.Ctx) func(value any, err error) error {
+	return respondWith(c, h.log, "db_handler")
+}
+
+func respondWith(c *fiber.Ctx, log *logger.Logger, scope string) func(value any, err error) error {
+	return func(value any, err error) error {
+		if err != nil {
+			return respondError(c, log, scope, err)
+		}
+		return c.JSON(value)
 	}
-	h.log.LogError(c.UserContext(), "db_handler: operation failed", err,
-		slog.String("request_id", requestID),
-		slog.String("endpoint", c.Path()),
-	)
-	return c.Status(statusCode).JSON(fiber.Map{"error": err.Error()})
 }
 
 func forceFresh(c *fiber.Ctx) bool {
 	return strings.EqualFold(c.Query("force"), "true")
 }
 
-func ensureSlice(values []string) []string {
-	if values == nil {
-		return []string{}
+// pathParam returns the URL-decoded, trimmed route parameter. It copies the
+// value because Fiber reuses the request buffer once the handler returns.
+func pathParam(c *fiber.Ctx, name string) string {
+	value := utils.CopyString(c.Params(name))
+	if decoded, err := url.PathUnescape(value); err == nil {
+		value = decoded
 	}
-	return values
+	return strings.TrimSpace(value)
 }

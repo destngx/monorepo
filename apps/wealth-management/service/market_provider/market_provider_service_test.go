@@ -65,13 +65,15 @@ func (f *fakeMarketCacheClient) Get(_ context.Context, key string) (string, bool
 	return value, ok, nil
 }
 
-func (f *fakeMarketCacheClient) Keys(_ context.Context, _ string) ([]string, error) {
+func (f *fakeMarketCacheClient) Scan(_ context.Context, _ string) ([]string, error) {
 	return nil, nil
 }
 
-func (f *fakeMarketCacheClient) Delete(_ context.Context, key string) error {
-	delete(f.store, key)
-	return nil
+func (f *fakeMarketCacheClient) Delete(_ context.Context, keys ...string) (int, error) {
+	for _, key := range keys {
+		delete(f.store, key)
+	}
+	return len(keys), nil
 }
 
 func (f *fakeMarketCacheClient) Ping(_ context.Context) error {

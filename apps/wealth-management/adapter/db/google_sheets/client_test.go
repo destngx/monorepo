@@ -72,59 +72,6 @@ func TestReadSheetRefreshesTokenAndNormalizesValues(t *testing.T) {
 	}
 }
 
-func TestAppendRowUsesUserEnteredMode(t *testing.T) {
-	var tokenHits atomic.Int32
-	var capturedQuery url.Values
-	var capturedBody map[string]any
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/token":
-			tokenHits.Add(1)
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"access_token":"append-token","token_type":"Bearer","expires_in":3600}`))
-		case strings.HasPrefix(r.URL.Path, "/v4/spreadsheets/spreadsheet-123/values/Transactions!A2:append"):
-			if got := r.Header.Get("Authorization"); got != "Bearer append-token" {
-				t.Fatalf("expected bearer token, got %q", got)
-			}
-			capturedQuery = r.URL.Query()
-			if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
-				t.Fatalf("failed to decode request body: %v", err)
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"updates": map[string]any{"updatedRows": 1}})
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-
-	client := newTestClient(t, server.URL, domain.SheetsConfig{
-		ClientID:      "client-id",
-		ClientSecret:  "client-secret",
-		RefreshToken:  "refresh-token",
-		SpreadsheetID: "spreadsheet-123",
-		RedirectURL:   "http://127.0.0.1:3000",
-	})
-
-	err := client.AppendRow("Transactions!A2", []any{"Brokerage", 55.25, "Deposit"})
-	if err != nil {
-		t.Fatalf("AppendRow returned error: %v", err)
-	}
-
-	if tokenHits.Load() != 1 {
-		t.Fatalf("expected token refresh to happen once, got %d", tokenHits.Load())
-	}
-	if got := capturedQuery.Get("valueInputOption"); got != "USER_ENTERED" {
-		t.Fatalf("expected valueInputOption=USER_ENTERED, got %q", got)
-	}
-
-	values, ok := capturedBody["values"].([]any)
-	if !ok || len(values) != 1 {
-		t.Fatalf("unexpected append body: %#v", capturedBody)
-	}
-}
-
 func TestUpdateRowUsesUserEnteredMode(t *testing.T) {
 	var capturedQuery url.Values
 	var capturedBody map[string]any
@@ -167,7 +114,7 @@ func TestUpdateRowUsesUserEnteredMode(t *testing.T) {
 	}
 }
 
-func TestWriteToFirstEmptyRowUpdatesNextDataRow(t *testing.T) {
+func TestWriteRowsAtFirstEmptyRowUpdatesNextDataRow(t *testing.T) {
 	var updatePath string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -199,11 +146,12 @@ func TestWriteToFirstEmptyRowUpdatesNextDataRow(t *testing.T) {
 		RedirectURL:   "http://127.0.0.1:3000",
 	})
 
-	if err := client.WriteToFirstEmptyRow("Transactions", "Transactions!A2:A", []any{"Wallet", "31/03/2026"}); err != nil {
-		t.Fatalf("WriteToFirstEmptyRow returned error: %v", err)
+	row, err := client.WriteRowsAtFirstEmptyRow("Transactions", "Transactions!A2:A", [][]any{{"Wallet", "31/03/2026"}})
+	if err != nil {
+		t.Fatalf("WriteRowsAtFirstEmptyRow returned error: %v", err)
 	}
-	if updatePath == "" {
-		t.Fatalf("expected update request for next data row")
+	if updatePath == "" || row != 4 {
+		t.Fatalf("expected update request for row 4, got row %d", row)
 	}
 }
 
@@ -235,4 +183,16 @@ func newTestClient(t *testing.T, baseURL string, config domain.SheetsConfig) *Sh
 
 	testLog := logger.NewTestLogger(t)
 	return NewSheetsClientWithService(service, config.SpreadsheetID, testLog)
+}
+
+func TestAnchorStartRow(t *testing.T) {
+	tests := map[string]int{"Transactions!A2:A": 2, "Accounts!A2:I": 2, "'Loan / Dept'!A10:H50": 10}
+	for anchor, want := range tests {
+		if got, err := anchorStartRow(anchor); err != nil || got != want {
+			t.Fatalf("%s: got %d %v", anchor, got, err)
+		}
+	}
+	if _, err := anchorStartRow("Transactions"); err == nil {
+		t.Fatal("expected error without a start row")
+	}
 }

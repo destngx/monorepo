@@ -3,6 +3,7 @@ package cache
 import (
 	"apps/wealth-management/adapter/logger"
 	"apps/wealth-management/domain"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,17 +11,24 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
 
+// Client talks to the Upstash Redis REST API. Commands are sent as JSON arrays
+// in the request body (values never travel in the URL), invalidation uses SCAN
+// instead of KEYS, and every key is namespaced with the configured prefix so
+// environments never share keys (WM-OPS-2, WM-OPS-2b).
 type Client struct {
 	baseURL string
 	token   string
+	prefix  string
 	client  *http.Client
 	log     *logger.Logger
 }
+
+const scanBatchSize = 500
 
 func NewClient(config domain.CacheConfig, log *logger.Logger) (*Client, error) {
 	if config.RESTURL == "" || config.RESTToken == "" {
@@ -29,12 +37,14 @@ func NewClient(config domain.CacheConfig, log *logger.Logger) (*Client, error) {
 
 	log.LogApplicationEvent(context.Background(), "initializing upstash cache client",
 		slog.String("base_url", config.RESTURL),
+		slog.String("key_prefix", config.KeyPrefix),
 		slog.String("component", "upstash_cache"),
 	)
 
 	return &Client{
 		baseURL: strings.TrimRight(config.RESTURL, "/"),
 		token:   config.RESTToken,
+		prefix:  config.KeyPrefix,
 		client:  &http.Client{Timeout: 10 * time.Second},
 		log:     log,
 	}, nil
@@ -50,128 +60,133 @@ func NewClientWithHTTPClient(config domain.CacheConfig, client *http.Client, log
 }
 
 func (r *Client) Set(ctx context.Context, key string, value string, ttlSeconds int) error {
-	path := fmt.Sprintf("/set/%s/%s", url.PathEscape(key), url.PathEscape(value))
+	args := []any{"SET", r.prefix + key, value}
 	if ttlSeconds > 0 {
-		path = fmt.Sprintf("%s?EX=%d", path, ttlSeconds)
+		args = append(args, "EX", ttlSeconds)
 	}
-
-	response, err := r.do(ctx, http.MethodPost, path)
-	if err != nil {
-		return err
-	}
-
-	var payload responsePayload[string]
-	if err := json.Unmarshal(response, &payload); err != nil {
-		return err
-	}
-
-	if payload.Error != "" {
-		return errors.New(payload.Error)
-	}
-
-	return nil
+	var result string
+	return r.command(ctx, &result, args...)
 }
 
 func (r *Client) Get(ctx context.Context, key string) (string, bool, error) {
-	response, err := r.do(ctx, http.MethodGet, fmt.Sprintf("/get/%s", url.PathEscape(key)))
-	if err != nil {
+	var result *string
+	if err := r.command(ctx, &result, "GET", r.prefix+key); err != nil {
 		return "", false, err
 	}
-
-	var payload responsePayload[*string]
-	if err := json.Unmarshal(response, &payload); err != nil {
-		return "", false, err
-	}
-	if payload.Error != "" {
-		return "", false, errors.New(payload.Error)
-	}
-	if payload.Result == nil {
+	if result == nil {
 		return "", false, nil
 	}
-
-	return *payload.Result, true, nil
+	return *result, true, nil
 }
 
-func (r *Client) Keys(ctx context.Context, pattern string) ([]string, error) {
-	response, err := r.do(ctx, http.MethodGet, fmt.Sprintf("/keys/%s", url.PathEscape(pattern)))
-	if err != nil {
-		return nil, err
+// Scan returns every key matching pattern (without the prefix).
+func (r *Client) Scan(ctx context.Context, pattern string) ([]string, error) {
+	cursor := "0"
+	keys := []string{}
+	for {
+		var result []json.RawMessage
+		if err := r.command(ctx, &result, "SCAN", cursor, "MATCH", r.prefix+pattern, "COUNT", scanBatchSize); err != nil {
+			return nil, err
+		}
+		if len(result) != 2 {
+			return nil, fmt.Errorf("unexpected SCAN reply with %d elements", len(result))
+		}
+		if err := json.Unmarshal(result[0], &cursor); err != nil {
+			return nil, fmt.Errorf("decode SCAN cursor: %w", err)
+		}
+		var batch []string
+		if err := json.Unmarshal(result[1], &batch); err != nil {
+			return nil, fmt.Errorf("decode SCAN keys: %w", err)
+		}
+		for _, key := range batch {
+			keys = append(keys, strings.TrimPrefix(key, r.prefix))
+		}
+		if cursor == "0" {
+			return keys, nil
+		}
 	}
-
-	var payload responsePayload[[]string]
-	if err := json.Unmarshal(response, &payload); err != nil {
-		return nil, err
-	}
-	if payload.Error != "" {
-		return nil, errors.New(payload.Error)
-	}
-
-	return payload.Result, nil
 }
 
-func (r *Client) Delete(ctx context.Context, key string) error {
-	response, err := r.do(ctx, http.MethodPost, fmt.Sprintf("/del/%s", url.PathEscape(key)))
-	if err != nil {
-		return err
+// Delete removes the given keys (without the prefix) and returns how many existed.
+func (r *Client) Delete(ctx context.Context, keys ...string) (int, error) {
+	if len(keys) == 0 {
+		return 0, nil
 	}
-
-	var payload responsePayload[int]
-	if err := json.Unmarshal(response, &payload); err != nil {
-		return err
+	args := make([]any, 0, len(keys)+1)
+	args = append(args, "DEL")
+	for _, key := range keys {
+		args = append(args, r.prefix+key)
 	}
-	if payload.Error != "" {
-		return errors.New(payload.Error)
+	var deleted int
+	if err := r.command(ctx, &deleted, args...); err != nil {
+		return 0, err
 	}
-
-	return nil
+	return deleted, nil
 }
 
 func (r *Client) Ping(ctx context.Context) error {
-	response, err := r.do(ctx, http.MethodGet, "/ping")
-	if err != nil {
+	var result string
+	if err := r.command(ctx, &result, "PING"); err != nil {
 		return err
 	}
-
-	var payload responsePayload[string]
-	if err := json.Unmarshal(response, &payload); err != nil {
-		return err
+	if strings.ToUpper(result) != "PONG" {
+		return fmt.Errorf("unexpected ping response: %s", result)
 	}
-	if payload.Error != "" {
-		return errors.New(payload.Error)
-	}
-	if strings.ToUpper(payload.Result) != "PONG" {
-		return fmt.Errorf("unexpected ping response: %s", payload.Result)
-	}
-
 	return nil
 }
 
-func (r *Client) do(ctx context.Context, method string, path string) ([]byte, error) {
-	request, err := http.NewRequestWithContext(ctx, method, r.baseURL+path, nil)
-	if err != nil {
-		return nil, err
+// command posts a Redis command as a JSON array and decodes its result.
+func (r *Client) command(ctx context.Context, result any, args ...any) error {
+	parts := make([]string, len(args))
+	for i, arg := range args {
+		switch typed := arg.(type) {
+		case string:
+			parts[i] = typed
+		case int:
+			parts[i] = strconv.Itoa(typed)
+		default:
+			parts[i] = fmt.Sprint(typed)
+		}
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", r.token))
+	body, err := json.Marshal(parts)
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, r.baseURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Authorization", "Bearer "+r.token)
+	request.Header.Set("Content-Type", "application/json")
 
 	response, err := r.client.Do(request)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("upstash %s: %w", parts[0], err)
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	raw, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
+	var payload struct {
+		Result json.RawMessage `json:"result"`
+		Error  string          `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return fmt.Errorf("upstash %s: status %d: decode reply: %w", parts[0], response.StatusCode, err)
+	}
+	if payload.Error != "" {
+		return fmt.Errorf("upstash %s: %s", parts[0], payload.Error)
+	}
 	if response.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("upstash request failed with status %d: %s", response.StatusCode, string(body))
+		return fmt.Errorf("upstash %s: status %d", parts[0], response.StatusCode)
 	}
-
-	return body, nil
-}
-
-type responsePayload[T any] struct {
-	Result T      `json:"result"`
-	Error  string `json:"error"`
+	if len(payload.Result) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(payload.Result, result); err != nil {
+		return fmt.Errorf("upstash %s: decode result: %w", parts[0], err)
+	}
+	return nil
 }

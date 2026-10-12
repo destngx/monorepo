@@ -50,12 +50,15 @@ func (f *fakeCacheClient) Get(_ context.Context, _ string) (string, bool, error)
 	return "", false, nil
 }
 
-func (f *fakeCacheClient) Keys(_ context.Context, _ string) ([]string, error) {
+func (f *fakeCacheClient) Scan(_ context.Context, _ string) ([]string, error) {
 	return f.keysToReturn, nil
 }
 
-func (f *fakeCacheClient) Delete(_ context.Context, _ string) error {
-	return f.deleteErr
+func (f *fakeCacheClient) Delete(_ context.Context, keys ...string) (int, error) {
+	if f.deleteErr != nil {
+		return 0, f.deleteErr
+	}
+	return len(keys), nil
 }
 
 func (f *fakeCacheClient) Ping(_ context.Context) error {
