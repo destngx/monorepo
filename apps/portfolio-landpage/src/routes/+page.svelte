@@ -1,14 +1,5 @@
 <script lang="ts">
-  import {
-    hobbies,
-    linkedinUrl,
-    milestones,
-    photographyUrl,
-    profile,
-    roles,
-    skillGroups,
-    socials,
-  } from '$lib/data/profile';
+  import { hobbies, linkedinUrl, milestones, profile, roles, skillGroups, socials } from '$lib/data/profile';
   import { reveal } from '$lib/motion/reveal';
   import ChapterHeading from '$lib/ui/ChapterHeading.svelte';
   import Hero from '$lib/ui/Hero.svelte';
@@ -130,16 +121,6 @@
       </li>
     {/each}
   </ul>
-
-  <p class="mt-8 text-ink-soft">
-    I also take photos now and then; they live in a little <a
-      class="ink-link"
-      href={photographyUrl}
-      target="_blank"
-      rel="noopener">photo gallery</a
-    >
-    I built on Cloudinary.
-  </p>
 </section>
 
 <!-- Chapter 5: Writing -->

@@ -106,5 +106,3 @@ export const hobbies: Hobby[] = [
   { name: 'Math', note: 'Enjoying the puzzles behind the patterns.', sfx: 'ピン' },
   { name: 'Music', note: 'Listening widely, from deep grooves to anything with a good bassline.', sfx: 'ジャン' },
 ];
-
-export const photographyUrl = 'https://destnguyxn-photos.vercel.app/';
