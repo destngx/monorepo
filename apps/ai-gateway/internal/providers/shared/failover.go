@@ -12,9 +12,20 @@ import (
 )
 
 const (
-	providerLimitCooldown = 5 * time.Hour
-	logProviderFailover   = "Provider fallback active"
-	logProviderFailoverOn = "Provider limit reached; enabling fallback"
+	providerLimitCooldown        = 5 * time.Hour
+	logProviderLimitReached      = "Provider limit reached; enabling fallback"
+	logProviderFallbackActive    = "Provider fallback active"
+	logProviderFallbackSucceeded = "Provider fallback succeeded"
+	logProviderFallbackFailed    = "Provider fallback failed"
+	logProviderFallbackSkipped   = "Provider limit reached after stream started; fallback skipped"
+)
+
+const (
+	operationChat            = "chat"
+	operationChatStream      = "chat_stream"
+	operationResponses       = "responses"
+	operationResponsesStream = "responses_stream"
+	operationEmbeddings      = "embeddings"
 )
 
 // IsProviderLimitError identifies errors that mean the provider's plan or
@@ -45,7 +56,19 @@ type FailoverProvider struct {
 
 type failoverState struct {
 	mu           sync.RWMutex
+	limitedAt    time.Time
 	limitedUntil time.Time
+	limitError   string
+	limitModel   string
+}
+
+// failoverCooldown is a snapshot of the limit that put the primary into
+// cooldown, carried into every log line so each fallback explains its cause.
+type failoverCooldown struct {
+	limitedAt    time.Time
+	until        time.Time
+	triggerError string
+	triggerModel string
 }
 
 func NewFailoverProvider(primary, fallback Provider) Provider {
@@ -67,7 +90,7 @@ func (p *FailoverProvider) ListModels(ctx context.Context) (*domain.ModelsRespon
 	return p.primary.ListModels(ctx)
 }
 func (p *FailoverProvider) Embeddings(ctx context.Context, req domain.EmbeddingRequest) (*domain.EmbeddingResponse, error) {
-	return withFailover(p, req.Model, func(provider Provider) (*domain.EmbeddingResponse, error) {
+	return withFailover(p.attempt(ctx, operationEmbeddings, req.Model), func(provider Provider) (*domain.EmbeddingResponse, error) {
 		return provider.Embeddings(ctx, req)
 	})
 }
@@ -75,109 +98,204 @@ func (p *FailoverProvider) IsReady() bool       { return p.primary.IsReady() }
 func (p *FailoverProvider) SetReady(ready bool) { p.primary.SetReady(ready) }
 
 func (p *FailoverProvider) Chat(ctx context.Context, req domain.ChatRequest) (*domain.ChatResponse, error) {
-	return withFailover(p, req.Model, func(provider Provider) (*domain.ChatResponse, error) {
+	return withFailover(p.attempt(ctx, operationChat, req.Model), func(provider Provider) (*domain.ChatResponse, error) {
 		return provider.Chat(ctx, req)
 	})
 }
 
 func (p *FailoverProvider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
-	return withFailover(p, req.Model, func(provider Provider) (*domain.ResponsesResponse, error) {
+	return withFailover(p.attempt(ctx, operationResponses, req.Model), func(provider Provider) (*domain.ResponsesResponse, error) {
 		return provider.Responses(ctx, req)
 	})
 }
 
 func (p *FailoverProvider) ChatStream(ctx context.Context, req domain.ChatRequest, w io.Writer) (domain.Usage, error) {
-	return streamWithFailover(p, req.Model, func(provider Provider, writer io.Writer) (domain.Usage, error) {
+	return streamWithFailover(p.attempt(ctx, operationChatStream, req.Model), func(provider Provider, writer io.Writer) (domain.Usage, error) {
 		return provider.ChatStream(ctx, req, writer)
 	}, w)
 }
 
 func (p *FailoverProvider) ResponsesStream(ctx context.Context, req domain.ResponsesRequest, w io.Writer) (domain.Usage, error) {
-	return streamWithFailover(p, req.Model, func(provider Provider, writer io.Writer) (domain.Usage, error) {
+	return streamWithFailover(p.attempt(ctx, operationResponsesStream, req.Model), func(provider Provider, writer io.Writer) (domain.Usage, error) {
 		return provider.ResponsesStream(ctx, req, writer)
 	}, w)
 }
 
-func (p *FailoverProvider) primaryAvailable() bool {
+// activeCooldown returns the current cooldown and whether the primary is
+// still inside it.
+func (p *FailoverProvider) activeCooldown() (failoverCooldown, bool) {
 	p.state.mu.RLock()
 	defer p.state.mu.RUnlock()
-	return time.Now().After(p.state.limitedUntil)
+	cooldown := failoverCooldown{
+		limitedAt:    p.state.limitedAt,
+		until:        p.state.limitedUntil,
+		triggerError: p.state.limitError,
+		triggerModel: p.state.limitModel,
+	}
+	return cooldown, time.Now().Before(cooldown.until)
 }
 
-func (p *FailoverProvider) cooldownUntil() time.Time {
-	p.state.mu.RLock()
-	defer p.state.mu.RUnlock()
-	return p.state.limitedUntil
-}
-
-func (p *FailoverProvider) markLimited(model string, err error) {
+func (p *FailoverProvider) markLimited(model string, err error) failoverCooldown {
+	now := time.Now()
+	cooldown := failoverCooldown{
+		limitedAt:    now,
+		until:        now.Add(providerLimitCooldown),
+		triggerError: err.Error(),
+		triggerModel: model,
+	}
 	p.state.mu.Lock()
-	p.state.limitedUntil = time.Now().Add(providerLimitCooldown)
-	until := p.state.limitedUntil
-	p.state.mu.Unlock()
-
-	slog.Warn(logProviderFailoverOn,
-		"primary", p.primary.Name(),
-		"fallback", p.fallback.Name(),
-		"model", model,
-		"fallback_model", model,
-		"until", until,
-		"error", err,
-	)
+	defer p.state.mu.Unlock()
+	p.state.limitedAt = cooldown.limitedAt
+	p.state.limitedUntil = cooldown.until
+	p.state.limitError = cooldown.triggerError
+	p.state.limitModel = cooldown.triggerModel
+	return cooldown
 }
 
-func (p *FailoverProvider) logFallback(model string) {
-	slog.Warn(logProviderFailover,
-		"primary", p.primary.Name(),
-		"fallback", p.fallback.Name(),
-		"model", model,
-		"fallback_model", model,
-		"until", p.cooldownUntil(),
-	)
+// failoverAttempt carries one request's identity through the failover path
+// so every log line and the request log metadata describe the same request.
+type failoverAttempt struct {
+	ctx       context.Context
+	provider  *FailoverProvider
+	operation string
+	model     string
 }
 
-func withFailover[T any](p *FailoverProvider, model string, call func(Provider) (T, error)) (T, error) {
-	provider := p.primary
-	if !p.primaryAvailable() {
-		provider = p.fallback
+func (p *FailoverProvider) attempt(ctx context.Context, operation, model string) failoverAttempt {
+	return failoverAttempt{ctx: ctx, provider: p, operation: operation, model: model}
+}
+
+func (a failoverAttempt) attrs(extra ...any) []any {
+	attrs := []any{
+		"request_id", requestIDFromContext(a.ctx),
+		"operation", a.operation,
+		"primary", a.provider.primary.Name(),
+		"fallback", a.provider.fallback.Name(),
+		"model", a.model,
+	}
+	return append(attrs, extra...)
+}
+
+// recordFailover attaches the failover outcome to the request log metadata so
+// the access log reports the provider that actually served the request.
+func (a failoverAttempt) recordFailover(reason string, cooldown failoverCooldown) *domain.FailoverLogMeta {
+	failover := &domain.FailoverLogMeta{
+		Primary:      a.provider.primary.Name(),
+		Fallback:     a.provider.fallback.Name(),
+		Reason:       reason,
+		TriggerModel: cooldown.triggerModel,
+		TriggerError: cooldown.triggerError,
+	}
+	if meta, ok := a.ctx.Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil {
+		meta.Failover = failover
+	}
+	return failover
+}
+
+func (a failoverAttempt) logLimitReached(cooldown failoverCooldown, primaryDuration time.Duration) {
+	slog.Warn(logProviderLimitReached, a.attrs(
+		"reason", domain.FailoverReasonPrimaryLimit,
+		"fallback_model", a.model,
+		"trigger_error", cooldown.triggerError,
+		"primary_duration", primaryDuration,
+		"cooldown", providerLimitCooldown,
+		"until", cooldown.until,
+	)...)
+}
+
+func (a failoverAttempt) logCooldownRouting(cooldown failoverCooldown) {
+	slog.Warn(logProviderFallbackActive, a.attrs(
+		"reason", domain.FailoverReasonPrimaryCooldown,
+		"fallback_model", a.model,
+		"trigger_model", cooldown.triggerModel,
+		"trigger_error", cooldown.triggerError,
+		"limited_at", cooldown.limitedAt,
+		"until", cooldown.until,
+		"cooldown_remaining", time.Until(cooldown.until).Round(time.Second),
+	)...)
+}
+
+func (a failoverAttempt) logStreamSkipped(cooldown failoverCooldown, primaryDuration time.Duration, written int) {
+	slog.Warn(logProviderFallbackSkipped, a.attrs(
+		"reason", domain.FailoverReasonStreamStarted,
+		"trigger_error", cooldown.triggerError,
+		"bytes_written", written,
+		"primary_duration", primaryDuration,
+		"cooldown", providerLimitCooldown,
+		"until", cooldown.until,
+	)...)
+}
+
+// runFallback serves the request from the fallback provider, then records and
+// logs how the fallback went.
+func runFallback[T any](a failoverAttempt, reason string, cooldown failoverCooldown, call func() (T, error)) (T, error) {
+	failover := a.recordFailover(reason, cooldown)
+	start := time.Now()
+	result, err := call()
+	attrs := a.attrs(
+		"reason", reason,
+		"fallback_model", a.model,
+		"trigger_error", cooldown.triggerError,
+		"fallback_duration", time.Since(start),
+	)
+	if err != nil {
+		failover.FallbackError = err.Error()
+		slog.Error(logProviderFallbackFailed, append(attrs, "fallback_error", err.Error())...)
+		return result, err
+	}
+	slog.Info(logProviderFallbackSucceeded, attrs...)
+	return result, nil
+}
+
+func withFailover[T any](a failoverAttempt, call func(Provider) (T, error)) (T, error) {
+	p := a.provider
+	fallback := func() (T, error) { return call(p.fallback) }
+	if cooldown, active := p.activeCooldown(); active {
+		a.logCooldownRouting(cooldown)
+		return runFallback(a, domain.FailoverReasonPrimaryCooldown, cooldown, fallback)
 	}
 
-	if provider == p.fallback {
-		p.logFallback(model)
-	}
-	result, err := call(provider)
-	if err == nil || provider != p.primary || !IsProviderLimitError(err) {
+	start := time.Now()
+	result, err := call(p.primary)
+	if !IsProviderLimitError(err) {
 		return result, err
 	}
 
-	p.markLimited(model, err)
-	p.logFallback(model)
-	return call(p.fallback)
+	cooldown := p.markLimited(a.model, err)
+	a.logLimitReached(cooldown, time.Since(start))
+	return runFallback(a, domain.FailoverReasonPrimaryLimit, cooldown, fallback)
 }
 
-func streamWithFailover(
-	p *FailoverProvider,
-	model string,
-	call func(Provider, io.Writer) (domain.Usage, error),
-	w io.Writer,
-) (domain.Usage, error) {
-	provider := p.primary
-	if !p.primaryAvailable() {
-		provider = p.fallback
+func streamWithFailover(a failoverAttempt, call func(Provider, io.Writer) (domain.Usage, error), w io.Writer) (domain.Usage, error) {
+	p := a.provider
+	fallback := func() (domain.Usage, error) { return call(p.fallback, w) }
+	if cooldown, active := p.activeCooldown(); active {
+		a.logCooldownRouting(cooldown)
+		return runFallback(a, domain.FailoverReasonPrimaryCooldown, cooldown, fallback)
 	}
 
 	tracked := &trackingWriter{writer: w}
-	if provider == p.fallback {
-		p.logFallback(model)
-	}
-	usage, err := call(provider, tracked)
-	if err == nil || provider != p.primary || !IsProviderLimitError(err) || tracked.written > 0 {
+	start := time.Now()
+	usage, err := call(p.primary, tracked)
+	if !IsProviderLimitError(err) {
 		return usage, err
 	}
 
-	p.markLimited(model, err)
-	p.logFallback(model)
-	return call(p.fallback, w)
+	cooldown := p.markLimited(a.model, err)
+	if tracked.written > 0 {
+		// Output already reached the client, so this request cannot be
+		// replayed; the cooldown still routes the next requests to fallback.
+		a.recordFailover(domain.FailoverReasonStreamStarted, cooldown)
+		a.logStreamSkipped(cooldown, time.Since(start), tracked.written)
+		return usage, err
+	}
+	a.logLimitReached(cooldown, time.Since(start))
+	return runFallback(a, domain.FailoverReasonPrimaryLimit, cooldown, fallback)
+}
+
+func requestIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(domain.RequestIDKey).(string)
+	return id
 }
 
 type trackingWriter struct {

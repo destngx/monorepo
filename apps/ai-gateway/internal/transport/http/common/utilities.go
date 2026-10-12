@@ -15,13 +15,15 @@ import (
 func WriteError(w http.ResponseWriter, r *http.Request, code int, msg string) {
 	rid, _ := r.Context().Value(domain.RequestIDKey).(string)
 	provider, model, mapping, reasoningEffort := "", "", "", ""
+	var failoverAttrs []any
 	if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil {
-		provider = meta.Provider
+		provider = meta.ServingProvider()
 		model = meta.Model
 		mapping = meta.Mapping
 		reasoningEffort = meta.ReasoningEffort
+		failoverAttrs = meta.Failover.LogAttrs()
 	}
-	slog.Error("HTTP Error",
+	attrs := []any{
 		"rid", rid,
 		"status", code,
 		"method", r.Method,
@@ -31,7 +33,8 @@ func WriteError(w http.ResponseWriter, r *http.Request, code int, msg string) {
 		"reasoning_effort", reasoningEffort,
 		"mapping", mapping,
 		"message", msg,
-	)
+	}
+	slog.Error("HTTP Error", append(attrs, failoverAttrs...)...)
 	w.Header().Set(HeaderContentType, ContentTypeJSON)
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": msg, "stack": string(debug.Stack())})
@@ -67,6 +70,9 @@ func (sw *RawStreamLogWriter) Write(p []byte) (int, error) {
 
 // SetMetrics records provider usage in the request metrics payload.
 func SetMetrics(r *http.Request, provider, model, inputModel string, usage domain.Usage, stream bool, err error) {
+	if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil && meta.Failover.ServedByFallback() {
+		provider = meta.Failover.Fallback
+	}
 	cached, writes := 0, 0
 	metadataPresent := usage.PromptTokensDetails != nil
 	if metadataPresent {

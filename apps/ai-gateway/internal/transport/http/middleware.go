@@ -72,10 +72,12 @@ func Logger(next http.Handler) http.Handler {
 		mapping := ""
 		model := ""
 		reasoningEffort := ""
+		var failoverAttrs []any
 		if meta != nil {
-			if meta.Provider != "" {
-				provider = meta.Provider
+			if served := meta.ServingProvider(); served != "" {
+				provider = served
 			}
+			failoverAttrs = meta.Failover.LogAttrs()
 			mapping = meta.Mapping
 			model = meta.Model
 			reasoningEffort = meta.ReasoningEffort
@@ -89,7 +91,7 @@ func Logger(next http.Handler) http.Handler {
 		status := fmt.Sprintf("%d", rw.status)
 		status = statusColor(rw.status)(status)
 
-		slog.Info("Request",
+		attrs := []any{
 			"method", method,
 			"path", r.URL.Path,
 			"status", status,
@@ -99,7 +101,8 @@ func Logger(next http.Handler) http.Handler {
 			"duration", time.Since(start),
 			"mapping", mapping,
 			"rid", requestID,
-		)
+		}
+		slog.Info("Request", append(attrs, failoverAttrs...)...)
 	})
 }
 
