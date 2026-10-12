@@ -22,7 +22,6 @@ const (
 	categoriesSheetRange    = "Categories!A1:A153"
 	goalsSheetRange         = "Goals!A1:Z50"
 	loansSheetRange         = "'Loan / Dept'!A10:H50"
-	notificationsSheetRange = "EmailNotifications!A3:F"
 	cryptoSheetRange        = "Crypto!A1:Z100"
 	fundsSheetRange         = "InvestmentFundCertificate!A1:Z100"
 	promptsSheetRange       = "Prompts!A2:C"
@@ -383,66 +382,6 @@ func (s *dbService) ListLoans(forceFresh bool) ([]domain.Loan, error) {
 	return loans, nil
 }
 
-func (s *dbService) ListNotifications(forceFresh bool) ([]domain.EmailNotification, error) {
-	const cacheKey = "notifications"
-	if !forceFresh {
-		if cached, ok, err := readCachedJSON[[]domain.EmailNotification](s.cache, cacheKey); err != nil {
-			return nil, err
-		} else if ok {
-			return cached, nil
-		}
-	}
-	rows, err := s.client.ReadSheet(notificationsSheetRange)
-	if err != nil {
-		return nil, err
-	}
-	notifications := make([]domain.EmailNotification, 0)
-	for i, row := range rows {
-		id := strings.TrimSpace(cellAt(row, 0))
-		if id == "" {
-			continue
-		}
-		status := domain.NotificationPending
-		if strings.EqualFold(strings.TrimSpace(cellAt(row, 5)), "done") {
-			status = domain.NotificationDone
-		}
-		notifications = append(notifications, domain.EmailNotification{
-			ID:        id,
-			Timestamp: cellAt(row, 1),
-			From:      cellAt(row, 2),
-			Subject:   cellAt(row, 3),
-			Content:   cellAt(row, 4),
-			Status:    status,
-			RowNumber: i + 3,
-		})
-	}
-	if err := writeCachedJSON(s.cache, cacheKey, notifications, 300); err != nil {
-		return nil, err
-	}
-	return notifications, nil
-}
-
-func (s *dbService) ListPendingNotifications(forceFresh bool) ([]domain.EmailNotification, error) {
-	notifications, err := s.ListNotifications(forceFresh)
-	if err != nil {
-		return nil, err
-	}
-	pending := make([]domain.EmailNotification, 0)
-	for _, item := range notifications {
-		if item.Status == domain.NotificationPending {
-			pending = append(pending, item)
-		}
-	}
-	return pending, nil
-}
-
-func (s *dbService) MarkNotificationDone(rowNumber int) error {
-	if err := s.client.UpdateRow(fmt.Sprintf("EmailNotifications!F%d", rowNumber), []any{"done"}); err != nil {
-		return err
-	}
-	return s.invalidatePatterns("notifications", "notifications:*")
-}
-
 func (s *dbService) ListTags(forceFresh bool) ([]string, error) {
 	transactions, err := s.ListTransactions(forceFresh)
 	if err != nil {
@@ -524,8 +463,7 @@ func (s *dbService) SyncCache() (domain.SyncResult, error) {
 	if s.cache == nil {
 		return result, nil
 	}
-	patterns := []string{"accounts*", "transactions*", "budget*", "categories*", "goals*", "loans*", "notifications*", "sheets:*", "prompts*", "knowledge*"}
-	patterns = []string{"accounts:*", "transactions:*", "budget:*", "categories:*", "goals", "loans", "notifications", "notifications:*", "sheets:init", "investments:assets"}
+	patterns := []string{"accounts:*", "transactions:*", "budget:*", "categories:*", "goals", "loans", "sheets:init", "investments:assets"}
 	for _, pattern := range patterns {
 		deleted, err := s.cache.Invalidate(context.Background(), pattern)
 		if err != nil {

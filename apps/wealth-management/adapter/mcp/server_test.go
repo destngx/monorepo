@@ -43,6 +43,12 @@ func TestGivenToolsListWhenHandleThenReturnsDatabaseToolsWhenConfigured(t *testi
 	if len(response.Result.Tools) < 10 {
 		t.Fatalf("expected expanded MCP tool list, got %+v", response.Result.Tools)
 	}
+	// Balance-change ingestion from EmailNotifications is deferred (REQUIREMENTS.md §6.1).
+	for _, tool := range response.Result.Tools {
+		if tool.Name == "GetNotifications" || tool.Name == "MarkNotificationsDone" {
+			t.Fatalf("expected notification tools to be removed, found %s", tool.Name)
+		}
+	}
 }
 
 func TestGivenToolsCallEngineHealthWhenHandleThenReturnsHealthPayload(t *testing.T) {
@@ -140,13 +146,6 @@ func (f *fakeDatabaseServiceForMCP) ListGoals(bool) ([]domain.Goal, error) {
 func (f *fakeDatabaseServiceForMCP) ListLoans(bool) ([]domain.Loan, error) {
 	return []domain.Loan{}, nil
 }
-func (f *fakeDatabaseServiceForMCP) ListNotifications(bool) ([]domain.EmailNotification, error) {
-	return []domain.EmailNotification{}, nil
-}
-func (f *fakeDatabaseServiceForMCP) ListPendingNotifications(bool) ([]domain.EmailNotification, error) {
-	return []domain.EmailNotification{}, nil
-}
-func (f *fakeDatabaseServiceForMCP) MarkNotificationDone(int) error  { return nil }
 func (f *fakeDatabaseServiceForMCP) ListTags(bool) ([]string, error) { return []string{"salary"}, nil }
 func (f *fakeDatabaseServiceForMCP) GetInvestmentAssets(bool) (domain.InvestmentAssets, error) {
 	return domain.InvestmentAssets{}, nil

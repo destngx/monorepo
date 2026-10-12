@@ -60,27 +60,6 @@ func TestGivenTransactionsCreateRequestWhenDatabaseHandlerCalledThenReturnsSucce
 	}
 }
 
-func TestGivenNotificationsPatchWhenDatabaseHandlerCalledThenMarksRowsDone(t *testing.T) {
-	app := fiber.New()
-	fake := &fakeDatabaseServiceForHandler{}
-	testLog := logger.NewTestLogger(t)
-	handler := NewDatabaseHandler(fake, testLog)
-	app.Patch("/api/notifications", handler.MarkNotificationsDone)
-	request := httptest.NewRequest(http.MethodPatch, "/api/notifications", strings.NewReader(`{"rowNumbers":[3,4]}`))
-	request.Header.Set("Content-Type", "application/json")
-	response, err := app.Test(request, -1)
-	if err != nil {
-		t.Fatalf("fiber test request failed: %v", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", response.StatusCode)
-	}
-	if len(fake.markedRows) != 2 || fake.markedRows[0] != 3 || fake.markedRows[1] != 4 {
-		t.Fatalf("expected marked rows [3 4], got %+v", fake.markedRows)
-	}
-}
-
 func TestGivenInitRequestWhenDatabaseHandlerCalledThenReturnsReadyPayload(t *testing.T) {
 	app := fiber.New()
 	testLog := logger.NewTestLogger(t)
@@ -104,7 +83,6 @@ func TestGivenInitRequestWhenDatabaseHandlerCalledThenReturnsReadyPayload(t *tes
 type fakeDatabaseServiceForHandler struct {
 	accounts           []domain.Account
 	createdTransaction *domain.TransactionCreateInput
-	markedRows         []int
 	initResult         domain.InitResult
 }
 
@@ -135,16 +113,6 @@ func (f *fakeDatabaseServiceForHandler) ListGoals(bool) ([]domain.Goal, error) {
 }
 func (f *fakeDatabaseServiceForHandler) ListLoans(bool) ([]domain.Loan, error) {
 	return []domain.Loan{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListNotifications(bool) ([]domain.EmailNotification, error) {
-	return []domain.EmailNotification{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) ListPendingNotifications(bool) ([]domain.EmailNotification, error) {
-	return []domain.EmailNotification{}, nil
-}
-func (f *fakeDatabaseServiceForHandler) MarkNotificationDone(rowNumber int) error {
-	f.markedRows = append(f.markedRows, rowNumber)
-	return nil
 }
 func (f *fakeDatabaseServiceForHandler) ListTags(bool) ([]string, error) {
 	return []string{"salary"}, nil

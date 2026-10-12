@@ -142,7 +142,7 @@ func buildOpenAPISpec(app *fiber.App, serverURL string) map[string]any {
 
 func queryParametersForRoute(path string) []map[string]any {
 	switch path {
-	case "/api/accounts", "/api/transactions", "/api/categories", "/api/goals", "/api/notifications", "/api/investments/assets":
+	case "/api/accounts", "/api/transactions", "/api/categories", "/api/goals", "/api/investments/assets":
 		return []map[string]any{queryParameter("force", "boolean", "Bypass cache and fetch fresh data from Google Sheets.")}
 	default:
 		return nil
@@ -168,14 +168,6 @@ func requestBodyForRoute(method string, path string) map[string]any {
 			},
 			"required": []string{"accountName", "date", "payee", "category"},
 		})
-	case method == fiber.MethodPatch && path == "/api/notifications":
-		return jsonRequestBody(map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"rowNumbers": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
-			},
-			"required": []string{"rowNumbers"},
-		})
 	default:
 		return nil
 	}
@@ -185,9 +177,6 @@ func responsesForRoute(method string, path string) map[string]any {
 	responses := map[string]any{"200": map[string]any{"description": "OK"}}
 	if method == fiber.MethodPost && path == "/api/transactions" {
 		responses["400"] = map[string]any{"description": "Invalid transaction payload"}
-	}
-	if method == fiber.MethodPatch && path == "/api/notifications" {
-		responses["400"] = map[string]any{"description": "Invalid notification rowNumbers payload"}
 	}
 	if strings.HasPrefix(path, "/api/") && path != "/api/health" {
 		responses["503"] = map[string]any{"description": "Google Sheets configuration unavailable"}

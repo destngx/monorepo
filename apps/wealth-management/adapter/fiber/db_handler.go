@@ -118,35 +118,6 @@ func (h *DatabaseHandler) GetLoans(c *fiber.Ctx) error {
 	return c.JSON(items)
 }
 
-func (h *DatabaseHandler) GetNotifications(c *fiber.Ctx) error {
-	items, err := h.databaseService.ListPendingNotifications(forceFresh(c))
-	if err != nil {
-		return h.handleError(c, err)
-	}
-	return c.JSON(items)
-}
-
-func (h *DatabaseHandler) MarkNotificationsDone(c *fiber.Ctx) error {
-	var body struct {
-		RowNumbers []int `json:"rowNumbers"`
-	}
-	if err := c.BodyParser(&body); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
-	}
-	if len(body.RowNumbers) == 0 {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "rowNumbers must be a non-empty array"})
-	}
-	for _, rowNumber := range body.RowNumbers {
-		if rowNumber <= 0 {
-			return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "rowNumbers must contain positive row indices"})
-		}
-		if err := h.databaseService.MarkNotificationDone(rowNumber); err != nil {
-			return h.handleError(c, err)
-		}
-	}
-	return c.JSON(fiber.Map{"success": true})
-}
-
 func (h *DatabaseHandler) GetTags(c *fiber.Ctx) error {
 	tags, err := h.databaseService.ListTags(forceFresh(c))
 	if err != nil {

@@ -127,8 +127,6 @@ func (s *Server) ListTools(_ context.Context) ([]domain.ToolDefinition, error) {
 			newToolDefinition("GetCategories", "Returns categories from Google Sheets."),
 			newToolDefinition("GetGoals", "Returns goals from Google Sheets."),
 			newToolDefinition("GetLoans", "Returns loans from Google Sheets."),
-			newToolDefinition("GetNotifications", "Returns pending notifications from Google Sheets."),
-			newToolDefinition("MarkNotificationsDone", "Marks notification rows as done.", map[string]any{"rowNumbers": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}}}),
 			newToolDefinition("GetTags", "Returns normalized transaction tags."),
 			newToolDefinition("SyncSheetsCache", "Invalidates Sheets-related cache keys."),
 			newToolDefinition("WarmAIContent", "Warms AI prompts and knowledge content from Google Sheets."),
@@ -196,16 +194,6 @@ func (s *Server) CallTool(_ context.Context, name string, arguments map[string]a
 		payload, err = s.databaseService.ListGoals(argumentBool(arguments, "force"))
 	case "GetLoans":
 		payload, err = s.databaseService.ListLoans(argumentBool(arguments, "force"))
-	case "GetNotifications":
-		payload, err = s.databaseService.ListPendingNotifications(argumentBool(arguments, "force"))
-	case "MarkNotificationsDone":
-		rowNumbers := argumentIntSlice(arguments, "rowNumbers")
-		for _, rowNumber := range rowNumbers {
-			if err = s.databaseService.MarkNotificationDone(rowNumber); err != nil {
-				break
-			}
-		}
-		payload = map[string]any{"success": err == nil, "rowNumbers": rowNumbers}
 	case "GetTags":
 		payload, err = s.databaseService.ListTags(argumentBool(arguments, "force"))
 	case "SyncSheetsCache":
@@ -360,27 +348,6 @@ func argumentStringSlice(arguments map[string]any, key string) []string {
 	result := make([]string, 0, len(rawValues))
 	for _, item := range rawValues {
 		result = append(result, fmt.Sprintf("%v", item))
-	}
-	return result
-}
-
-func argumentIntSlice(arguments map[string]any, key string) []int {
-	value, ok := arguments[key]
-	if !ok {
-		return []int{}
-	}
-	rawValues, ok := value.([]any)
-	if !ok {
-		return []int{}
-	}
-	result := make([]int, 0, len(rawValues))
-	for _, item := range rawValues {
-		switch typed := item.(type) {
-		case float64:
-			result = append(result, int(typed))
-		case int:
-			result = append(result, typed)
-		}
 	}
 	return result
 }

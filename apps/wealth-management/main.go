@@ -173,32 +173,11 @@ func main() {
 			loans := api.Group("/loans", "loans")
 			loans.Get("/", dbHandler.GetLoans, fiberAdapter.RouteMeta{Summary: "Lists all known loans, their key attributes, and payoff progress. Use for dashboards, analysis, or budgeting. `?force=true` for fresh sheet read.", Tags: []string{"loans"}, QueryParams: []fiberAdapter.RouteParameter{fiberAdapter.QueryParam("force", "boolean", "Bypass cache and fetch fresh data from Google Sheets.", false)}})
 
-			notifications := api.Group("/notifications", "notifications")
-			notifications.Get("/", dbHandler.GetNotifications, fiberAdapter.RouteMeta{Summary: "Fetches current actionable notifications (e.g., required updates, anomalies) for this user or sheet scope. Use `?force=true` to get fresh notices.", Tags: []string{"notifications"}, QueryParams: []fiberAdapter.RouteParameter{fiberAdapter.QueryParam("force", "boolean", "Bypass cache and fetch fresh data from Google Sheets.", false)}})
-			notifications.Patch("/", dbHandler.MarkNotificationsDone, fiberAdapter.RouteMeta{
-				Summary: "Marks one or more notifications as completed (requires array of row numbers in request body). Used to mute or clear handled notifications.",
-				Tags:    []string{"notifications"},
-				RequestBody: map[string]any{
-					"required": true,
-					"content": map[string]any{
-						"application/json": map[string]any{
-							"schema": map[string]any{
-								"type": "object",
-								"properties": map[string]any{
-									"rowNumbers": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}},
-								},
-								"required": []string{"rowNumbers"},
-							},
-						},
-					},
-				},
-			})
-
 			tags := api.Group("/tags", "tags")
 			tags.Get("/", dbHandler.GetTags, fiberAdapter.RouteMeta{Summary: "Fetches all custom tags defined for categorizing transactions. Use for autocomplete and UIs. `?force=true` for live sheet read.", Tags: []string{"tags"}, QueryParams: []fiberAdapter.RouteParameter{fiberAdapter.QueryParam("force", "boolean", "Bypass cache and fetch fresh data from Google Sheets.", false)}})
 
 			sync := api.Group("/sync", "sync")
-			sync.Post("/", dbHandler.Sync, fiberAdapter.RouteMeta{Summary: "Clears and invalidates all major cached app data blocks (accounts, transactions, budgets, categories, goals, notifications, investments, and AI content). Forces a full cache reset, making the backend reload fresh information from its sources (e.g., Google Sheets). Useful after batch updates, configuration changes, or to solve data hygiene issues.", Tags: []string{"sync"}})
+			sync.Post("/", dbHandler.Sync, fiberAdapter.RouteMeta{Summary: "Clears and invalidates all major cached app data blocks (accounts, transactions, budgets, categories, goals, investments, and AI content). Forces a full cache reset, making the backend reload fresh information from its sources (e.g., Google Sheets). Useful after batch updates, configuration changes, or to solve data hygiene issues.", Tags: []string{"sync"}})
 
 			init := api.Group("/init", "init")
 			init.Get("/", dbHandler.Init, fiberAdapter.RouteMeta{Summary: "Initializes and verifies readiness of AI-related content (prompts and knowledge) from Google Sheets. Triggers warmup/preload of this content into cache, ensuring all backend AI features are prepared. Returns counts of loaded prompts/knowledge rows. Use ?force=true to bypass cache and perform a live data fetch.", Tags: []string{"init"}, QueryParams: []fiberAdapter.RouteParameter{fiberAdapter.QueryParam("force", "boolean", "Bypass cache and fetch fresh data from Google Sheets.", false)}})

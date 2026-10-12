@@ -134,13 +134,13 @@ func TestUpdateRowUsesUserEnteredMode(t *testing.T) {
 		case r.URL.Path == "/token":
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"access_token":"update-token","token_type":"Bearer","expires_in":3600}`))
-		case strings.HasPrefix(r.URL.Path, "/v4/spreadsheets/spreadsheet-123/values/EmailNotifications!F9"):
+		case strings.HasPrefix(r.URL.Path, "/v4/spreadsheets/spreadsheet-123/values/Accounts!A9"):
 			capturedQuery = r.URL.Query()
 			if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
 				t.Fatalf("failed to decode request body: %v", err)
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"updatedRange": "EmailNotifications!F9"})
+			_ = json.NewEncoder(w).Encode(map[string]any{"updatedRange": "Accounts!A9"})
 		default:
 			http.NotFound(w, r)
 		}
@@ -155,7 +155,7 @@ func TestUpdateRowUsesUserEnteredMode(t *testing.T) {
 		RedirectURL:   "http://127.0.0.1:3000",
 	})
 
-	if err := client.UpdateRow("EmailNotifications!F9", []any{"done"}); err != nil {
+	if err := client.UpdateRow("Accounts!A9", []any{"[DELETED] Old Wallet"}); err != nil {
 		t.Fatalf("UpdateRow returned error: %v", err)
 	}
 	if got := capturedQuery.Get("valueInputOption"); got != "USER_ENTERED" {

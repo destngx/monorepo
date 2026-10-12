@@ -14,9 +14,6 @@ type DatabaseService interface {
 	ListBudget(forceFresh bool) ([]domain.BudgetItem, error)
 	ListGoals(forceFresh bool) ([]domain.Goal, error)
 	ListLoans(forceFresh bool) ([]domain.Loan, error)
-	ListNotifications(forceFresh bool) ([]domain.EmailNotification, error)
-	ListPendingNotifications(forceFresh bool) ([]domain.EmailNotification, error)
-	MarkNotificationDone(rowNumber int) error
 	ListTags(forceFresh bool) ([]string, error)
 	GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error)
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)

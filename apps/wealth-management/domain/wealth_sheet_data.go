@@ -51,13 +51,6 @@ const (
 	GoalStatusOffTrack GoalStatus = "OFF_TRACK"
 )
 
-type NotificationStatus string
-
-const (
-	NotificationPending NotificationStatus = "pending"
-	NotificationDone    NotificationStatus = "done"
-)
-
 type Account struct {
 	Name           string      `json:"name"`
 	DueDate        *string     `json:"dueDate"`
@@ -166,16 +159,6 @@ type Loan struct {
 	YearlyDebt       float64 `json:"yearlyDebt"`
 	YearlyPaid       float64 `json:"yearlyPaid"`
 	YearlyRemaining  float64 `json:"yearlyRemaining"`
-}
-
-type EmailNotification struct {
-	ID        string             `json:"id"`
-	Timestamp string             `json:"timestamp"`
-	From      string             `json:"from"`
-	Subject   string             `json:"subject"`
-	Content   string             `json:"content"`
-	Status    NotificationStatus `json:"status"`
-	RowNumber int                `json:"rowNumber"`
 }
 
 type InvestmentHoldingSection struct {
