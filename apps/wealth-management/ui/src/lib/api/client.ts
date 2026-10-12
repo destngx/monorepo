@@ -66,7 +66,7 @@ async function errorMessage(response: Response): Promise<string> {
   return text.trim() || `${response.status} ${response.statusText}`;
 }
 
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function send(path: string, options: RequestOptions): Promise<Response> {
   const doFetch = options.fetch ?? fetch;
   const response = await doFetch(buildPath(path, options.query), {
     method: options.method ?? 'GET',
@@ -77,6 +77,18 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (!response.ok) {
     throw new ApiError(response.status, await errorMessage(response));
   }
+  return response;
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await send(path, options);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/** Like request, but returns the response body stream (NDJSON endpoints). */
+export async function requestStream(path: string, options: RequestOptions = {}): Promise<ReadableStream<Uint8Array>> {
+  const response = await send(path, options);
+  if (!response.body) throw new ApiError(response.status, 'The server sent no response body.');
+  return response.body;
 }

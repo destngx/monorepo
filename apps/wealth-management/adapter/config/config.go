@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -131,4 +133,54 @@ func LoadLoggerConfig() (logLevel string, colorEnabled bool) {
 	}
 	colorEnabled = os.Getenv("LOG_COLOR") != "false"
 	return logLevel, colorEnabled
+}
+
+var ErrMissingAIConfig = errors.New("missing AI configuration")
+
+const defaultAITimeoutSeconds = 90
+
+// LoadAIConfig reads the OpenAI-compatible provider settings (D10, WM-AI-4):
+// AI_BASE_URL (e.g. http://127.0.0.1:8081/v1 for ai-gateway), AI_API_KEY,
+// AI_PROVIDER (X-AI-Provider for ai-gateway), AI_MODEL as the default model,
+// AI_MODEL_{INSIGHT,SUGGEST,VISION,CHAT} per use case, AI_FALLBACK_MODEL,
+// AI_TIMEOUT_SECONDS and AI_PII_NAMES (comma separated names to mask).
+func LoadAIConfig() (domain.AIConfig, error) {
+	config := domain.AIConfig{
+		BaseURL:       strings.TrimSpace(os.Getenv("AI_BASE_URL")),
+		APIKey:        os.Getenv("AI_API_KEY"),
+		Provider:      strings.TrimSpace(os.Getenv("AI_PROVIDER")),
+		FallbackModel: strings.TrimSpace(os.Getenv("AI_FALLBACK_MODEL")),
+		Timeout:       time.Duration(getOrDefaultInt("AI_TIMEOUT_SECONDS", defaultAITimeoutSeconds)) * time.Second,
+		Models:        map[domain.AIUseCase]string{},
+	}
+	defaultModel := strings.TrimSpace(os.Getenv("AI_MODEL"))
+	for _, useCase := range domain.AIUseCases {
+		model := strings.TrimSpace(os.Getenv("AI_MODEL_" + strings.ToUpper(string(useCase))))
+		if model == "" {
+			model = defaultModel
+		}
+		if model != "" {
+			config.Models[useCase] = model
+		}
+	}
+	for _, name := range strings.Split(os.Getenv("AI_PII_NAMES"), ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			config.PIINames = append(config.PIINames, name)
+		}
+	}
+
+	var missing []string
+	if config.BaseURL == "" {
+		missing = append(missing, "AI_BASE_URL")
+	}
+	for _, useCase := range domain.AIUseCases {
+		if config.Models[useCase] == "" {
+			missing = append(missing, "AI_MODEL")
+			break
+		}
+	}
+	if len(missing) > 0 {
+		return domain.AIConfig{}, fmt.Errorf("%w: %v", ErrMissingAIConfig, missing)
+	}
+	return config, nil
 }

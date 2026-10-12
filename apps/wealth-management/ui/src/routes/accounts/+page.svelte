@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InsightCard from '$lib/ai/InsightCard.svelte';
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
   import { accountIcon, creditRemaining, creditUtilization, groupAccounts, isCreditAccount } from '$lib/accounts';
@@ -207,6 +208,13 @@
     {/if}
   </section>
 {/each}
+
+<!-- WM-ACC-5 -->
+<InsightCard
+  title="AI account review"
+  class="mt-4"
+  load={(force, signal) => api.review('account-review', {}, { force, signal })}
+/>
 
 <Modal
   open={creating || editing !== null}

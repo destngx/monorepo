@@ -175,22 +175,6 @@ func normalizeKey(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
-func countNonEmptyRows(rows [][]string, requiredColumns int) int {
-	count := 0
-	for _, row := range rows {
-		nonEmpty := 0
-		for i := 0; i < requiredColumns && i < len(row); i++ {
-			if strings.TrimSpace(row[i]) != "" {
-				nonEmpty++
-			}
-		}
-		if nonEmpty == requiredColumns {
-			count++
-		}
-	}
-	return count
-}
-
 // rowETag fingerprints the first columns of a row exactly as read from the
 // sheet, so a later write can detect that the row changed in between.
 func rowETag(row []string, columns int) string {

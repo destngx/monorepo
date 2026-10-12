@@ -31,21 +31,21 @@ const (
 	DefaultBudgetSheetTemplate = "Budget_{year}"
 	budgetSheetColumns         = "A1:Z200"
 
-	sheetDataTTL     = 300  // WM-RULE-10
-	promptsTTL       = 3600 // WM-RULE-10
-	batchReplayTTL   = 7 * 24 * 3600
-	maxLocalReplays  = 256
-	cacheKeyAccounts = "accounts:all"
-	cacheKeyTxs      = "transactions:all"
-	cacheKeyCats     = "categories:all"
-	cacheKeyGoals    = "goals"
-	cacheKeyLoans    = "loans"
-	cacheKeyInvest   = "investments:assets"
-	cacheKeyInit     = "sheets:init"
+	sheetDataTTL      = 300  // WM-RULE-10
+	promptsTTL        = 3600 // WM-RULE-10
+	batchReplayTTL    = 7 * 24 * 3600
+	maxLocalReplays   = 256
+	cacheKeyAccounts  = "accounts:all"
+	cacheKeyTxs       = "transactions:all"
+	cacheKeyCats      = "categories:all"
+	cacheKeyGoals     = "goals"
+	cacheKeyLoans     = "loans"
+	cacheKeyInvest    = "investments:assets"
+	cacheKeyAIContent = "sheets:ai-content"
 )
 
 // sheetCachePatterns lists every sheet-derived cache key (WM-OPS-3).
-var sheetCachePatterns = []string{"accounts:*", "transactions:*", "budget:*", "categories:*", cacheKeyGoals, cacheKeyLoans, cacheKeyInit, cacheKeyInvest}
+var sheetCachePatterns = []string{"accounts:*", "transactions:*", "budget:*", "categories:*", cacheKeyGoals, cacheKeyLoans, cacheKeyAIContent, cacheKeyInvest}
 
 // DatabaseServiceOptions tunes the sheet service; zero values use defaults.
 type DatabaseServiceOptions struct {
@@ -175,19 +175,41 @@ func (s *dbService) SyncCache() (domain.SyncResult, error) {
 }
 
 func (s *dbService) WarmAIContent(forceFresh bool) (domain.InitResult, error) {
-	return cachedRead(s, cacheKeyInit, promptsTTL, forceFresh, func() (domain.InitResult, error) {
+	content, err := s.LoadAIContent(forceFresh)
+	if err != nil {
+		return domain.InitResult{}, err
+	}
+	result := domain.InitResult{Ready: true}
+	result.Loaded.Prompts = len(content.Prompts)
+	result.Loaded.Knowledge = len(content.Knowledge)
+	return result, nil
+}
+
+// LoadAIContent reads the prompt registry (domain/name → content) and the
+// knowledge base (WM-AI-1). Rows missing a key or content are skipped.
+func (s *dbService) LoadAIContent(forceFresh bool) (domain.AIContent, error) {
+	return cachedRead(s, cacheKeyAIContent, promptsTTL, forceFresh, func() (domain.AIContent, error) {
 		prompts, err := s.client.ReadSheet(promptsSheetRange)
 		if err != nil {
-			return domain.InitResult{}, err
+			return domain.AIContent{}, err
 		}
 		knowledge, err := s.client.ReadSheet(knowledgeSheetRange)
 		if err != nil {
-			return domain.InitResult{}, err
+			return domain.AIContent{}, err
 		}
-		result := domain.InitResult{Ready: true}
-		result.Loaded.Prompts = countNonEmptyRows(prompts, 3)
-		result.Loaded.Knowledge = countNonEmptyRows(knowledge, 2)
-		return result, nil
+		content := domain.AIContent{Prompts: map[string]string{}, Knowledge: map[string]string{}}
+		for _, row := range prompts {
+			domainName, name, text := strings.TrimSpace(cellAt(row, 0)), strings.TrimSpace(cellAt(row, 1)), strings.TrimSpace(cellAt(row, 2))
+			if domainName != "" && name != "" && text != "" {
+				content.Prompts[domainName+"/"+name] = text
+			}
+		}
+		for _, row := range knowledge {
+			if name, text := strings.TrimSpace(cellAt(row, 0)), strings.TrimSpace(cellAt(row, 1)); name != "" && text != "" {
+				content.Knowledge[name] = text
+			}
+		}
+		return content, nil
 	})
 }
 

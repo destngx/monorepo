@@ -20,8 +20,13 @@ func statusForError(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, domain.ErrConflict):
 		return http.StatusConflict
-	case errors.Is(err, configAdapter.ErrMissingSheetsConfig):
+	case errors.Is(err, configAdapter.ErrMissingSheetsConfig),
+		errors.Is(err, configAdapter.ErrMissingAIConfig),
+		errors.Is(err, domain.ErrAIUnavailable),
+		errors.Is(err, domain.ErrPromptMissing):
 		return http.StatusServiceUnavailable
+	case errors.Is(err, domain.ErrAIOutput):
+		return http.StatusBadGateway
 	default:
 		return http.StatusInternalServerError
 	}

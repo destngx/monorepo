@@ -25,6 +25,8 @@ type DatabaseService interface {
 	ListTags(forceFresh bool) ([]string, error)
 	GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error)
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)
+	// LoadAIContent returns the Prompts and Knowledge tabs (WM-AI-1).
+	LoadAIContent(forceFresh bool) (domain.AIContent, error)
 	SyncCache() (domain.SyncResult, error)
 	// Ping checks the spreadsheet is reachable.
 	Ping() error

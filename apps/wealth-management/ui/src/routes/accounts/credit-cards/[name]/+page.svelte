@@ -1,5 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import { api } from '$lib/api/endpoints';
   import BarChart from '$lib/charts/BarChart.svelte';
   import Ring from '$lib/charts/Ring.svelte';
   import { UTILIZATION_COLOR } from '$lib/cards/cards';
@@ -10,13 +12,19 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
-  import { formatDate, formatMonth, formatPercent } from '$lib/format';
+  import { currentMonth, formatDate, formatMonth, formatPercent } from '$lib/format';
   import CategoryBadge from '$lib/transactions/CategoryBadge.svelte';
   import TagChip from '$lib/transactions/TagChip.svelte';
 
   let { data } = $props();
   const card = $derived(data.card);
   const cycle = $derived(card.cycle);
+
+  // AI summary for the current or a past month (WM-CARD-5).
+  const summaryMonths = $derived(
+    [...new Set([currentMonth(), ...card.history.map((m) => m.month)])].sort().reverse().slice(0, 12),
+  );
+  let summaryMonth = $state(currentMonth());
 
   type Tab = 'cycle' | 'history' | 'rules';
   let tab = $state<Tab>('cycle');
@@ -242,3 +250,18 @@
     </table>
   </Card>
 {/if}
+
+<!-- WM-CARD-5 -->
+<div class="mt-4">
+  <label class="label" for="summary-month">AI summary month</label>
+  <select id="summary-month" class="field mb-3 w-auto" bind:value={summaryMonth}>
+    {#each summaryMonths as month (month)}
+      <option value={month}>{formatMonth(month)}</option>
+    {/each}
+  </select>
+  <InsightCard
+    title="AI monthly summary"
+    subtitle="{card.name} · {formatMonth(summaryMonth)}"
+    load={(force, signal) => api.review('credit-summary', { card: card.name, month: summaryMonth }, { force, signal })}
+  />
+</div>

@@ -56,3 +56,11 @@ export function applyTheme(selected: Theme, prefersDark: boolean): void {
 
 // Account preselected in the add-transaction form (WM-TX-4).
 export const lastUsedAccount = new Persisted<string>('wm.lastAccount', '');
+
+// Per-use-case AI model overrides (WM-AI-4); empty uses the engine default.
+export const aiModels = {
+  insight: new Persisted<string>('wm.aiModel.insight', ''),
+  suggest: new Persisted<string>('wm.aiModel.suggest', ''),
+  vision: new Persisted<string>('wm.aiModel.vision', ''),
+  chat: new Persisted<string>('wm.aiModel.chat', ''),
+};

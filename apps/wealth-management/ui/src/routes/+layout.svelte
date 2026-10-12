@@ -4,6 +4,7 @@
   import { afterNavigate, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { navigating, page } from '$app/state';
+  import ChatWidget from '$lib/chat/ChatWidget.svelte';
   import DependencyBanner from '$lib/components/DependencyBanner.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import MaskToggle from '$lib/components/MaskToggle.svelte';
@@ -21,7 +22,9 @@
 
   let mobileNavOpen = $state(false);
   const collapsed = $derived(sidebarCollapsed.value === 'true');
-  const title = $derived(titleFor(page.url.pathname.slice(base.length) || '/'));
+  const path = $derived(page.url.pathname.slice(base.length) || '/');
+  const title = $derived(titleFor(path));
+  const aiReady = $derived(data.health?.checks.some((c) => c.name === 'ai' && c.status === 'ok') ?? false);
   const sheetsReady = $derived(data.health?.checks.some((c) => c.name === 'sheets' && c.status === 'ok') ?? false);
 
   // Stealth mode re-masks on every navigation (WM-UI-2).
@@ -125,6 +128,7 @@
   </div>
 </div>
 
+{#if aiReady && path !== '/chat'}<ChatWidget page={{ path, title }} />{/if}
 <Toasts />
 
 <style>

@@ -1,0 +1,139 @@
+package domain
+
+import (
+	"errors"
+	"time"
+)
+
+// AI sentinel errors. Adapters map them to transport status codes.
+var (
+	// ErrAIUnavailable: AI is not configured or the provider failed (503).
+	ErrAIUnavailable = errors.New("ai unavailable")
+	// ErrAIOutput: the model answered but not in the required shape (502).
+	ErrAIOutput = errors.New("ai returned invalid output")
+	// ErrPromptMissing: a required prompt is not in the Prompts sheet (WM-AI-1).
+	ErrPromptMissing = errors.New("prompt missing from the Prompts sheet")
+)
+
+// AIUseCase selects the model for a family of features (WM-AI-4).
+type AIUseCase string
+
+const (
+	// AIUseCaseInsight covers reviews, briefing, budget advisor, chart and health commentary.
+	AIUseCaseInsight AIUseCase = "insight"
+	// AIUseCaseSuggest is category suggestion: frequent, small, latency sensitive.
+	AIUseCaseSuggest AIUseCase = "suggest"
+	// AIUseCaseVision reads images (Smart Capture).
+	AIUseCaseVision AIUseCase = "vision"
+	// AIUseCaseChat is the tool-using chat.
+	AIUseCaseChat AIUseCase = "chat"
+)
+
+var AIUseCases = []AIUseCase{AIUseCaseInsight, AIUseCaseSuggest, AIUseCaseVision, AIUseCaseChat}
+
+func (u AIUseCase) Valid() bool {
+	for _, known := range AIUseCases {
+		if u == known {
+			return true
+		}
+	}
+	return false
+}
+
+// AIConfig is the provider-agnostic model configuration (D10). The provider
+// speaks the OpenAI chat completions protocol; ai-gateway or an official API.
+type AIConfig struct {
+	BaseURL string
+	APIKey  string
+	// Provider is sent as X-AI-Provider for ai-gateway routing; optional.
+	Provider string
+	// Models per use case; every use case has a model once loaded.
+	Models map[AIUseCase]string
+	// FallbackModel is retried once when the primary model fails (WM-AI-15).
+	FallbackModel string
+	Timeout       time.Duration
+	// PIINames are names masked in text context before it reaches a model (WM-AI-13).
+	PIINames []string
+}
+
+func (c AIConfig) Configured() bool {
+	return c.BaseURL != "" && c.Models[AIUseCaseInsight] != ""
+}
+
+type AIRole string
+
+const (
+	AIRoleSystem    AIRole = "system"
+	AIRoleUser      AIRole = "user"
+	AIRoleAssistant AIRole = "assistant"
+	AIRoleTool      AIRole = "tool"
+)
+
+type AIImage struct {
+	MediaType string
+	Data      []byte
+}
+
+type AIToolCall struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type AIMessage struct {
+	Role    AIRole
+	Content string
+	Images  []AIImage
+	// ToolCalls are requested by an assistant message.
+	ToolCalls []AIToolCall
+	// ToolCallID links a tool message to the call it answers.
+	ToolCallID string
+}
+
+// AITool describes a function the model may call; Parameters is a JSON schema.
+type AITool struct {
+	Name        string
+	Description string
+	Parameters  map[string]any
+}
+
+type AIRequest struct {
+	Model    string
+	Messages []AIMessage
+	Tools    []AITool
+	// JSON asks the provider for a JSON object; callers still validate it.
+	JSON        bool
+	Temperature *float64
+	MaxTokens   int
+}
+
+type AIUsage struct {
+	PromptTokens     int `json:"promptTokens"`
+	CompletionTokens int `json:"completionTokens"`
+}
+
+type AIResponse struct {
+	Model        string
+	Content      string
+	ToolCalls    []AIToolCall
+	FinishReason string
+	Usage        AIUsage
+}
+
+// AIContent is the prompt registry and knowledge base loaded from the sheet.
+type AIContent struct {
+	Prompts   map[string]string `json:"prompts"`
+	Knowledge map[string]string `json:"knowledge"`
+}
+
+// AIStatus reports AI configuration for Settings (WM-AI-4); no secrets.
+type AIStatus struct {
+	Configured    bool                 `json:"configured"`
+	Provider      string               `json:"provider,omitempty"`
+	Endpoint      string               `json:"endpoint,omitempty"`
+	Models        map[AIUseCase]string `json:"models"`
+	FallbackModel string               `json:"fallbackModel,omitempty"`
+	Prompts       int                  `json:"prompts"`
+	MissingKeys   []string             `json:"missingPrompts"`
+	PromptsError  string               `json:"promptsError,omitempty"`
+}

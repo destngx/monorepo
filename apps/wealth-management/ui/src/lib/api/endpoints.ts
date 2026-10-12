@@ -1,19 +1,30 @@
-import { ApiError, buildPath, request, type RequestOptions } from './client';
+import { readNDJSON } from '$lib/ai/ndjson';
+import { aiModels } from '$lib/state/settings.svelte';
+import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
+  AIStatus,
   Account,
   AccountType,
   BankRate,
+  Briefing,
+  BudgetAdvice,
   BudgetItem,
   BudgetReport,
   CardBankReport,
   Category,
+  CategorySuggestion,
+  ChatEvent,
+  ChatMessage,
+  ChatPageContext,
   DashboardSummary,
   EngineHealth,
   ExchangeRate,
   FinancialHealth,
   Goal,
+  Insight,
   InvestmentAssets,
   Loan,
+  ReviewKind,
   SyncResult,
   Ticker,
   TransactionBatchResult,
@@ -32,6 +43,17 @@ interface ReadOptions {
 
 const read = <T>(path: string, { fetch, force }: ReadOptions = {}, query: RequestOptions['query'] = {}) =>
   request<T>(path, { fetch, query: { ...query, force: force || undefined } });
+
+// AI options: `force` bypasses the engine's 30-minute result cache.
+interface AIOptions {
+  force?: boolean;
+  signal?: AbortSignal;
+}
+
+const insightModel = () => aiModels.insight.value || undefined;
+
+const ai = <T>(path: string, body: Record<string, unknown>, { force, signal }: AIOptions = {}) =>
+  request<T>(path, { method: 'POST', body: { ...body, force: force || undefined, model: insightModel() }, signal });
 
 export const api = {
   // 503 still carries the per-dependency report, so it is not an error here.
@@ -88,4 +110,34 @@ export const api = {
   exchangeRate: (from: string, to: string, fetch?: Fetch) =>
     request<ExchangeRate>('/market/exchange-rate', { fetch, query: { from, to } }),
   bankRates: (fetch?: Fetch) => request<BankRate[]>('/market/bank-rates', { fetch }),
+
+  aiStatus: (fetch?: Fetch) => request<AIStatus>('/ai/status', { fetch }),
+  suggestCategory: (payee: string, signal?: AbortSignal) =>
+    request<CategorySuggestion>('/ai/suggest-category', {
+      method: 'POST',
+      body: { payee, model: aiModels.suggest.value || undefined },
+      signal,
+    }),
+  review: (kind: ReviewKind, input: { month?: string; card?: string } = {}, options?: AIOptions) =>
+    ai<Insight>('/ai/review', { kind, ...input }, options),
+  healthCommentary: (options?: AIOptions) => ai<Insight>('/ai/health-commentary', {}, options),
+  briefing: (options?: AIOptions) => ai<Briefing>('/ai/briefing', {}, options),
+  budgetAdvice: (options?: AIOptions) => ai<BudgetAdvice>('/ai/budget-advisor', {}, options),
+  chartInsight: (
+    input: { chartType: string; title: string; description?: string; timeframe?: string; data: unknown },
+    options?: AIOptions,
+  ) => ai<{ insight: string }>('/ai/chart-insight', input, options).then((result) => result.insight),
+  /** Streams chat events (WM-AI-11); errors after the stream starts arrive as an "error" event. */
+  chat: async function* (
+    messages: ChatMessage[],
+    page: ChatPageContext | undefined,
+    signal?: AbortSignal,
+  ): AsyncGenerator<ChatEvent> {
+    const stream = await requestStream('/ai/chat', {
+      method: 'POST',
+      body: { messages, page, model: aiModels.chat.value || undefined },
+      signal,
+    });
+    yield* readNDJSON<ChatEvent>(stream);
+  },
 };

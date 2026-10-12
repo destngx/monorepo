@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import { api } from '$lib/api/endpoints';
   import { base } from '$app/paths';
   import { portfolioTotals, UTILIZATION_BAR } from '$lib/cards/cards';
   import Badge from '$lib/components/Badge.svelte';
@@ -85,3 +87,10 @@
     </Card>
   {/each}
 {/each}
+
+<!-- WM-AI-5 -->
+<InsightCard
+  title="AI credit card summary"
+  class="mt-4"
+  load={(force, signal) => api.review('credit-summary', {}, { force, signal })}
+/>

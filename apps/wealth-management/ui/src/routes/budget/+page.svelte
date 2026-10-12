@@ -1,6 +1,8 @@
 <script lang="ts">
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
+  import BudgetAdvisor from '$lib/ai/BudgetAdvisor.svelte';
+  import InsightCard from '$lib/ai/InsightCard.svelte';
   import { api } from '$lib/api/endpoints';
   import type { BudgetLine, BudgetStatus } from '$lib/api/types';
   import { categoryTransactions, dailySpend, detailEnd } from '$lib/budget/detail';
@@ -195,6 +197,16 @@
     </ul>
   </Card>
 {/if}
+
+<!-- WM-BUD-5 -->
+<div class="mt-4 grid gap-4 xl:grid-cols-2">
+  <InsightCard
+    title="AI budget review"
+    subtitle={formatMonth(data.month)}
+    load={(force, signal) => api.review('budget-review', { month: data.month }, { force, signal })}
+  />
+  <BudgetAdvisor />
+</div>
 
 <Modal open={selected !== null} title={selected?.category ?? ''} onclose={() => (selected = null)} wide>
   {#if selected}

@@ -24,6 +24,7 @@ export const NAV: NavItem[] = [
   },
   { href: '/investments', label: 'Investments', icon: 'investments' },
   { href: '/health', label: 'Health', icon: 'health' },
+  { href: '/chat', label: 'Assistant', icon: 'chat' },
   { href: '/settings', label: 'Settings', icon: 'settings' },
 ];
 

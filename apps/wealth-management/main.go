@@ -1,6 +1,7 @@
 package main
 
 import (
+	openaiAdapter "apps/wealth-management/adapter/ai/openai"
 	cacheAdapter "apps/wealth-management/adapter/cache"
 	configAdapter "apps/wealth-management/adapter/config"
 	dbAdapter "apps/wealth-management/adapter/db/google_sheets"
@@ -12,6 +13,7 @@ import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"apps/wealth-management/service"
+	aiService "apps/wealth-management/service/ai"
 	cacheService "apps/wealth-management/service/cache"
 	marketProviderService "apps/wealth-management/service/market_provider"
 	"context"
@@ -61,7 +63,8 @@ func main() {
 	app.Get("/api/docs", openAPIHandler.Docs)
 
 	cacheClient, cacheSvc := setupCache(ctx, log, health, api)
-	setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig)
+	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig)
+	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc)
 	setupMarket(ctx, log, health, api, mcpServer, cacheClient)
 
 	// Mounted last so every API route above keeps priority over the UI.
@@ -102,18 +105,19 @@ func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.H
 	return client, cacheSvc
 }
 
-func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, cards domain.CardConfig) {
+// setupSheets returns nil services when the sheet is not configured.
+func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, cards domain.CardConfig) (port.DatabaseService, port.AnalyticsService) {
 	sheetsConfig, err := configAdapter.LoadSheetsConfig()
 	if err != nil {
 		log.LogError(ctx, "sheet features disabled", err)
 		health.Register(port.HealthCheck{Name: "sheets"})
-		return
+		return nil, nil
 	}
 	client, err := dbAdapter.NewSheetsClient(ctx, sheetsConfig, log)
 	if err != nil {
 		log.LogError(ctx, "failed to initialize google sheets client", err)
 		health.Register(port.HealthCheck{Name: "sheets"})
-		return
+		return nil, nil
 	}
 	dbSvc := service.NewDatabaseService(client, cacheSvc, log, service.DatabaseServiceOptions{BudgetSheetTemplate: configAdapter.BudgetSheetTemplate()})
 	analyticsSvc := service.NewAnalyticsService(dbSvc, cards, nil)
@@ -122,6 +126,28 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 	mcpServer.SetAnalyticsService(analyticsSvc)
 	fiberAdapter.RegisterSheetRoutes(api, fiberAdapter.NewDatabaseHandler(dbSvc, log), guard)
 	fiberAdapter.RegisterAnalyticsRoutes(api, fiberAdapter.NewAnalyticsHandler(analyticsSvc, log))
+	return dbSvc, analyticsSvc
+}
+
+// setupAI wires the AI use cases (§10). They read prompts and data from the
+// sheet, so they need it; the status route stays up to report what is missing.
+func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService) {
+	if dbSvc == nil {
+		log.LogApplicationEvent(ctx, "AI features disabled: they need the Google Sheet")
+		return
+	}
+	aiConfig, err := configAdapter.LoadAIConfig()
+	if err != nil {
+		log.LogError(ctx, "AI features disabled", err)
+		health.Register(port.HealthCheck{Name: "ai"})
+	}
+	client := openaiAdapter.NewClient(aiConfig, nil)
+	if err == nil {
+		health.Register(port.HealthCheck{Name: "ai", Probe: client.Ping})
+	}
+	aiSvc := aiService.New(client, dbSvc, analyticsSvc, cacheSvc, aiConfig, log, aiService.Options{})
+	mcpServer.SetAIService(aiSvc)
+	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(aiSvc, log), guard)
 }
 
 func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, cacheClient port.CacheClient) {

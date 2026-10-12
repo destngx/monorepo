@@ -68,3 +68,35 @@
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Model-written markdown rendered by $lib/ai/markdown (no typography plugin). */
+@utility md {
+  @apply space-y-2 text-sm leading-relaxed;
+  & h3,
+  & h4,
+  & h5,
+  & h6 {
+    @apply mt-3 font-semibold text-slate-800 dark:text-slate-100;
+  }
+  & ul {
+    @apply list-disc space-y-1 pl-5;
+  }
+  & ol {
+    @apply list-decimal space-y-1 pl-5;
+  }
+  & code {
+    @apply rounded bg-slate-900/5 px-1 py-0.5 text-[0.85em] dark:bg-white/10;
+  }
+  & pre {
+    @apply overflow-x-auto rounded-lg bg-slate-900/5 p-3 dark:bg-white/10;
+  }
+  & pre code {
+    @apply bg-transparent p-0;
+  }
+  & a {
+    @apply text-indigo-600 underline dark:text-indigo-400;
+  }
+  & hr {
+    @apply border-slate-900/10 dark:border-white/10;
+  }
+}

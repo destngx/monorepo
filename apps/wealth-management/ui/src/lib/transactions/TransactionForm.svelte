@@ -1,5 +1,7 @@
 <script lang="ts">
-  import type { Account, Category, Transaction, TransactionInput } from '$lib/api/types';
+  import { api } from '$lib/api/endpoints';
+  import type { Account, Category, CategorySuggestion, Transaction, TransactionInput } from '$lib/api/types';
+  import Icon from '$lib/components/Icon.svelte';
   import { todayISO } from '$lib/format';
   import TagPicker from './TagPicker.svelte';
 
@@ -49,6 +51,53 @@
       items: categories.filter((c) => c.type === type),
     })),
   );
+
+  // AI category suggestion (WM-TX-5): automatic only while the category is
+  // empty; the engine guarantees the result is an existing category.
+  const SUGGEST_MIN_CHARS = 3;
+  const SUGGEST_DEBOUNCE_MS = 1000;
+  let suggesting = $state(false);
+  let suggestion = $state<CategorySuggestion | null>(null);
+  let suggestController: AbortController | null = null;
+
+  async function suggest(payee: string, auto: boolean) {
+    suggestController?.abort();
+    const controller = new AbortController();
+    suggestController = controller;
+    suggesting = true;
+    try {
+      const result = await api.suggestCategory(payee, controller.signal);
+      if (controller.signal.aborted) return;
+      suggestion = result;
+      // An automatic suggestion never overrides a category the user picked meanwhile.
+      const canApply = !auto || !form.category;
+      if (canApply && result.source !== 'default' && categories.some((c) => c.name === result.category)) {
+        form.category = result.category;
+      }
+    } catch (failure) {
+      if (!controller.signal.aborted) {
+        suggestion = null;
+        error =
+          failure instanceof Error ? `Category suggestion failed: ${failure.message}` : 'Category suggestion failed.';
+      }
+    } finally {
+      if (suggestController === controller) suggesting = false;
+    }
+  }
+
+  function suggestNow() {
+    const payee = form.payee.trim();
+    if ([...payee].length >= SUGGEST_MIN_CHARS) void suggest(payee, false);
+  }
+
+  $effect(() => {
+    const payee = form.payee.trim();
+    if (initial || form.category || [...payee].length < SUGGEST_MIN_CHARS) return;
+    const timer = setTimeout(() => void suggest(payee, true), SUGGEST_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  });
+
+  $effect(() => () => suggestController?.abort());
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -101,7 +150,19 @@
     <input id="tx-payee" class="field" bind:value={form.payee} required autocomplete="off" />
   </div>
   <div class="sm:col-span-2">
-    <label class="label" for="tx-category">Category *</label>
+    <div class="flex items-center justify-between gap-2">
+      <label class="label" for="tx-category">Category *</label>
+      <button
+        type="button"
+        class="btn-ghost -mt-1 px-2 py-0.5 text-xs"
+        disabled={suggesting || [...form.payee.trim()].length < SUGGEST_MIN_CHARS}
+        onclick={suggestNow}
+        title="Suggest a category from the payee"
+      >
+        <Icon name="sparkles" size={14} />
+        {suggesting ? 'Suggesting…' : 'Suggest'}
+      </button>
+    </div>
     <select id="tx-category" class="field" bind:value={form.category} required>
       <option value="" disabled>Choose a category</option>
       {#each grouped as group (group.type)}
@@ -114,6 +175,16 @@
         {/if}
       {/each}
     </select>
+    {#if suggestion}
+      <p class="muted mt-1 text-xs" aria-live="polite">
+        {#if suggestion.source === 'default'}
+          No confident suggestion for this payee.
+        {:else}
+          Suggested <span class="font-medium">{suggestion.category}</span>
+          {suggestion.source === 'history' ? 'from your history' : 'by AI'}.
+        {/if}
+      </p>
+    {/if}
   </div>
   <div>
     <label class="label" for="tx-payment">Payment (money out)</label>

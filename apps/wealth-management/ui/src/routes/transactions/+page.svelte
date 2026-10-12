@@ -1,4 +1,5 @@
 <script lang="ts">
+  import InsightCard from '$lib/ai/InsightCard.svelte';
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { Transaction, TransactionInput } from '$lib/api/types';
@@ -218,6 +219,13 @@
   aria-label="Scroll to top"
   onclick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><Icon name="arrowUp" size={18} /></button
 >
+
+<!-- WM-TX-7 -->
+<InsightCard
+  title="AI weekly review"
+  class="mt-4"
+  load={(force, signal) => api.review('transaction-review', {}, { force, signal })}
+/>
 
 <Modal
   open={editing !== null}

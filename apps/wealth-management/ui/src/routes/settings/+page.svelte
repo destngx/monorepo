@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
+  import AISettings from '$lib/ai/AISettings.svelte';
   import type { DependencyStatus } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -113,6 +114,8 @@
         : 'not yet in this session'}
     </p>
   </Card>
+
+  <AISettings />
 
   <Card title="Cache" subtitle="Sheet data is cached on the engine">
     <p class="text-sm">Flushing drops every cached sheet read, so the next requests read Google Sheets directly.</p>

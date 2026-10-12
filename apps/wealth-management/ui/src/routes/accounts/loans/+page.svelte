@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import { api } from '$lib/api/endpoints';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Masked from '$lib/components/Masked.svelte';
@@ -75,3 +77,10 @@
     <EmptyState title="No loans" detail="Loans come from the Loans sheet." />
   {/if}
 </Card>
+
+<!-- WM-LOAN-3 -->
+<InsightCard
+  title="AI loan review"
+  class="mt-4"
+  load={(force, signal) => api.review('loan-review', {}, { force, signal })}
+/>

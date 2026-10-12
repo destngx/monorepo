@@ -15,7 +15,11 @@ type Database struct {
 	Accounts     []domain.Account
 	Transactions []domain.Transaction
 	Budget       []domain.BudgetItem
+	Categories   []domain.Category
+	Loans        []domain.Loan
+	Goals        []domain.Goal
 	Init         domain.InitResult
+	AIContent    domain.AIContent
 	Err          error
 
 	CreatedAccounts     []domain.AccountCreateInput
@@ -103,6 +107,9 @@ func (f *Database) DeleteTransaction(id string, etag string) error {
 }
 
 func (f *Database) ListCategories(bool) ([]domain.Category, error) {
+	if f.Categories != nil {
+		return f.Categories, f.Err
+	}
 	return []domain.Category{{Name: "Salary", Type: domain.CategoryTypeIncome}}, f.Err
 }
 
@@ -120,9 +127,16 @@ func (f *Database) UpdateBudgetLimit(input domain.BudgetLimitUpdate) error {
 	return f.Err
 }
 
-func (f *Database) ListGoals(bool) ([]domain.Goal, error) { return []domain.Goal{}, f.Err }
+func (f *Database) ListGoals(bool) ([]domain.Goal, error) { return nonNil(f.Goals), f.Err }
 
-func (f *Database) ListLoans(bool) ([]domain.Loan, error) { return []domain.Loan{}, f.Err }
+func (f *Database) ListLoans(bool) ([]domain.Loan, error) { return nonNil(f.Loans), f.Err }
+
+func nonNil[T any](values []T) []T {
+	if values == nil {
+		return []T{}
+	}
+	return values
+}
 
 func (f *Database) ListTags(bool) ([]string, error) { return []string{"salary"}, f.Err }
 
@@ -131,6 +145,8 @@ func (f *Database) GetInvestmentAssets(bool) (domain.InvestmentAssets, error) {
 }
 
 func (f *Database) WarmAIContent(bool) (domain.InitResult, error) { return f.Init, f.Err }
+
+func (f *Database) LoadAIContent(bool) (domain.AIContent, error) { return f.AIContent, f.Err }
 
 func (f *Database) SyncCache() (domain.SyncResult, error) {
 	f.mu.Lock()

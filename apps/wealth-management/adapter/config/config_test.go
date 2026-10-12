@@ -1,6 +1,7 @@
 package config
 
 import (
+	"apps/wealth-management/domain"
 	"errors"
 	"testing"
 )
@@ -44,5 +45,29 @@ func TestBudgetSheetTemplate(t *testing.T) {
 	t.Setenv("BUDGET_SHEET_TEMPLATE", "Ngân sách {year}")
 	if BudgetSheetTemplate() != "Ngân sách {year}" {
 		t.Fatal("override template")
+	}
+}
+
+func TestLoadAIConfig(t *testing.T) {
+	for _, key := range []string{"AI_BASE_URL", "AI_API_KEY", "AI_PROVIDER", "AI_MODEL", "AI_MODEL_INSIGHT", "AI_MODEL_SUGGEST", "AI_MODEL_VISION", "AI_MODEL_CHAT", "AI_FALLBACK_MODEL", "AI_TIMEOUT_SECONDS", "AI_PII_NAMES"} {
+		t.Setenv(key, "")
+	}
+	if _, err := LoadAIConfig(); !errors.Is(err, ErrMissingAIConfig) {
+		t.Fatalf("unconfigured AI must report missing config, got %v", err)
+	}
+
+	t.Setenv("AI_BASE_URL", "http://127.0.0.1:8081/v1")
+	t.Setenv("AI_MODEL", "gpt-main")
+	t.Setenv("AI_MODEL_SUGGEST", "gpt-mini")
+	t.Setenv("AI_PII_NAMES", " Nguyen Van A , ,B")
+	config, err := LoadAIConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Models[domain.AIUseCaseSuggest] != "gpt-mini" || config.Models[domain.AIUseCaseChat] != "gpt-main" {
+		t.Fatalf("unexpected models %v", config.Models)
+	}
+	if len(config.PIINames) != 2 || config.Timeout.Seconds() != 90 {
+		t.Fatalf("unexpected config %+v", config)
 	}
 }

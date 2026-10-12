@@ -42,6 +42,7 @@ type Server struct {
 	analyticsService port.AnalyticsService
 	fmarketService   port.FmarketService
 	marketService    port.MarketProviderService
+	aiService        port.AIService
 	log              *logger.Logger
 	now              func() time.Time
 }
@@ -187,6 +188,9 @@ func (s *Server) tools() []tool {
 	}
 	if s.marketService != nil {
 		tools = append(tools, s.marketTools()...)
+	}
+	if s.aiService != nil {
+		tools = append(tools, s.aiTools()...)
 	}
 	if s.fmarketService != nil {
 		tools = append(tools, tool{

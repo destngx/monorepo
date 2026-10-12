@@ -225,3 +225,21 @@ func (f *fakeMarketServiceForMCP) GetBankInterestRate(context.Context) ([]domain
 
 var _ port.FmarketService = (*fakeFmarketServiceForMCP)(nil)
 var _ port.MarketProviderService = (*fakeMarketServiceForMCP)(nil)
+
+func TestAIToolsDelegateToTheService(t *testing.T) {
+	server := newTestServer(t, nil)
+	ai := &fakes.AI{}
+	server.SetAIService(ai)
+
+	result, err := server.CallTool(context.Background(), "ReviewFinances", json.RawMessage(`{"kind":"loan-review","force":true}`))
+	if err != nil || len(ai.Reviews) != 1 || ai.Reviews[0].Kind != port.ReviewLoans || !ai.Reviews[0].Force || !strings.Contains(result.Content, `"summary":"ok"`) {
+		t.Fatalf("review: %v %+v %s", err, ai.Reviews, result.Content)
+	}
+	result, err = server.CallTool(context.Background(), "Chat", json.RawMessage(`{"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil || result.Content != `{"model":"m","reply":"Hello","tools":["getBudgetStatus"]}` {
+		t.Fatalf("chat: %v %s", err, result.Content)
+	}
+	if _, err := server.CallTool(context.Background(), "ReviewFinances", json.RawMessage(`{"kind":"loan-review","bogus":1}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("unknown arguments should be rejected, got %v", err)
+	}
+}

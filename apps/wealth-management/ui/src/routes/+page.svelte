@@ -1,5 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import BriefingCard from '$lib/ai/BriefingCard.svelte';
+  import ChartInsight from '$lib/ai/ChartInsight.svelte';
   import { accountIcon, creditRemaining, isCreditAccount } from '$lib/accounts';
   import BarChart from '$lib/charts/BarChart.svelte';
   import { EXPENSE, INCOME } from '$lib/charts/palette';
@@ -83,6 +85,12 @@
   <!-- WM-DASH-5 -->
   <Card title="Income vs expense" class="lg:col-span-3">
     {#snippet actions()}
+      <ChartInsight
+        chartType="bar"
+        title="Income vs expense"
+        timeframe={range}
+        data={history.map((m) => ({ month: m.month, income: m.income, expense: m.expense }))}
+      />
       <div class="flex rounded-xl bg-slate-900/5 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Range">
         {#each [['ytd', 'YTD'], ['6m', '6M'], ['12m', '12M']] as [value, text] (value)}
           <button
@@ -154,3 +162,6 @@
     <p class="muted text-sm">No expense limits set for this month.</p>
   {/if}
 </Card>
+
+<!-- WM-DASH-6 -->
+<div class="mt-4"><BriefingCard /></div>

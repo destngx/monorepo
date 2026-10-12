@@ -1,4 +1,6 @@
 <script lang="ts">
+  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import { api } from '$lib/api/endpoints';
   import type { FinancialHealth, HealthComponent } from '$lib/api/types';
   import Donut from '$lib/charts/Donut.svelte';
   import Radar from '$lib/charts/Radar.svelte';
@@ -138,3 +140,11 @@
     {/if}
   </Card>
 </div>
+
+<!-- WM-AI-14 -->
+<InsightCard
+  title="AI commentary"
+  subtitle="What the score means and what to do next"
+  class="mt-4"
+  load={(force, signal) => api.healthCommentary({ force, signal })}
+/>
