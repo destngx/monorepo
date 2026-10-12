@@ -1,57 +1,156 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { base } from '$app/paths';
+  import { accountIcon, creditRemaining, isCreditAccount } from '$lib/accounts';
+  import BarChart from '$lib/charts/BarChart.svelte';
+  import { EXPENSE, INCOME } from '$lib/charts/palette';
+  import Sparkline from '$lib/charts/Sparkline.svelte';
+  import Card from '$lib/components/Card.svelte';
+  import Icon from '$lib/components/Icon.svelte';
+  import Money from '$lib/components/Money.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import ProgressBar from '$lib/components/ProgressBar.svelte';
+  import Stat from '$lib/components/Stat.svelte';
+  import { formatDate, formatMonth, formatPercent, formatSignedPercent } from '$lib/format';
 
-  let healthStatus = $state<string | null>(null);
-  let isLoading = $state(true);
-  let error = $state<string | null>(null);
+  let { data } = $props();
+  const summary = $derived(data.summary);
 
-  onMount(async () => {
-    try {
-      const response = await fetch('/api/health');
-      if (!response.ok) {
-        throw new Error(`Health check failed: ${response.status}`);
-      }
-      const data = await response.json();
-      healthStatus = JSON.stringify(data, null, 2);
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Unknown error';
-    } finally {
-      isLoading = false;
-    }
+  type Range = 'ytd' | '6m' | '12m';
+  let range = $state<Range>('6m');
+
+  const history = $derived.by(() => {
+    const all = summary.cashFlowHistory;
+    if (range === '12m') return all;
+    if (range === '6m') return all.slice(-6);
+    const year = summary.asOf.slice(0, 4);
+    return all.filter((month) => month.month.startsWith(year));
   });
+
+  const topBudget = $derived(
+    data.budget.lines
+      .filter((line) => line.categoryType === 'expense' && line.limit > 0)
+      .sort((a, b) => b.percentUsed - a.percentUsed)
+      .slice(0, 5),
+  );
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-blue-500/30 to-purple-500/30 p-8 backdrop-blur-lg">
-  <div class="mx-auto max-w-2xl">
-    <h1 class="mb-8 text-4xl font-bold text-white">Wealth Management Dashboard</h1>
+<PageHeader title="Dashboard" subtitle="As of {formatDate(summary.asOf)}" />
 
-    <div class="mb-6 rounded-lg border border-white/20 bg-white/10 p-6 backdrop-blur-md">
-      <h2 class="mb-4 text-xl font-semibold text-white">Go Backend Health Check</h2>
-
-      {#if isLoading}
-        <p class="text-gray-200">Checking backend health...</p>
-      {:else if error}
-        <p class="text-red-400">Error: {error}</p>
-      {:else if healthStatus}
-        <pre class="overflow-auto rounded bg-black/30 p-4 text-sm text-green-400">
-{healthStatus}
-				</pre>
+<div class="grid gap-4 lg:grid-cols-3">
+  <!-- WM-DASH-1 -->
+  <Card title="Net worth" class="lg:col-span-1">
+    <div class="text-3xl font-semibold tracking-tight"><Money value={summary.balanceSheet.netWorth} /></div>
+    <p class="mt-1 text-sm">
+      {#if summary.netWorthChangePercent !== null}
+        <span
+          class={summary.netWorthChangePercent >= 0
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-orange-600 dark:text-orange-400'}>{formatSignedPercent(summary.netWorthChangePercent)}</span
+        >
+        <span class="muted">vs last month</span>
       {/if}
-    </div>
-
-    <p class="text-gray-200">
-      Visit <a href="https://svelte.dev/docs/kit" class="text-blue-300 hover:text-blue-100">svelte.dev/docs/kit</a> to read
-      the documentation
     </p>
+    <div class="mt-4">
+      <Sparkline values={summary.netWorthTrend.map((p) => p.value)} width={320} height={64} label="30-day net worth" />
+    </div>
+    <p class="muted mt-3 text-sm">
+      Net growth this month: <Money value={summary.netGrowthThisMonth} signed tone />
+    </p>
+  </Card>
+
+  <!-- WM-DASH-2 -->
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:col-span-2">
+    <Stat label="Total assets" value={summary.balanceSheet.assets} />
+    <Stat label="Total liabilities" value={summary.balanceSheet.liabilities} />
+    <Stat label="Income" value={summary.thisMonth.income} change={summary.incomeChangePercent} hint=" vs last month" />
+    <Stat
+      label="Expense"
+      value={summary.thisMonth.expense}
+      change={summary.expenseChangePercent}
+      invert
+      hint=" vs last month"
+    />
+    <Stat label="Cash flow">
+      <Money value={summary.thisMonth.cashFlow} signed tone />
+    </Stat>
+    <Stat label="Savings rate">
+      <span class="tabular">{formatPercent(summary.thisMonth.savingsRate)}</span>
+    </Stat>
   </div>
 </div>
 
-<style global>
-  :global(body) {
-    margin: 0;
-    padding: 0;
-    font-family:
-      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue',
-      sans-serif;
-  }
-</style>
+<div class="mt-4 grid gap-4 lg:grid-cols-5">
+  <!-- WM-DASH-5 -->
+  <Card title="Income vs expense" class="lg:col-span-3">
+    {#snippet actions()}
+      <div class="flex rounded-xl bg-slate-900/5 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Range">
+        {#each [['ytd', 'YTD'], ['6m', '6M'], ['12m', '12M']] as [value, text] (value)}
+          <button
+            type="button"
+            aria-pressed={range === value}
+            class="rounded-lg px-2.5 py-1 {range === value ? 'bg-white shadow-sm dark:bg-slate-700' : 'muted'}"
+            onclick={() => (range = value as Range)}>{text}</button
+          >
+        {/each}
+      </div>
+    {/snippet}
+    <BarChart
+      labels={history.map((m) => formatMonth(m.month, true))}
+      series={[
+        { name: 'Income', color: INCOME, values: history.map((m) => m.income) },
+        { name: 'Expense', color: EXPENSE, values: history.map((m) => m.expense) },
+      ]}
+      label="Monthly income and expense"
+    />
+  </Card>
+
+  <!-- WM-DASH-3 -->
+  <Card title="Accounts" class="lg:col-span-2">
+    {#snippet actions()}
+      <a href="{base}/accounts" class="text-xs text-indigo-600 hover:underline dark:text-indigo-400">View all</a>
+    {/snippet}
+    <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+      {#each summary.topAccounts as account (account.name)}
+        <li class="flex items-center gap-3 py-2.5">
+          <span class="grid size-8 place-items-center rounded-lg bg-slate-900/5 dark:bg-white/5"
+            ><Icon name={accountIcon(account.type)} size={16} /></span
+          >
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium">{account.name}</p>
+            <p class="muted text-xs">{account.type}</p>
+          </div>
+          <div class="text-right text-sm">
+            <Money value={account.balance} currency={account.currency} />
+            {#if isCreditAccount(account)}
+              <p class="muted text-xs">Available <Money value={creditRemaining(account)} /></p>
+            {/if}
+          </div>
+        </li>
+      {/each}
+    </ul>
+  </Card>
+</div>
+
+<!-- WM-DASH-4 -->
+<Card title="Budget this month" subtitle="Top expense categories by % used" class="mt-4">
+  {#snippet actions()}
+    <a href="{base}/budget" class="text-xs text-indigo-600 hover:underline dark:text-indigo-400">Open budget</a>
+  {/snippet}
+  {#if topBudget.length}
+    <ul class="space-y-3">
+      {#each topBudget as line (line.category)}
+        <li>
+          <div class="mb-1 flex justify-between gap-3 text-sm">
+            <span class="truncate">{line.category}</span>
+            <span class="muted tabular whitespace-nowrap"
+              ><Money value={line.spent} /> / <Money value={line.limit} /> · {formatPercent(line.percentUsed, 0)}</span
+            >
+          </div>
+          <ProgressBar percent={line.percentUsed} label={line.category} />
+        </li>
+      {/each}
+    </ul>
+  {:else}
+    <p class="muted text-sm">No expense limits set for this month.</p>
+  {/if}
+</Card>

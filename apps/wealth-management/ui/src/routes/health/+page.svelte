@@ -1,0 +1,140 @@
+<script lang="ts">
+  import type { FinancialHealth, HealthComponent } from '$lib/api/types';
+  import Donut from '$lib/charts/Donut.svelte';
+  import Radar from '$lib/charts/Radar.svelte';
+  import Ring from '$lib/charts/Ring.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import Card from '$lib/components/Card.svelte';
+  import Money from '$lib/components/Money.svelte';
+  import PageHeader from '$lib/components/PageHeader.svelte';
+  import Stat from '$lib/components/Stat.svelte';
+  import { formatPercent } from '$lib/format';
+
+  let { data } = $props();
+  const health = $derived(data.health);
+
+  // WM-HEA-1 bands: red < 50, yellow 50-75, green > 75.
+  const band: Record<FinancialHealth['band'], { color: string; tone: 'red' | 'amber' | 'green'; label: string }> = {
+    red: { color: '#f43f5e', tone: 'red', label: 'Needs attention' },
+    yellow: { color: '#f59e0b', tone: 'amber', label: 'Fair' },
+    green: { color: '#10b981', tone: 'green', label: 'Healthy' },
+  };
+
+  const axes = $derived(
+    health.components.map((c) => ({ label: c.label, fraction: c.maxScore ? c.score / c.maxScore : 0 })),
+  );
+  const allocation = $derived(
+    Object.entries(health.allocation)
+      .filter(([, value]) => value > 0)
+      .map(([label, value]) => ({ label, value })),
+  );
+
+  let openMath = $state<string | null>(null);
+  const formatValue = (c: HealthComponent) =>
+    c.unit === '%'
+      ? formatPercent(c.value)
+      : c.unit === 'months'
+        ? `${c.value.toFixed(1)} months`
+        : `${c.value.toFixed(2)} ${c.unit}`;
+  const formatTarget = (c: HealthComponent) =>
+    c.unit === '%' ? formatPercent(c.target, 0) : c.unit === 'months' ? `${c.target} months` : `${c.target} ${c.unit}`;
+</script>
+
+<PageHeader title="Financial Health" subtitle="Computed from the last {health.lookbackMonths} months of transactions" />
+
+{#if health.insufficientIncome}
+  <div class="glass mb-4 border border-amber-500/40 p-3 text-sm text-amber-800 dark:text-amber-200" role="status">
+    Not enough income history to score savings and debt reliably; those pillars may read low.
+  </div>
+{/if}
+
+<div class="grid gap-4 lg:grid-cols-3">
+  <Card title="Health score">
+    <div class="flex flex-col items-center gap-3">
+      <Ring percent={health.score} color={band[health.band].color} size={170} thickness={14} label="Health score">
+        <span class="text-4xl font-semibold">{Math.round(health.score)}</span>
+        <span class="muted text-xs">of 100</span>
+      </Ring>
+      <Badge tone={band[health.band].tone}>{band[health.band].label}</Badge>
+    </div>
+  </Card>
+  <Card title="Pillars" class="lg:col-span-2">
+    <div class="flex justify-center"><Radar {axes} label="Health pillars" /></div>
+  </Card>
+</div>
+
+<div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <Stat label="Liquid assets" value={health.liquidAssets} />
+  <Stat label="Avg monthly income" value={health.avgMonthlyIncome} />
+  <Stat label="Avg monthly expense" value={health.avgMonthlyExpense} />
+  <Stat label="Freedom runway">
+    <span class="tabular">{health.freedomMonths === null ? '-' : `${health.freedomMonths.toFixed(1)} months`}</span>
+  </Stat>
+</div>
+
+<!-- WM-HEA-3: show the math -->
+<Card title="How the score is built" class="mt-4">
+  <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+    {#each health.components as component (component.key)}
+      <li class="py-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="font-medium">{component.label}</p>
+            <p class="muted text-xs">{formatValue(component)} · target {formatTarget(component)}</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="tabular text-sm font-semibold">{component.score.toFixed(1)} / {component.maxScore}</span>
+            <button
+              type="button"
+              class="btn-ghost px-2 py-1 text-xs"
+              aria-expanded={openMath === component.key}
+              onclick={() => (openMath = openMath === component.key ? null : component.key)}>Show the math</button
+            >
+          </div>
+        </div>
+        {#if openMath === component.key}
+          <div class="mt-2 rounded-xl bg-slate-900/5 p-3 text-sm dark:bg-white/5">
+            <p class="font-mono text-xs">{component.formula}</p>
+            <p class="muted mt-1">{component.detail}</p>
+          </div>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+</Card>
+
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+  <Card title="Doctor's orders">
+    {#if health.recommendations.length}
+      <ol class="space-y-3">
+        {#each health.recommendations as rec, i (i)}
+          <li class="flex gap-3">
+            <span class="grid size-6 shrink-0 place-items-center rounded-full bg-indigo-600 text-xs text-white"
+              >{i + 1}</span
+            >
+            <div>
+              <p class="font-medium">{rec.title}</p>
+              <p class="muted text-sm">{rec.action}</p>
+            </div>
+          </li>
+        {/each}
+      </ol>
+    {:else}
+      <p class="muted text-sm">No recommendations: every pillar is on target.</p>
+    {/if}
+  </Card>
+  <Card title="Asset allocation">
+    {#if allocation.length}
+      <div class="flex flex-wrap items-center gap-6">
+        <Donut items={allocation} size={160} label="Asset allocation" />
+        <ul class="space-y-1 text-sm">
+          {#each allocation as item (item.label)}
+            <li class="flex justify-between gap-6"><span>{item.label}</span><Money value={item.value} /></li>
+          {/each}
+        </ul>
+      </div>
+    {:else}
+      <p class="muted text-sm">No positive balances to allocate.</p>
+    {/if}
+  </Card>
+</div>
