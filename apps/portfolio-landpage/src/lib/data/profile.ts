@@ -34,6 +34,7 @@ export const linkedinUrl = 'https://www.linkedin.com/in/erudi-lumos/';
 export const socials: Social[] = [
   { label: 'GitHub', href: 'https://github.com/destngx', handle: '@destngx' },
   { label: 'LinkedIn', href: linkedinUrl, handle: 'erudi-lumos' },
+  { label: 'Duolingo', href: 'https://www.duolingo.com/profile/Vulkandreas', handle: '@Vulkandreas' },
 ];
 
 export const roles: Role[] = [
@@ -100,6 +101,10 @@ export const hobbies: Hobby[] = [
   { name: 'Manga', note: 'Diving into visual storytelling. Also where this site got its look.', sfx: 'ドン' },
   { name: 'Legend of Zelda', note: "Exploring Hyrule's adventures.", sfx: 'ヤッ' },
   { name: 'Gamification', note: 'Turning challenges into games.', sfx: 'ピコ' },
+  { name: 'Learning languages', note: 'Keeping the Duolingo streak alive, one lesson a day.', sfx: 'ペラ' },
+  { name: 'Chess', note: 'Thinking a few moves ahead, on and off the board.', sfx: 'カチ' },
+  { name: 'Math', note: 'Enjoying the puzzles behind the patterns.', sfx: 'ピン' },
+  { name: 'Music', note: 'Listening widely, from deep grooves to anything with a good bassline.', sfx: 'ジャン' },
 ];
 
 export const photographyUrl = 'https://destnguyxn-photos.vercel.app/';
