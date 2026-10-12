@@ -4,6 +4,8 @@
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import { aiModels } from '$lib/state/settings.svelte';
+  import { toasts } from '$lib/state/toasts.svelte';
+  import { effectiveModel, type ModelSource } from './models';
 
   // AI provider status and per-use-case model overrides (WM-AI-4, WM-AI-15).
   const useCaseLabels: Record<AIUseCase, string> = {
@@ -11,6 +13,13 @@
     suggest: 'Category suggestion',
     vision: 'Smart capture',
     chat: 'Chat',
+  };
+
+  const sourceLabels: Record<ModelSource, string> = {
+    browser: 'this browser',
+    engine: 'engine',
+    fallback: 'engine fallback',
+    none: 'not set',
   };
 
   let status = $state<AIStatus | null>(null);
@@ -43,6 +52,10 @@
           >{status.configured ? 'configured' : 'not configured'}</Badge
         >
       </dd>
+      {#if status.provider}
+        <dt class="muted">Provider</dt>
+        <dd class="font-mono text-xs">{status.provider}</dd>
+      {/if}
       {#if status.endpoint}
         <dt class="muted">Endpoint</dt>
         <dd class="font-mono text-xs break-all">{status.endpoint}</dd>
@@ -62,6 +75,19 @@
         {/if}
       </dd>
     </dl>
+    <table class="mt-3 w-full text-sm">
+      <caption class="label text-left">Model in use per use case</caption>
+      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        {#each AI_USE_CASES as useCase (useCase)}
+          {@const current = effectiveModel(useCase, status, aiModels[useCase].value)}
+          <tr>
+            <td class="py-1.5 pr-3">{useCaseLabels[useCase]}</td>
+            <td class="py-1.5 pr-3 font-mono text-xs break-all">{current.model || '-'}</td>
+            <td class="muted py-1.5 text-right text-xs">{sourceLabels[current.source]}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
     {#if status.missingPrompts.length}
       <details class="mt-2 text-xs">
         <summary class="cursor-pointer text-amber-700 dark:text-amber-300"
@@ -90,10 +116,18 @@
           spellcheck="false"
           placeholder={status?.models[useCase] || 'engine default'}
           value={aiModels[useCase].value}
-          onchange={(event) => (aiModels[useCase].value = event.currentTarget.value.trim())}
+          onchange={(event) => {
+            aiModels[useCase].value = event.currentTarget.value.trim();
+            toasts.info(`${useCaseLabels[useCase]}: ${aiModels[useCase].value || 'engine default'} saved.`);
+          }}
         />
       </div>
     {/each}
     <p class="muted text-xs">Overrides are stored in this browser. Leave empty to use the engine's model.</p>
   </fieldset>
+  <p class="muted mt-3 text-xs">
+    The engine has one adapter, for the OpenAI chat completions API, by design. Any OpenAI-compatible provider works
+    (OpenAI, OpenRouter, Ollama, LM Studio, vLLM and others): set <code>AI_BASE_URL</code> and <code>AI_API_KEY</code>
+    on the engine, and its model names in <code>AI_MODEL_*</code> or here.
+  </p>
 </Card>

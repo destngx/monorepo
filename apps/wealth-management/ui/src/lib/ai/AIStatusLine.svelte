@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import Icon from '$lib/components/Icon.svelte';
   import type { AITask } from './task.svelte';
 
@@ -22,6 +23,12 @@
 {:else if task.status === 'error'}
   <div class="flex flex-col items-start gap-2 text-sm" role="alert">
     <p class="text-rose-700 dark:text-rose-300">{task.error}</p>
+    {#if task.hint}
+      <p class="muted">
+        {task.hint}
+        <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/settings">Open settings</a>
+      </p>
+    {/if}
     <button type="button" class="btn-ghost" onclick={() => task.run(true)}
       ><Icon name="refresh" size={16} /> Retry</button
     >

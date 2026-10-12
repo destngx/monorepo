@@ -1,16 +1,51 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
+  import type { SuggestedLimit } from '$lib/api/types';
   import LineChart from '$lib/charts/LineChart.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
+  import { formatMonth } from '$lib/format';
+  import { mask } from '$lib/state/mask.svelte';
+  import { toasts } from '$lib/state/toasts.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
+  import { maskText } from './moneyMask';
   import { severityStyle } from './severity';
   import { AITask } from './task.svelte';
 
   // Budget advisor (WM-BUD-5): model advice over engine-computed facts.
   const task = new AITask((force, signal) => api.budgetAdvice({ force, signal }));
+
+  // "Apply" writes a suggested limit to the Budget sheet for the advice's month (WM-BUD-6).
+  let confirming = $state<SuggestedLimit | null>(null);
+  let applying = $state(false);
+  let applied = $state<string[]>([]);
+  const adviceMonth = $derived(task.value?.month ?? '');
+
+  async function apply() {
+    const limit = confirming;
+    if (!limit || !adviceMonth) return;
+    applying = true;
+    try {
+      await api.updateBudgetLimit({
+        year: Number(adviceMonth.slice(0, 4)),
+        category: limit.category,
+        month: adviceMonth,
+        limit: limit.suggestedLimit,
+      });
+      applied = [...applied, limit.category];
+      toasts.push('success', `Limit for ${limit.category} updated.`);
+      confirming = null;
+      await invalidateAll();
+    } catch (error) {
+      toasts.error(error, 'Could not apply the suggested limit');
+    } finally {
+      applying = false;
+    }
+  }
 </script>
 
 <Card title="AI budget advisor" subtitle="Suggested limits, alerts and a 30-day cash projection">
@@ -28,8 +63,10 @@
       <ul class="mt-4 grid gap-2 md:grid-cols-2">
         {#each advice.alerts as alert, index (index)}
           <li class="rounded-xl border p-3 text-sm {severityStyle[alert.severity]}">
-            <p class="font-semibold">{alert.title}{alert.category ? ` · ${alert.category}` : ''}</p>
-            <p class="text-slate-700 dark:text-slate-300">{alert.message}</p>
+            <p class="font-semibold">
+              {maskText(alert.title, mask.revealed)}{alert.category ? ` · ${alert.category}` : ''}
+            </p>
+            <p class="text-slate-700 dark:text-slate-300">{maskText(alert.message, mask.revealed)}</p>
           </li>
         {/each}
       </ul>
@@ -41,7 +78,9 @@
             <tr
               ><th class="py-1 pr-3">Category</th><th class="pr-3 text-right">Limit</th><th class="pr-3 text-right"
                 >3-mo avg</th
-              ><th class="pr-3 text-right">Suggested</th><th>Why</th></tr
+              ><th class="pr-3 text-right">Suggested</th><th class="pr-3">Why</th><th
+                ><span class="sr-only">Actions</span></th
+              ></tr
             >
           </thead>
           <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
@@ -51,7 +90,21 @@
                 <td class="pr-3 text-right"><Money value={limit.currentLimit} /></td>
                 <td class="pr-3 text-right"><Money value={limit.averageSpend} /></td>
                 <td class="pr-3 text-right font-semibold"><Money value={limit.suggestedLimit} /></td>
-                <td class="muted text-xs">{limit.rationale}</td>
+                <td class="muted pr-3 text-xs">{maskText(limit.rationale, mask.revealed)}</td>
+                <td class="text-right">
+                  {#if applied.includes(limit.category)}
+                    <span class="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300"
+                      ><Icon name="check" size={14} /> Applied</span
+                    >
+                  {:else}
+                    <button
+                      type="button"
+                      class="btn-ghost px-2 py-1 text-xs"
+                      disabled={limit.suggestedLimit === limit.currentLimit}
+                      onclick={() => (confirming = limit)}>Apply</button
+                    >
+                  {/if}
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -86,7 +139,7 @@
             <p class="muted text-xs">Goal impact</p>
             <ul class="space-y-1">
               {#each advice.goalImpact as goal (goal.goal)}
-                <li><span class="font-medium">{goal.goal}:</span> {goal.impact}</li>
+                <li><span class="font-medium">{goal.goal}:</span> {maskText(goal.impact, mask.revealed)}</li>
               {/each}
             </ul>
           </div>
@@ -101,3 +154,19 @@
     />
   {/if}
 </Card>
+
+<Modal open={confirming !== null} title="Apply suggested limit" onclose={() => (confirming = null)}>
+  {#if confirming}
+    <p class="text-sm">
+      Set the {formatMonth(adviceMonth)} limit for <strong>{confirming.category}</strong> from
+      <Money value={confirming.currentLimit} /> to <Money value={confirming.suggestedLimit} />? It is written to the
+      Budget sheet.
+    </p>
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="btn-ghost" onclick={() => (confirming = null)}>Cancel</button>
+    <button type="button" class="btn-primary" disabled={applying} onclick={apply}
+      >{applying ? 'Applying…' : 'Apply'}</button
+    >
+  {/snippet}
+</Modal>

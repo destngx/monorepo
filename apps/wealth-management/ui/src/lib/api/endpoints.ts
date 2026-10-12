@@ -8,6 +8,7 @@ import type {
   BankRate,
   Briefing,
   BudgetAdvice,
+  BudgetHistory,
   BudgetItem,
   BudgetReport,
   CaptureEvent,
@@ -33,6 +34,9 @@ import type {
   NewsReport,
   Loan,
   PortfolioValuation,
+  ReallocateInput,
+  ReallocateResult,
+  SheetInfo,
   ReviewKind,
   SyncResult,
   Ticker,
@@ -73,6 +77,7 @@ export const api = {
     throw new ApiError(response.status, (await response.text()).trim() || response.statusText);
   },
   sync: () => request<SyncResult>('/sync', { method: 'POST' }),
+  sheetInfo: (fetch?: Fetch) => request<SheetInfo>('/sheets/info', { fetch }),
 
   accounts: (options?: ReadOptions) => read<Account[]>('/accounts', options),
   createAccount: (input: { name: string; type: AccountType; balance?: number; currency?: string; note?: string }) =>
@@ -108,9 +113,13 @@ export const api = {
   budget: (year: number, options?: ReadOptions) => read<BudgetItem[]>('/budget', options, { year }),
   updateBudgetLimit: (input: { year: number; category: string; month?: string; limit: number }) =>
     request<{ success: boolean }>('/budget/limits', { method: 'PATCH', body: input }),
+  reallocateBudget: (input: ReallocateInput) =>
+    request<ReallocateResult>('/budget/reallocate', { method: 'POST', body: input }),
 
   dashboard: (options?: ReadOptions) => read<DashboardSummary>('/analytics/dashboard', options),
   budgetReport: (month: string, options?: ReadOptions) => read<BudgetReport>('/analytics/budget', options, { month }),
+  budgetHistory: (month: string, months: number, options?: ReadOptions) =>
+    read<BudgetHistory>('/analytics/budget/history', options, { month, months }),
   cards: (options?: ReadOptions) => read<CardBankReport[]>('/analytics/cards', options),
   financialHealth: (options?: ReadOptions) => read<FinancialHealth>('/analytics/health', options),
   accountHistories: (days: number, options?: ReadOptions) =>

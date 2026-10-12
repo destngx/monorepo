@@ -5,7 +5,9 @@
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { api } from '$lib/api/endpoints';
   import type { BudgetLine, BudgetStatus } from '$lib/api/types';
+  import BudgetWall from '$lib/budget/BudgetWall.svelte';
   import { categoryTransactions, dailySpend, detailEnd } from '$lib/budget/detail';
+  import { reallocationPreview, reallocationProblems, type ReallocationDraft } from '$lib/budget/reallocate';
   import BarChart from '$lib/charts/BarChart.svelte';
   import Donut from '$lib/charts/Donut.svelte';
   import { EXPENSE } from '$lib/charts/palette';
@@ -68,6 +70,45 @@
     limitValue = line.limit;
   }
 
+  // Move limit between categories, total unchanged (WM-BUD-7).
+  let reallocating = $state(false);
+  let draft = $state<ReallocationDraft>({ from: '', to: '', amount: null });
+  let draftTouched = $state(false);
+  let moving = $state(false);
+  // Only a category with a limit can give; any expense category can receive.
+  const givers = $derived(expenseLines.filter((line) => line.limit > 0));
+  const draftProblems = $derived(reallocationProblems(expenseLines, draft));
+  const draftPreview = $derived(reallocationPreview(expenseLines, draft));
+
+  function openReallocate(from = '') {
+    draft = { from, to: '', amount: null };
+    draftTouched = false;
+    reallocating = true;
+  }
+
+  async function reallocate(event: SubmitEvent) {
+    event.preventDefault();
+    draftTouched = true;
+    if (draftProblems.length || draft.amount === null) return;
+    moving = true;
+    try {
+      await api.reallocateBudget({
+        year: Number(data.month.slice(0, 4)),
+        month: data.month,
+        from: draft.from,
+        to: draft.to,
+        amount: draft.amount,
+      });
+      toasts.push('success', `Limit moved from ${draft.from} to ${draft.to}.`);
+      reallocating = false;
+      await invalidateAll();
+    } catch (error) {
+      toasts.error(error, 'Could not move the limit');
+    } finally {
+      moving = false;
+    }
+  }
+
   async function saveLimit(event: SubmitEvent) {
     event.preventDefault();
     if (!editing || limitValue === null || limitValue < 0) return;
@@ -93,6 +134,12 @@
 
 <PageHeader title="Budget" subtitle={formatMonth(data.month)}>
   {#snippet actions()}
+    <button
+      type="button"
+      class="btn-ghost"
+      disabled={!givers.length || expenseLines.length < 2}
+      onclick={() => openReallocate()}>Move money</button
+    >
     <div class="flex items-center gap-1">
       <button
         type="button"
@@ -162,6 +209,11 @@
                 ><Money value={line.spent} /> / <Money value={line.limit} /> · <Money value={line.remaining} /> left</span
               >
             </div>
+            {#if line.burnOutDate}
+              <p class="mb-1 text-xs text-orange-600 dark:text-orange-400">
+                Runs out on {formatDate(line.burnOutDate)} at the current pace
+              </p>
+            {/if}
             <ProgressBar
               percent={line.unbudgeted ? 100 : line.percentUsed}
               color={statusBar[line.status]}
@@ -208,6 +260,8 @@
   <BudgetAdvisor />
 </div>
 
+<BudgetWall month={data.month} />
+
 <Modal open={selected !== null} title={selected?.category ?? ''} onclose={() => (selected = null)} wide>
   {#if selected}
     <div class="grid items-center gap-6 sm:grid-cols-[auto_1fr]">
@@ -241,6 +295,10 @@
           <dt class="muted text-xs">Year remaining</dt>
           <dd><Money value={selected.yearlyRemaining} /></dd>
         </div>
+        {#if selected.burnOutDate}<div class="col-span-2">
+            <dt class="muted text-xs">Runs out on</dt>
+            <dd class="text-orange-600 dark:text-orange-400">{formatDate(selected.burnOutDate)} at the current pace</dd>
+          </div>{/if}
         {#if selected.note}<div class="col-span-2">
             <dt class="muted text-xs">Note</dt>
             <dd>{selected.note}</dd>
@@ -266,6 +324,17 @@
       </ul>
     {:else}
       <p class="muted text-sm">No transactions this month.</p>
+    {/if}
+    {#if selected.limit > 0 && selected.categoryType === 'expense'}
+      {@const from = selected.category}
+      <button
+        type="button"
+        class="btn-ghost mt-4"
+        onclick={() => {
+          selected = null;
+          openReallocate(from);
+        }}>Move money from {from}</button
+      >
     {/if}
   {/if}
 </Modal>
@@ -304,6 +373,54 @@
     <button type="button" class="btn-ghost" onclick={() => (editing = null)}>Cancel</button>
     <button type="submit" form="limit-form" class="btn-primary" disabled={saving}
       >{saving ? 'Saving…' : 'Save limit'}</button
+    >
+  {/snippet}
+</Modal>
+
+<Modal open={reallocating} title="Move money between categories" onclose={() => (reallocating = false)}>
+  <form id="reallocate-form" class="space-y-4" onsubmit={reallocate} novalidate>
+    <p class="muted text-sm">
+      Moves part of one category's {formatMonth(data.month)} limit to another. The total budget stays the same.
+    </p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="label" for="move-from">From</label>
+        <select id="move-from" class="field" bind:value={draft.from}>
+          <option value="" disabled>Choose a category</option>
+          {#each givers as line (line.category)}
+            <option value={line.category}>{line.category}</option>
+          {/each}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="move-to">To</label>
+        <select id="move-to" class="field" bind:value={draft.to}>
+          <option value="" disabled>Choose a category</option>
+          {#each expenseLines as line (line.category)}
+            <option value={line.category} disabled={line.category === draft.from}>{line.category}</option>
+          {/each}
+        </select>
+      </div>
+    </div>
+    <div>
+      <label class="label" for="move-amount">Amount (VND)</label>
+      <input id="move-amount" type="number" min="0" step="1000" class="field" bind:value={draft.amount} />
+    </div>
+    {#if draftPreview}
+      <p class="text-sm">
+        {draft.from}: <Money value={draftPreview.from} /> · {draft.to}: <Money value={draftPreview.to} />
+      </p>
+    {/if}
+    {#if draftTouched && draftProblems.length}
+      <ul role="alert" class="space-y-0.5 text-sm text-orange-600 dark:text-orange-400">
+        {#each draftProblems as problem (problem)}<li>{problem}</li>{/each}
+      </ul>
+    {/if}
+  </form>
+  {#snippet footer()}
+    <button type="button" class="btn-ghost" onclick={() => (reallocating = false)}>Cancel</button>
+    <button type="submit" form="reallocate-form" class="btn-primary" disabled={moving}
+      >{moving ? 'Moving…' : 'Move'}</button
     >
   {/snippet}
 </Modal>

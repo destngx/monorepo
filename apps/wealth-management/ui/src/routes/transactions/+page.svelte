@@ -1,7 +1,9 @@
 <script lang="ts">
   import InsightCard from '$lib/ai/InsightCard.svelte';
-  import { invalidateAll } from '$app/navigation';
+  import { untrack } from 'svelte';
+  import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
+  import { page } from '$app/state';
   import { api } from '$lib/api/endpoints';
   import type { Transaction, TransactionInput } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
@@ -16,6 +18,7 @@
   import CategoryBadge from '$lib/transactions/CategoryBadge.svelte';
   import TagChip from '$lib/transactions/TagChip.svelte';
   import TransactionForm from '$lib/transactions/TransactionForm.svelte';
+  import { nextEntry, prefillFromURL, recategorise, type BulkFailure } from '$lib/transactions/entry';
   import { paginate, searchTransactions, sortTransactions, type SortDir, type SortKey } from '$lib/transactions/filter';
 
   let { data } = $props();
@@ -33,6 +36,75 @@
   let editing = $state<Transaction | 'new' | null>(null);
   let deleting = $state<Transaction | null>(null);
   let busy = $state(false);
+  // Seed for a new row, and a counter that remounts the form for "Save & add another".
+  let prefill = $state<Partial<TransactionInput>>({});
+  let formKey = $state(0);
+
+  function openNew(seed: Partial<TransactionInput> = {}) {
+    prefill = seed;
+    formKey++;
+    editing = 'new';
+  }
+
+  const editorKey = $derived(editing === null ? '' : editing === 'new' ? `new-${formKey}` : editing.id);
+
+  function closeEditor() {
+    editing = null;
+    prefill = {};
+  }
+
+  // Deep link `/transactions?new=1&account=&payee=&category=` opens a prefilled
+  // form (WM-TX-9), e.g. a balance adjustment from the accounts page; the
+  // parameters are then dropped so a reload does not reopen it.
+  $effect(() => {
+    const seed = prefillFromURL(
+      page.url.searchParams,
+      data.accounts.map((account) => account.name),
+      data.categories.map((category) => category.name),
+    );
+    if (!seed) return;
+    untrack(() => openNew(seed));
+    const url = new URL(page.url);
+    for (const key of ['new', 'account', 'payee', 'category']) url.searchParams.delete(key);
+    void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+  });
+
+  // Bulk recategorise (WM-TX-9).
+  let selectedIds = $state<string[]>([]);
+  let bulkCategory = $state('');
+  let bulkFailures = $state<BulkFailure[]>([]);
+  const selectedRows = $derived(data.transactions.filter((tx) => selectedIds.includes(tx.id)));
+  const pageIds = $derived(paged.items.map((tx) => tx.id));
+  const pageSelected = $derived(pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id)));
+
+  function toggleRow(id: string, checked: boolean) {
+    selectedIds = checked ? [...selectedIds, id] : selectedIds.filter((selected) => selected !== id);
+  }
+
+  function togglePage(checked: boolean) {
+    selectedIds = checked
+      ? [...new Set([...selectedIds, ...pageIds])]
+      : selectedIds.filter((id) => !pageIds.includes(id));
+  }
+
+  async function applyCategory() {
+    if (!bulkCategory || !selectedRows.length) return;
+    busy = true;
+    bulkFailures = [];
+    try {
+      const result = await recategorise(selectedRows, bulkCategory, api.updateTransaction);
+      bulkFailures = result.failed;
+      selectedIds = result.failed.map((failure) => failure.id);
+      if (result.updated.length) {
+        toasts.push('success', `${result.updated.length} transaction(s) moved to ${bulkCategory}.`);
+      }
+      if (result.failed.length) toasts.push('warning', `${result.failed.length} transaction(s) were not changed.`);
+    } finally {
+      busy = false;
+      // Fresh etags for the next attempt, whatever happened.
+      await invalidateAll();
+    }
+  }
 
   const defaultAccount = $derived(
     data.accounts.some((a) => a.name === lastUsedAccount.value) ? lastUsedAccount.value : '',
@@ -47,7 +119,7 @@
     pageNumber = 1;
   }
 
-  async function save(input: TransactionInput) {
+  async function save(input: TransactionInput, addAnother: boolean) {
     busy = true;
     try {
       if (editing && editing !== 'new') {
@@ -58,7 +130,8 @@
         toasts.push('success', 'Transaction added.');
       }
       lastUsedAccount.value = input.accountName;
-      editing = null;
+      if (addAnother) openNew(nextEntry(input));
+      else closeEditor();
       await invalidateAll();
     } catch (error) {
       toasts.error(error, 'Could not save the transaction');
@@ -99,9 +172,7 @@
   {#snippet actions()}
     <!-- WM-TX-6 -->
     <a class="btn-ghost" href="{base}/transactions/capture"><Icon name="camera" size={16} /> Add from materials</a>
-    <button type="button" class="btn-primary" onclick={() => (editing = 'new')}
-      ><Icon name="plus" size={16} /> Add</button
-    >
+    <button type="button" class="btn-primary" onclick={() => openNew()}><Icon name="plus" size={16} /> Add</button>
   {/snippet}
 </PageHeader>
 
@@ -121,11 +192,58 @@
     {#if query}<p class="muted text-sm">{filtered.length} matches</p>{/if}
   </div>
 
+  {#if selectedIds.length}
+    <div
+      class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 text-sm"
+    >
+      <span class="font-medium">{selectedIds.length} selected</span>
+      <label class="sr-only" for="bulk-category">New category</label>
+      <select id="bulk-category" class="field w-auto min-w-48" bind:value={bulkCategory}>
+        <option value="" disabled>Move to category</option>
+        {#each data.categories as category (category.name)}
+          <option value={category.name}>{category.name}</option>
+        {/each}
+      </select>
+      <button type="button" class="btn-primary" disabled={busy || !bulkCategory} onclick={applyCategory}
+        >{busy ? 'Updating…' : 'Recategorise'}</button
+      >
+      <button type="button" class="btn-ghost" disabled={busy} onclick={() => (selectedIds = [])}>Clear</button>
+    </div>
+  {/if}
+
+  {#if bulkFailures.length}
+    <div role="alert" class="mb-4 rounded-xl border border-orange-500/40 p-3 text-sm">
+      <div class="flex items-start justify-between gap-2">
+        <p class="font-medium text-orange-700 dark:text-orange-300">These were not recategorised and stay selected:</p>
+        <button
+          type="button"
+          class="opacity-60 hover:opacity-100"
+          aria-label="Dismiss"
+          onclick={() => (bulkFailures = [])}><Icon name="x" size={16} /></button
+        >
+      </div>
+      <ul class="mt-1 space-y-0.5">
+        {#each bulkFailures as failure (failure.id)}
+          <li><span class="font-medium">{failure.payee}</span> ({failure.id}): {failure.message}</li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+
   {#if paged.items.length}
     <div class="-mx-5 overflow-x-auto">
       <table class="w-full min-w-[56rem] text-sm">
         <thead>
           <tr class="muted border-b border-slate-900/10 text-left text-xs uppercase dark:border-white/10">
+            <th class="py-2 pl-5">
+              <input
+                type="checkbox"
+                class="size-4 accent-indigo-600"
+                aria-label="Select all on this page"
+                checked={pageSelected}
+                onchange={(event) => togglePage(event.currentTarget.checked)}
+              />
+            </th>
             {#each columns as column (column.key)}
               <th
                 class="px-5 py-2 font-medium {column.align ?? ''}"
@@ -147,6 +265,15 @@
         <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
           {#each paged.items as tx (tx.id)}
             <tr class="align-top hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.02]">
+              <td class="py-2.5 pl-5">
+                <input
+                  type="checkbox"
+                  class="size-4 accent-indigo-600"
+                  aria-label="Select {tx.payee}"
+                  checked={selectedIds.includes(tx.id)}
+                  onchange={(event) => toggleRow(tx.id, event.currentTarget.checked)}
+                />
+              </td>
               <td class="tabular px-5 py-2.5 whitespace-nowrap">{formatDate(tx.date)}</td>
               <td class="px-5 py-2.5">{tx.accountName}</td>
               <td class="px-5 py-2.5">
@@ -233,19 +360,20 @@
 <Modal
   open={editing !== null}
   title={editing === 'new' ? 'Add transaction' : 'Edit transaction'}
-  onclose={() => (editing = null)}
+  onclose={closeEditor}
   wide
 >
-  {#key editing}
+  {#key editorKey}
     <TransactionForm
       accounts={data.accounts}
       categories={data.categories}
       tags={data.tags}
       initial={editing === 'new' ? null : editing}
       {defaultAccount}
+      {prefill}
       {busy}
       onsubmit={save}
-      oncancel={() => (editing = null)}
+      oncancel={closeEditor}
     />
   {/key}
 </Modal>

@@ -3,7 +3,9 @@
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
+  import { mask } from '$lib/state/mask.svelte';
   import Markdown from './Markdown.svelte';
+  import { maskText } from './moneyMask';
   import { severityStyle } from './severity';
   import { AITask } from './task.svelte';
 
@@ -34,8 +36,8 @@
       <ul class="mb-4 grid gap-2 md:grid-cols-2">
         {#each briefing.alerts as alert, index (index)}
           <li class="rounded-xl border p-3 text-sm {severityStyle[alert.severity]}">
-            <p class="font-semibold">{alert.title}</p>
-            <p class="text-slate-700 dark:text-slate-300">{alert.message}</p>
+            <p class="font-semibold">{maskText(alert.title, mask.revealed)}</p>
+            <p class="text-slate-700 dark:text-slate-300">{maskText(alert.message, mask.revealed)}</p>
           </li>
         {/each}
       </ul>
@@ -48,7 +50,7 @@
             <p class="muted text-xs font-medium tracking-wide uppercase">
               {patternLabels[pattern.kind] ?? pattern.kind}
             </p>
-            <p class="mt-1 text-sm font-semibold">{pattern.title}</p>
+            <p class="mt-1 text-sm font-semibold">{maskText(pattern.title, mask.revealed)}</p>
             <Markdown text={pattern.content} class="mt-1" />
           </div>
         {/each}

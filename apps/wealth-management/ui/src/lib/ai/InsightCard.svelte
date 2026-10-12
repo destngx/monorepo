@@ -3,7 +3,9 @@
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
+  import { mask } from '$lib/state/mask.svelte';
   import Markdown from './Markdown.svelte';
+  import { maskText } from './moneyMask';
   import { insightIcon, severityStyle } from './severity';
   import { AITask } from './task.svelte';
 
@@ -44,13 +46,13 @@
   {/snippet}
   {#if task.status === 'done' && task.value}
     {@const insight = task.value}
-    <p class="mb-3 font-medium">{insight.summary}</p>
+    <p class="mb-3 font-medium">{maskText(insight.summary, mask.revealed)}</p>
     <ul class="space-y-2">
       {#each insight.sections as section, index (index)}
         <li class="flex gap-3 rounded-xl border p-3 {severityStyle[section.severity]}">
           <Icon name={insightIcon[section.icon]} size={18} class="mt-0.5" />
           <div class="min-w-0 text-slate-800 dark:text-slate-200">
-            <p class="text-sm font-semibold">{section.title}</p>
+            <p class="text-sm font-semibold">{maskText(section.title, mask.revealed)}</p>
             <Markdown text={section.content} class="mt-1" />
           </div>
         </li>
@@ -62,7 +64,9 @@
       </h3>
       <ul class="space-y-1 text-sm">
         {#each insight.actionItems as item, index (index)}
-          <li class="flex gap-2"><Icon name="check" size={16} class="mt-0.5 text-emerald-600" />{item}</li>
+          <li class="flex gap-2">
+            <Icon name="check" size={16} class="mt-0.5 text-emerald-600" />{maskText(item, mask.revealed)}
+          </li>
         {/each}
       </ul>
     {/if}

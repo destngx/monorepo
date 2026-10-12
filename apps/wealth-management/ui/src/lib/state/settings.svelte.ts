@@ -67,3 +67,11 @@ export const aiModels = {
 
 // Target allocation by asset class as JSON (WM-INV-20); parsed by $lib/investments/allocation.
 export const targetAllocation = new Persisted<string>('wm.targetAllocation', '');
+
+// Daily entry reminder (WM-TX-9): opt-in, with the hour (0-23, Vietnam time)
+// after which it may show and the day it was last dismissed.
+export const entryReminder = {
+  enabled: new Persisted<'true' | 'false'>('wm.entryReminder', 'false'),
+  hour: new Persisted<string>('wm.entryReminderHour', '20'),
+  dismissedOn: new Persisted<string>('wm.entryReminderDismissed', ''),
+};

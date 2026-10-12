@@ -24,6 +24,27 @@ describe('DependencyBanner', () => {
     expect(screen.getByText(/Google Sheets is unavailable/)).toBeTruthy();
   });
 
+  it('shows the setup steps for an unconfigured sheet', () => {
+    render(DependencyBanner, {
+      health: { status: 'degraded', checks: [{ name: 'sheets', status: 'unconfigured' }] },
+    });
+    expect(screen.getByRole('status').textContent).toMatch(/GOOGLE_SHEETS_ID/);
+  });
+
+  it('shows the re-auth steps when Google rejects the token', () => {
+    render(DependencyBanner, {
+      health: {
+        status: 'down',
+        checks: [
+          { name: 'sheets', status: 'down', error: 'oauth2: "invalid_grant" "Token has been expired or revoked."' },
+        ],
+      },
+    });
+    const text = screen.getByRole('status').textContent ?? '';
+    expect(text).toMatch(/auth:sheets/);
+    expect(text).toMatch(/7 days/);
+  });
+
   it('reports an unreachable engine', () => {
     render(DependencyBanner, { health: null });
     expect(screen.getByRole('alert').textContent).toMatch(/not reachable/);

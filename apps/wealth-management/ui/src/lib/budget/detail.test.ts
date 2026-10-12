@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Transaction } from '$lib/api/types';
-import { categoryTransactions, dailySpend, detailEnd } from './detail';
+import { budgetDate, categoryTransactions, dailySpend, detailEnd } from './detail';
 
 const tx = (date: string, category: string, payment: number | null, deposit: number | null = null) =>
   ({ id: date + category, date, category, payment, deposit, tags: [] }) as unknown as Transaction;
@@ -16,6 +16,15 @@ describe('budget category detail', () => {
 
   it('matches categories case-insensitively within the month', () => {
     expect(categoryTransactions(rows, 'FOOD', '2026-10')).toHaveLength(3);
+  });
+
+  it('groups by the effective date when the engine sends one', () => {
+    const refund = { ...tx('2026-11-02', 'Food', null, 40), effectiveDate: '2026-10-20' } as Transaction;
+    expect(budgetDate(refund)).toBe('2026-10-20');
+    expect(budgetDate(tx('2026-11-02', 'Food', 1))).toBe('2026-11-02');
+    expect(budgetDate({ date: '2026-11-02', effectiveDate: null })).toBe('2026-11-02');
+    expect(categoryTransactions([...rows, refund], 'Food', '2026-10')).toContain(refund);
+    expect(categoryTransactions([...rows, refund], 'Food', '2026-11')).toHaveLength(0);
   });
 
   it('nets refunds per day and never goes below zero', () => {

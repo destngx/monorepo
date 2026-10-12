@@ -8,9 +8,11 @@
     children: Snippet;
     footer?: Snippet;
     wide?: boolean;
+    /** False for blocking dialogs: no close button and Escape does nothing. */
+    dismissible?: boolean;
   }
 
-  let { open, title, onclose, children, footer, wide = false }: Props = $props();
+  let { open, title, onclose, children, footer, wide = false, dismissible = true }: Props = $props();
   let dialog: HTMLDialogElement | undefined = $state();
 
   $effect(() => {
@@ -26,12 +28,17 @@
     ? 'max-w-3xl'
     : 'max-w-lg'}"
   {onclose}
+  oncancel={(event) => {
+    if (!dismissible) event.preventDefault();
+  }}
 >
   {#if open}
     <div class="flex max-h-[85vh] flex-col">
       <header class="flex items-center justify-between border-b border-slate-900/10 px-5 py-4 dark:border-white/10">
         <h2 class="font-semibold">{title}</h2>
-        <button type="button" class="btn-ghost px-2 py-1" aria-label="Close" onclick={onclose}>✕</button>
+        {#if dismissible}
+          <button type="button" class="btn-ghost px-2 py-1" aria-label="Close" onclick={onclose}>✕</button>
+        {/if}
       </header>
       <div class="overflow-y-auto px-5 py-4">{@render children()}</div>
       {#if footer}

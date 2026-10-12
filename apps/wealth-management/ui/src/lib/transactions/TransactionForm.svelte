@@ -12,8 +12,11 @@
     /** Existing row when editing. */
     initial?: Transaction | null;
     defaultAccount?: string;
+    /** Seed values for a new row (deep links, "Save & add another"). */
+    prefill?: Partial<TransactionInput>;
     busy?: boolean;
-    onsubmit: (input: TransactionInput) => void;
+    /** `addAnother` is set by "Save & add another" (WM-TX-9). */
+    onsubmit: (...args: [input: TransactionInput, addAnother: boolean]) => void;
     oncancel: () => void;
   }
 
@@ -23,6 +26,7 @@
     tags,
     initial = null,
     defaultAccount = '',
+    prefill = {},
     busy = false,
     onsubmit,
     oncancel,
@@ -30,14 +34,14 @@
 
   // The form edits a local copy; props only seed it.
   const seed = (): TransactionInput => ({
-    accountName: initial?.accountName ?? defaultAccount,
-    date: initial?.date.slice(0, 10) ?? todayISO(),
-    payee: initial?.payee ?? '',
-    category: initial?.category ?? '',
+    accountName: initial?.accountName ?? (prefill.accountName || defaultAccount),
+    date: initial?.date.slice(0, 10) ?? (prefill.date || todayISO()),
+    payee: initial?.payee ?? prefill.payee ?? '',
+    category: initial?.category ?? prefill.category ?? '',
     tags: [...(initial?.tags ?? [])],
     memo: initial?.memo ?? '',
     referenceNumber: initial?.referenceNumber ?? '',
-    cleared: initial?.cleared ?? true,
+    cleared: initial?.cleared ?? prefill.cleared ?? true,
     payment: initial?.payment ?? undefined,
     deposit: initial?.deposit ?? undefined,
   });
@@ -101,6 +105,7 @@
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
+    const addAnother = (event.submitter as HTMLButtonElement | null)?.value === 'another';
     const payment = Number(form.payment) || 0;
     const deposit = Number(form.deposit) || 0;
     if (!form.accountName || !form.date || !form.payee.trim() || !form.category) {
@@ -120,14 +125,17 @@
       return;
     }
     error = null;
-    onsubmit({
-      ...form,
-      payee: form.payee.trim(),
-      memo: form.memo?.trim() || undefined,
-      referenceNumber: form.referenceNumber?.trim() || undefined,
-      payment: payment || undefined,
-      deposit: deposit || undefined,
-    });
+    onsubmit(
+      {
+        ...form,
+        payee: form.payee.trim(),
+        memo: form.memo?.trim() || undefined,
+        referenceNumber: form.referenceNumber?.trim() || undefined,
+        payment: payment || undefined,
+        deposit: deposit || undefined,
+      },
+      addAnother,
+    );
   }
 </script>
 
@@ -212,6 +220,9 @@
   {#if error}<p role="alert" class="text-sm text-orange-600 sm:col-span-2 dark:text-orange-400">{error}</p>{/if}
   <div class="flex justify-end gap-2 sm:col-span-2">
     <button type="button" class="btn-ghost" onclick={oncancel}>Cancel</button>
+    {#if !initial}
+      <button type="submit" class="btn-ghost" value="another" disabled={busy}>Save & add another</button>
+    {/if}
     <button type="submit" class="btn-primary" disabled={busy}
       >{busy ? 'Saving…' : initial ? 'Save changes' : 'Add transaction'}</button
     >

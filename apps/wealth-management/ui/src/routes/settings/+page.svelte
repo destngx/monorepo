@@ -2,14 +2,17 @@
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
   import AISettings from '$lib/ai/AISettings.svelte';
-  import type { DependencyStatus } from '$lib/api/types';
+  import { ApiError } from '$lib/api/client';
+  import { api } from '$lib/api/endpoints';
+  import type { DependencyStatus, SheetInfo } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import { apiToken, theme, type Theme } from '$lib/state/settings.svelte';
+  import { apiToken, entryReminder, theme, type Theme } from '$lib/state/settings.svelte';
   import { sync } from '$lib/state/sync.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
+  import { parseReminderHour } from '$lib/transactions/reminder';
 
   // Engine health comes from the root layout load.
   const health = $derived(page.data.health);
@@ -29,6 +32,57 @@
     event.preventDefault();
     apiToken.value = tokenDraft.trim();
     toasts.push('success', apiToken.value ? 'API token saved in this browser.' : 'API token cleared.');
+  }
+
+  // The connected spreadsheet (WM-SET-2). Engines before /sheets/info answer
+  // 404; the session's own last sync is shown then.
+  let sheet = $state<SheetInfo | null>(null);
+  let sheetError = $state('');
+  let sheetUnsupported = $state(false);
+
+  async function loadSheet() {
+    sheetError = '';
+    try {
+      sheet = await api.sheetInfo();
+      sheetUnsupported = false;
+    } catch (failure) {
+      sheet = null;
+      if (failure instanceof ApiError && failure.status === 404 && !failure.code) sheetUnsupported = true;
+      else sheetError = failure instanceof Error ? failure.message : String(failure);
+    }
+  }
+
+  $effect(() => {
+    void loadSheet();
+  });
+
+  const timestamp = (value: Date) =>
+    value.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
+  const lastSync = $derived.by(() => {
+    if (sheet?.lastSyncAt) return `${timestamp(new Date(sheet.lastSyncAt))} (engine)`;
+    if (sync.lastSynced) return `${timestamp(sync.lastSynced)} (this session)`;
+    return sheet ? 'not since the engine started' : 'not yet in this session';
+  });
+
+  async function testConnection() {
+    await Promise.all([invalidateAll(), loadSheet()]);
+  }
+
+  function setReminder(enabled: boolean) {
+    entryReminder.enabled.value = enabled ? 'true' : 'false';
+    toasts.info(enabled ? 'Daily entry reminder on.' : 'Daily entry reminder off.');
+  }
+
+  function setReminderHour(value: string) {
+    entryReminder.hour.value = String(parseReminderHour(value));
+    toasts.info(`Reminder shows after ${entryReminder.hour.value}:00.`);
   }
 
   async function flush() {
@@ -88,8 +142,30 @@
 
   <Card title="Connections" subtitle="Live status reported by the engine">
     {#snippet actions()}
-      <button type="button" class="btn-ghost text-xs" onclick={() => invalidateAll()}>Test again</button>
+      <button type="button" class="btn-ghost text-xs" onclick={testConnection}>Test again</button>
     {/snippet}
+    <dl class="mb-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+      {#if sheet}
+        <dt class="muted">Spreadsheet</dt>
+        <dd class="min-w-0">
+          <a
+            class="text-indigo-600 hover:underline dark:text-indigo-400"
+            href="https://docs.google.com/spreadsheets/d/{encodeURIComponent(sheet.spreadsheetId)}"
+            target="_blank"
+            rel="noopener noreferrer">{sheet.title || 'Untitled'}</a
+          >
+          <p class="muted font-mono text-xs break-all">{sheet.spreadsheetId}</p>
+        </dd>
+      {:else if sheetError}
+        <dt class="muted">Spreadsheet</dt>
+        <dd class="text-rose-600 dark:text-rose-400">{sheetError}</dd>
+      {:else if sheetUnsupported}
+        <dt class="muted">Spreadsheet</dt>
+        <dd class="muted">This engine does not report sheet details.</dd>
+      {/if}
+      <dt class="muted">Last sync</dt>
+      <dd>{lastSync}</dd>
+    </dl>
     {#if health}
       <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
         {#each health.checks as check (check.name)}
@@ -108,14 +184,38 @@
     {:else}
       <p class="text-sm text-rose-600 dark:text-rose-400">The engine is not reachable.</p>
     {/if}
-    <p class="muted mt-3 text-xs">
-      Last sync: {sync.lastSynced
-        ? sync.lastSynced.toLocaleString('en-GB', { timeZone: 'Asia/Ho_Chi_Minh' })
-        : 'not yet in this session'}
-    </p>
   </Card>
 
   <AISettings />
+
+  <Card title="Daily entry reminder" subtitle="A banner when nothing is recorded today">
+    <label class="flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        class="size-4 accent-indigo-600"
+        checked={entryReminder.enabled.value === 'true'}
+        onchange={(event) => setReminder(event.currentTarget.checked)}
+      />
+      Remind me to record today's transactions
+    </label>
+    <div class="mt-3 flex items-center gap-2 text-sm">
+      <label for="reminder-hour">Show after</label>
+      <input
+        id="reminder-hour"
+        type="number"
+        min="0"
+        max="23"
+        class="field w-20"
+        value={entryReminder.hour.value}
+        disabled={entryReminder.enabled.value !== 'true'}
+        onchange={(event) => setReminderHour(event.currentTarget.value)}
+      />
+      <span class="muted">:00 (Vietnam time)</span>
+    </div>
+    <p class="muted mt-3 text-xs">
+      Checked when the app opens. Dismissing hides it until tomorrow. Stored in this browser; no system notifications.
+    </p>
+  </Card>
 
   <Card title="Cache" subtitle="Sheet data is cached on the engine">
     <p class="text-sm">Flushing drops every cached sheet read, so the next requests read Google Sheets directly.</p>

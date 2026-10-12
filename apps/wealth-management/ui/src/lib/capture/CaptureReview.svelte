@@ -7,7 +7,7 @@
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
-  import { formatMoney } from '$lib/format';
+  import { formatDate } from '$lib/format';
   import { toasts } from '$lib/state/toasts.svelte';
   import TagPicker from '$lib/transactions/TagPicker.svelte';
   import type { InboxItem } from './materials';
@@ -122,11 +122,12 @@
     rows[index].suggestion.lowConfidence.includes(field) ? 'ring-2 ring-amber-400/70' : '';
   const confidenceTone = { high: 'green', medium: 'blue', low: 'amber' } as const;
 
-  function usdPreview(row: ReviewRow): string | null {
+  /** VND equivalent of a USD or USDT row, rendered through Money so it masks (WM-UI-2). */
+  function usdPreview(row: ReviewRow): number | null {
     const currency = accountByName.get(row.tx.accountName)?.currency;
     if (!usdRate || (currency !== 'USD' && currency !== 'USDT')) return null;
     const amount = row.tx.payment ?? row.tx.deposit ?? 0;
-    return `≈ ${formatMoney(amount * usdRate)} (sheet converts)`;
+    return amount * usdRate;
   }
 
   function setAmount(row: ReviewRow, side: 'payment' | 'deposit', value: string) {
@@ -300,7 +301,9 @@
                   aria-label="Deposit"
                   {disabled}
                 />
-                {#if usdPreview(row)}<p class="muted mt-0.5 text-xs">{usdPreview(row)}</p>{/if}
+                {#if usdPreview(row) !== null}<p class="muted mt-0.5 text-xs">
+                    ≈ <Money value={usdPreview(row)} /> (sheet converts)
+                  </p>{/if}
                 {#if suggestion.currency !== 'VND'}<p class="muted mt-0.5 text-xs">
                     read as {suggestion.currency}
                   </p>{/if}
@@ -359,8 +362,8 @@
 
                 {#if suggestion.duplicate}
                   <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                    Likely already recorded: {suggestion.duplicate.payee} on {suggestion.duplicate.date},
-                    {formatMoney(suggestion.duplicate.amount)} ({suggestion.duplicate.transactionId}). Unselected by
+                    Likely already recorded: {suggestion.duplicate.payee} on {formatDate(suggestion.duplicate.date)},
+                    <Money value={suggestion.duplicate.amount} /> ({suggestion.duplicate.transactionId}). Unselected by
                     default.
                   </p>
                 {/if}

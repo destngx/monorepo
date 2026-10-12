@@ -2,9 +2,14 @@ import type { Transaction } from '$lib/api/types';
 
 const key = (category: string) => category.trim().toLowerCase();
 
-/** Transactions of one category within a month ("YYYY-MM"), newest first. */
+/** The day a row counts toward: the rules' effective date when the engine sends one (WM-BUD-4). */
+export function budgetDate(tx: Pick<Transaction, 'date' | 'effectiveDate'>): string {
+  return tx.effectiveDate ?? tx.date;
+}
+
+/** Transactions of one category attributed to a month ("YYYY-MM"), newest first. */
 export function categoryTransactions(transactions: Transaction[], category: string, month: string): Transaction[] {
-  return transactions.filter((tx) => key(tx.category) === key(category) && tx.date.startsWith(month));
+  return transactions.filter((tx) => key(tx.category) === key(category) && budgetDate(tx).startsWith(month));
 }
 
 /**

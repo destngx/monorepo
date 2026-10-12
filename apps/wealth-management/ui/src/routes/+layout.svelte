@@ -1,6 +1,7 @@
 <script lang="ts">
   import './layout.css';
   import favicon from '$lib/assets/favicon.svg';
+  import { untrack } from 'svelte';
   import { afterNavigate, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { navigating, page } from '$app/state';
@@ -8,6 +9,7 @@
   import DependencyBanner from '$lib/components/DependencyBanner.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import MaskToggle from '$lib/components/MaskToggle.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import SheetsAuthAlert from '$lib/components/SheetsAuthAlert.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import SyncButton from '$lib/components/SyncButton.svelte';
@@ -15,8 +17,11 @@
   import Toasts from '$lib/components/Toasts.svelte';
   import { titleFor } from '$lib/components/nav';
   import { mask } from '$lib/state/mask.svelte';
+  import { network } from '$lib/state/network.svelte';
   import { applyTheme, sidebarCollapsed, theme } from '$lib/state/settings.svelte';
   import { AUTO_SYNC_MS, sync } from '$lib/state/sync.svelte';
+  import { toasts } from '$lib/state/toasts.svelte';
+  import EntryReminder from '$lib/transactions/EntryReminder.svelte';
 
   let { data, children } = $props();
 
@@ -51,9 +56,25 @@
   });
   $effect(() => {
     const timer = setInterval(() => {
-      if (sheetsReady) void sync.run(invalidateAll);
+      if (sheetsReady && network.online) void sync.run(invalidateAll);
     }, AUTO_SYNC_MS);
     return () => clearInterval(timer);
+  });
+
+  // Offline blocks the app (WM-UI-6); on reconnect the data is re-synced.
+  $effect(() => {
+    untrack(() => network.update(navigator.onLine));
+    const onChange = () => {
+      if (network.update(navigator.onLine) !== 'restored') return;
+      toasts.info('Back online. Refreshing your data.');
+      void (sheetsReady ? sync.run(invalidateAll) : invalidateAll());
+    };
+    window.addEventListener('online', onChange);
+    window.addEventListener('offline', onChange);
+    return () => {
+      window.removeEventListener('online', onChange);
+      window.removeEventListener('offline', onChange);
+    };
   });
 </script>
 
@@ -123,6 +144,7 @@
     <main class="mx-auto w-full max-w-7xl flex-1 px-3 pt-3 pb-12 sm:px-6">
       <DependencyBanner health={data.health} />
       <SheetsAuthAlert />
+      <EntryReminder ready={sheetsReady} />
       {@render children()}
     </main>
   </div>
@@ -130,6 +152,13 @@
 
 {#if aiReady && path !== '/chat'}<ChatWidget page={{ path, title }} />{/if}
 <Toasts />
+
+<Modal open={!network.online} title="You are offline" onclose={() => {}} dismissible={false}>
+  <p class="text-sm">
+    The ledger lives in Google Sheets, so nothing can be read or saved without a connection. This closes and your data
+    refreshes as soon as you are back online.
+  </p>
+</Modal>
 
 <style>
   @keyframes -global-nav-progress {

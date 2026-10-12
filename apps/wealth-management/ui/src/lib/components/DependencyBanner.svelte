@@ -1,6 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { sheetsAuthKind } from '$lib/api/client';
   import type { EngineHealth } from '$lib/api/types';
+  import SheetsAuthSteps from './SheetsAuthSteps.svelte';
 
   // Warns when the engine reports a dependency that is down or not configured
   // (WM-OPS-6); without the sheet, most pages have no data.
@@ -15,7 +17,12 @@
         (check.name === 'sheets' && check.status !== 'ok') || (check.name === 'cache' && check.status === 'down'),
     ) ?? [],
   );
-  const sheetsMissing = $derived(problems.some((check) => check.name === 'sheets'));
+  const sheetsCheck = $derived(problems.find((check) => check.name === 'sheets'));
+  const sheetsMissing = $derived(sheetsCheck !== undefined);
+  // Setup steps when unconfigured, re-auth steps when Google rejects the token (WM-UI-4).
+  const sheetsAuth = $derived(
+    sheetsCheck?.status === 'unconfigured' ? 'missing' : sheetsAuthKind(undefined, sheetsCheck?.error ?? ''),
+  );
 </script>
 
 {#if health === null}
@@ -33,6 +40,7 @@
         <li><span class="font-medium">{check.name}</span>: {check.status}{check.error ? ` - ${check.error}` : ''}</li>
       {/each}
     </ul>
+    {#if sheetsAuth}<SheetsAuthSteps kind={sheetsAuth} class="mt-2" />{/if}
     <a class="mt-2 inline-block text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/settings"
       >Open settings</a
     >

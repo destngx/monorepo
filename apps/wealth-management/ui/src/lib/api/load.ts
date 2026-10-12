@@ -10,15 +10,18 @@ export async function loadOrError<T>(load: () => Promise<T>): Promise<T> {
     return await load();
   } catch (cause) {
     if (cause instanceof ApiError) {
-      // Sheet routes are not registered when the sheet is not configured.
-      const message =
-        cause.status === 404
-          ? 'This data is unavailable: Google Sheets is not configured on the engine.'
-          : cause.message;
-      error(cause.status === 404 ? 503 : cause.status, {
+      // Engines without the error envelope answer 404 when the sheet is not
+      // configured; newer ones answer 503 SHEETS_NOT_CONFIGURED.
+      const isLegacyMissing = cause.status === 404 && cause.code === undefined;
+      const message = isLegacyMissing
+        ? 'This data is unavailable: Google Sheets is not configured on the engine.'
+        : cause.message;
+      const sheetsAuth = isLegacyMissing ? 'missing' : (cause.sheetsAuth ?? undefined);
+      error(isLegacyMissing ? 503 : cause.status, {
         message,
         status: cause.status,
-        authProblem: cause.authProblem,
+        authProblem: sheetsAuth !== undefined,
+        sheetsAuth,
       });
     }
     error(502, { message: cause instanceof Error ? `Engine unreachable: ${cause.message}` : 'Engine unreachable' });

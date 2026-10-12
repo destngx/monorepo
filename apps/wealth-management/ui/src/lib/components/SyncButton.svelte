@@ -33,7 +33,7 @@
     type="button"
     class="btn-ghost"
     disabled={sync.syncing}
-    onclick={() => sync.run(invalidateAll)}
+    onclick={() => sync.run(invalidateAll, { notify: true })}
     aria-label="Sync with Google Sheets"
   >
     <Icon name="refresh" class={sync.syncing ? 'animate-spin' : ''} />

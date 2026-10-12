@@ -11,7 +11,8 @@ class SyncState {
   nextSyncAt = $state<number | null>(null);
   lastError = $state<string | null>(null);
 
-  async run(reload: () => Promise<void>): Promise<boolean> {
+  /** `notify` confirms success with a toast (manual syncs; auto-sync stays quiet). */
+  async run(reload: () => Promise<void>, { notify = false }: { notify?: boolean } = {}): Promise<boolean> {
     if (this.syncing) return false;
     this.syncing = true;
     try {
@@ -19,6 +20,7 @@ class SyncState {
       this.lastSynced = new Date();
       this.lastError = null;
       await reload();
+      if (notify) toasts.info('Synced with Google Sheets.');
       return true;
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : String(error);

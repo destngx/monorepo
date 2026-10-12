@@ -12,6 +12,8 @@ export class AITask<T> {
   status = $state<TaskStatus>('idle');
   value = $state<T | undefined>(undefined);
   error = $state('');
+  /** Set when the AI service is not configured or down (UNAVAILABLE). */
+  hint = $state('');
   #controller: AbortController | null = null;
   #load: (force: boolean, signal: AbortSignal) => Promise<T>;
 
@@ -25,6 +27,7 @@ export class AITask<T> {
     this.#controller = controller;
     this.status = 'loading';
     this.error = '';
+    this.hint = '';
     try {
       const value = await this.#load(force, controller.signal);
       if (controller.signal.aborted) return;
@@ -33,6 +36,7 @@ export class AITask<T> {
     } catch (error) {
       if (controller.signal.aborted) return;
       this.error = error instanceof Error ? error.message : String(error);
+      this.hint = error instanceof ApiError ? (error.unavailableHint ?? '') : '';
       this.status = 'error';
       if (error instanceof ApiError && error.authProblem) toasts.error(error);
     }

@@ -56,6 +56,8 @@ export interface Transaction {
   runningBalance: number;
   etag: string;
   issues?: string[];
+  /** Day the rules attribute the row to (refund memo month rule); absent on older engines. */
+  effectiveDate?: string | null;
 }
 
 export interface TransactionInput {
@@ -108,6 +110,28 @@ export interface BudgetLine {
   yearlySpent: number;
   yearlyRemaining: number;
   unbudgeted?: boolean;
+  /** Day the remaining limit runs out at the current daily burn; null when it will not this month. */
+  burnOutDate?: string | null;
+}
+
+/** Six-month budget comparison, "The Wall" (WM-BUD-7). */
+export interface BudgetHistory {
+  /** Oldest first. */
+  months: string[];
+  rows: { category: string; values: { month: string; limit: number; spent: number }[] }[];
+}
+
+export interface ReallocateInput {
+  year: number;
+  month: string;
+  from: string;
+  to: string;
+  amount: number;
+}
+
+export interface ReallocateResult {
+  from: { category: string; limit: number };
+  to: { category: string; limit: number };
 }
 
 export interface BudgetReport {
@@ -359,6 +383,14 @@ export type DependencyStatus = 'ok' | 'degraded' | 'down' | 'unconfigured';
 export interface EngineHealth {
   status: DependencyStatus;
   checks: { name: string; status: DependencyStatus; error?: string; latencyMs?: number }[];
+}
+
+/** The connected spreadsheet (WM-SET-2). */
+export interface SheetInfo {
+  spreadsheetId: string;
+  title: string;
+  /** Engine-side time of the last successful sync; null until one after a restart. */
+  lastSyncAt: string | null;
 }
 
 export interface SyncResult {

@@ -1,4 +1,4 @@
-import { ApiError } from '$lib/api/client';
+import { ApiError, type SheetsAuthKind } from '$lib/api/client';
 
 export type ToastKind = 'error' | 'warning' | 'info' | 'success';
 
@@ -13,7 +13,7 @@ const TOAST_MS = 5000;
 class Toasts {
   items = $state<Toast[]>([]);
   // Set when Google Sheets credentials fail, to show the re-auth alert (WM-UI-4).
-  sheetsAuthProblem = $state<string | null>(null);
+  sheetsAuthProblem = $state<{ message: string; kind: SheetsAuthKind } | null>(null);
   #nextId = 1;
 
   push(kind: ToastKind, message: string): void {
@@ -29,11 +29,22 @@ class Toasts {
   /** Reports a failed action; credential failures raise the re-auth alert. */
   error(error: unknown, context?: string): void {
     const message = error instanceof Error ? error.message : String(error);
-    if (error instanceof ApiError && error.authProblem) {
-      this.sheetsAuthProblem = message;
+    const kind = error instanceof ApiError ? error.sheetsAuth : null;
+    if (kind) {
+      this.sheetsAuthProblem = { message, kind };
       return;
     }
-    this.push('error', context ? `${context}: ${message}` : message);
+    const hint = error instanceof ApiError ? error.unavailableHint : null;
+    const text = context ? `${context}: ${message}` : message;
+    if (hint) {
+      this.push('warning', `${text} ${hint}`);
+      return;
+    }
+    this.push('error', text);
+  }
+
+  info(message: string): void {
+    this.push('info', message);
   }
 }
 
