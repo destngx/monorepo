@@ -27,9 +27,6 @@ const (
 	CardMinimumPaymentPercent = 5.0
 )
 
-// ProjectionYears are the net worth projection horizons (WM-RULE-12).
-var ProjectionYears = []int{5, 10, 20}
-
 type HealthBand string
 
 const (
@@ -48,42 +45,6 @@ func HealthBandFor(score float64) HealthBand {
 	default:
 		return HealthBandGreen
 	}
-}
-
-type AssetClass string
-
-const (
-	AssetClassCash       AssetClass = "cash"
-	AssetClassInvestment AssetClass = "investment"
-	AssetClassCrypto     AssetClass = "crypto"
-)
-
-var assetClasses = []AssetClass{AssetClassCash, AssetClassInvestment, AssetClassCrypto}
-
-// AssetClassFor maps an account type to an asset class; liabilities and deprecated accounts have none.
-func AssetClassFor(accountType AccountType) (AssetClass, bool) {
-	switch accountType {
-	case AccountTypeActiveUse, AccountTypeRarelyUse, AccountTypeBank, AccountTypeCash:
-		return AssetClassCash, true
-	case AccountTypeInvestment, AccountTypeLongHolding:
-		return AssetClassInvestment, true
-	case AccountTypeCrypto:
-		return AssetClassCrypto, true
-	default:
-		return "", false
-	}
-}
-
-// AssetAllocation sums positive balances per asset class.
-func AssetAllocation(accounts []Account) map[AssetClass]float64 {
-	allocation := map[AssetClass]float64{}
-	for _, account := range accounts {
-		class, ok := AssetClassFor(account.Type)
-		if ok && account.Balance > 0 {
-			allocation[class] += account.Balance
-		}
-	}
-	return allocation
 }
 
 // HealthComponent is one scored pillar with its "show your math" breakdown.
@@ -122,14 +83,6 @@ type FinancialHealth struct {
 	// MonthlyDebtPayments = loan monthly payments + the card minimums.
 	MonthlyDebtPayments float64              `json:"monthlyDebtPayments"`
 	Projection          []NetWorthProjection `json:"projection"`
-}
-
-// NetWorthProjection is net worth after Years at the fallback return,
-// before (Nominal) and after (Real) VND inflation (WM-RULE-12).
-type NetWorthProjection struct {
-	Years   int     `json:"years"`
-	Nominal float64 `json:"nominal"`
-	Real    float64 `json:"real"`
 }
 
 // ComputeFinancialHealth scores the last full months of activity against the targets.
@@ -219,20 +172,6 @@ func monthlyDebtPayments(accounts []Account, loans []Loan) (float64, float64) {
 	return math.Round(loanPayments), math.Round(cardMinimums)
 }
 
-// ProjectNetWorth projects net worth over ProjectionYears at the 8% fallback
-// return; Real deducts VND inflation via ProjectRealValue (WM-RULE-12).
-func ProjectNetWorth(netWorth float64) []NetWorthProjection {
-	projection := make([]NetWorthProjection, 0, len(ProjectionYears))
-	for _, years := range ProjectionYears {
-		projection = append(projection, NetWorthProjection{
-			Years:   years,
-			Nominal: math.Round(netWorth * math.Pow(1+DefaultAnnualReturn/100, float64(years))),
-			Real:    ProjectRealValue(netWorth, 0, CurrencyVND, float64(years)),
-		})
-	}
-	return projection
-}
-
 func averageIncomeExpense(transactions []Transaction, today time.Time, months int) (float64, float64) {
 	current := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
 	flows := MonthlyCashFlows(transactions, current.AddDate(0, -months, 0), current.AddDate(0, -1, 0))
@@ -242,43 +181,6 @@ func averageIncomeExpense(transactions []Transaction, today time.Time, months in
 		expense += flow.Expense
 	}
 	return math.Round(income / float64(months)), math.Round(expense / float64(months))
-}
-
-// diversificationScore returns the HHI and its score: 1/N (even) scores full, 1 (single class) scores zero.
-func diversificationScore(allocation map[AssetClass]float64) (float64, float64) {
-	total := 0.0
-	for _, value := range allocation {
-		total += value
-	}
-	if total <= 0 {
-		return 1, 0
-	}
-	hhi := 0.0
-	for _, value := range allocation {
-		share := value / total
-		hhi += share * share
-	}
-	minimum := 1 / float64(len(assetClasses))
-	return hhi, healthDiversificationMax * clampUnit((1-hhi)/(1-minimum))
-}
-
-func allocationDetail(allocation map[AssetClass]float64) string {
-	total := 0.0
-	for _, value := range allocation {
-		total += value
-	}
-	detail := ""
-	for _, class := range assetClasses {
-		share := 0.0
-		if total > 0 {
-			share = allocation[class] / total * 100
-		}
-		if detail != "" {
-			detail += ", "
-		}
-		detail += fmt.Sprintf("%s %.1f%%", class, share)
-	}
-	return detail
 }
 
 // doctorsOrders returns three actions for the weakest pillars (lowest score share first).
@@ -320,35 +222,6 @@ func recommendationFor(component HealthComponent, health FinancialHealth) Health
 		}
 		return HealthRecommendation{component.Key, "Diversify assets", fmt.Sprintf("Allocation is %s. Move surplus cash beyond the emergency fund into under-weighted classes.", component.Detail)}
 	}
-}
-
-// FreedomMonths = net worth / monthly expenses; nil when expenses are unknown.
-func FreedomMonths(netWorth float64, monthlyExpense float64) *float64 {
-	if monthlyExpense <= 0 {
-		return nil
-	}
-	months := round2(netWorth / monthlyExpense)
-	return &months
-}
-
-const DefaultAnnualReturn = 8.0
-
-// InflationFor returns the assumed annual inflation per currency (VND 6%, USD 2%).
-func InflationFor(currency Currency) float64 {
-	if currency == CurrencyUSD || currency == CurrencyUSDT {
-		return 2
-	}
-	return 6
-}
-
-// ProjectRealValue = PV x (1 + r)^years with r = return - inflation (percent);
-// a zero return uses the 8% fallback.
-func ProjectRealValue(presentValue float64, annualReturn float64, currency Currency, years float64) float64 {
-	if annualReturn == 0 {
-		annualReturn = DefaultAnnualReturn
-	}
-	rate := (annualReturn - InflationFor(currency)) / 100
-	return math.Round(presentValue * math.Pow(1+rate, years))
 }
 
 func clampUnit(value float64) float64 {
