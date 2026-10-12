@@ -2,6 +2,7 @@ package httptransport
 
 import (
 	"apps/ai-gateway/internal/service"
+	"apps/ai-gateway/internal/transport/http/common"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -68,7 +69,7 @@ func NewDashboardHandler() *DashboardHandler {
 // @Success 200 {string} string "HTML Dashboard"
 // @Router /metrics/dashboard [get]
 func (h *DashboardHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set(common.HeaderContentType, common.ContentTypeHTML)
 	fmt.Fprint(w, dashboardHTML)
 }
 

@@ -11,6 +11,7 @@ const (
 
 	ContentTypeJSON        = "application/json"
 	ContentTypeEventStream = "text/event-stream"
+	ContentTypeHTML        = "text/html; charset=utf-8"
 
 	ValueNoCache   = "no-cache"
 	ValueKeepAlive = "keep-alive"
