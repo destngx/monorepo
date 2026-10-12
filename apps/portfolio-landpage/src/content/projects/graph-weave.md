@@ -29,7 +29,7 @@ Multi-step agent runs are easy to demo and hard to operate. I wanted a workflow 
 - Redis access goes through a namespaced client wrapper, and the spec requires tenant, workflow, and thread scoping for execution state.
 - LLM calls go to the AI gateway project in this monorepo, configured with `AI_GATEWAY_URL`.
 - Tools are exposed through an MCP router with bash, filesystem, and web tools. Allowed paths are set by environment variables.
-- Frontend is SvelteKit with Svelte 5 runes and Tailwind v4, in `apps/graph-weave-ui`.
+- Frontend is SvelteKit with Svelte 5 runes and Tailwind v4, in `apps/graph-weave/ui`.
 - I wrote the spec before the code. The `docs/graph-weave` tree has intent, specification, and plan layers, and the progress log shows the SPEC phase closed before MOCK started.
 
 ## Interesting bits

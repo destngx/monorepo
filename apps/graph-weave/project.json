@@ -3,7 +3,7 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/graph-weave/src",
   "projectType": "application",
-  "tags": ["type:app", "app:graph-weave", "scope:backend", "lang:python"],
+  "tags": ["type:app", "app:graph-weave", "scope:backend", "scope:frontend", "lang:python", "lang:typescript"],
   "targets": {
     "install": {
       "executor": "nx:run-commands",
@@ -16,8 +16,62 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
+        "commands": ["pnpx nx run graph-weave:serve-api", "pnpx nx run graph-weave:serve-ui"],
+        "parallel": true
+      }
+    },
+    "serve-api": {
+      "executor": "nx:run-commands",
+      "options": {
         "command": ".venv/bin/uvicorn src.main:app --reload --reload-dir src --host 0.0.0.0 --port 8001",
         "cwd": "apps/graph-weave"
+      }
+    },
+    "serve-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpx vite dev --host --port 8082",
+        "cwd": "apps/graph-weave/ui"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        {
+          "target": "build-ui",
+          "configurations": "production"
+        }
+      ],
+      "options": {
+        "command": ".venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8001",
+        "cwd": "apps/graph-weave"
+      }
+    },
+    "build-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpx vite build",
+        "cwd": "apps/graph-weave/ui"
+      },
+      "configurations": {
+        "production": {
+          "command": "pnpx vite build --mode production",
+          "cwd": "apps/graph-weave/ui"
+        }
+      }
+    },
+    "check-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpx svelte-check --tsconfig ./tsconfig.json",
+        "cwd": "apps/graph-weave/ui"
+      }
+    },
+    "lint-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpx eslint .",
+        "cwd": "apps/graph-weave/ui"
       }
     },
     "test": {
@@ -26,7 +80,14 @@
         "command": "PYTHONPATH=. .venv/bin/pytest tests/unit",
         "cwd": "apps/graph-weave"
       },
-      "inputs": ["default", "{projectRoot}/tests/unit/**/*"]
+      "inputs": ["default", "!{projectRoot}/ui/**/*", "{projectRoot}/tests/unit/**/*"]
+    },
+    "test-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpx vitest",
+        "cwd": "apps/graph-weave/ui"
+      }
     },
     "test-e2e": {
       "executor": "nx:run-commands",
@@ -34,7 +95,7 @@
         "command": "PYTHONPATH=. .venv/bin/pytest tests/e2e",
         "cwd": "apps/graph-weave"
       },
-      "inputs": ["default", "{projectRoot}/tests/e2e/**/*"]
+      "inputs": ["default", "!{projectRoot}/ui/**/*", "{projectRoot}/tests/e2e/**/*"]
     },
     "setup-github-token": {
       "executor": "nx:run-commands",

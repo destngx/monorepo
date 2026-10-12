@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { graphWeaveApi } from '$lib/graphweave/api';
+  import { graphWeaveApi, type WorkflowDetail, type WorkflowNode } from '$lib/graphweave/api';
 
   import WorkflowRegistry from '$lib/components/graphweave/WorkflowRegistry.svelte';
   import NodeList from '$lib/components/graphweave/NodeList.svelte';
@@ -10,9 +10,9 @@
 
   // Shared reactive workspace states
   let tenantId = $state('system');
-  let selectedWorkflowId = $state(null);
-  let selectedWorkflowDetail = $state(null);
-  let selectedNodeId = $state(null);
+  let selectedWorkflowId = $state<string | null>(null);
+  let selectedWorkflowDetail = $state<WorkflowDetail | null>(null);
+  let selectedNodeId = $state<string | null>(null);
 
   // Execution tracking state (updates the DAG live!)
   let activeNodeId = $state(null);
@@ -55,13 +55,13 @@
   });
 
   // Handle Select workflow callback
-  function handleSelectWorkflow(workflowId) {
+  function handleSelectWorkflow(workflowId: string) {
     selectedWorkflowId = workflowId;
     selectedNodeId = null;
   }
 
   // Save changes from Workflow Inspector back to the API database
-  async function handleSaveNode(updatedNode) {
+  async function handleSaveNode(updatedNode: WorkflowNode) {
     if (!selectedWorkflowDetail || !selectedWorkflowId) return;
 
     try {
@@ -84,7 +84,7 @@
   }
 
   // Delete node from active workflow definition schema
-  async function handleDeleteNode(nodeId) {
+  async function handleDeleteNode(nodeId: string) {
     if (!selectedWorkflowDetail || !selectedWorkflowId) return;
     if (!window.confirm(`Are you sure you want to remove node '${nodeId}' from the workflow schema layout?`)) return;
 
@@ -110,7 +110,7 @@
   }
 
   // Append new node to workflow definition schema
-  async function handleAddNode(newNode) {
+  async function handleAddNode(newNode: WorkflowNode) {
     if (!selectedWorkflowDetail || !selectedWorkflowId) return;
 
     try {

@@ -6,6 +6,7 @@ import os
 from contextlib import asynccontextmanager
 
 from .config import GraphWeaveConfig
+from .ui import mount_ui
 from .app_logging import setup_logging, get_logger
 from .modules.shared.deps import (
     init_services,
@@ -184,3 +185,7 @@ async def health():
 @app.get("/api/docs")
 async def docs():
     return app.openapi()
+
+
+# Mounted last so every API route above keeps priority over the UI.
+mount_ui(app)

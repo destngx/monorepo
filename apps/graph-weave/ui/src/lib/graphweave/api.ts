@@ -1,14 +1,18 @@
 /**
- * GraphWeave API Client wrapping /graphweave-api endpoint (proxied to port 8001)
+ * GraphWeave API Client. In production the UI is served by the API itself, so calls are same-origin;
+ * in vite dev they go through the /graphweave-api proxy to port 8001.
  */
+
+export interface ServiceHealth {
+  status: string;
+  error?: string;
+  url?: string;
+  response_code?: number;
+}
 
 export interface HealthStatus {
   status: string;
-  services: {
-    redis?: { status: string; error?: string };
-    ai_gateway?: { status: string; url?: string; response_code?: number; error?: string };
-    [key: string]: any;
-  };
+  services: Record<string, ServiceHealth | undefined>;
 }
 
 export interface WorkflowSummary {
@@ -23,12 +27,52 @@ export interface WorkflowSummary {
   updated_at?: string;
 }
 
+/** JSON-schema-style field on an entry node's `config.properties`. */
+export interface EntryProperty {
+  type?: string;
+  description?: string;
+}
+
+export interface WorkflowNodeConfig {
+  system_prompt?: string;
+  user_prompt_template?: string;
+  output_key?: string;
+  max_iterations?: number;
+  condition_expression?: string;
+  command?: string;
+  properties?: Record<string, EntryProperty>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
+export interface WorkflowNode {
+  id: string;
+  type: string;
+  display_name?: string;
+  description?: string;
+  alias?: string;
+  node_id?: string;
+  node_hash?: string;
+  tenant_id?: string;
+  config?: WorkflowNodeConfig;
+  overrides?: Record<string, unknown>;
+  guardrails?: Record<string, unknown>;
+  retry_config?: Record<string, unknown>;
+}
+
+export interface WorkflowEdge {
+  from: string;
+  to: string;
+  condition?: string;
+  config?: { label?: string };
+}
+
 export interface WorkflowDetail extends WorkflowSummary {
   definition: {
     name: string;
     version: string;
     description?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     limits?: {
       max_hops?: number;
       max_tokens?: number;
@@ -36,8 +80,8 @@ export interface WorkflowDetail extends WorkflowSummary {
       stagnation_window?: number;
       stagnation_threshold?: number;
     };
-    nodes: any[];
-    edges: any[];
+    nodes: WorkflowNode[];
+    edges: WorkflowEdge[];
   };
 }
 
@@ -50,34 +94,97 @@ export interface ExecutionRun {
   hop_count: number;
 }
 
+/** Payload of an execution event; which fields are set depends on the event type. */
+export interface ExecutionEventData {
+  tenant_id?: string;
+  workflow_id?: string;
+  node_id?: string;
+  node_type?: string;
+  hop_count?: number;
+  provider?: string;
+  model?: string;
+  tool_count?: number;
+  count?: number;
+  tool?: string;
+  id?: string;
+  from?: string;
+  to?: string;
+  error?: string;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  result?: unknown;
+}
+
+export interface ExecutionEvent {
+  type: string;
+  timestamp?: string;
+  data?: ExecutionEventData;
+}
+
 export interface ExecutionStatusResponse {
   run_id: string;
   status: string;
   workflow_id: string;
   tenant_id: string;
-  events: any[];
-  output: Record<string, any>;
-  state: any;
+  events: ExecutionEvent[];
+  output: Record<string, unknown>;
+  state: Record<string, unknown> | null;
   hop_count: number;
+}
+
+export interface ExecuteResponse {
+  run_id: string;
+  thread_id: string;
+  status: string;
+  workflow_id: string;
+  tenant_id: string;
+  output: Record<string, unknown>;
+  state: Record<string, unknown> | null;
+  events: ExecutionEvent[];
+}
+
+export interface NodeRegistryConfig {
+  system_prompt?: string;
+  user_prompt_template?: string;
+  output_key?: string;
+  command?: string;
+  provider?: string;
+  model?: string;
+  temperature?: number;
+  input_mapping?: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
+  max_iterations?: number;
+  condition_expression?: string;
 }
 
 export interface NodeRegistryItem {
   node_id: string;
   node_name: string;
   tenant_id: string;
+  name?: string;
+  type?: string;
+  version?: string;
   description?: string;
   system_prompt?: string;
   user_prompt_template?: string;
   tags?: string[];
-  config?: {
-    system_prompt?: string;
-    user_prompt_template?: string;
-    [key: string]: any;
-  };
-  [key: string]: any;
+  capabilities?: string[];
+  owner?: string;
+  status?: string;
+  config?: NodeRegistryConfig;
 }
 
-const API_BASE = '/graphweave-api';
+const API_BASE = import.meta.env.DEV ? '/graphweave-api' : '';
+
+/** Picks the most useful message out of a FastAPI or GraphWeave error body. */
+function describeErrorBody(body: unknown): string {
+  if (body && typeof body === 'object') {
+    const { message, detail } = body as { message?: unknown; detail?: unknown };
+    if (typeof message === 'string' && message) return message;
+    if (typeof detail === 'string' && detail) return detail;
+  }
+  return JSON.stringify(body);
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
@@ -91,11 +198,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     let errorDetail = '';
+    const body = await response.text();
     try {
-      const errJson = await response.json();
-      errorDetail = errJson.message || errJson.detail || JSON.stringify(errJson);
+      errorDetail = describeErrorBody(JSON.parse(body));
     } catch {
-      errorDetail = await response.text();
+      errorDetail = body;
     }
     throw new Error(`API Error [${response.status}]: ${errorDetail}`);
   }
@@ -119,7 +226,9 @@ export const graphWeaveApi = {
     if (filters?.status) params.append('status', filters.status);
     if (filters?.owner) params.append('owner', filters.owner);
     if (filters?.tags) params.append('tags', filters.tags);
-    return request<{ tenant_id: string; workflows: WorkflowSummary[]; count: number }>(`/workflows?${params.toString()}`);
+    return request<{ tenant_id: string; workflows: WorkflowSummary[]; count: number }>(
+      `/workflows?${params.toString()}`,
+    );
   },
 
   getWorkflow: (workflowId: string, tenantId: string) =>
@@ -151,18 +260,15 @@ export const graphWeaveApi = {
     return request<{ runs: ExecutionRun[]; count: number }>(`/execute${queryStr ? `?${queryStr}` : ''}`);
   },
 
-  executeWorkflow: (tenantId: string, workflowId: string, inputPayload: Record<string, any>) =>
-    request<{ run_id: string; thread_id: string; status: string; workflow_id: string; tenant_id: string }>(
-      '/execute',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          workflow_id: workflowId,
-          input: inputPayload,
-        }),
-      }
-    ),
+  executeWorkflow: (tenantId: string, workflowId: string, inputPayload: Record<string, unknown>) =>
+    request<{ run_id: string; thread_id: string; status: string; workflow_id: string; tenant_id: string }>('/execute', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        workflow_id: workflowId,
+        input: inputPayload,
+      }),
+    }),
 
   getExecutionStatus: (runId: string) => request<ExecutionStatusResponse>(`/execute/${runId}/status`),
 
@@ -172,7 +278,7 @@ export const graphWeaveApi = {
     }),
 
   recoverExecution: (runId: string, threadId: string) =>
-    request<any>(`/execute/${runId}/recover`, {
+    request<ExecuteResponse>(`/execute/${runId}/recover`, {
       method: 'POST',
       body: JSON.stringify({ thread_id: threadId }),
     }),
