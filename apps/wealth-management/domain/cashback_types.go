@@ -1,7 +1,5 @@
 package domain
 
-import ()
-
 // CashbackRule pays Rate percent on payments tagged with Tag, up to CapMonthly per cycle.
 type CashbackRule struct {
 	Name       string  `json:"name"`
