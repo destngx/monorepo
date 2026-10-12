@@ -2,9 +2,25 @@
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
-  import { accountIcon, creditRemaining, creditUtilization, groupAccounts, isCreditAccount } from '$lib/accounts';
+  import {
+    accountIcon,
+    adjustmentHref,
+    allocationByGroup,
+    creditRemaining,
+    creditUtilization,
+    fromVND,
+    groupAccounts,
+    isCreditAccount,
+    liquidityBreakdown,
+    sumInVND,
+    totalHistory,
+    unconvertible,
+    type DisplayCurrency,
+  } from '$lib/accounts';
   import { api } from '$lib/api/endpoints';
   import { ACCOUNT_TYPES, type Account, type AccountType } from '$lib/api/types';
+  import Donut from '$lib/charts/Donut.svelte';
+  import LineChart from '$lib/charts/LineChart.svelte';
   import Sparkline from '$lib/charts/Sparkline.svelte';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -20,6 +36,20 @@
   let { data } = $props();
 
   const groups = $derived(groupAccounts(data.accounts));
+
+  // Cross-currency view (WM-ACC-8): every figure below the toggle is converted from VND.
+  let display = $state<DisplayCurrency>('VND');
+  const rates = $derived(data.fx.rates);
+  const inDisplay = (vnd: number) => fromVND(vnd, display, rates);
+  const missing = $derived(unconvertible(data.accounts, rates));
+  const allocation = $derived(
+    allocationByGroup(data.accounts, rates).map((slice) => ({ ...slice, value: inDisplay(slice.value) ?? 0 })),
+  );
+  const tiers = $derived(liquidityBreakdown(data.accounts, rates));
+  const history = $derived(
+    totalHistory(data.histories, data.accounts, rates).map((p) => ({ date: p.date, value: inDisplay(p.value) ?? 0 })),
+  );
+  const usdUnavailable = $derived(display === 'USD' && inDisplay(1) === null);
   // Expansion state per group key; defaults from WM-ACC-1.
   let expanded = $state<Record<string, boolean>>({});
   const isExpanded = (key: string, fallback: boolean) => expanded[key] ?? fallback;
@@ -108,18 +138,82 @@
   {/snippet}
 </PageHeader>
 
+<div class="mb-3 flex flex-wrap items-center justify-end gap-3">
+  {#if data.fx.errors.length}
+    <p class="text-xs text-orange-600 dark:text-orange-400" role="status">{data.fx.errors.join('; ')}</p>
+  {/if}
+  <div class="flex rounded-xl bg-slate-900/5 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Display currency">
+    {#each ['VND', 'USD'] as const as currency (currency)}
+      <button
+        type="button"
+        aria-pressed={display === currency}
+        class="rounded-lg px-2.5 py-1 {display === currency ? 'bg-white shadow-sm dark:bg-slate-700' : 'muted'}"
+        onclick={() => (display = currency)}>{currency}</button
+      >
+    {/each}
+  </div>
+</div>
+
 <!-- WM-ACC-2 -->
 <div class="grid gap-4 sm:grid-cols-3">
-  <Stat label="Total assets" value={data.balanceSheet.assets} />
-  <Stat label="Total liabilities" value={data.balanceSheet.liabilities} />
-  <Stat label="Net worth" value={data.balanceSheet.netWorth} />
+  <Stat label="Total assets"><Money value={inDisplay(data.balanceSheet.assets)} currency={display} /></Stat>
+  <Stat label="Total liabilities"><Money value={inDisplay(data.balanceSheet.liabilities)} currency={display} /></Stat>
+  <Stat label="Net worth"><Money value={inDisplay(data.balanceSheet.netWorth)} currency={display} /></Stat>
+</div>
+{#if usdUnavailable}
+  <p class="mt-2 text-xs text-orange-600 dark:text-orange-400">
+    USD figures need the USD/VND rate, which did not load.
+  </p>
+{/if}
+{#if missing.length}
+  <p class="muted mt-2 text-xs">
+    Left out of converted totals (no rate): {missing.map((account) => account.name).join(', ')}
+  </p>
+{/if}
+
+<!-- WM-ACC-8 -->
+<div class="mt-4 grid gap-4 lg:grid-cols-3">
+  <Card title="Allocation by group">
+    {#if allocation.length}
+      <div class="flex flex-wrap items-center gap-5">
+        <Donut items={allocation} size={140} label="Allocation by account group" />
+        <ul class="min-w-0 flex-1 space-y-1 text-sm">
+          {#each allocation as slice (slice.label)}
+            <li class="flex justify-between gap-3">
+              <span class="truncate">{slice.label}</span><Money value={slice.value} currency={display} />
+            </li>
+          {/each}
+        </ul>
+      </div>
+    {:else}
+      <p class="muted text-sm">No positive balances to allocate.</p>
+    {/if}
+  </Card>
+  <Card title="Liquidity" subtitle="Immediate: spendable now · T+2: a few days · Illiquid: long holding">
+    <ul class="space-y-3">
+      {#each tiers as tier (tier.tier)}
+        <li>
+          <div class="mb-1 flex justify-between gap-3 text-sm">
+            <span>{tier.tier}</span>
+            <span class="muted tabular whitespace-nowrap"
+              ><Money value={inDisplay(tier.value)} currency={display} /> · {formatPercent(tier.percent, 0)}</span
+            >
+          </div>
+          <ProgressBar percent={tier.percent} color="bg-indigo-500" label="{tier.tier} share" />
+        </li>
+      {/each}
+    </ul>
+  </Card>
+  <Card title="Balance history" subtitle="All accounts, last 12 months at today's rates">
+    <LineChart points={history} height={180} label="12-month total balance in {display}" />
+  </Card>
 </div>
 
 {#if groups.length === 0}
   <Card class="mt-4"><EmptyState title="No accounts yet" detail="Create one with New account." /></Card>
 {/if}
 
-{#each groups as { group, accounts, total } (group.key)}
+{#each groups as { group, accounts } (group.key)}
   {@const open = isExpanded(group.key, group.expanded)}
   <section class="glass mt-4">
     <button
@@ -133,13 +227,17 @@
         {group.label}
         <span class="muted text-xs font-normal">({accounts.length})</span>
       </span>
-      {#if group.subtotal}<Money value={total} class="font-semibold" />{/if}
+      {#if group.subtotal}<Money
+          value={inDisplay(sumInVND(accounts, rates))}
+          currency={display}
+          class="font-semibold"
+        />{/if}
     </button>
     {#if open}
       <ul class="divide-y divide-slate-900/5 border-t border-slate-900/5 dark:divide-white/5 dark:border-white/5">
         {#each accounts as account (account.name)}
           {@const utilization = isCreditAccount(account) ? creditUtilization(account) : null}
-          {@const history = data.histories[account.name] ?? []}
+          {@const recent = (data.histories[account.name] ?? []).slice(-60)}
           <li class="grid items-center gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_8rem_12rem_auto]">
             <div class="flex min-w-0 items-center gap-3">
               <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900/5 dark:bg-white/5"
@@ -156,7 +254,7 @@
             </div>
             <div class="hidden sm:block">
               <Sparkline
-                values={history.map((p) => p.value)}
+                values={recent.map((p) => p.value)}
                 width={128}
                 height={32}
                 label="{account.name} 60-day balance"
@@ -251,8 +349,15 @@
       <input id="acc-note" class="field" bind:value={form.note} placeholder="For credit cards: available credit" />
     </div>
     {#if editing}
+      <!-- WM-ACC-7: balances change through transactions only -->
       <p class="muted text-xs sm:col-span-2">
-        Balances come from transactions in the sheet, so they are not edited here.
+        Balances come from transactions in the sheet, so they are not edited here. To correct a balance, add an
+        adjustment transaction.
+        <a
+          class="text-indigo-600 hover:underline dark:text-indigo-400"
+          href="{base}{adjustmentHref(editing.name)}"
+          onclick={() => (editing = null)}>Add adjustment transaction</a
+        >
       </p>
     {/if}
   </form>

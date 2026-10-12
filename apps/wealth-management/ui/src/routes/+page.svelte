@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import BriefingCard from '$lib/ai/BriefingCard.svelte';
   import ChartInsight from '$lib/ai/ChartInsight.svelte';
@@ -12,10 +13,22 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
+  import { budgetBarClass, trendDelta, vndToUsd } from '$lib/dashboard';
   import { formatDate, formatMonth, formatPercent, formatSignedPercent } from '$lib/format';
+  import { sync } from '$lib/state/sync.svelte';
 
   let { data } = $props();
   const summary = $derived(data.summary);
+
+  // WM-DASH-7: USD view and an explicit 30-day delta.
+  const netWorthUsd = $derived(vndToUsd(summary.balanceSheet.netWorth, data.usd.rates.USD));
+  const delta30 = $derived(trendDelta(summary.netWorthTrend));
+
+  const quickActions = [
+    { href: '/transactions?new=1', label: 'Add transaction', icon: 'plus' },
+    { href: '/transactions/capture', label: 'Smart capture', icon: 'camera' },
+    { href: '/budget', label: 'Budget', icon: 'budget' },
+  ] as const;
 
   type Range = 'ytd' | '6m' | '12m';
   let range = $state<Range>('6m');
@@ -42,6 +55,13 @@
   <!-- WM-DASH-1 -->
   <Card title="Net worth" class="lg:col-span-1">
     <div class="text-3xl font-semibold tracking-tight"><Money value={summary.balanceSheet.netWorth} /></div>
+    <p class="muted mt-0.5 text-sm">
+      {#if netWorthUsd !== null}
+        ≈ <Money value={netWorthUsd} currency="USD" />
+      {:else}
+        <span title={data.usd.errors.join('; ')}>USD value unavailable</span>
+      {/if}
+    </p>
     <p class="mt-1 text-sm">
       {#if summary.netWorthChangePercent !== null}
         <span
@@ -55,6 +75,13 @@
     <div class="mt-4">
       <Sparkline values={summary.netWorthTrend.map((p) => p.value)} width={320} height={64} label="30-day net worth" />
     </div>
+    {#if delta30}
+      <p class="mt-2 text-sm">
+        <span class="muted">30-day change:</span>
+        <Money value={delta30.delta} signed tone />
+        {#if delta30.percent !== null}<span class="muted">({formatSignedPercent(delta30.percent)})</span>{/if}
+      </p>
+    {/if}
     <p class="muted mt-3 text-sm">
       Net growth this month: <Money value={summary.netGrowthThisMonth} signed tone />
     </p>
@@ -80,6 +107,29 @@
     </Stat>
   </div>
 </div>
+
+<!-- WM-DASH-7: Quick Action hub -->
+<nav class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Quick actions">
+  {#each quickActions as action (action.href)}
+    <a href="{base}{action.href}" class="glass flex items-center gap-3 p-3 text-sm font-medium hover:bg-indigo-500/5">
+      <span class="grid size-8 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+        ><Icon name={action.icon} size={16} /></span
+      >
+      {action.label}
+    </a>
+  {/each}
+  <button
+    type="button"
+    class="glass flex items-center gap-3 p-3 text-left text-sm font-medium hover:bg-indigo-500/5 disabled:opacity-60"
+    disabled={sync.syncing}
+    onclick={() => sync.run(invalidateAll)}
+  >
+    <span class="grid size-8 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+      ><Icon name="refresh" size={16} class={sync.syncing ? 'animate-spin' : ''} /></span
+    >
+    {sync.syncing ? 'Syncing…' : 'Sync now'}
+  </button>
+</nav>
 
 <div class="mt-4 grid gap-4 lg:grid-cols-5">
   <!-- WM-DASH-5 -->
@@ -154,7 +204,8 @@
               ><Money value={line.spent} /> / <Money value={line.limit} /> · {formatPercent(line.percentUsed, 0)}</span
             >
           </div>
-          <ProgressBar percent={line.percentUsed} label={line.category} />
+          <!-- WM-RULE-6: engine status bands (D4 70/90) -->
+          <ProgressBar percent={line.percentUsed} color={budgetBarClass(line)} label={line.category} />
         </li>
       {/each}
     </ul>

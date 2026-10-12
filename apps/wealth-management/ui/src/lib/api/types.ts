@@ -290,6 +290,8 @@ export interface CardReport {
   annualFee: number;
   netEarnYtd: number;
   lifetimeFees: number;
+  /** Card-level monthly cashback cap, when the engine sends it (WM-CARD-2). */
+  monthlyCap?: number;
   transactionCount: number;
   cycle: CardCycle;
   rules: CashbackRule[];
@@ -341,6 +343,15 @@ export interface FinancialHealth {
   allocation: Record<string, number>;
   lookbackMonths: number;
   insufficientIncome: boolean;
+  /** Net worth projected with WM-RULE-12; absent from engines before WM-HEA-2. */
+  projection?: NetWorthProjection[];
+}
+
+export interface NetWorthProjection {
+  years: number;
+  nominal: number;
+  /** Inflation-adjusted, in today's VND. */
+  real: number;
 }
 
 export type DependencyStatus = 'ok' | 'degraded' | 'down' | 'unconfigured';

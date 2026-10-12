@@ -30,8 +30,9 @@
 
 <PageHeader title="Loans" subtitle="Lender names are hidden with the privacy mask" />
 
-<div class="grid gap-4 sm:grid-cols-3">
-  <Stat label="Month debt" value={totals.monthlyDebt} hint="Paid {formatPercent(paidPercent, 0)}" />
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+  <Stat label="Month debt" value={totals.monthlyDebt} />
+  <Stat label="Paid this month" value={totals.monthlyPaid} hint="{formatPercent(paidPercent, 0)} of month debt" />
   <Stat label="Remaining this month" value={totals.monthlyRemaining} />
   <Stat label="Total yearly remaining" value={totals.yearlyRemaining} />
 </div>

@@ -2,6 +2,7 @@
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { api } from '$lib/api/endpoints';
   import type { FinancialHealth, HealthComponent } from '$lib/api/types';
+  import BarChart from '$lib/charts/BarChart.svelte';
   import Donut from '$lib/charts/Donut.svelte';
   import Radar from '$lib/charts/Radar.svelte';
   import Ring from '$lib/charts/Ring.svelte';
@@ -11,6 +12,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatPercent } from '$lib/format';
+  import { pillarText, projectionRows } from '$lib/health';
 
   let { data } = $props();
   const health = $derived(data.health);
@@ -30,6 +32,9 @@
       .filter(([, value]) => value > 0)
       .map(([label, value]) => ({ label, value })),
   );
+
+  // WM-RULE-12 net worth projection (nominal and inflation-adjusted).
+  const projection = $derived(projectionRows(health.projection));
 
   let openMath = $state<string | null>(null);
   const formatValue = (c: HealthComponent) =>
@@ -78,11 +83,13 @@
 <Card title="How the score is built" class="mt-4">
   <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
     {#each health.components as component (component.key)}
+      {@const text = pillarText(component, health)}
       <li class="py-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p class="font-medium">{component.label}</p>
+            <p class="font-medium">{text.label}</p>
             <p class="muted text-xs">{formatValue(component)} · target {formatTarget(component)}</p>
+            {#if text.explanation}<p class="muted mt-0.5 text-xs">{text.explanation}</p>{/if}
           </div>
           <div class="flex items-center gap-3">
             <span class="tabular text-sm font-semibold">{component.score.toFixed(1)} / {component.maxScore}</span>
@@ -104,6 +111,45 @@
     {/each}
   </ul>
 </Card>
+
+{#if projection.length}
+  <!-- WM-HEA-2, WM-RULE-12 -->
+  <Card
+    title="Net worth projection"
+    subtitle="Real values are in today's money, after inflation (WM-RULE-12)"
+    class="mt-4"
+  >
+    <div class="grid items-center gap-4 lg:grid-cols-2">
+      <BarChart
+        labels={projection.map((row) => `${row.years}y`)}
+        series={[
+          { name: 'Nominal', color: '#6366f1', values: projection.map((row) => row.nominal) },
+          { name: 'Real', color: '#14b8a6', values: projection.map((row) => row.real) },
+        ]}
+        height={200}
+        label="Projected net worth"
+      />
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="muted text-left text-xs uppercase">
+            <th class="py-2">Horizon</th>
+            <th class="py-2 text-right">Nominal</th>
+            <th class="py-2 text-right">Real</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          {#each projection as row (row.years)}
+            <tr>
+              <td class="py-2">{row.years} years</td>
+              <td class="py-2 text-right"><Money value={row.nominal} /></td>
+              <td class="py-2 text-right"><Money value={row.real} /></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </Card>
+{/if}
 
 <div class="mt-4 grid gap-4 lg:grid-cols-2">
   <Card title="Doctor's orders">

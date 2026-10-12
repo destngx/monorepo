@@ -4,7 +4,7 @@
   import { api } from '$lib/api/endpoints';
   import BarChart from '$lib/charts/BarChart.svelte';
   import Ring from '$lib/charts/Ring.svelte';
-  import { UTILIZATION_COLOR } from '$lib/cards/cards';
+  import { cardMonthlyCap, cumulative, UTILIZATION_COLOR } from '$lib/cards/cards';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -12,7 +12,9 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
-  import { currentMonth, formatDate, formatMonth, formatPercent } from '$lib/format';
+  import MultiLineChart from '$lib/investments/fmarket/MultiLineChart.svelte';
+  import { currentMonth, formatCompact, formatDate, formatMonth, formatPercent, MASK } from '$lib/format';
+  import { mask } from '$lib/state/mask.svelte';
   import CategoryBadge from '$lib/transactions/CategoryBadge.svelte';
   import TagChip from '$lib/transactions/TagChip.svelte';
 
@@ -36,6 +38,21 @@
   const yearHistory = $derived(
     card.history.filter((m) => m.month.startsWith(activeYear)).sort((a, b) => a.month.localeCompare(b.month)),
   );
+  // Monthly cap series and cumulative YTD lines (WM-CARD-2).
+  const cap = $derived(cardMonthlyCap(card));
+  const barSeries = $derived([
+    { name: 'Earned', color: '#10b981', values: yearHistory.map((m) => m.actualRefund) },
+    { name: 'Missed', color: '#f97316', values: yearHistory.map((m) => m.missed) },
+    { name: 'Potential', color: '#6366f1', values: yearHistory.map((m) => m.potentialCashback) },
+    ...(cap === null ? [] : [{ name: 'Monthly cap', color: '#94a3b8', values: yearHistory.map(() => cap) }]),
+  ]);
+  const cumulativeSeries = $derived([
+    { name: 'Earned YTD', color: '#10b981', values: cumulative(yearHistory.map((m) => m.actualRefund)) },
+    { name: 'Potential YTD', color: '#6366f1', values: cumulative(yearHistory.map((m) => m.potentialCashback)) },
+    ...(cap === null ? [] : [{ name: 'Cap YTD', color: '#94a3b8', values: cumulative(yearHistory.map(() => cap)) }]),
+  ]);
+  const formatMasked = (value: number) => (mask.revealed ? formatCompact(value) : MASK);
+
   const ytd = $derived(
     yearHistory.reduce(
       (total, m) => ({
@@ -189,12 +206,19 @@
     </div>
     <BarChart
       labels={yearHistory.map((m) => formatMonth(m.month, true))}
-      series={[
-        { name: 'Earned', color: '#10b981', values: yearHistory.map((m) => m.actualRefund) },
-        { name: 'Missed', color: '#f97316', values: yearHistory.map((m) => m.missed) },
-        { name: 'Potential', color: '#6366f1', values: yearHistory.map((m) => m.potentialCashback) },
-      ]}
-      label="Cashback earned vs missed"
+      series={barSeries}
+      label="Cashback earned vs missed vs cap"
+    />
+    {#if cap === null}
+      <p class="muted mt-1 text-xs">No monthly cap: at least one rule is uncapped.</p>
+    {/if}
+    <h3 class="mt-6 mb-2 text-sm font-semibold">Cumulative {activeYear}</h3>
+    <MultiLineChart
+      dates={yearHistory.map((m) => m.month)}
+      series={cumulativeSeries}
+      format={formatMasked}
+      height={200}
+      label="Cumulative cashback year to date"
     />
     <div class="-mx-5 mt-4 overflow-x-auto">
       <table class="w-full text-sm">

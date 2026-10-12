@@ -2,7 +2,15 @@
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { api } from '$lib/api/endpoints';
   import { base } from '$app/paths';
-  import { portfolioTotals, UTILIZATION_BAR } from '$lib/cards/cards';
+  import {
+    allCards,
+    compareCards,
+    historyYears,
+    portfolioTotals,
+    UTILIZATION_BAR,
+    type CardMetric,
+  } from '$lib/cards/cards';
+  import { PALETTE } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -10,20 +18,48 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
-  import { formatDate, formatPercent } from '$lib/format';
+  import MultiLineChart from '$lib/investments/fmarket/MultiLineChart.svelte';
+  import { formatCompact, formatDate, formatPercent, MASK } from '$lib/format';
+  import { mask } from '$lib/state/mask.svelte';
 
   let { data } = $props();
   const totals = $derived(portfolioTotals(data.banks));
   const utilization = $derived(totals.limit ? (totals.usage / totals.limit) * 100 : 0);
+
+  // Cross-card history comparison (WM-CARD-2).
+  const cards = $derived(allCards(data.banks));
+  const years = $derived(historyYears(cards));
+  let year = $state<string | null>(null);
+  const activeYear = $derived(year ?? years[0] ?? '');
+  let metric = $state<CardMetric>('actualRefund');
+  const metrics: [CardMetric, string][] = [
+    ['actualRefund', 'Refund'],
+    ['potentialCashback', 'Potential cashback'],
+    ['spent', 'Spent'],
+    ['efficiency', 'Efficiency %'],
+  ];
+  // Cards hidden from the comparison; every card is shown by default.
+  let hidden = $state<Record<string, boolean>>({});
+  const comparison = $derived(
+    compareCards(
+      cards.filter((card) => !hidden[card.name]),
+      activeYear,
+      metric,
+    ),
+  );
+  const colorOf = (name: string) => PALETTE[cards.findIndex((card) => card.name === name) % PALETTE.length];
+  const formatMetric = (value: number) =>
+    metric === 'efficiency' ? formatPercent(value, 0) : mask.revealed ? formatCompact(value) : MASK;
 </script>
 
 <PageHeader title="Credit Cards" subtitle="Cashback, utilisation and statement cycles" />
 
-<div class="grid grid-cols-2 gap-4 lg:grid-cols-5">
+<div class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
   <Stat label="Total limit" value={totals.limit} />
   <Stat label="Used" value={totals.usage} hint=" {formatPercent(utilization, 0)} utilisation" />
   <Stat label="Est. cashback (cycle)" value={totals.estimatedCashback} />
   <Stat label="Refunds YTD" value={totals.refundYtd} />
+  <Stat label="Annual fees" value={totals.annualFees} />
   <Stat label="Net earn YTD"><Money value={totals.netEarnYtd} tone signed /></Stat>
 </div>
 
@@ -67,6 +103,7 @@
               />
               <span class="muted text-xs whitespace-nowrap">{formatPercent(card.utilization, 0)}</span>
             </div>
+            <!-- WM-CARD-1 -->
             <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
               <div>
                 <dt class="muted">This cycle</dt>
@@ -75,6 +112,14 @@
               <div>
                 <dt class="muted">Est. cashback</dt>
                 <dd><Money value={card.estimatedCashback} /></dd>
+              </div>
+              <div>
+                <dt class="muted">Refunds YTD</dt>
+                <dd><Money value={card.refundYtd} /></dd>
+              </div>
+              <div>
+                <dt class="muted">Annual fee</dt>
+                <dd><Money value={card.annualFee} /></dd>
               </div>
               <div>
                 <dt class="muted">Net earn YTD</dt>
@@ -87,6 +132,44 @@
     </Card>
   {/each}
 {/each}
+
+{#if cards.length}
+  <!-- WM-CARD-2: cross-card comparison -->
+  <Card title="Compare cards" subtitle="Monthly history per card" class="mt-4">
+    {#snippet actions()}
+      <select class="field w-auto py-1" aria-label="Metric" bind:value={metric}>
+        {#each metrics as [value, text] (value)}<option {value}>{text}</option>{/each}
+      </select>
+      <select
+        class="field w-auto py-1"
+        aria-label="Year"
+        value={activeYear}
+        onchange={(e) => (year = e.currentTarget.value)}
+      >
+        {#each years as y (y)}<option value={y}>{y}</option>{/each}
+      </select>
+    {/snippet}
+    <div class="mb-3 flex flex-wrap gap-2" role="group" aria-label="Cards to compare">
+      {#each cards as card (card.name)}
+        <button
+          type="button"
+          aria-pressed={!hidden[card.name]}
+          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs {hidden[card.name]
+            ? 'muted border-slate-900/10 dark:border-white/10'
+            : 'border-indigo-400'}"
+          onclick={() => (hidden[card.name] = !hidden[card.name])}
+          ><span class="size-2.5 rounded-sm" style:background={colorOf(card.name)}></span>{card.name}</button
+        >
+      {/each}
+    </div>
+    <MultiLineChart
+      dates={comparison.months}
+      series={comparison.series.map((s) => ({ ...s, color: colorOf(s.name) }))}
+      format={formatMetric}
+      label="Card comparison"
+    />
+  </Card>
+{/if}
 
 <!-- WM-AI-5 -->
 <InsightCard

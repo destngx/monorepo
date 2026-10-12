@@ -64,3 +64,6 @@ export const aiModels = {
   vision: new Persisted<string>('wm.aiModel.vision', ''),
   chat: new Persisted<string>('wm.aiModel.chat', ''),
 };
+
+// Target allocation by asset class as JSON (WM-INV-20); parsed by $lib/investments/allocation.
+export const targetAllocation = new Persisted<string>('wm.targetAllocation', '');

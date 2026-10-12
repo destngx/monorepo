@@ -9,6 +9,17 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate, formatPercent } from '$lib/format';
+  import {
+    ASSET_CLASSES,
+    classValues,
+    computeDrift,
+    DRIFT_THRESHOLD,
+    parseTargets,
+    serializeTargets,
+    targetsError,
+    type Targets,
+  } from '$lib/investments/allocation';
+  import { targetAllocation } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
 
   let { data } = $props();
@@ -42,6 +53,36 @@
   const quantity = (value: number | null) => (value === null ? '-' : nf.format(value));
   const source = (h: ValuedHolding) =>
     ({ quantity_x_price: 'qty × sheet price', quantity_x_live_price: 'qty × live price' })[h.valueSource];
+
+  // Target allocation and drift (WM-INV-20); targets live in this browser only.
+  const targets = $derived(parseTargets(targetAllocation.value));
+  const drift = $derived(targets ? computeDrift(classValues(totals), targets) : null);
+  const breaches = $derived(drift?.rows.filter((row) => row.breach) ?? []);
+  let editingTargets = $state(false);
+  let draft = $state<Targets>({ cash: 0, funds: 0, crypto: 0 });
+
+  function editTargets() {
+    draft = targets ? { ...targets } : { cash: 0, funds: 0, crypto: 0 };
+    editingTargets = true;
+  }
+
+  function saveTargets(event: SubmitEvent) {
+    event.preventDefault();
+    const next = { cash: Number(draft.cash), funds: Number(draft.funds), crypto: Number(draft.crypto) };
+    const problem = targetsError(next);
+    if (problem) {
+      toasts.push('warning', problem);
+      return;
+    }
+    targetAllocation.value = serializeTargets(next);
+    editingTargets = false;
+    toasts.push('success', 'Target allocation saved.');
+  }
+
+  function clearTargets() {
+    targetAllocation.value = '';
+    editingTargets = false;
+  }
 
   const bankRates = $derived([...data.bankRates].sort((a, b) => b.rate - a.rate).slice(0, 15));
 </script>
@@ -90,6 +131,94 @@
     {:else}<span class="muted">-</span>{/if}
   </Stat>
 </div>
+
+<!-- WM-INV-20 -->
+<Card
+  title="Target allocation"
+  subtitle="Rebalance when a class drifts more than {DRIFT_THRESHOLD} points from its target"
+  class="mt-4"
+>
+  {#snippet actions()}
+    {#if !editingTargets}
+      <button type="button" class="btn-ghost text-xs" onclick={editTargets}
+        ><Icon name="pencil" size={14} /> {targets ? 'Edit targets' : 'Set targets'}</button
+      >
+    {/if}
+  {/snippet}
+  {#if editingTargets}
+    <form class="grid gap-3 sm:grid-cols-4 sm:items-end" onsubmit={saveTargets}>
+      {#each ASSET_CLASSES as assetClass (assetClass.key)}
+        <div>
+          <label class="label" for="target-{assetClass.key}">{assetClass.label} (%)</label>
+          <input
+            id="target-{assetClass.key}"
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            class="field"
+            bind:value={draft[assetClass.key]}
+          />
+        </div>
+      {/each}
+      <div class="flex gap-2">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" class="btn-ghost" onclick={() => (editingTargets = false)}>Cancel</button>
+        {#if targets}<button type="button" class="btn-ghost" onclick={clearTargets}>Clear</button>{/if}
+      </div>
+    </form>
+  {:else if drift}
+    {#if drift.shouldRebalance}
+      <div
+        class="mb-3 rounded-xl border border-orange-500/40 p-3 text-sm text-orange-800 dark:text-orange-200"
+        role="alert"
+      >
+        Rebalance suggested: {breaches
+          .map(
+            (row) =>
+              `${row.label} is ${row.drift > 0 ? 'over' : 'under'} target by ${Math.abs(row.drift).toFixed(1)} points`,
+          )
+          .join('; ')}.
+      </div>
+    {/if}
+    <div class="-mx-5 overflow-x-auto">
+      <table class="w-full min-w-[36rem] text-sm">
+        <thead>
+          <tr class="muted text-left text-xs uppercase">
+            <th class="px-5 py-2">Class</th>
+            <th class="px-5 py-2 text-right">Value</th>
+            <th class="px-5 py-2 text-right">Current</th>
+            <th class="px-5 py-2 text-right">Target</th>
+            <th class="px-5 py-2 text-right">Drift</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          {#each drift.rows as row (row.key)}
+            <tr>
+              <td class="px-5 py-2">{row.label}</td>
+              <td class="px-5 py-2 text-right"><Money value={row.value} /></td>
+              <td class="tabular px-5 py-2 text-right">{formatPercent(row.currentPercent)}</td>
+              <td class="tabular px-5 py-2 text-right">{formatPercent(row.targetPercent)}</td>
+              <td class="px-5 py-2 text-right">
+                <span class="tabular {row.breach ? 'font-semibold text-orange-600 dark:text-orange-400' : ''}"
+                  >{row.drift > 0 ? '+' : ''}{row.drift.toFixed(1)} pts</span
+                >
+                {#if row.breach}<Badge tone="orange">Rebalance</Badge>{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+    {#if totals.unvalued}
+      <p class="muted mt-2 text-xs">{totals.unvalued} items are not valued and are not counted in the drift.</p>
+    {/if}
+  {:else}
+    <p class="muted text-sm">
+      Set a target share for cash, fund certificates and crypto to track drift. Targets are stored in this browser.
+    </p>
+  {/if}
+</Card>
 
 {#each sections as { key, title, rows, total } (key)}
   <Card {title} subtitle="{rows.length} holdings" class="mt-4">
