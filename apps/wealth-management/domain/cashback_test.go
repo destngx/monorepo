@@ -88,6 +88,9 @@ func TestComputeCardReportsSharedAccount(t *testing.T) {
 	}
 	uniq, platinum := group.Cards[0], group.Cards[1]
 	// 300k + 5k exceeds UNIQ's 300k total cap
+	if uniq.MonthlyCap != 300_000 {
+		t.Fatalf("uniq monthly cap = %v, want 300000", uniq.MonthlyCap)
+	}
 	if uniq.EstimatedCashback != 300_000 || uniq.SpentThisCycle != 3_000_000 || uniq.TransactionCount != 2 {
 		t.Fatalf("unexpected uniq %+v", uniq)
 	}

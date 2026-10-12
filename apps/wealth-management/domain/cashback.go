@@ -64,20 +64,22 @@ type CardHistoryMonth struct {
 
 // CardReport is the computed state of one card.
 type CardReport struct {
-	Name              string             `json:"name"`
-	Bank              string             `json:"bank"`
-	Keyword           string             `json:"keyword"`
-	AccountName       string             `json:"accountName"`
-	Expiry            string             `json:"expiry"`
-	Limit             float64            `json:"limit"`
-	Usage             float64            `json:"usage"`
-	Utilization       float64            `json:"utilization"`
-	UtilizationBand   UtilizationBand    `json:"utilizationBand"`
-	RemainingLimit    float64            `json:"remainingLimit"`
-	SpentThisCycle    float64            `json:"spentThisCycle"`
-	EstimatedCashback float64            `json:"estimatedCashback"`
-	RefundYTD         float64            `json:"refundYtd"`
-	AnnualFee         float64            `json:"annualFee"`
+	Name              string          `json:"name"`
+	Bank              string          `json:"bank"`
+	Keyword           string          `json:"keyword"`
+	AccountName       string          `json:"accountName"`
+	Expiry            string          `json:"expiry"`
+	Limit             float64         `json:"limit"`
+	Usage             float64         `json:"usage"`
+	Utilization       float64         `json:"utilization"`
+	UtilizationBand   UtilizationBand `json:"utilizationBand"`
+	RemainingLimit    float64         `json:"remainingLimit"`
+	SpentThisCycle    float64         `json:"spentThisCycle"`
+	EstimatedCashback float64         `json:"estimatedCashback"`
+	RefundYTD         float64         `json:"refundYtd"`
+	AnnualFee         float64         `json:"annualFee"`
+	// MonthlyCap is the card's total cashback cap per month; 0 means none (WM-CARD-2).
+	MonthlyCap        float64            `json:"monthlyCap"`
 	NetEarnYTD        float64            `json:"netEarnYtd"`
 	LifetimeFees      float64            `json:"lifetimeFees"`
 	TransactionCount  int                `json:"transactionCount"`
@@ -244,7 +246,7 @@ func computeCard(bank CardBank, program CardProgram, account Account, accountNam
 	card := CardReport{
 		Name: program.Name, Bank: bank.Name, Keyword: program.Keyword, AccountName: accountName, Expiry: program.Expiry,
 		Limit: limit, Usage: usage, Utilization: utilization, UtilizationBand: UtilizationBandFor(utilization),
-		RemainingLimit: limit - usage, AnnualFee: program.AnnualFee, Rules: program.Rules,
+		RemainingLimit: limit - usage, AnnualFee: program.AnnualFee, MonthlyCap: program.MonthlyCap, Rules: program.Rules,
 		Cycle:             ComputeCardCycle(statementDay, dueDay, account.Balance, today),
 		CycleTransactions: []Transaction{},
 	}

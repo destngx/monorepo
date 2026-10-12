@@ -290,8 +290,8 @@ export interface CardReport {
   annualFee: number;
   netEarnYtd: number;
   lifetimeFees: number;
-  /** Card-level monthly cashback cap, when the engine sends it (WM-CARD-2). */
-  monthlyCap?: number;
+  /** Card-level monthly cashback cap; 0 means none (WM-CARD-2). */
+  monthlyCap: number;
   transactionCount: number;
   cycle: CardCycle;
   rules: CashbackRule[];
