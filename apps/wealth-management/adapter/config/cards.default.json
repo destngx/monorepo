@@ -1,0 +1,48 @@
+{
+  "banks": [
+    {
+      "name": "Sacombank",
+      "sharedAccount": "Credit Card Sacombank",
+      "defaultCardKeyword": "platinum",
+      "sharedMonthlyCap": 600000,
+      "cards": [
+        {
+          "name": "Sacombank Visa UNIQ Platinum",
+          "bank": "Sacombank",
+          "keyword": "uniq",
+          "defaultLimit": 40000000,
+          "expiry": "08/2029",
+          "annualFee": 599000,
+          "monthlyCap": 600000,
+          "statementDay": 5,
+          "dueDay": 30,
+          "rules": [
+            {
+              "name": "Supermarket & Transport",
+              "tag": "uniq supermarket and transport",
+              "rate": 20,
+              "capMonthly": 300000
+            },
+            { "name": "Others", "tag": "uniq others", "rate": 0.5, "capMonthly": 300000, "fallback": true }
+          ]
+        },
+        {
+          "name": "Sacombank Visa Platinum Cashback",
+          "bank": "Sacombank",
+          "keyword": "platinum",
+          "defaultLimit": 40000000,
+          "expiry": "11/2028",
+          "annualFee": 599000,
+          "monthlyCap": 600000,
+          "statementDay": 5,
+          "dueDay": 30,
+          "rules": [
+            { "name": "Online", "tag": "platinum online", "rate": 5, "capMonthly": 600000 },
+            { "name": "Overseas", "tag": "platinum overseas", "rate": 3, "capMonthly": 600000 },
+            { "name": "Others", "tag": "platinum", "rate": 0.5, "capMonthly": 600000, "fallback": true }
+          ]
+        }
+      ]
+    }
+  ]
+}

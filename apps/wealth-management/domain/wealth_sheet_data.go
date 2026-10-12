@@ -79,6 +79,12 @@ type Transaction struct {
 	AccountBalance  float64       `json:"accountBalance"`
 	ClearedBalance  float64       `json:"clearedBalance"`
 	RunningBalance  float64       `json:"runningBalance"`
+	// ETag fingerprints the sheet row (A-J) so edits and deletes can detect
+	// that the row changed or moved since it was read.
+	ETag string `json:"etag"`
+	// Issues lists data problems found while reading the row, e.g. an
+	// unparseable date (WM-DATA-3). Rows with issues are excluded from rules.
+	Issues []string `json:"issues,omitempty"`
 }
 
 type TransactionCreateInput struct {
