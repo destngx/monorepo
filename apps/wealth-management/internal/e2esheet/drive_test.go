@@ -4,8 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -18,10 +23,43 @@ import (
 
 // fakeDrive serves the four Drive calls the harness makes.
 type fakeDrive struct {
-	mu      sync.Mutex
-	files   map[string]map[string]string // id -> {name, createdTime}
-	copyAs  string                       // id the next copy gets
-	deleted []string
+	mu       sync.Mutex
+	files    map[string]map[string]string // id -> {name, createdTime}
+	uploadAs string                       // id the next upload gets
+	uploaded []byte
+	deleted  []string
+}
+
+// upload records a multipart create: JSON metadata, then the xlsx media.
+func (f *fakeDrive) upload(w http.ResponseWriter, r *http.Request) {
+	_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	parts := multipart.NewReader(r.Body, params["boundary"])
+	var metadata map[string]string
+	for {
+		part, err := parts.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if part.Header.Get("Content-Type") == xlsxMime {
+			f.uploaded, _ = io.ReadAll(part)
+			continue
+		}
+		_ = json.NewDecoder(part).Decode(&metadata)
+	}
+	if metadata["mimeType"] != spreadsheetsMime || f.uploaded == nil {
+		http.Error(w, "expected an xlsx converted to a Google Sheet", http.StatusBadRequest)
+		return
+	}
+	f.files[f.uploadAs] = map[string]string{"name": metadata["name"]}
+	_ = json.NewEncoder(w).Encode(map[string]string{"id": f.uploadAs, "name": metadata["name"]})
 }
 
 func (f *fakeDrive) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -29,11 +67,8 @@ func (f *fakeDrive) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer f.mu.Unlock()
 	path := strings.TrimPrefix(r.URL.Path, "/files")
 	switch {
-	case r.Method == http.MethodPost && strings.HasSuffix(path, "/copy"):
-		var body map[string]string
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		f.files[f.copyAs] = map[string]string{"name": body["name"]}
-		_ = json.NewEncoder(w).Encode(map[string]string{"id": f.copyAs, "name": body["name"]})
+	case r.Method == http.MethodPost && r.URL.Path == "/upload/drive/v3/files":
+		f.upload(w, r)
 	case r.Method == http.MethodGet && path == "":
 		var files []map[string]string
 		for id, file := range f.files {
@@ -74,18 +109,37 @@ func newFake(t *testing.T, fake *fakeDrive, now time.Time) *Drive {
 
 var now = time.Date(2026, 10, 13, 1, 0, 0, 0, time.UTC)
 
-func TestGivenProductionSheetWhenCopyingThenReturnsNamedCopy(t *testing.T) {
-	fake := &fakeDrive{files: map[string]map[string]string{"prod": {"name": "Wealth"}}, copyAs: "copy-1"}
-	created, err := newFake(t, fake, now).CopyProduction(context.Background(), "run1")
+func writeWorkbook(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte("PK fake xlsx"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestGivenWorkbookWhenUploadingThenConvertsToNamedTestSheet(t *testing.T) {
+	fake := &fakeDrive{files: map[string]map[string]string{}, uploadAs: "copy-1"}
+	created, err := newFake(t, fake, now).Upload(context.Background(), "run1", writeWorkbook(t, "Money Manager.xlsx"))
 	if err != nil || created != (Copy{ID: "copy-1", Name: "wm-e2e-run1-20261013T010000Z"}) {
-		t.Fatalf("copy = %+v, err = %v", created, err)
+		t.Fatalf("upload = %+v, err = %v", created, err)
+	}
+	if string(fake.uploaded) != "PK fake xlsx" {
+		t.Fatalf("uploaded %q", fake.uploaded)
 	}
 }
 
-func TestGivenCopyReturningProductionIDWhenCopyingThenRefusesIt(t *testing.T) {
-	fake := &fakeDrive{files: map[string]map[string]string{"prod": {"name": "Wealth"}}, copyAs: "prod"}
-	if _, err := newFake(t, fake, now).CopyProduction(context.Background(), "run1"); !errors.Is(err, domain.ErrNotTestSheet) {
+func TestGivenUploadReturningProductionIDWhenUploadingThenRefusesIt(t *testing.T) {
+	fake := &fakeDrive{files: map[string]map[string]string{"prod": {"name": "Wealth"}}, uploadAs: "prod"}
+	if _, err := newFake(t, fake, now).Upload(context.Background(), "run1", writeWorkbook(t, "book.xlsx")); !errors.Is(err, domain.ErrNotTestSheet) {
 		t.Fatalf("expected the production id to be refused, got %v", err)
+	}
+}
+
+func TestGivenNonXLSXWhenUploadingThenRefusesBeforeCallingDrive(t *testing.T) {
+	fake := &fakeDrive{files: map[string]map[string]string{}, uploadAs: "copy-1"}
+	if _, err := newFake(t, fake, now).Upload(context.Background(), "run1", writeWorkbook(t, "book.csv")); err == nil || len(fake.files) != 0 {
+		t.Fatalf("expected a refusal without an upload, got %v, files %v", err, fake.files)
 	}
 }
 

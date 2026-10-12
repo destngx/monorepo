@@ -12,7 +12,7 @@ func TestGivenTestFlagWhenSettingUpThenMintsSeparateDriveToken(t *testing.T) {
 	if production.envKey != "GOOGLE_REFRESH_TOKEN" || len(production.scopes) != 1 || slices.Contains(production.scopes, "https://www.googleapis.com/auth/drive") {
 		t.Fatalf("the production token must stay spreadsheets-only: %+v", production)
 	}
-	if test.envKey != "GOOGLE_TEST_REFRESH_TOKEN" || !slices.Contains(test.scopes, "https://www.googleapis.com/auth/drive") {
+	if test.envKey != "GOOGLE_TEST_REFRESH_TOKEN" || !slices.Contains(test.scopes, "https://www.googleapis.com/auth/drive.file") {
 		t.Fatalf("the test token needs Drive to copy the sheet: %+v", test)
 	}
 }

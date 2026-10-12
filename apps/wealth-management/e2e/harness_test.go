@@ -1,12 +1,15 @@
-// Package e2e runs the real engine against a disposable copy of the
-// production Google Sheet (REQUIREMENTS §14.3). It is opt-in:
+// Package e2e runs the real engine against a disposable Google Sheet
+// uploaded from a local .xlsx export of the workbook (REQUIREMENTS §14.3).
+// It is opt-in:
 //
 //	RUN_LIVE_API_TESTS=true go test ./e2e/ -run '^TestE2E' -count=1 -v
 //
 // or `pnpx nx run wealth-management:test-e2e`. It needs GOOGLE_CLIENT_ID,
-// GOOGLE_CLIENT_SECRET, GOOGLE_SHEETS_ID and GOOGLE_TEST_REFRESH_TOKEN
-// (minted by `pnpx nx run wealth-management:auth-sheets -- --test`) in
-// .env.local. KEEP_TEST_SHEET=true keeps the copy for debugging.
+// GOOGLE_CLIENT_SECRET, GOOGLE_TEST_REFRESH_TOKEN (minted by
+// `pnpx nx run wealth-management:auth-sheets -- --test`) and E2E_SOURCE_XLSX
+// (path to the workbook) in the environment or .env.local. GOOGLE_SHEETS_ID,
+// when set, is only used to refuse the production sheet.
+// KEEP_TEST_SHEET=true keeps the test sheet for debugging.
 package e2e
 
 import (
@@ -69,6 +72,10 @@ func run(m *testing.M) int {
 	}
 	runID := randomHex(4)
 	productionID := strings.TrimSpace(env["GOOGLE_SHEETS_ID"])
+	source, err := sourceWorkbook(env["E2E_SOURCE_XLSX"])
+	if err != nil {
+		return abort("find the test workbook", err)
+	}
 	drive, err := e2esheet.New(ctx, e2esheet.Credentials{
 		ClientID:     strings.TrimSpace(env["GOOGLE_CLIENT_ID"]),
 		ClientSecret: strings.TrimSpace(env["GOOGLE_CLIENT_SECRET"]),
@@ -85,11 +92,11 @@ func run(m *testing.M) int {
 		logf("janitor deleted %d leftover copies: %s", len(swept), strings.Join(swept, ", "))
 	}
 
-	copied, err := drive.CopyProduction(ctx, runID)
+	copied, err := drive.Upload(ctx, runID, source)
 	if err != nil {
-		return abort("copy the production spreadsheet", err)
+		return abort("upload the test workbook", err)
 	}
-	logf("run %s uses spreadsheet copy %s (%s)", runID, copied.Name, copied.ID)
+	logf("run %s uses test sheet %s (%s) uploaded from %s", runID, copied.Name, copied.ID, filepath.Base(source))
 	keep := strings.EqualFold(os.Getenv("KEEP_TEST_SHEET"), "true")
 	defer func() {
 		if keep {
@@ -124,6 +131,25 @@ func run(m *testing.M) int {
 		logf("engine log kept at %s", filepath.Join(workDir, "engine.log"))
 	}
 	return code
+}
+
+// sourceWorkbook resolves E2E_SOURCE_XLSX, expanding a leading "~/".
+func sourceWorkbook(raw string) (string, error) {
+	path := strings.TrimSpace(raw)
+	if path == "" {
+		return "", errors.New("set E2E_SOURCE_XLSX to an .xlsx export of the workbook")
+	}
+	if rest, ok := strings.CutPrefix(path, "~/"); ok {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("expand %s: %w", path, err)
+		}
+		path = filepath.Join(home, rest)
+	}
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("test workbook: %w", err)
+	}
+	return path, nil
 }
 
 // loadEnv merges the process environment with .env.local, the file winning
@@ -311,7 +337,7 @@ func (h *harness) call(method string, path string, body any, authorized bool, he
 func engine(t *testing.T) *harness {
 	t.Helper()
 	if live == nil {
-		t.Skip("set RUN_LIVE_API_TESTS=true to run live e2e tests against a disposable sheet copy")
+		t.Skip("set RUN_LIVE_API_TESTS=true to run live e2e tests against a disposable test sheet")
 	}
 	return live
 }

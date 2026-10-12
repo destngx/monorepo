@@ -147,18 +147,29 @@ Run from the repo root with `pnpx nx run wealth-management:<target>`. pnpm only;
 ## 5. CLIs
 
 - **`auth-sheets`** (`cmd/google_oauth_setup`): reads `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (prompts if unset) and `GOOGLE_REDIRECT_URL` (default `http://127.0.0.1:3000`), prints a consent URL for the `spreadsheets` scope, asks for the redirected URL, and writes `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REFRESH_TOKEN` into the first existing `.env.local` (root first, else app-level; creates the root one if neither exists).
-  With `--test` (`pnpx nx run wealth-management:auth-sheets -- --test`) it asks for the `spreadsheets` and `drive` scopes and writes `GOOGLE_TEST_REFRESH_TOKEN` instead, for the live e2e harness (WM-TEST-3). The production token keeps the `spreadsheets` scope only.
+  With `--test` (`pnpx nx run wealth-management:auth-sheets -- --test`) it asks for the `spreadsheets` and `drive.file` scopes and writes `GOOGLE_TEST_REFRESH_TOKEN` instead, for the live e2e harness (WM-TEST-3). The production token keeps the `spreadsheets` scope only.
 - **`verify-auth`** (`cmd/verify_auth`): reads `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` and `GOOGLE_SHEETS_ID`, refreshes an access token, then opens the spreadsheet. `invalid_grant` means the refresh token expired or was revoked (a Google Cloud project in "Testing" mode expires tokens after 7 days): rerun `auth-sheets`.
 
-## 6. Live E2E tests (disposable sheet copy)
+## 6. Live E2E tests (disposable test sheet)
 
-Live tests never touch the production sheet ([REQUIREMENTS.md §14.3](../REQUIREMENTS.md#143-disposable-sheet-copy-never-test-against-the-real-sheet)). Each run copies it with the Drive API, starts the engine against the copy and deletes the copy afterwards.
+Live tests never touch the production sheet ([REQUIREMENTS.md §14.3](../REQUIREMENTS.md#143-disposable-sheet-copy-never-test-against-the-real-sheet)). Each run uploads a local `.xlsx` export of the workbook to Drive and converts it into a new Google Sheet. It starts the engine against that sheet and deletes it afterwards. The harness never opens the production sheet.
 
-**One-time setup**: mint the test token. Use a Google account that can read the production sheet:
+**One-time setup**:
 
-```sh
-pnpx nx run wealth-management:auth-sheets -- --test
-```
+1. Mint the test token:
+
+   ```sh
+   pnpx nx run wealth-management:auth-sheets -- --test
+   ```
+
+2. Export the workbook as `.xlsx` (File > Download > Microsoft Excel). Keep it **outside the repo**, because it holds real financial data.
+3. Point the harness at it in `.env.local`:
+
+   ```sh
+   E2E_SOURCE_XLSX="~/projects/Money Manager.xlsx"
+   ```
+
+Re-export the workbook whenever the sheet's structure changes.
 
 **Run**:
 
@@ -170,33 +181,34 @@ RUN_LIVE_API_TESTS=true go test ./e2e/ -run '^TestE2E' -count=1 -v
 
 Without `RUN_LIVE_API_TESTS=true` the suite is skipped, so `go test ./...` stays offline.
 
-| Variable                    | Meaning                                                                |
-| --------------------------- | ---------------------------------------------------------------------- |
-| `RUN_LIVE_API_TESTS`        | `true` opts in to the live suite.                                      |
-| `GOOGLE_TEST_REFRESH_TOKEN` | Test-only token (`spreadsheets` + `drive`) from `auth-sheets --test`.  |
-| `KEEP_TEST_SHEET`           | `true` keeps the copy after the run for debugging; its name is logged. |
+| Variable                    | Meaning                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `RUN_LIVE_API_TESTS`        | `true` opts in to the live suite.                                                                           |
+| `E2E_SOURCE_XLSX`           | Path to the `.xlsx` export used as test data; a leading `~/` is expanded.                                   |
+| `GOOGLE_TEST_REFRESH_TOKEN` | Test-only token from `auth-sheets --test`. Scopes: `spreadsheets` and `drive.file` (only files it created). |
+| `KEEP_TEST_SHEET`           | `true` keeps the test sheet after the run for debugging; its name is logged.                                |
 
-`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_SHEETS_ID` (the sheet to copy) come from the same `.env.local` files as the engine.
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` come from the same `.env.local` files as the engine. `GOOGLE_SHEETS_ID` is optional here. When it is set, it is used only to refuse the production sheet.
 
 What a run does (`apps/wealth-management/e2e/harness_test.go`, `internal/e2esheet`):
 
-1. **Janitor**: deletes leftover `wm-e2e-*` copies older than 24 h that the test account owns.
-2. **Copy**: copies the production sheet as `wm-e2e-<runId>-<UTC timestamp>`. It aborts if the copy id equals `GOOGLE_SHEETS_ID` or the name lacks the prefix.
+1. **Janitor**: deletes leftover `wm-e2e-*` test sheets older than 24 h. Because of the `drive.file` scope, it can only see sheets that the harness itself created.
+2. **Upload**: converts the workbook into a sheet named `wm-e2e-<runId>-<UTC timestamp>`. Tabs, formulas, `Prompts` and `Knowledge` come along. It aborts if the new id equals `GOOGLE_SHEETS_ID` or the name lacks the prefix.
 3. **Engine**: builds and starts the engine with:
    - `WM_ENV_FILE=none` and `WM_TEST_MODE=true`;
-   - the copy id and the test token;
+   - the test sheet id and the test token;
    - `CACHE_KEY_PREFIX=wm-test:<runId>:`;
    - a random `API_TOKEN` and a free port on 127.0.0.1.
 
    In test mode the engine refuses to start unless the sheet title has the `wm-e2e-` prefix.
 
-4. **Tests**, run serially on the one copy:
+4. **Tests**, run serially on the one sheet:
    - Every sheet read route in the OpenAPI spec parses.
    - Structural checks.
    - Round-trips for accounts, transactions (including the stale ETag 409), idempotent batches, budget limits and Smart Capture rules.
    - Writes without the token get 401.
    - A market smoke test.
 
-   Assertions are relative or structural, because the copy holds current real data.
+   Assertions are relative or structural, because the workbook holds real data that changes with each export.
 
-5. **Teardown**: invalidates the run's cache keys and stops the engine. It deletes the copy unless `KEEP_TEST_SHEET=true`; before deleting, it re-checks the name prefix and that the copy is not the production sheet. The engine log is in `apps/wealth-management/tmp/e2e-<runId>/engine.log` and is kept when the run fails.
+5. **Teardown**: invalidates the run's cache keys and stops the engine. It deletes the test sheet unless `KEEP_TEST_SHEET=true`; before deleting, it re-checks the name prefix. The engine log is in `apps/wealth-management/tmp/e2e-<runId>/engine.log` and is kept when the run fails.

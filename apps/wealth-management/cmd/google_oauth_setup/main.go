@@ -34,7 +34,7 @@ func setupFor(test bool) tokenSetup {
 	if test {
 		return tokenSetup{
 			envKey: "GOOGLE_TEST_REFRESH_TOKEN",
-			scopes: []string{"https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"},
+			scopes: []string{"https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.file"},
 			state:  "wm-google-sheets-test",
 		}
 	}
@@ -46,7 +46,7 @@ func setupFor(test bool) tokenSetup {
 }
 
 func main() {
-	test := flag.Bool("test", false, "mint GOOGLE_TEST_REFRESH_TOKEN with Drive scope for the live test harness")
+	test := flag.Bool("test", false, "mint GOOGLE_TEST_REFRESH_TOKEN (spreadsheets + drive.file) for the live test harness")
 	flag.Parse()
 	setup := setupFor(*test)
 

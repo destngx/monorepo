@@ -1,5 +1,7 @@
-// Package e2esheet makes and removes the disposable spreadsheet copies the
-// live test harness runs against (REQUIREMENTS §14.3, WM-TEST-1..6).
+// Package e2esheet makes and removes the disposable spreadsheets the live
+// test harness runs against (REQUIREMENTS §14.3, WM-TEST-1..6). Each one is
+// uploaded from a local .xlsx export of the workbook and converted to a
+// Google Sheet, so the harness never needs access to the production sheet.
 package e2esheet
 
 import (
@@ -7,18 +9,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
 const (
-	driveScope       = "https://www.googleapis.com/auth/drive"
+	// DriveFileScope only reaches files this OAuth client created, so the
+	// test token can never see or delete anything else in the account.
+	DriveFileScope   = "https://www.googleapis.com/auth/drive.file"
 	spreadsheetsMime = "application/vnd.google-apps.spreadsheet"
+	xlsxMime         = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 	// StaleAfter is how old a leftover copy must be before the janitor
 	// deletes it (WM-TEST-6); younger ones may belong to a running test.
 	StaleAfter = 24 * time.Hour
@@ -38,15 +46,16 @@ type Copy struct {
 	Name string
 }
 
-// Drive copies and deletes spreadsheets. Every delete re-checks that the
-// file is a wm-e2e- copy and not the production spreadsheet.
+// Drive uploads and deletes test spreadsheets. Every delete re-checks that
+// the file is a wm-e2e- copy and not the production spreadsheet.
 type Drive struct {
 	files        *drive.FilesService
 	productionID string
 	now          func() time.Time
 }
 
-// New authenticates with the test refresh token.
+// New authenticates with the test refresh token. productionID is optional:
+// when set, a file with that id is never accepted or deleted.
 func New(ctx context.Context, credentials Credentials, productionID string) (*Drive, error) {
 	if credentials.ClientID == "" || credentials.ClientSecret == "" || credentials.RefreshToken == "" {
 		return nil, errors.New("GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_TEST_REFRESH_TOKEN are required")
@@ -55,7 +64,7 @@ func New(ctx context.Context, credentials Credentials, productionID string) (*Dr
 		ClientID:     credentials.ClientID,
 		ClientSecret: credentials.ClientSecret,
 		Endpoint:     google.Endpoint,
-		Scopes:       []string{driveScope},
+		Scopes:       []string{DriveFileScope},
 	}
 	client := oauth2.NewClient(ctx, config.TokenSource(ctx, &oauth2.Token{RefreshToken: credentials.RefreshToken}))
 	return NewWithOptions(ctx, productionID, option.WithHTTPClient(client))
@@ -63,26 +72,33 @@ func New(ctx context.Context, credentials Credentials, productionID string) (*Dr
 
 // NewWithOptions builds the Drive client from explicit options (tests).
 func NewWithOptions(ctx context.Context, productionID string, options ...option.ClientOption) (*Drive, error) {
-	if strings.TrimSpace(productionID) == "" {
-		return nil, errors.New("GOOGLE_SHEETS_ID (the production spreadsheet to copy) is required")
-	}
 	service, err := drive.NewService(ctx, options...)
 	if err != nil {
 		return nil, fmt.Errorf("drive client: %w", err)
 	}
-	return &Drive{files: service.Files, productionID: productionID, now: time.Now}, nil
+	return &Drive{files: service.Files, productionID: strings.TrimSpace(productionID), now: time.Now}, nil
 }
 
-// CopyProduction copies the production spreadsheet as
-// "wm-e2e-<runID>-<time>". Formulas, tabs, Prompts and Knowledge come along.
-func (d *Drive) CopyProduction(ctx context.Context, runID string) (Copy, error) {
-	name := domain.TestSheetName(runID, d.now())
-	file, err := d.files.Copy(d.productionID, &drive.File{Name: name}).Fields("id", "name").SupportsAllDrives(true).Context(ctx).Do()
+// Upload converts the .xlsx workbook at path into a new Google Sheet named
+// "wm-e2e-<runID>-<time>". Tabs, formulas, Prompts and Knowledge come along.
+func (d *Drive) Upload(ctx context.Context, runID string, path string) (Copy, error) {
+	if !strings.EqualFold(filepath.Ext(path), ".xlsx") {
+		return Copy{}, fmt.Errorf("test workbook %q must be an .xlsx file", path)
+	}
+	workbook, err := os.Open(path)
 	if err != nil {
-		return Copy{}, fmt.Errorf("copy the production spreadsheet: %w", err)
+		return Copy{}, fmt.Errorf("open the test workbook: %w", err)
+	}
+	defer workbook.Close()
+	name := domain.TestSheetName(runID, d.now())
+	file, err := d.files.Create(&drive.File{Name: name, MimeType: spreadsheetsMime}).
+		Media(workbook, googleapi.ContentType(xlsxMime)).
+		Fields("id", "name").Context(ctx).Do()
+	if err != nil {
+		return Copy{}, fmt.Errorf("upload the test workbook: %w", err)
 	}
 	created := Copy{ID: file.Id, Name: file.Name}
-	// WM-TEST-2: never hand the harness anything but a fresh copy.
+	// WM-TEST-2: never hand the harness anything but a fresh test sheet.
 	if err := domain.CheckTestSheet(created.ID, created.Name, d.productionID); err != nil {
 		return Copy{}, err
 	}
