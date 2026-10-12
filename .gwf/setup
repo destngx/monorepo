@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs once in a new worktree after `gwf create` (cwd = the worktree root).
+# Dependencies come from the global pnpm store, so this is mostly local linking, not downloads.
+set -e
+
+pnpm install --prefer-offline
