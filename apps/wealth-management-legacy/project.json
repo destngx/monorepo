@@ -5,46 +5,6 @@
   "projectType": "application",
   "tags": ["type:app", "app:wealth-management", "scope:frontend"],
   "targets": {
-    "build": {
-      "executor": "@nx/next:build",
-      "outputs": ["{options.outputPath}"],
-      "defaultConfiguration": "production",
-      "options": {
-        "root": "apps/wealth-management",
-        "outputPath": "dist/apps/wealth-management"
-      },
-      "configurations": {
-        "development": {
-          "outputPath": "apps/wealth-management/.next"
-        },
-        "production": {}
-      }
-    },
-    "serve": {
-      "executor": "@nx/next:server",
-      "defaultConfiguration": "development",
-      "options": {
-        "buildTarget": "wealth-management:build",
-        "dev": true
-      },
-      "configurations": {
-        "development": {
-          "buildTarget": "wealth-management:build:development",
-          "dev": true
-        },
-        "production": {
-          "buildTarget": "wealth-management:build:production",
-          "dev": false
-        }
-      }
-    },
-    "serve-all": {
-      "executor": "nx:run-commands",
-      "options": {
-        "commands": ["nx serve vnstock-server", "sleep 5 && nx serve wealth-management"],
-        "parallel": true
-      }
-    },
     "lint": {
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],

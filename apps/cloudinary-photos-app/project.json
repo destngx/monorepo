@@ -13,47 +13,6 @@
     "scope:frontend"
   ],
   "targets": {
-    "build": {
-      "executor": "@nx/next:build",
-      "outputs": [
-        "{options.outputPath}"
-      ],
-      "defaultConfiguration": "production",
-      "options": {
-        "root": "apps/cloudinary-photos-app",
-        "outputPath": "apps/cloudinary-photos-app/dist"
-      },
-      "configurations": {
-        "development": {
-          "outputPath": "apps/cloudinary-photos-app"
-        },
-        "production": {}
-      }
-    },
-    "serve": {
-      "executor": "@nx/next:server",
-      "defaultConfiguration": "development",
-      "options": {
-        "buildTarget": "cloudinary-photos-app:build",
-        "dev": true
-      },
-      "configurations": {
-        "development": {
-          "buildTarget": "cloudinary-photos-app:build:development",
-          "dev": true
-        },
-        "production": {
-          "buildTarget": "cloudinary-photos-app:build:production",
-          "dev": false
-        }
-      }
-    },
-    "export": {
-      "executor": "@nx/next:export",
-      "options": {
-        "buildTarget": "cloudinary-photos-app:build:production"
-      }
-    },
     "test": {
       "executor": "@nx/jest:jest",
       "outputs": [
