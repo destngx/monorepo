@@ -4,7 +4,7 @@
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile --ignore-scripts",
   "buildCommand": "pnpm --ignore-scripts exec vite build",
   "outputDirectory": "build",
-  "ignoreCommand": "cd ../.. && PNPM_BIN=$(mktemp -d) && corepack enable --install-directory $PNPM_BIN pnpm && PATH=$PNPM_BIN:$PATH COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm dlx nx-ignore@latest portfolio-landpage",
+  "ignoreCommand": "sh scripts/vercel-ignore-build.sh",
   "cleanUrls": true,
   "trailingSlash": false
 }
