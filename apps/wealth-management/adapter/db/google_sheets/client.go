@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 
 	"golang.org/x/oauth2"
@@ -152,6 +153,20 @@ func (c *SheetsClient) SheetTitles() ([]string, error) {
 		}
 	}
 	return titles, nil
+}
+
+// CreateSheet adds a tab and writes its header row.
+func (c *SheetsClient) CreateSheet(title string, header []any) error {
+	_, err := c.service.Spreadsheets.BatchUpdate(c.spreadsheetID, &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{{AddSheet: &sheets.AddSheetRequest{Properties: &sheets.SheetProperties{Title: title}}}},
+	}).Do()
+	if err != nil {
+		return err
+	}
+	if len(header) == 0 {
+		return nil
+	}
+	return c.UpdateRow(fmt.Sprintf("'%s'!A1", strings.ReplaceAll(title, "'", "''")), header)
 }
 
 var anchorRowPattern = regexp.MustCompile(`![A-Za-z]+(\d+)`)

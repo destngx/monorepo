@@ -84,6 +84,20 @@ func (h *DatabaseHandler) CreateTransactionBatch(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.CreateTransactions(body))
 }
 
+func (h *DatabaseHandler) GetCaptureRules(c *fiber.Ctx) error {
+	return h.respond(c)(h.databaseService.ListCaptureRules(forceFresh(c)))
+}
+
+func (h *DatabaseHandler) SaveCaptureRules(c *fiber.Ctx) error {
+	var body struct {
+		Rules []domain.CaptureRule `json:"rules"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return h.respond(c)(h.databaseService.SaveCaptureRules(body.Rules))
+}
+
 func (h *DatabaseHandler) UpdateTransaction(c *fiber.Ctx) error {
 	var body domain.TransactionUpdateInput
 	if err := c.BodyParser(&body); err != nil {

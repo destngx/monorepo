@@ -23,7 +23,7 @@ const (
 	jsonRPCParseError     = -32700
 	jsonRPCInvalidParams  = -32602
 	jsonRPCMethodNotFound = -32601
-	maxRequestBytes       = 4 << 20
+	defaultMaxRequest     = 4 << 20
 )
 
 type toolHandler func(ctx context.Context, arguments json.RawMessage) (any, error)
@@ -45,13 +45,20 @@ type Server struct {
 	aiService        port.AIService
 	log              *logger.Logger
 	now              func() time.Time
+	maxRequestBytes  int
 }
 
 func NewServer(healthService port.HealthService, log *logger.Logger) *Server {
 	if healthService == nil {
 		healthService = service.NewHealthService()
 	}
-	return &Server{healthService: healthService, log: log, now: time.Now}
+	return &Server{healthService: healthService, log: log, now: time.Now, maxRequestBytes: defaultMaxRequest}
+}
+
+// SetMaxRequestBytes bounds one stdio request line; Smart Capture batches
+// carry base64 images and need more than the default.
+func (s *Server) SetMaxRequestBytes(limit int) {
+	s.maxRequestBytes = max(limit, defaultMaxRequest)
 }
 
 func (s *Server) SetDatabaseService(databaseService port.DatabaseService) {
@@ -72,7 +79,7 @@ func (s *Server) SetMarketService(marketService port.MarketProviderService) {
 
 func (s *Server) Run(r io.Reader, w io.Writer) error {
 	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, 64*1024), maxRequestBytes)
+	scanner.Buffer(make([]byte, 0, 64*1024), s.maxRequestBytes)
 	for scanner.Scan() {
 		line := bytes.TrimSpace(scanner.Bytes())
 		if len(line) == 0 {
@@ -360,6 +367,25 @@ func (s *Server) databaseTools() []tool {
 		readTool("GetLoans", "Lists loans and debts with progress.", db.ListLoans),
 		readTool("GetTags", "Lists normalised transaction tags.", db.ListTags),
 		readTool("GetInvestmentAssets", "Returns crypto and fund holdings with symbol, quantity, price and value.", db.GetInvestmentAssets),
+		readTool("GetCaptureRules", "Lists Smart Capture rules: alias (text in a material -> account) and payee (payee -> category).", db.ListCaptureRules),
+		{
+			definition: definition("SaveCaptureRules", "Creates or updates Smart Capture rules, keyed by kind and pattern (case and accents ignored).", object(map[string]any{
+				"rules": map[string]any{"type": "array", "minItems": 1, "items": object(map[string]any{
+					"kind":    map[string]any{"type": "string", "enum": []string{string(domain.CaptureRuleAlias), string(domain.CaptureRulePayee)}},
+					"pattern": stringSchema,
+					"value":   map[string]any{"type": "string", "description": "Account name for alias rules, category for payee rules."},
+				}, "kind", "pattern", "value")},
+			}, "rules")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var args struct {
+					Rules []domain.CaptureRule `json:"rules"`
+				}
+				if err := decodeArguments(arguments, &args); err != nil {
+					return nil, err
+				}
+				return db.SaveCaptureRules(args.Rules)
+			},
+		},
 		readTool("WarmAIContent", "Loads AI prompts and knowledge from the sheet and returns row counts.", db.WarmAIContent),
 		{
 			definition: definition("SyncSheetsCache", "Invalidates every sheet-derived cache key so the next reads come from the sheet.", nil),

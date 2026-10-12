@@ -71,3 +71,30 @@ func TestLoadAIConfig(t *testing.T) {
 		t.Fatalf("unexpected config %+v", config)
 	}
 }
+
+func TestLoadCaptureLimits(t *testing.T) {
+	for _, key := range []string{"CAPTURE_MAX_ITEMS", "CAPTURE_MAX_ITEM_MB", "CAPTURE_MAX_BATCH_MB"} {
+		t.Setenv(key, "")
+	}
+	limits, err := LoadCaptureLimits()
+	if err != nil || limits != domain.DefaultCaptureLimits() {
+		t.Fatalf("expected defaults, got %+v %v", limits, err)
+	}
+
+	t.Setenv("CAPTURE_MAX_ITEMS", "8")
+	t.Setenv("CAPTURE_MAX_ITEM_MB", "2")
+	t.Setenv("CAPTURE_MAX_BATCH_MB", "10")
+	limits, err = LoadCaptureLimits()
+	if err != nil || limits != (domain.CaptureLimits{MaxItems: 8, MaxItemBytes: 2 << 20, MaxBatchBytes: 10 << 20}) {
+		t.Fatalf("unexpected limits %+v %v", limits, err)
+	}
+
+	for key, value := range map[string]string{"CAPTURE_MAX_ITEMS": "0", "CAPTURE_MAX_ITEM_MB": "abc", "CAPTURE_MAX_BATCH_MB": "1"} {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv(key, value)
+			if _, err := LoadCaptureLimits(); !errors.Is(err, ErrInvalidCaptureConfig) {
+				t.Fatalf("%s=%s must be rejected, got %v", key, value, err)
+			}
+		})
+	}
+}

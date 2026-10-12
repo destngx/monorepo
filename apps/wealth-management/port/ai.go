@@ -95,6 +95,27 @@ type AIService interface {
 	Briefing(ctx context.Context, force bool, model string) (domain.Briefing, error)
 	BudgetAdvice(ctx context.Context, force bool, model string) (domain.BudgetAdvice, error)
 	Chat(ctx context.Context, request ChatRequest, emit func(ChatEvent) error) error
+	// Capture reads materials into suggested transactions without writing
+	// anything (§6.2). progress may be nil; calls to it are serialised.
+	Capture(ctx context.Context, request CaptureRequest, progress func(CaptureProgress)) (domain.CaptureResult, error)
+}
+
+// CaptureRequest is one Smart Capture batch (WM-CAP-1).
+type CaptureRequest struct {
+	Materials []domain.CaptureMaterial `json:"materials"`
+	// Model overrides the vision model for extraction.
+	Model string `json:"model,omitempty"`
+}
+
+// CaptureProgress reports a pipeline step. Stage is "extract" (per
+// material, Status "running", "ok", "unreadable" or "error"), "categorize"
+// or "match".
+type CaptureProgress struct {
+	Stage      string `json:"stage"`
+	MaterialID string `json:"materialId,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Events     int    `json:"events,omitempty"`
+	Message    string `json:"message,omitempty"`
 }
 
 // Validate checks the conversation ends with a user turn and has only user

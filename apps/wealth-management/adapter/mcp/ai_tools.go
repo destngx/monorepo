@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"context"
 	"encoding/json"
@@ -97,6 +98,26 @@ func (s *Server) aiTools() []tool {
 					return nil, err
 				}
 				return map[string]any{"insight": insight}, nil
+			},
+		},
+		{
+			definition: definition("SuggestTransactionsFromMaterials", "Smart Capture: reads bank or wallet screenshots and pasted texts (notifications, SMS, statements) into suggested transactions with matched accounts, categories, transfer pairs, ledger duplicates and reported balances. Writes nothing; record accepted rows with CreateTransaction.", object(map[string]any{
+				"materials": map[string]any{"type": "array", "minItems": 1, "items": object(map[string]any{
+					"id":        map[string]any{"type": "string", "description": "Unique id within the batch, used as evidence."},
+					"kind":      map[string]any{"type": "string", "enum": []string{string(domain.CaptureImage), string(domain.CaptureText)}},
+					"name":      map[string]any{"type": "string", "description": "Optional file name."},
+					"mediaType": map[string]any{"type": "string", "enum": domain.CaptureImageTypes, "description": "Required for images."},
+					"data":      map[string]any{"type": "string", "contentEncoding": "base64", "description": "Base64 image bytes for kind image."},
+					"text":      map[string]any{"type": "string", "description": "The text for kind text."},
+				}, "id", "kind")},
+				"model": modelSchema,
+			}, "materials")),
+			handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+				var request port.CaptureRequest
+				if err := decodeArguments(arguments, &request); err != nil {
+					return nil, err
+				}
+				return ai.Capture(ctx, request, nil)
 			},
 		},
 		{

@@ -19,6 +19,8 @@ type scriptedClient struct {
 	mu       sync.Mutex
 	replies  []reply
 	requests []domain.AIRequest
+	// route, when set, answers requests whose order is not fixed.
+	route func(request domain.AIRequest) reply
 }
 
 type reply struct {
@@ -31,6 +33,9 @@ func (c *scriptedClient) next(request domain.AIRequest) (reply, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.requests = append(c.requests, request)
+	if c.route != nil {
+		return c.route(request), nil
+	}
 	if len(c.replies) == 0 {
 		return reply{}, errors.New("no scripted reply left")
 	}
@@ -117,7 +122,7 @@ func expense(date time.Time, payee string, category string, amount float64) doma
 // allPrompts echoes each key and its placeholders so tests can assert rendering.
 func allPrompts() map[string]string {
 	prompts := map[string]string{}
-	for _, key := range RequiredPrompts {
+	for _, key := range append(append([]string{}, RequiredPrompts...), capturePrompts...) {
 		prompts[key] = "[" + key + "]"
 	}
 	prompts[keyIdentity] = "You are the wealth assistant."

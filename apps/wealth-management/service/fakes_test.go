@@ -31,6 +31,7 @@ type fakeSheetClient struct {
 	appends  []sheetAppend
 	reads    []string
 	writeErr error
+	created  []string
 }
 
 func newFakeSheetClient() *fakeSheetClient {
@@ -69,6 +70,16 @@ func (f *fakeSheetClient) WriteRowsAtFirstEmptyRow(sheetName string, anchor stri
 
 func (f *fakeSheetClient) SheetTitles() ([]string, error) {
 	return f.titles, nil
+}
+
+func (f *fakeSheetClient) CreateSheet(title string, header []any) error {
+	if f.writeErr != nil {
+		return f.writeErr
+	}
+	f.titles = append(f.titles, title)
+	f.created = append(f.created, title)
+	f.updates = append(f.updates, sheetUpdate{rangeValue: title + "!A1", values: header})
+	return nil
 }
 
 // fakeCache is an in-memory CacheService; failing makes every call error.

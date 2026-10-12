@@ -27,6 +27,11 @@ type DatabaseService interface {
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)
 	// LoadAIContent returns the Prompts and Knowledge tabs (WM-AI-1).
 	LoadAIContent(forceFresh bool) (domain.AIContent, error)
+	// ListCaptureRules returns the Smart Capture aliases and payee rules
+	// (WM-CAP-11); empty when the CaptureRules tab does not exist yet.
+	ListCaptureRules(forceFresh bool) ([]domain.CaptureRule, error)
+	// SaveCaptureRules upserts rules, creating the tab on first use.
+	SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureRulesSaveResult, error)
 	SyncCache() (domain.SyncResult, error)
 	// Ping checks the spreadsheet is reachable.
 	Ping() error
@@ -39,4 +44,6 @@ type DatabaseClient interface {
 	// and returns the first sheet row written.
 	WriteRowsAtFirstEmptyRow(sheetName string, anchorRange string, rows [][]any) (int, error)
 	SheetTitles() ([]string, error)
+	// CreateSheet adds a tab with a header row.
+	CreateSheet(title string, header []any) error
 }

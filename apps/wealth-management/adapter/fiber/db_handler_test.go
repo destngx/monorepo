@@ -172,3 +172,18 @@ func TestInitReportsReadiness(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", status, body)
 	}
 }
+
+func TestCaptureRulesRoutes(t *testing.T) {
+	db := &fakes.Database{CaptureRules: []domain.CaptureRule{{Kind: domain.CaptureRuleAlias, Pattern: "VCB", Value: "Vietcombank"}}}
+	app := newSheetsApp(t, db)
+	if status, body := call(t, app, http.MethodGet, "/api/capture/rules", ""); status != http.StatusOK || !strings.Contains(body, `"pattern":"VCB"`) {
+		t.Fatalf("list: %d %s", status, body)
+	}
+	status, body := call(t, app, http.MethodPost, "/api/capture/rules", `{"rules":[{"kind":"payee","pattern":"Grab","value":"Transport"}]}`)
+	if status != http.StatusOK || body != `{"created":1,"updated":0,"unchanged":0}` || len(db.SavedCaptureRules) != 1 || db.SavedCaptureRules[0][0].Value != "Transport" {
+		t.Fatalf("save: %d %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/capture/rules", `{"rules":[]}`, "Authorization", ""); status != http.StatusUnauthorized {
+		t.Fatalf("saving rules must be guarded, got %d", status)
+	}
+}

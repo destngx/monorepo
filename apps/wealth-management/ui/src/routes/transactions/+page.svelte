@@ -1,6 +1,7 @@
 <script lang="ts">
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { invalidateAll } from '$app/navigation';
+  import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
   import type { Transaction, TransactionInput } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
@@ -96,6 +97,8 @@
 
 <PageHeader title="Transactions" subtitle="{data.transactions.length.toLocaleString('vi-VN')} transactions">
   {#snippet actions()}
+    <!-- WM-TX-6 -->
+    <a class="btn-ghost" href="{base}/transactions/capture"><Icon name="camera" size={16} /> Add from materials</a>
     <button type="button" class="btn-primary" onclick={() => (editing = 'new')}
       ><Icon name="plus" size={16} /> Add</button
     >

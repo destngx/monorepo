@@ -55,6 +55,8 @@ const (
 type Options struct {
 	// Now is the clock, for tests.
 	Now func() time.Time
+	// CaptureLimits bound Smart Capture batches; zero uses the defaults.
+	CaptureLimits domain.CaptureLimits
 }
 
 type Service struct {
@@ -66,6 +68,8 @@ type Service struct {
 	masker    domain.PIIMasker
 	log       *logger.Logger
 	now       func() time.Time
+
+	captureLimits domain.CaptureLimits
 }
 
 var _ port.AIService = (*Service)(nil)
@@ -74,6 +78,9 @@ var _ port.AIService = (*Service)(nil)
 func New(client port.AIClient, db port.DatabaseService, analytics port.AnalyticsService, cache port.CacheService, config domain.AIConfig, log *logger.Logger, options Options) *Service {
 	if options.Now == nil {
 		options.Now = time.Now
+	}
+	if options.CaptureLimits == (domain.CaptureLimits{}) {
+		options.CaptureLimits = domain.DefaultCaptureLimits()
 	}
 	return &Service{
 		client:    client,
@@ -84,6 +91,8 @@ func New(client port.AIClient, db port.DatabaseService, analytics port.Analytics
 		masker:    domain.NewPIIMasker(config.PIINames),
 		log:       log,
 		now:       options.Now,
+
+		captureLimits: options.CaptureLimits,
 	}
 }
 
@@ -99,6 +108,7 @@ func (s *Service) Status(ctx context.Context) domain.AIStatus {
 		Models:        s.config.Models,
 		FallbackModel: s.config.FallbackModel,
 		MissingKeys:   []string{},
+		Capture:       s.captureLimits,
 	}
 	content, err := s.db.LoadAIContent(false)
 	if err != nil {
@@ -106,7 +116,7 @@ func (s *Service) Status(ctx context.Context) domain.AIStatus {
 		return status
 	}
 	status.Prompts = len(content.Prompts)
-	for _, key := range RequiredPrompts {
+	for _, key := range append(append([]string{}, RequiredPrompts...), capturePrompts...) {
 		if strings.TrimSpace(content.Prompts[key]) == "" {
 			status.MissingKeys = append(status.MissingKeys, key)
 		}

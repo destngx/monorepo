@@ -45,7 +45,7 @@ const (
 )
 
 // sheetCachePatterns lists every sheet-derived cache key (WM-OPS-3).
-var sheetCachePatterns = []string{"accounts:*", "transactions:*", "budget:*", "categories:*", cacheKeyGoals, cacheKeyLoans, cacheKeyAIContent, cacheKeyInvest}
+var sheetCachePatterns = []string{"accounts:*", "transactions:*", "budget:*", "categories:*", cacheKeyGoals, cacheKeyLoans, cacheKeyAIContent, cacheKeyInvest, cacheKeyCaptureRules}
 
 // DatabaseServiceOptions tunes the sheet service; zero values use defaults.
 type DatabaseServiceOptions struct {

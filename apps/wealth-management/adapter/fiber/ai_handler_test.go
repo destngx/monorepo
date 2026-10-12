@@ -4,6 +4,8 @@ import (
 	"apps/wealth-management/adapter/logger"
 	"apps/wealth-management/domain"
 	"apps/wealth-management/internal/fakes"
+	"apps/wealth-management/port"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -75,5 +77,47 @@ func TestAIChatStreamsNDJSON(t *testing.T) {
 
 	if status, _ := call(t, newAIApp(t, &fakes.AI{}), http.MethodPost, "/api/ai/chat", `{"messages":[]}`); status != http.StatusBadRequest {
 		t.Fatalf("empty chat should be 400, got %d", status)
+	}
+}
+
+func TestAICaptureStreamsProgressThenResult(t *testing.T) {
+	ai := &fakes.AI{}
+	body := `{"materials":[{"id":"m1","kind":"image","mediaType":"image/png","data":"iVBORw=="},{"id":"m2","kind":"text","text":"-50k"}]}`
+	status, out := call(t, newAIApp(t, ai), http.MethodPost, "/api/ai/capture", body)
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if status != http.StatusOK || len(lines) != 2 || lines[0] != `{"type":"progress","stage":"extract","materialId":"m1","status":"ok","events":1}` || !strings.HasPrefix(lines[1], `{"type":"result","result":{"suggestions":[{"id":"s1"`) {
+		t.Fatalf("capture: %d %q", status, out)
+	}
+	if len(ai.Captures) != 1 || string(ai.Captures[0].Materials[0].Data) != "\x89PNG" {
+		t.Fatalf("base64 image not decoded: %+v", ai.Captures)
+	}
+
+	if status, _ := call(t, newAIApp(t, &fakes.AI{}), http.MethodPost, "/api/ai/capture", `{"materials":[]}`); status != http.StatusBadRequest {
+		t.Fatalf("empty batch should be 400, got %d", status)
+	}
+	if status, _ := call(t, newAIApp(t, &fakes.AI{}), http.MethodPost, "/api/ai/capture", body, "Authorization", ""); status != http.StatusUnauthorized {
+		t.Fatalf("capture must be guarded, got %d", status)
+	}
+
+	status, out = call(t, newAIApp(t, &fakes.AI{Err: fmt.Errorf("boom")}), http.MethodPost, "/api/ai/capture", body)
+	if status != http.StatusOK || !strings.HasSuffix(out, "{\"type\":\"error\",\"message\":\"Smart Capture failed. Try again.\"}\n") {
+		t.Fatalf("internal errors must become a generic error event: %q", out)
+	}
+}
+
+func TestAICaptureRespectsConfiguredLimits(t *testing.T) {
+	app := fiber.New()
+	handler := NewAIHandler(&fakes.AI{}, logger.NewTestLogger(t)).WithCaptureLimits(domain.CaptureLimits{MaxItems: 1, MaxItemBytes: 100, MaxBatchBytes: 100})
+	RegisterAIRoutes(NewRouteRegistrar(app, "/api", ""), handler, NewWriteGuard(testToken, "0.0.0.0"))
+	status, body := call(t, app, http.MethodPost, "/api/ai/capture", `{"materials":[{"id":"a","kind":"text","text":"x"},{"id":"b","kind":"text","text":"y"}]}`)
+	if status != http.StatusBadRequest || !strings.Contains(body, "at most 1") {
+		t.Fatalf("expected limit error, got %d %s", status, body)
+	}
+}
+
+func TestCaptureProgressEventKeepsTheMessage(t *testing.T) {
+	encoded, err := json.Marshal(captureProgressEvent(port.CaptureProgress{Stage: "extract", MaterialID: "m1", Status: "unreadable", Message: "Image too blurry."}))
+	if err != nil || string(encoded) != `{"type":"progress","stage":"extract","materialId":"m1","status":"unreadable","message":"Image too blurry."}` {
+		t.Fatalf("progress event: %s %v", encoded, err)
 	}
 }

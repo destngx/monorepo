@@ -41,13 +41,19 @@ func main() {
 		log.LogError(ctx, "invalid card programs configuration", err)
 		os.Exit(1)
 	}
+	captureLimits, err := configAdapter.LoadCaptureLimits()
+	if err != nil {
+		log.LogError(ctx, "invalid Smart Capture configuration", err)
+		os.Exit(1)
+	}
 
 	health := service.NewHealthService()
 	mcpServer := mcpAdapter.NewServer(health, log)
+	mcpServer.SetMaxRequestBytes(bodyLimit(captureLimits))
 
 	// No startup banner: stdout carries the MCP stdio stream. Immutable keeps
 	// request strings valid after a handler returns (they reach caches and logs).
-	app := fiber.New(fiber.Config{DisableStartupMessage: true, Immutable: true})
+	app := fiber.New(fiber.Config{DisableStartupMessage: true, Immutable: true, BodyLimit: bodyLimit(captureLimits)})
 	app.Use(fiberAdapter.RequestIDMiddleware(log))
 	app.Use(fiberAdapter.LoggingMiddleware(log))
 	app.Use(fiberAdapter.RecoveryMiddleware(log))
@@ -64,7 +70,7 @@ func main() {
 
 	cacheClient, cacheSvc := setupCache(ctx, log, health, api)
 	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig)
-	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc)
+	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, captureLimits)
 	setupMarket(ctx, log, health, api, mcpServer, cacheClient)
 
 	// Mounted last so every API route above keeps priority over the UI.
@@ -131,7 +137,7 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 
 // setupAI wires the AI use cases (§10). They read prompts and data from the
 // sheet, so they need it; the status route stays up to report what is missing.
-func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService) {
+func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService, captureLimits domain.CaptureLimits) {
 	if dbSvc == nil {
 		log.LogApplicationEvent(ctx, "AI features disabled: they need the Google Sheet")
 		return
@@ -145,9 +151,16 @@ func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.Heal
 	if err == nil {
 		health.Register(port.HealthCheck{Name: "ai", Probe: client.Ping})
 	}
-	aiSvc := aiService.New(client, dbSvc, analyticsSvc, cacheSvc, aiConfig, log, aiService.Options{})
+	aiSvc := aiService.New(client, dbSvc, analyticsSvc, cacheSvc, aiConfig, log, aiService.Options{CaptureLimits: captureLimits})
 	mcpServer.SetAIService(aiSvc)
-	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(aiSvc, log), guard)
+	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(aiSvc, log).WithCaptureLimits(captureLimits), guard)
+}
+
+// bodyLimit fits a full Smart Capture batch: base64 inflates images by 4/3
+// and the JSON envelope needs headroom. Other endpoints stay well below it.
+func bodyLimit(limits domain.CaptureLimits) int {
+	const minimum = 4 << 20
+	return max(minimum, limits.MaxBatchBytes/3*4+(1<<20))
 }
 
 func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, cacheClient port.CacheClient) {

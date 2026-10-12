@@ -10,6 +10,10 @@ import type {
   BudgetAdvice,
   BudgetItem,
   BudgetReport,
+  CaptureEvent,
+  CaptureMaterialPayload,
+  CaptureRule,
+  CaptureRulesSaveResult,
   CardBankReport,
   Category,
   CategorySuggestion,
@@ -140,4 +144,16 @@ export const api = {
     });
     yield* readNDJSON<ChatEvent>(stream);
   },
+  /** Streams Smart Capture progress then the result (§6.2); failures after the stream starts arrive as an "error" event. */
+  capture: async function* (materials: CaptureMaterialPayload[], signal?: AbortSignal): AsyncGenerator<CaptureEvent> {
+    const stream = await requestStream('/ai/capture', {
+      method: 'POST',
+      body: { materials, model: aiModels.vision.value || undefined },
+      signal,
+    });
+    yield* readNDJSON<CaptureEvent>(stream);
+  },
+  captureRules: (options?: ReadOptions) => read<CaptureRule[]>('/capture/rules', options),
+  saveCaptureRules: (rules: CaptureRule[]) =>
+    request<CaptureRulesSaveResult>('/capture/rules', { method: 'POST', body: { rules } }),
 };

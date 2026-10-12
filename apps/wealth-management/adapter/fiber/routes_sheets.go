@@ -95,6 +95,16 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 	api.Group("/loans", "loans").Get("/", h.GetLoans, RouteMeta{Summary: "Lists loans and debts with monthly and yearly progress.", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/tags", "tags").Get("/", h.GetTags, RouteMeta{Summary: "Lists normalised transaction tags.", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/investments", "investments").Get("/assets", h.GetInvestmentAssets, RouteMeta{Summary: "Returns crypto and fund holdings, raw and typed (symbol, quantity, price, value).", QueryParams: []RouteParameter{forceParam()}})
+	capture := api.Group("/capture", "capture")
+	capture.Get("/rules", h.GetCaptureRules, RouteMeta{Summary: "Lists Smart Capture account aliases and payee categories from the CaptureRules tab (empty until the first save).", QueryParams: []RouteParameter{forceParam()}})
+	capture.Post("/rules", guard.Wrap(h.SaveCaptureRules), RouteMeta{
+		Summary: "Upserts Smart Capture rules by kind and pattern (case and diacritics ignored), creating the CaptureRules tab on first use.",
+		RequestBody: jsonBody(map[string]any{"rules": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
+			"kind":    map[string]any{"type": "string", "enum": []string{"alias", "payee"}},
+			"pattern": map[string]any{"type": "string", "description": "Account hint (alias) or payee (payee)."},
+			"value":   map[string]any{"type": "string", "description": "Account name (alias) or category (payee)."},
+		}}}}, "rules"),
+	})
 	api.Group("/sync", "sync").Post("/", guard.Wrap(h.Sync), RouteMeta{Summary: "Invalidates every sheet-derived cache key so the next reads come from the sheet."})
 	api.Group("/init", "init").Get("/", h.Init, RouteMeta{Summary: "Warms AI prompts and knowledge from the sheet and returns row counts.", QueryParams: []RouteParameter{forceParam()}})
 }

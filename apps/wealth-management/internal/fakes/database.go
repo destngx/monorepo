@@ -20,6 +20,7 @@ type Database struct {
 	Goals        []domain.Goal
 	Init         domain.InitResult
 	AIContent    domain.AIContent
+	CaptureRules []domain.CaptureRule
 	Err          error
 
 	CreatedAccounts     []domain.AccountCreateInput
@@ -32,6 +33,7 @@ type Database struct {
 	BudgetYears         []int
 	BudgetUpdates       []domain.BudgetLimitUpdate
 	Syncs               int
+	SavedCaptureRules   [][]domain.CaptureRule
 }
 
 var _ port.DatabaseService = (*Database)(nil)
@@ -147,6 +149,20 @@ func (f *Database) GetInvestmentAssets(bool) (domain.InvestmentAssets, error) {
 func (f *Database) WarmAIContent(bool) (domain.InitResult, error) { return f.Init, f.Err }
 
 func (f *Database) LoadAIContent(bool) (domain.AIContent, error) { return f.AIContent, f.Err }
+
+func (f *Database) ListCaptureRules(bool) ([]domain.CaptureRule, error) {
+	return nonNil(f.CaptureRules), f.Err
+}
+
+func (f *Database) SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureRulesSaveResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Err != nil {
+		return domain.CaptureRulesSaveResult{}, f.Err
+	}
+	f.SavedCaptureRules = append(f.SavedCaptureRules, rules)
+	return domain.CaptureRulesSaveResult{Created: len(rules)}, nil
+}
 
 func (f *Database) SyncCache() (domain.SyncResult, error) {
 	f.mu.Lock()

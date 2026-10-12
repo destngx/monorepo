@@ -136,4 +136,6 @@ type AIStatus struct {
 	Prompts       int                  `json:"prompts"`
 	MissingKeys   []string             `json:"missingPrompts"`
 	PromptsError  string               `json:"promptsError,omitempty"`
+	// Capture bounds a Smart Capture batch, for the UI (WM-CAP-1).
+	Capture CaptureLimits `json:"capture"`
 }

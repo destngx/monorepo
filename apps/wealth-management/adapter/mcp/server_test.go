@@ -243,3 +243,50 @@ func TestAIToolsDelegateToTheService(t *testing.T) {
 		t.Fatalf("unknown arguments should be rejected, got %v", err)
 	}
 }
+
+func TestCaptureToolSuggestsWithoutWriting(t *testing.T) {
+	db := &fakes.Database{}
+	server := newTestServer(t, db)
+	ai := &fakes.AI{}
+	server.SetAIService(ai)
+
+	result, err := server.CallTool(context.Background(), "SuggestTransactionsFromMaterials", json.RawMessage(`{"materials":[{"id":"a","kind":"image","mediaType":"image/png","data":"iVBORw=="},{"id":"b","kind":"text","text":"VCB -45,000VND"}]}`))
+	if err != nil || !strings.Contains(result.Content, `"suggestions"`) {
+		t.Fatalf("capture: %v %s", err, result.Content)
+	}
+	if len(ai.Captures) != 1 || string(ai.Captures[0].Materials[0].Data) != "\x89PNG" || ai.Captures[0].Materials[1].Text != "VCB -45,000VND" {
+		t.Fatalf("materials not decoded: %+v", ai.Captures)
+	}
+	if len(db.CreatedTransactions) != 0 {
+		t.Fatal("capture must not write")
+	}
+	if _, err := server.CallTool(context.Background(), "SuggestTransactionsFromMaterials", json.RawMessage(`{"materials":[]}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("empty batch should be rejected, got %v", err)
+	}
+}
+
+func TestCaptureRuleTools(t *testing.T) {
+	db := &fakes.Database{CaptureRules: []domain.CaptureRule{{Kind: domain.CaptureRuleAlias, Pattern: "VCB", Value: "Vietcombank"}}}
+	server := newTestServer(t, db)
+	result, err := server.CallTool(context.Background(), "GetCaptureRules", nil)
+	if err != nil || !strings.Contains(result.Content, `"pattern":"VCB"`) {
+		t.Fatalf("list: %v %s", err, result.Content)
+	}
+	if _, err := server.CallTool(context.Background(), "SaveCaptureRules", json.RawMessage(`{"rules":[{"kind":"payee","pattern":"Grab","value":"Transport"}]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if len(db.SavedCaptureRules) != 1 || db.SavedCaptureRules[0][0].Value != "Transport" {
+		t.Fatalf("saved: %+v", db.SavedCaptureRules)
+	}
+}
+
+func TestRunAcceptsRequestsUpToTheConfiguredLimit(t *testing.T) {
+	server := newTestServer(t, nil)
+	server.SetMaxRequestBytes(8 << 20)
+	padding := strings.Repeat("x", 5<<20)
+	request := `{"jsonrpc":"2.0","id":1,"method":"ping","params":{"pad":"` + padding + `"}}` + "\n"
+	var out strings.Builder
+	if err := server.Run(strings.NewReader(request), &out); err != nil || !strings.Contains(out.String(), `"id":1`) {
+		t.Fatalf("large request: %v %q", err, out.String()[:min(len(out.String()), 200)])
+	}
+}

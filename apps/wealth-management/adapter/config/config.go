@@ -184,3 +184,39 @@ func LoadAIConfig() (domain.AIConfig, error) {
 	}
 	return config, nil
 }
+
+var ErrInvalidCaptureConfig = errors.New("invalid Smart Capture configuration")
+
+// LoadCaptureLimits reads the Smart Capture batch limits (WM-CAP-1):
+// CAPTURE_MAX_ITEMS (default 20), CAPTURE_MAX_ITEM_MB (default 5) and
+// CAPTURE_MAX_BATCH_MB (default 20).
+func LoadCaptureLimits() (domain.CaptureLimits, error) {
+	defaults := domain.DefaultCaptureLimits()
+	read := func(key string, fallback int) (int, error) {
+		value := strings.TrimSpace(os.Getenv(key))
+		if value == "" {
+			return fallback, nil
+		}
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 {
+			return 0, fmt.Errorf("%w: %s must be a positive integer", ErrInvalidCaptureConfig, key)
+		}
+		return parsed, nil
+	}
+	items, err := read("CAPTURE_MAX_ITEMS", defaults.MaxItems)
+	if err != nil {
+		return domain.CaptureLimits{}, err
+	}
+	itemMB, err := read("CAPTURE_MAX_ITEM_MB", defaults.MaxItemBytes>>20)
+	if err != nil {
+		return domain.CaptureLimits{}, err
+	}
+	batchMB, err := read("CAPTURE_MAX_BATCH_MB", defaults.MaxBatchBytes>>20)
+	if err != nil {
+		return domain.CaptureLimits{}, err
+	}
+	if itemMB > batchMB {
+		return domain.CaptureLimits{}, fmt.Errorf("%w: CAPTURE_MAX_ITEM_MB must not exceed CAPTURE_MAX_BATCH_MB", ErrInvalidCaptureConfig)
+	}
+	return domain.CaptureLimits{MaxItems: items, MaxItemBytes: itemMB << 20, MaxBatchBytes: batchMB << 20}, nil
+}

@@ -13,6 +13,8 @@ type AI struct {
 	ChatErr error
 	Reviews []port.ReviewRequest
 	Chats   []port.ChatRequest
+	// Captures records Smart Capture requests.
+	Captures []port.CaptureRequest
 }
 
 var _ port.AIService = (*AI)(nil)
@@ -61,4 +63,33 @@ func (f *AI) Chat(_ context.Context, request port.ChatRequest, emit func(port.Ch
 		return err
 	}
 	return emit(port.ChatEvent{Type: "done", Model: "m"})
+}
+
+// Capture reports one extraction step and returns one suggestion per
+// material; CaptureErr fails it after the progress event.
+func (f *AI) Capture(_ context.Context, request port.CaptureRequest, progress func(port.CaptureProgress)) (domain.CaptureResult, error) {
+	f.Captures = append(f.Captures, request)
+	if err := domain.ValidateCaptureMaterials(request.Materials, domain.DefaultCaptureLimits()); err != nil {
+		return domain.CaptureResult{}, err
+	}
+	if progress != nil {
+		progress(port.CaptureProgress{Stage: "extract", MaterialID: request.Materials[0].ID, Status: "ok", Events: 1})
+	}
+	if f.Err != nil {
+		return domain.CaptureResult{}, f.Err
+	}
+	result := domain.CaptureResult{Suggestions: []domain.CaptureSuggestion{}, Unreadable: []domain.CaptureUnreadable{}, Balances: []domain.CaptureBalance{}}
+	for index, material := range request.Materials {
+		payment := 1000.0
+		result.Suggestions = append(result.Suggestions, domain.CaptureSuggestion{
+			ID:          "s" + string(rune('1'+index)),
+			Selected:    true,
+			Transaction: domain.TransactionCreateInput{AccountName: "Cash", Date: "03/10/2026", Payee: "Shop", Category: "Food", Tags: []string{}, Payment: &payment},
+			Direction:   domain.CaptureOut,
+			Amount:      payment,
+			Currency:    "VND",
+			Evidence:    []domain.CaptureEvidence{{MaterialID: material.ID}},
+		})
+	}
+	return result, nil
 }

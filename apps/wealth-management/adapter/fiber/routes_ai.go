@@ -57,6 +57,20 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 		Summary:     "Budget advisor: suggested limits and alerts from the model; averages, velocity flags, 30-day projection and forecasted savings from the engine.",
 		RequestBody: optionalJSONBody(aiOptionProperties(nil)),
 	})
+	ai.Post("/capture", guard.Wrap(h.Capture), RouteMeta{
+		Summary: "Smart Capture: reads screenshots and pasted text into suggested transactions, streamed as NDJSON events: progress (stage, materialId, status, events, message), result (suggestions, unreadable, balances) and error (message). Writes nothing; materials are sent to the AI provider and never stored.",
+		RequestBody: jsonBody(map[string]any{
+			"materials": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
+				"id":        schemaString,
+				"kind":      map[string]any{"type": "string", "enum": []string{"image", "text"}},
+				"name":      schemaString,
+				"mediaType": map[string]any{"type": "string", "enum": []string{"image/png", "image/jpeg", "image/webp", "image/gif"}},
+				"data":      map[string]any{"type": "string", "format": "byte", "description": "Base64 image bytes."},
+				"text":      schemaString,
+			}}},
+			"model": schemaString,
+		}, "materials"),
+	})
 	ai.Post("/chat", guard.Wrap(h.Chat), RouteMeta{
 		Summary: "Tool-using chat streamed as NDJSON events: text (delta), tool (name, status), done (model) and error (message).",
 		RequestBody: jsonBody(map[string]any{
