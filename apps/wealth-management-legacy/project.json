@@ -12,14 +12,6 @@
         "lintFilePatterns": ["apps/wealth-management/**/*.{ts,tsx,js,jsx}"]
       }
     },
-    "test": {
-      "executor": "@nx/vitest:test",
-      "outputs": ["{workspaceRoot}/coverage/apps/wealth-management"],
-      "options": {
-        "passWithNoTests": true,
-        "reportsDirectory": "../../coverage/apps/wealth-management"
-      }
-    },
     "setup-ai": {
       "executor": "nx:run-commands",
       "options": {
