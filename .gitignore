@@ -146,3 +146,6 @@ apps/web-crawler/data/
 # Go build outputs (`go build` in an app dir names the binary after the module)
 /apps/wealth-management-engine/wealth-management-engine
 /apps/ai-gateway/ai-gateway
+
+# gwf worktree hooks (local only)
+.gwf

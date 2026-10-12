@@ -9,8 +9,8 @@ Multiple agent sessions work in this repo concurrently. Never do feature work in
   git fetch origin
   cd "$(gwf create <type>/<app>-<topic> origin/main)"
   ```
-  `gwf create` puts the worktree at `../monorepo-worktrees/<app>-<topic>`, runs `.gwf/setup` (installs `node_modules` from the shared pnpm store), and prints the worktree path. If the branch is already checked out somewhere, it prints that worktree's path instead; do not work there if another session owns it.
-- **Without `gwf`** (not on PATH): `git worktree add -b <type>/<app>-<topic> ../monorepo-worktrees/<app>-<topic> origin/main`, `cd` into it, then run `.gwf/setup`.
+  `gwf create` puts the worktree at `../monorepo-worktrees/<app>-<topic>`, and prints the worktree path. If the branch is already checked out somewhere, it prints that worktree's path instead; do not work there if another session owns it.
+- **Without `gwf`** (not on PATH): `git worktree add -b <type>/<app>-<topic> ../monorepo-worktrees/<app>-<topic> origin/main`, `cd` into it, then run `pnpm install --prefer-offline` (links `node_modules` from the shared pnpm store).
 - **Location**: always `../monorepo-worktrees/<app>-<topic>` (sibling of the repo, never nested inside it, so Nx and file watchers do not pick it up).
 - **Check first**: run `gwf ls` (or `git worktree list`) and `git status` before editing. If the checkout has uncommitted changes unrelated to your task, stop and move to (or create) the correct worktree instead of editing alongside them.
 - **One feature = one branch = one worktree.** Several agents may work on the same app at once, each in its own worktree. Only touch files belonging to your feature.

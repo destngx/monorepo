@@ -46,7 +46,8 @@
       "plugin": "@nx-go/nx-go",
       "options": {
         "skipGoDependencyCheck": true
-      }
+      },
+      "exclude": ["apps/wealth-management-engine/**"]
     }
   ]
 }

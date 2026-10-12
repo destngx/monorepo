@@ -5,15 +5,6 @@
   "sourceRoot": "apps/wealth-management-engine",
   "tags": [],
   "targets": {
-    "build": {
-      "executor": "@nx-go/nx-go:build",
-      "options": {
-        "main": "main.go"
-      },
-      "cache": true,
-      "inputs": ["default", "^default"],
-      "outputs": ["{projectRoot}/dist"]
-    },
     "serve": {
       "executor": "nx:run-commands",
       "options": {
@@ -29,33 +20,6 @@
         "cwd": "apps/wealth-management-engine"
       },
       "cache": false
-    },
-    "test": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "go test ./...",
-        "cwd": "apps/wealth-management-engine"
-      }
-    },
-    "test-e2e": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "RUN_LIVE_API_TESTS=true go test ./... -run '^TestE2E' -v",
-        "cwd": "apps/wealth-management-engine"
-      }
-    },
-    "lint": {
-      "executor": "@nx-go/nx-go:lint"
-    },
-    "format": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "find . -name '*.go' -not -path './tmp/*' -exec gofmt -w {} +",
-        "cwd": "apps/wealth-management-engine"
-      }
-    },
-    "tidy": {
-      "executor": "@nx-go/nx-go:tidy"
     }
   }
 }
