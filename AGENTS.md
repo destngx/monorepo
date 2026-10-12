@@ -20,6 +20,7 @@ Multiple agent sessions work in this repo concurrently. Never do feature work in
 
 - **Node**: Use `pnpm run` and `pnpx nx` for package management and task execution.
 - **Workflow**: Default to **TDD + BDD**. Always verify changes with unit or integration tests.
+- **Toolchain caches stay global**: never redirect `GOCACHE`, `GOMODCACHE`, `GOPATH`, the pnpm store, or other toolchain caches into the repo or a worktree. The global caches are shared across worktrees and safe for concurrent agents. If a cache write fails, stop and report it instead of working around it.
 
 ### Security and Env
 
