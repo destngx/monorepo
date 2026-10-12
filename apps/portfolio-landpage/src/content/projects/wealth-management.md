@@ -4,7 +4,7 @@ summary: A Go and SvelteKit personal wealth platform that keeps the ledger in Go
 year: 2026
 status: active
 stack: [Go, Fiber, SvelteKit, Google Sheets API, Upstash Redis, Python]
-repo: https://github.com/destngx/monorepo/tree/main/apps/wealth-management-engine
+repo: https://github.com/destngx/monorepo/tree/main/apps/wealth-management
 featured: true
 order: 3
 sfx: ゴゴゴ
@@ -20,16 +20,16 @@ I wanted to track accounts, transactions, budgets, and goals without giving up t
 - Market endpoints under `/api/market` for ticker quotes, exchange rates, price series, and bank rates. Passing `skipCache=true` bypasses the cache.
 - `POST /api/sync` clears the cached data blocks so the next read reloads from Google Sheets.
 - An MCP server runs in the same process over stdin/stdout and exposes the database and market services as tools.
-- The SvelteKit dashboard is early. Its only screen calls `/api/health` to confirm the backend is reachable.
+- The SvelteKit UI is early. The Go process serves it at `/ui`, and its only screen calls `/api/health` to confirm the backend is reachable.
 
 ## How it's built
 
-- The Go backend in `apps/wealth-management-engine` uses Fiber v2 and a hexagonal layout: `domain/`, `port/`, `service/`, and `adapter/`.
+- The Go backend in `apps/wealth-management` uses Fiber v2 and a hexagonal layout: `domain/`, `port/`, `service/`, and `adapter/`.
 - The `adapter/db/google_sheets` package reads and writes rows through the Sheets API, and its tests cover token refresh.
 - Redis caching goes through an Upstash REST client in `adapter/cache`.
 - Market data comes from two providers, `vnstock` and `fmarket`, behind one `MarketProviderService`. The `vnstock` provider calls the Python `vnstock-server` over HTTP.
-- The frontend is in `apps/wealth-management-dashboard`, built with SvelteKit and Tailwind classes.
-- This replaces `apps/wealth-management-legacy`, the earlier Next.js version.
+- The frontend is in `apps/wealth-management/ui`, built with SvelteKit and Tailwind classes as a static SPA that the Go process serves, so production is one process on one origin.
+- This replaces the earlier Next.js version, which was removed once its features were captured in `docs/wealth-management/REQUIREMENTS.md`.
 
 ## Interesting bits
 

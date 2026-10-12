@@ -22,9 +22,7 @@ export default [
       '**/*.svelte.d.ts',
       // Legacy/reference surfaces not in active scope
       'apps/cloudinary-photos-app/**',
-      'apps/wealth-management-legacy/**',
       'libs/cloudinary-photos-app/**',
-      'libs/wealth-management-legacy/**',
     ],
   },
   // JavaScript base

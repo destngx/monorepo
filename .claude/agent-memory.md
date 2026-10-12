@@ -20,21 +20,19 @@ How to apply: When starting work in this repo, consult this file and AGENTS.md; 
 
 Fact: Nx monorepo with TypeScript/Next.js, Go, and Python. Key apps:
 
-- apps/wealth-management-engine (Go, Hexagonal) — active
-- apps/wealth-management-dashboard (SvelteKit) — active
-- apps/wealth-management (Next.js) — legacy
+- apps/wealth-management (Go engine, Hexagonal, with SvelteKit UI in ui/ served at /ui) — active
 - apps/vnstock-server (Python) — active
 
-How to apply: Prefer these paths for tasks and use the toolchain conventions (bun/bunx/uv) per AGENTS.md.
+How to apply: Prefer these paths for tasks and use the toolchain conventions (pnpm/pnpx/uv) per AGENTS.md.
 
 ---
 
 ## agent_conventions (summary from AGENTS.md)
 
-- Use bun / bunx / uv for scripts; do not use npm, yarn, or pnpm.
+- Use pnpm / pnpx / uv for scripts; do not use npm, yarn, or bun.
 - Wealth engine follows Hexagonal layout: domain/, port/, service/, adapter/.
 - Adapter naming: adapter/cache, adapter/config, adapter/db/..., adapter/market/....
-- MCP server enabled on engine startup; run Go tests via Nx (bunx nx run wealth-management-engine:test).
+- MCP server enabled on engine startup; run Go tests via Nx (pnpx nx run wealth-management:test); MCP uses stdout, so logs go to stderr.
 - Testing: TDD + BDD; prefer real provider behavior tests for AI integrations.
 - Security: .env.local is runtime-only; never commit secrets or credential files.
 

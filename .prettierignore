@@ -3,7 +3,5 @@ dist
 coverage
 .next
 pnpm-lock.yaml
-apps/wealth-management-legacy
 apps/cloudinary-photos-app
-libs/wealth-management-legacy
 libs/cloudinary-photos-app

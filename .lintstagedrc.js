@@ -1,9 +1,4 @@
-const legacyPrefixes = [
-  'apps/wealth-management-legacy/',
-  'apps/cloudinary-photos-app/',
-  'libs/wealth-management-legacy/',
-  'libs/cloudinary-photos-app/',
-];
+const legacyPrefixes = ['apps/cloudinary-photos-app/', 'libs/cloudinary-photos-app/'];
 
 const isLegacyFile = (file) => legacyPrefixes.some((prefix) => file.startsWith(prefix));
 const quote = (file) => `"${file}"`;
