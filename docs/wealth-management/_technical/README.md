@@ -8,32 +8,37 @@
 
 ## 1. Document Pillars
 
-The documentation is organized into five pillars of system integrity:
+The documentation is organized into five pillars plus the market provider reference of system integrity:
 
 ### 1-Data-Engine
 
-- **[Architecture & Schema Logic](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/1-Data-Engine/Architecture_and_Schema.md)**
-- _Focus_: Google Sheets as a DB, Yearly Sharding, Data Flow, and Caching.
+- **[Architecture & Schema Logic](./1-Data-Engine/Architecture_and_Schema.md)**
+- _Focus_: Google Sheets as a DB, Data Flow, and Caching (the yearly sharding section is a legacy plan, not implemented).
 - _Naming Standard_: See section **2.0 Domain Modeling & Naming Convention (Go Engine)** in Architecture & Schema Logic.
 
 ### 2-AI-Systems
 
-- **[Orchestration & Tooling](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/2-AI-Systems/Orchestration_and_Tools.md)**
-- _Focus_: GPT-4o interaction, Tool Registry, Contextual Memory, and Synthesis.
+- **[Orchestration & Tooling](./2-AI-Systems/Orchestration_and_Tools.md)**
+- _Focus_: LLM interaction (OpenAI-compatible provider), Tool Registry, Contextual Memory, and Synthesis.
 
 ### 3-Financial-Logic
 
-- **[Investment & Goal Engines](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/3-Financial-Logic/Investment_and_Goal_Engines.md)**
+- **[Investment & Goal Engines](./3-Financial-Logic/Investment_and_Goal_Engines.md)**
 - _Focus_: Wealth Trajectory (Freedom Score), Asset Allocation Drift (Rebalancing), and Normalization.
+
+### Market-Provider-Capabilities
+
+- **[Market Provider Capabilities](./Market_Provider_Capabilities.md)**
+- _Focus_: Capability-based provider routing; section 0 lists the chains the engine actually uses.
 
 ### 4-Resilience
 
-- **[Safety & Edge Cases](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/4-Resilience/Safety_and_Edge_Cases.md)**
+- **[Safety & Edge Cases](./4-Resilience/Safety_and_Edge_Cases.md)**
 - _Focus_: Offline "Full-Stop" protocols, API Rate Limits, and Service Fallbacks.
 
 ### 5-Code-Structure
 
-- **[Modularization & Testability Strategy](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md)**
+- **[Modularization & Testability Strategy](./5-Code-Structure/Modularization_and_Testability_Strategy.md)**
 - _Focus_: file/function size budgets, vertical slice strategy, and strict e2e ownership/failure policy.
 
 ---

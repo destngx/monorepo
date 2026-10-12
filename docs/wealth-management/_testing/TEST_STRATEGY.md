@@ -27,7 +27,7 @@ Functional specs are transformed into `Gherkin`-style scenarios before implement
 
 ### 2.2 TDD (Test-Driven Development)
 
-Engineers must follow the **Red-Green-Refactor** lifecycle for all core logic (especially `libs/wealth-management`).
+Engineers must follow the **Red-Green-Refactor** lifecycle for all core logic (especially the engine's `domain/` and `service/` packages in `apps/wealth-management`).
 
 1.  **RED**: Write a failing test for a new utility (e.g., `calculateFreedomScore`).
 2.  **GREEN**: Implement the minimal logic to make the test pass.
@@ -51,10 +51,13 @@ Engineers must follow the **Red-Green-Refactor** lifecycle for all core logic (e
 
 ## 4. Test Layers & Tooling (Nx Monorepo)
 
-- **Unit Layer (Vitest)**: Mandatory for all `utils`, `mappers`, and `math` logic.
+The current layer definitions and targets are in [REQUIREMENTS.md §14](../REQUIREMENTS.md#14-test-plan). In short:
+
+- **Unit Layer**: table-driven Go tests (`pnpx nx run wealth-management:test`) for mappers, business rules and market math; Vitest (`pnpx nx run wealth-management:test-ui`) for UI logic.
   - _SLA_: 95%+ coverage for financial formulas.
-- **Integration Layer (MSW)**: Mocking external APIs (Sheets, Binance, VNStock) to test service orchestration.
-- **E2E Layer (Playwright)**: Testing critical "Wealth Journeys" (Onboarding → Snapshot → Export).
+- **Contract Layer**: sheet adapter against recorded, anonymised Sheets API responses; handlers and MCP tools against fakes.
+- **Live Layer**: engine against a disposable copy of the real sheet, never the production sheet (REQUIREMENTS.md §14.3).
+- **E2E Layer (Playwright)**: Testing critical "Wealth Journeys" in the UI against the engine wired to the test copy.
 - **AI Regression**: Using fixed seeds to ensure AI briefings remain consistent across deployments.
 
 ---

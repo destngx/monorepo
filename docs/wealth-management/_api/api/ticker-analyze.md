@@ -1,5 +1,7 @@
 # API Specification: Ticker Analyze Deep Dive (POST /api/ticker/analyze)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Ticker Analyze API** is the specialized analysis engine for the **Ticker Deep-Dive Terminal**. It generates comprehensive technical, fundamental, and probabilistic analysis for a single ticker (Stock or IFC). Unlike the batch-focused Market Pulse, this API focuses on high-resolution data (1H + 1D) for individualized investment research and valuation simulations.

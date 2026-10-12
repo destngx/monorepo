@@ -22,7 +22,7 @@ To provide an immediate, high-fidelity synthesis of the user's total net worth, 
 - **Requirement**: All numeric balances and account identifiers must be masked (`••••••`) on initial load.
 - **Trigger**: A "Privacy Toggle" (Eye Icon) in the Header reveals/hides data.
 - **Acceptance Criteria (AC)**:
-  - Masking must be applied to all child components using a global state (e.g., Zustand/Context).
+  - Masking must be applied to all child components using a global UI store (Svelte store).
   - State MUST reset to "Masked" upon client-side route changes or page refresh.
   - No data is persisted for this toggle (Security First).
 

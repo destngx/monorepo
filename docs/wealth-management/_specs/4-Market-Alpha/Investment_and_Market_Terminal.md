@@ -56,33 +56,28 @@ To provide high-fidelity financial data and AI-driven market analysis for ticker
 
 ### 5.1 Multi-Provider Capability-Based Architecture
 
-The market data layer uses a **capability-based routing system** that intelligently routes requests to the most authoritative provider per asset class:
+The market data layer routes each request by capability and asset class to an ordered chain of providers, falling back to the next provider on failure. Chains as implemented in the engine (`domain.DefaultMarketRoutingConfig`):
 
-| Capability                            | Primary Source | Fallback | Rationale                                        |
-| ------------------------------------- | -------------- | -------- | ------------------------------------------------ |
-| **Equity Ticker** (VN stocks)         | Vnstock        | Fmarket  | Vnstock has native HOSE equities                 |
-| **IFC Ticker** (VN fund certificates) | Fmarket        | Vnstock  | Fmarket specializes in Vietnamese funds          |
-| **USD/VND Exchange Rate**             | Fmarket        | Vnstock  | Fmarket faster/more accurate for VN rates        |
-| **Fund NAV History**                  | Fmarket        | —        | Fmarket only source for historical NAV data      |
-| **Gold Price (SJC)**                  | Fmarket        | —        | Fmarket only source for Vietnamese physical gold |
-| **Bank Interest Rates**               | Fmarket        | —        | Fmarket only source for deposit rate comparison  |
-| **Crypto Ticker**                     | Binance        | —        | Native crypto exchange (future provider)         |
+| Capability                                   | Chain (in order)                            |
+| -------------------------------------------- | ------------------------------------------- |
+| **Equity Ticker** (VN stocks)                | Vnstock, Fmarket                            |
+| **IFC Ticker** (VN fund certificates)        | Fmarket, Vnstock                            |
+| **Gold Ticker**                              | Fmarket                                     |
+| **Crypto Ticker**                            | CoinGecko                                   |
+| **USD/VND Exchange Rate**                    | Fmarket, Yahoo, CurrencyAPI                 |
+| **USDT/VND Exchange Rate**                   | CoinGecko, CurrencyAPI                      |
+| **Price Series** (equity / gold_usd / forex) | Vnstock, Fmarket / Fmarket / Yahoo, Fmarket |
+| **Bank Interest Rates**                      | Fmarket                                     |
+| **Candles**                                  | Vnstock, Yahoo, Fmarket                     |
 
-**Key Benefits**:
-
-- ✅ Automatic fallback if primary provider fails (resilience)
-- ✅ Config-driven routing (no code changes to add Provider 3 or swap priorities)
-- ✅ Unified caching at capability level (prevents redundant upstream calls)
-- ✅ Extensible for future providers (Binance, etc.)
-
-See [\_technical/Market_Provider_Capabilities.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/Market_Provider_Capabilities.md) for architecture details.
+Results are cached per capability (5-minute TTL). See [Market provider capabilities §0](../../_technical/Market_Provider_Capabilities.md#0-current-implementation-authoritative) for the current implementation and [REQUIREMENTS.md §9.2](../../REQUIREMENTS.md#92-market-data-engine-capability-routing) for status.
 
 ### 5.2 API Concurrency & Performance
 
 - **API Concurrency**: Parallelize capability requests (e.g., fetch IFC + Equity + ExchangeRate simultaneously).
 - **Unified Caching**: Capability-level cache prevents thundering herd (all subsequent requests within TTL use cached response).
 - **Update Frequency**: Ticker prices refresh every 5-60s (configurable per capability; live prices bypass cache in Active Terminal).
-- **Caching Strategy**:
+- **Caching Strategy** (target; the engine currently uses a single 5-minute TTL):
   - Market summaries (fund lists, rates): cached for 5-10 minutes (MARKET_DATA_TTL)
   - Live ticker prices in Active Terminal: uncached or very short TTL (< 60s)
   - Historical data (NAV, rates): cached for 1 hour (stable data)

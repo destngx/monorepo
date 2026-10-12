@@ -7,6 +7,38 @@
 
 ---
 
+## 0. Current implementation (authoritative)
+
+Sections 1-10 below are the original design sketch. The principles hold (capability ports, config-driven chains, capability-level caching, fallback), but the code samples, YAML routing file, provider list and chain order are **illustrative and outdated**. The engine's actual behaviour is:
+
+- **Code**: chains in `domain.DefaultMarketRoutingConfig()` (`apps/wealth-management/domain/market_capability.go`), routing in `service/market_provider/market_provider_service_route.go`, providers registered in `setupMarket` in `main.go`. Routing is a Go value, not a YAML file.
+- **Ports**: `port.MarketProvider` has only `Name` and `Health`; each capability is its own interface (`TickerProvider`, `ExchangeRateProvider`, `PriceSeriesProvider`, `BankRateProvider`, `CandleProvider`), so a provider implements only what it supports.
+- **Providers**: `fmarket`, `vnstock`, `coingecko`, `currencyapi`, `yahoo` (base URLs in the [setup README](../_setup/README.md#36-market-data-providers)). A provider that fails to build is dropped and chains fall through.
+- **Chains** (tried in order):
+
+| Capability            | Type / key | Chain                         |
+| --------------------- | ---------- | ----------------------------- |
+| `GetTicker`           | `equity`   | vnstock → fmarket             |
+| `GetTicker`           | `ifc`      | fmarket → vnstock             |
+| `GetTicker`           | `gold`     | fmarket                       |
+| `GetTicker`           | `crypto`   | coingecko                     |
+| `GetExchangeRate`     | `USD_VND`  | fmarket → yahoo → currencyapi |
+| `GetExchangeRate`     | `USDT_VND` | coingecko → currencyapi       |
+| `GetPriceSeries`      | `equity`   | vnstock → fmarket             |
+| `GetPriceSeries`      | `gold_usd` | fmarket                       |
+| `GetPriceSeries`      | `forex`    | yahoo → fmarket               |
+| `GetBankInterestRate` | -          | fmarket                       |
+| `GetCandles`          | any symbol | vnstock → yahoo → fmarket     |
+
+- **Gold**: SJC / gold quotes are a ticker type (`GetTicker(symbol, "gold")`); world gold in USD is a price series (`gold_usd`). Both come from fmarket.
+- **Fallback**: a provider without the capability, or returning `port.ErrUnsupported`, is skipped; any other error is recorded and the next provider is tried. Exchange rates that are non-positive, lack a timestamp or are older than 4 days are rejected so the chain falls through. When every provider fails, the error lists each one.
+- **Cache keys**: symbols are normalised (trimmed, upper-cased, leading `^` removed). Keys: `market:getTicker:<type>:<SYMBOL>`, `market:getExchangeRate:<FROM>_<TO>`, `market:getPriceSeries:<type>:<SYMBOL>`, `market:getCandles:<timeframe>:<SYMBOL>:<lookbackDays>`, `market:getBankInterestRate`. The cache client prepends `CACHE_KEY_PREFIX` (default `wm:`). TTL 300 s.
+- **HTTP**: `GET /api/market/{ticker,exchange-rate,price-series,candles,bank-rates}`, `POST /api/fmarket/action`, provider health at `GET /api/external/market/providers/:provider/health`. The full contract is the OpenAPI spec at `/api/openapi.json` (`/api/docs`).
+
+Requirements: [REQUIREMENTS.md §9.2](../REQUIREMENTS.md#92-market-data-engine-capability-routing).
+
+---
+
 ## 1. Strategic Context
 
 ### 1.1 Problem Statement

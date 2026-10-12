@@ -3,6 +3,8 @@ package config
 import (
 	"apps/wealth-management/domain"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -104,5 +106,35 @@ func TestLoadSearchConfigTrimsKeys(t *testing.T) {
 	t.Setenv("EXA_API_KEY", "")
 	if config := LoadSearchConfig(); config.TavilyAPIKey != "tvly" || config.ExaAPIKey != "" {
 		t.Fatalf("unexpected config %+v", config)
+	}
+}
+
+func TestGivenEnvFileOverrideWhenLoadingThenReadsOnlyThatFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "custom.env")
+	if err := os.WriteFile(path, []byte("WM_CONFIG_PROBE=from-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("WM_CONFIG_PROBE", "from-shell")
+
+	t.Setenv("WM_ENV_FILE", "none")
+	Load()
+	if os.Getenv("WM_CONFIG_PROBE") != "from-shell" {
+		t.Fatalf("WM_ENV_FILE=none must not load any file")
+	}
+
+	t.Setenv("WM_ENV_FILE", path)
+	Load()
+	if os.Getenv("WM_CONFIG_PROBE") != "from-file" {
+		t.Fatalf("WM_ENV_FILE must load the named file")
+	}
+}
+
+func TestLoadTestMode(t *testing.T) {
+	for value, want := range map[string]bool{"": false, "false": false, "true": true, "TRUE": true, "1": true} {
+		t.Setenv("WM_TEST_MODE", value)
+		if got := LoadTestMode(); got != want {
+			t.Fatalf("WM_TEST_MODE=%q: got %v", value, got)
+		}
 	}
 }

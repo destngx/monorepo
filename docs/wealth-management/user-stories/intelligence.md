@@ -50,7 +50,7 @@
 
 - **Story**: As an AI-First Investor, I want the AI to render a "Ticker Card" or "Category Pie Chart" directly inside the chat bubbles, so that I have a visual representation of what I'm asking for.
 - **Acceptance Criteria**:
-  - Supports Mermaid diagrams or custom React component rendering (e.g., Ticker Price chip).
+  - Supports Mermaid diagrams or custom UI component rendering (e.g., Ticker Price chip).
   - Charts must be interactive (e.g., hoverable).
 
 ---

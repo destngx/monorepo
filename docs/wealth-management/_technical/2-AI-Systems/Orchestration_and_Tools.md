@@ -52,7 +52,7 @@ The dev team must implement and maintain a registry of the following tool capabi
 
 - **Streaming Implementation**: NDJSON streaming for real-time responsiveness.
 - **Model Fallback**:
-  - `GPT-4o` (Primary) → `Claude-3.5-Sonnet` (Contextual Logic) → `Google Gemini` (Scale/Speed).
+  - The engine calls one OpenAI-compatible provider with a model per use case (`AI_MODEL`, `AI_MODEL_*`) and retries once with `AI_FALLBACK_MODEL` ([REQUIREMENTS.md §10.1](../../REQUIREMENTS.md#101-architecture-decided)).
 - **Tool Concurrency**: Parallelize tool execution whenever multiple sources are required (e.g., Accounts + Market Data).
 
 ---

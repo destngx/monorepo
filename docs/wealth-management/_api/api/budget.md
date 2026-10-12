@@ -1,5 +1,7 @@
 # API Specification: Budget Allocation (GET /api/budget)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Budget API** provides a structured view of the user's monthly financial allocations and spending targets. It synchronizes data from the `Budget` sheet, applies categorical enrichment (Income vs. Expense tagging), and delivers a comprehensive model for the **Budget Dashboard** and **Category Spend Heatmaps**.

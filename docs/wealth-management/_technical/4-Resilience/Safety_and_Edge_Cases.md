@@ -37,11 +37,11 @@ To ensure the user's financial confidence is never broken by localized platform 
 
 When a primary service (e.g., VNStock, Binance, Google Sheets) fails, the dev team must follow this hierarchy:
 
-| Service Level    | Primary Source      | Secondary (Fallback)  | Tertiary (Last Resort)         |
-| :--------------- | :------------------ | :-------------------- | :----------------------------- |
-| **Ledger Data**  | Google Sheets Live  | Redis (Upstash) Cache | LocalStorage Cache             |
-| **Market Depth** | VNStock/Binance API | Last Cached Price     | Manual Price Entry             |
-| **AI Insights**  | GPT-4o (Primary)    | Claude (Secondary)    | Standard "Rules-based" Summary |
+| Service Level    | Primary Source                                                                                 | Secondary (Fallback)  | Tertiary (Last Resort)         |
+| :--------------- | :--------------------------------------------------------------------------------------------- | :-------------------- | :----------------------------- |
+| **Ledger Data**  | Google Sheets Live                                                                             | Redis (Upstash) Cache | LocalStorage Cache             |
+| **Market Depth** | Engine provider chain (see [Market provider capabilities](../Market_Provider_Capabilities.md)) | Last Cached Price     | Manual Price Entry             |
+| **AI Insights**  | Configured model (`AI_MODEL`, `AI_MODEL_*`)                                                    | `AI_FALLBACK_MODEL`   | Standard "Rules-based" Summary |
 
 ---
 
@@ -57,6 +57,6 @@ When a primary service (e.g., VNStock, Binance, Google Sheets) fails, the dev te
 
 ## 5. Engineering Success Metrics
 
-- **Uptime Target**: 99.9% availability of the Next.js service layer.
+- **Uptime Target**: 99.9% availability of the Go engine (`apps/wealth-management`), which serves both the API and the SvelteKit UI.
 - **Error Recovery**: 100% of catastrophic API failures must result in a user-friendly "Retry" or "Fallback" message.
 - **Data Integrity**: Zero "Duplicate Transaction" reports in any 30-day window (enforced via `Ref#` and `ID` validation).

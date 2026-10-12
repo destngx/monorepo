@@ -34,8 +34,8 @@ graph TD
 
 ## 🧩 Domain Naming Reference
 
-- Source of truth: [\_technical/1-Data-Engine/Architecture_and_Schema.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/1-Data-Engine/Architecture_and_Schema.md) section **2.0 Domain Modeling & Naming Convention (Go Engine)**.
-- Sprint-wide conventions: [tasks/README.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/tasks/README.md) section **5. Standing Conventions (Permanent)**.
+- Source of truth: [\_technical/1-Data-Engine/Architecture_and_Schema.md](../../_technical/1-Data-Engine/Architecture_and_Schema.md) section **2.0 Domain Modeling & Naming Convention (Go Engine)**.
+- Sprint-wide conventions: [tasks/README.md](../README.md) section **5. Standing Conventions (Permanent)**.
 
 ---
 

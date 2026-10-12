@@ -95,7 +95,7 @@
     "test-e2e": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "RUN_LIVE_API_TESTS=true go test ./... -run '^TestE2E' -v",
+        "command": "RUN_LIVE_API_TESTS=true go test ./e2e/ -run '^TestE2E' -count=1 -v -timeout 20m",
         "cwd": "apps/wealth-management"
       }
     },

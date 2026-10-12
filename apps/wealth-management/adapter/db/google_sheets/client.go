@@ -140,6 +140,18 @@ func (c *SheetsClient) WriteRowsAtFirstEmptyRow(sheetName string, anchorRange st
 	return targetRow, nil
 }
 
+// SpreadsheetTitle is the document title (not a tab name).
+func (c *SheetsClient) SpreadsheetTitle() (string, error) {
+	response, err := c.service.Spreadsheets.Get(c.spreadsheetID).Fields("properties.title").Do()
+	if err != nil {
+		return "", err
+	}
+	if response.Properties == nil {
+		return "", nil
+	}
+	return response.Properties.Title, nil
+}
+
 // SheetTitles lists the tab names of the spreadsheet.
 func (c *SheetsClient) SheetTitles() ([]string, error) {
 	response, err := c.service.Spreadsheets.Get(c.spreadsheetID).Fields("sheets.properties.title").Do()

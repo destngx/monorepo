@@ -1,5 +1,7 @@
 # API Specification: Fmarket Proxy Gateway (POST /api/fmarket)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Fmarket Proxy API** is a secure, high-performance gateway connecting the Wealth Management dashboard to the **Fmarket.vn** ecosystem—Vietnam's leading open-fund platform. It acts as an institutional-grade relay that bypasses browser-level CORS/CSRF restrictions, handles specialized authentication headers, and implements aggressive caching to provide a low-latency benchmarking experience for mutual funds and local banking rates.

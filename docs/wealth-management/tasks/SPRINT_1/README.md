@@ -33,22 +33,22 @@ graph TD
     WM-004["WM-004: Legacy Marking"] ---|"Independent"| Independent[Independent]
 ```
 
-**Note on WM-010/WM-011**: These tasks implement a **capability-based market provider architecture** (not action-based proxy). See [\_technical/Market_Provider_Capabilities.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/Market_Provider_Capabilities.md) for design rationale. This enables extensible multi-provider routing with injected configuration and unified caching.
+**Note on WM-010/WM-011**: These tasks implement a **capability-based market provider architecture** (not action-based proxy). See [\_technical/Market_Provider_Capabilities.md](../../_technical/Market_Provider_Capabilities.md) for design rationale. This enables extensible multi-provider routing with injected configuration and unified caching.
 
 ---
 
 ## 🟢 Sprint 1: Definition of Done (DoD)
 
-1.  **Architecture**: Successful scaffold of `apps/wealth-management-engine` and `apps/wealth-management-dashboard` in the Nx workspace.
+1.  **Architecture**: Successful scaffold of `apps/wealth-management` and `apps/wealth-management/ui` in the Nx workspace.
 2.  **Connectivity**: The Go backend can successfully ping the legacy `vnstock-server` (Python) and local SWR cache (Redis).
 3.  **Authentication**: OAuth2 Google Sheets client successfully implemented in a shared Go library.
 4.  **AI Validation**: The Go backend successfully completes the **AI Readiness Suite** (Streaming, JSON, Tools, Skills, and Multi-Role Prompts) via GitHub Copilot GPT-4.1.
 5.  **External Connectivity**: All 3 external services (Google Sheets, Upstash Redis, GitHub Copilot) confirmed reachable from the Go core.
 6.  **Interactive CLI**: Support for `auth google sheets` and `auth copilot github` via Go engine CLI. (WM-013, WM-014)
-7.  **Legacy**: Current `apps/wealth-management`, `apps/portfolio-landpage`, and `apps/cloudinary-photos-app` (Next.js) are marked as `[LEGACY]`. Root `package.json` cleaned of legacy dependencies.
+7.  **Legacy**: The wealth-management Next.js app (later `apps/wealth-management-legacy`, now removed), `apps/portfolio-landpage`, and `apps/cloudinary-photos-app` (Next.js) are marked as `[LEGACY]`. Root `package.json` cleaned of legacy dependencies.
 8.  **Quality**: Sub-200ms latency on the first Go "Hello World" API endpoint.
 9.  **MCP Readiness**: The **Wealth Management Engine** is successfully detectable as an **MCP Server** via `stdio` or `eventsource`.
-10. **Architecture**: **Hexagonal** (Go Engine) and **FSD/DDD** (Svelte Dashboard) patterns confirmed in first commit; all commands via **Bun/Bunx**.
+10. **Architecture**: **Hexagonal** (Go Engine) and **FSD/DDD** (Svelte Dashboard) patterns confirmed in first commit; all commands via **pnpm/pnpx**.
 
 ---
 
@@ -63,8 +63,8 @@ graph TD
 
 ## 🧩 Domain Naming Reference
 
-- Source of truth: [\_technical/1-Data-Engine/Architecture_and_Schema.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/1-Data-Engine/Architecture_and_Schema.md) section **2.0 Domain Modeling & Naming Convention (Go Engine)**.
-- Sprint-wide conventions: [tasks/README.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/tasks/README.md) section **5. Standing Conventions (Permanent)**.
+- Source of truth: [\_technical/1-Data-Engine/Architecture_and_Schema.md](../../_technical/1-Data-Engine/Architecture_and_Schema.md) section **2.0 Domain Modeling & Naming Convention (Go Engine)**.
+- Sprint-wide conventions: [tasks/README.md](../README.md) section **5. Standing Conventions (Permanent)**.
 
 ---
 

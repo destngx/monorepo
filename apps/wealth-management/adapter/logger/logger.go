@@ -3,8 +3,10 @@ package logger
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/fatih/color"
@@ -29,16 +31,19 @@ const (
 )
 
 // NewLogger creates a new logger configured from environment variables.
-// Uses Zap as backend, writes to stderr, and colorizes JSON output if enabled.
+// Uses Zap as backend and writes JSON lines to stderr.
 // LOG_LEVEL: debug, info, warn, error (default: info)
 // LOG_COLOR: true/false (default: true)
 func NewLogger(logLevel string, colorEnabled bool) *Logger {
+	// Stderr, because stdout carries the MCP stdio JSON-RPC stream.
+	return newLogger(os.Stderr, logLevel, colorEnabled)
+}
+
+func newLogger(output io.Writer, logLevel string, colorEnabled bool) *Logger {
 	var level slog.Level
 	switch strings.ToLower(logLevel) {
 	case "debug":
 		level = slog.LevelDebug
-	case "info":
-		level = slog.LevelInfo
 	case "warn":
 		level = slog.LevelWarn
 	case "error":
@@ -47,102 +52,136 @@ func NewLogger(logLevel string, colorEnabled bool) *Logger {
 		level = slog.LevelInfo
 	}
 
-	// Create Zap logger as backend
 	cfg := zapcore.EncoderConfig{
 		TimeKey:        "timestamp",
 		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "",
-		FunctionKey:    "",
 		MessageKey:     "message",
 		StacktraceKey:  "stacktrace",
 		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    zapcore.LowercaseLevelEncoder,
 		EncodeTime:     zapcore.RFC3339NanoTimeEncoder,
 		EncodeDuration: zapcore.StringDurationEncoder,
-		EncodeCaller:   nil,
 	}
+	core := zapcore.NewCore(zapcore.NewJSONEncoder(cfg), zapcore.AddSync(output), zapLevelFromSlog(level))
 
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(cfg),
-		// Stderr, because stdout carries the MCP stdio JSON-RPC stream.
-		zapcore.AddSync(os.Stderr),
-		zapLevelFromSlog(level),
-	)
-
-	zapLogger := zap.New(core)
-	defer zapLogger.Sync()
-
-	// Create a custom handler that wraps the Zap logger
-	handler := &zapHandler{
-		logger: zapLogger,
-		level:  level,
-		color:  colorEnabled,
-	}
-
-	slogLogger := slog.New(handler)
+	handler := &zapHandler{core: core, level: level}
 	return &Logger{
-		Logger:       slogLogger,
+		Logger:       slog.New(handler),
 		colorEnabled: colorEnabled,
 	}
 }
 
-// zapHandler implements slog.Handler using Zap backend.
-type zapHandler struct {
-	logger *zap.Logger
-	level  slog.Level
-	color  bool
+type requestIDKey struct{}
+
+// WithRequestID tags ctx so every log line written with it carries
+// request_id (WM-OPS-5).
+func WithRequestID(ctx context.Context, requestID string) context.Context {
+	return context.WithValue(ctx, requestIDKey{}, requestID)
 }
 
-func (h *zapHandler) Enabled(ctx context.Context, level slog.Level) bool {
+// RequestID returns the request id stored by WithRequestID, or "".
+func RequestID(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	requestID, _ := ctx.Value(requestIDKey{}).(string)
+	return requestID
+}
+
+// zapHandler implements slog.Handler on a zap core. The encoder owns the
+// message, timestamp and level keys; every other key is written once, the
+// last value winning, so log lines stay valid for JSON parsers.
+type zapHandler struct {
+	core  zapcore.Core
+	level slog.Level
+	// attrs come from Logger.With, already qualified by their group.
+	attrs []slog.Attr
+	group string
+}
+
+func (h *zapHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level
 }
 
 func (h *zapHandler) Handle(ctx context.Context, record slog.Record) error {
-	fields := []zap.Field{
-		zap.String("message", record.Message),
-		zap.Time("timestamp", record.Time),
-		zap.String("level", record.Level.String()),
+	var keys []string
+	values := map[string]any{}
+	add := func(key string, value any) {
+		if _, seen := values[key]; !seen {
+			keys = append(keys, key)
+		}
+		values[key] = value
 	}
-
-	// Add all attributes from the record
+	if requestID := RequestID(ctx); requestID != "" {
+		add("request_id", requestID)
+	}
+	for _, attr := range h.attrs {
+		addAttr(add, "", attr)
+	}
 	record.Attrs(func(attr slog.Attr) bool {
-		fields = append(fields, zap.Any(attr.Key, attr.Value.Any()))
+		addAttr(add, h.group, attr)
 		return true
 	})
 
-	// Log using appropriate Zap level
-	switch record.Level {
-	case slog.LevelDebug:
-		h.logger.Debug(record.Message, fields...)
-	case slog.LevelInfo:
-		h.logger.Info(record.Message, fields...)
-	case slog.LevelWarn:
-		h.logger.Warn(record.Message, fields...)
-	case slog.LevelError:
-		h.logger.Error(record.Message, fields...)
-	default:
-		h.logger.Info(record.Message, fields...)
+	fields := make([]zapcore.Field, 0, len(keys))
+	for _, key := range keys {
+		switch key {
+		case "message", "timestamp", "level":
+			// Reserved for the encoder.
+			continue
+		}
+		fields = append(fields, zap.Any(key, values[key]))
 	}
-
+	entry := zapcore.Entry{Level: zapLevelFromSlog(record.Level), Time: record.Time, Message: record.Message}
+	if checked := h.core.Check(entry, nil); checked != nil {
+		checked.Write(fields...)
+	}
 	return nil
 }
 
-func (h *zapHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	// Create a new handler with additional fields context
-	return &zapHandler{
-		logger: h.logger,
-		level:  h.level,
-		color:  h.color,
+// addAttr flattens groups into dotted keys ("call.rows").
+func addAttr(add func(string, any), prefix string, attr slog.Attr) {
+	attr.Value = attr.Value.Resolve()
+	if attr.Equal(slog.Attr{}) {
+		return
 	}
+	key := attr.Key
+	if prefix != "" && key != "" {
+		key = prefix + "." + key
+	} else if key == "" {
+		key = prefix
+	}
+	if attr.Value.Kind() == slog.KindGroup {
+		for _, member := range attr.Value.Group() {
+			addAttr(add, key, member)
+		}
+		return
+	}
+	add(key, attr.Value.Any())
+}
+
+func (h *zapHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	next := *h
+	next.attrs = slices.Clone(h.attrs)
+	for _, attr := range attrs {
+		if h.group != "" {
+			attr = slog.Attr{Key: h.group, Value: slog.GroupValue(attr)}
+		}
+		next.attrs = append(next.attrs, attr)
+	}
+	return &next
 }
 
 func (h *zapHandler) WithGroup(name string) slog.Handler {
-	return &zapHandler{
-		logger: h.logger,
-		level:  h.level,
-		color:  h.color,
+	if name == "" {
+		return h
 	}
+	next := *h
+	if h.group != "" {
+		name = h.group + "." + name
+	}
+	next.group = name
+	return &next
 }
 
 // LogApplicationEvent logs a structured application event.

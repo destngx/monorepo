@@ -1,5 +1,7 @@
 # API Specification: AI Intelligence Briefing (POST /api/ai/intelligence-briefing)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Intelligence Briefing API** generates a personalized, narrative-driven financial summary (similar to an institutional investment briefing) for the user. It synthesizes real-time accounts, recent transactions, and active budget targets to deliver a "Daily Financial Status" report, surfacing critical alerts, savings rate velocity, and net worth milestones.

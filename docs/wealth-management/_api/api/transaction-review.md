@@ -1,5 +1,7 @@
 # API Specification: AI Transaction Review (POST /api/ai/transaction-review)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Transaction Review API** is a specialized auditing engine that analyzes recent spending patterns. It identifies anomalous transactions, categorizes unexpected expenses, and provides "Insight Cards" regarding the user's spending habits. It serves as a granular financial monitor, transforming a raw list of ledger entries into actionable behavioral intelligence.

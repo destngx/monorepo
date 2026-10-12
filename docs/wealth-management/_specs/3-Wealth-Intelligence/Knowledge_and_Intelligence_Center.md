@@ -20,7 +20,7 @@ To transform raw numerical data into human-readable strategic insights via an AI
 ### 2.1 Narrative Generation
 
 - **Feature**: 3 Actionable Bullet Points (Gains/Losses, Rebalancing Needs, Budget Alerts).
-- **Logic**: Uses GPT-4o to analyze accounts, budgets, and ticker drift.
+- **Logic**: Uses the configured insight model (`AI_MODEL_INSIGHT`) to analyze accounts, budgets, and ticker drift.
 - **AC**: Brief MUST be updated at first user login of the day.
 
 ---
@@ -54,7 +54,7 @@ To transform raw numerical data into human-readable strategic insights via an AI
 
 - **Context Injection**: Financial metadata (Account Names, Currencies) must be injected into the LLM system prompt securely.
 - **PII Filtering**: No private bank IDs or real account numbers in the prompt; use masked titles.
-- **NDJSON**: Stream responses via Next.js 13+ streaming patterns for better UX.
+- **Streaming**: The Go engine streams long AI responses (e.g. the think tank as NDJSON, WM-AI-9) and the SvelteKit UI renders them incrementally.
 
 ---
 

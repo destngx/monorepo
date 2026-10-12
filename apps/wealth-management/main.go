@@ -23,6 +23,7 @@ import (
 	cacheService "apps/wealth-management/service/cache"
 	marketProviderService "apps/wealth-management/service/market_provider"
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -143,6 +144,14 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 		health.Register(port.HealthCheck{Name: "sheets"})
 		return nil, nil
 	}
+	if configAdapter.LoadTestMode() {
+		// WM-TEST-2: a test-mode engine must never touch the real sheet.
+		if err := checkTestSheet(sheetsConfig.SpreadsheetID, client.SpreadsheetTitle); err != nil {
+			log.LogError(ctx, "WM_TEST_MODE refuses this spreadsheet", err)
+			os.Exit(1)
+		}
+		log.LogApplicationEvent(ctx, "test mode: using a disposable spreadsheet copy")
+	}
 	dbSvc := service.NewDatabaseService(client, cacheSvc, log, service.DatabaseServiceOptions{BudgetSheetTemplate: configAdapter.BudgetSheetTemplate()})
 	analyticsSvc := service.NewAnalyticsService(dbSvc, cards, nil)
 	health.Register(port.HealthCheck{Name: "sheets", Probe: func(context.Context) error { return dbSvc.Ping() }})
@@ -151,6 +160,16 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 	fiberAdapter.RegisterSheetRoutes(api, fiberAdapter.NewDatabaseHandler(dbSvc, log), guard)
 	fiberAdapter.RegisterAnalyticsRoutes(api, fiberAdapter.NewAnalyticsHandler(analyticsSvc, log))
 	return dbSvc, analyticsSvc
+}
+
+// checkTestSheet allows only a disposable copy; the harness separately
+// checks the copy id against the production id.
+func checkTestSheet(spreadsheetID string, title func() (string, error)) error {
+	name, err := title()
+	if err != nil {
+		return fmt.Errorf("read spreadsheet title: %w", err)
+	}
+	return domain.CheckTestSheet(spreadsheetID, name, "")
 }
 
 // setupAI wires the AI use cases (§10). They read prompts and data from the

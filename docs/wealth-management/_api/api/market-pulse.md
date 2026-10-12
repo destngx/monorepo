@@ -1,5 +1,7 @@
 # API Specification: Market Pulse Terminal (GET /api/market-pulse)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Market Pulse API** is the primary telemetry engine for the Wealth Management dashboard. It provides high-frequency market data, technical indicator synthesis, and AI-driven macro narratives for the Vietnamese (VN) and US markets. The API acts as an orchestrator, combining data from multiple historical sources, real-time gold/FX feeds, and Large Language Models (LLM) to deliver a "unified market state" to the frontend.

@@ -1,5 +1,7 @@
 # API Specification: Financial Transactions (GET/POST /api/transactions)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Transactions API** is the primary engine for ledger-based wealth reporting and historical data logging. It serves a dual purpose: (1) high-speed, enriched retrieval of historical transaction records across all synced accounts, and (2) secure, validated entry of new wealth movements (Income, Expenses, Transfers) into the Google Sheets persistence layer.

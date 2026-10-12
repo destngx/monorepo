@@ -1,67 +1,34 @@
-# Wealth Management Platform: Product & Engineering Documentation
+# Wealth Management Documentation
 
-Welcome to the centralized documentation for the **Wealth Management Platform**. This workspace serves as the single source of truth for Business Analysts (BA), Product Owners (PO), and the Engineering team.
+Documentation for the wealth-management app: a Go engine (`apps/wealth-management`) that serves the JSON API, an MCP server and the SvelteKit UI (`apps/wealth-management/ui`, mounted at `/ui`). Google Sheets is the database. It is a single Nx project (`wealth-management`).
 
----
-
-## 1. Documentation Map (The Pillars)
-
-Our documentation is organized into four strategic pillars to ensure clarity from vision to implementation.
-
-### 🏛️ [Product Vision & Requirements](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/)
-
-_High-level "What" and "Why" from the user's perspective._
-
-- **[Core Ledger](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/transactions.md)**: Manual-first entry with high-fidelity audit trails.
-- **[Wealth Intelligence](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/intelligence.md)**: AI-driven "CFO" insights and briefings.
-- **[Portfolio Management](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/user-stories/accounts.md)**: Unified tracking of Bank, Crypto, and Securities.
-
-### 📜 [Functional Specifications](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_specs/README.md)
-
-_Detailed "How" for Feature Teams and UX/UI._
-
-- **[Command Center](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_specs/1-Core-Command-Center/Portfolio_Home_and_Global_Patterns.md)**: Stealth Mode, Net Worth Pulse, and Executive Summaries.
-- **[Investment Terminal](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_specs/4-Market-Alpha/Investment_and_Market_Terminal.md)**: Market Pulse (VNStock/Binance) and Ticker Alpha.
-
-### 🛠️ [Technical Architecture](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/README.md)
-
-_Engineering blueprints for System Integrity._
-
-- **[Data Engine](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/1-Data-Engine/Architecture_and_Schema.md)**: Yearly Tab Sharding, Caching Hierarchies, and Schema Design.
-- **[AI Orchestration](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/2-AI-Systems/Orchestration_and_Tools.md)**: LLM Tool Selection, System Prompts, and Synthesis Logic.
-
-### 🚀 [Operations & Quality](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_setup/README.md)
-
-_Setup, Connectivity, and Resilience._
-
-- **[Setup & Deployment](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_setup/1-Environment-Requirements/Infrastructure_and_Prerequisites.md)**: Infrastructure specs and interactive bootstrapping.
-- **[Testing Strategy](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_testing/TEST_STRATEGY.md)**: TDD/BDD standards and mandatory Edge Case Matrix.
+Start with [REQUIREMENTS.md](./REQUIREMENTS.md). It is the source of truth for scope, data contract, business rules and implementation status. Where any other document here disagrees with it, REQUIREMENTS.md wins.
 
 ---
 
-## 2. Core Architectural Decisions (ADR)
+## 1. Index
 
-### Why Google Sheets as a Database?
+| Read this                                      | For                                                                                                                              |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [REQUIREMENTS.md](./REQUIREMENTS.md)           | Source of truth: sheet data contract, features, rules, status, open decisions.                                                   |
+| [AGENTS.md](./AGENTS.md)                       | Code layout and conventions for the Go engine (hexagonal) and SvelteKit UI (feature-sliced).                                     |
+| [\_setup/](./_setup/README.md)                 | Setup: layout, environment variables and defaults, Nx targets, Google auth CLIs, live E2E tests.                                 |
+| [\_technical/](./_technical/README.md)         | Technical specs: data engine, AI orchestration, financial logic, resilience, code structure, market providers.                   |
+| [\_specs/](./_specs/README.md)                 | Functional specs per module: command center, ledger and budget, intelligence, market terminal.                                   |
+| [\_testing/](./_testing/TEST_STRATEGY.md)      | Test strategy (details in REQUIREMENTS.md §14).                                                                                  |
+| [user-stories/](./user-stories/)               | User stories per area (accounts, budget, transactions, investments, intelligence, and others).                                   |
+| [narratives/](./narratives/)                   | Design rationale essays (market providers, USD rate, portfolio valuation, risk, AI advisor).                                     |
+| [tasks/](./tasks/README.md)                    | Historical sprint plans. Status markers are stale; see REQUIREMENTS.md for current status.                                       |
+| [\_api/](./_api/) and [features/](./features/) | Legacy docs for the removed Next.js app. The live API reference is the engine's `/api/openapi.json` (Swagger UI at `/api/docs`). |
+| `_archive/`                                    | Historical material, kept as is.                                                                                                 |
 
-- **Universal Accessibility**: Financial data remains human-readable and editable without touching code.
-- **Zero-Cost Persistence**: Leverages Google Cloud's highly available infrastructure with zero egress/storage costs for retail-scale ledgers.
-- **Built-in Power**: Users can use standard Excel/Sheets formulas for custom reporting alongside the AI dashboard.
-
-### Why Multi-Layer Caching (Redis + SWR)?
-
-- **Performance**: We achieve **p95 < 300ms** latency for Net Worth aggregates by caching sharded sheet data in **Upstash Redis**.
-- **Resilience**: The app remains functional in "Stale Mode" even if the Google Sheets API is temporarily rate-limited or offline.
-
----
-
-## 3. Key Technical Standards
-
-- **Stealth by Default**: All sensitive balances are masked (`••••••`) on every initial load and page navigation to ensure privacy in public spaces.
-- **Yearly Sharding**: Transactions are automatically sharded into yearly tabs (e.g., `Transactions_2026`) to ensure O(1) read performance as the ledger grows.
-- **AI-Human Hybrid**: The "Audit First" entry model (Email Parser → Review → Ledger) ensures data integrity remains 100% accurate.
+Market data routing as implemented is described in [\_technical/Market_Provider_Capabilities.md §0](./_technical/Market_Provider_Capabilities.md#0-current-implementation-authoritative).
 
 ---
 
-**Last Refactor**: March 30, 2026  
-**Document Custodians**: Product Owner & System Architect  
-**Workspace**: Nx Monorepo (`apps/wealth-management`, `libs/wealth-management`)
+## 2. Key decisions
+
+- **Google Sheets as the database**: data stays human-readable and editable without code, at no storage cost. The sheet layout is fixed by the data contract in REQUIREMENTS.md §2 (single `Transactions` tab, per-year `Budget_{year}` tabs).
+- **Optional cache**: one Upstash Redis REST cache in front of the sheet and market providers. Without it, reads go straight to the sheet.
+- **Stealth by default**: sensitive balances are masked on load and on navigation.
+- **Manual-first entry**: transactions are entered by hand or via Smart Capture with review before write. Automatic email ingestion is deferred (REQUIREMENTS.md §6.1).

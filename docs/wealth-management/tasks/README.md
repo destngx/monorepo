@@ -1,5 +1,7 @@
 # Agile Migration Management (Go-Svelte)
 
+> **Historical sprint plan.** Sprint and task status markers in this folder are stale and are not maintained: some tasks marked DONE were later removed (for example Sprint 1 WM-006..008, engine AI, removed in `f4ec0ec`), later sprints are still marked TODO, and task IDs WM-009..015 are reused across sprints. Feature status lives in the status columns of [REQUIREMENTS.md](../REQUIREMENTS.md), which supersedes this folder. The engine and dashboard named here are now one Nx project, `wealth-management`, at `apps/wealth-management` (Go engine at the root, SvelteKit UI in `ui/`).
+
 **Project**: Wealth Management Platform (High-Efficiency Transition)  
 **Role**: PM & Dev Lead Orchestration  
 **Objective**: To migrate the legacy Next.js architecture to a high-performance **Golang Backend** and **Svelte Frontend** while preserving the current **Python Data Server**.
@@ -10,18 +12,18 @@
 
 The migration is prioritized into four functional increments:
 
-1.  **[Sprint 1: System Foundation](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/tasks/SPRINT_1/README.md)**
+1.  **[Sprint 1: System Foundation](./SPRINT_1/README.md)**
     - _Focus_: Scaffold **Engine** and **Dashboard**, OAuth Google Sheets client, Redis Connectivity.
     - _Legacy_: Mark Next.js as [LEGACY].
 
-2.  **[Sprint 2: Core Data Engine](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/tasks/SPRINT_2/README.md)**
+2.  **[Sprint 2: Core Data Engine](./SPRINT_2/README.md)**
     - _Focus_: Sharded Transactions, Budget logic, Account aggregates in Go.
     - _Frontend_: Initial Svelte Ledger & Commands.
 
-3.  **[Sprint 3: Wealth Intelligence](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/tasks/SPRINT_3/README.md)**
+3.  **[Sprint 3: Wealth Intelligence](./SPRINT_3/README.md)**
     - _Focus_: Port GPT-4.1 Orchestrator to Go, Chat streaming (NDJSON), Daily Briefings.
 
-4.  **[Sprint 4: Market Alpha & Final Migration](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/tasks/SPRINT_4/README.md)**
+4.  **[Sprint 4: Market Alpha & Final Migration](./SPRINT_4/README.md)**
     - _Focus_: VNStock/Binance client, Investment Terminal (**Dashboard**), Final Redirect.
 
 ---
@@ -42,7 +44,7 @@ The migration is prioritized into four functional increments:
 
 ## 3. High-Level Requirements & Constraints
 
-- **Legacy Persistence**: `apps/wealth-management` (Next.js) is maintained only for reference until Sprint 4 is complete.
+- **Legacy Persistence**: the Next.js app (later `apps/wealth-management-legacy`, now removed) is maintained only for reference until Sprint 4 is complete.
 - **Service Preservation**: `apps/vnstock-server` (Python) remains as-is; it is an external data provider for the new **Engine** core.
 - **NFR Policy**: All new **Engine** and **Dashboard** features must meet the documented **Non-Functional Requirements** (p95 < 300ms, Stealth-by-Default).
 
@@ -52,14 +54,14 @@ The migration is prioritized into four functional increments:
 
 **Requirement**: Every developer and automated agent MUST follow these standards for the new architecture:
 
-- **Package Management**: Use `bun` and `bunx` exclusively for all commands (`bun install`, `bun nx ...`). NEVER use `npm`, `yarn`, or `pnpm`.
+- **Package Management**: Use `pnpm` exclusively for all commands (`pnpm install`, `pnpm run`, `pnpx nx ...`). NEVER use `npm`, `yarn`, or `bun`.
 - **API Standard**: All new endpoints must have mandatory **MCP (Model Context Protocol)** support. The **Engine** must act as an MCP Server, exposing its core logic (Ledger, Market, Intelligence) as **MCP Tools** for LLM-based orchestration.
 - **Software Principles**: Strictly follow **SOLID** and **DRY**.
 - **Engine Architecture (Go)**: Use **Hexagonal Architecture** (Ports & Adapters). Business logic (Domain) must be isolated from external drivers (Sheets, Redis, AI) via clean ports.
-- **Domain Naming Convention (Go)**: In `apps/wealth-management-engine/domain`, use singular snake_case file names mapped to business concepts (e.g., `accounts.go`, `health.go`) and concise PascalCase type names without redundant suffixes (e.g., `Accounts`, not `AccountsSheet`).
+- **Domain Naming Convention (Go)**: In `apps/wealth-management/domain`, use singular snake_case file names mapped to business concepts (e.g., `accounts.go`, `health.go`) and concise PascalCase type names without redundant suffixes (e.g., `Accounts`, not `AccountsSheet`).
 - Keep sheet-related domain models in dedicated files (e.g., `domain/accounts.go` for the Accounts tab and `domain/sheets.go` for configuration) so the "account sheet" concept stays tied to the business domain rather than storage details.
 - **Dashboard Architecture (Svelte)**: Use **Domain-Driven Design (DDD)** with **Feature-Sliced Design (FSD)** influence. Organize code into `features/`, `entities/`, and `shared/` layers.
-- **NX Workspace Strategy**: Leverage **Nx Monorepo** structures. Use tags (`type:app`, `type:lib`, `scope:wm`) and ensure all shared Go/Svelte logic is extracted into unified core libraries (**`libs/wm-core`** for Go, **`libs/wm-core-ui`** for Svelte) before app consumption.
+- **NX Workspace Strategy**: Leverage **Nx Monorepo** structures. The app is a single Nx project, `wealth-management`, at `apps/wealth-management` (Go engine at the root, SvelteKit UI in `ui/`); there are no `libs/wm-core*` libraries.
 
 ---
 
@@ -74,11 +76,11 @@ This section is the single source of truth for implementation conventions across
   - implement to satisfy behavior scenarios,
   - keep acceptance criteria testable.
 - Prefer real provider behavior tests for AI-provider adapters when feasible; avoid mock-only validation for provider-critical logic.
-- `mcp` server is **always enabled** when starting `wealth-management-engine`.
+- `mcp` server is **always enabled** when starting the engine (`wealth-management`).
 
 ### 5.2 Environment and Runtime Rules
 
-- Use project-local temporary storage under repo `tmp/` (not root `/tmp`) for Go build/test caches and related task scripts.
+- Use project-local temporary storage under repo `tmp/` (not root `/tmp`) for temporary files and task scripts. Toolchain caches (`GOCACHE`, `GOMODCACHE`, pnpm store) stay global.
 - Use `.env.local` for runtime config loading only; **never** read or expose secret values in docs, code comments, logs, or task writeups.
 
 ### 5.3 Naming and Structure (Ports/Adapters/Domain)
@@ -98,10 +100,10 @@ This section is the single source of truth for implementation conventions across
 ### 5.4 Project Tooling
 
 - Keep `go.work` and `go.work.sum` at monorepo root for cross-project workspace consistency.
-- `project.json` for `wealth-management-engine` must include:
-  - `test` target runnable via `bunx nx run wealth-management-engine:test`,
-  - formatting command support.
-- `package.json` exposes `test:go`, `test:e2e`, and `format:go` scripts that wrap the corresponding Nx targets through `bunx`, keeping Go tooling accessible through the preferred `bun` workflow.
+- `project.json` for `wealth-management` must include:
+  - `test` target runnable via `pnpx nx run wealth-management:test`,
+  - formatting command support (`format` target).
+- Go tooling is reached through Nx targets (`pnpx nx run wealth-management:<target>`); see the [setup README](../_setup/README.md#4-nx-targets).
 - Husky/lint-staged should include Go formatting for staged `.go` files.
 
 ### 5.5 Market Provider Pattern (Capability-Based Architecture)
@@ -115,7 +117,7 @@ This section is the single source of truth for implementation conventions across
 - **Unified caching**: Cache keys are capability-level (e.g., `market:getTicker:equity:ACB`), not per-provider.
 - **Provider unsupported types**: If a provider doesn't support a capability+type, it returns `ErrUnsupported`; service tries fallback.
 - **Dependency injection**: All providers and routing config injected at startup in `main.go`, enabling easy testing and multi-environment config.
-- See [\_technical/Market_Provider_Capabilities.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/Market_Provider_Capabilities.md) for detailed architecture.
+- See [\_technical/Market_Provider_Capabilities.md](../_technical/Market_Provider_Capabilities.md) for detailed architecture.
 
 ### 5.6 Scope Decisions Already Agreed
 
@@ -146,7 +148,7 @@ This section is the single source of truth for implementation conventions across
 ### 5.9 Code Size and Cognition Strategy
 
 - Apply the official modularization standard in:
-  - [\_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md](file:///Users/ez2/projects/personal/monorepo/docs/wealth-management/_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md)
+  - [\_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md](../_technical/5-Code-Structure/Modularization_and_Testability_Strategy.md)
 - Enforce file/function budgets for all new and refactored backend code:
   - file target <= 200 lines (hard cap: 300),
   - function target <= 40 lines (hard cap: 60).

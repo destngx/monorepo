@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"net/url"
 	"os"
@@ -20,7 +21,35 @@ var envCandidates = []string{
 	".env.local",
 }
 
+// tokenSetup is what one run mints: the production token reads and writes
+// sheets only; --test adds Drive so the live harness can copy and delete the
+// sheet (WM-TEST-3).
+type tokenSetup struct {
+	envKey string
+	scopes []string
+	state  string
+}
+
+func setupFor(test bool) tokenSetup {
+	if test {
+		return tokenSetup{
+			envKey: "GOOGLE_TEST_REFRESH_TOKEN",
+			scopes: []string{"https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"},
+			state:  "wm-google-sheets-test",
+		}
+	}
+	return tokenSetup{
+		envKey: "GOOGLE_REFRESH_TOKEN",
+		scopes: []string{"https://www.googleapis.com/auth/spreadsheets"},
+		state:  "wm-google-sheets",
+	}
+}
+
 func main() {
+	test := flag.Bool("test", false, "mint GOOGLE_TEST_REFRESH_TOKEN with Drive scope for the live test harness")
+	flag.Parse()
+	setup := setupFor(*test)
+
 	for _, path := range envCandidates {
 		_ = godotenv.Overload(path)
 	}
@@ -55,12 +84,16 @@ func main() {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURL,
-		Scopes:       []string{"https://www.googleapis.com/auth/spreadsheets"},
+		Scopes:       setup.scopes,
 		Endpoint:     google.Endpoint,
 	}
 
-	authURL := oauthConfig.AuthCodeURL("wm-google-sheets", oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-	fmt.Println("Open this URL and authorize Google Sheets access:")
+	authURL := oauthConfig.AuthCodeURL(setup.state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
+	if *test {
+		fmt.Println("Open this URL and authorize Google Sheets and Drive access for the live test harness:")
+	} else {
+		fmt.Println("Open this URL and authorize Google Sheets access:")
+	}
 	fmt.Println(authURL)
 	fmt.Println("")
 	fmt.Printf("Paste the full redirected URL (starts with %s):\n", redirectURL)
@@ -88,14 +121,14 @@ func main() {
 	}
 
 	envPath := selectEnvPath()
-	_ = upsertEnvValue(envPath, "GOOGLE_CLIENT_ID", clientID)
-	_ = upsertEnvValue(envPath, "GOOGLE_CLIENT_SECRET", clientSecret)
-	if err := upsertEnvValue(envPath, "GOOGLE_REFRESH_TOKEN", token.RefreshToken); err != nil {
-		fmt.Fprintf(os.Stderr, "failed writing .env.local: %v\n", err)
-		os.Exit(1)
+	for _, entry := range [][2]string{{"GOOGLE_CLIENT_ID", clientID}, {"GOOGLE_CLIENT_SECRET", clientSecret}, {setup.envKey, token.RefreshToken}} {
+		if err := upsertEnvValue(envPath, entry[0], entry[1]); err != nil {
+			fmt.Fprintf(os.Stderr, "failed writing %s to .env.local: %v\n", entry[0], err)
+			os.Exit(1)
+		}
 	}
 
-	fmt.Printf("Updated %s with GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REFRESH_TOKEN.\n", envPath)
+	fmt.Printf("Updated %s with GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and %s.\n", envPath, setup.envKey)
 }
 
 func extractCode(redirectedURL string) (string, error) {

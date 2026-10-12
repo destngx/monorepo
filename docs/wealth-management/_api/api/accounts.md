@@ -1,5 +1,7 @@
 # API Specification: Portfolio Accounts (GET /api/accounts)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Accounts API** is the foundational system of record for the Wealth Management application. It synchronizes and delivers a consolidated view of the user's across-asset financial nodes (Cash, Savings, Securities, IFC) by orchestrating data from the underlying **Google Sheets** persistence layer. The API ensures high-performance retrieval via Upstash caching and implements institutional-grade data mapping for financial consistency.

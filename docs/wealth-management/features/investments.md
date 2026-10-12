@@ -1,5 +1,7 @@
 # Investments Feature - One-Pager
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../REQUIREMENTS.md) is the source of truth for scope and status. Current investment requirements: [REQUIREMENTS.md §9](../REQUIREMENTS.md#9-investments-and-market-intelligence-investments).
+
 ## Overview
 
 The Investments feature provides a comprehensive AI-powered investment management platform with global macro analysis, real-time market intelligence, and automated portfolio optimization. Users can track crypto and fund holdings across multiple platforms, analyze market trends across multiple timeframes, monitor seasonal patterns, and receive AI-generated investment strategies through an interactive think tank system. The feature integrates Vietnamese financial markets (Fmarket) for comprehensive local market coverage.
@@ -53,7 +55,7 @@ The Investments feature provides a comprehensive AI-powered investment managemen
 **Fetches crypto and fund holdings data from Google Sheets**
 
 - **Response**: `{ crypto: { headers: string[], holdings: any[] }, funds: { headers: string[], holdings: any[] } }`
-- **Source**: Google Sheets integration via libs/wealth-management with intelligent header detection
+- **Source**: Google Sheets integration via `libs/wealth-management-legacy` (removed) with intelligent header detection
 - **Processing**: Smart column detection using keyword patterns, platform grouping, empty holding filtering
 - **Caching**: Dual-layer (Redis + in-memory), portfolio data TTL
 - **Features**: Flexible data structure support, robust parsing with fallback handling

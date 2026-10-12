@@ -17,10 +17,29 @@ var envFiles = []string{
 	".env.local",
 }
 
+// Load reads .env.local (repo root, then the app directory), overriding
+// the process environment. WM_ENV_FILE names one file to load instead, and
+// "none" loads nothing, so a harness can hand the engine its whole
+// environment (WM-TEST-1).
 func Load() {
-	for _, path := range envFiles {
+	paths := envFiles
+	switch override := strings.TrimSpace(os.Getenv("WM_ENV_FILE")); override {
+	case "":
+	case "none":
+		return
+	default:
+		paths = []string{override}
+	}
+	for _, path := range paths {
 		_ = godotenv.Overload(path)
 	}
+}
+
+// LoadTestMode reads WM_TEST_MODE: the engine then refuses to start unless
+// the spreadsheet is a disposable test copy (WM-TEST-2).
+func LoadTestMode() bool {
+	enabled, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("WM_TEST_MODE")))
+	return enabled
 }
 
 func LoadSheetsConfig() (domain.SheetsConfig, error) {

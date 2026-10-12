@@ -1,5 +1,7 @@
 # Tax Management Feature - One-Pager
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../REQUIREMENTS.md) is the source of truth for scope and status. Tax management is a planned-only area, out of scope for the consolidation (decision D8 in [REQUIREMENTS.md §16](../REQUIREMENTS.md#16-open-decisions)).
+
 ## Overview
 
 The Tax Management feature provides comprehensive tax tracking, calculation, and optimization capabilities for sophisticated investors. It automatically calculates capital gains tax, dividend tax, and maintains detailed cost basis records while providing proactive tax optimization insights and audit-ready reporting.

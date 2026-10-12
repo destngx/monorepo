@@ -9,7 +9,9 @@
 
 ## 1. Business Objective
 
-To provide a high-performance, cost-effective, and auditable financial database that remains human-readable (in Google Sheets) while supporting complex real-time queries in a Next.js frontend.
+To provide a high-performance, cost-effective, and auditable financial database that remains human-readable (in Google Sheets) while supporting complex real-time queries through the Go engine (`apps/wealth-management`) and its SvelteKit UI.
+
+> The authoritative sheet data contract (tabs, ranges, columns, read and write rules) is [REQUIREMENTS.md §2](../../REQUIREMENTS.md#2-data-contract-the-google-sheet). Where this document disagrees, REQUIREMENTS.md wins.
 
 ---
 
@@ -17,7 +19,7 @@ To provide a high-performance, cost-effective, and auditable financial database 
 
 ### 2.0 Domain Modeling & Naming Convention (Go Engine)
 
-- In `apps/wealth-management-engine/domain`, each business entity must live in its own domain file.
+- In `apps/wealth-management/domain`, each business entity must live in its own domain file.
 - Use singular snake_case file names mapped to business concepts (for example: `accounts.go`, `transaction.go`, `budget.go`).
 - Use concise PascalCase domain type names without redundant transport/storage suffixes (for example: `Accounts`, `Transaction`, not `AccountsSheet`).
 
@@ -44,6 +46,8 @@ _Defines the global state of user wealth entities._
 
 ## 3. High-Performance Sharding (Yearly)
 
+> **Legacy plan, not implemented.** The sheet has a single `Transactions` tab and a per-year budget tab (`Budget_{year}`, configurable via `BUDGET_SHEET_TEMPLATE`); decision D5 in [REQUIREMENTS.md §16](../../REQUIREMENTS.md#16-open-decisions) keeps it that way. The `Transactions_YYYY` names in §2.1 and §7 follow this unimplemented plan.
+
 **PO Requirement**: The system must NOT slow down over time as the user accumulates years of data (e.g., 5,000+ rows).
 
 - **Implementation Strategy**: **Tab-based Sharding**.
@@ -56,6 +60,8 @@ _Defines the global state of user wealth entities._
 ## 4. Multi-Layer Caching (SLA: < 300ms)
 
 **BA Goal**: Ensure the "Net Worth" pulse is visible within 300ms of page load.
+
+> **Legacy design.** The two-level cache describes the legacy app. The engine has one optional cache (Upstash Redis REST, keys prefixed by `CACHE_KEY_PREFIX`), reads fall back to the sheet when it is absent, and TTLs follow WM-RULE-10 in [REQUIREMENTS.md §12](../../REQUIREMENTS.md#12-canonical-business-rules).
 
 1.  **Level 1 (In-Memory)**: 30-second TTL for real-time totals.
 2.  **Level 2 (Upstash Redis)**: 5-minute TTL for ledger lists.
@@ -79,6 +85,8 @@ _Defines the global state of user wealth entities._
 ---
 
 ## 7. Hybrid Data Ingestion (Email Entry Staging)
+
+> **Legacy, deferred.** The consolidated app does not read `EmailNotifications`; automatic ingestion is docs-only and Smart Capture replaces it ([REQUIREMENTS.md §6.1 and §6.2](../../REQUIREMENTS.md#61-deferred-automatic-balance-change-ingestion-docs-only)).
 
 **Business Case**: Reduce manual friction for high-volume transactions (Bank alerts, E-wallets) while maintaining the "Auditor Control" human-in-the-loop requirement.
 

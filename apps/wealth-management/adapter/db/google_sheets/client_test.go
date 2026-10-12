@@ -196,3 +196,27 @@ func TestAnchorStartRow(t *testing.T) {
 		t.Fatal("expected error without a start row")
 	}
 }
+
+func TestGivenSpreadsheetWhenReadingTitleThenReturnsDocumentTitle(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"title-token","token_type":"Bearer","expires_in":3600}`))
+		case "/v4/spreadsheets/spreadsheet-123":
+			if r.URL.Query().Get("fields") != "properties.title" {
+				t.Fatalf("expected a title-only read, got %q", r.URL.RawQuery)
+			}
+			_, _ = w.Write([]byte(`{"properties":{"title":"wm-e2e-run-20261013T000000Z"}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(t, server.URL, domain.SheetsConfig{ClientID: "id", ClientSecret: "secret", RefreshToken: "refresh", SpreadsheetID: "spreadsheet-123"})
+	title, err := client.SpreadsheetTitle()
+	if err != nil || title != "wm-e2e-run-20261013T000000Z" {
+		t.Fatalf("title = %q, err = %v", title, err)
+	}
+}

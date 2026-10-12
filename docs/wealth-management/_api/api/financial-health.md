@@ -1,5 +1,7 @@
 # API Specification: AI Financial Health Analysis (POST /api/ai/financial-health)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Financial Health API** is a high-level cognitive engine that synthesizes a user's entire financial state—including Net Worth, Assets, Liabilities, Loans, and Historical Spending—into a professional, quantified "Financial Physical" report. It leverages LLMs to provide objective grading and strategic advice for wealth optimization, effectively acting as an automated Chief Financial Officer (CFO).

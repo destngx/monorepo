@@ -1,5 +1,7 @@
 # API Specification: Google Sheets Integration
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **Google Sheets Integration API** provides a comprehensive abstraction layer for interacting with Google Sheets as the primary data persistence store. This service layer handles authentication, data reading/writing, parsing, validation, and error handling for all financial data operations in the Wealth Management platform.
@@ -10,10 +12,10 @@ The **Google Sheets Integration API** provides a comprehensive abstraction layer
 
 ### 2.1 Core Components
 
-- **Authentication Service** (`libs/wealth-management/src/services/sheets/auth.ts`)
-- **Client Operations** (`libs/wealth-management/src/services/sheets/client.ts`)
-- **Data Mappers** (`libs/wealth-management/src/services/sheets/mappers.ts`)
-- **Entity Services** (`libs/wealth-management/src/services/`)
+- **Authentication Service** (`libs/wealth-management-legacy/src/services/sheets/auth.ts`)
+- **Client Operations** (`libs/wealth-management-legacy/src/services/sheets/client.ts`)
+- **Data Mappers** (`libs/wealth-management-legacy/src/services/sheets/mappers.ts`)
+- **Entity Services** (`libs/wealth-management-legacy/src/services/`)
 
 ### 2.2 Data Flow Architecture
 
@@ -39,7 +41,7 @@ graph TD
 
 **Purpose**: Establishes authenticated connection to Google Sheets API
 
-**Location**: `libs/wealth-management/src/services/sheets/auth.ts`
+**Location**: `libs/wealth-management-legacy/src/services/sheets/auth.ts`
 
 **Environment Variables Required**:
 
@@ -221,7 +223,7 @@ All mappers follow the pattern: `(row: string[], index?: number) => Entity | nul
 
 ### 6.1 Account Service
 
-**Location**: `libs/wealth-management/src/services/accounts.ts`
+**Location**: `libs/wealth-management-legacy/src/services/accounts.ts`
 
 **Key Methods**:
 
@@ -232,7 +234,7 @@ All mappers follow the pattern: `(row: string[], index?: number) => Entity | nul
 
 ### 6.2 Transaction Service
 
-**Location**: `libs/wealth-management/src/services/transactions.ts`
+**Location**: `libs/wealth-management-legacy/src/services/transactions.ts`
 
 **Key Methods**:
 
@@ -247,7 +249,7 @@ All mappers follow the pattern: `(row: string[], index?: number) => Entity | nul
 
 ### 6.3 Budget Service
 
-**Location**: `libs/wealth-management/src/services/budget.ts`
+**Location**: `libs/wealth-management-legacy/src/services/budget.ts`
 
 **Key Methods**:
 
@@ -256,7 +258,7 @@ All mappers follow the pattern: `(row: string[], index?: number) => Entity | nul
 
 ### 6.4 Goals Service
 
-**Location**: `libs/wealth-management/src/services/goals.ts`
+**Location**: `libs/wealth-management-legacy/src/services/goals.ts`
 
 **Key Methods**:
 

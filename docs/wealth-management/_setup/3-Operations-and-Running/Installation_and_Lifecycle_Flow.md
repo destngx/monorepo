@@ -1,73 +1,41 @@
-# Specification: Operations, Bootstrapping & Running Flow
+# Installation and Lifecycle Flow
 
-**Author**: Product Owner / Operations Analyst  
-**Intended Audience**: Dev / Setup Engineering  
-**Status**: Mandatory Procedure  
-**Keywords**: Installation Lifecycle, Bootstrapping, Verification, Modes
+First run of `apps/wealth-management`. Commands run from the repo root.
 
----
+## 1. Install
 
-## 1. Objective
+```sh
+pnpm install
+```
 
-To ensure a consistent "First-Run" experience across local, staging, and production environments, with zero manual data entry required besides the initial bootstrapping phase.
+## 2. Configure
 
----
+1. Create `.env.local` at the repo root with `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_SHEETS_ID` (see [setup README §3](../README.md#3-environment-variables)).
+2. Mint the refresh token. This prints a consent URL, asks for the redirected URL, and writes `GOOGLE_REFRESH_TOKEN` into `.env.local`:
 
-## 2. The Integrated Installation Lifecycle
+   ```sh
+   pnpm run auth:sheets
+   ```
 
-**BA Requirement**: The system must be brought online in three distinct phases.
+3. Verify the token and sheet access:
 
-### 2.1 Component Installation (Phase 1)
+   ```sh
+   pnpx nx run wealth-management:verify-auth
+   ```
 
-- **Objective**: Synchronize workspace-aware dependencies (Bun/Nx).
-- **Outcome**: All local libraries and external node/python modules are available.
+4. Optionally add cache, AI, search and market variables.
 
-### 2.2 Interactive Bootstrapping (Phase 2)
+## 3. Run
 
-The application requires two interactive "Onboarding" flows:
+| Mode      | Command                               | Result                                                                           |
+| --------- | ------------------------------------- | -------------------------------------------------------------------------------- |
+| Dev       | `pnpx nx run wealth-management:serve` | Engine with live reload on `:8080` plus the Vite dev server with `/api` proxied. |
+| Prod-like | `pnpx nx run wealth-management:start` | Builds the UI, then runs the engine, which serves the UI at `/ui` (one origin).  |
 
-1.  **AI Provisioning**: Interactive CLI for selecting and authenticating the AI provider (OpenAI, Gemini, etc.).
-2.  **OAuth Grant**: Interactive CLI for the Google Cloud OAuth2 "Handshake," resulting in the long-lived **Refresh Token**.
+Then check `GET /api/health` (per-dependency status) and open `/api/docs` for the API reference.
 
-### 2.3 Health Verification (Phase 3)
+## 4. Operations
 
-- **Objective**: Automated integrity check of the connection string.
-- **Outcome**: Confirmed read/write access to the `Transactions_YYYY` sheet and the `Accounts` reference tab.
-
----
-
-## 3. Operational Runtime Modes
-
-The behavior of the Wealth Manager changes based on the execution mode:
-
-| Mode            | Objective         | Behavior                                                                   |
-| :-------------- | :---------------- | :------------------------------------------------------------------------- |
-| **Development** | Feature Iteration | Detailed AI traces; Localhost-only; Low Redis TTL (30s).                   |
-| **Staging**     | QA & Integration  | Production-mirror accounts; Simulated transactions.                        |
-| **Production**  | Actual Wealth     | High Redis TTL (5min); Minimal Trace (Security); Production-grade secrets. |
-
----
-
-## 4. Connectivity Protocols (Procedures)
-
-- **Manual Sheet Sync**: Use the "Force Refresh" button in the Dashboard for immediate reconcile (SWR invalidation).
-- **Token Expiration Recovery**: If the system displays `invalid_grant`, the DevOps/User must re-run the Phase 2 OAuth Grant.
-
----
-
-## 5. Deployment Overview (BA/PO Scope)
-
-The Wealth Manager is an orchestrated monorepo:
-
-- **Frontend/API Service Layer**: Next.js 16+ (Standalone Docker or Serverless).
-- **Python Crawler Service**: Active `vnstock-server` for Asian market depth.
-- **Cache Persistence Layer**: Redis-over-REST (Upstash).
-- **Cold Storage**: Google Sheets persistence.
-
----
-
-## 6. Success Metrics for Engineering
-
-- **Onboarding Speed**: A first-time developer can bring the app alive in < 15 minutes.
-- **Reliability**: 0% "Silent Connection Failures" (All must have UI feedback).
-- **Portability**: The configuration must be environment-agnostic; no hardcoded URLs in the codebase.
+- **Refresh data**: sheet reads are cached; `POST /api/sync` invalidates every sheet-derived key (WM-OPS-3).
+- **Token expired** (`invalid_grant`): rerun `pnpm run auth:sheets`, then `verify-auth`.
+- **Tests**: `pnpx nx run wealth-management:test` and `pnpx nx run wealth-management:test-ui`. Live tests: [setup README §6](../README.md#6-live-e2e-tests-disposable-sheet-copy).

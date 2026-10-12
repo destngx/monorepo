@@ -67,8 +67,8 @@ For oversized files:
 1. Add/lock behavior with tests first (TDD/BDD).
 2. Extract one coherent slice at a time.
 3. Keep old behavior unchanged while moving code.
-4. Run `bunx nx run wealth-management-engine:test`.
-5. Run `bunx nx run wealth-management-engine:test-e2e` for API-impacting changes.
+4. Run `pnpx nx run wealth-management:test`.
+5. Run `pnpx nx run wealth-management:test-e2e` for API-impacting changes.
 
 ---
 

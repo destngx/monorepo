@@ -1,5 +1,7 @@
 # API Specification: News Analyze Terminal (POST /api/news/analyze)
 
+> **Legacy document.** This describes the removed legacy Next.js app, not the current `apps/wealth-management` engine. The API reference is the generated OpenAPI spec served by the engine at `/api/openapi.json` (Swagger UI at `/api/docs`). [REQUIREMENTS.md](../../REQUIREMENTS.md) is the source of truth for scope and status.
+
 ## 1. Executive Summary
 
 The **News Analyze API** is an AI-powered sentiment intelligence engine that parses global financial news to determine the prevailing market bias. By applying Large Language Models (LLM) to real-time search results, the API provides a quantified view of "market noise," filtering out irrelevant data and surface-level headlines to reveal the underlying thematic sentiment driving price action.

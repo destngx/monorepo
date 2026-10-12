@@ -52,7 +52,7 @@ To provide a robust, searchable, and categorizable history of every VND/USD move
 ## 5. Technical Requirements for Engineering
 
 - **Data Integrity**: Implement ACID-like checks for every write to prevent row corruption.
-- **Search Latency**: Filtered search results (by Vendor, Date, Account) must resolve in < 500ms using local SWR cache.
+- **Search Latency**: Filtered search results (by Vendor, Date, Account) must resolve in < 500ms using the engine cache.
 - **Pagination**: Infinite scroll implementation for Transaction lists.
 
 ---

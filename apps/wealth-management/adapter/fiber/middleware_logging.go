@@ -2,7 +2,6 @@ package fiber
 
 import (
 	logger "apps/wealth-management/adapter/logger"
-	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -21,68 +20,43 @@ func RequestIDMiddleware(log *logger.Logger) fiberLib.Handler {
 		}
 		c.Set("X-Request-ID", requestID)
 
-		// Store request ID in context for downstream handlers
-		ctx := context.WithValue(c.UserContext(), "request_id", requestID)
-		c.SetUserContext(ctx)
+		// Every log line written with the request context carries the ID.
+		c.SetUserContext(logger.WithRequestID(c.UserContext(), requestID))
 
 		return c.Next()
 	}
 }
 
-// LoggingMiddleware logs HTTP request and response details.
+// LoggingMiddleware writes one log line per request, at error level for
+// 5xx and warn for 4xx. The request ID comes from the context.
 func LoggingMiddleware(log *logger.Logger) fiberLib.Handler {
 	return func(c *fiberLib.Ctx) error {
-		// Extract request context
-		requestID := c.Get("X-Request-ID")
-		method := c.Method()
-		path := c.Path()
-		query := c.Request().URI().QueryString()
-		remoteAddr := c.IP()
-		userAgent := c.Get("User-Agent")
-
-		// Measure request latency
 		start := time.Now()
 		err := c.Next()
 		duration := time.Since(start)
 
-		// Extract response details
 		statusCode := c.Response().StatusCode()
-		responseSize := len(c.Response().Body())
-
-		// Build log attributes
 		attrs := []slog.Attr{
-			slog.String("request_id", requestID),
-			slog.String("method", method),
-			slog.String("path", path),
-			slog.String("status", fmt.Sprintf("%d", statusCode)),
-			slog.String("latency_ms", fmt.Sprintf("%.2f", float64(duration.Milliseconds()))),
-			slog.String("remote_addr", remoteAddr),
-			slog.String("user_agent", userAgent),
-			slog.Int("response_size_bytes", responseSize),
+			slog.String("log_type", string(logger.LogTypeRequest)),
+			slog.String("method", c.Method()),
+			slog.String("path", c.Path()),
+			slog.Int("status", statusCode),
+			slog.Float64("latency_ms", float64(duration.Microseconds())/1000),
+			slog.String("remote_addr", c.IP()),
+			slog.String("user_agent", c.Get("User-Agent")),
+			slog.Int("response_size_bytes", len(c.Response().Body())),
 		}
-
-		if query != nil {
+		if query := c.Request().URI().QueryString(); len(query) > 0 {
 			attrs = append(attrs, slog.String("query", string(query)))
 		}
 
-		// Log at appropriate level based on status code
+		level := slog.LevelInfo
 		if statusCode >= 500 {
-			log.LogAttrs(c.UserContext(), slog.LevelError, "http_request", attrs...)
+			level = slog.LevelError
 		} else if statusCode >= 400 {
-			log.LogAttrs(c.UserContext(), slog.LevelWarn, "http_request", attrs...)
-		} else {
-			log.LogAttrs(c.UserContext(), slog.LevelInfo, "http_request", attrs...)
+			level = slog.LevelWarn
 		}
-
-		// Use LogRequestEvent for structured request logging
-		log.LogRequestEvent(c.UserContext(),
-			fmt.Sprintf("%s %s", method, path),
-			slog.String("request_id", requestID),
-			slog.Int("status_code", statusCode),
-			slog.String("latency_ms", fmt.Sprintf("%.2f", float64(duration.Milliseconds()))),
-			slog.String("remote_addr", remoteAddr),
-		)
-
+		log.LogAttrs(c.UserContext(), level, c.Method()+" "+c.Path(), attrs...)
 		return err
 	}
 }
