@@ -5,13 +5,20 @@ import AppKit
 /// Displays dynamic icon and alert badge during Turtle Neck / forward head strain.
 public struct MenuBarStatusLabel: View {
     @ObservedObject var appState: AppState
+    @ObservedObject var coach: PostureCoach
     
     public init(appState: AppState) {
         self.appState = appState
+        self.coach = appState.coach
     }
     
     public var body: some View {
-        Image(systemName: iconName)
+        if let alert = coach.ambientAlert {
+            // Menu bar items render as templates; a non-template image keeps the alert tint
+            Image(nsImage: Self.tintedSymbol(iconName, color: EdgeGlowController.nsColor(coach.settings.edgeGlow.palette, alert)))
+        } else {
+            Image(systemName: iconName)
+        }
     }
     
     private var iconName: String {
@@ -27,6 +34,17 @@ public struct MenuBarStatusLabel: View {
         case .overextended:
             return "arrow.up.and.line.horizontal.and.arrow.down"
         }
+    }
+    
+    private static func tintedSymbol(_ name: String, color: NSColor) -> NSImage {
+        let configuration = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        guard let image = NSImage(systemSymbolName: name, accessibilityDescription: "Posture alert")?
+            .withSymbolConfiguration(configuration) else {
+            return NSImage()
+        }
+        image.isTemplate = false
+        return image
     }
 }
 

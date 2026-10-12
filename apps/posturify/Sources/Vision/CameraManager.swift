@@ -1,10 +1,13 @@
 import Foundation
 import AVFoundation
 import CoreMedia
+import os
 
 /// Hardware camera capture manager using AVFoundation for zero-latency frame streaming.
 public final class CameraManager: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     public static let shared = CameraManager()
+    
+    private static let logger = Logger(subsystem: "com.destngx.posturify", category: "CameraManager")
     
     public let captureSession = AVCaptureSession()
     private let videoOutput = AVCaptureVideoDataOutput()
@@ -143,14 +146,22 @@ public final class CameraManager: NSObject, ObservableObject, AVCaptureVideoData
         return false
     }
     
+    private static func makeInput(for device: AVCaptureDevice) -> AVCaptureDeviceInput? {
+        do {
+            return try AVCaptureDeviceInput(device: device)
+        } catch {
+            logger.error("Cannot open camera \(device.localizedName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+    
     public func switchDevice(to device: AVCaptureDevice) {
         sessionQueue.async {
             self.captureSession.beginConfiguration()
             for input in self.captureSession.inputs {
                 self.captureSession.removeInput(input)
             }
-            if let input = try? AVCaptureDeviceInput(device: device),
-               self.captureSession.canAddInput(input) {
+            if let input = Self.makeInput(for: device), self.captureSession.canAddInput(input) {
                 self.captureSession.addInput(input)
             }
             self.captureSession.commitConfiguration()
@@ -178,8 +189,12 @@ public final class CameraManager: NSObject, ObservableObject, AVCaptureVideoData
             }
             
             let selectedDevice = device ?? self.availableCameras.first ?? AVCaptureDevice.default(for: .video)
-            guard let camera = selectedDevice,
-                  let input = try? AVCaptureDeviceInput(device: camera) else {
+            guard let camera = selectedDevice else {
+                Self.logger.error("No video capture device available")
+                self.captureSession.commitConfiguration()
+                return
+            }
+            guard let input = Self.makeInput(for: camera) else {
                 self.captureSession.commitConfiguration()
                 return
             }

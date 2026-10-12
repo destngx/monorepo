@@ -1162,19 +1162,18 @@ final class KinematicsTests: XCTestCase {
     
     // MARK: - Advanced Relative CVA & Calibration Engine Tests
     
-    func testRigidFacialConstellationCentroidAndRMS() {
+    func testRigidFacialConstellationCentroidAndRMS() throws {
         // Synthetic facial constellation points
         let p1 = CGPoint(x: 0.40, y: 0.50)
         let p2 = CGPoint(x: 0.60, y: 0.50)
         let p3 = CGPoint(x: 0.50, y: 0.70)
         let p4 = CGPoint(x: 0.50, y: 0.30)
         
-        let constellation = PostureMathEngine.computeConstellation(points: [p1, p2, p3, p4])
+        let constellation = try XCTUnwrap(PostureMathEngine.computeConstellation(points: [p1, p2, p3, p4]))
         
         XCTAssertEqual(constellation.centroid.x, 0.50, accuracy: 0.001)
         XCTAssertEqual(constellation.centroid.y, 0.50, accuracy: 0.001)
         XCTAssertGreaterThan(constellation.rmsSpread, 0.05)
-        XCTAssertEqual(constellation.scaleFactor, 1.0, accuracy: 0.001)
     }
     
     func testCameraNormalized3DDisplacementVectorIncludesVerticalShift() {
@@ -1192,7 +1191,7 @@ final class KinematicsTests: XCTestCase {
             baselineCentroid: baselineCentroid,
             baselineL0: baselineL0,
             principalPoint: CGPoint(x: 0.5, y: 0.5),
-            focalLengthPixels: 1.2
+            focalLength: 1.2
         )
         
         // Must capture negative vertical shift Y (downward in camera frame)
@@ -1246,17 +1245,29 @@ final class KinematicsTests: XCTestCase {
         }
         XCTAssertEqual(engine.currentPhase, .collectingForward)
         
-        // Feed 25 forward samples
-        for _ in 0..<25 {
-            let forward = FacialConstellation(centroid: CGPoint(x: 0.48, y: 0.46), rmsSpread: 0.17, scaleFactor: 1.13)
+        // Hold forward: settle frames, then 25 samples
+        for _ in 0..<(CalibrationEngine.forwardSettleFrameCount + CalibrationEngine.forwardSampleCount) {
+            let forward = FacialConstellation(centroid: CGPoint(x: 0.48, y: 0.46), rmsSpread: 0.17)
             engine.recordCalibrationFrame(constellation: forward)
+        }
+        XCTAssertEqual(engine.currentPhase, .collectingUpright)
+        
+        // Sit tall with the chin tucked: settle frames, then the best upright samples
+        for _ in 0..<(CalibrationEngine.uprightSettleFrameCount + CalibrationEngine.uprightSampleCount) {
+            engine.recordCalibrationFrame(constellation: FacialConstellation(centroid: CGPoint(x: 0.51, y: 0.52), rmsSpread: 0.14))
+        }
+        XCTAssertEqual(engine.currentPhase, .validating)
+        
+        // Return to neutral to validate and commit the calibration
+        for _ in 0..<CalibrationEngine.validationFrameCount {
+            engine.recordCalibrationFrame(constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15))
         }
         XCTAssertEqual(engine.currentPhase, .calibrated)
         XCTAssertTrue(engine.baseline.isCalibrated)
         
         // Evaluate neutral frame -> ΔCVA ~ 0°
         let neutralEval = engine.evaluateFrame(
-            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15, scaleFactor: 1.0)
+            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15)
         )
         XCTAssertEqual(neutralEval.warningLevel, 0)
         XCTAssertGreaterThan(neutralEval.relativeCVA, 53.0)
@@ -1305,19 +1316,33 @@ final class KinematicsTests: XCTestCase {
             engine.recordCalibrationFrame(constellation: constellation, pitch: 33.0, jawAngle: -50.0)
         }
         XCTAssertEqual(engine.currentPhase, .collectingForward)
+        
+        // Hold forward: settle frames, then 25 samples
+        for _ in 0..<(CalibrationEngine.forwardSettleFrameCount + CalibrationEngine.forwardSampleCount) {
+            let forward = FacialConstellation(centroid: CGPoint(x: 0.48, y: 0.46), rmsSpread: 0.17)
+            engine.recordCalibrationFrame(constellation: forward, pitch: 33.0, jawAngle: -50.0)
+        }
+        XCTAssertEqual(engine.currentPhase, .collectingUpright)
+        
+        // Sit tall with the chin tucked: settle frames, then the best upright samples
+        for _ in 0..<(CalibrationEngine.uprightSettleFrameCount + CalibrationEngine.uprightSampleCount) {
+            let upright = FacialConstellation(centroid: CGPoint(x: 0.51, y: 0.52), rmsSpread: 0.14)
+            engine.recordCalibrationFrame(constellation: upright, pitch: 33.0, jawAngle: -50.0)
+        }
+        XCTAssertEqual(engine.currentPhase, .validating)
+        
+        // Return to neutral to validate and commit the calibration
+        for _ in 0..<CalibrationEngine.validationFrameCount {
+            let constellation = FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15)
+            engine.recordCalibrationFrame(constellation: constellation, pitch: 33.0, jawAngle: -50.0)
+        }
+        XCTAssertEqual(engine.currentPhase, .calibrated)
         XCTAssertEqual(engine.baseline.baselinePitch, 33.0, accuracy: 0.1)
         XCTAssertEqual(engine.baseline.baselineJawAngle, -50.0, accuracy: 0.1)
         
-        // Feed 25 forward frames
-        for _ in 0..<25 {
-            let forward = FacialConstellation(centroid: CGPoint(x: 0.48, y: 0.46), rmsSpread: 0.17, scaleFactor: 1.13)
-            engine.recordCalibrationFrame(constellation: forward, pitch: 33.0, jawAngle: -50.0)
-        }
-        XCTAssertEqual(engine.currentPhase, .calibrated)
-        
         // Evaluate neutral frame -> ΔPitch = 0°, ΔJaw = 0°
         let neutralEval = engine.evaluateFrame(
-            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15, scaleFactor: 1.0),
+            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15),
             pitch: 33.0,
             jawAngle: -50.0
         )
@@ -1327,7 +1352,7 @@ final class KinematicsTests: XCTestCase {
         
         // Evaluate backward head tilt (ngửa cổ): pitch rises to +48° (ΔPitch = +15°) and jawline tilts up to -32° (ΔJaw = +18°)
         let tiltBackEval = engine.evaluateFrame(
-            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15, scaleFactor: 1.0),
+            constellation: FacialConstellation(centroid: CGPoint(x: 0.5, y: 0.5), rmsSpread: 0.15),
             pitch: 48.0,
             jawAngle: -32.0
         )

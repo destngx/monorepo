@@ -169,7 +169,7 @@ public struct DualDisplayMainView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             .buttonStyle(.plain)
-            .help(appState.isCalibrated ? "Calibrated (Relative CVA Active). Click to re-calibrate." : "Posture Calibration: \(appState.calibrationPhaseText). Click to run 2s calibration.")
+            .help(appState.isCalibrated ? "Calibrated (Relative CVA Active). Click to re-calibrate." : "Posture Calibration: \(appState.calibrationPhaseText). Click to run calibration.")
             
             // Neck / Collar Depth Ratio Slider Popover Button
             neckDepthSliderButton
@@ -413,6 +413,22 @@ public struct DualDisplayMainView: View {
                 
                 Text("•")
                     .foregroundColor(.white.opacity(0.3))
+                
+                // Rehab target (only while alerts follow a target ahead of the habitual neutral)
+                if appState.isRehabActive, let targetCva = appState.kinematics.posture.rehabTargetCvaDegrees {
+                    HStack(spacing: 3) {
+                        Text("Target:")
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.6))
+                        Text(String(format: "%.1f° (%d/%d)", targetCva, appState.rehabProgram.stage, RehabProgram.maxStage))
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .foregroundColor(.cyan)
+                    }
+                    .help("Rehab target: \(Int((appState.rehabProgram.targetFraction * 100).rounded()))% of the way from your habitual neutral to your best upright posture.")
+                    
+                    Text("•")
+                        .foregroundColor(.white.opacity(0.3))
+                }
                 
                 Text(String(format: "%.0f FPS", appState.fps))
                     .font(.system(size: 9.5, weight: .bold, design: .monospaced))

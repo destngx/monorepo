@@ -18,29 +18,10 @@ public struct PosturifyApp: App {
     public var body: some Scene {
         // Native MenuBar Status Item that toggles the top-right floating window
         MenuBarExtra {
-            Button("Open Posturify") {
-                WindowManager.shared.showWindow(appState: appState)
-            }
-            .keyboardShortcut("o", modifiers: [.command])
-            
-            Divider()
-            
-            Button(appState.isCalibrated ? "Calibrated (Click to Re-calibrate)" : "Calibrate Posture") {
-                if appState.isCalibrated {
-                    appState.resetCalibration()
-                } else {
-                    appState.triggerCalibration()
-                }
-            }
-            
-            Divider()
-            
-            Button("Quit Posturify") {
-                NSApp.terminate(nil)
-            }
-            .keyboardShortcut("q", modifiers: [.command])
+            MenuBarPanelView(appState: appState)
         } label: {
             MenuBarStatusLabel(appState: appState)
         }
+        .menuBarExtraStyle(.window)
     }
 }

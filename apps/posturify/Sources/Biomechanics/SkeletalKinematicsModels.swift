@@ -163,6 +163,7 @@ public struct ClinicalPostureMetrics: Equatable, Sendable {
     public var isRelativeProxy: Bool       // True when using calibrated forward-head proxy
     public var forwardDisplacementD: Double // Normalized forward displacement D_t
     public var isDirectAngleFacing: Bool   // True when user faces camera directly (|yaw| < 12°), where sagittal CVA is foreshortened
+    public var rehabTargetCvaDegrees: Double? // CVA of the rehab target when it is ahead of the habitual neutral
     
     public init(
         cvaDegrees: Double = 63.0,
@@ -176,7 +177,8 @@ public struct ClinicalPostureMetrics: Equatable, Sendable {
         deltaCvaDegrees: Double = 0.0,
         isRelativeProxy: Bool = false,
         forwardDisplacementD: Double = 0.0,
-        isDirectAngleFacing: Bool = false
+        isDirectAngleFacing: Bool = false,
+        rehabTargetCvaDegrees: Double? = nil
     ) {
         self.cvaDegrees = cvaDegrees
         self.forwardDriftCm = forwardDriftCm
@@ -190,6 +192,7 @@ public struct ClinicalPostureMetrics: Equatable, Sendable {
         self.isRelativeProxy = isRelativeProxy
         self.forwardDisplacementD = forwardDisplacementD
         self.isDirectAngleFacing = isDirectAngleFacing
+        self.rehabTargetCvaDegrees = rehabTargetCvaDegrees
     }
 }
 
@@ -405,6 +408,11 @@ public struct SkeletalKinematicState: Equatable, Sendable {
     /// Normalized 2D contour points of the detected body silhouette outline.
     public var silhouetteContour: [CGPoint]
     
+    /// True when a face constellation was measured in this frame.
+    public var isFacePresent: Bool
+    /// Calibrated relative posture evaluation; nil when not calibrated.
+    public var relative: RelativeCVAResult?
+    
     public var torsoPitchDegrees: Float { torsoRotation.x * 180.0 / .pi }
     public var torsoYawDegrees: Float { torsoRotation.y * 180.0 / .pi }
     public var torsoRollDegrees: Float { torsoRotation.z * 180.0 / .pi }
@@ -435,7 +443,9 @@ public struct SkeletalKinematicState: Equatable, Sendable {
         dynamicLumbarBasePosition: SIMD3<Float> = SIMD3<Float>(0.0, 0.18, 0.0),
         torsoRotation: SIMD3<Float> = .zero,
         facingSign: Float = 1.0,
-        silhouetteContour: [CGPoint] = []
+        silhouetteContour: [CGPoint] = [],
+        isFacePresent: Bool = false,
+        relative: RelativeCVAResult? = nil
     ) {
         self.timestamp = timestamp
         self.face = face
@@ -458,5 +468,7 @@ public struct SkeletalKinematicState: Equatable, Sendable {
         self.torsoRotation = torsoRotation
         self.facingSign = facingSign
         self.silhouetteContour = silhouetteContour
+        self.isFacePresent = isFacePresent
+        self.relative = relative
     }
 }

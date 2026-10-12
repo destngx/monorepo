@@ -55,6 +55,9 @@ public struct Display1CameraView: View {
                         calibrationPromptBanner
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                             .padding(.bottom, 12)
+                    } else {
+                        CoachOverlayView(appState: appState)
+                            .padding(.bottom, 12)
                     }
                 }
                 .padding(12)
@@ -72,11 +75,11 @@ public struct Display1CameraView: View {
                 .symbolEffect(.pulse, isActive: isCalibrating)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(isCalibrating ? appState.calibrationPhaseText : "Posture Calibration Recommended")
+                Text(isCalibrating || calibrationFailed ? appState.calibrationPhaseText : "Posture Calibration Recommended")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
                 
-                Text(isCalibrating ? "Follow on-screen instruction for accurate 3D vector learning." : "Calibrate once (takes 2 seconds) for precise forward head detection.")
+                Text(calibrationSubtitle)
                     .font(.system(size: 9.5, weight: .regular))
                     .foregroundColor(.white.opacity(0.75))
             }
@@ -84,13 +87,24 @@ public struct Display1CameraView: View {
             Spacer()
             
             if !isCalibrating {
+                Picker("Profile", selection: $appState.postureProfile) {
+                    ForEach(PostureProfile.allCases) { profile in
+                        Text(profile.displayName).tag(profile)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .fixedSize()
+                .font(.system(size: 10.5, weight: .semibold))
+                .help(appState.postureProfile.summary)
+                
                 Button(action: {
                     appState.triggerCalibration()
                 }) {
                     HStack(spacing: 5) {
                         Image(systemName: "play.fill")
                             .font(.system(size: 8))
-                        Text("Start (2s)")
+                        Text(calibrationFailed ? "Retry" : "Start")
                             .font(.system(size: 10.5, weight: .bold, design: .monospaced))
                     }
                     .foregroundColor(.black)
@@ -117,7 +131,24 @@ public struct Display1CameraView: View {
     }
     
     private var isCalibrating: Bool {
-        appState.calibrationEngine.currentPhase != .idle && appState.calibrationEngine.currentPhase != .calibrated
+        appState.calibrationEngine.isCollecting
+    }
+    
+    private var calibrationFailed: Bool {
+        appState.calibrationEngine.currentPhase == .failed
+    }
+    
+    private var calibrationSubtitle: String {
+        if appState.calibrationEngine.currentPhase == .collectingUpright {
+            return "Ears over shoulders, gently tuck your chin. Skipped after \(Int(CalibrationEngine.uprightPhaseTimeoutSeconds))s if no change is seen."
+        }
+        if isCalibrating {
+            return "Follow on-screen instruction for accurate 3D vector learning."
+        }
+        if calibrationFailed {
+            return "Keep your face visible and hold each step steadily. Each step must finish within \(Int(CalibrationEngine.phaseTimeoutSeconds))s."
+        }
+        return "Calibrate once (about 15 seconds) for precise forward head detection."
     }
     
     // MARK: - Direct Angle Recommendation Banner

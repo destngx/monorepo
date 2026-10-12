@@ -4,6 +4,7 @@ import Vision
 import CoreMedia
 import QuartzCore
 import simd
+import os
 
 /// Hardware-accelerated Apple Vision tracker running on Apple Neural Engine (ANE).
 /// Concurrently extracts face landmarks (jawline, lips, head pose) and upper/lower body pose joints.
@@ -14,17 +15,28 @@ public final class VisionTracker: @unchecked Sendable {
     private let bodyRequest: VNDetectHumanBodyPoseRequest
     private let segmentationRequest: VNGeneratePersonSegmentationRequest
     private let contourRequest: VNDetectContoursRequest
-    private var baselineShoulderSpan: Float = 0.0
-    private var isBaselineCalibrated: Bool = false
-    private var lastCameraAngle: CameraAngleMode? = nil
+    
+    /// Minimum Vision neck-joint confidence to use it as the head-to-body anchor.
+    static let minBodyAnchorConfidence: Float = 0.3
+    
+    private static let logger = Logger(subsystem: "com.destngx.posturify", category: "VisionTracker")
+    
+    /// Landmark tuning ratios, written from the UI (main thread) and read on the camera queue.
+    private let tuning = OSAllocatedUnfairLock(initialState: (c7DepthRatio: 0.15, jDepthRatio: 0.15))
     
     /// Tuneable C7 search depth ratio: controls how far below the chin C7 target is placed.
     /// Default 0.15 is optimal for bare-neck and preserves true C7 vertebra location.
-    public var c7DepthRatio: Double = 0.15
+    public var c7DepthRatio: Double {
+        get { tuning.withLock { $0.c7DepthRatio } }
+        set { tuning.withLock { $0.c7DepthRatio = newValue } }
+    }
     
     /// Tuneable Jugular Notch (J) depth ratio: controls how far below the chin / acromion J is placed.
     /// Default 0.15 works for bare neck. Increasing this lowers point J independently without moving C7!
-    public var jDepthRatio: Double = 0.15
+    public var jDepthRatio: Double {
+        get { tuning.withLock { $0.jDepthRatio } }
+        set { tuning.withLock { $0.jDepthRatio = newValue } }
+    }
     
     public init() {
         self.faceRequest = VNDetectFaceLandmarksRequest()
@@ -57,11 +69,16 @@ public final class VisionTracker: @unchecked Sendable {
             
             var contourPoints: [CGPoint] = []
             if let segObs = segmentationRequest.results?.first {
+                // The silhouette contour is optional refinement: on failure, log and continue with landmarks only.
                 let maskHandler = VNImageRequestHandler(cvPixelBuffer: segObs.pixelBuffer, orientation: .up, options: [:])
-                try? maskHandler.perform([contourRequest])
-                if let contourObs = contourRequest.results?.first,
-                   let mainContour = contourObs.topLevelContours.max(by: { $0.pointCount < $1.pointCount }) {
-                    contourPoints = mainContour.normalizedPoints.map { CGPoint(x: CGFloat($0.x), y: CGFloat($0.y)) }
+                do {
+                    try maskHandler.perform([contourRequest])
+                    if let contourObs = contourRequest.results?.first,
+                       let mainContour = contourObs.topLevelContours.max(by: { $0.pointCount < $1.pointCount }) {
+                        contourPoints = mainContour.normalizedPoints.map { CGPoint(x: CGFloat($0.x), y: CGFloat($0.y)) }
+                    }
+                } catch {
+                    Self.logger.error("Silhouette contour detection failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
             
@@ -71,9 +88,12 @@ public final class VisionTracker: @unchecked Sendable {
                 contourPoints: contourPoints,
                 cameraAngle: cameraAngle,
                 cameraElevation: cameraElevation,
+                imageAspect: CGFloat(CVPixelBufferGetHeight(pixelBuffer)) / CGFloat(max(1, CVPixelBufferGetWidth(pixelBuffer))),
                 timestamp: timestamp
             )
         } catch {
+            // Skip this frame: an empty state carries no measurements, so calibration and alerts are unaffected.
+            Self.logger.error("Vision request failed, frame skipped: \(error.localizedDescription, privacy: .public)")
             return SkeletalKinematicState(timestamp: timestamp, cameraAngle: cameraAngle, cameraElevation: cameraElevation)
         }
     }
@@ -85,6 +105,7 @@ public final class VisionTracker: @unchecked Sendable {
         contourPoints: [CGPoint] = [],
         cameraAngle: CameraAngleMode = .diagonal45,
         cameraElevation: CameraElevationMode = .eyeLevel,
+        imageAspect: CGFloat = 1.0,
         timestamp: TimeInterval
     ) -> SkeletalKinematicState {
         // 1. Extract Face & Mandibular Jaw Metrics
@@ -267,6 +288,7 @@ public final class VisionTracker: @unchecked Sendable {
             jugularNotch: jugularNotchPoint,
             cameraAngle: cameraAngle
         )
+        KinematicsCalculator.applyElevationCompensation(to: &posture, elevationDegrees: cameraElevation.pitchDegrees)
         
         // Direct Angle Detection (Frontal / Direct facing camera, |yaw| < 12° and chin centered)
         // In direct frontal view, sagittal cervical depth is severely foreshortened and CVA cannot be accurately computed.
@@ -287,77 +309,72 @@ public final class VisionTracker: @unchecked Sendable {
         }
         
         // 5. Advanced Relative CVA Proxy (Rigid Constellation + 3D Camera Displacement + Calibrated Forward Vector)
-        let rigidPoints = PostureMathEngine.extractRigidConstellation(from: faceObs)
+        // No constellation (no face) means no measurement: calibration skips the frame and evaluation holds state.
+        // The constellation is built in isotropic coordinates (imageAspect = height / width) with face length from
+        // the face bounding box, so displacement D is measured in face lengths, the unit of kappa.
+        let calibration = CalibrationEngine.shared
         let constellation = PostureMathEngine.computeConstellation(
-            points: rigidPoints,
-            baselineSpread: CalibrationEngine.shared.baseline.isCalibrated ? CalibrationEngine.shared.baseline.rmsSpread0 : nil,
-            baselinePoints: CalibrationEngine.shared.baseline.isCalibrated ? CalibrationEngine.shared.baseline.facePoints0 : nil,
+            points: PostureMathEngine.extractRigidConstellation(from: faceObs),
+            imageAspect: imageAspect,
+            faceHeight: faceObs?.boundingBox.height,
             captureQuality: faceObs?.faceCaptureQuality ?? faceMetrics.confidence
         )
         
-        if CalibrationEngine.shared.currentPhase != .calibrated && CalibrationEngine.shared.currentPhase != .idle {
-            CalibrationEngine.shared.recordCalibrationFrame(
+        // Body anchor for the head-to-body estimator: Vision's neck joint (shoulder midpoint) is tracked
+        // independently of the face, unlike the contour-derived C7 which is positioned relative to the tragus.
+        let bodyAnchor = bodyMetrics.neckC7.flatMap { $0.confidence >= Self.minBodyAnchorConfidence ? $0 : nil }
+        
+        if calibration.isCollecting {
+            calibration.recordCalibrationFrame(
                 constellation: constellation,
+                bodyAnchor: bodyAnchor?.point,
                 pitch: faceMetrics.pitchDegrees,
-                jawAngle: jawlineAngleDegrees
+                jawAngle: jawlineAngleDegrees,
+                timestamp: timestamp
             )
         }
         
-        if CalibrationEngine.shared.baseline.isCalibrated {
-            // Compute head-to-body relative displacement if body keypoint is available
-            let bodyAnchorY = c7Point != .zero ? Double(c7Point.y) : nil
-            let relResult = CalibrationEngine.shared.evaluateFrame(
+        var relative: RelativeCVAResult?
+        if calibration.baseline.isCalibrated {
+            let relResult = calibration.evaluateFrame(
                 constellation: constellation,
-                bodyAnchorDisplacement: bodyAnchorY.map { Double(constellation.centroid.y) - $0 },
+                bodyAnchor: bodyAnchor?.point,
+                bodyAnchorConfidence: Double(bodyAnchor?.confidence ?? 0.0),
                 pitch: faceMetrics.pitchDegrees,
                 jawAngle: jawlineAngleDegrees,
                 timestamp: timestamp
             )
             
             // Map status guidance with relative delta:
-            // 1. Turtle Neck: Level 2 or acute severe drop (Δ <= -15°)
-            // 2. Caution: Level 1 or noticeable drop (Δ <= -6°)
-            // 3. Overextended: Significant backward hyperextension (ΔPitch >= +12° or ΔJaw >= +12° or ΔCVA >= +8°)
+            // 1. Turtle Neck: Level 2 or acute drop past the profile's severe threshold
+            // 2. Caution: Level 1 or drop past the profile's mild threshold
+            // 3. Overextended: Significant backward hyperextension (see CalibrationEngine overextension thresholds)
             // 4. Optimal: Neutral alignment
             let relGuidance: String
             let relStatus: PostureStatus
-            if relResult.warningLevel == 2 || relResult.deltaCVA <= -15.0 {
+            let thresholds = relResult.profile.alertThresholds
+            if relResult.warningLevel == 2 || relResult.deltaCVA <= thresholds.severe {
                 relStatus = .turtleNeck
                 relGuidance = String(format: "Turtle Neck: ΔCVA %.1f° (rel %.1f°). Tuck chin back!", relResult.deltaCVA, relResult.relativeCVA)
-            } else if relResult.warningLevel == 1 || relResult.deltaCVA <= -6.0 {
+            } else if relResult.warningLevel == 1 || relResult.deltaCVA <= thresholds.mild {
                 relStatus = .caution
                 relGuidance = String(format: "Mild Forward Drift: ΔCVA %.1f° (rel %.1f°)", relResult.deltaCVA, relResult.relativeCVA)
-            } else if relResult.deltaPitch >= 12.0 || relResult.deltaJawAngle >= 12.0 || relResult.deltaCVA >= 8.0 {
+            } else if relResult.isOverextended {
                 relStatus = .overextended
-                if relResult.deltaPitch >= 12.0 || relResult.deltaJawAngle >= 12.0 {
+                if relResult.deltaPitch >= CalibrationEngine.overextensionAngleDegrees || relResult.deltaJawAngle >= CalibrationEngine.overextensionAngleDegrees {
                     relGuidance = String(format: "Overextended: ΔPitch %+.1f° (tilt back). Lower chin to neutral!", relResult.deltaPitch)
                 } else {
                     relGuidance = String(format: "Overextended: ΔCVA %+.1f°. Lower chin to neutral!", relResult.deltaCVA)
                 }
             } else {
                 relStatus = .optimal
-                relGuidance = String(format: "Neutral Alignment (ΔCVA %.1f°)", relResult.deltaCVA)
+                relGuidance = relResult.targetDisplacementD < 0
+                    ? String(format: "On Target (ΔCVA %+.1f° vs target %.1f°)", relResult.deltaCVA, relResult.targetCVA)
+                    : String(format: "Neutral Alignment (ΔCVA %.1f°)", relResult.deltaCVA)
             }
             
-            // Dispatch macOS system notification if posture alert is active
-            let activeWarningLevel: Int
-            if relStatus == .overextended {
-                activeWarningLevel = 3
-            } else if relStatus == .turtleNeck {
-                activeWarningLevel = 2
-            } else if relStatus == .caution {
-                activeWarningLevel = 1
-            } else {
-                activeWarningLevel = 0
-            }
-            
-            if activeWarningLevel > 0 {
-                PostureNotificationManager.shared.checkAndNotify(
-                    warningLevel: activeWarningLevel,
-                    deltaCVA: relResult.deltaCVA,
-                    relativeCVA: relResult.relativeCVA
-                )
-            }
+            // Alert delivery (escalation, silence contexts) is decided on the main actor by PostureCoach
+            relative = relResult
             
             let finalGuidance = isDirectAngle ? "Direct angle detected. Move camera 45° to side for accurate tracking" : relGuidance
             
@@ -373,14 +390,9 @@ public final class VisionTracker: @unchecked Sendable {
                 deltaCvaDegrees: relResult.deltaCVA,
                 isRelativeProxy: true,
                 forwardDisplacementD: relResult.forwardDisplacementD,
-                isDirectAngleFacing: isDirectAngle
+                isDirectAngleFacing: isDirectAngle,
+                rehabTargetCvaDegrees: relResult.targetDisplacementD < 0 ? relResult.targetCVA : nil
             )
-        }
-        
-        // Recalibrate baseline if camera angle mode was switched
-        if lastCameraAngle != cameraAngle {
-            lastCameraAngle = cameraAngle
-            isBaselineCalibrated = false
         }
         
         return SkeletalKinematicState(
@@ -404,7 +416,9 @@ public final class VisionTracker: @unchecked Sendable {
             dynamicLumbarBasePosition: SIMD3<Float>(0.0, 0.18, 0.0),
             torsoRotation: .zero,
             facingSign: Float(facingSign),
-            silhouetteContour: contourPoints
+            silhouetteContour: contourPoints,
+            isFacePresent: constellation != nil,
+            relative: relative
         )
     }
     
@@ -537,6 +551,7 @@ public final class VisionTracker: @unchecked Sendable {
     }
     
     private func getPoint(from obs: VNHumanBodyPoseObservation, joint: VNHumanBodyPoseObservation.JointName) -> TrackedJoint? {
+        // recognizedPoint throws when the joint was not detected in this observation, which is an expected absence.
         guard let point = try? obs.recognizedPoint(joint), point.confidence > 0.1 else {
             return nil
         }

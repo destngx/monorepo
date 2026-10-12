@@ -167,18 +167,7 @@ public enum KinematicsCalculator {
         let sagittalShift = abs(tragus.x - acromion.x) / sinAlpha
         let forwardDriftCm = Double(sagittalShift * 65.0)
         
-        let status: PostureStatus
-        let guidance: String
-        if cva < 55.0 {
-            status = .turtleNeck
-            guidance = String(format: "Turtle Neck: CVA %.1f° (<55°). Tuck chin & align ears over shoulders", cva)
-        } else if cva <= 60.0 {
-            status = .caution
-            guidance = String(format: "Caution: CVA %.1f° (55°–60°). Mild forward head tilt detected", cva)
-        } else {
-            status = .optimal
-            guidance = "Optimal Alignment: Spine in neutral posture"
-        }
+        let (status, guidance) = classifyCVA(cva)
         
         return ClinicalPostureMetrics(
             cvaDegrees: cva,
@@ -211,21 +200,29 @@ public enum KinematicsCalculator {
             jugularNotch: j,
             cameraAngle: cameraAngle
         )
-        let elev = effectiveElevationDegrees ?? cameraElevation.pitchDegrees
-        if elev != 0.0 {
-            let adjustedCVA = max(10.0, min(89.0, metrics.cvaDegrees + elev * 0.4))
-            metrics = ClinicalPostureMetrics(
-                cvaDegrees: adjustedCVA,
-                forwardDriftCm: metrics.forwardDriftCm,
-                atjDegrees: metrics.atjDegrees,
-                shjRatio: metrics.shjRatio,
-                shjDegrees: metrics.shjDegrees,
-                thoracoCervicalAngle: metrics.thoracoCervicalAngle,
-                status: metrics.status,
-                guidanceCue: metrics.guidanceCue
-            )
-        }
+        applyElevationCompensation(to: &metrics, elevationDegrees: effectiveElevationDegrees ?? cameraElevation.pitchDegrees)
         return metrics
+    }
+    
+    /// Compensates the absolute CVA for camera elevation (heuristic 0.4°/°) and re-classifies against the
+    /// compensated angle so status and guidance never describe the raw angle.
+    public static func applyElevationCompensation(to metrics: inout ClinicalPostureMetrics, elevationDegrees: Double) {
+        guard elevationDegrees != 0.0 else { return }
+        metrics.cvaDegrees = max(10.0, min(89.0, metrics.cvaDegrees + elevationDegrees * 0.4))
+        (metrics.status, metrics.guidanceCue) = classifyCVA(metrics.cvaDegrees)
+    }
+    
+    /// Absolute CVA classification against `PostureConstraints`.
+    public static func classifyCVA(_ cva: Double) -> (status: PostureStatus, guidance: String) {
+        let turtle = PostureConstraints.turtleNeckCvaMaxDegrees
+        let optimal = PostureConstraints.optimalCvaMinDegrees
+        if cva < turtle {
+            return (.turtleNeck, String(format: "Turtle Neck: CVA %.1f° (<%.0f°). Tuck chin & align ears over shoulders", cva, turtle))
+        } else if cva <= optimal {
+            return (.caution, String(format: "Caution: CVA %.1f° (%.0f°–%.0f°). Mild forward head tilt detected", cva, turtle, optimal))
+        } else {
+            return (.optimal, "Optimal Alignment: Spine in neutral posture")
+        }
     }
     
     // MARK: - Anatomical Orientation & Perspective Compensation
@@ -255,9 +252,15 @@ public enum KinematicsCalculator {
         visionYaw: Float? = nil,
         visionRoll: Float? = nil
     ) -> FaceLandmarkAngles {
+        // Landmark geometry needs a non-degenerate inter-ocular axis; otherwise fall back to Vision's estimates.
+        let eyes: (left: CGPoint, right: CGPoint)? = {
+            guard let l = leftEye, let r = rightEye, hypot(l.x - r.x, l.y - r.y) > 1e-4 else { return nil }
+            return (l, r)
+        }()
+        
         // 1. Roll: direct geometric angle of the inter-ocular vector
         let resolvedRoll: Float
-        if let eyeL = leftEye, let eyeR = rightEye {
+        if let (eyeL, eyeR) = eyes {
             // Note: in camera image coordinates, subject's left eye has larger X than subject's right eye
             let dx = Float(eyeL.x - eyeR.x)
             let dy = Float(eyeL.y - eyeR.y) // in Vision normalized coordinates, +Y is up
@@ -273,7 +276,7 @@ public enum KinematicsCalculator {
         
         // 2. Yaw: horizontal asymmetry of the nose relative to eye midpoint and cheeks
         let resolvedYaw: Float
-        if let eyeL = leftEye, let eyeR = rightEye, let n = nose {
+        if let (eyeL, eyeR) = eyes, let n = nose {
             let midX = (eyeL.x + eyeR.x) * 0.5
             let midY = (eyeL.y + eyeR.y) * 0.5
             let eyeSpan = hypot(eyeL.x - eyeR.x, eyeL.y - eyeR.y)
@@ -314,7 +317,7 @@ public enum KinematicsCalculator {
         
         // 3. Pitch: vertical facial thirds ratio (eye-to-nose vs nose-to-chin)
         let resolvedPitch: Float
-        if let eyeL = leftEye, let eyeR = rightEye, let n = nose {
+        if let (eyeL, eyeR) = eyes, let n = nose {
             let midX = (eyeL.x + eyeR.x) * 0.5
             let midY = (eyeL.y + eyeR.y) * 0.5
             let eyeSpan = hypot(eyeL.x - eyeR.x, eyeL.y - eyeR.y)
