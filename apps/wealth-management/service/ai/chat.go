@@ -177,7 +177,8 @@ func objectSchema(properties map[string]any) map[string]any {
 	return map[string]any{"type": "object", "properties": properties}
 }
 
-// chatTools are the read-only ledger tools of the chat (WM-AI-11, WM-MCP-4).
+// chatTools are the read-only ledger tools of the chat (WM-AI-11, WM-MCP-4)
+// plus the market tools that are wired.
 func (s *Service) chatTools() map[string]chatTool {
 	str := func(description string) map[string]any {
 		return map[string]any{"type": "string", "description": description}
@@ -247,6 +248,7 @@ func (s *Service) chatTools() map[string]chatTool {
 			},
 		},
 	}
+	tools = append(tools, s.marketTools(str)...)
 	byName := make(map[string]chatTool, len(tools))
 	for _, tool := range tools {
 		byName[tool.definition.Name] = tool

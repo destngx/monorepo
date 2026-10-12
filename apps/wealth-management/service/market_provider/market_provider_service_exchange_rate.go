@@ -2,40 +2,45 @@ package market_provider
 
 import (
 	"apps/wealth-management/domain"
+	"apps/wealth-management/port"
 	"context"
 	"fmt"
 	"strings"
+	"time"
 )
 
+// maxExchangeRateAge rejects rates a feed stopped updating (fmarket's USD/VND
+// history froze in 2025) so the chain falls through; 4 days covers weekends
+// and holidays for daily reference rates.
+const maxExchangeRateAge = 4 * 24 * time.Hour
+
 func (s *marketProviderService) GetExchangeRate(ctx context.Context, from string, to string) (domain.ExchangeRate, error) {
-	pair := strings.ToUpper(from) + "_" + strings.ToUpper(to)
-	cacheKey := fmt.Sprintf("market:getExchangeRate:%s", pair)
-	if !domain.ShouldBypassCache(ctx) {
-		if cached, ok, err := s.getCachedExchangeRate(ctx, cacheKey); err == nil && ok {
-			return cached, nil
+	from, to = strings.ToUpper(strings.TrimSpace(from)), strings.ToUpper(strings.TrimSpace(to))
+	pair := from + "_" + to
+	key := "market:getExchangeRate:" + pair
+	return cachedRoute(ctx, s, key, "get exchange rate "+pair, s.routing.GetExchangeRate[pair], func(provider port.MarketProvider) (domain.ExchangeRate, error) {
+		capable, ok := provider.(port.ExchangeRateProvider)
+		if !ok {
+			return domain.ExchangeRate{}, errCapabilityMissing
 		}
-	}
-
-	chain := s.routing.GetExchangeRate[pair]
-	if len(chain) == 0 {
-		return domain.ExchangeRate{}, fmt.Errorf("no provider chain configured for exchange rate pair %s", pair)
-	}
-
-	var errors []string
-	for _, name := range chain {
-		provider, err := s.providerByName(name)
+		rate, err := capable.GetExchangeRate(ctx, from, to)
 		if err != nil {
-			errors = append(errors, err.Error())
-			continue
+			return domain.ExchangeRate{}, err
 		}
+		return rate, s.checkRate(rate)
+	})
+}
 
-		exchangeRate, err := provider.GetExchangeRate(ctx, from, to)
-		if err == nil {
-			_ = s.setCache(ctx, cacheKey, exchangeRate)
-			return exchangeRate, nil
-		}
-		errors = append(errors, fmt.Sprintf("%s: %v", provider.Name(), err))
+func (s *marketProviderService) checkRate(rate domain.ExchangeRate) error {
+	if rate.Rate <= 0 {
+		return fmt.Errorf("returned a non-positive rate")
 	}
-
-	return domain.ExchangeRate{}, fmt.Errorf("get exchange rate failed for %s: %s", pair, strings.Join(errors, "; "))
+	at, err := time.Parse(time.RFC3339, rate.Timestamp)
+	if err != nil {
+		return fmt.Errorf("returned a rate without a readable timestamp %q", rate.Timestamp)
+	}
+	if age := s.now().Sub(at); age > maxExchangeRateAge {
+		return fmt.Errorf("rate is stale: last updated %s", rate.Timestamp)
+	}
+	return nil
 }

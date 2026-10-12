@@ -18,6 +18,9 @@ type fakeMarketProvider struct {
 	health          domain.MarketProviderHealth
 	healthErr       error
 	getTickerCalls  int
+	candles         domain.CandleSeries
+	candlesErr      error
+	candleQueries   []domain.CandleQuery
 }
 
 func (f *fakeMarketProvider) Name() string {
@@ -49,6 +52,20 @@ func (f *fakeMarketProvider) GetPriceSeries(_ context.Context, _ string, _ domai
 
 func (f *fakeMarketProvider) GetBankInterestRate(_ context.Context) ([]domain.BankRate, error) {
 	return f.bankRates, f.bankRatesErr
+}
+
+func (f *fakeMarketProvider) GetCandles(_ context.Context, _ string, query domain.CandleQuery) (domain.CandleSeries, error) {
+	f.candleQueries = append(f.candleQueries, query)
+	return f.candles, f.candlesErr
+}
+
+// healthOnlyProvider has no data capability, to test that routing skips it.
+type healthOnlyProvider struct{ name string }
+
+func (h healthOnlyProvider) Name() string { return h.name }
+
+func (h healthOnlyProvider) Health(context.Context) (domain.MarketProviderHealth, error) {
+	return domain.MarketProviderHealth{Provider: h.name, Status: "ok"}, nil
 }
 
 type fakeMarketCacheClient struct {

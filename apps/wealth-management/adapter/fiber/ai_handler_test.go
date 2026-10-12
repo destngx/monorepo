@@ -121,3 +121,27 @@ func TestCaptureProgressEventKeepsTheMessage(t *testing.T) {
 		t.Fatalf("progress event: %s %v", encoded, err)
 	}
 }
+
+func TestAIMarketRoutes(t *testing.T) {
+	ai := &fakes.AI{}
+	app := newAIApp(t, ai)
+	if status, body := call(t, app, http.MethodPost, "/api/ai/news-sentiment", `{"topic":"Interest rates","force":true}`); status != http.StatusOK || !strings.Contains(body, `"bias":"BULLISH"`) || !ai.News[0].Force {
+		t.Fatalf("news sentiment: %d %s %+v", status, body, ai.News)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/ai/ticker-insight", `{"symbol":"FPT","timeframe":"4h"}`); status != http.StatusOK || ai.Tickers[0].Timeframe != "4h" {
+		t.Fatalf("ticker insight: %d %s %+v", status, body, ai.Tickers)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/ai/ticker-insight", `{"symbol":" "}`); status != http.StatusBadRequest {
+		t.Fatalf("a ticker insight needs a symbol, got %d", status)
+	}
+
+	status, body := call(t, app, http.MethodPost, "/api/ai/investment-analysis", "")
+	want := "{\"type\":\"phase\",\"phase\":\"think-tank\",\"status\":\"ok\"}\n{\"type\":\"actions\",\"commands\":[{\"action\":\"OBSERVE\",\"target\":\"VN30\",\"rationale\":\"\"}]}\n{\"type\":\"done\"}\n"
+	if status != http.StatusOK || body != want {
+		t.Fatalf("investment analysis: %d %q", status, body)
+	}
+	status, body = call(t, newAIApp(t, &fakes.AI{Err: fmt.Errorf("%w: market/think-tank", domain.ErrPromptMissing)}), http.MethodPost, "/api/ai/investment-analysis", `{"model":"m"}`)
+	if status != http.StatusOK || !strings.HasSuffix(body, "{\"type\":\"error\",\"message\":\"prompt missing from the Prompts sheet: market/think-tank\"}\n") {
+		t.Fatalf("investment analysis error event: %d %q", status, body)
+	}
+}

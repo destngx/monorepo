@@ -98,3 +98,11 @@ func TestLoadCaptureLimits(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadSearchConfigTrimsKeys(t *testing.T) {
+	t.Setenv("TAVILY_API_KEY", " tvly ")
+	t.Setenv("EXA_API_KEY", "")
+	if config := LoadSearchConfig(); config.TavilyAPIKey != "tvly" || config.ExaAPIKey != "" {
+		t.Fatalf("unexpected config %+v", config)
+	}
+}

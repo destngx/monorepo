@@ -8,6 +8,8 @@ const (
 	TickerTypeEquity TickerType = "equity"
 	TickerTypeIFC    TickerType = "ifc"
 	TickerTypeGold   TickerType = "gold"
+	// TickerTypeCrypto prices a coin in USD (WM-INV-2).
+	TickerTypeCrypto TickerType = "crypto"
 )
 
 type SeriesType string
@@ -68,7 +70,10 @@ type MarketRoutingConfig struct {
 	GetExchangeRate     map[string][]string
 	GetPriceSeries      map[SeriesType][]string
 	GetBankInterestRate []string
-	CacheTTLSeconds     int
+	// GetCandles serves VN equities and indices, FX, gold and VIX
+	// (WM-INV-11/12); providers skip symbols they do not cover.
+	GetCandles      []string
+	CacheTTLSeconds int
 }
 
 func DefaultMarketRoutingConfig() MarketRoutingConfig {
@@ -77,16 +82,19 @@ func DefaultMarketRoutingConfig() MarketRoutingConfig {
 			TickerTypeEquity: {"vnstock", "fmarket"},
 			TickerTypeIFC:    {"fmarket", "vnstock"},
 			TickerTypeGold:   {"fmarket"},
+			TickerTypeCrypto: {"coingecko"},
 		},
 		GetExchangeRate: map[string][]string{
-			"USD_VND": {"fmarket", "vnstock"},
+			"USD_VND":  {"fmarket", "yahoo", "currencyapi"},
+			"USDT_VND": {"coingecko", "currencyapi"},
 		},
 		GetPriceSeries: map[SeriesType][]string{
 			SeriesTypeEquity:  {"vnstock", "fmarket"},
 			SeriesTypeGoldUSD: {"fmarket"},
-			SeriesTypeForex:   {"fmarket", "vnstock"},
+			SeriesTypeForex:   {"yahoo", "fmarket"},
 		},
 		GetBankInterestRate: []string{"fmarket"},
+		GetCandles:          []string{"vnstock", "yahoo", "fmarket"},
 		CacheTTLSeconds:     int((5 * time.Minute).Seconds()),
 	}
 }

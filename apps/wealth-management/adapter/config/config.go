@@ -93,6 +93,12 @@ func LoadMarketDataProviderConfig(baseURLEnv string, fallbackBaseURL string) dom
 	}
 }
 
+// LoadCoinGeckoConfig reads COINGECKO_BASE_URL and the optional
+// COINGECKO_API_KEY (a demo key; it raises the public rate limit).
+func LoadCoinGeckoConfig(fallbackBaseURL string) (domain.MarketDataProviderConfig, string) {
+	return LoadMarketDataProviderConfig("COINGECKO_BASE_URL", fallbackBaseURL), strings.TrimSpace(os.Getenv("COINGECKO_API_KEY"))
+}
+
 func getOrDefaultInt(key string, fallback int) int {
 	value := os.Getenv(key)
 	if value == "" {
@@ -219,4 +225,12 @@ func LoadCaptureLimits() (domain.CaptureLimits, error) {
 		return domain.CaptureLimits{}, fmt.Errorf("%w: CAPTURE_MAX_ITEM_MB must not exceed CAPTURE_MAX_BATCH_MB", ErrInvalidCaptureConfig)
 	}
 	return domain.CaptureLimits{MaxItems: items, MaxItemBytes: itemMB << 20, MaxBatchBytes: batchMB << 20}, nil
+}
+
+// LoadSearchConfig reads the optional TAVILY_API_KEY and EXA_API_KEY.
+func LoadSearchConfig() domain.SearchConfig {
+	return domain.SearchConfig{
+		TavilyAPIKey: strings.TrimSpace(os.Getenv("TAVILY_API_KEY")),
+		ExaAPIKey:    strings.TrimSpace(os.Getenv("EXA_API_KEY")),
+	}
 }

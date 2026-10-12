@@ -15,6 +15,8 @@ type AI struct {
 	Chats   []port.ChatRequest
 	// Captures records Smart Capture requests.
 	Captures []port.CaptureRequest
+	News     []port.NewsRequest
+	Tickers  []port.TickerInsightRequest
 }
 
 var _ port.AIService = (*AI)(nil)
@@ -92,4 +94,29 @@ func (f *AI) Capture(_ context.Context, request port.CaptureRequest, progress fu
 		})
 	}
 	return result, nil
+}
+
+func (f *AI) NewsSentiment(_ context.Context, request port.NewsRequest) (domain.NewsReport, error) {
+	f.News = append(f.News, request)
+	return domain.NewsReport{Topic: request.Topic, Bias: domain.NewsBullish}, f.Err
+}
+
+func (f *AI) TickerInsight(_ context.Context, request port.TickerInsightRequest) (domain.Insight, error) {
+	f.Tickers = append(f.Tickers, request)
+	return domain.Insight{Summary: request.Symbol}, f.Err
+}
+
+// InvestmentAnalysis streams one phase and a command, then fails with Err
+// or finishes.
+func (f *AI) InvestmentAnalysis(_ context.Context, _ port.InvestmentAnalysisRequest, emit func(port.InvestmentEvent) error) error {
+	if err := emit(port.InvestmentEvent{Type: "phase", Phase: "think-tank", Status: "ok"}); err != nil {
+		return err
+	}
+	if f.Err != nil {
+		return f.Err
+	}
+	if err := emit(port.InvestmentEvent{Type: "actions", Commands: []domain.InvestmentCommand{{Action: domain.ActionObserve, Target: "VN30"}}}); err != nil {
+		return err
+	}
+	return emit(port.InvestmentEvent{Type: "done"})
 }

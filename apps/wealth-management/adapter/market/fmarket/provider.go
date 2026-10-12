@@ -5,12 +5,14 @@ import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
@@ -93,10 +95,26 @@ func fallbackString(value string, fallback string) string {
 	return value
 }
 
+// vietnamTime is fmarket's calendar (UTC+7, no DST).
+var vietnamTime = time.FixedZone("ICT", 7*60*60)
+
+// fmarketDate formats a day the way fmarket's history endpoints read it.
+// Any other layout (2006-01-02 included) is ignored and fmarket answers with
+// a stale default window instead of an error.
+func fmarketDate(at time.Time) string {
+	return at.In(vietnamTime).Format("20060102")
+}
+
 func lastNDaysRange(days int) (fromDate string, toDate string) {
 	now := time.Now()
-	from := now.AddDate(0, 0, -days)
-	return from.Format("2006-01-02"), now.Format("2006-01-02")
+	return fmarketDate(now.AddDate(0, 0, -days)), fmarketDate(now)
+}
+
+// oldestFirst orders history rows by report date. fmarket returns its
+// rate and gold histories newest first, so "last" would otherwise be the
+// oldest point of the window.
+func oldestFirst[T any](rows []T, reportDate func(T) int64) {
+	slices.SortStableFunc(rows, func(a, b T) int { return cmp.Compare(reportDate(a), reportDate(b)) })
 }
 
 func parseEnvelopeStatusCode(value interface{}) (int, bool) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
@@ -31,13 +32,12 @@ func (p *Provider) GetExchangeRate(ctx context.Context, from string, to string) 
 	if err := json.NewDecoder(response.Body).Decode(&envelope); err != nil {
 		return domain.ExchangeRate{}, err
 	}
-	var points []struct {
-		RateSellUSD float64 `json:"rateSellUsd"`
-		ReportDate  int64   `json:"reportDate"`
-	}
+	var points []usdRateRow
 	if err := json.Unmarshal(envelope.Data, &points); err != nil {
 		return domain.ExchangeRate{}, err
 	}
+	points = slices.DeleteFunc(points, func(row usdRateRow) bool { return row.RateSellUSD <= 0 })
+	oldestFirst(points, usdRateRow.date)
 	if len(points) == 0 {
 		return domain.ExchangeRate{}, fmt.Errorf("fmarket returned no exchange-rate data")
 	}
@@ -51,3 +51,10 @@ func (p *Provider) GetExchangeRate(ctx context.Context, from string, to string) 
 		Timestamp: time.UnixMilli(last.ReportDate).UTC().Format(time.RFC3339),
 	}, nil
 }
+
+type usdRateRow struct {
+	RateSellUSD float64 `json:"rateSellUsd"`
+	ReportDate  int64   `json:"reportDate"`
+}
+
+func (row usdRateRow) date() int64 { return row.ReportDate }

@@ -98,6 +98,49 @@ type AIService interface {
 	// Capture reads materials into suggested transactions without writing
 	// anything (§6.2). progress may be nil; calls to it are serialised.
 	Capture(ctx context.Context, request CaptureRequest, progress func(CaptureProgress)) (domain.CaptureResult, error)
+	// NewsSentiment searches a topic and classifies each article (WM-INV-17).
+	NewsSentiment(ctx context.Context, request NewsRequest) (domain.NewsReport, error)
+	// TickerInsight comments on the deterministic analysis of a symbol (WM-AI-14).
+	TickerInsight(ctx context.Context, request TickerInsightRequest) (domain.Insight, error)
+	// InvestmentAnalysis streams the think tank (WM-AI-9, WM-INV-18).
+	InvestmentAnalysis(ctx context.Context, request InvestmentAnalysisRequest, emit func(InvestmentEvent) error) error
+}
+
+type NewsRequest struct {
+	Topic string `json:"topic"`
+	// Force skips the search and result caches.
+	Force bool   `json:"force,omitempty"`
+	Model string `json:"model,omitempty"`
+}
+
+type TickerInsightRequest struct {
+	Symbol string `json:"symbol"`
+	// Timeframe is 1h, 4h, 1d or 1w; empty is 1d.
+	Timeframe string `json:"timeframe,omitempty"`
+	Force     bool   `json:"force,omitempty"`
+	Model     string `json:"model,omitempty"`
+}
+
+type InvestmentAnalysisRequest struct {
+	// News are scanner reports the user already ran; they are passed to the
+	// think tank as pre-analysed context.
+	News  []domain.NewsReport `json:"news,omitempty"`
+	Model string              `json:"model,omitempty"`
+}
+
+// InvestmentEvent is one NDJSON line of the think-tank stream. Phases are
+// "context", "think-tank", "synthesis" and "actions".
+type InvestmentEvent struct {
+	Type     string                     `json:"type"` // "phase", "message", "actions", "context", "done", "error"
+	Phase    string                     `json:"phase,omitempty"`
+	Status   string                     `json:"status,omitempty"` // phase: "running", "ok", "fallback", "error"
+	Name     string                     `json:"name,omitempty"`
+	Content  string                     `json:"content,omitempty"`
+	Commands []domain.InvestmentCommand `json:"commands,omitempty"`
+	// Context discloses the raw inputs the models saw.
+	Context any    `json:"context,omitempty"`
+	Model   string `json:"model,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 // CaptureRequest is one Smart Capture batch (WM-CAP-1).

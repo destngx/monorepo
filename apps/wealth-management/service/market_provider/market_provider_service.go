@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 type marketProviderService struct {
@@ -15,6 +16,7 @@ type marketProviderService struct {
 	routing   domain.MarketRoutingConfig
 	cache     port.CacheClient
 	log       *logger.Logger
+	now       func() time.Time
 }
 
 func NewService(log *logger.Logger, providers ...port.MarketProvider) port.MarketProviderService {
@@ -41,6 +43,7 @@ func NewServiceWithRouting(
 		routing:   routing,
 		cache:     cache,
 		log:       log,
+		now:       time.Now,
 	}
 }
 

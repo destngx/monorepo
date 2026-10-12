@@ -1,75 +1,115 @@
 <script lang="ts">
-  import type { HoldingSection } from '$lib/api/types';
+  import { api } from '$lib/api/endpoints';
+  import type { PortfolioSection, PortfolioValuation, ValuedHolding } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate, formatPercent } from '$lib/format';
-  import { sectionTotal, toVND, type Rates } from '$lib/investments/valuation';
+  import { toasts } from '$lib/state/toasts.svelte';
 
   let { data } = $props();
 
-  // USDT/VND arrives with the market phase (WM-MKT-2); until then USDT stays unconverted.
-  const rates = $derived<Rates>(data.usdRate ? { USD: data.usdRate.rate } : {});
-  const sections = $derived([
-    { key: 'crypto', title: 'Crypto', section: data.assets.crypto },
-    { key: 'funds', title: 'Fund certificates', section: data.assets.funds },
-  ]);
-  const totals = $derived(sections.map((s) => sectionTotal(s.section.items, rates)));
-  const grand = $derived(totals.reduce((sum, t) => sum + t.vnd, 0));
-  const unvalued = $derived(totals.reduce((sum, t) => sum + t.unvalued, 0));
+  // A forced refresh replaces the loaded valuation until the next navigation.
+  let refreshed = $state<PortfolioValuation | null>(null);
+  let isRefreshing = $state(false);
+  const valuation = $derived(refreshed ?? data.valuation);
+  const totals = $derived(valuation.totals);
+
+  async function refresh() {
+    isRefreshing = true;
+    try {
+      refreshed = await api.valuation({ force: true });
+    } catch (error) {
+      toasts.error(error, 'Could not refresh prices');
+    } finally {
+      isRefreshing = false;
+    }
+  }
+
+  const sectionTitles: Record<PortfolioSection, string> = { crypto: 'Crypto', funds: 'Fund certificates' };
+  const sections = $derived(
+    (['crypto', 'funds'] as const).map((key) => {
+      const rows = valuation.holdings.filter((h) => h.section === key);
+      return { key, title: sectionTitles[key], rows, total: rows.reduce((sum, h) => sum + (h.valueVND ?? 0), 0) };
+    }),
+  );
 
   const nf = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 8 });
   const quantity = (value: number | null) => (value === null ? '-' : nf.format(value));
-  const visible = (section: HoldingSection) => section.items.filter((h) => h.symbol || h.value !== null);
+  const source = (h: ValuedHolding) =>
+    ({ quantity_x_price: 'qty × sheet price', quantity_x_live_price: 'qty × live price' })[h.valueSource];
 
   const bankRates = $derived([...data.bankRates].sort((a, b) => b.rate - a.rate).slice(0, 15));
 </script>
 
-<PageHeader title="Investments" subtitle="Holdings from the sheet, valued in VND" />
+<PageHeader title="Investments" subtitle="Holdings from the sheet, valued in VND by the engine">
+  {#snippet actions()}
+    <button type="button" class="btn-ghost" disabled={isRefreshing} onclick={refresh}>
+      <Icon name="refresh" size={16} class={isRefreshing ? 'animate-spin' : ''} /> Refresh prices
+    </button>
+  {/snippet}
+</PageHeader>
 
-{#if data.marketError}
+{#if valuation.issues.length}
   <div class="glass mb-4 border border-amber-500/40 p-3 text-sm text-amber-800 dark:text-amber-200" role="status">
-    {data.marketError}
+    <p class="font-medium">Some figures are incomplete:</p>
+    <ul class="mt-1 list-disc pl-5">
+      {#each valuation.issues as issue, i (i)}<li>{issue}</li>{/each}
+    </ul>
   </div>
 {/if}
 
-<!-- WM-INV-4 -->
+<!-- WM-INV-4, WM-RULE-8 -->
 <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-  <Stat label="Portfolio (VND)" value={grand} hint={unvalued ? `${unvalued} holdings not valued` : undefined} />
-  <Stat label="Crypto" value={totals[0].vnd} />
-  <Stat label="Fund certificates" value={totals[1].vnd} />
-  <Stat label="USD/VND">
-    {#if data.usdRate}
-      <span class="tabular">{nf.format(data.usdRate.rate)}</span>
-      <span class="muted block text-xs font-normal"
-        >{data.usdRate.provider}{data.usdRate.timestamp ? ` · ${formatDate(data.usdRate.timestamp)}` : ''}</span
-      >
+  <Stat
+    label="Portfolio (VND)"
+    value={totals.total}
+    hint={totals.unvalued ? `${totals.unvalued} items not valued` : undefined}
+  />
+  <Stat label="VND assets" value={totals.vnd} hint="Accounts {nf.format(totals.vndAccounts)} + funds" />
+  <Stat
+    label="Crypto"
+    value={totals.crypto}
+    hint="Max of accounts {nf.format(totals.cryptoAccounts)} and holdings {nf.format(totals.cryptoHoldings)}"
+  />
+  <Stat label="Exchange rates">
+    {#if valuation.rates.length}
+      {#each valuation.rates as rate (rate.from)}
+        <span class="block text-base">
+          <span class="muted text-xs font-normal">{rate.from}</span>
+          <span class="tabular">{nf.format(rate.rate)}</span>
+        </span>
+        <span class="muted block text-xs font-normal"
+          >{rate.provider}{rate.timestamp ? ` · ${formatDate(rate.timestamp)}` : ''}</span
+        >
+      {/each}
     {:else}<span class="muted">-</span>{/if}
   </Stat>
 </div>
 
-{#each sections as { key, title, section }, index (key)}
-  {@const rows = visible(section)}
+{#each sections as { key, title, rows, total } (key)}
   <Card {title} subtitle="{rows.length} holdings" class="mt-4">
     {#if rows.length}
       <div class="-mx-5 overflow-x-auto">
-        <table class="w-full min-w-[44rem] text-sm">
+        <table class="w-full min-w-[52rem] text-sm">
           <thead>
             <tr class="muted text-left text-xs uppercase">
               <th class="px-5 py-2">Platform</th>
               <th class="px-5 py-2">Symbol</th>
               <th class="px-5 py-2 text-right">Quantity</th>
-              <th class="px-5 py-2 text-right">Price</th>
+              <th class="px-5 py-2 text-right">Sheet price</th>
+              <th class="px-5 py-2 text-right">Live price</th>
               <th class="px-5 py-2 text-right">Value</th>
-              <th class="px-5 py-2 text-right">Est. VND</th>
+              <th class="px-5 py-2 text-right">VND</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
             {#each rows as holding, i (i)}
-              {@const vnd = toVND(holding.value, holding.currency, rates)}
+              {@const label = source(holding)}
               <tr>
                 <td class="px-5 py-2">{holding.platform}</td>
                 <td class="px-5 py-2 font-medium">{holding.symbol || '-'}</td>
@@ -80,21 +120,35 @@
                     >{/if}</td
                 >
                 <td class="px-5 py-2 text-right">
+                  {#if holding.livePrice}
+                    <Money value={holding.livePrice.price} currency={holding.livePrice.currency} />
+                    <span class="muted block text-xs"
+                      >{holding.livePrice.provider}{holding.livePrice.timestamp
+                        ? ` · ${formatDate(holding.livePrice.timestamp)}`
+                        : ''}</span
+                    >
+                  {:else}<span class="muted">-</span>{/if}
+                </td>
+                <td class="px-5 py-2 text-right">
                   {#if holding.value !== null}
                     <Money value={holding.value} currency={holding.currency} />
-                    {#if holding.valueSource === 'quantity_x_price'}<Badge>qty × price</Badge>{/if}
+                    {#if label}<Badge tone={holding.valueSource === 'quantity_x_live_price' ? 'blue' : 'neutral'}
+                        >{label}</Badge
+                      >{/if}
                   {:else}<span class="muted">No value</span>{/if}
                 </td>
-                <td class="px-5 py-2 text-right"
-                  >{#if vnd !== null}<Money value={vnd} />{:else}<span class="muted">-</span>{/if}</td
-                >
+                <td class="px-5 py-2 text-right">
+                  {#if holding.valueVND !== null}<Money value={holding.valueVND} />{:else}
+                    <span class="text-xs text-amber-700 dark:text-amber-300">{holding.issue || 'Not valued'}</span>
+                  {/if}
+                </td>
               </tr>
             {/each}
           </tbody>
           <tfoot>
             <tr class="border-t border-slate-900/10 font-semibold dark:border-white/10">
-              <td class="px-5 py-2" colspan="5">Total</td>
-              <td class="px-5 py-2 text-right"><Money value={totals[index].vnd} /></td>
+              <td class="px-5 py-2" colspan="6">Total</td>
+              <td class="px-5 py-2 text-right"><Money value={total} /></td>
             </tr>
           </tfoot>
         </table>
@@ -104,6 +158,8 @@
     {/if}
   </Card>
 {/each}
+
+<p class="muted mt-2 text-right text-xs">Valued {formatDate(valuation.generatedAt)}</p>
 
 <Card title="Bank savings rates" subtitle="Highest published rates" class="mt-4">
   {#if bankRates.length}

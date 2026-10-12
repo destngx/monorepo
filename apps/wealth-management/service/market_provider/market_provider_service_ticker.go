@@ -2,39 +2,23 @@ package market_provider
 
 import (
 	"apps/wealth-management/domain"
+	"apps/wealth-management/port"
 	"context"
 	"fmt"
-	"strings"
 )
 
 func (s *marketProviderService) GetTicker(ctx context.Context, symbol string, tickerType domain.TickerType) (domain.Ticker, error) {
-	cacheKey := fmt.Sprintf("market:getTicker:%s:%s", tickerType, symbol)
-	if !domain.ShouldBypassCache(ctx) {
-		if cached, ok, err := s.getCachedTicker(ctx, cacheKey); err == nil && ok {
-			return cached, nil
-		}
+	symbol = domain.NormaliseMarketSymbol(symbol)
+	if symbol == "" {
+		return domain.Ticker{}, fmt.Errorf("%w: symbol is required", domain.ErrValidation)
 	}
-
-	chain := s.routing.GetTicker[tickerType]
-	if len(chain) == 0 {
-		return domain.Ticker{}, fmt.Errorf("no provider chain configured for ticker type %s", tickerType)
-	}
-
-	var errors []string
-	for _, name := range chain {
-		provider, err := s.providerByName(name)
-		if err != nil {
-			errors = append(errors, err.Error())
-			continue
+	key := fmt.Sprintf("market:getTicker:%s:%s", tickerType, symbol)
+	operation := fmt.Sprintf("get ticker %s/%s", tickerType, symbol)
+	return cachedRoute(ctx, s, key, operation, s.routing.GetTicker[tickerType], func(provider port.MarketProvider) (domain.Ticker, error) {
+		capable, ok := provider.(port.TickerProvider)
+		if !ok {
+			return domain.Ticker{}, errCapabilityMissing
 		}
-
-		ticker, err := provider.GetTicker(ctx, symbol, tickerType)
-		if err == nil {
-			_ = s.setCache(ctx, cacheKey, ticker)
-			return ticker, nil
-		}
-		errors = append(errors, fmt.Sprintf("%s: %v", provider.Name(), err))
-	}
-
-	return domain.Ticker{}, fmt.Errorf("get ticker failed for %s/%s: %s", tickerType, symbol, strings.Join(errors, "; "))
+		return capable.GetTicker(ctx, symbol, tickerType)
+	})
 }

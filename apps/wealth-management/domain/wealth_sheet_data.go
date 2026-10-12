@@ -183,6 +183,9 @@ type Holding struct {
 const (
 	HoldingValueFromSheet         = "sheet"
 	HoldingValueFromQuantityPrice = "quantity_x_price"
+	// HoldingValueFromLivePrice is quantity × a live market price, used only
+	// when the sheet has neither a value nor a price (WM-INV-2).
+	HoldingValueFromLivePrice = "quantity_x_live_price"
 )
 
 type InvestmentHoldingSection struct {

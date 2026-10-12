@@ -79,4 +79,22 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 			"model":    schemaString,
 		}, "messages"),
 	})
+	ai.Post("/news-sentiment", guard.Wrap(h.NewsSentiment), RouteMeta{
+		Summary:     "News scanner: web search on a topic, a per-article sentiment, confidence and impact from the model, and the bias by strict plurality (WM-INV-17).",
+		RequestBody: jsonBody(aiOptionProperties(map[string]any{"topic": schemaString}), "topic"),
+	})
+	ai.Post("/ticker-insight", guard.Wrap(h.TickerInsight), RouteMeta{
+		Summary: "Structured commentary on the engine's analysis of one symbol plus recent headlines (WM-AI-14).",
+		RequestBody: jsonBody(aiOptionProperties(map[string]any{
+			"symbol":    schemaString,
+			"timeframe": map[string]any{"type": "string", "enum": []string{"1h", "4h", "1d", "1w"}},
+		}), "symbol"),
+	})
+	ai.Post("/investment-analysis", guard.Wrap(h.InvestmentAnalysis), RouteMeta{
+		Summary: "Investment think tank streamed as NDJSON events: phase (phase, status running|ok|fallback|error), context (the raw inputs), message (phase, name, content, model), actions (commands), done and error (message).",
+		RequestBody: optionalJSONBody(map[string]any{
+			"news":  map[string]any{"type": "array", "description": "News scanner reports to use as pre-analysed context.", "items": map[string]any{"type": "object"}},
+			"model": schemaString,
+		}),
+	})
 }

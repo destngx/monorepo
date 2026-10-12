@@ -11,10 +11,18 @@
     title: string;
     subtitle?: string;
     load: (force: boolean, signal: AbortSignal) => Promise<Insight>;
+    /** Idle hint: where the figures the model reads come from. */
+    hint?: string;
     class?: string;
   }
 
-  let { title, subtitle, load, class: className = '' }: Props = $props();
+  let {
+    title,
+    subtitle,
+    load,
+    hint = 'AI review of the data on this page. Figures come from the ledger.',
+    class: className = '',
+  }: Props = $props();
 
   // Rebuilt when the loader changes (e.g. another month), dropping old results.
   const task = $derived(new AITask(load));
@@ -59,6 +67,6 @@
       </ul>
     {/if}
   {:else}
-    <AIStatusLine {task} hint="AI review of the data on this page. Figures come from the ledger." />
+    <AIStatusLine {task} {hint} />
   {/if}
 </Card>

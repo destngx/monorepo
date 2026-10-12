@@ -65,10 +65,11 @@ func (s *Service) dispatch(ctx context.Context, action domain.FmarketAction, par
 		if productID == 0 {
 			return nil, fmt.Errorf("productId is required")
 		}
+		// isAllData makes fmarket ignore navPeriod, so the full history is
+		// always returned and callers cut ranges themselves.
 		return s.postJSON(ctx, "/res/product/get-nav-history", map[string]any{
 			"isAllData": 1,
 			"productId": productID,
-			"navPeriod": fallbackString(argumentString(params, "navPeriod"), "navToBeginning"),
 		})
 	case domain.FmarketActionGoldPriceHistory:
 		return s.postDateRange(ctx, "/res/get-price-gold-history", params)

@@ -51,3 +51,17 @@ def test_price_board(mock_vnstock):
     response = client.get("/api/v1/stocks/price-board?symbols=VND,SSI")
     assert response.status_code == 200
     assert response.json()["data"][0]["symbol"] == "VND"
+
+@patch("src.modules.shared.deps.Vnstock")
+def test_historical_passes_the_resolution_as_interval(mock_vnstock):
+    history = mock_vnstock.return_value.stock.return_value.quote.history
+    history.return_value = pd.DataFrame([{"time": "2026-10-01 09:00:00", "close": 100}])
+
+    response = client.get("/api/v1/stocks/historical?symbol=VCB&resolution=1h&start_date=2026-10-01")
+    assert response.status_code == 200
+    assert response.json()["resolution"] == "1H"
+    assert history.call_args.kwargs["interval"] == "1H"
+
+def test_historical_rejects_unknown_resolutions():
+    response = client.get("/api/v1/stocks/historical?symbol=VCB&resolution=4H")
+    assert response.status_code == 400

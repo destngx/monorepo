@@ -7,9 +7,15 @@ import (
 	dbAdapter "apps/wealth-management/adapter/db/google_sheets"
 	fiberAdapter "apps/wealth-management/adapter/fiber"
 	loggerAdapter "apps/wealth-management/adapter/logger"
+	coingeckoProvider "apps/wealth-management/adapter/market/coingecko"
+	currencyapiProvider "apps/wealth-management/adapter/market/currencyapi"
 	fmarketProvider "apps/wealth-management/adapter/market/fmarket"
 	vnstockProvider "apps/wealth-management/adapter/market/vnstock"
+	yahooProvider "apps/wealth-management/adapter/market/yahoo"
 	mcpAdapter "apps/wealth-management/adapter/mcp"
+	duckduckgoSearch "apps/wealth-management/adapter/search/duckduckgo"
+	exaSearch "apps/wealth-management/adapter/search/exa"
+	tavilySearch "apps/wealth-management/adapter/search/tavily"
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"apps/wealth-management/service"
@@ -20,6 +26,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -70,8 +77,19 @@ func main() {
 
 	cacheClient, cacheSvc := setupCache(ctx, log, health, api)
 	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig)
-	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, captureLimits)
-	setupMarket(ctx, log, health, api, mcpServer, cacheClient)
+	marketSvc := setupMarket(ctx, log, health, api, mcpServer, cacheClient)
+	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc)}
+	if marketSvc != nil {
+		analysisSvc := service.NewMarketAnalysisService(marketSvc, nil)
+		fiberAdapter.RegisterMarketAnalysisRoutes(api, fiberAdapter.NewMarketAnalysisHandler(analysisSvc, log))
+		aiOptions.Market = analysisSvc
+	}
+	if dbSvc != nil && marketSvc != nil {
+		portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil)
+		fiberAdapter.RegisterPortfolioRoutes(api, fiberAdapter.NewPortfolioHandler(portfolioSvc, log))
+		aiOptions.Portfolio = portfolioSvc
+	}
+	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions)
 
 	// Mounted last so every API route above keeps priority over the UI.
 	if !fiberAdapter.MountUI(app, fiberAdapter.DefaultUIBuildDir) {
@@ -137,7 +155,7 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 
 // setupAI wires the AI use cases (§10). They read prompts and data from the
 // sheet, so they need it; the status route stays up to report what is missing.
-func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService, captureLimits domain.CaptureLimits) {
+func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService, options aiService.Options) {
 	if dbSvc == nil {
 		log.LogApplicationEvent(ctx, "AI features disabled: they need the Google Sheet")
 		return
@@ -151,9 +169,34 @@ func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.Heal
 	if err == nil {
 		health.Register(port.HealthCheck{Name: "ai", Probe: client.Ping})
 	}
-	aiSvc := aiService.New(client, dbSvc, analyticsSvc, cacheSvc, aiConfig, log, aiService.Options{CaptureLimits: captureLimits})
+	aiSvc := aiService.New(client, dbSvc, analyticsSvc, cacheSvc, aiConfig, log, options)
 	mcpServer.SetAIService(aiSvc)
-	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(aiSvc, log).WithCaptureLimits(captureLimits), guard)
+	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(aiSvc, log).WithCaptureLimits(options.CaptureLimits), guard)
+}
+
+// setupSearch chains the web search providers (WM-AI-12): Tavily and Exa
+// when their keys are set, then DuckDuckGo, which needs none.
+func setupSearch(ctx context.Context, log *loggerAdapter.Logger, cacheSvc port.CacheService) port.SearchService {
+	config := configAdapter.LoadSearchConfig()
+	providers := make([]port.SearchProvider, 0, 3)
+	if config.TavilyAPIKey != "" {
+		if provider, err := tavilySearch.NewProvider(tavilySearch.DefaultBaseURL, config.TavilyAPIKey); err != nil {
+			log.LogError(ctx, "search provider disabled", err)
+		} else {
+			providers = append(providers, provider)
+		}
+	}
+	if config.ExaAPIKey != "" {
+		if provider, err := exaSearch.NewProvider(exaSearch.DefaultBaseURL, config.ExaAPIKey); err != nil {
+			log.LogError(ctx, "search provider disabled", err)
+		} else {
+			providers = append(providers, provider)
+		}
+	}
+	providers = append(providers, duckduckgoSearch.NewProvider(duckduckgoSearch.DefaultBaseURL))
+	searchSvc := service.NewSearchService(cacheSvc, log, providers...)
+	log.LogApplicationEvent(ctx, "web search providers: "+strings.Join(searchSvc.Providers(), ", "))
+	return searchSvc
 }
 
 // bodyLimit fits a full Smart Capture batch: base64 inflates images by 4/3
@@ -163,21 +206,27 @@ func bodyLimit(limits domain.CaptureLimits) int {
 	return max(minimum, limits.MaxBatchBytes/3*4+(1<<20))
 }
 
-func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, cacheClient port.CacheClient) {
-	providers := make([]port.MarketProvider, 0, 2)
+// setupMarket registers every market data provider (WM-MKT-1). A provider
+// whose config is invalid is skipped and the routing chains fall through to
+// the next one. It returns nil when no provider could be built.
+func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, cacheClient port.CacheClient) port.MarketProviderService {
+	providers := make([]port.MarketProvider, 0, 5)
+	add := func(provider port.MarketProvider, err error) {
+		if err != nil {
+			log.LogError(ctx, "market provider disabled", err)
+			return
+		}
+		providers = append(providers, provider)
+	}
+
 	fmarket, err := fmarketProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("FMARKET_BASE_URL", "https://api.fmarket.vn"), log)
-	if err != nil {
-		log.LogError(ctx, "failed to initialize market provider fmarket", err)
-		fmarket = nil
-	} else {
-		providers = append(providers, fmarket)
-	}
-	vnstock, err := vnstockProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("VNSTOCK_SERVER_URL", "http://localhost:8000"), log)
-	if err != nil {
-		log.LogError(ctx, "failed to initialize market provider vnstock", err)
-	} else {
-		providers = append(providers, vnstock)
-	}
+	add(fmarket, err)
+	add(vnstockProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("VNSTOCK_SERVER_URL", "http://localhost:8000"), log))
+	coingeckoConfig, coingeckoKey := configAdapter.LoadCoinGeckoConfig(coingeckoProvider.DefaultBaseURL)
+	add(coingeckoProvider.NewProvider(coingeckoConfig, coingeckoKey, log))
+	add(currencyapiProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("CURRENCY_API_BASE_URL", currencyapiProvider.DefaultBaseURL), log))
+	add(yahooProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("YAHOO_FINANCE_BASE_URL", yahooProvider.DefaultBaseURL), log))
+
 	for _, provider := range providers {
 		health.Register(port.HealthCheck{Name: "market:" + provider.Name(), Probe: func(ctx context.Context) error {
 			_, err := provider.Health(ctx)
@@ -185,7 +234,7 @@ func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.
 		}})
 	}
 	if len(providers) == 0 {
-		return
+		return nil
 	}
 	marketSvc := marketProviderService.NewServiceWithRouting(domain.DefaultMarketRoutingConfig(), cacheClient, log, providers...)
 	mcpServer.SetMarketService(marketSvc)
@@ -195,4 +244,5 @@ func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.
 		mcpServer.SetFmarketService(fmarketSvc)
 		fiberAdapter.RegisterFmarketRoutes(api, fiberAdapter.NewFmarketHandler(fmarketSvc, marketSvc, log))
 	}
+	return marketSvc
 }

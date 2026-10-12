@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func (p *Provider) GetTicker(ctx context.Context, symbol string, tickerType domain.TickerType) (domain.Ticker, error) {
@@ -24,19 +25,30 @@ func (p *Provider) GetTicker(ctx context.Context, symbol string, tickerType doma
 			return domain.Ticker{}, err
 		}
 		var product struct {
-			Code string  `json:"code"`
-			Nav  float64 `json:"nav"`
+			Code      string  `json:"code"`
+			Nav       float64 `json:"nav"`
+			NavChange struct {
+				UpdateAt int64 `json:"updateAt"`
+			} `json:"productNavChange"`
 		}
 		if err := json.Unmarshal(envelope.Data, &product); err != nil {
 			return domain.Ticker{}, err
 		}
+		if product.Nav <= 0 {
+			return domain.Ticker{}, fmt.Errorf("fmarket has no NAV for %s", symbol)
+		}
 
+		var timestamp string
+		if product.NavChange.UpdateAt > 0 {
+			timestamp = time.UnixMilli(product.NavChange.UpdateAt).UTC().Format(time.RFC3339)
+		}
 		return domain.Ticker{
-			Symbol:   fallbackString(product.Code, symbol),
-			Type:     tickerType,
-			Provider: p.Name(),
-			Currency: "VND",
-			Price:    product.Nav,
+			Symbol:    fallbackString(product.Code, symbol),
+			Type:      tickerType,
+			Provider:  p.Name(),
+			Currency:  "VND",
+			Price:     product.Nav,
+			Timestamp: timestamp,
 		}, nil
 	case domain.TickerTypeGold:
 		if strings.EqualFold(symbol, "XAU") {

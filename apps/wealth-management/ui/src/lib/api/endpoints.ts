@@ -27,10 +27,16 @@ import type {
   Goal,
   Insight,
   InvestmentAssets,
+  InvestmentEvent,
+  MarketAnalysis,
+  MarketPulse,
+  NewsReport,
   Loan,
+  PortfolioValuation,
   ReviewKind,
   SyncResult,
   Ticker,
+  Timeframe,
   TransactionBatchResult,
   Transaction,
   TransactionInput,
@@ -97,6 +103,7 @@ export const api = {
   goals: (options?: ReadOptions) => read<Goal[]>('/goals', options),
   loans: (options?: ReadOptions) => read<Loan[]>('/loans', options),
   investments: (options?: ReadOptions) => read<InvestmentAssets>('/investments/assets', options),
+  valuation: (options?: ReadOptions) => read<PortfolioValuation>('/investments/valuation', options),
 
   budget: (year: number, options?: ReadOptions) => read<BudgetItem[]>('/budget', options, { year }),
   updateBudgetLimit: (input: { year: number; category: string; month?: string; limit: number }) =>
@@ -114,6 +121,23 @@ export const api = {
   exchangeRate: (from: string, to: string, fetch?: Fetch) =>
     request<ExchangeRate>('/market/exchange-rate', { fetch, query: { from, to } }),
   bankRates: (fetch?: Fetch) => request<BankRate[]>('/market/bank-rates', { fetch }),
+  marketPulse: (timeframe: Timeframe, options?: ReadOptions) =>
+    read<MarketPulse>('/market/pulse', options, { timeframe }),
+  marketAnalysis: (symbol: string, timeframe: Timeframe, options?: ReadOptions) =>
+    read<MarketAnalysis>('/market/analysis', options, { symbol, timeframe }),
+  /** Raw fmarket explorer actions (WM-MKT-6); the payload is fmarket's own JSON. */
+  fmarket: <T>(
+    action: string,
+    params: Record<string, unknown> = {},
+    options: ReadOptions & { signal?: AbortSignal } = {},
+  ) =>
+    request<T>('/fmarket/action', {
+      method: 'POST',
+      body: { action, params },
+      fetch: options.fetch,
+      signal: options.signal,
+      query: { force: options.force || undefined },
+    }),
 
   aiStatus: (fetch?: Fetch) => request<AIStatus>('/ai/status', { fetch }),
   suggestCategory: (payee: string, signal?: AbortSignal) =>
@@ -131,6 +155,18 @@ export const api = {
     input: { chartType: string; title: string; description?: string; timeframe?: string; data: unknown },
     options?: AIOptions,
   ) => ai<{ insight: string }>('/ai/chart-insight', input, options).then((result) => result.insight),
+  newsSentiment: (topic: string, options?: AIOptions) => ai<NewsReport>('/ai/news-sentiment', { topic }, options),
+  tickerInsight: (symbol: string, timeframe: Timeframe, options?: AIOptions) =>
+    ai<Insight>('/ai/ticker-insight', { symbol, timeframe }, options),
+  /** Streams the think tank (WM-AI-9); failures after the stream starts arrive as an "error" event. */
+  investmentAnalysis: async function* (news: NewsReport[], signal?: AbortSignal): AsyncGenerator<InvestmentEvent> {
+    const stream = await requestStream('/ai/investment-analysis', {
+      method: 'POST',
+      body: { news: news.length ? news : undefined, model: insightModel() },
+      signal,
+    });
+    yield* readNDJSON<InvestmentEvent>(stream);
+  },
   /** Streams chat events (WM-AI-11); errors after the stream starts arrive as an "error" event. */
   chat: async function* (
     messages: ChatMessage[],

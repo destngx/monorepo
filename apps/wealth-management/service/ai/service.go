@@ -57,6 +57,11 @@ type Options struct {
 	Now func() time.Time
 	// CaptureLimits bound Smart Capture batches; zero uses the defaults.
 	CaptureLimits domain.CaptureLimits
+	// Search, Market and Portfolio enable the market features (WM-AI-9/14,
+	// WM-INV-17/18); each is optional and its features fail as unavailable.
+	Search    port.SearchService
+	Market    port.MarketAnalysisService
+	Portfolio port.PortfolioService
 }
 
 type Service struct {
@@ -70,6 +75,9 @@ type Service struct {
 	now       func() time.Time
 
 	captureLimits domain.CaptureLimits
+	search        port.SearchService
+	market        port.MarketAnalysisService
+	portfolio     port.PortfolioService
 }
 
 var _ port.AIService = (*Service)(nil)
@@ -93,6 +101,9 @@ func New(client port.AIClient, db port.DatabaseService, analytics port.Analytics
 		now:       options.Now,
 
 		captureLimits: options.CaptureLimits,
+		search:        options.Search,
+		market:        options.Market,
+		portfolio:     options.Portfolio,
 	}
 }
 
@@ -116,7 +127,11 @@ func (s *Service) Status(ctx context.Context) domain.AIStatus {
 		return status
 	}
 	status.Prompts = len(content.Prompts)
-	for _, key := range append(append([]string{}, RequiredPrompts...), capturePrompts...) {
+	keys := append(append([]string{}, RequiredPrompts...), capturePrompts...)
+	if s.market != nil {
+		keys = append(keys, marketPrompts...)
+	}
+	for _, key := range keys {
 		if strings.TrimSpace(content.Prompts[key]) == "" {
 			status.MissingKeys = append(status.MissingKeys, key)
 		}

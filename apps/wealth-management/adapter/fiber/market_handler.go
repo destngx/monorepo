@@ -5,6 +5,7 @@ import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -30,6 +31,9 @@ func (h *MarketHandler) GetTicker(c *fiber.Ctx) error {
 	ctx := withBypassCache(c)
 
 	ticker, err := h.service.GetTicker(ctx, symbol, tickerType)
+	if errors.Is(err, domain.ErrValidation) {
+		return badRequest(c, err.Error())
+	}
 	if err != nil {
 		requestID := c.Get("X-Request-ID")
 		h.log.LogError(c.UserContext(), "market_handler: get ticker failed", err,
@@ -101,6 +105,45 @@ func (h *MarketHandler) GetBankInterestRate(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(rates)
+}
+
+// GetCandles serves OHLCV bars with their data source (WM-INV-14/15).
+func (h *MarketHandler) GetCandles(c *fiber.Ctx) error {
+	symbol := strings.TrimSpace(c.Query("symbol"))
+	if symbol == "" {
+		return badRequest(c, "symbol is required")
+	}
+	timeframe, err := domain.ParseTimeframe(c.Query("timeframe", string(domain.Timeframe1D)))
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+	days := c.QueryInt("days", 0)
+	if days < 0 {
+		return badRequest(c, "days must be positive")
+	}
+
+	series, err := h.service.GetCandles(withBypassCache(c), symbol, timeframe, days)
+	if err != nil {
+		return h.providerError(c, "get candles", err)
+	}
+	return c.JSON(series)
+}
+
+func (h *MarketHandler) providerError(c *fiber.Ctx, scope string, err error) error {
+	return upstreamError(c, h.log, "market_handler: "+scope, err)
+}
+
+// upstreamError answers 400 for invalid input and 502 when every provider in
+// the chain failed.
+func upstreamError(c *fiber.Ctx, log *logger.Logger, scope string, err error) error {
+	if errors.Is(err, domain.ErrValidation) {
+		return badRequest(c, err.Error())
+	}
+	log.LogError(c.UserContext(), scope+" failed", err,
+		slog.String("request_id", c.Get("X-Request-ID")),
+		slog.String("endpoint", c.Path()),
+	)
+	return c.Status(http.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
 }
 
 func withBypassCache(c *fiber.Ctx) context.Context {

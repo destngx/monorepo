@@ -5,6 +5,8 @@ import (
 	"apps/wealth-management/domain"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -117,6 +119,7 @@ type fakeMarketService struct {
 	health          domain.MarketProviderHealth
 	err             error
 	lastBypassCache bool
+	candleCalls     []string
 }
 
 func (f *fakeMarketService) Health(_ context.Context, _ string) (domain.MarketProviderHealth, error) {
@@ -138,4 +141,46 @@ func (f *fakeMarketService) GetPriceSeries(_ context.Context, _ string, _ domain
 
 func (f *fakeMarketService) GetBankInterestRate(_ context.Context) ([]domain.BankRate, error) {
 	return f.bankRates, f.err
+}
+
+func (f *fakeMarketService) GetCandles(_ context.Context, symbol string, timeframe domain.Timeframe, days int) (domain.CandleSeries, error) {
+	f.candleCalls = append(f.candleCalls, fmt.Sprintf("%s/%s/%d", symbol, timeframe, days))
+	return domain.CandleSeries{Symbol: symbol, Timeframe: timeframe}, f.err
+}
+
+func TestGivenCandleQueriesWhenGetCandlesThenValidatesAndMapsErrors(t *testing.T) {
+	cases := []struct {
+		name   string
+		query  string
+		err    error
+		status int
+		call   string
+	}{
+		{"defaults to daily", "symbol=FPT", nil, http.StatusOK, "FPT/1d/0"},
+		{"passes timeframe and days", "symbol=FPT&timeframe=4H&days=30", nil, http.StatusOK, "FPT/4h/30"},
+		{"missing symbol", "timeframe=1d", nil, http.StatusBadRequest, ""},
+		{"unknown timeframe", "symbol=FPT&timeframe=2h", nil, http.StatusBadRequest, ""},
+		{"negative days", "symbol=FPT&days=-1", nil, http.StatusBadRequest, ""},
+		{"validation from the service", "symbol=FPT", fmt.Errorf("%w: bad", domain.ErrValidation), http.StatusBadRequest, "FPT/1d/0"},
+		{"every provider failed", "symbol=FPT", errors.New("all failed"), http.StatusBadGateway, "FPT/1d/0"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			service := &fakeMarketService{err: tc.err}
+			app := fiber.New()
+			app.Get("/api/market/candles", NewMarketHandler(service, logger.NewTestLogger(t)).GetCandles)
+
+			response, err := app.Test(httptest.NewRequest(http.MethodGet, "/api/market/candles?"+tc.query, nil), -1)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer response.Body.Close()
+			if response.StatusCode != tc.status {
+				t.Fatalf("expected %d, got %d", tc.status, response.StatusCode)
+			}
+			if tc.call == "" && len(service.candleCalls) != 0 || tc.call != "" && (len(service.candleCalls) != 1 || service.candleCalls[0] != tc.call) {
+				t.Fatalf("expected call %q, got %v", tc.call, service.candleCalls)
+			}
+		})
+	}
 }

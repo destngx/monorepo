@@ -69,6 +69,23 @@ def validate_ticker_symbol(symbol: str) -> str:
     return cleaned
 
 
+# vnstock intervals are case-sensitive ("1M" is a month, "1m" a minute).
+RESOLUTIONS = {"1m", "5m", "15m", "30m", "1H", "1D", "1W", "1M"}
+RESOLUTION_ALIASES = {"1h": "1H", "1d": "1D", "1w": "1W"}
+
+
+def validate_resolution(resolution: str) -> str:
+    """Normalise a resolution to a vnstock interval, rejecting unknown values."""
+    value = (resolution or "1D").strip()
+    value = RESOLUTION_ALIASES.get(value, value)
+    if value not in RESOLUTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid resolution '{resolution}'. Valid: {', '.join(sorted(RESOLUTIONS))}",
+        )
+    return value
+
+
 @router.get("/quote")
 @rate_limit()
 @cached_response("quote", ttl=CacheConfig.QUOTE_TTL)
@@ -180,10 +197,11 @@ async def get_historical_data(
     ),
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
     resolution: str = Query(
-        "1D", description="Data resolution (1M, 5M, 15M, 30M, 1H, 1D)"
+        "1D", description="Data resolution (1m, 5m, 15m, 30m, 1H, 1D, 1W, 1M)"
     ),
 ):
     """Get historical stock data for a specific symbol."""
+    interval = validate_resolution(resolution)
     if not end_date:
         end_date = datetime.now().strftime("%Y-%m-%d")
     if not start_date:
@@ -194,7 +212,7 @@ async def get_historical_data(
         client = get_vnstock_client()
         df = client.stock(
             symbol=symbol, source=ServerConfig.DEFAULT_SOURCE
-        ).quote.history(start=start_date, end=end_date)
+        ).quote.history(start=start_date, end=end_date, interval=interval)
 
         if df.empty:
             return {
@@ -222,6 +240,7 @@ async def get_historical_data(
                 "end": end_date,
                 "records": len(df),
             },
+            "resolution": interval,
         }
     except HTTPException:
         raise

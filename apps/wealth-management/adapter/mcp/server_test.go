@@ -290,3 +290,7 @@ func TestRunAcceptsRequestsUpToTheConfiguredLimit(t *testing.T) {
 		t.Fatalf("large request: %v %q", err, out.String()[:min(len(out.String()), 200)])
 	}
 }
+
+func (f *fakeMarketServiceForMCP) GetCandles(context.Context, string, domain.Timeframe, int) (domain.CandleSeries, error) {
+	return domain.CandleSeries{}, nil
+}
