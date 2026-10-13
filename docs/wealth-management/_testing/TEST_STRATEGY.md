@@ -70,12 +70,12 @@ go test ./domain/ -run '^$' -bench . -benchmem
 
 Baseline (Apple M1, darwin/arm64, Go 1.26, 2026-10-13):
 
-| Benchmark               | Time/op  | Allocs/op | WM-NFR-1 target              |
-| :---------------------- | :------- | :-------- | :--------------------------- |
-| `ComputeBudgetReport`   | 0.40 ms  | 5555      | cached read p95 < 300 ms     |
-| `ComputeBalanceSheet`   | 28 ns    | 0         | net worth < 100 ms uncached  |
-| `ComputeDashboardSummary` | 2.4 ms | 7331      | cached read p95 < 300 ms     |
-| `ComputeFinancialHealth` | 0.48 ms | 1606      | cached read p95 < 300 ms     |
+| Benchmark                 | Time/op | Allocs/op | WM-NFR-1 target             |
+| :------------------------ | :------ | :-------- | :-------------------------- |
+| `ComputeBudgetReport`     | 0.40 ms | 5555      | cached read p95 < 300 ms    |
+| `ComputeBalanceSheet`     | 28 ns   | 0         | net worth < 100 ms uncached |
+| `ComputeDashboardSummary` | 2.4 ms  | 7331      | cached read p95 < 300 ms    |
+| `ComputeFinancialHealth`  | 0.48 ms | 1606      | cached read p95 < 300 ms    |
 
 The domain math is two to five orders of magnitude inside the budget; request latency is dominated by the cache or the Sheets API, not by the rules.
 
