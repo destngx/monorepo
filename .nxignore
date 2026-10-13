@@ -3,7 +3,3 @@ apps/cloudinary-photos-app
 libs/cloudinary-photos-app
 apps/wealth-management-legacy
 libs/wealth-management-legacy
-
-# Temporarily ignored while the wealth-management consolidation is in progress.
-apps/wealth-management-dashboard
-apps/wealth-management-engine
