@@ -25,6 +25,10 @@ func (f *AI) Status(context.Context) domain.AIStatus {
 	return domain.AIStatus{Configured: true, MissingKeys: []string{"tasks/loan-review"}}
 }
 
+func (f *AI) ProviderUsage(context.Context) (domain.AIProviderUsage, error) {
+	return domain.AIProviderUsage{Provider: "openai", Windows: []domain.AIUsageWindow{{Name: "5h", UsedPercent: 12}}}, f.Err
+}
+
 func (f *AI) SuggestCategory(context.Context, string, string) (port.CategorySuggestion, error) {
 	return port.CategorySuggestion{Category: "Coffee", Source: "history"}, f.Err
 }

@@ -94,6 +94,38 @@ func TestStatusReportsMissingPromptsAndHidesCredentials(t *testing.T) {
 	}
 }
 
+func TestProviderUsageAsksTheClient(t *testing.T) {
+	want := domain.AIProviderUsage{Provider: "openai", Windows: []domain.AIUsageWindow{{Name: "5h", UsedPercent: 12}}}
+	client := &scriptedClient{usage: want}
+
+	usage, err := newTestService(t, fixtureDatabase(), client, nil).ProviderUsage(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.usageCalls != 1 || usage.Provider != "openai" || len(usage.Windows) != 1 || usage.Windows[0].UsedPercent != 12 {
+		t.Fatalf("calls %d, usage %+v", client.usageCalls, usage)
+	}
+}
+
+func TestProviderUsageNeedsOnlyTheEndpoint(t *testing.T) {
+	config := testConfig()
+	config.Models = nil
+	client := &scriptedClient{}
+	svc := New(client, fixtureDatabase(), nil, nil, config, logger.NewTestLogger(t), Options{})
+	if _, err := svc.ProviderUsage(context.Background()); err != nil {
+		t.Fatalf("usage without models: %v", err)
+	}
+
+	config.BaseURL = ""
+	svc = New(client, fixtureDatabase(), nil, nil, config, logger.NewTestLogger(t), Options{})
+	if _, err := svc.ProviderUsage(context.Background()); !errors.Is(err, domain.ErrAIUnavailable) {
+		t.Fatalf("want ErrAIUnavailable without AI_BASE_URL, got %v", err)
+	}
+	if client.usageCalls != 1 {
+		t.Fatalf("client called %d times, want 1", client.usageCalls)
+	}
+}
+
 func TestReviewRendersPromptsMasksNamesAndCaches(t *testing.T) {
 	client := &scriptedClient{replies: []reply{{content: "```json\n" + validInsight + "\n```"}, {content: validInsight}}}
 	svc := newTestService(t, fixtureDatabase(), client, &memoryCache{})

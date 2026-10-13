@@ -5,6 +5,7 @@
   import Card from '$lib/components/Card.svelte';
   import { aiModels } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
+  import AIUsage from './AIUsage.svelte';
   import { effectiveModel, type ModelSource } from './models';
 
   // AI provider status and per-use-case model overrides (WM-AI-4, WM-AI-15).
@@ -103,6 +104,8 @@
   {:else}
     <p class="muted text-sm">Loading…</p>
   {/if}
+
+  <AIUsage />
 
   <fieldset class="mt-4 space-y-2">
     <legend class="label">Model per use case</legend>

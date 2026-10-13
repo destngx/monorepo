@@ -111,6 +111,20 @@ func (s *Service) today() time.Time {
 	return domain.Today(s.now())
 }
 
+// ProviderUsage reports the AI provider's quota through the gateway (WM-SET-4).
+// It needs only the endpoint, so it works before any model is chosen.
+func (s *Service) ProviderUsage(ctx context.Context) (domain.AIProviderUsage, error) {
+	if strings.TrimSpace(s.config.BaseURL) == "" {
+		return domain.AIProviderUsage{}, fmt.Errorf("%w: set AI_BASE_URL", domain.ErrAIUnavailable)
+	}
+	if s.config.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.config.Timeout)
+		defer cancel()
+	}
+	return s.client.Usage(ctx)
+}
+
 func (s *Service) Status(ctx context.Context) domain.AIStatus {
 	status := domain.AIStatus{
 		Configured:    s.config.Configured(),

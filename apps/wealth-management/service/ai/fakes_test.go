@@ -15,6 +15,10 @@ type scriptedClient struct {
 	requests []domain.AIRequest
 	// route, when set, answers requests whose order is not fixed.
 	route func(request domain.AIRequest) reply
+	// usage and usageErr answer Usage; usageCalls counts the calls.
+	usage      domain.AIProviderUsage
+	usageErr   error
+	usageCalls int
 }
 
 type reply struct {
@@ -69,6 +73,13 @@ func (c *scriptedClient) Stream(_ context.Context, request domain.AIRequest, onD
 }
 
 func (c *scriptedClient) Ping(context.Context) error { return nil }
+
+func (c *scriptedClient) Usage(context.Context) (domain.AIProviderUsage, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.usageCalls++
+	return c.usage, c.usageErr
+}
 
 func (c *scriptedClient) models() []string {
 	out := []string{}

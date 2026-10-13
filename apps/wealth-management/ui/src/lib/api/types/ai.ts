@@ -17,6 +17,31 @@ export interface AIStatus {
   capture: CaptureLimits;
 }
 
+/** OpenAI quota from the ai-gateway (WM-SET-4). */
+export interface AIUsageWindow {
+  /** "5h" or "weekly". */
+  name: string;
+  usedPercent: number;
+  resetsAt?: string;
+}
+
+export interface AIUsageTotals {
+  since?: string;
+  inputTokens: number;
+  outputTokens: number;
+  requests: number;
+}
+
+export interface AIProviderUsage {
+  provider: string;
+  authMode?: string;
+  source?: string;
+  /** Rate-limit windows, reported for OAuth accounts. */
+  windows: AIUsageWindow[];
+  /** Token totals, reported for API-key accounts. */
+  totals?: AIUsageTotals;
+}
+
 export type InsightSeverity = 'info' | 'warning' | 'success' | 'critical';
 export type InsightIcon =
   | 'alert'

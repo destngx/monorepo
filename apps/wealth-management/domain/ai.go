@@ -139,3 +139,29 @@ type AIStatus struct {
 	// Capture bounds a Smart Capture batch, for the UI (WM-CAP-1).
 	Capture CaptureLimits `json:"capture"`
 }
+
+// AIProviderUsage is the provider's quota as reported by the ai-gateway
+// GET /v1/usage (WM-SET-4). OAuth (codex) accounts report rate-limit
+// windows; API-key accounts report token totals over recent days.
+type AIProviderUsage struct {
+	Provider string          `json:"provider"`
+	AuthMode string          `json:"authMode,omitempty"`
+	Source   string          `json:"source,omitempty"`
+	Windows  []AIUsageWindow `json:"windows"`
+	Totals   *AIUsageTotals  `json:"totals,omitempty"`
+}
+
+// AIUsageWindow is one rate-limit window, such as "5h" or "weekly".
+type AIUsageWindow struct {
+	Name        string     `json:"name"`
+	UsedPercent float64    `json:"usedPercent"`
+	ResetsAt    *time.Time `json:"resetsAt,omitempty"`
+}
+
+// AIUsageTotals sums the provider's usage buckets since Since.
+type AIUsageTotals struct {
+	Since        *time.Time `json:"since,omitempty"`
+	InputTokens  int64      `json:"inputTokens"`
+	OutputTokens int64      `json:"outputTokens"`
+	Requests     int64      `json:"requests"`
+}

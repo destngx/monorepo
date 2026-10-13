@@ -23,6 +23,7 @@ func optionalJSONBody(properties map[string]any) map[string]any {
 func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 	ai := api.Group("/ai", "ai")
 	ai.Get("/status", h.GetStatus, RouteMeta{Summary: "AI configuration (endpoint host, models, fallback) and required prompts missing from the Prompts sheet."})
+	ai.Get("/usage", h.GetUsage, RouteMeta{Summary: "OpenAI quota from the ai-gateway GET /v1/usage: rate-limit windows (used percent, reset time) for OAuth accounts, token totals for API-key accounts. 503 UNAVAILABLE when the gateway or provider cannot answer."})
 	ai.Post("/suggest-category", guard.Wrap(h.SuggestCategory), RouteMeta{
 		Summary:     "Suggests a category for a payee: the payee's own history first, then the model, constrained to known categories.",
 		RequestBody: jsonBody(map[string]any{"payee": schemaString, "model": schemaString}, "payee"),

@@ -46,6 +46,12 @@ func (s *Server) aiTools() []tool {
 			},
 		},
 		{
+			definition: definition("GetAIUsage", "Reports the OpenAI quota from the ai-gateway: rate-limit windows (used percent, reset time) or token totals for API-key accounts.", nil),
+			handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				return ai.ProviderUsage(ctx)
+			},
+		},
+		{
 			definition: definition("SuggestCategory", "Suggests a category for a payee: the payee's history first, then the model, limited to known categories.", object(map[string]any{"payee": stringSchema, "model": modelSchema}, "payee")),
 			handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
 				var args struct {

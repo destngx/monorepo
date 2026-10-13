@@ -72,11 +72,13 @@ Optional. Without both URL and token the cache is disabled and reads go straight
 
 AI routes are disabled, and `GET /api/ai/status` says why, until `AI_BASE_URL` and a model for every use case (normally via `AI_MODEL`) are set. They also need the Google Sheet, because prompts come from its `Prompts` tab. See REQUIREMENTS.md §10.1.
 
+`GET /api/ai/usage` (Settings, AI card) shows the OpenAI quota by calling the ai-gateway `GET {AI_BASE_URL}/usage` with `X-AI-Provider: openai`. It needs only `AI_BASE_URL` (and `AI_API_KEY` if the gateway requires one); it answers 503 UNAVAILABLE when the gateway has no OpenAI provider configured or cannot reach it.
+
 | Variable               | Default    | Meaning                                                                                                       |
 | ---------------------- | ---------- | ------------------------------------------------------------------------------------------------------------- |
 | `AI_BASE_URL`          | none       | OpenAI-compatible base URL, e.g. `http://127.0.0.1:8081/v1` for ai-gateway.                                   |
 | `AI_API_KEY`           | empty      | Bearer key for the provider (optional for a local gateway).                                                   |
-| `AI_PROVIDER`          | empty      | Sent as `X-AI-Provider` (ai-gateway routing).                                                                 |
+| `AI_PROVIDER`          | empty      | Sent as `X-AI-Provider` on chat calls (ai-gateway routing). The usage check always sends `openai`.            |
 | `AI_MODEL`             | none       | Default model for every use case.                                                                             |
 | `AI_MODEL_INSIGHT`     | `AI_MODEL` | Model for reviews, briefings and insights.                                                                    |
 | `AI_MODEL_SUGGEST`     | `AI_MODEL` | Model for category suggestion.                                                                                |

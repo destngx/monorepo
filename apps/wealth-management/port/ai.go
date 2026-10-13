@@ -15,6 +15,8 @@ type AIClient interface {
 	Stream(ctx context.Context, request domain.AIRequest, onDelta func(string) error) (domain.AIResponse, error)
 	// Ping checks the provider answers (WM-OPS-6).
 	Ping(ctx context.Context) error
+	// Usage reports the provider's quota (WM-SET-4).
+	Usage(ctx context.Context) (domain.AIProviderUsage, error)
 }
 
 // ReviewKind names a structured review (WM-AI-5).
@@ -88,6 +90,8 @@ type ChatEvent struct {
 // AIService implements the AI use cases on top of sheet data (§10).
 type AIService interface {
 	Status(ctx context.Context) domain.AIStatus
+	// ProviderUsage reports the AI provider's quota (WM-SET-4).
+	ProviderUsage(ctx context.Context) (domain.AIProviderUsage, error)
 	SuggestCategory(ctx context.Context, payee string, model string) (CategorySuggestion, error)
 	Review(ctx context.Context, request ReviewRequest) (domain.Insight, error)
 	HealthCommentary(ctx context.Context, force bool, model string) (domain.Insight, error)

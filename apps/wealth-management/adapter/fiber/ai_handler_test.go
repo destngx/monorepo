@@ -28,6 +28,9 @@ func TestAIRoutes(t *testing.T) {
 	if status, body := call(t, app, http.MethodGet, "/api/ai/status", ""); status != http.StatusOK || !strings.Contains(body, `"missingPrompts":["tasks/loan-review"]`) {
 		t.Fatalf("status: %d %s", status, body)
 	}
+	if status, body := call(t, app, http.MethodGet, "/api/ai/usage", ""); status != http.StatusOK || !strings.Contains(body, `"windows":[{"name":"5h","usedPercent":12}]`) {
+		t.Fatalf("usage: %d %s", status, body)
+	}
 	if status, body := call(t, app, http.MethodPost, "/api/ai/review", `{"kind":"budget-review","month":"2026-09","force":true}`); status != http.StatusOK || len(ai.Reviews) != 1 || ai.Reviews[0].Month != "2026-09" || !ai.Reviews[0].Force {
 		t.Fatalf("review: %d %s %+v", status, body, ai.Reviews)
 	}
@@ -56,6 +59,13 @@ func TestAIErrorsMapToStatus(t *testing.T) {
 		if status, body := call(t, app, http.MethodPost, "/api/ai/suggest-category", `{"payee":"x"}`); status != tc.status {
 			t.Fatalf("%v: got %d %s", tc.err, status, body)
 		}
+	}
+}
+
+func TestAIUsageUnavailableIs503(t *testing.T) {
+	app := newAIApp(t, &fakes.AI{Err: fmt.Errorf("%w: provider returned 404: provider openai not configured", domain.ErrAIUnavailable)})
+	if status, body := call(t, app, http.MethodGet, "/api/ai/usage", ""); status != http.StatusServiceUnavailable || !strings.Contains(body, "UNAVAILABLE") {
+		t.Fatalf("usage: %d %s", status, body)
 	}
 }
 

@@ -42,6 +42,10 @@ func (h *AIHandler) GetStatus(c *fiber.Ctx) error {
 	return c.JSON(h.ai.Status(c.UserContext()))
 }
 
+func (h *AIHandler) GetUsage(c *fiber.Ctx) error {
+	return respondWith(c, h.log, aiScope)(h.ai.ProviderUsage(c.UserContext()))
+}
+
 func (h *AIHandler) SuggestCategory(c *fiber.Ctx) error {
 	var body struct {
 		Payee string `json:"payee"`

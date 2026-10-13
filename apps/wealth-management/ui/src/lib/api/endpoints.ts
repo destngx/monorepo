@@ -2,6 +2,7 @@ import { readNDJSON } from '$lib/ai/ndjson';
 import { aiModels } from '$lib/state/settings.svelte';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
+  AIProviderUsage,
   AIStatus,
   Account,
   AccountType,
@@ -149,6 +150,7 @@ export const api = {
     }),
 
   aiStatus: (fetch?: Fetch) => request<AIStatus>('/ai/status', { fetch }),
+  aiUsage: (fetch?: Fetch) => request<AIProviderUsage>('/ai/usage', { fetch }),
   suggestCategory: (payee: string, signal?: AbortSignal) =>
     request<CategorySuggestion>('/ai/suggest-category', {
       method: 'POST',
