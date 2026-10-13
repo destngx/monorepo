@@ -11,8 +11,7 @@
     "serve:all": "nx run-many -t serve",
     "build:all": "nx run-many -t build",
     "prepare": "husky",
-    "cz": "git-cz",
-    "release": "semantic-release"
+    "cz": "git-cz"
   },
   "dependencies": {
     "@commitlint/config-conventional": "^19.0.0",
@@ -44,11 +43,6 @@
     "@nx/js": "22.7.12",
     "@nx/node": "22.7.12",
     "@nx/workspace": "22.7.12",
-    "@semantic-release/changelog": "6.0.3",
-    "@semantic-release/commit-analyzer": "^13.0.0",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/npm": "^12.0.1",
-    "@semantic-release/release-notes-generator": "^14.0.1",
     "@sveltejs/adapter-auto": "^7.0.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.55.0",
@@ -60,7 +54,6 @@
     "@tailwindcss/vite": "^4.2.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/svelte": "^5.4.2",
-    "@theunderscorer/nx-semantic-release": "^2.7.1",
     "@threlte/core": "^8.6.1",
     "@threlte/extras": "^9.22.0",
     "@types/jest": "30.0.0",
@@ -95,8 +88,6 @@
     "prettier-plugin-tailwindcss": "^0.8.0",
     "prompts": "^2.4.2",
     "sass": "1.105.1",
-    "semantic-release": "^24.0.0",
-    "semantic-release-jira-notes": "^4.0.0",
     "shiki": "^4.5.0",
     "svelte": "^5.55.1",
     "svelte-check": "^4.4.5",

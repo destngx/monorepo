@@ -1,9 +1,0 @@
-{
-  "changelog": true,
-  "npm": false,
-  "github": true,
-  "repositoryUrl": "https://github.com/destnguyxn/monorepo",
-  "branches": [
-    "main"
-  ]
-}

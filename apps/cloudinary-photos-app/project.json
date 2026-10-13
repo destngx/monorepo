@@ -4,9 +4,6 @@
   "version": "0.1.0",
   "sourceRoot": "apps/cloudinary-photos-app",
   "projectType": "application",
-  "semantic-release": {
-    "executor": "@theunderscorer/nx-semantic-release:semantic-release"
-  },
   "tags": [
     "type:app",
     "app:cloudinary-photos-app",
