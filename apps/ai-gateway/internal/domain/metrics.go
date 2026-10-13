@@ -27,6 +27,16 @@ type RequestRecord struct {
 	DurationMs int64     `json:"duration_ms"`
 	Usage      Usage     `json:"usage"`
 	Error      string    `json:"error,omitempty"`
+	// Failover is set when the request was rerouted away from its primary
+	// provider; Provider then names the provider that actually served it.
+	Failover *FailoverRecord `json:"failover,omitempty"`
+}
+
+// FailoverRecord is the metrics view of a provider failover.
+type FailoverRecord struct {
+	Primary  string `json:"primary"`
+	Fallback string `json:"fallback"`
+	Reason   string `json:"reason"`
 }
 
 // MetricsSummary is the aggregated view returned by GET /metrics.
@@ -70,16 +80,17 @@ type RouteStats struct {
 
 // RequestSnapshot is a lightweight view of a recent request for the live feed.
 type RequestSnapshot struct {
-	Timestamp    string `json:"timestamp"`
-	Route        string `json:"route"`
-	Provider     string `json:"provider"`
-	Model        string `json:"model"`
-	StatusCode   int    `json:"status_code"`
-	DurationMs   int64  `json:"duration_ms"`
-	PromptTokens int    `json:"prompt_tokens"`
-	CompTokens   int    `json:"completion_tokens"`
-	TotalTokens  int    `json:"total_tokens"`
-	Error        string `json:"error,omitempty"`
+	Timestamp    string          `json:"timestamp"`
+	Route        string          `json:"route"`
+	Provider     string          `json:"provider"`
+	Model        string          `json:"model"`
+	StatusCode   int             `json:"status_code"`
+	DurationMs   int64           `json:"duration_ms"`
+	PromptTokens int             `json:"prompt_tokens"`
+	CompTokens   int             `json:"completion_tokens"`
+	TotalTokens  int             `json:"total_tokens"`
+	Error        string          `json:"error,omitempty"`
+	Failover     *FailoverRecord `json:"failover,omitempty"`
 }
 
 // P/C/T Notation explanation:

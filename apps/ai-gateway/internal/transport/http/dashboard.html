@@ -374,6 +374,11 @@
         font-size: 12px;
         color: var(--ink-muted);
       }
+      .failover-detail {
+        display: block;
+        font-size: 12px;
+        color: var(--warning-ink);
+      }
       .empty-row td {
         text-align: center;
         color: var(--ink-muted);
@@ -659,6 +664,20 @@
         return r.error ? 'Failed' : String(r.status_code);
       }
 
+      const FAILOVER_REASONS = {
+        primary_limit: 'Primary hit a usage limit; retried on the fallback',
+        primary_cooldown: 'Primary is cooling down after a usage limit; routed to the fallback',
+        stream_started: 'Primary hit a usage limit after streaming began; fallback not possible',
+      };
+
+      // The provider column names the provider that served the request; this says where it failed over from.
+      function failoverText(r) {
+        const f = r.failover;
+        if (!f) return '';
+        if (f.reason === 'stream_started') return 'Fallback to ' + f.fallback + ' skipped';
+        return 'Failover from ' + f.primary;
+      }
+
       // ---------- DOM helpers (text only, never innerHTML with data) ----------
 
       function el(tag, opts, children) {
@@ -856,7 +875,8 @@
                     return [
                       ' ' + status + '  ·  ' + duration(r.duration_ms),
                       ' ' + int(r.total_tokens) + ' tokens · ' + r.provider,
-                    ];
+                      r.failover ? ' ' + failoverText(r) : null,
+                    ].filter(Boolean);
                   },
                 },
               },
@@ -1019,7 +1039,16 @@
               el('td', { className: 'secondary', text: clockTime(r.timestamp), title: r.timestamp }),
               statusCell,
               el('td', { className: 'mono secondary', text: r.route }),
-              el('td', { text: r.provider || '-' }),
+              el('td', null, [
+                el('span', { text: r.provider || '-' }),
+                r.failover
+                  ? el('span', {
+                      className: 'failover-detail',
+                      text: failoverText(r),
+                      title: FAILOVER_REASONS[r.failover.reason] || r.failover.reason,
+                    })
+                  : null,
+              ]),
               modelCell,
               el('td', { className: 'num', text: duration(r.duration_ms) }),
               el('td', { className: 'num secondary', text: int(r.prompt_tokens) }),

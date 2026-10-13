@@ -39,6 +39,14 @@ func (f *FailoverLogMeta) ServedByFallback() bool {
 	return f != nil && f.Reason != FailoverReasonStreamStarted
 }
 
+// MetricsRecord returns the failover summary kept with request metrics.
+func (f *FailoverLogMeta) MetricsRecord() *FailoverRecord {
+	if f == nil {
+		return nil
+	}
+	return &FailoverRecord{Primary: f.Primary, Fallback: f.Fallback, Reason: f.Reason}
+}
+
 // LogAttrs returns key/value pairs describing the failover for access logs.
 func (f *FailoverLogMeta) LogAttrs() []any {
 	if f == nil {

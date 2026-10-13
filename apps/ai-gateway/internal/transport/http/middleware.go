@@ -122,10 +122,20 @@ func Metrics(collector *service.MetricsCollector) func(http.Handler) http.Handle
 			// AFTER handler returns — read the populated pointer.
 			// Only record if an AI provider was actually used (set by handlers).
 			if payload.Provider != "" {
+				// Logger runs outside this middleware, so its meta already holds
+				// any failover; attribute the request to the serving provider.
+				provider := payload.Provider
+				var failover *domain.FailoverRecord
+				if meta, ok := r.Context().Value(domain.LogMetaKey).(*domain.RequestLogMeta); ok && meta != nil && meta.Failover != nil {
+					if meta.Failover.ServedByFallback() {
+						provider = meta.Failover.Fallback
+					}
+					failover = meta.Failover.MetricsRecord()
+				}
 				collector.Record(domain.RequestRecord{
 					Timestamp:  start,
 					Route:      r.URL.Path,
-					Provider:   payload.Provider,
+					Provider:   provider,
 					Model:      payload.Model,
 					InputModel: payload.InputModel,
 					Stream:     payload.Stream,
@@ -133,6 +143,7 @@ func Metrics(collector *service.MetricsCollector) func(http.Handler) http.Handle
 					DurationMs: time.Since(start).Milliseconds(),
 					Usage:      payload.Usage,
 					Error:      payload.Error,
+					Failover:   failover,
 				})
 			}
 		})

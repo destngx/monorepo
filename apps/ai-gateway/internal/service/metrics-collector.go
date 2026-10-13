@@ -265,6 +265,7 @@ func (c *MetricsCollector) Summary() domain.MetricsSummary {
 			CompTokens:   rec.Usage.CompletionTokens,
 			TotalTokens:  rec.Usage.TotalTokens,
 			Error:        rec.Error,
+			Failover:     rec.Failover,
 		})
 	}
 
