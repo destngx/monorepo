@@ -15,13 +15,13 @@ export function usageColor(usedPercent: number): string {
   return 'bg-emerald-500';
 }
 
-/** "resets in 2d 3h", "resets in 45m", "reset due"; empty when unknown. */
+/** "in 2d 3h", "in 45m", "due now"; empty when unknown. */
 export function resetsIn(resetsAt: string | undefined, now = new Date()): string {
   if (!resetsAt) return '';
   const at = new Date(resetsAt).getTime();
   if (Number.isNaN(at)) return '';
   const minutes = Math.ceil((at - now.getTime()) / 60_000);
-  if (minutes <= 0) return 'reset due';
+  if (minutes <= 0) return 'due now';
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const rest = minutes % 60;
@@ -31,5 +31,5 @@ export function resetsIn(resetsAt: string | undefined, now = new Date()): string
       : hours > 0
         ? [`${hours}h`, rest > 0 ? `${rest}m` : '']
         : [`${rest}m`];
-  return `resets in ${parts.filter(Boolean).join(' ')}`;
+  return `in ${parts.filter(Boolean).join(' ')}`;
 }

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatMonth, formatPercent, formatSignedPercent, formatVND, shiftMonth, todayISO } from './format';
+import {
+  formatDate,
+  formatDateTime,
+  formatMonth,
+  formatPercent,
+  formatSignedPercent,
+  formatVND,
+  shiftMonth,
+  todayISO,
+} from './format';
 
 describe('formatVND', () => {
   it('groups with dots and rounds to whole dong', () => {
@@ -13,6 +22,18 @@ describe('formatVND', () => {
   it('renders missing values as a dash', () => {
     expect(formatVND(null)).toBe('-');
     expect(formatVND(Number.NaN)).toBe('-');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('shows an instant as dd/MM/yyyy HH:mm in the given timezone', () => {
+    expect(formatDateTime('2026-10-13T15:04:00Z', 'UTC')).toBe('13/10/2026 15:04');
+    expect(formatDateTime('2026-10-13T20:30:00Z', 'Asia/Ho_Chi_Minh')).toBe('14/10/2026 03:30');
+  });
+
+  it('shows a dash for missing or unreadable values', () => {
+    expect(formatDateTime(undefined)).toBe('-');
+    expect(formatDateTime('not a date')).toBe('-');
   });
 });
 

@@ -45,6 +45,29 @@ export function formatDate(value: string | null | undefined): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
+/**
+ * An instant as dd/MM/yyyy HH:mm in the browser's timezone (or timeZone),
+ * for times that are moments rather than sheet dates. "-" when unreadable.
+ */
+export function formatDateTime(value: string | null | undefined, timeZone?: string): string {
+  const date = new Date(value ?? '');
+  if (!value || Number.isNaN(date.getTime())) return '-';
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
+}
+
 /** "2026-10" → "Oct 2026"; with short, "Oct". */
 export function formatMonth(month: string, short = false): string {
   const match = /^(\d{4})-(\d{2})/.exec(month);

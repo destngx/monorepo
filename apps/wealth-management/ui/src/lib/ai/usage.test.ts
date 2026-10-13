@@ -21,19 +21,19 @@ describe('resetsIn', () => {
   const now = new Date('2026-10-13T10:00:00Z');
 
   it('counts down in days, hours and minutes', () => {
-    expect(resetsIn('2026-10-13T10:45:00Z', now)).toBe('resets in 45m');
-    expect(resetsIn('2026-10-13T12:15:00Z', now)).toBe('resets in 2h 15m');
-    expect(resetsIn('2026-10-13T13:00:00Z', now)).toBe('resets in 3h');
-    expect(resetsIn('2026-10-15T13:20:00Z', now)).toBe('resets in 2d 3h');
-    expect(resetsIn('2026-10-15T10:00:00Z', now)).toBe('resets in 2d');
+    expect(resetsIn('2026-10-13T10:45:00Z', now)).toBe('in 45m');
+    expect(resetsIn('2026-10-13T12:15:00Z', now)).toBe('in 2h 15m');
+    expect(resetsIn('2026-10-13T13:00:00Z', now)).toBe('in 3h');
+    expect(resetsIn('2026-10-15T13:20:00Z', now)).toBe('in 2d 3h');
+    expect(resetsIn('2026-10-15T10:00:00Z', now)).toBe('in 2d');
   });
 
   it('rounds partial minutes up so a near reset never shows 0m', () => {
-    expect(resetsIn('2026-10-13T10:00:20Z', now)).toBe('resets in 1m');
+    expect(resetsIn('2026-10-13T10:00:20Z', now)).toBe('in 1m');
   });
 
   it('reports a past reset as due and an unknown one as empty', () => {
-    expect(resetsIn('2026-10-13T09:00:00Z', now)).toBe('reset due');
+    expect(resetsIn('2026-10-13T09:00:00Z', now)).toBe('due now');
     expect(resetsIn(undefined, now)).toBe('');
     expect(resetsIn('not a date', now)).toBe('');
   });

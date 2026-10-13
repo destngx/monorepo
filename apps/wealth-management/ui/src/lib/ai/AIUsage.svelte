@@ -2,7 +2,7 @@
   import { api } from '$lib/api/endpoints';
   import type { AIProviderUsage } from '$lib/api/types';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
-  import { formatCompact, formatDate, formatPercent } from '$lib/format';
+  import { formatCompact, formatDate, formatDateTime, formatPercent } from '$lib/format';
   import { resetsIn, usageColor, windowLabel } from './usage';
 
   // OpenAI quota through the ai-gateway GET /v1/usage (WM-SET-4).
@@ -28,8 +28,6 @@
   $effect(() => {
     void load();
   });
-
-  const localTime = (iso: string) => new Date(iso).toLocaleString();
 </script>
 
 <section class="mt-4" aria-busy={loading}>
@@ -49,9 +47,7 @@
               <span>{windowLabel(window)}</span>
               <span class="tabular text-xs">
                 {formatPercent(window.usedPercent, 0)} used
-                {#if reset}<span class="muted" title={window.resetsAt ? localTime(window.resetsAt) : undefined}
-                    >· {reset}</span
-                  >{/if}
+                <span class="muted">· {formatPercent(Math.max(0, 100 - window.usedPercent), 0)} left</span>
               </span>
             </div>
             <ProgressBar
@@ -59,6 +55,12 @@
               color={usageColor(window.usedPercent)}
               label="{windowLabel(window)} used"
             />
+            {#if window.resetsAt}
+              <p class="muted mt-1 text-xs">
+                Resets <time class="tabular" datetime={window.resetsAt}>{formatDateTime(window.resetsAt)}</time
+                >{#if reset}&nbsp;({reset}){/if}
+              </p>
+            {/if}
           </li>
         {/each}
       </ul>
