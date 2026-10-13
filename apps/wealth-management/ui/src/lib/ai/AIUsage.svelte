@@ -1,32 +1,18 @@
 <script lang="ts">
-  import { api } from '$lib/api/endpoints';
-  import type { AIProviderUsage } from '$lib/api/types';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatCompact, formatDate, formatDateTime, formatPercent } from '$lib/format';
   import { resetsIn, usageColor, windowLabel } from './usage';
+  import { aiUsage } from './usage.svelte';
 
   // OpenAI quota through the ai-gateway GET /v1/usage (WM-SET-4).
-  let usage = $state<AIProviderUsage | null>(null);
-  let error = $state('');
-  let loading = $state(false);
-  let loadedAt = $state(new Date());
-
-  async function load() {
-    loading = true;
-    error = '';
-    try {
-      usage = await api.aiUsage();
-      loadedAt = new Date();
-    } catch (failure) {
-      usage = null;
-      error = failure instanceof Error ? failure.message : String(failure);
-    } finally {
-      loading = false;
-    }
-  }
+  const usage = $derived(aiUsage.usage);
+  const error = $derived(aiUsage.error);
+  const loading = $derived(aiUsage.loading);
+  const loadedAt = $derived(aiUsage.loadedAt);
+  const load = () => void aiUsage.load();
 
   $effect(() => {
-    void load();
+    load();
   });
 </script>
 

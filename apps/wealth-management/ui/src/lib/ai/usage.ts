@@ -33,3 +33,30 @@ export function resetsIn(resetsAt: string | undefined, now = new Date()): string
         : [`${rest}m`];
   return `in ${parts.filter(Boolean).join(' ')}`;
 }
+
+/** Share of the window still available, 0-100. */
+export function leftPercent(window: Pick<AIUsageWindow, 'usedPercent'>): number {
+  const left = 100 - window.usedPercent;
+  return Number.isFinite(left) ? Math.min(100, Math.max(0, left)) : 0;
+}
+
+/**
+ * Continuous green (all left) to red (none left) through amber, in OKLCH so
+ * the lightness stays even along the way and reads on light and dark surfaces.
+ */
+export function leftColor(left: number): string {
+  const share = Math.min(100, Math.max(0, left)) / 100;
+  const hue = 25 + share * (150 - 25);
+  return `oklch(0.7 0.17 ${hue.toFixed(1)})`;
+}
+
+/** The weekly and 5-hour windows the menu bar gauge shows; null when absent. */
+export function gaugeWindows(windows: AIUsageWindow[]): {
+  weekly: AIUsageWindow | null;
+  fiveHour: AIUsageWindow | null;
+} {
+  return {
+    weekly: windows.find((window) => window.name === 'weekly') ?? null,
+    fiveHour: windows.find((window) => window.name === '5h') ?? null,
+  };
+}

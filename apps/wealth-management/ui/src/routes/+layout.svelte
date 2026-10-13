@@ -5,6 +5,7 @@
   import { afterNavigate, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { navigating, page } from '$app/state';
+  import AIUsageGauge from '$lib/ai/AIUsageGauge.svelte';
   import ChatWidget from '$lib/chat/ChatWidget.svelte';
   import DependencyBanner from '$lib/components/DependencyBanner.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -136,6 +137,7 @@
         <Icon name="menu" />
       </button>
       <p class="flex-1 truncate font-semibold">{title}</p>
+      {#if aiReady}<AIUsageGauge />{/if}
       <MaskToggle />
       <ThemeToggle />
       {#if sheetsReady}<SyncButton />{/if}
