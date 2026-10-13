@@ -78,32 +78,12 @@ export function accountIcon(type: AccountType): IconName {
   }
 }
 
-// Cross-currency view (WM-ACC-8). Rates are VND per unit of the currency.
-export type DisplayCurrency = 'VND' | 'USD';
-export type VndRates = Partial<Record<string, number>>;
+// Balances are VND (D25): the sheet converts USD/USDT entries with a formula
+// when they are written, so account.currency is only the entry currency.
 
-/** Amount converted to VND; null when the currency has no usable rate. */
-export function toVND(amount: number, currency: string, rates: VndRates): number | null {
-  if (currency === 'VND') return amount;
-  const rate = rates[currency];
-  return rate && Number.isFinite(rate) && rate > 0 ? amount * rate : null;
-}
-
-/** VND amount in the display currency; null when USD is asked for without a rate. */
-export function fromVND(vnd: number, display: DisplayCurrency, rates: VndRates): number | null {
-  if (display === 'VND') return vnd;
-  const rate = rates.USD;
-  return rate && Number.isFinite(rate) && rate > 0 ? vnd / rate : null;
-}
-
-/** Sum of balances in VND; accounts without a rate are left out (see unconvertible). */
-export function sumInVND(accounts: Account[], rates: VndRates): number {
-  return accounts.reduce((sum, account) => sum + (toVND(account.balance, account.currency, rates) ?? 0), 0);
-}
-
-/** Accounts whose currency cannot be converted, so totals can say what they leave out. */
-export function unconvertible(accounts: Account[], rates: VndRates): Account[] {
-  return accounts.filter((account) => toVND(account.balance, account.currency, rates) === null);
+/** Sum of balances in VND. */
+export function sumBalances(accounts: Account[]): number {
+  return accounts.reduce((sum, account) => sum + account.balance, 0);
 }
 
 // Liquidity tiers (WM-ACC-8): how fast an account's money can be spent.
@@ -132,16 +112,12 @@ export function liquidityTier(type: string): LiquidityTier | null {
 }
 
 /** Positive balances per liquidity tier in VND, with each tier's share of the tiered total. */
-export function liquidityBreakdown(
-  accounts: Account[],
-  rates: VndRates,
-): { tier: LiquidityTier; value: number; percent: number }[] {
+export function liquidityBreakdown(accounts: Account[]): { tier: LiquidityTier; value: number; percent: number }[] {
   const sums = new Map<LiquidityTier, number>(LIQUIDITY_TIERS.map((tier) => [tier, 0]));
   for (const account of accounts) {
     const tier = liquidityTier(account.type);
-    const vnd = toVND(account.balance, account.currency, rates);
-    if (!tier || vnd === null || vnd <= 0) continue;
-    sums.set(tier, (sums.get(tier) ?? 0) + vnd);
+    if (!tier || account.balance <= 0) continue;
+    sums.set(tier, (sums.get(tier) ?? 0) + account.balance);
   }
   const total = [...sums.values()].reduce((sum, value) => sum + value, 0);
   return LIQUIDITY_TIERS.map((tier) => {
@@ -151,36 +127,24 @@ export function liquidityBreakdown(
 }
 
 /** Asset allocation by account group in VND: positive group totals only, archived and credit left out. */
-export function allocationByGroup(accounts: Account[], rates: VndRates): { label: string; value: number }[] {
+export function allocationByGroup(accounts: Account[]): { label: string; value: number }[] {
   const sums = new Map<string, { label: string; value: number }>();
   for (const account of accounts) {
     const group = groupFor(account.type);
     if (group.key === 'archived' || group.key === 'credit') continue;
-    const vnd = toVND(account.balance, account.currency, rates);
-    if (vnd === null) continue;
     const entry = sums.get(group.key) ?? { label: group.label, value: 0 };
-    entry.value += vnd;
+    entry.value += account.balance;
     sums.set(group.key, entry);
   }
   return [...sums.values()].filter((entry) => entry.value > 0);
 }
 
-/**
- * Total balance history in VND: each account's daily series converted at
- * today's rate and summed by date. Accounts without a rate are skipped
- * (callers list them via unconvertible).
- */
-export function totalHistory(
-  histories: Record<string, TrendPoint[]>,
-  accounts: Account[],
-  rates: VndRates,
-): TrendPoint[] {
+/** Total balance history in VND: the accounts' daily series summed by date. */
+export function totalHistory(histories: Record<string, TrendPoint[]>, accounts: Account[]): TrendPoint[] {
   const byDate = new Map<string, number>();
   for (const account of accounts) {
     for (const point of histories[account.name] ?? []) {
-      const vnd = toVND(point.value, account.currency, rates);
-      if (vnd === null) continue;
-      byDate.set(point.date, (byDate.get(point.date) ?? 0) + vnd);
+      byDate.set(point.date, (byDate.get(point.date) ?? 0) + point.value);
     }
   }
   return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }));

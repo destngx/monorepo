@@ -36,13 +36,16 @@
     </div>
     {#if !editing}
       <div>
-        <label class="label" for="acc-currency">Currency</label>
-        <select id="acc-currency" class="field" bind:value={form.currency}>
+        <label class="label" for="acc-currency">Entry currency</label>
+        <select id="acc-currency" class="field" bind:value={form.currency} aria-describedby="acc-currency-hint">
           <option>VND</option><option>USD</option><option>USDT</option>
         </select>
+        <p id="acc-currency-hint" class="muted mt-1 text-xs">
+          USD and USDT amounts are converted to VND by the sheet; balances are always VND.
+        </p>
       </div>
       <div class="sm:col-span-2">
-        <label class="label" for="acc-balance">Opening balance</label>
+        <label class="label" for="acc-balance">Opening balance (VND)</label>
         <input id="acc-balance" type="number" step="1" class="field" bind:value={form.balance} />
       </div>
     {/if}

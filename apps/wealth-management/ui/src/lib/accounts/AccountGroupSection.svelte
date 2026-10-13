@@ -10,16 +10,15 @@
     group: AccountGroup;
     accounts: Account[];
     open: boolean;
-    /** Group total in the display currency, or null when it cannot be converted. */
-    total: number | null;
-    currency: string;
+    /** Group total in VND. */
+    total: number;
     histories: Record<string, TrendPoint[]>;
     ontoggle: () => void;
     onedit: AccountHandler;
     ondelete: AccountHandler;
   }
 
-  let { group, accounts, open, total, currency, histories, ontoggle, onedit, ondelete }: Props = $props();
+  let { group, accounts, open, total, histories, ontoggle, onedit, ondelete }: Props = $props();
 </script>
 
 <section class="glass mt-4">
@@ -34,7 +33,7 @@
       {group.label}
       <span class="muted text-xs font-normal">({accounts.length})</span>
     </span>
-    {#if group.subtotal}<Money value={total} {currency} class="font-semibold" />{/if}
+    {#if group.subtotal}<Money value={total} class="font-semibold" />{/if}
   </button>
   {#if open}
     <ul class="divide-y divide-slate-900/5 border-t border-slate-900/5 dark:divide-white/5 dark:border-white/5">

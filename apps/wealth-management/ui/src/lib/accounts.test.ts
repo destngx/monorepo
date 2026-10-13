@@ -5,16 +5,13 @@ import {
   allocationByGroup,
   creditRemaining,
   creditUtilization,
-  fromVND,
   groupAccounts,
   LIQUIDITY_BY_TYPE,
   liquidityBreakdown,
   liquidityTier,
   noteAmount,
-  sumInVND,
-  toVND,
+  sumBalances,
   totalHistory,
-  unconvertible,
 } from './accounts';
 import { ACCOUNT_TYPES } from './api/types';
 
@@ -71,27 +68,9 @@ describe('Other group (WM-ACC-1)', () => {
   });
 });
 
-const rates = { USD: 25_000, USDT: 26_000 };
-
-describe('currency conversion (WM-ACC-8)', () => {
-  it('converts to VND by currency and back to the display currency', () => {
-    expect(toVND(10, 'USD', rates)).toBe(250_000);
-    expect(toVND(10, 'VND', {})).toBe(10);
-    expect(toVND(10, 'USDT', {})).toBeNull();
-    expect(fromVND(250_000, 'USD', rates)).toBe(10);
-    expect(fromVND(250_000, 'VND', {})).toBe(250_000);
-    expect(fromVND(1, 'USD', {})).toBeNull();
-  });
-
-  it('sums mixed-currency balances in VND', () => {
-    expect(sumInVND([account({ balance: 100 }), account({ currency: 'USD', balance: 2 })], { USD: 50 })).toBe(200);
-  });
-
-  it('lists accounts that have no rate', () => {
-    const missing = unconvertible([account({ name: 'A' }), account({ name: 'B', currency: 'USDT', balance: 1 })], {
-      USD: 25_000,
-    });
-    expect(missing.map((a) => a.name)).toEqual(['B']);
+describe('sumBalances (D25)', () => {
+  it('adds balances as VND: the sheet already converted USD/USDT entries', () => {
+    expect(sumBalances([account({ balance: 100 }), account({ currency: 'USDT', balance: 2_600_000 })])).toBe(2_600_100);
   });
 });
 
@@ -108,17 +87,14 @@ describe('liquidity tiers (WM-ACC-8)', () => {
     expect(liquidityTier('pension')).toBe('Illiquid');
   });
 
-  it('sums positive converted balances per tier with shares', () => {
-    const tiers = liquidityBreakdown(
-      [
-        account({ type: 'active use', balance: 500_000 }),
-        account({ type: 'crypto', currency: 'USD', balance: 10 }),
-        account({ type: 'long holding', balance: 250_000 }),
-        account({ type: 'negative active use', balance: -900_000 }),
-        account({ type: 'active use', balance: -100 }),
-      ],
-      rates,
-    );
+  it('sums positive balances per tier with shares', () => {
+    const tiers = liquidityBreakdown([
+      account({ type: 'active use', balance: 500_000 }),
+      account({ type: 'crypto', currency: 'USDT', balance: 250_000 }),
+      account({ type: 'long holding', balance: 250_000 }),
+      account({ type: 'negative active use', balance: -900_000 }),
+      account({ type: 'active use', balance: -100 }),
+    ]);
     expect(tiers).toEqual([
       { tier: 'Immediate', value: 500_000, percent: 50 },
       { tier: 'T+2', value: 250_000, percent: 25 },
@@ -129,17 +105,14 @@ describe('liquidity tiers (WM-ACC-8)', () => {
 
 describe('allocationByGroup', () => {
   it('totals groups in VND and leaves out credit, archived and non-positive groups', () => {
-    const slices = allocationByGroup(
-      [
-        account({ type: 'active use', balance: 100 }),
-        account({ type: 'cash', balance: 50 }),
-        account({ type: 'crypto', currency: 'USD', balance: 2 }),
-        account({ type: 'negative active use', balance: -500 }),
-        account({ type: 'deprecated', balance: 30 }),
-        account({ type: 'rarely use', balance: 0 }),
-      ],
-      { USD: 100 },
-    );
+    const slices = allocationByGroup([
+      account({ type: 'active use', balance: 100 }),
+      account({ type: 'cash', balance: 50 }),
+      account({ type: 'crypto', currency: 'USDT', balance: 200 }),
+      account({ type: 'negative active use', balance: -500 }),
+      account({ type: 'deprecated', balance: 30 }),
+      account({ type: 'rarely use', balance: 0 }),
+    ]);
     expect(slices).toEqual([
       { label: 'Everyday Banking', value: 150 },
       { label: 'Investments', value: 200 },
@@ -148,25 +121,19 @@ describe('allocationByGroup', () => {
 });
 
 describe('totalHistory', () => {
-  it('sums converted daily balances by date', () => {
+  it('sums daily balances by date, USDT-entry accounts included as VND', () => {
     const points = totalHistory(
       {
         Bank: [
           { date: '2026-10-02', value: 100 },
           { date: '2026-10-01', value: 90 },
         ],
-        Usd: [{ date: '2026-10-01', value: 1 }],
         Coin: [{ date: '2026-10-01', value: 5 }],
       },
-      [
-        account({ name: 'Bank' }),
-        account({ name: 'Usd', currency: 'USD' }),
-        account({ name: 'Coin', currency: 'USDT' }),
-      ],
-      { USD: 10 },
+      [account({ name: 'Bank' }), account({ name: 'Coin', currency: 'USDT' })],
     );
     expect(points).toEqual([
-      { date: '2026-10-01', value: 100 },
+      { date: '2026-10-01', value: 95 },
       { date: '2026-10-02', value: 100 },
     ]);
   });

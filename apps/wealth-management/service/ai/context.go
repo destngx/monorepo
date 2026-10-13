@@ -172,7 +172,7 @@ func (s *Service) accountContexts(accounts []domain.Account) []accountContext {
 		if account.Note != nil {
 			note = s.masker.Mask(*account.Note)
 		}
-		out = append(out, accountContext{Name: s.masker.Mask(account.Name), Type: string(account.Type), Balance: account.Balance, Currency: string(account.Currency), Note: note})
+		out = append(out, accountContext{Name: s.masker.Mask(account.Name), Type: string(account.Type), Balance: account.Balance, Currency: string(domain.CurrencyVND), Note: note})
 	}
 	return out
 }

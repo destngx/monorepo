@@ -178,7 +178,7 @@
             <p class="muted text-xs">{account.type}</p>
           </div>
           <div class="text-right text-sm">
-            <Money value={account.balance} currency={account.currency} />
+            <Money value={account.balance} />
             {#if isCreditAccount(account)}
               <p class="muted text-xs">Available <Money value={creditRemaining(account)} /></p>
             {/if}

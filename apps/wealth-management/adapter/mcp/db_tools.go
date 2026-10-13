@@ -11,7 +11,7 @@ func (s *Server) databaseTools() []tool {
 	return []tool{
 		readTool("GetAccounts", "Lists live accounts with type, balance, cleared balance and currency.", db.ListAccounts),
 		{
-			definition: definition("CreateAccount", "Creates an account. Currency defaults to USDT for Binance accounts, else VND.", object(map[string]any{
+			definition: definition("CreateAccount", "Creates an account. Currency is the entry currency (USDT by default for Binance accounts, else VND); the opening balance and every balance are VND.", object(map[string]any{
 				"name": stringSchema, "type": accountTypeSchema, "balance": numberSchema, "currency": currencySchema, "note": stringSchema,
 			}, "name", "type")),
 			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {

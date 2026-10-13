@@ -50,7 +50,7 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 	accounts := api.Group("/accounts", "accounts")
 	accounts.Get("/", h.GetAccounts, RouteMeta{Summary: "Lists live accounts (soft-deleted rows excluded) with type, balance and currency. Balances are derived from transactions only.", QueryParams: []RouteParameter{forceParam()}})
 	accounts.Post("/", guard.Wrap(h.CreateAccount), RouteMeta{
-		Summary:     "Creates an account row. Currency defaults to USDT for Binance accounts, else VND, and is stored in column I.",
+		Summary:     "Creates an account row. Currency is the entry currency (USDT by default for Binance accounts, else VND), stored in column I; the opening balance and every balance are VND.",
 		RequestBody: jsonBody(map[string]any{"name": schemaString, "type": schemaString, "balance": schemaNumber, "currency": schemaString, "note": schemaString}, "name", "type"),
 	})
 	accounts.Patch("/:name", guard.Wrap(h.UpdateAccount), RouteMeta{

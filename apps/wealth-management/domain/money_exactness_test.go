@@ -104,7 +104,7 @@ func TestGivenOneHundredThousandLargeBalancesWhenComputingTheBalanceSheetThenNet
 	}
 }
 
-func TestGivenAUSDAccountWithCentsWhenValuingInVNDThenItRoundsToTheExactWholeVND(t *testing.T) {
+func TestGivenAUSDHoldingWithCentsWhenValuingInVNDThenItRoundsToTheExactWholeVND(t *testing.T) {
 	tests := []struct {
 		balance float64
 		rate    float64
@@ -117,10 +117,10 @@ func TestGivenAUSDAccountWithCentsWhenValuingInVNDThenItRoundsToTheExactWholeVND
 	}
 	for _, test := range tests {
 		valuation := ValuePortfolio(PortfolioInputs{
-			Accounts: []Account{{Name: "USD", Type: AccountTypeLongHolding, Currency: CurrencyUSD, Balance: test.balance}},
-			Rates:    map[Currency]ExchangeRate{CurrencyUSD: {From: "USD", To: "VND", Rate: test.rate}},
+			Assets: InvestmentAssets{Crypto: InvestmentHoldingSection{Items: []Holding{usdHolding(test.balance)}}},
+			Rates:  map[Currency]ExchangeRate{CurrencyUSD: {From: "USD", To: "VND", Rate: test.rate}},
 		})
-		got := valuation.Totals.CryptoAccounts
+		got := valuation.Totals.CryptoHoldings
 		exact := new(big.Rat).Mul(decimalRat(t, test.balance), decimalRat(t, test.rate))
 		exactFloat, _ := exact.Float64()
 		if math.Abs(got-exactFloat) > 0.01 {
@@ -135,24 +135,30 @@ func TestGivenAUSDAccountWithCentsWhenValuingInVNDThenItRoundsToTheExactWholeVND
 func TestGivenTenThousandUSDHoldingsWhenSummingTheirVNDValuesThenTheTotalIsWithinOneVND(t *testing.T) {
 	const count = 10_000
 	const rate = 25_432.5
-	accounts := make([]Account, 0, count)
+	holdings := make([]Holding, 0, count)
 	exact := new(big.Rat)
 	for i := range count {
 		cents := int64(i*7919%10_000_000 + 1) // up to 100,000.00 USD
 		balance := float64(cents) / 100
-		accounts = append(accounts, Account{Name: "usd", Type: AccountTypeLongHolding, Currency: CurrencyUSD, Balance: balance})
+		holdings = append(holdings, usdHolding(balance))
 		exact.Add(exact, new(big.Rat).Mul(big.NewRat(cents, 100), decimalRat(t, rate)))
 	}
 
 	valuation := ValuePortfolio(PortfolioInputs{
-		Accounts: accounts,
-		Rates:    map[Currency]ExchangeRate{CurrencyUSD: {From: "USD", To: "VND", Rate: rate}},
+		Assets: InvestmentAssets{Crypto: InvestmentHoldingSection{Items: holdings}},
+		Rates:  map[Currency]ExchangeRate{CurrencyUSD: {From: "USD", To: "VND", Rate: rate}},
 	})
 
 	exactFloat, _ := exact.Float64()
-	if drift := math.Abs(valuation.Totals.CryptoAccounts - exactFloat); drift >= 1 {
+	if drift := math.Abs(valuation.Totals.CryptoHoldings - exactFloat); drift >= 1 {
 		t.Fatalf("USD total drifted %v VND from exact %s", drift, exact.FloatString(2))
 	}
+}
+
+// usdHolding is a USD-valued holding: account balances are VND already
+// (D25), so USD to VND conversion only happens for holdings.
+func usdHolding(value float64) Holding {
+	return Holding{Platform: "Exchange", Symbol: "USD", Value: &value, Currency: CurrencyUSD, ValueSource: HoldingValueFromSheet}
 }
 
 func decimalRat(t *testing.T, value float64) *big.Rat {

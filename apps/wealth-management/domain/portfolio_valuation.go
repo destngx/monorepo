@@ -112,13 +112,10 @@ func ValuePortfolio(in PortfolioInputs) PortfolioValuation {
 		if account.Type == AccountTypeDeprecated || account.Balance == 0 {
 			continue
 		}
+		// Balances are already VND (D25); the currency only marks USD/USDT
+		// (exchange) accounts as crypto.
 		isCrypto := account.Type == AccountTypeCrypto || account.Currency == CurrencyUSD || account.Currency == CurrencyUSDT
-		vnd, ok := toVND(account.Balance, account.Currency, in.Rates)
-		if !ok {
-			totals.Unvalued++
-			result.Issues = append(result.Issues, fmt.Sprintf("account %s (%s) left out: no %s/VND rate", account.Name, account.Currency, account.Currency))
-			continue
-		}
+		vnd := account.Balance
 		if isCrypto {
 			totals.CryptoAccounts += vnd
 		} else {

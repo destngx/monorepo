@@ -26,7 +26,7 @@ func portfolioInputs() PortfolioInputs {
 			{Name: "Techcombank", Type: AccountTypeBank, Currency: CurrencyVND, Balance: 50_000_000},
 			{Name: "Credit Card", Type: AccountTypeNegativeActive, Currency: CurrencyVND, Balance: -5_000_000},
 			{Name: "Old", Type: AccountTypeDeprecated, Currency: CurrencyVND, Balance: 999},
-			{Name: "Binance", Type: AccountTypeCrypto, Currency: CurrencyUSDT, Balance: 60000},
+			{Name: "Binance", Type: AccountTypeCrypto, Currency: CurrencyUSDT, Balance: 1_500_000_000},
 		},
 		Prices: map[string]LivePrice{
 			PriceKey(PortfolioSectionCrypto, "btc"): {Price: 82000, Currency: CurrencyUSD, Provider: "coingecko"},
@@ -77,25 +77,26 @@ func TestGivenAccountsAndHoldingsWhenValuePortfolioThenTotalsFollowRule8(t *test
 	if totals.VNDAccounts != 45_000_000 || totals.Funds != 41_000_000 || totals.VND != 86_000_000 {
 		t.Fatalf("unexpected VND totals: %#v", totals)
 	}
-	if totals.CryptoHoldings != 46000*26000 || totals.CryptoAccounts != 60000*25900 {
-		t.Fatalf("unexpected crypto parts: %#v", totals)
+	if totals.CryptoHoldings != 46000*26000 || totals.CryptoAccounts != 1_500_000_000 {
+		t.Fatalf("expected the USDT account's VND balance used as is (D25), got %#v", totals)
 	}
-	if totals.Crypto != 60000*25900 || totals.Total != totals.VND+totals.Crypto || totals.Unvalued != 1 {
+	if totals.Crypto != 1_500_000_000 || totals.Total != totals.VND+totals.Crypto || totals.Unvalued != 1 {
 		t.Fatalf("expected crypto = max(accounts, holdings), got %#v", totals)
 	}
 }
 
-func TestGivenMissingRateWhenValuePortfolioThenNothingIsSilentlyConverted(t *testing.T) {
+func TestGivenMissingRateWhenValuePortfolioThenOnlyTheRateIsReported(t *testing.T) {
 	in := portfolioInputs()
 	delete(in.Rates, CurrencyUSDT)
 	in.RateIssues = map[Currency]string{CurrencyUSDT: "coingecko: 429"}
 	result := ValuePortfolio(in)
-	if result.Totals.CryptoAccounts != 0 || result.Totals.Unvalued != 2 {
-		t.Fatalf("expected the USDT account left out, got %#v", result.Totals)
+	// The USDT account's balance is VND already, so it needs no rate (D25).
+	if result.Totals.CryptoAccounts != 1_500_000_000 || result.Totals.Unvalued != 1 {
+		t.Fatalf("expected the USDT account still valued, got %#v", result.Totals)
 	}
 	joined := strings.Join(result.Issues, " | ")
-	if !strings.Contains(joined, "USDT/VND rate unavailable: coingecko: 429") || !strings.Contains(joined, "account Binance (USDT) left out") {
-		t.Fatalf("expected both issues, got %q", joined)
+	if !strings.Contains(joined, "USDT/VND rate unavailable: coingecko: 429") || strings.Contains(joined, "account Binance") {
+		t.Fatalf("expected only the rate issue, got %q", joined)
 	}
 	if len(result.Rates) != 1 || result.Rates[0].From != "USD" {
 		t.Fatalf("expected only the USD rate, got %#v", result.Rates)

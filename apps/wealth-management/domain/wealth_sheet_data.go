@@ -52,15 +52,18 @@ const (
 )
 
 type Account struct {
-	Name           string      `json:"name"`
-	DueDate        *string     `json:"dueDate"`
-	GoalAmount     *float64    `json:"goalAmount"`
-	GoalProgress   *float64    `json:"goalProgress"`
+	Name         string   `json:"name"`
+	DueDate      *string  `json:"dueDate"`
+	GoalAmount   *float64 `json:"goalAmount"`
+	GoalProgress *float64 `json:"goalProgress"`
+	// Balances are always VND (D25), whatever the currency.
 	ClearedBalance float64     `json:"clearedBalance"`
 	Balance        float64     `json:"balance"`
 	Type           AccountType `json:"type"`
-	Currency       Currency    `json:"currency"`
-	Note           *string     `json:"note"`
+	// Currency is the entry currency: USD/USDT amounts are written as a
+	// formula that converts them to VND (WM-TX-9), so the sheet stores VND.
+	Currency Currency `json:"currency"`
+	Note     *string  `json:"note"`
 }
 
 type Transaction struct {

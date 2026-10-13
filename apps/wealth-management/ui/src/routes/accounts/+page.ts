@@ -1,6 +1,5 @@
 import { api } from '$lib/api/endpoints';
 import { loadOrError } from '$lib/api/load';
-import { loadVndRates } from '$lib/rates';
 import type { PageLoad } from './$types';
 
 // 366 days covers the 12-month balance history (WM-ACC-8); sparklines use the last 60.
@@ -13,6 +12,5 @@ export const load: PageLoad = ({ fetch }) =>
       api.accountHistories(HISTORY_DAYS, { fetch }),
       api.dashboard({ fetch }),
     ]);
-    const fx = await loadVndRates(['USD', ...accounts.map((account) => account.currency)], fetch);
-    return { accounts, histories, balanceSheet: summary.balanceSheet, fx };
+    return { accounts, histories, balanceSheet: summary.balanceSheet };
   });

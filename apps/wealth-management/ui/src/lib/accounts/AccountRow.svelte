@@ -30,7 +30,7 @@
     <div class="min-w-0">
       <p class="truncate font-medium">{account.name}</p>
       <p class="muted truncate text-xs">
-        {account.type}{account.currency !== 'VND' ? ` · ${account.currency}` : ''}{account.dueDate
+        {account.type}{account.currency !== 'VND' ? ` · entered in ${account.currency}` : ''}{account.dueDate
           ? ` · target ${formatDate(account.dueDate)}`
           : ''}{account.note && !isCreditAccount(account) ? ` · ${account.note}` : ''}
       </p>
@@ -40,10 +40,10 @@
     <Sparkline values={recent.map((p) => p.value)} width={128} height={32} label="{account.name} 60-day balance" />
   </div>
   <div class="text-right">
-    <Money value={account.balance} currency={account.currency} class="font-medium" />
+    <Money value={account.balance} class="font-medium" />
     {#if account.clearedBalance !== account.balance}
       <p class="muted text-xs">
-        Cleared <Money value={account.clearedBalance} currency={account.currency} />
+        Cleared <Money value={account.clearedBalance} />
       </p>
     {/if}
     {#if isCreditAccount(account)}
