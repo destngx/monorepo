@@ -4,7 +4,7 @@ This document defines the core standards for `market-data-server` (Python), form
 
 ## 🐍 Architecture: FastAPI & Market Data
 
-The server is the single market-data API for the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api; Algolab and TCBS MCP are planned), the chains between them, caching and last-good copies; see [MARKET_PLATFORM.md](./MARKET_PLATFORM.md). Consumers such as wealth-management must not implement their own market layer: WM's only market adapter is `adapter/market/marketdata`, a client of `/api/v2`. It runs on a private local machine, so it has no API auth.
+The server is the single market-data API for the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api, and the Algolab MCP as the last fallback; TCBS MCP is planned), the chains between them, caching and last-good copies; see [MARKET_PLATFORM.md](./MARKET_PLATFORM.md). Consumers such as wealth-management must not implement their own market layer: WM's only market adapter is `adapter/market/marketdata`, a client of `/api/v2`. It runs on a private local machine, so it has no API auth.
 
 ### 🗺️ Layout
 
