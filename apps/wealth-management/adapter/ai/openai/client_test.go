@@ -54,6 +54,7 @@ func TestCompleteSendsResponsesRequestAndDecodesToolCalls(t *testing.T) {
 		MaxTokens: 300,
 		Messages: []domain.AIMessage{
 			{Role: domain.AIRoleSystem, Content: "sys"},
+			{Role: domain.AIRoleSystem, Content: "context"},
 			{Role: domain.AIRoleUser, Content: "look", Images: []domain.AIImage{{MediaType: "image/png", Data: []byte{1, 2}}}},
 			{Role: domain.AIRoleAssistant, ToolCalls: []domain.AIToolCall{{ID: "c0", Name: "webSearch", Arguments: `{"q":"vn"}`}}},
 			{Role: domain.AIRoleTool, ToolCallID: "c0", Content: ""},
@@ -84,26 +85,27 @@ func TestCompleteSendsResponsesRequestAndDecodesToolCalls(t *testing.T) {
 		t.Fatalf("unexpected tool %v", tool)
 	}
 
+	// System messages go in instructions: the ChatGPT Codex backend behind
+	// ai-gateway rejects system-role input items.
+	if body["instructions"] != "sys\n\ncontext" {
+		t.Fatalf("system messages not sent as instructions: %v", body["instructions"])
+	}
 	input := body["input"].([]any)
-	if len(input) != 4 {
+	if len(input) != 3 {
 		t.Fatalf("unexpected input %v", input)
 	}
-	system := input[0].(map[string]any)
-	if system["role"] != "system" || system["content"].([]any)[0].(map[string]any)["text"] != "sys" {
-		t.Fatalf("unexpected system item %v", system)
-	}
-	parts := input[1].(map[string]any)["content"].([]any)
+	parts := input[0].(map[string]any)["content"].([]any)
 	if parts[0].(map[string]any)["type"] != "input_text" || parts[1].(map[string]any)["type"] != "input_image" {
 		t.Fatalf("unexpected user parts %v", parts)
 	}
 	if image := parts[1].(map[string]any)["image_url"].(string); image != "data:image/png;base64,AQI=" {
 		t.Fatalf("image not sent as data URL: %s", image)
 	}
-	call := input[2].(map[string]any)
+	call := input[1].(map[string]any)
 	if call["type"] != "function_call" || call["call_id"] != "c0" || call["name"] != "webSearch" || call["arguments"] != `{"q":"vn"}` {
 		t.Fatalf("unexpected function call item %v", call)
 	}
-	output := input[3].(map[string]any)
+	output := input[2].(map[string]any)
 	if output["type"] != "function_call_output" || output["call_id"] != "c0" || output["output"] != "" {
 		t.Fatalf("unexpected function call output item %v", output)
 	}
@@ -131,6 +133,9 @@ func TestCompleteSendsAssistantTextAsOutputText(t *testing.T) {
 	assistant := body["input"].([]any)[1].(map[string]any)
 	if assistant["role"] != "assistant" || assistant["content"].([]any)[0].(map[string]any)["type"] != "output_text" {
 		t.Fatalf("unexpected assistant item %v", assistant)
+	}
+	if _, ok := body["instructions"]; ok {
+		t.Fatalf("instructions sent without system messages: %v", body["instructions"])
 	}
 	if _, ok := body["text"]; ok {
 		t.Fatalf("text format sent without JSON mode: %v", body["text"])

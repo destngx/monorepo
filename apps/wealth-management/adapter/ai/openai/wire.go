@@ -55,6 +55,7 @@ type wireText struct {
 // sends the full history, so the provider has no reason to keep it.
 type wireRequest struct {
 	Model           string     `json:"model"`
+	Instructions    string     `json:"instructions,omitempty"`
 	Input           []wireItem `json:"input"`
 	Tools           []wireTool `json:"tools,omitempty"`
 	Text            *wireText  `json:"text,omitempty"`
@@ -122,9 +123,17 @@ func encodeRequest(request domain.AIRequest, stream bool) wireRequest {
 	for _, tool := range request.Tools {
 		wire.Tools = append(wire.Tools, wireTool{Type: "function", Name: tool.Name, Description: tool.Description, Parameters: tool.Parameters})
 	}
+	// System messages become instructions, as the Responses API intends; the
+	// ChatGPT Codex backend behind ai-gateway rejects system-role input items.
+	var instructions []string
 	for _, message := range request.Messages {
+		if message.Role == domain.AIRoleSystem {
+			instructions = append(instructions, message.Content)
+			continue
+		}
 		wire.Input = append(wire.Input, encodeMessage(message)...)
 	}
+	wire.Instructions = strings.Join(instructions, "\n\n")
 	return wire
 }
 
