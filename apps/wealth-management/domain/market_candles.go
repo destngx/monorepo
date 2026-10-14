@@ -60,15 +60,6 @@ func (t Timeframe) AnalysisLookbackDays() int {
 	}
 }
 
-// SourceTimeframe is the resolution fetched from providers: 4h candles are
-// built from 1h candles because neither vnstock nor Yahoo serve them.
-func (t Timeframe) SourceTimeframe() Timeframe {
-	if t == Timeframe4H {
-		return Timeframe1H
-	}
-	return t
-}
-
 // Candle is one OHLCV bar. Time is the bar's open time.
 type Candle struct {
 	Time   time.Time `json:"time"`
@@ -77,14 +68,6 @@ type Candle struct {
 	Low    float64   `json:"low"`
 	Close  float64   `json:"close"`
 	Volume float64   `json:"volume,omitempty"`
-}
-
-// CandleQuery asks a provider for bars of one source timeframe (1h, 1d or
-// 1w) between From and To inclusive.
-type CandleQuery struct {
-	Timeframe Timeframe
-	From      time.Time
-	To        time.Time
 }
 
 // CandleSeries is a provider answer with its data-source indicator
@@ -113,71 +96,8 @@ func NormaliseMarketSymbol(symbol string) string {
 	return strings.TrimPrefix(strings.ToUpper(strings.TrimSpace(symbol)), "^")
 }
 
-// CleanCandles sorts bars by time, drops bars without a positive close and
-// duplicates, and fills a missing high/low/open from the close.
-func CleanCandles(candles []Candle) []Candle {
-	cleaned := make([]Candle, 0, len(candles))
-	for _, candle := range candles {
-		if candle.Close <= 0 || candle.Time.IsZero() {
-			continue
-		}
-		if candle.Open <= 0 {
-			candle.Open = candle.Close
-		}
-		if candle.High <= 0 {
-			candle.High = max(candle.Open, candle.Close)
-		}
-		if candle.Low <= 0 {
-			candle.Low = min(candle.Open, candle.Close)
-		}
-		cleaned = append(cleaned, candle)
-	}
-	sortCandles(cleaned)
-	unique := cleaned[:0]
-	for i, candle := range cleaned {
-		if i > 0 && candle.Time.Equal(cleaned[i-1].Time) {
-			unique[len(unique)-1] = candle
-			continue
-		}
-		unique = append(unique, candle)
-	}
-	return unique
-}
-
-func sortCandles(candles []Candle) {
-	for i := 1; i < len(candles); i++ {
-		for j := i; j > 0 && candles[j].Time.Before(candles[j-1].Time); j-- {
-			candles[j], candles[j-1] = candles[j-1], candles[j]
-		}
-	}
-}
-
-// AggregateCandles merges shorter bars into timeframe bars aligned in
-// location: 4h buckets start at 00/04/08/12/16/20 (one morning and one
-// afternoon bar on HOSE), 1d at midnight and 1w on Monday. 1h input is
-// returned unchanged.
-func AggregateCandles(candles []Candle, timeframe Timeframe, location *time.Location) []Candle {
-	if timeframe == Timeframe1H {
-		return candles
-	}
-	result := []Candle{}
-	var bucket time.Time
-	for _, candle := range candles {
-		start := bucketStart(candle.Time.In(location), timeframe)
-		if len(result) == 0 || !start.Equal(bucket) {
-			bucket = start
-			result = append(result, Candle{Time: start, Open: candle.Open, High: candle.High, Low: candle.Low, Close: candle.Close, Volume: candle.Volume})
-			continue
-		}
-		last := &result[len(result)-1]
-		last.High = max(last.High, candle.High)
-		last.Low = min(last.Low, candle.Low)
-		last.Close = candle.Close
-		last.Volume += candle.Volume
-	}
-	return result
-}
-
+// bucketStart is the start of the timeframe bar holding local: 4h buckets
+// start at 00/04/08/12/16/20, 1d at midnight and 1w on Monday.
 func bucketStart(local time.Time, timeframe Timeframe) time.Time {
 	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, local.Location())
 	switch timeframe {

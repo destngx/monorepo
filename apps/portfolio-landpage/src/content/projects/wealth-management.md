@@ -27,23 +27,24 @@ I wanted to track accounts, transactions, budgets, and goals without giving up t
 - The Go backend in `apps/wealth-management` uses Fiber v2 and a hexagonal layout: `domain/`, `port/`, `service/`, and `adapter/`.
 - The `adapter/db/google_sheets` package reads and writes rows through the Sheets API, and its tests cover token refresh.
 - Redis caching goes through an Upstash REST client in `adapter/cache`.
-- Market data comes from two providers, `vnstock` and `fmarket`, behind one `MarketProviderService`. The `vnstock` provider calls the Python `vnstock-server` over HTTP.
+- Market data comes from the Python `apps/market-data-server`. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api), and the Go engine only calls its `/api/v2` through one client in `adapter/market/marketdata`.
 - The frontend is in `apps/wealth-management/ui`, built with SvelteKit and Tailwind classes as a static SPA that the Go process serves, so production is one process on one origin.
 - This replaces the earlier Next.js version, which was removed once its features were captured in `docs/wealth-management/REQUIREMENTS.md`.
 
 ## Interesting bits
 
-- Market data uses a fallback chain per data type. `DefaultMarketRoutingConfig` in `domain/market_capability.go` sets the order:
+- The market data server uses a fallback chain per data type. `Chains` in `src/market/chains.py` sets the order:
 
-```go
-GetTicker: map[TickerType][]string{
-    TickerTypeEquity: {"vnstock", "fmarket"},
-    TickerTypeIFC:    {"fmarket", "vnstock"},
-    TickerTypeGold:   {"fmarket"},
-},
+```python
+ticker = {
+    "equity": ["vnstock", "fmarket"],
+    "ifc": ["fmarket", "vnstock"],
+    "gold": ["fmarket"],
+    "crypto": ["coingecko"],
+}
 ```
 
-- The first provider that succeeds wins, and successful results are cached for five minutes (`CacheTTLSeconds`).
+- The first source that succeeds wins, and every answer says which source served it and which failed first. When every source fails, the last good answer is served and marked stale.
 - Bank rates only route to `fmarket`, so the chain has one entry.
 - The backend treats Google Sheets as the source of truth and Redis as a disposable layer. Clearing the cache with `/api/sync` is the reset path.
 

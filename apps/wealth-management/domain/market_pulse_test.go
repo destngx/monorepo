@@ -102,7 +102,4 @@ func TestGivenTimeframeTrendsWhenBuildConfluenceThenScoresAgreement(t *testing.T
 	if len(result.Pairs) != 2 || result.Pairs[0].Status != AlignmentAligned || result.Pairs[1].Status != AlignmentConflict {
 		t.Fatalf("unexpected pairs %#v", result.Pairs)
 	}
-	if !IsVNListing("fpt") || IsVNListing("^vix") {
-		t.Fatal("IsVNListing must separate VN tickers from global symbols")
-	}
 }

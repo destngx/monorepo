@@ -1,7 +1,5 @@
 package domain
 
-import "time"
-
 type TickerType string
 
 const (
@@ -63,81 +61,4 @@ type BankRate struct {
 	Timestamp  string  `json:"timestamp,omitempty"`
 	UpdatedAt  string  `json:"updatedAt,omitempty"`
 	RecordedAt string  `json:"recordedAt,omitempty"`
-}
-
-type MarketRoutingConfig struct {
-	GetTicker           map[TickerType][]string
-	GetExchangeRate     map[string][]string
-	GetPriceSeries      map[SeriesType][]string
-	GetBankInterestRate []string
-	// GetCandles serves VN equities and indices, FX, gold and VIX
-	// (WM-INV-11/12); providers skip symbols they do not cover.
-	GetCandles []string
-	// CacheTTL is how long each capability's answers stay cached
-	// (WM-RULE-10).
-	CacheTTL MarketCacheTTLs
-}
-
-// MarketCacheTTLs are the cache lifetimes, in seconds, per market
-// capability (WM-RULE-10). A zero field uses its default.
-type MarketCacheTTLs struct {
-	Ticker       int
-	ExchangeRate int
-	PriceSeries  int
-	Candles      int
-	BankRates    int
-}
-
-// DefaultMarketCacheTTLs: tickers move within the minute, exchange rates
-// within ten, series and candles are daily bars, and bank rates change
-// rarely.
-func DefaultMarketCacheTTLs() MarketCacheTTLs {
-	return MarketCacheTTLs{
-		Ticker:       int(time.Minute.Seconds()),
-		ExchangeRate: int((10 * time.Minute).Seconds()),
-		PriceSeries:  int((5 * time.Minute).Seconds()),
-		Candles:      int((5 * time.Minute).Seconds()),
-		BankRates:    int(time.Hour.Seconds()),
-	}
-}
-
-// WithDefaults fills every zero lifetime with its default.
-func (t MarketCacheTTLs) WithDefaults() MarketCacheTTLs {
-	defaults := DefaultMarketCacheTTLs()
-	pick := func(value, fallback int) int {
-		if value > 0 {
-			return value
-		}
-		return fallback
-	}
-	return MarketCacheTTLs{
-		Ticker:       pick(t.Ticker, defaults.Ticker),
-		ExchangeRate: pick(t.ExchangeRate, defaults.ExchangeRate),
-		PriceSeries:  pick(t.PriceSeries, defaults.PriceSeries),
-		Candles:      pick(t.Candles, defaults.Candles),
-		BankRates:    pick(t.BankRates, defaults.BankRates),
-	}
-}
-
-func DefaultMarketRoutingConfig() MarketRoutingConfig {
-	return MarketRoutingConfig{
-		GetTicker: map[TickerType][]string{
-			TickerTypeEquity: {"vnstock", "fmarket"},
-			TickerTypeIFC:    {"fmarket", "vnstock"},
-			TickerTypeGold:   {"fmarket"},
-			TickerTypeCrypto: {"coingecko"},
-		},
-		GetExchangeRate: map[string][]string{
-			"USD_VND":  {"fmarket", "yahoo", "currencyapi"},
-			"USDT_VND": {"coingecko", "currencyapi"},
-		},
-		GetPriceSeries: map[SeriesType][]string{
-			SeriesTypeEquity:  {"vnstock", "fmarket"},
-			SeriesTypeGoldUSD: {"fmarket"},
-			SeriesTypeForex:   {"yahoo", "fmarket"},
-		},
-		GetBankInterestRate: []string{"fmarket"},
-		GetCandles:          []string{"vnstock", "yahoo", "fmarket"},
-		CacheTTL:            DefaultMarketCacheTTLs(),
-	}
 }

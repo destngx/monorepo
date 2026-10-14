@@ -182,9 +182,9 @@ graph TD
 
 ### 5.2 Data Sourcing (Fallback Chain)
 
-The API utilizes a refined adapter strategy with the following priority:
+The API utilizes a refined adapter strategy with the following priority. Since the move to `apps/market-data-server`, the chain is owned by that server (default chains in [MARKET_PLATFORM.md §3.3](../../../market-data-server/MARKET_PLATFORM.md#33-default-chains-and-ttls)); the adapter names below are the legacy design.
 
-1. **VNStockAdapter**: Primary source for HSX/HNX tickers via internal `vnstock-server`.
+1. **VNStockAdapter**: Primary source for HSX/HNX tickers via market-data-server (vnstock source).
 2. **YahooFinanceAdapter**: Secondary fallback for all global and local tickers.
 3. **CafeFAdapter**: Third-tier fallback for real-time Vietnamese index snapshots.
 4. **Vang.Today**: Dedicated real-time feed for domestic Gold (SJC 9999).
@@ -217,7 +217,7 @@ The API utilizes a refined adapter strategy with the following priority:
 
 ### 9.1 External Service Latency/Outage
 
-- **Waterfall Fallback Chain**: If the primary source (`vnstock-server`) is unreachable, the system automatically descends to `YahooFinanceAdapter`.
+- **Waterfall Fallback Chain**: If the primary source (vnstock, via `apps/market-data-server`) is unreachable, market-data-server automatically descends to Yahoo Finance.
 - **Gold/FX Resilience**: Fmarket or Vang.Today endpoint failures are non-blocking; the API will simply omit these assets from the result set rather than crashing the full dashboard.
 
 ### 9.2 Partial Data Recovery

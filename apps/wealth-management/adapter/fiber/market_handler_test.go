@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -187,5 +188,70 @@ func TestGivenCandleQueriesWhenGetCandlesThenValidatesAndMapsErrors(t *testing.T
 				t.Fatalf("expected call %q, got %v", tc.call, service.candleCalls)
 			}
 		})
+	}
+}
+
+type fakeFmarketService struct {
+	err error
+}
+
+func (f *fakeFmarketService) RunAction(_ context.Context, _ domain.FmarketRequest, _ bool) (any, error) {
+	return map[string]any{"data": []any{}}, f.err
+}
+
+// Errors from the market data server keep their class: its 400 and 404
+// answers wrap ErrValidation and ErrNotFound, anything else is a 502.
+func TestGivenServiceErrorsWhenMarketEndpointsCalledThenMapsStatus(t *testing.T) {
+	errorCases := []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{"validation", fmt.Errorf("%w: bad symbol", domain.ErrValidation), http.StatusBadRequest},
+		{"not found", fmt.Errorf("%w: no fund", domain.ErrNotFound), http.StatusNotFound},
+		{"provider failure", errors.New("every source failed"), http.StatusBadGateway},
+	}
+	endpoints := []struct {
+		method, path string
+		register     func(app *fiber.App, market *fakeMarketService, fmarket *fakeFmarketService, log *logger.Logger)
+		body         string
+	}{
+		{http.MethodGet, "/api/market/ticker?symbol=FPT&type=equity", func(app *fiber.App, m *fakeMarketService, _ *fakeFmarketService, log *logger.Logger) {
+			app.Get("/api/market/ticker", NewMarketHandler(m, log).GetTicker)
+		}, ""},
+		{http.MethodGet, "/api/market/exchange-rate?from=USD&to=VND", func(app *fiber.App, m *fakeMarketService, _ *fakeFmarketService, log *logger.Logger) {
+			app.Get("/api/market/exchange-rate", NewMarketHandler(m, log).GetExchangeRate)
+		}, ""},
+		{http.MethodGet, "/api/market/price-series?symbol=GOLD&type=gold_usd", func(app *fiber.App, m *fakeMarketService, _ *fakeFmarketService, log *logger.Logger) {
+			app.Get("/api/market/price-series", NewMarketHandler(m, log).GetPriceSeries)
+		}, ""},
+		{http.MethodGet, "/api/market/bank-rates", func(app *fiber.App, m *fakeMarketService, _ *fakeFmarketService, log *logger.Logger) {
+			app.Get("/api/market/bank-rates", NewMarketHandler(m, log).GetBankInterestRate)
+		}, ""},
+		{http.MethodPost, "/api/fmarket/action", func(app *fiber.App, m *fakeMarketService, f *fakeFmarketService, log *logger.Logger) {
+			app.Post("/api/fmarket/action", NewFmarketHandler(f, m, log).Action)
+		}, `{"action":"getNavHistory","params":{}}`},
+		{http.MethodGet, "/api/fmarket/health", func(app *fiber.App, m *fakeMarketService, f *fakeFmarketService, log *logger.Logger) {
+			app.Get("/api/fmarket/health", NewFmarketHandler(f, m, log).Health)
+		}, ""},
+	}
+	for _, endpoint := range endpoints {
+		for _, tc := range errorCases {
+			t.Run(endpoint.path+"/"+tc.name, func(t *testing.T) {
+				app := fiber.New()
+				endpoint.register(app, &fakeMarketService{err: tc.err}, &fakeFmarketService{err: tc.err}, logger.NewTestLogger(t))
+				request := httptest.NewRequest(endpoint.method, endpoint.path, strings.NewReader(endpoint.body))
+				request.Header.Set("Content-Type", "application/json")
+
+				response, err := app.Test(request, -1)
+				if err != nil {
+					t.Fatalf("request failed: %v", err)
+				}
+				defer response.Body.Close()
+				if response.StatusCode != tc.status {
+					t.Fatalf("expected %d, got %d", tc.status, response.StatusCode)
+				}
+			})
+		}
 	}
 }

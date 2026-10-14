@@ -123,12 +123,7 @@ func settingDefinitions() []SettingDefinition {
 		{Key: "TAVILY_API_KEY", Group: "search", Label: "Tavily API key", Kind: SettingSecret},
 		{Key: "EXA_API_KEY", Group: "search", Label: "Exa API key", Kind: SettingSecret},
 
-		{Key: "FMARKET_BASE_URL", Group: "market", Label: "Fmarket URL", Kind: SettingURL, Default: "https://api.fmarket.vn"},
-		{Key: "VNSTOCK_SERVER_URL", Group: "market", Label: "vnstock-server URL", Kind: SettingURL, Default: "http://localhost:8000"},
-		{Key: "COINGECKO_BASE_URL", Group: "market", Label: "CoinGecko URL", Kind: SettingURL},
-		{Key: "COINGECKO_API_KEY", Group: "market", Label: "CoinGecko demo key", Kind: SettingSecret, Description: "Raises the public rate limit."},
-		{Key: "CURRENCY_API_BASE_URL", Group: "market", Label: "currency-api URL", Kind: SettingURL},
-		{Key: "YAHOO_FINANCE_BASE_URL", Group: "market", Label: "Yahoo Finance URL", Kind: SettingURL},
+		{Key: "MARKET_DATA_SERVER_URL", Group: "market", Label: "Market data server URL", Kind: SettingURL, Default: "http://localhost:8000", Description: "apps/market-data-server; it calls vnstock, fmarket, Yahoo Finance, CoinGecko and currency-api."},
 
 		{Key: "CAPTURE_MAX_ITEMS", Group: "capture", Label: "Max items per batch", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxItems)},
 		{Key: "CAPTURE_MAX_ITEM_MB", Group: "capture", Label: "Max item size (MB)", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxItemBytes >> 20)},

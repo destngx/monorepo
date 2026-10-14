@@ -1,0 +1,32 @@
+{
+  "name": "market-data-server",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/market-data-server/src",
+  "projectType": "application",
+  "tags": ["type:app", "app:market-data-server", "scope:backend", "lang:python"],
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "test -x .venv/bin/python || python3 -m venv .venv; .venv/bin/pip install -r requirements.txt",
+        "cwd": "apps/market-data-server"
+      },
+      "inputs": ["{projectRoot}/requirements.txt"]
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": ".venv/bin/uvicorn src.main:app --reload --port 8000",
+        "cwd": "apps/market-data-server"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "PYTHONPATH=. .venv/bin/pytest",
+        "cwd": "apps/market-data-server"
+      },
+      "inputs": ["default", "{projectRoot}/tests/**/*"]
+    }
+  }
+}

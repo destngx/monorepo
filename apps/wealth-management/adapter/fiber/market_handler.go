@@ -5,9 +5,6 @@ import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"context"
-	"errors"
-	"log/slog"
-	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -31,17 +28,8 @@ func (h *MarketHandler) GetTicker(c *fiber.Ctx) error {
 	ctx := withBypassCache(c)
 
 	ticker, err := h.service.GetTicker(ctx, symbol, tickerType)
-	if errors.Is(err, domain.ErrValidation) {
-		return badRequest(c, err.Error())
-	}
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "market_handler: get ticker failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("symbol", symbol),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "market_handler: get ticker", err)
 	}
 
 	return c.JSON(ticker)
@@ -57,14 +45,7 @@ func (h *MarketHandler) GetExchangeRate(c *fiber.Ctx) error {
 
 	rate, err := h.service.GetExchangeRate(ctx, from, to)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "market_handler: get exchange rate failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("from", from),
-			slog.String("to", to),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "market_handler: get exchange rate", err)
 	}
 
 	return c.JSON(rate)
@@ -80,13 +61,7 @@ func (h *MarketHandler) GetPriceSeries(c *fiber.Ctx) error {
 
 	series, err := h.service.GetPriceSeries(ctx, symbol, seriesType)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "market_handler: get price series failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("symbol", symbol),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "market_handler: get price series", err)
 	}
 
 	return c.JSON(series)
@@ -96,12 +71,7 @@ func (h *MarketHandler) GetBankInterestRate(c *fiber.Ctx) error {
 	ctx := withBypassCache(c)
 	rates, err := h.service.GetBankInterestRate(ctx)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "market_handler: get bank interest rate failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "market_handler: get bank interest rate", err)
 	}
 
 	return c.JSON(rates)
@@ -124,13 +94,9 @@ func (h *MarketHandler) GetCandles(c *fiber.Ctx) error {
 
 	series, err := h.service.GetCandles(withBypassCache(c), symbol, timeframe, days)
 	if err != nil {
-		return h.providerError(c, "get candles", err)
+		return upstreamError(c, h.log, "market_handler: get candles", err)
 	}
 	return c.JSON(series)
-}
-
-func (h *MarketHandler) providerError(c *fiber.Ctx, scope string, err error) error {
-	return upstreamError(c, h.log, "market_handler: "+scope, err)
 }
 
 func withBypassCache(c *fiber.Ctx) context.Context {

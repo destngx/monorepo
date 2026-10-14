@@ -110,18 +110,13 @@ Optional. Tried in order Tavily, Exa, then DuckDuckGo (no key).
 | `TAVILY_API_KEY` | empty   | Tavily API key. |
 | `EXA_API_KEY`    | empty   | Exa API key.    |
 
-### 3.7 Market data providers
+### 3.7 Market data server
 
-All optional. A provider that fails to build is dropped and its routing chains fall through to the next provider (see [Market provider capabilities](../_technical/Market_Provider_Capabilities.md)).
+The engine does not call market sources (fmarket, vnstock, Yahoo Finance, CoinGecko, currency-api) itself. It calls one service, [market-data-server](../../market-data-server/MARKET_PLATFORM.md), which owns the source chains, caching and last-good copies (see [Market provider capabilities](../_technical/Market_Provider_Capabilities.md)). Source base URLs, the CoinGecko key, `MARKET_CHAINS` and `MARKET_DB_PATH` are set on the server in `apps/market-data-server/.env.local`, not in the engine settings.
 
-| Setting                  | Default                                                         | Meaning                                                |
-| ------------------------ | --------------------------------------------------------------- | ------------------------------------------------------ |
-| `FMARKET_BASE_URL`       | `https://api.fmarket.vn`                                        | fmarket API (funds, gold, USD/VND, bank rates).        |
-| `VNSTOCK_SERVER_URL`     | `http://localhost:8000`                                         | `apps/vnstock-server` base URL (VN equities, indices). |
-| `COINGECKO_BASE_URL`     | `https://api.coingecko.com/api/v3`                              | CoinGecko API (crypto prices, USDT/VND).               |
-| `COINGECKO_API_KEY`      | empty                                                           | CoinGecko demo key; raises the public rate limit.      |
-| `CURRENCY_API_BASE_URL`  | `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest` | currency-api, the forex fallback.                      |
-| `YAHOO_FINANCE_BASE_URL` | `https://query1.finance.yahoo.com`                              | Yahoo Finance chart API (forex, world indices, VIX).   |
+| Setting                  | Default                 | Meaning                                                                            |
+| ------------------------ | ----------------------- | ---------------------------------------------------------------------------------- |
+| `MARKET_DATA_SERVER_URL` | `http://localhost:8000` | Base URL of `apps/market-data-server`, which serves all market data (WM-MKT-1..7). |
 
 ### 3.8 First run
 

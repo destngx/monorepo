@@ -9,12 +9,16 @@
 
 ## 0. Current implementation (authoritative)
 
-Sections 1-10 below are the original design sketch. The principles hold (capability ports, config-driven chains, capability-level caching, fallback), but the code samples, YAML routing file, provider list and chain order are **illustrative and outdated**. The engine's actual behaviour is:
+**Superseded.** The engine no longer has a market data layer. Provider routing, source adapters, caching and last-good copies moved to `apps/market-data-server` (the renamed `apps/vnstock-server`, a Python FastAPI app). The design is documented in [MARKET_PLATFORM.md](../../market-data-server/MARKET_PLATFORM.md). Sections 1-10 below are the original design sketch: their code samples, the YAML routing file, the `port.MarketProvider` interface and the `adapter/market/*` providers are illustrative and no longer exist in the engine.
 
-- **Code**: chains in `domain.DefaultMarketRoutingConfig()` (`apps/wealth-management/domain/market_capability.go`), routing in `service/market_provider/market_provider_service_route.go`, providers registered in `setupMarket` in `main.go`. Routing is a Go value, not a YAML file.
-- **Ports**: `port.MarketProvider` has only `Name` and `Health`; each capability is its own interface (`TickerProvider`, `ExchangeRateProvider`, `PriceSeriesProvider`, `BankRateProvider`, `CandleProvider`), so a provider implements only what it supports.
-- **Providers**: `fmarket`, `vnstock`, `coingecko`, `currencyapi`, `yahoo` (base URLs in the [setup README](../_setup/README.md#36-market-data-providers)). A provider that fails to build is dropped and chains fall through.
-- **Chains** (tried in order):
+What the engine does now:
+
+- **Adapter**: `apps/wealth-management/adapter/market/marketdata/` is the single market adapter. It is an HTTP client for market-data-server that implements `port.MarketProviderService` and `port.FmarketService` by calling the server's `/api/v2`:
+  - `GET /api/v2/ticker?symbol&type`, `/api/v2/fx?from&to`, `/api/v2/series?symbol&type`, `/api/v2/candles?symbol&timeframe&days`, `/api/v2/bank-rates`, `/api/v2/providers/{name}/health`.
+  - fmarket actions (`POST /api/fmarket/action`) map to `/api/v2/funds`, `/api/v2/funds/issuers`, `/api/v2/funds/{code}`, `/api/v2/funds/{id}/nav`, `/api/v2/gold/products`, `/api/v2/gold/history` and `/api/v2/fx/history`. Answers are re-wrapped in fmarket's `{data}` envelope (gold history also `extra`), so the UI parsers are unchanged.
+- **Envelope**: every server answer is `{data, meta}`. `meta` has `provider`, `fallback` (sources that failed first), `cached`, `stale` and `as_of`. A stale answer (all sources failed and the server served its last-good copy, up to 7 days old) is recorded with `domain.MarkStale`, so WM still sets `X-Data-Stale`. `skipCache=true` (and `force=true` on the fmarket action) becomes `skip_cache=true`. `CandleSeries.Fallback` is `meta.fallback` joined with "; ".
+- **Errors**: server 400 maps to `domain.ErrValidation`, 404 to `domain.ErrNotFound`, and other failures to upstream errors.
+- **Server-owned behaviour**: all sources (vnstock in-process, fmarket, Yahoo Finance, CoinGecko, currency-api), provider chains, caching (memory plus Upstash or SQLite), last-good copies, 4h candles built from 1h bars in Vietnam time, and rejection of FX rates older than 4 days. Default chains (override with `MARKET_CHAINS` on the server) are the same as the former engine defaults:
 
 | Capability            | Type / key | Chain                         |
 | --------------------- | ---------- | ----------------------------- |
@@ -30,12 +34,13 @@ Sections 1-10 below are the original design sketch. The principles hold (capabil
 | `GetBankInterestRate` | -          | fmarket                       |
 | `GetCandles`          | any symbol | vnstock → yahoo → fmarket     |
 
-- **Gold**: SJC / gold quotes are a ticker type (`GetTicker(symbol, "gold")`); world gold in USD is a price series (`gold_usd`). Both come from fmarket.
-- **Fallback**: a provider without the capability, or returning `port.ErrUnsupported`, is skipped; any other error is recorded and the next provider is tried. Exchange rates that are non-positive, lack a timestamp or are older than 4 days are rejected so the chain falls through. When every provider fails, the error lists each one.
-- **Cache keys**: symbols are normalised (trimmed, upper-cased, leading `^` removed). Keys: `market:getTicker:<type>:<SYMBOL>`, `market:getExchangeRate:<FROM>_<TO>`, `market:getPriceSeries:<type>:<SYMBOL>`, `market:getCandles:<timeframe>:<SYMBOL>:<lookbackDays>`, `market:getBankInterestRate`. The cache client prepends `CACHE_KEY_PREFIX` (default `wm:`). TTL 300 s.
+- **Gold**: SJC / gold quotes are a ticker type (`gold`); world gold in USD is a price series (`gold_usd`). Both come from fmarket through the server.
+- **Caching**: the engine does not cache market answers. Cache keys, TTLs and the stale-data policy are the server's (see MARKET_PLATFORM.md §2.3 and §3.3).
+- **Health**: one engine health check, `market-data-server` (calls `GET /api/v2/providers`), replaces the per-provider `market:<name>` checks. Per-provider health is `GET /api/v2/providers/{name}/health` on the server.
+- **Config**: WM reads one market key, `MARKET_DATA_SERVER_URL` (default `http://localhost:8000`, Settings group "market"). The former `FMARKET_BASE_URL`, `VNSTOCK_SERVER_URL`, `COINGECKO_BASE_URL`, `COINGECKO_API_KEY`, `CURRENCY_API_BASE_URL` and `YAHOO_FINANCE_BASE_URL` are set on the server (`apps/market-data-server/.env.local`).
 - **HTTP**: `GET /api/market/{ticker,exchange-rate,price-series,candles,bank-rates}`, `POST /api/fmarket/action`, provider health at `GET /api/external/market/providers/:provider/health`. The full contract is the OpenAPI spec at `/api/openapi.json` (`/api/docs`).
 
-Requirements: [REQUIREMENTS.md §9.2](../REQUIREMENTS.md#92-market-data-engine-capability-routing).
+Requirements: [REQUIREMENTS.md §9.2](../REQUIREMENTS.md#92-market-data-delegated-to-market-data-server).
 
 ---
 

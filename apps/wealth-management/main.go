@@ -8,11 +8,7 @@ import (
 	fiberAdapter "apps/wealth-management/adapter/fiber"
 	googleauthAdapter "apps/wealth-management/adapter/googleauth"
 	loggerAdapter "apps/wealth-management/adapter/logger"
-	coingeckoProvider "apps/wealth-management/adapter/market/coingecko"
-	currencyapiProvider "apps/wealth-management/adapter/market/currencyapi"
-	fmarketProvider "apps/wealth-management/adapter/market/fmarket"
-	vnstockProvider "apps/wealth-management/adapter/market/vnstock"
-	yahooProvider "apps/wealth-management/adapter/market/yahoo"
+	marketData "apps/wealth-management/adapter/market/marketdata"
 	mcpAdapter "apps/wealth-management/adapter/mcp"
 	duckduckgoSearch "apps/wealth-management/adapter/search/duckduckgo"
 	exaSearch "apps/wealth-management/adapter/search/exa"
@@ -23,7 +19,6 @@ import (
 	"apps/wealth-management/service"
 	aiService "apps/wealth-management/service/ai"
 	cacheService "apps/wealth-management/service/cache"
-	marketProviderService "apps/wealth-management/service/market_provider"
 	"context"
 	"errors"
 	"fmt"
@@ -125,7 +120,7 @@ func run() int {
 	if dbSvc != nil {
 		staleData.Watch(dbSvc)
 	}
-	marketSvc := setupMarket(ctx, log, health, api, mcpServer, cacheClient, values)
+	marketSvc := setupMarket(ctx, log, health, api, mcpServer, values)
 	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc, values)}
 	if marketSvc != nil {
 		analysisSvc := service.NewMarketAnalysisService(marketSvc, nil)
@@ -345,43 +340,21 @@ func bodyLimit(limits domain.CaptureLimits) int {
 	return max(minimum, limits.MaxBatchBytes/3*4+(1<<20))
 }
 
-// setupMarket registers every market data provider (WM-MKT-1). A provider
-// whose config is invalid is skipped and the routing chains fall through to
-// the next one. It returns nil when no provider could be built.
-func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, cacheClient port.CacheClient, values configAdapter.Values) port.MarketProviderService {
-	providers := make([]port.MarketProvider, 0, 5)
-	add := func(provider port.MarketProvider, err error) {
-		if err != nil {
-			log.LogError(ctx, "market provider disabled", err)
-			return
-		}
-		providers = append(providers, provider)
-	}
-
-	fmarket, err := fmarketProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "FMARKET_BASE_URL", "https://api.fmarket.vn"), log)
-	add(fmarket, err)
-	add(vnstockProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "VNSTOCK_SERVER_URL", "http://localhost:8000"), log))
-	coingeckoConfig, coingeckoKey := configAdapter.LoadCoinGeckoConfig(values, coingeckoProvider.DefaultBaseURL)
-	add(coingeckoProvider.NewProvider(coingeckoConfig, coingeckoKey, log))
-	add(currencyapiProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "CURRENCY_API_BASE_URL", currencyapiProvider.DefaultBaseURL), log))
-	add(yahooProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "YAHOO_FINANCE_BASE_URL", yahooProvider.DefaultBaseURL), log))
-
-	for _, provider := range providers {
-		health.Register(port.HealthCheck{Name: "market:" + provider.Name(), Probe: func(ctx context.Context) error {
-			_, err := provider.Health(ctx)
-			return err
-		}})
-	}
-	if len(providers) == 0 {
+// setupMarket wires the market data server client (WM-MKT-1): the server
+// owns every source, provider chain, cache and last-good copy, so the
+// engine keeps no market layer of its own. It returns nil when
+// MARKET_DATA_SERVER_URL is invalid.
+func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, values configAdapter.Values) port.MarketProviderService {
+	client, err := marketData.NewClient(configAdapter.LoadMarketDataServerURL(values))
+	if err != nil {
+		log.LogError(ctx, "market data disabled", err)
 		return nil
 	}
-	marketSvc := marketProviderService.NewServiceWithRouting(domain.DefaultMarketRoutingConfig(), cacheClient, log, providers...)
-	mcpServer.SetMarketService(marketSvc)
-	fiberAdapter.RegisterMarketRoutes(api, fiberAdapter.NewMarketHandler(marketSvc, log), fiberAdapter.NewMarketProviderHandler(marketSvc, log))
-	if fmarket != nil {
-		fmarketSvc := fmarketProvider.NewService(fmarket, cacheClient)
-		mcpServer.SetFmarketService(fmarketSvc)
-		fiberAdapter.RegisterFmarketRoutes(api, fiberAdapter.NewFmarketHandler(fmarketSvc, marketSvc, log))
-	}
-	return marketSvc
+	log.LogApplicationEvent(ctx, "market data server: "+client.BaseURL())
+	health.Register(port.HealthCheck{Name: "market-data-server", Probe: client.Ping})
+	mcpServer.SetMarketService(client)
+	mcpServer.SetFmarketService(client)
+	fiberAdapter.RegisterMarketRoutes(api, fiberAdapter.NewMarketHandler(client, log), fiberAdapter.NewMarketProviderHandler(client, log))
+	fiberAdapter.RegisterFmarketRoutes(api, fiberAdapter.NewFmarketHandler(client, client, log))
+	return client
 }

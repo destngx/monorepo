@@ -5,7 +5,6 @@ import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"context"
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -32,13 +31,7 @@ func (h *FmarketHandler) Action(c *fiber.Ctx) error {
 	}
 	result, err := h.service.RunAction(context.Background(), body, strings.EqualFold(c.Query("force"), "true"))
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "fmarket_handler: action failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("action", string(body.Action)),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "fmarket_handler: action", err)
 	}
 	return c.JSON(result)
 }
@@ -49,12 +42,7 @@ func (h *FmarketHandler) Health(c *fiber.Ctx) error {
 	}
 	health, err := h.market.Health(context.Background(), "fmarket")
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "fmarket_handler: health check failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "fmarket_handler: health check", err)
 	}
 	return c.JSON(health)
 }
@@ -71,13 +59,7 @@ func (h *FmarketHandler) GetTicker(c *fiber.Ctx) error {
 	ctx := withBypassCache(c)
 	ticker, err := h.market.GetTicker(ctx, symbol, tickerType)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "fmarket_handler: get ticker failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("symbol", symbol),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "fmarket_handler: get ticker", err)
 	}
 	return c.JSON(ticker)
 }
@@ -93,14 +75,7 @@ func (h *FmarketHandler) GetExchangeRate(c *fiber.Ctx) error {
 	}
 	rate, err := h.market.GetExchangeRate(withBypassCache(c), from, to)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "fmarket_handler: get exchange rate failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("from", from),
-			slog.String("to", to),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "fmarket_handler: get exchange rate", err)
 	}
 	return c.JSON(rate)
 }
@@ -116,13 +91,7 @@ func (h *FmarketHandler) GetPriceSeries(c *fiber.Ctx) error {
 	}
 	series, err := h.market.GetPriceSeries(withBypassCache(c), symbol, seriesType)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "fmarket_handler: get price series failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("symbol", symbol),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "fmarket_handler: get price series", err)
 	}
 	return c.JSON(series)
 }
@@ -133,12 +102,7 @@ func (h *FmarketHandler) GetBankRates(c *fiber.Ctx) error {
 	}
 	rates, err := h.market.GetBankInterestRate(withBypassCache(c))
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "fmarket_handler: get bank rates failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "fmarket_handler: get bank rates", err)
 	}
 	return c.JSON(rates)
 }

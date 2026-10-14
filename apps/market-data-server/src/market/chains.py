@@ -1,0 +1,75 @@
+"""
+Provider chains and cache lifetimes per capability (MARKET_PLATFORM.md
+section 3.3). Chains are configuration: `MARKET_CHAINS` (JSON) replaces
+any top-level entry, e.g. {"candles": ["yahoo", "vnstock"]}.
+"""
+
+import copy
+import json
+import os
+from dataclasses import dataclass, field, fields
+from typing import Dict, List, Optional
+
+# The fallback chain for exchange-rate pairs without their own entry.
+ANY_PAIR = "*"
+
+
+@dataclass
+class Chains:
+    ticker: Dict[str, List[str]] = field(
+        default_factory=lambda: {
+            "equity": ["vnstock", "fmarket"],
+            "ifc": ["fmarket", "vnstock"],
+            "gold": ["fmarket"],
+            "crypto": ["coingecko"],
+        }
+    )
+    fx: Dict[str, List[str]] = field(
+        default_factory=lambda: {
+            "USD_VND": ["fmarket", "yahoo", "currencyapi"],
+            "USDT_VND": ["coingecko", "currencyapi"],
+            ANY_PAIR: ["yahoo", "currencyapi"],
+        }
+    )
+    series: Dict[str, List[str]] = field(
+        default_factory=lambda: {
+            "equity": ["vnstock", "fmarket"],
+            "gold_usd": ["fmarket"],
+            "forex": ["yahoo", "fmarket"],
+        }
+    )
+    candles: List[str] = field(default_factory=lambda: ["vnstock", "yahoo", "fmarket"])
+    bank_rates: List[str] = field(default_factory=lambda: ["fmarket"])
+    # Fund NAVs, gold products and fmarket's rate histories.
+    funds: List[str] = field(default_factory=lambda: ["fmarket"])
+
+    def fx_chain(self, pair: str) -> List[str]:
+        return self.fx.get(pair) or self.fx.get(ANY_PAIR, [])
+
+
+def load_chains(raw: Optional[str] = None) -> Chains:
+    chains = Chains()
+    raw = raw if raw is not None else os.getenv("MARKET_CHAINS")
+    if not raw:
+        return chains
+    overrides = json.loads(raw)
+    known = {f.name for f in fields(Chains)}
+    unknown = set(overrides) - known
+    if unknown:
+        raise ValueError(f"MARKET_CHAINS has unknown capabilities: {', '.join(sorted(unknown))}")
+    for name, value in overrides.items():
+        if type(value) is not type(getattr(chains, name)):
+            raise ValueError(f"MARKET_CHAINS.{name} must be a {type(getattr(chains, name)).__name__}")
+        setattr(chains, name, copy.deepcopy(value))
+    return chains
+
+
+class MarketTTL:
+    """Seconds an answer stays cached; each is also capped at the next 5am ICT reset."""
+
+    TICKER = 60
+    FX = 600
+    SERIES = 300
+    CANDLES = 300
+    BANK_RATES = 3600
+    FUNDS = 60

@@ -5,7 +5,7 @@
 **Purpose**: Explain the design rationale behind capability-based market provider architecture  
 **Context**: Supporting multiple market data sources (Fmarket, Vnstock, future Binance, etc.)
 
-> **Note.** This narrative explains the design rationale. Its chains, YAML config and code samples are illustrative and predate the current engine (routing is a Go struct, `domain.DefaultMarketRoutingConfig`, not YAML; crypto uses CoinGecko, not Binance). For the actual chains, cache keys and endpoints see [Market provider capabilities §0](../../_technical/Market_Provider_Capabilities.md#0-current-implementation-authoritative).
+> **Superseded: provider routing moved to `apps/market-data-server`, see [MARKET_PLATFORM.md](../../../market-data-server/MARKET_PLATFORM.md).** This narrative explains the design rationale. Its chains, YAML config and code samples are illustrative and predate the current design (crypto uses CoinGecko, not Binance). The engine now calls market-data-server through `adapter/market/marketdata`; for the engine side, the chains and the endpoints see [Market provider capabilities §0](../../_technical/Market_Provider_Capabilities.md#0-current-implementation-authoritative).
 
 ---
 

@@ -4,8 +4,6 @@ import (
 	"apps/wealth-management/adapter/logger"
 	"apps/wealth-management/port"
 	"context"
-	"log/slog"
-	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,13 +31,7 @@ func (h *MarketProviderHandler) Health(c *fiber.Ctx) error {
 	}
 	health, err := h.service.Health(context.Background(), provider)
 	if err != nil {
-		requestID := c.Get("X-Request-ID")
-		h.log.LogError(c.UserContext(), "market_provider_handler: health check failed", err,
-			slog.String("request_id", requestID),
-			slog.String("endpoint", c.Path()),
-			slog.String("provider", provider),
-		)
-		return writeError(c, http.StatusBadGateway, CodeUpstream, err.Error())
+		return upstreamError(c, h.log, "market_provider_handler: health check", err)
 	}
 
 	return c.JSON(health)

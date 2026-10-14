@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-// Market symbols outside the VN equity board, resolved by each provider.
+// Market pulse symbols outside the VN equity board; the market data server
+// resolves them per source.
 const (
 	MarketSymbolVNIndex = "VNINDEX"
 	MarketSymbolVN30    = "VN30"
@@ -16,16 +17,6 @@ const (
 	MarketSymbolXAUUSD  = "XAUUSD"
 	MarketSymbolVIX     = "VIX"
 )
-
-// IsVNListing reports whether symbol is a HOSE/HNX/UPCoM ticker or index,
-// as opposed to an FX pair, gold or a global index.
-func IsVNListing(symbol string) bool {
-	switch NormaliseMarketSymbol(symbol) {
-	case MarketSymbolUSDVND, MarketSymbolSJC, MarketSymbolXAUUSD, MarketSymbolVIX:
-		return false
-	}
-	return true
-}
 
 // PulseAsset is one WM-INV-11 instrument.
 type PulseAsset struct {

@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-vnstock==3.5.1
-pandas
-requests
-httpx
-pytest

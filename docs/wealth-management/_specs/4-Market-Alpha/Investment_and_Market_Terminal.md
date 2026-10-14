@@ -56,7 +56,7 @@ To provide high-fidelity financial data and AI-driven market analysis for ticker
 
 ### 5.1 Multi-Provider Capability-Based Architecture
 
-The market data layer routes each request by capability and asset class to an ordered chain of providers, falling back to the next provider on failure. Chains as implemented in the engine (`domain.DefaultMarketRoutingConfig`):
+The market data layer is `apps/market-data-server`. It routes each request by capability and asset class to an ordered chain of providers, falling back to the next provider on failure. The engine only calls it (`adapter/market/marketdata`). Default chains, as implemented in market-data-server:
 
 | Capability                                   | Chain (in order)                            |
 | -------------------------------------------- | ------------------------------------------- |
@@ -70,16 +70,16 @@ The market data layer routes each request by capability and asset class to an or
 | **Bank Interest Rates**                      | Fmarket                                     |
 | **Candles**                                  | Vnstock, Yahoo, Fmarket                     |
 
-Results are cached per capability (5-minute TTL). See [Market provider capabilities §0](../../_technical/Market_Provider_Capabilities.md#0-current-implementation-authoritative) for the current implementation and [REQUIREMENTS.md §9.2](../../REQUIREMENTS.md#92-market-data-engine-capability-routing) for status.
+Results are cached per capability by market-data-server (see [MARKET_PLATFORM.md §3.3](../../../market-data-server/MARKET_PLATFORM.md#33-default-chains-and-ttls) for TTLs). See [Market provider capabilities §0](../../_technical/Market_Provider_Capabilities.md#0-current-implementation-authoritative) for the engine side and [REQUIREMENTS.md §9.2](../../REQUIREMENTS.md#92-market-data-delegated-to-market-data-server) for status.
 
 ### 5.2 API Concurrency & Performance
 
 - **API Concurrency**: Parallelize capability requests (e.g., fetch IFC + Equity + ExchangeRate simultaneously).
 - **Unified Caching**: Capability-level cache prevents thundering herd (all subsequent requests within TTL use cached response).
 - **Update Frequency**: Ticker prices refresh every 5-60s (configurable per capability; live prices bypass cache in Active Terminal).
-- **Caching Strategy** (target; the engine currently uses a single 5-minute TTL):
-  - Market summaries (fund lists, rates): cached for 5-10 minutes (MARKET_DATA_TTL)
-  - Live ticker prices in Active Terminal: uncached or very short TTL (< 60s)
+- **Caching Strategy** (target; market-data-server currently uses per-capability TTLs):
+  - Market summaries (fund lists, rates): cached for 5-10 minutes (per-capability server TTLs)
+  - Live ticker prices in Active Terminal: uncached or very short TTL (< 60s; the server's ticker TTL is 60 s)
   - Historical data (NAV, rates): cached for 1 hour (stable data)
 
 ---

@@ -145,16 +145,10 @@ func DefaultSQLiteCachePath() string {
 	return filepath.Join(os.TempDir(), "wealth-management", "cache.db")
 }
 
-func LoadMarketDataProviderConfig(values Values, baseURLKey string, fallbackBaseURL string) domain.MarketDataProviderConfig {
-	return domain.MarketDataProviderConfig{
-		BaseURL: values.getOrDefault(baseURLKey, fallbackBaseURL),
-	}
-}
-
-// LoadCoinGeckoConfig reads COINGECKO_BASE_URL and the optional
-// COINGECKO_API_KEY (a demo key; it raises the public rate limit).
-func LoadCoinGeckoConfig(values Values, fallbackBaseURL string) (domain.MarketDataProviderConfig, string) {
-	return LoadMarketDataProviderConfig(values, "COINGECKO_BASE_URL", fallbackBaseURL), values.get("COINGECKO_API_KEY")
+// LoadMarketDataServerURL reads MARKET_DATA_SERVER_URL, the address of
+// apps/market-data-server, which serves every market source (WM-MKT-1).
+func LoadMarketDataServerURL(values Values) string {
+	return values.getOrDefault("MARKET_DATA_SERVER_URL", "http://localhost:8000")
 }
 
 // LoadServerConfig reads HOST (default 127.0.0.1), PORT (default 8080) and

@@ -21,7 +21,7 @@ How to apply: When starting work in this repo, consult this file and AGENTS.md; 
 Fact: Nx monorepo with TypeScript/Next.js, Go, and Python. Key apps:
 
 - apps/wealth-management (Go engine, Hexagonal, with SvelteKit UI in ui/ served at /ui) — active
-- apps/vnstock-server (Python) — active
+- apps/market-data-server (Python) — active
 
 How to apply: Prefer these paths for tasks and use the toolchain conventions (pnpm/pnpx/uv) per AGENTS.md.
 

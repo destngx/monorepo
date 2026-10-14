@@ -39,7 +39,7 @@ The **Ticker Analyze API** is the specialized analysis engine for the **Ticker D
     "monteCarlo": [{ "symbol": "VCB", "p50": 102000, "iterations": 10000 }]
   },
   "dataSource": {
-    "provider": "vnstock-server",
+    "provider": "vnstock",
     "status": "primary"
   }
 }
@@ -55,7 +55,7 @@ The **Ticker Analyze API** is the specialized analysis engine for the **Ticker D
 graph TD
     A[Client POST] --> B{Cache Lookup}
     B -- Hit --> C[Return 14-day Cached Result]
-    B -- Miss --> D[Verify Server Availability: VNStock]
+    B -- Miss --> D[Verify market-data-server Availability]
     D --> E[Parallel Fetch: 1H Data + 1D Data]
     E --> F[Generate 1H Technical Indicators]
     F --> G[Generate 1D Structural Phase Analysis]
@@ -67,10 +67,10 @@ graph TD
 
 ### 3.2 Data Reliability Logic
 
-The API calculates the final `dataSource` based on the success of the `VNStockAdapter`.
+The API calculates the final `dataSource` from the market-data-server answer: `meta.provider` names the source that served it and `meta.fallback` lists the sources that failed first. Source chains and fallbacks are owned by market-data-server ([MARKET_PLATFORM.md](../../../market-data-server/MARKET_PLATFORM.md)), not by this API.
 
-- If `vnstock-server` is reachable and returns data, status is `primary`.
-- If `vnstock-server` is unavailable, the system automatically falls back to `yahoo-finance` and provides the `fallbackReason` to the frontend for transparency.
+- If the first source in the chain (vnstock) serves the data, status is `primary`.
+- If market-data-server answers from a later source (for example `yahoo-finance`), status is `fallback`, and the failed sources in `meta.fallback` are passed to the frontend as the `fallbackReason` for transparency.
 
 ---
 
@@ -90,7 +90,7 @@ The API calculates the final `dataSource` based on the success of the `VNStockAd
 
 ### 4.3 Resilience
 
-- Ensures continuous availability even if the specialized price crawler (`vnstock-server`) is down by using international fallback providers.
+- Ensures continuous availability even if the specialized price source is down by using international fallback providers behind market-data-server.
 
 ---
 

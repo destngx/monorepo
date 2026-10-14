@@ -4,7 +4,7 @@
 package duckduckgo
 
 import (
-	"apps/wealth-management/adapter/market/httpjson"
+	"apps/wealth-management/adapter/httpjson"
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"context"
