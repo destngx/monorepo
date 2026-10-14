@@ -28,8 +28,9 @@ const (
 	SettingModel SettingKind = "model"
 )
 
-// AIProviders are the X-AI-Provider values ai-gateway routes.
-var AIProviders = []string{"github-copilot", "openai", "anthropic", "ollama", "bedrock", "xiaomi-mimo"}
+// AIProviders are the X-AI-Provider values ai-gateway serves on
+// /v1/responses; its other providers answer only chat completions.
+var AIProviders = []string{"github-copilot", "openai"}
 
 // SettingGroup is one card in the Settings UI.
 type SettingGroup struct {

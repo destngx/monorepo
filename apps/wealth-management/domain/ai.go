@@ -41,7 +41,7 @@ func (u AIUseCase) Valid() bool {
 }
 
 // AIConfig is the provider-agnostic model configuration (D10). The provider
-// speaks the OpenAI chat completions protocol; ai-gateway or an official API.
+// speaks the OpenAI Responses API (POST /responses); ai-gateway or an official API.
 type AIConfig struct {
 	BaseURL string
 	APIKey  string

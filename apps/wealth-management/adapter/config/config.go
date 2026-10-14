@@ -202,7 +202,7 @@ var ErrMissingAIConfig = errors.New("missing AI configuration")
 const defaultAITimeoutSeconds = 90
 
 // LoadAIConfig reads the OpenAI-compatible provider settings (D10, WM-AI-4):
-// AI_BASE_URL (e.g. http://127.0.0.1:8081/v1 for ai-gateway), AI_API_KEY,
+// AI_BASE_URL (an OpenAI Responses API base, e.g. http://127.0.0.1:8081/v1 for ai-gateway), AI_API_KEY,
 // AI_PROVIDER (X-AI-Provider for ai-gateway), AI_MODEL as the default model,
 // AI_MODEL_{INSIGHT,SUGGEST,VISION,CHAT} per use case, AI_FALLBACK_MODEL,
 // AI_TIMEOUT_SECONDS and AI_PII_NAMES (comma separated names to mask).

@@ -1,4 +1,4 @@
-// Package openai is an AIClient for any OpenAI chat completions compatible
+// Package openai is an AIClient for any OpenAI Responses API compatible
 // endpoint: the monorepo ai-gateway, OpenAI, or another provider (D10).
 package openai
 
@@ -47,7 +47,7 @@ func (c *Client) post(ctx context.Context, body wireRequest) (*http.Response, er
 	if err != nil {
 		return nil, fmt.Errorf("encode ai request: %w", err)
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(payload))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/responses", bytes.NewReader(payload))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrAIUnavailable, err)
 	}
@@ -99,24 +99,22 @@ func (c *Client) Complete(ctx context.Context, request domain.AIRequest) (domain
 	if err := json.NewDecoder(response.Body).Decode(&decoded); err != nil {
 		return domain.AIResponse{}, fmt.Errorf("%w: decode provider response: %v", domain.ErrAIUnavailable, err)
 	}
-	if decoded.Error != nil {
-		return domain.AIResponse{}, fmt.Errorf("%w: %s", domain.ErrAIUnavailable, decoded.Error.Message)
+	if message := decoded.errorMessage(); message != "" || decoded.Status == "failed" {
+		return domain.AIResponse{}, fmt.Errorf("%w: %s", domain.ErrAIUnavailable, firstNonEmpty(message, "response failed"))
 	}
-	if len(decoded.Choices) == 0 || decoded.Choices[0].Message == nil {
-		return domain.AIResponse{}, fmt.Errorf("%w: provider returned no choices", domain.ErrAIUnavailable)
-	}
-	choice := decoded.Choices[0]
-	result := domain.AIResponse{Model: firstNonEmpty(decoded.Model, request.Model), FinishReason: deref(choice.FinishReason)}
-	result.Content = deref(choice.Message.Content)
-	for _, call := range choice.Message.ToolCalls {
-		result.ToolCalls = append(result.ToolCalls, domain.AIToolCall{ID: call.ID, Name: call.Function.Name, Arguments: deref(call.Function.Arguments)})
-	}
-	if decoded.Usage != nil {
-		result.Usage = domain.AIUsage{PromptTokens: decoded.Usage.PromptTokens, CompletionTokens: decoded.Usage.CompletionTokens}
-	}
-	return result, nil
+	toolCalls := decoded.toolCalls()
+	return domain.AIResponse{
+		Model:        firstNonEmpty(decoded.Model, request.Model),
+		Content:      decoded.text(),
+		ToolCalls:    toolCalls,
+		FinishReason: decoded.finishReason(len(toolCalls) > 0),
+		Usage:        decoded.usage(),
+	}, nil
 }
 
+// Stream sends text deltas to onDelta as they arrive. The terminal
+// response.completed (or response.incomplete) event carries model, usage and
+// status; a stream that ends without one is a provider failure.
 func (c *Client) Stream(ctx context.Context, request domain.AIRequest, onDelta func(string) error) (domain.AIResponse, error) {
 	response, err := c.post(ctx, encodeRequest(request, true))
 	if err != nil {
@@ -124,12 +122,12 @@ func (c *Client) Stream(ctx context.Context, request domain.AIRequest, onDelta f
 	}
 	defer response.Body.Close()
 
-	result := domain.AIResponse{Model: request.Model}
 	var content strings.Builder
+	var final *wireResponse
 	calls := map[int]*domain.AIToolCall{}
 	scanner := bufio.NewScanner(response.Body)
 	scanner.Buffer(make([]byte, 64*1024), maxSSELine)
-	for scanner.Scan() {
+	for final == nil && scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if !strings.HasPrefix(line, "data:") {
 			continue
@@ -138,33 +136,30 @@ func (c *Client) Stream(ctx context.Context, request domain.AIRequest, onDelta f
 		if data == "[DONE]" {
 			break
 		}
-		var chunk wireResponse
-		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			return domain.AIResponse{}, fmt.Errorf("%w: decode stream chunk: %v", domain.ErrAIUnavailable, err)
+		var event wireEvent
+		if err := json.Unmarshal([]byte(data), &event); err != nil {
+			return domain.AIResponse{}, fmt.Errorf("%w: decode stream event: %v", domain.ErrAIUnavailable, err)
 		}
-		if chunk.Error != nil {
-			return domain.AIResponse{}, fmt.Errorf("%w: %s", domain.ErrAIUnavailable, chunk.Error.Message)
-		}
-		if chunk.Model != "" {
-			result.Model = chunk.Model
-		}
-		if chunk.Usage != nil {
-			result.Usage = domain.AIUsage{PromptTokens: chunk.Usage.PromptTokens, CompletionTokens: chunk.Usage.CompletionTokens}
-		}
-		for _, choice := range chunk.Choices {
-			if choice.FinishReason != nil {
-				result.FinishReason = *choice.FinishReason
-			}
-			if choice.Delta == nil {
+		switch event.Type {
+		case "response.output_text.delta":
+			if event.Delta == "" {
 				continue
 			}
-			if delta := deref(choice.Delta.Content); delta != "" {
-				content.WriteString(delta)
-				if err := onDelta(delta); err != nil {
-					return domain.AIResponse{}, err
-				}
+			content.WriteString(event.Delta)
+			if err := onDelta(event.Delta); err != nil {
+				return domain.AIResponse{}, err
 			}
-			mergeToolCallDeltas(calls, choice.Delta.ToolCalls)
+		case "response.output_item.added", "response.output_item.done":
+			mergeToolCallItem(calls, event.OutputIndex, event.Item)
+		case "response.function_call_arguments.delta":
+			toolCallAt(calls, event.OutputIndex).Arguments += event.Delta
+		case "response.completed", "response.incomplete":
+			if event.Response == nil {
+				return domain.AIResponse{}, fmt.Errorf("%w: %s event without a response", domain.ErrAIUnavailable, event.Type)
+			}
+			final = event.Response
+		case "response.failed", "error":
+			return domain.AIResponse{}, fmt.Errorf("%w: %s", domain.ErrAIUnavailable, streamFailure(event))
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -173,32 +168,53 @@ func (c *Client) Stream(ctx context.Context, request domain.AIRequest, onDelta f
 		}
 		return domain.AIResponse{}, fmt.Errorf("%w: read stream: %v", domain.ErrAIUnavailable, err)
 	}
+	if final == nil {
+		return domain.AIResponse{}, fmt.Errorf("%w: stream ended before the response completed", domain.ErrAIUnavailable)
+	}
+
+	result := domain.AIResponse{Model: firstNonEmpty(final.Model, request.Model), Usage: final.usage()}
 	result.Content = content.String()
+	if result.Content == "" {
+		// Some providers put the whole answer in the terminal event only.
+		if result.Content = final.text(); result.Content != "" {
+			if err := onDelta(result.Content); err != nil {
+				return domain.AIResponse{}, err
+			}
+		}
+	}
 	result.ToolCalls = orderedToolCalls(calls)
+	if len(result.ToolCalls) == 0 {
+		result.ToolCalls = final.toolCalls()
+	}
+	result.FinishReason = final.finishReason(len(result.ToolCalls) > 0)
 	return result, nil
 }
 
-// mergeToolCallDeltas assembles streamed tool calls: the first fragment of
-// each index carries id and name, later ones append to the arguments.
-func mergeToolCallDeltas(calls map[int]*domain.AIToolCall, deltas []wireToolCall) {
-	for position, delta := range deltas {
-		index := position
-		if delta.Index != nil {
-			index = *delta.Index
-		}
-		call, ok := calls[index]
-		if !ok {
-			call = &domain.AIToolCall{}
-			calls[index] = call
-		}
-		if delta.ID != "" {
-			call.ID = delta.ID
-		}
-		if delta.Function.Name != "" {
-			call.Name = delta.Function.Name
-		}
-		call.Arguments += deref(delta.Function.Arguments)
+// mergeToolCallItem records a function_call item: output_item.added carries
+// id and name, output_item.done the complete arguments.
+func mergeToolCallItem(calls map[int]*domain.AIToolCall, index int, item *wireItem) {
+	if item == nil || item.Type != itemFunctionCall {
+		return
 	}
+	call := toolCallAt(calls, index)
+	if item.CallID != "" {
+		call.ID = item.CallID
+	}
+	if item.Name != "" {
+		call.Name = item.Name
+	}
+	if arguments := deref(item.Arguments); arguments != "" {
+		call.Arguments = arguments
+	}
+}
+
+func toolCallAt(calls map[int]*domain.AIToolCall, index int) *domain.AIToolCall {
+	call, ok := calls[index]
+	if !ok {
+		call = &domain.AIToolCall{}
+		calls[index] = call
+	}
+	return call
 }
 
 func orderedToolCalls(calls map[int]*domain.AIToolCall) []domain.AIToolCall {
@@ -212,6 +228,18 @@ func orderedToolCalls(calls map[int]*domain.AIToolCall) []domain.AIToolCall {
 		ordered = append(ordered, *calls[index])
 	}
 	return ordered
+}
+
+// streamFailure reads the message of a response.failed or error event.
+func streamFailure(event wireEvent) string {
+	message := event.Message
+	if event.Response != nil {
+		message = firstNonEmpty(event.Response.errorMessage(), message)
+	}
+	if event.Error != nil {
+		message = firstNonEmpty(message, event.Error.Message)
+	}
+	return firstNonEmpty(message, event.Type)
 }
 
 func (c *Client) Ping(ctx context.Context) error {
