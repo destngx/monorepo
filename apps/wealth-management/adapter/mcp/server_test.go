@@ -219,8 +219,8 @@ func (f *fakeMarketServiceForMCP) GetExchangeRate(context.Context, string, strin
 func (f *fakeMarketServiceForMCP) GetPriceSeries(context.Context, string, domain.SeriesType) (domain.PriceSeries, error) {
 	return domain.PriceSeries{Provider: "fmarket", SeriesType: domain.SeriesTypeGoldUSD}, nil
 }
-func (f *fakeMarketServiceForMCP) GetBankInterestRate(context.Context) ([]domain.BankRate, error) {
-	return []domain.BankRate{{Bank: "Test Bank", Rate: 6.5}}, nil
+func (f *fakeMarketServiceForMCP) GetBankInterestRate(context.Context) (domain.BankRates, error) {
+	return domain.BankRates{Rates: []domain.BankRate{{Bank: "Test Bank", Rate: 6.5}}}, nil
 }
 
 var _ port.FmarketService = (*fakeFmarketServiceForMCP)(nil)

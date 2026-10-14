@@ -1,6 +1,6 @@
 # Market Data Server API Walkthrough
 
-The single market-data API of the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api), the fallback chains between them, caching and last-good copies. Consumers such as wealth-management call it and implement no market layer of their own. Design: [docs/market-data-server/MARKET_PLATFORM.md](../../docs/market-data-server/MARKET_PLATFORM.md).
+The single market-data API of the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api, Algolab), the fallback chains between them, caching and last-good copies. Consumers such as wealth-management call it and implement no market layer of their own. Design: [docs/market-data-server/MARKET_PLATFORM.md](../../docs/market-data-server/MARKET_PLATFORM.md).
 
 ## Base URL
 
@@ -49,7 +49,7 @@ Every answer is an envelope that says where the data came from:
 | Endpoint                                       | Purpose                                                                                                             |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `GET /ticker?symbol=&type=`                    | Current price. `type`: `equity`, `ifc` (fund code), `gold` (`SJC`, `XAU`), `crypto` (USD)                           |
-| `GET /fx?from=&to=`                            | Exchange rate, for example `USD`/`VND` or `USDT`/`VND`                                                              |
+| `GET /fx?from=&to=`                            | Exchange rate, for example `USD`/`VND` or `USDT`/`VND`, with its `basis` (below)                                    |
 | `GET /fx/history?from=&to=`                    | fmarket's daily USD/VND rates (`pair=USD_VND` only)                                                                 |
 | `GET /series?symbol=&type=`                    | Price series. `type`: `equity`, `gold_usd`, `forex`                                                                 |
 | `GET /candles?symbol=&timeframe=&days=`        | OHLCV bars. `timeframe`: `1h`, `4h` (built from 1h), `1d`, `1w`; or `from`/`to` (YYYY-MM-DD, ICT) instead of `days` |
@@ -71,15 +71,34 @@ Each capability tries its sources in order; a source that does not cover the req
 
 | Capability              | Default chain                                                                                           |
 | ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| Ticker                  | equity: vnstock, fmarket; ifc: fmarket, vnstock; gold: fmarket; crypto: coingecko                       |
+| Ticker                  | equity: vnstock, fmarket, algolab; ifc: fmarket, vnstock; gold: fmarket; crypto: coingecko, yahoo       |
 | FX                      | USD_VND: fmarket, yahoo, currencyapi; USDT_VND: coingecko, currencyapi; other pairs: yahoo, currencyapi |
-| Series                  | equity: vnstock, fmarket; gold_usd: fmarket; forex: yahoo, fmarket                                      |
-| Candles                 | vnstock, yahoo, fmarket                                                                                 |
+| Series                  | equity: vnstock, fmarket, algolab; gold_usd: fmarket; forex: yahoo, fmarket                             |
+| Candles                 | vnstock, yahoo, fmarket, algolab                                                                        |
 | Bank rates, funds, gold | fmarket                                                                                                 |
 
 `MARKET_CHAINS` (JSON) replaces any top-level entry, for example `MARKET_CHAINS='{"candles": ["yahoo", "vnstock"]}'`.
 
 Cache lifetimes: ticker and funds 1 minute, series and candles 5 minutes, FX 10 minutes, bank rates 1 hour, each capped at the next 5am GMT+7 reset.
+
+### Provider coverage and limits
+
+All sources run on free tiers. Every source answers VN stocks, ETFs and warrants in thousands of VND (Yahoo and Algolab publish VND and are scaled) and indices in points, so a fallback never changes units (`tests/test_market_units.py`).
+
+| Source                       | Serves in v2                                                                                                                                                                                                                            | Limits                                                                                                                                                                                                                                                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| vnstock (Community key)      | VN stock and index tickers (the latest daily bar of the last two weeks), equity series (30 days), 1h/1d/1w candles; v1 also has listings, financials and company data                                                                   | 60 requests/min and 10,000/day, shared with v1. No foreign flows, macro, order depth or dividends (Sponsor packages only). Financials capped at 8 periods. Ticker is the latest bar, not a live quote.                                                                                                  |
+| fmarket                      | Fund (`ifc`) NAV tickers, SJC and XAU gold tickers, USD/VND bank sell rate and history, `gold_usd` and USD_VND `forex` series, SJC 1d/1w candles, bank rates, funds, NAV history, gold products and history                             | Unofficial public API with no published terms or limits. One quote per day, so SJC candles are close-only. The only source for funds, NAV, bank rates and SJC (SJC's own site is behind a Cloudflare challenge), so outages fall back to the stale copy. Skipped in the equity chains (no equity data). |
+| Yahoo Finance                | FX market rates for ISO pairs, `forex` series, crypto tickers (`<COIN>-USD`, fallback), 1h/1d/1w candles for VN stocks, VNINDEX, VIX, USDVND, XAUUSD (COMEX front-month future `GC=F`, the only XAUUSD history) and Yahoo-style symbols | Unofficial API, may throttle or change without notice. No VN30, HNXINDEX, UPCOMINDEX or SJC. Hourly history only for the last 729 days; VN index 1d/1w bars are rebuilt from 1h. VN stock prices are scaled from VND to thousands.                                                                      |
+| CoinGecko                    | Crypto tickers in USD, USDT/VND and coin/VND rates; 21 pinned coin ids, others resolved by search                                                                                                                                       | Free plan rate limits (higher with the optional `COINGECKO_API_KEY` demo key). An ambiguous symbol resolves to the best-ranked exact match.                                                                                                                                                             |
+| currency-api                 | Last-resort FX for any ISO pair                                                                                                                                                                                                         | One daily reference snapshot, not a market rate. Rates older than 4 days are rejected.                                                                                                                                                                                                                  |
+| Algolab (MCP, last fallback) | Live VN stock, ETF, warrant and index quotes, equity series (30 days), 1h/1d/1w candles                                                                                                                                                 | Without `ALGOLAB_API_KEY` it uses the keyless `/free` pool: 120 requests/min and 1,000/day shared with every anonymous user, so it can be exhausted by others. Each candle request costs 1-4 calls (1,000 bars per page). Personal, non-commercial use only.                                            |
+
+Exchange rates carry a `basis`, because sources in one chain quote different rates for the same pair: `bank_sell` (fmarket, a bank's sell rate), `market` (Yahoo, the FX market), `reference` (currency-api, a daily snapshot) and `crypto_market` (CoinGecko). Copies cached before the field existed have no `basis`.
+
+Global symbols use Yahoo's form (`BTC-USD`, `EURUSD=X`). Only symbols shaped like VN listings (3-10 letters and digits) reach vnstock and Algolab; a leading `^` is stripped, so Yahoo indices such as `^GSPC` are not reachable.
+
+Gaps on every source today: fundamentals, foreign flows, macro, research and signals are not served by v2. The 4h timeframe is built from 1h bars by the service.
 
 ## vnstock API (v1)
 

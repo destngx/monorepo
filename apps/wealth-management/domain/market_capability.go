@@ -19,26 +19,41 @@ const (
 )
 
 type Ticker struct {
-	Symbol    string     `json:"symbol"`
-	Type      TickerType `json:"type"`
-	Provider  string     `json:"provider"`
-	Currency  string     `json:"currency,omitempty"`
-	Price     float64    `json:"price,omitempty"`
-	Bid       float64    `json:"bid,omitempty"`
-	Ask       float64    `json:"ask,omitempty"`
-	Open      float64    `json:"open,omitempty"`
-	High      float64    `json:"high,omitempty"`
-	Low       float64    `json:"low,omitempty"`
-	Close     float64    `json:"close,omitempty"`
-	Timestamp string     `json:"timestamp,omitempty"`
+	Symbol    string      `json:"symbol"`
+	Type      TickerType  `json:"type"`
+	Provider  string      `json:"provider"`
+	Currency  string      `json:"currency,omitempty"`
+	Price     float64     `json:"price,omitempty"`
+	Bid       float64     `json:"bid,omitempty"`
+	Ask       float64     `json:"ask,omitempty"`
+	Open      float64     `json:"open,omitempty"`
+	High      float64     `json:"high,omitempty"`
+	Low       float64     `json:"low,omitempty"`
+	Close     float64     `json:"close,omitempty"`
+	Timestamp string      `json:"timestamp,omitempty"`
+	Source    *DataSource `json:"source,omitempty"`
 }
 
+// RateBasis is what an exchange rate means. Sources in one fallback chain
+// quote different rates for the same pair, so the basis travels with the
+// rate. Empty means unknown (copies cached before the server sent it).
+type RateBasis string
+
+const (
+	RateBasisBankSell     RateBasis = "bank_sell"
+	RateBasisMarket       RateBasis = "market"
+	RateBasisReference    RateBasis = "reference"
+	RateBasisCryptoMarket RateBasis = "crypto_market"
+)
+
 type ExchangeRate struct {
-	From      string  `json:"from"`
-	To        string  `json:"to"`
-	Rate      float64 `json:"rate"`
-	Provider  string  `json:"provider"`
-	Timestamp string  `json:"timestamp,omitempty"`
+	From      string      `json:"from"`
+	To        string      `json:"to"`
+	Rate      float64     `json:"rate"`
+	Provider  string      `json:"provider"`
+	Timestamp string      `json:"timestamp,omitempty"`
+	Basis     RateBasis   `json:"basis,omitempty"`
+	Source    *DataSource `json:"source,omitempty"`
 }
 
 type PricePoint struct {
@@ -51,6 +66,7 @@ type PriceSeries struct {
 	SeriesType SeriesType  `json:"seriesType"`
 	Currency   string      `json:"currency,omitempty"`
 	Data       interface{} `json:"data"`
+	Source     *DataSource `json:"source,omitempty"`
 }
 
 type BankRate struct {
@@ -61,4 +77,10 @@ type BankRate struct {
 	Timestamp  string  `json:"timestamp,omitempty"`
 	UpdatedAt  string  `json:"updatedAt,omitempty"`
 	RecordedAt string  `json:"recordedAt,omitempty"`
+}
+
+// BankRates is the published savings rates with their data source.
+type BankRates struct {
+	Rates  []BankRate  `json:"rates"`
+	Source *DataSource `json:"source,omitempty"`
 }

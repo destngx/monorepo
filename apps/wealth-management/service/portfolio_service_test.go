@@ -75,8 +75,9 @@ func TestGivenHoldingsWhenValuationThenPricesEachSymbolOnceAndReportsMarketIssue
 	}
 	market := &portfolioMarket{
 		tickers: map[string]domain.Ticker{
-			"ETH":   {Symbol: "ETH", Price: 3000, Currency: "USD", Provider: "coingecko"},
-			"VESAF": {Symbol: "VESAF", Price: 31000, Currency: "VND", Provider: "fmarket", Timestamp: "2026-10-12T00:00:00Z"},
+			"ETH": {Symbol: "ETH", Price: 3000, Currency: "USD", Provider: "coingecko"},
+			"VESAF": {Symbol: "VESAF", Price: 31000, Currency: "VND", Provider: "fmarket", Timestamp: "2026-10-12T00:00:00Z",
+				Source: &domain.DataSource{Provider: "fmarket", Stale: true, AsOf: "2026-10-11T00:00:00Z"}},
 		},
 		rates: map[string]domain.ExchangeRate{"USD_VND": {From: "USD", To: "VND", Rate: 26000, Provider: "yahoo"}},
 	}
@@ -92,6 +93,9 @@ func TestGivenHoldingsWhenValuationThenPricesEachSymbolOnceAndReportsMarketIssue
 	}
 	if *result.Holdings[1].ValueVND != 2*3000*26000 || *result.Holdings[3].ValueVND != 62000 {
 		t.Fatalf("unexpected values: %#v", result.Holdings)
+	}
+	if source := result.Holdings[3].LivePrice.Source; source == nil || !source.Stale {
+		t.Fatalf("expected the stale ticker source on the live price, got %#v", result.Holdings[3].LivePrice)
 	}
 	if result.Holdings[2].Issue != "no live price: unknown symbol" {
 		t.Fatalf("expected the lookup error on ZZZ, got %q", result.Holdings[2].Issue)

@@ -15,24 +15,25 @@ What the engine does now:
 
 - **Adapter**: `apps/wealth-management/adapter/market/marketdata/` is the single market adapter. It is an HTTP client for market-data-server that implements `port.MarketProviderService` and `port.FmarketService` by calling the server's `/api/v2`:
   - `GET /api/v2/ticker?symbol&type`, `/api/v2/fx?from&to`, `/api/v2/series?symbol&type`, `/api/v2/candles?symbol&timeframe&days`, `/api/v2/bank-rates`, `/api/v2/providers/{name}/health`.
-  - fmarket actions (`POST /api/fmarket/action`) map to `/api/v2/funds`, `/api/v2/funds/issuers`, `/api/v2/funds/{code}`, `/api/v2/funds/{id}/nav`, `/api/v2/gold/products`, `/api/v2/gold/history` and `/api/v2/fx/history`. Answers are re-wrapped in fmarket's `{data}` envelope (gold history also `extra`), so the UI parsers are unchanged.
-- **Envelope**: every server answer is `{data, meta}`. `meta` has `provider`, `fallback` (sources that failed first), `cached`, `stale` and `as_of`. A stale answer (all sources failed and the server served its last-good copy, up to 7 days old) is recorded with `domain.MarkStale`, so WM still sets `X-Data-Stale`. `skipCache=true` (and `force=true` on the fmarket action) becomes `skip_cache=true`. `CandleSeries.Fallback` is `meta.fallback` joined with "; ".
+  - fmarket actions (`POST /api/fmarket/action`) map to `/api/v2/funds`, `/api/v2/funds/issuers`, `/api/v2/funds/{code}`, `/api/v2/funds/{id}/nav`, `/api/v2/gold/products`, `/api/v2/gold/history` and `/api/v2/fx/history`. Answers are re-wrapped in fmarket's `{data}` envelope (gold history also `extra`) plus `source`, so the UI parsers are unchanged.
+- **Envelope**: every server answer is `{data, meta}`. `meta` has `provider`, `fallback` (sources that failed first), `cached`, `stale` and `as_of`. A stale answer (all sources failed and the server served its last-good copy, up to 7 days old) is recorded with `domain.MarkStale`, so WM still sets `X-Data-Stale`. `skipCache=true` (and `force=true` on the fmarket action) becomes `skip_cache=true`.
+- **Data source indicator (WM-INV-15)**: the client turns `meta` into a `domain.DataSource` (`provider`, `fallback` list, `stale`, `asOf`) and attaches it as `source` to every answer: `Ticker`, `ExchangeRate`, `PriceSeries`, `CandleSeries`, `BankRates` (`GET /api/market/bank-rates` answers `{rates, source}`) and the fmarket action payloads. Services pass it on (`LivePrice`, `PulseQuote`, `MarketAnalysis`, `TimeframeView`). The UI shows it with one component, `ui/src/lib/components/SourceBadge.svelte`: muted provider name when the first source answered, amber with the failed sources after a fallback, orange "as of" when the figure is a stale copy. Exchange rates add their `basis` as the badge detail.
 - **Errors**: server 400 maps to `domain.ErrValidation`, 404 to `domain.ErrNotFound`, and other failures to upstream errors.
-- **Server-owned behaviour**: all sources (vnstock in-process, fmarket, Yahoo Finance, CoinGecko, currency-api), provider chains, caching (memory plus Upstash or SQLite), last-good copies, 4h candles built from 1h bars in Vietnam time, and rejection of FX rates older than 4 days. Default chains (override with `MARKET_CHAINS` on the server) are the same as the former engine defaults:
+- **Server-owned behaviour**: all sources (vnstock in-process, fmarket, Yahoo Finance, CoinGecko, currency-api and Algolab's keyless MCP as the last fallback), provider chains, caching (memory plus Upstash or SQLite), last-good copies, 4h candles built from 1h bars in Vietnam time, and rejection of FX rates older than 4 days. Default chains (override with `MARKET_CHAINS` on the server; the full table is MARKET_PLATFORM.md §3.3):
 
-| Capability            | Type / key | Chain                         |
-| --------------------- | ---------- | ----------------------------- |
-| `GetTicker`           | `equity`   | vnstock → fmarket             |
-| `GetTicker`           | `ifc`      | fmarket → vnstock             |
-| `GetTicker`           | `gold`     | fmarket                       |
-| `GetTicker`           | `crypto`   | coingecko                     |
-| `GetExchangeRate`     | `USD_VND`  | fmarket → yahoo → currencyapi |
-| `GetExchangeRate`     | `USDT_VND` | coingecko → currencyapi       |
-| `GetPriceSeries`      | `equity`   | vnstock → fmarket             |
-| `GetPriceSeries`      | `gold_usd` | fmarket                       |
-| `GetPriceSeries`      | `forex`    | yahoo → fmarket               |
-| `GetBankInterestRate` | -          | fmarket                       |
-| `GetCandles`          | any symbol | vnstock → yahoo → fmarket     |
+| Capability            | Type / key | Chain                                          |
+| --------------------- | ---------- | ---------------------------------------------- |
+| `GetTicker`           | `equity`   | vnstock → fmarket → algolab                    |
+| `GetTicker`           | `ifc`      | fmarket → vnstock                              |
+| `GetTicker`           | `gold`     | fmarket                                        |
+| `GetTicker`           | `crypto`   | coingecko → yahoo                              |
+| `GetExchangeRate`     | `USD_VND`  | fmarket → yahoo → currencyapi                  |
+| `GetExchangeRate`     | `USDT_VND` | coingecko → currencyapi                        |
+| `GetPriceSeries`      | `equity`   | vnstock → fmarket → algolab                    |
+| `GetPriceSeries`      | `gold_usd` | fmarket                                        |
+| `GetPriceSeries`      | `forex`    | yahoo → fmarket                                |
+| `GetBankInterestRate` | -          | fmarket                                        |
+| `GetCandles`          | any symbol | vnstock → yahoo → fmarket (SJC only) → algolab |
 
 - **Gold**: SJC / gold quotes are a ticker type (`gold`); world gold in USD is a price series (`gold_usd`). Both come from fmarket through the server.
 - **Caching**: the engine does not cache market answers. Cache keys, TTLs and the stale-data policy are the server's (see MARKET_PLATFORM.md §2.3 and §3.3).

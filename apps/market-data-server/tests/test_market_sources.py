@@ -8,7 +8,7 @@ import pytest
 
 from src.market.candles import Timeframe
 from src.market.errors import NotFound, Unsupported
-from src.market.models import SeriesType, TickerType
+from src.market.models import RateBasis, SeriesType, TickerType
 from src.sources.coingecko import CoinGeckoSource
 from src.sources.currencyapi import CurrencyApiSource
 from src.sources.fmarket import FmarketSource
@@ -97,7 +97,7 @@ class TestFmarket:
         series = await source.get_price_series("USD_VND", SeriesType.FOREX)
         assert upstream.requests[0].url.path == "/res/get-usd-rate-history"
         assert [p.price for p in series.data["points"]] == [25850, 25890]
-        assert series.currency == "VND"
+        assert (series.currency, series.data["basis"]) == ("VND", RateBasis.BANK_SELL)
         with pytest.raises(Unsupported):
             await source.get_price_series("EUR_VND", SeriesType.FOREX)
 
@@ -109,10 +109,10 @@ class TestFmarket:
         assert (sent["fromDate"], sent["toDate"]) == ("20261002", "20261013")
         assert series.currency == "VND"
         assert [c.close for c in series.candles] == [144000000, 144300000]
-        xau = await source.get_candles("XAUUSD", Timeframe.D1, start, NOW)
-        assert xau.currency == "USD" and xau.candles[-1].close == 4162.96
-        with pytest.raises(Unsupported):
-            await source.get_candles("FPT", Timeframe.D1, start, NOW)
+        # XAUUSD history is Yahoo's COMEX future; fmarket's close-only spot would switch instrument.
+        for symbol in ("XAUUSD", "FPT"):
+            with pytest.raises(Unsupported):
+                await source.get_candles(symbol, Timeframe.D1, start, NOW)
         with pytest.raises(Unsupported):
             await source.get_candles("SJC", Timeframe.H1, start, NOW)
 
@@ -120,7 +120,7 @@ class TestFmarket:
         rows = {"data": [{"rateSellUsd": 26100, "reportDate": 1791738000000}, {"rateSellUsd": 26000, "reportDate": 1791651600000}]}
         source, _ = self.source(lambda r: rows)
         rate = await source.get_exchange_rate("usd", "vnd")
-        assert (rate.rate, rate.timestamp) == (26100, "2026-10-11T17:00:00Z")
+        assert (rate.rate, rate.timestamp, rate.basis) == (26100, "2026-10-11T17:00:00Z", RateBasis.BANK_SELL)
         with pytest.raises(Unsupported):
             await source.get_exchange_rate("EUR", "VND")
 
@@ -210,7 +210,7 @@ class TestYahoo:
                 yahoo_symbol(symbol)
 
     async def test_weekly_equity_maps_symbol_and_keeps_null_bars_for_cleaning(self):
-        source, upstream = self.source(lambda r: chart([1791738000, 1792342800], [100.5, None]))
+        source, upstream = self.source(lambda r: chart([1791738000, 1792342800], [100500, None]))
         series = await source.get_candles("FPT", Timeframe.W1, datetime(2026, 9, 1, tzinfo=timezone.utc), NOW)
         request = upstream.requests[0]
         assert request.url.path == "/v8/finance/chart/FPT.VN"
@@ -237,15 +237,56 @@ class TestYahoo:
         source, upstream = self.source(lambda r: chart([], [], currency="VND", price=26250.5, market_time=1791738000))
         rate = await source.get_exchange_rate("usd", "vnd")
         assert upstream.requests[0].url.path == "/v8/finance/chart/USDVND%3DX" or upstream.requests[0].url.path == "/v8/finance/chart/USDVND=X"
-        assert (rate.base, rate.quote, rate.rate, rate.timestamp) == ("USD", "VND", 26250.5, "2026-10-11T17:00:00Z")
+        assert (rate.base, rate.quote, rate.rate, rate.timestamp, rate.basis) == ("USD", "VND", 26250.5, "2026-10-11T17:00:00Z", RateBasis.MARKET)
         with pytest.raises(Unsupported):
             await source.get_exchange_rate("USDT", "VND")
 
     async def test_forex_series_is_the_daily_close(self):
         source, _ = self.source(lambda r: chart([1791651600, 1791738000], [26200, 26250], currency="VND"))
         series = await source.get_price_series("USD/VND", SeriesType.FOREX)
-        assert series.data["pair"] == "USD_VND"
+        assert (series.data["pair"], series.data["basis"]) == ("USD_VND", RateBasis.MARKET)
         assert [p.price for p in series.data["points"]] == [26200, 26250]
+
+    @pytest.mark.parametrize("symbol", ["FPT", "FPT.VN", "E1VFVN30"])
+    async def test_vn_listing_prices_are_in_thousands_of_vnd(self, symbol):
+        # Yahoo prices .VN listings in VND; every other source uses thousands.
+        source, _ = self.source(lambda r: chart([1791738000], [57100], currency="VND"))
+        series = await source.get_candles(symbol, Timeframe.D1, datetime(2026, 10, 1, tzinfo=timezone.utc), NOW)
+        candle = series.candles[0]
+        assert (candle.open, candle.high, candle.low, candle.close, candle.volume) == (57.1, 57.1, 57.1, 57.1, 1)
+        assert series.currency == "VND"
+
+    @pytest.mark.parametrize("symbol,price", [("VIX", 18.5), ("XAUUSD", 4180.2), ("BTC-USD", 65000.0)])
+    async def test_points_and_foreign_prices_are_not_scaled(self, symbol, price):
+        source, _ = self.source(lambda r: chart([1791738000], [price], currency="USD"))
+        series = await source.get_candles(symbol, Timeframe.D1, datetime(2026, 10, 1, tzinfo=timezone.utc), NOW)
+        assert series.candles[0].close == price
+
+    async def test_vn_index_is_in_points(self):
+        source, _ = self.source(lambda r: chart([1791770400], [1704.87]))
+        series = await source.get_candles("VNINDEX", Timeframe.H1, datetime(2026, 10, 1, tzinfo=timezone.utc), NOW)
+        assert series.candles[0].close == 1704.87
+
+    async def test_crypto_ticker_is_the_usd_pair(self):
+        source, upstream = self.source(lambda r: chart([], [], currency="USD", price=65000.5, market_time=1791738000))
+        ticker = await source.get_ticker(" btc ", TickerType.CRYPTO)
+        assert upstream.requests[0].url.path == "/v8/finance/chart/BTC-USD"
+        assert (ticker.symbol, ticker.price, ticker.currency, ticker.provider, ticker.timestamp) == ("BTC", 65000.5, "USD", "yahoo", "2026-10-11T17:00:00Z")
+
+    async def test_unknown_crypto_is_not_found(self):
+        source, _ = self.source(lambda r: httpx.Response(404, json={"chart": {"result": None, "error": {"code": "Not Found"}}}))
+        with pytest.raises(NotFound):
+            await source.get_ticker("NOPECOIN", TickerType.CRYPTO)
+
+    async def test_crypto_without_a_price_fails_and_other_tickers_are_unsupported(self):
+        source, _ = self.source(lambda r: chart([], [], currency="USD", price=0))
+        with pytest.raises(ValueError, match="no BTC-USD price"):
+            await source.get_ticker("BTC", TickerType.CRYPTO)
+        for ticker_type in (TickerType.EQUITY, TickerType.IFC, TickerType.GOLD):
+            with pytest.raises(Unsupported):
+                await source.get_ticker("FPT", ticker_type)
+        with pytest.raises(Unsupported):
+            await source.get_ticker("BTC-USD", TickerType.CRYPTO)
 
 
 class TestCoinGecko:
@@ -259,7 +300,7 @@ class TestCoinGecko:
         request = upstream.requests[0]
         assert request.url.params["ids"] == "tether" and request.url.params["vs_currencies"] == "vnd"
         assert request.headers["x-cg-demo-api-key"] == "demo-key"
-        assert (rate.base, rate.quote, rate.rate, rate.timestamp) == ("USDT", "VND", 26400, "2026-10-11T17:00:00Z")
+        assert (rate.base, rate.quote, rate.rate, rate.timestamp, rate.basis) == ("USDT", "VND", 26400, "2026-10-11T17:00:00Z", RateBasis.CRYPTO_MARKET)
 
     async def test_unpinned_symbol_resolves_the_best_ranked_exact_match_once(self):
         def handler(request):
@@ -301,7 +342,7 @@ class TestCurrencyApi:
         source, upstream = self.source(lambda r: {"date": "2026-10-12", "usd": {"vnd": 26300.12}})
         rate = await source.get_exchange_rate("USD", "VND")
         assert upstream.requests[0].url.path == "/v1/currencies/usd.min.json"
-        assert (rate.base, rate.quote, rate.rate, rate.timestamp) == ("USD", "VND", 26300.12, "2026-10-12T00:00:00Z")
+        assert (rate.base, rate.quote, rate.rate, rate.timestamp, rate.basis) == ("USD", "VND", 26300.12, "2026-10-12T00:00:00Z", RateBasis.REFERENCE)
 
     async def test_unknown_target_fails(self):
         source, _ = self.source(lambda r: {"date": "2026-10-12", "usd": {"eur": 0.9}})

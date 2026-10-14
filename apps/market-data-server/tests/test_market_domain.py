@@ -5,7 +5,7 @@ import pytest
 from src.market.candles import ICT, Timeframe, aggregate_candles, clean_candles
 from src.market.chains import Chains, load_chains
 from src.market.errors import ValidationError
-from src.market.models import Candle, ExchangeRate, PriceSeries, SeriesType, Ticker, TickerType, to_json
+from src.market.models import Candle, ExchangeRate, PriceSeries, RateBasis, SeriesType, Ticker, TickerType, to_json
 from src.market.symbols import is_vn_listing, normalise_symbol
 
 
@@ -24,6 +24,14 @@ class TestSymbols:
             assert not is_vn_listing(symbol)
         for symbol in ("FPT", "VNINDEX", "VN30"):
             assert is_vn_listing(symbol)
+
+    def test_only_symbols_shaped_like_vn_listings_are_vn_listings(self):
+        # Stocks, ETFs, warrants, futures and indices are 3-10 letters and digits.
+        for symbol in ("VNM", "E1VFVN30", "FUEVFVND", "CFPT2401", "VN30F1M", "HNX30", "UPCOMINDEX"):
+            assert is_vn_listing(symbol)
+        # Yahoo-style global symbols, pairs and junk are not, so VN sources skip them.
+        for symbol in ("BTC-USD", "EURUSD=X", "FPT.VN", "GC=F", "AB", "", "ABCDEFGHIJK"):
+            assert not is_vn_listing(symbol)
 
 
 class TestTimeframe:
@@ -89,10 +97,11 @@ class TestAggregateCandles:
 class TestChains:
     def test_defaults_match_wealth_management(self):
         chains = Chains()
-        assert chains.ticker["equity"] == ["vnstock", "fmarket"]
+        assert chains.ticker["equity"] == ["vnstock", "fmarket", "algolab"]
         assert chains.fx_chain("USD_VND") == ["fmarket", "yahoo", "currencyapi"]
         assert chains.fx_chain("EUR_VND") == ["yahoo", "currencyapi"]
-        assert chains.candles == ["vnstock", "yahoo", "fmarket"]
+        assert chains.candles == ["vnstock", "yahoo", "fmarket", "algolab"]
+        assert chains.ticker["crypto"] == ["coingecko", "yahoo"]
 
     def test_env_override_replaces_one_entry(self):
         chains = load_chains('{"candles": ["yahoo"]}')
@@ -110,6 +119,7 @@ class TestJson:
         assert to_json(ExchangeRate(base="USD", quote="VND", rate=25000, provider="yahoo", timestamp="t")) == {
             "from": "USD", "to": "VND", "rate": 25000, "provider": "yahoo", "timestamp": "t",
         }  # fmt: skip
+        assert to_json(ExchangeRate(base="USD", quote="VND", rate=25000, provider="yahoo", basis=RateBasis.MARKET))["basis"] == "market"
         assert to_json(Ticker(symbol="FPT", type=TickerType.EQUITY, provider="vnstock", price=1.5)) == {
             "symbol": "FPT", "type": "equity", "provider": "vnstock", "price": 1.5,
         }  # fmt: skip

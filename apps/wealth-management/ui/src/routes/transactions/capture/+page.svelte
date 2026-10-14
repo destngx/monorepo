@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
-  import type { CaptureProgress, CaptureResult } from '$lib/api/types';
+  import type { CaptureProgress, CaptureResult, ExchangeRate } from '$lib/api/types';
   import CaptureInbox from '$lib/capture/CaptureInbox.svelte';
   import CaptureReview from '$lib/capture/CaptureReview.svelte';
   import { batchUsage, releaseItem, toPayload, type InboxItem } from '$lib/capture/materials';
@@ -10,6 +10,9 @@
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
+  import { formatVND } from '$lib/format';
+  import { rateDetail } from '$lib/rates';
   import { toasts } from '$lib/state/toasts.svelte';
 
   // Smart Capture (§6.2): materials → streamed analysis → review → commit.
@@ -34,7 +37,9 @@
   let step = $state('');
   let result = $state<CaptureResult | null>(null);
   let rows = $state<ReviewRow[]>([]);
-  let usdRate = $state<number | null>(null);
+  // The USD/VND quote for previews, or why it failed; null until a foreign row needs it.
+  let usd = $state<{ quote: ExchangeRate } | { error: string } | null>(null);
+  const usdQuote = $derived(usd && 'quote' in usd ? usd.quote : null);
   let controller: AbortController | null = null;
 
   const usage = $derived(batchUsage(items, limits));
@@ -91,13 +96,13 @@
 
   // Preview Binance (USD/USDT) rows in VND; the sheet formula does the real conversion.
   $effect(() => {
-    if (usdRate !== null || !rows.length) return;
+    if (usd !== null || !rows.length) return;
     const foreign = new Set(data.accounts.filter((a) => a.currency !== 'VND').map((a) => a.name));
     if (!rows.some((row) => foreign.has(row.tx.accountName))) return;
     api
       .exchangeRate('USD', 'VND')
-      .then((rate) => (usdRate = rate.rate))
-      .catch(() => (usdRate = 0));
+      .then((quote) => (usd = quote.rate > 0 ? { quote } : { error: 'the engine returned no rate' }))
+      .catch((cause) => (usd = { error: cause instanceof Error ? cause.message : String(cause) }));
   });
 
   // Materials live only in this tab: free the image previews on leave (WM-CAP-10).
@@ -154,6 +159,16 @@
 {/if}
 
 {#if stage === 'review' && result}
+  {#if usd}
+    <p class="muted mb-3 flex flex-wrap items-center gap-2 text-xs">
+      {#if 'quote' in usd}
+        USD and USDT rows are previewed at {formatVND(usd.quote.rate)} per USD; the sheet does the real conversion.
+        <SourceBadge source={usd.quote.source ?? { provider: usd.quote.provider }} detail={rateDetail(usd.quote)} />
+      {:else}
+        USD and USDT rows have no VND preview: {usd.error}
+      {/if}
+    </p>
+  {/if}
   <CaptureReview
     bind:rows
     {result}
@@ -161,7 +176,7 @@
     accounts={data.accounts}
     categories={data.categories}
     tags={data.tags}
-    usdRate={usdRate || null}
+    usdRate={usdQuote?.rate ?? null}
   />
 {:else}
   <Card title="Materials" subtitle="Add everything about the same period at once: matching messages are merged.">

@@ -1,8 +1,11 @@
 <script lang="ts">
   import { api } from '$lib/api/endpoints';
   import { PALETTE } from '$lib/charts/palette';
+  import type { DataSource } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import Stat from '$lib/components/Stat.svelte';
+  import { sourceOf } from '$lib/source';
   import { formatDate, formatSignedPercent, formatVND, todayISO } from '$lib/format';
   import {
     downsample,
@@ -13,12 +16,14 @@
     parseGoldSnapshot,
     parseUsdHistory,
     settle,
+    sourced,
     worldGoldMillionVND,
     type GoldRow,
     type GoldSnapshot,
     type Point,
     type Range,
     type Section,
+    type Sourced,
   } from '../fmarket';
   import MultiLineChart from './MultiLineChart.svelte';
   import RangeButtons from './RangeButtons.svelte';
@@ -26,8 +31,8 @@
 
   // Gold and USD share one range so world gold converts at the same day's rate.
   let range = $state<Range>('1Y');
-  let gold = $state<Section<{ rows: GoldRow[]; snapshot: GoldSnapshot }> | null>(null);
-  let usd = $state<Section<Point[]> | null>(null);
+  let gold = $state<Section<{ rows: GoldRow[]; snapshot: GoldSnapshot; source?: DataSource }> | null>(null);
+  let usd = $state<Section<Sourced<Point[]>> | null>(null);
   let loading = $state(false);
   // fmarket's change percents cover the requested range, so label them with it.
   let loadedRange = $state<Range>('1Y');
@@ -38,9 +43,9 @@
     const [goldResult, usdResult] = await Promise.all([
       settle(async () => {
         const payload = await api.fmarket<unknown>('getGoldPriceHistory', params, { signal });
-        return { rows: parseGoldHistory(payload), snapshot: parseGoldSnapshot(payload) };
+        return { rows: parseGoldHistory(payload), snapshot: parseGoldSnapshot(payload), source: sourceOf(payload) };
       }),
-      settle(async () => parseUsdHistory(await api.fmarket<unknown>('getUsdRateHistory', params, { signal }))),
+      settle(async () => sourced(await api.fmarket<unknown>('getUsdRateHistory', params, { signal }), parseUsdHistory)),
     ]);
     // A newer range (or leaving the page) aborted this request.
     if (signal.aborted) return;
@@ -56,7 +61,9 @@
     return () => controller.abort();
   });
 
-  const usdPoints = $derived(usd?.ok ? usd.value : []);
+  const usdPoints = $derived(usd?.ok ? usd.value.data : []);
+  const goldSource = $derived(gold?.ok ? gold.value.source : undefined);
+  const usdSource = $derived(usd?.ok ? usd.value.source : undefined);
   const snapshot = $derived(gold?.ok ? gold.value.snapshot : null);
   const usdRate = $derived(latest(usdPoints, 'value') ?? snapshot?.usdRate ?? null);
   const chartRows = $derived(
@@ -78,8 +85,9 @@
 </script>
 
 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-  <p class="muted text-sm">
+  <p class="muted flex flex-wrap items-center gap-2 text-sm">
     {#if lastDate}Prices as of {formatDate(lastDate)}{:else if loading}Loading prices…{/if}
+    {#if goldSource}<SourceBadge source={goldSource} />{/if}
   </p>
   <RangeButtons value={range} onchange={(next) => (range = next)} disabled={loading} />
 </div>
@@ -155,6 +163,9 @@
 </Card>
 
 <Card title="USD/VND" subtitle="Selling rate" class="mt-4">
+  {#snippet actions()}
+    {#if usdSource}<SourceBadge source={usdSource} />{/if}
+  {/snippet}
   {#if usd && !usd.ok}
     <SectionError title="USD rates are unavailable" message={usd.error} />
   {:else if !usd}

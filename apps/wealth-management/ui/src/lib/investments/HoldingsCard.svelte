@@ -4,6 +4,7 @@
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Money from '$lib/components/Money.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { formatDate } from '$lib/format';
   import { holdingSource, quantity } from './holdings';
 
@@ -47,10 +48,11 @@
               <td class="px-5 py-2 text-right">
                 {#if holding.livePrice}
                   <Money value={holding.livePrice.price} currency={holding.livePrice.currency} />
-                  <span class="muted block text-xs"
-                    >{holding.livePrice.provider}{holding.livePrice.timestamp
-                      ? ` · ${formatDate(holding.livePrice.timestamp)}`
-                      : ''}</span
+                  <span class="block"
+                    ><SourceBadge
+                      source={holding.livePrice.source ?? { provider: holding.livePrice.provider }}
+                      detail={holding.livePrice.timestamp ? formatDate(holding.livePrice.timestamp) : undefined}
+                    /></span
                   >
                 {:else}<span class="muted">-</span>{/if}
               </td>

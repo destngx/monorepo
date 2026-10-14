@@ -19,12 +19,13 @@ from ...market.models import (
     ExchangeRate,
     PricePoint,
     PriceSeries,
+    RateBasis,
     SeriesType,
     Ticker,
     TickerType,
     utc_iso,
 )
-from ...market.symbols import SJC, XAUUSD
+from ...market.symbols import SJC
 from ..http import StatusError, new_client, request_json
 
 DEFAULT_BASE_URL = "https://api.fmarket.vn"
@@ -139,7 +140,7 @@ class FmarketSource:
         points = [PricePoint(price=row["rateSellUsd"], timestamp=utc_iso(_from_ms(row["reportDate"]))) for row in rows if _number(row.get("rateSellUsd")) > 0]
         if not points:
             raise ValueError("fmarket returned an empty USD/VND series")
-        return PriceSeries(provider=self.name, series_type=SeriesType.FOREX, currency="VND", data={"pair": "USD_VND", "points": points})
+        return PriceSeries(provider=self.name, series_type=SeriesType.FOREX, currency="VND", data={"pair": "USD_VND", "basis": RateBasis.BANK_SELL, "points": points})
 
     async def _gold_series(self) -> PriceSeries:
         rows = _oldest_first(await self._data("POST", "/res/get-price-gold-history", self._last_days(30)))
@@ -162,20 +163,20 @@ class FmarketSource:
 
     async def get_candles(self, symbol: str, timeframe: Timeframe, start: datetime, end: datetime) -> CandleSeries:
         """
-        Daily (and weekly, aggregated) gold history: SJC bars use the SJC sell
-        price in VND, XAUUSD the world price in USD per ounce. fmarket
-        publishes one quote a day, so each bar is a single close.
+        Daily (and weekly, aggregated) SJC history: the SJC sell price in VND.
+        fmarket publishes one quote a day, so each bar is a single close.
+        XAUUSD is left to Yahoo: fmarket's world price is spot, Yahoo's is the
+        COMEX future, and a fallback must not switch instrument.
         """
-        if symbol not in (SJC, XAUUSD):
+        if symbol != SJC:
             raise Unsupported(f"fmarket has no {symbol} history")
         if timeframe not in (Timeframe.D1, Timeframe.W1):
             raise Unsupported("fmarket gold history is daily")
         rows = await self._data("POST", "/res/get-price-gold-history", {"fromDate": fmarket_date(start), "toDate": fmarket_date(end), "isAllData": False})
-        field = "askSjc" if symbol == SJC else "price"
-        candles = clean_candles([Candle(time=_from_ms(row["reportDate"]), close=_number(row.get(field))) for row in rows if row.get("reportDate")])
+        candles = clean_candles([Candle(time=_from_ms(row["reportDate"]), close=_number(row.get("askSjc"))) for row in rows if row.get("reportDate")])
         if timeframe is Timeframe.W1:
             candles = aggregate_candles(candles, Timeframe.W1)
-        return CandleSeries(symbol=symbol, timeframe=timeframe.value, provider=self.name, currency="VND" if symbol == SJC else "USD", candles=candles)
+        return CandleSeries(symbol=symbol, timeframe=timeframe.value, provider=self.name, currency="VND", candles=candles)
 
     async def get_exchange_rate(self, base: str, quote: str) -> ExchangeRate:
         if base.upper() != "USD" or quote.upper() != "VND":
@@ -184,7 +185,7 @@ class FmarketSource:
         if not rows:
             raise ValueError("fmarket returned no exchange-rate data")
         last = _oldest_first(rows)[-1]
-        return ExchangeRate(base="USD", quote="VND", rate=_number(last["rateSellUsd"]), provider=self.name, timestamp=utc_iso(_from_ms(last["reportDate"])))
+        return ExchangeRate(base="USD", quote="VND", rate=_number(last["rateSellUsd"]), provider=self.name, timestamp=utc_iso(_from_ms(last["reportDate"])), basis=RateBasis.BANK_SELL)
 
     async def get_bank_rates(self) -> List[BankRate]:
         """

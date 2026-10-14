@@ -6,7 +6,7 @@ import type {
   AIStatus,
   Account,
   AccountType,
-  BankRate,
+  BankRates,
   Briefing,
   BudgetAdvice,
   BudgetHistory,
@@ -144,7 +144,7 @@ export const api = {
     request<Ticker>('/market/ticker', { fetch, query: { symbol, type } }),
   exchangeRate: (from: string, to: string, fetch?: Fetch) =>
     request<ExchangeRate>('/market/exchange-rate', { fetch, query: { from, to } }),
-  bankRates: (fetch?: Fetch) => request<BankRate[]>('/market/bank-rates', { fetch }),
+  bankRates: (fetch?: Fetch) => request<BankRates>('/market/bank-rates', { fetch }),
   marketPulse: (timeframe: Timeframe, options?: ReadOptions) =>
     read<MarketPulse>('/market/pulse', options, { timeframe }),
   marketAnalysis: (symbol: string, timeframe: Timeframe, options?: ReadOptions) =>

@@ -1,9 +1,10 @@
 """
 Yahoo Finance chart API: the candle fallback for vnstock, global symbols
-(VIX, gold futures) and fiat exchange rates.
+(VIX, gold futures), fiat exchange rates and the crypto ticker fallback.
 """
 
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, List, Optional
@@ -12,10 +13,10 @@ from urllib.parse import quote as url_quote
 import httpx
 
 from ...market.candles import Timeframe, aggregate_candles, clean_candles
-from ...market.errors import Unsupported
-from ...market.models import Candle, CandleSeries, ExchangeRate, PricePoint, PriceSeries, SeriesType, utc_iso
-from ...market.symbols import SJC, USDVND, VIX, VN30, VNINDEX, XAUUSD
-from ..http import new_client, request_json
+from ...market.errors import NotFound, Unsupported
+from ...market.models import Candle, CandleSeries, ExchangeRate, PricePoint, PriceSeries, RateBasis, SeriesType, Ticker, TickerType, utc_iso
+from ...market.symbols import SJC, USDVND, VIX, VN30, VNINDEX, XAUUSD, normalise_symbol
+from ..http import StatusError, new_client, request_json
 
 DEFAULT_BASE_URL = "https://query1.finance.yahoo.com"
 
@@ -31,6 +32,13 @@ UNSUPPORTED = {VN30, "HNXINDEX", "UPCOMINDEX", SJC}
 
 # How far back Yahoo serves 1h bars.
 MAX_HOURLY_HISTORY = timedelta(days=729)
+
+# Yahoo prices .VN stocks, ETFs and warrants in VND; every other source
+# (and WM) uses thousands of VND. VN indices (^VNINDEX.VN) are points.
+VN_PRICE_SCALE = 1000.0
+
+# A coin symbol as Yahoo lists it against USD (BTC-USD).
+_COIN = re.compile(r"^[A-Z0-9]{2,15}$")
 
 
 def yahoo_symbol(symbol: str) -> str:
@@ -51,6 +59,16 @@ def yahoo_symbol(symbol: str) -> str:
 
 def _is_vn_index(remote: str) -> bool:
     return remote.startswith("^") and remote.endswith(".VN")
+
+
+def _price_scale(remote: str) -> float:
+    return VN_PRICE_SCALE if remote.endswith(".VN") and not _is_vn_index(remote) else 1.0
+
+
+def _scaled(candle: Candle, scale: float) -> Candle:
+    if scale == 1.0:
+        return candle
+    return Candle(time=candle.time, open=candle.open / scale, high=candle.high / scale, low=candle.low / scale, close=candle.close / scale, volume=candle.volume)
 
 
 @dataclass
@@ -131,7 +149,8 @@ class YahooSource:
             interval = INTERVALS[Timeframe.H1]
             start = max(start, end - MAX_HOURLY_HISTORY)
         chart = await self._chart(remote, interval, start, end)
-        candles = chart.candles
+        scale = _price_scale(remote)
+        candles = [_scaled(candle, scale) for candle in chart.candles]
         if aggregate:
             candles = aggregate_candles(clean_candles(candles), timeframe)
         return CandleSeries(symbol=symbol, timeframe=timeframe.value, provider=self.name, currency=chart.currency, candles=candles)
@@ -145,7 +164,26 @@ class YahooSource:
         chart = await self._chart(f"{base}{quote}=X", "1d", now - timedelta(days=7), now)
         if chart.market_price <= 0:
             raise ValueError(f"yahoo has no {base}/{quote} quote")
-        return ExchangeRate(base=base, quote=quote, rate=chart.market_price, provider=self.name, timestamp=utc_iso(chart.market_time))
+        return ExchangeRate(base=base, quote=quote, rate=chart.market_price, provider=self.name, timestamp=utc_iso(chart.market_time), basis=RateBasis.MARKET)
+
+    async def get_ticker(self, symbol: str, ticker_type: TickerType) -> Ticker:
+        """A coin's USD price from its -USD pair: the fallback for CoinGecko."""
+        if ticker_type is not TickerType.CRYPTO:
+            raise Unsupported(f"yahoo serves only {TickerType.CRYPTO.value} tickers")
+        symbol = normalise_symbol(symbol)
+        if not _COIN.match(symbol):
+            raise Unsupported(f"{symbol} is not a coin symbol")
+        remote = f"{symbol}-USD"
+        now = self._now()
+        try:
+            chart = await self._chart(remote, "1d", now - timedelta(days=7), now)
+        except StatusError as e:
+            if e.status == 404:
+                raise NotFound(f"yahoo has no {remote} pair") from e
+            raise
+        if chart.market_price <= 0:
+            raise ValueError(f"yahoo has no {remote} price")
+        return Ticker(symbol=symbol, type=ticker_type, provider=self.name, currency="USD", price=chart.market_price, timestamp=utc_iso(chart.market_time))
 
     async def get_price_series(self, symbol: str, series_type: SeriesType) -> PriceSeries:
         """The daily close of a fiat pair over 30 days; symbol is a pair such as USD_VND."""
@@ -159,4 +197,4 @@ class YahooSource:
         points = [PricePoint(price=c.close, timestamp=utc_iso(c.time)) for c in clean_candles(chart.candles)]
         if not points:
             raise ValueError(f"yahoo returned an empty {pair} series")
-        return PriceSeries(provider=self.name, series_type=series_type, currency=chart.currency, data={"pair": f"{pair[:3]}_{pair[3:]}", "points": points})
+        return PriceSeries(provider=self.name, series_type=series_type, currency=chart.currency, data={"pair": f"{pair[:3]}_{pair[3:]}", "basis": RateBasis.MARKET, "points": points})

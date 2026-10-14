@@ -1,5 +1,6 @@
 import type { Currency } from './accounts';
 import type { ExchangeRate } from './rates';
+import type { DataSource } from './source';
 
 export interface Holding {
   platform: string;
@@ -28,6 +29,7 @@ export interface LivePrice {
   currency: Currency;
   provider: string;
   timestamp?: string;
+  source?: DataSource;
 }
 
 export type PortfolioSection = 'crypto' | 'funds';

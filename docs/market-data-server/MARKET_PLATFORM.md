@@ -77,13 +77,13 @@ Ported from WM `service/market_provider` (`_route.go`):
 
 Algolab and TCBS publish market data as remote MCP servers (Streamable HTTP). The server talks to them as an MCP client:
 
-- One shared client module (`src/sources/mcp/`): session setup (`initialize`, `Mcp-Session-Id`), `tools/call`, reconnect on expired sessions, per-source auth. Prefer the official Python `mcp` SDK, which already implements Streamable HTTP and the OAuth client flow, over a hand-rolled JSON-RPC client (MDS-Q8).
+- One shared client module (`src/sources/mcp.py`): session setup (`initialize`, `Mcp-Session-Id`), `tools/call`, reconnect on expired sessions; auth is a header on the source's httpx client. It is a minimal JSON-RPC client over httpx because adding the `mcp` SDK was not approved (MDS-Q8); TCBS's OAuth flow may still need the SDK.
 - Each MCP source is an ordinary adapter (`src/sources/algolab/`, `src/sources/tcbs/`): it maps capabilities to tool calls and tool output to canonical models. Tool output is parsed and validated; free text never reaches the API.
 - Tool calls count against the source's quota, so they go through the same cache, single-flight and rate limiter as every other upstream call. Listing tools and connecting are free on Algolab.
 
 **Algolab** (`https://mcp.algolab.vn`, server `algolab-market-data` 2.1.0):
 
-- Auth: API key as `Authorization: Bearer alm_...` (`ALGOLAB_API_KEY` in `.env.local`). `/free` needs no key but shares one 120/min, 1,000/day pool with every anonymous user (405 used by 15:00 on 2026-10-14), so the server needs its own key. A free Lite account can create keys (the tier MDS-D10 allows); Plus 1,000/day, Pro 5,000/day and Max 20,000/day are paid. As of 2026-10-14 there is no key, so the Algolab adapter stays unbuilt until one exists.
+- Auth: API key as `Authorization: Bearer alm_...` (`ALGOLAB_API_KEY` in `.env.local`). `/free` needs no key but shares one 120/min, 1,000/day pool with every anonymous user (405 used by 15:00 on 2026-10-14), so it can run out because of other users. A free Lite account can create keys (the tier MDS-D10 allows); Plus 1,000/day, Pro 5,000/day and Max 20,000/day are paid. As of 2026-10-14 there is no key, so the adapter (`src/sources/algolab/`) uses `/free` and sits last in the equity ticker, equity series and candle chains, where it is only called when every other source failed; setting `ALGOLAB_API_KEY` switches it to the account endpoint. Ruled out: `/free` as a primary source, and the algolab.vn website API (terms section 4 bans automated collection outside the APIs and keys Algolab provides).
 - Tools: `get_market_overview`, `get_price_history`, `get_quotes` (50 symbols), `get_company_profile`, `get_financial_statements`, `get_research_reports`, `get_news` (with sentiment), `get_technical_signals`, `get_macro`, `get_intelligence`, `search`, `call_function` (advanced: `get_foreign_flows_detail`, `screen_stocks`, `get_sector_valuation`, `get_derivatives_snapshot`, `get_macro_series`, `get_quota`, ...).
 - Output: one text content item holding JSON with `status`, `data` or `error {code, message, hint}`, and `meta.quota {used, limit}`. Errors set `isError`. No `outputSchema`, so the adapter validates with its own Pydantic models.
 - Fills what the vnstock Community key lacks: foreign flows, macro, broker research, news sentiment, technical signals, a screener, derivatives.
@@ -149,14 +149,16 @@ Carried over from WM `domain/market_capability.go`:
 
 | Capability                              | Chain                                                                                                  | TTL                                    |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| Ticker                                  | equity: vnstock → fmarket; ifc: fmarket → vnstock; gold: fmarket; crypto: coingecko                    | 60 s                                   |
+| Ticker                                  | equity: vnstock → fmarket → algolab; ifc: fmarket → vnstock; gold: fmarket; crypto: coingecko → yahoo  | 60 s                                   |
 | FX                                      | USD_VND: fmarket → yahoo → currencyapi; USDT_VND: coingecko → currencyapi; others: yahoo → currencyapi | 600 s                                  |
-| Series                                  | equity: vnstock → fmarket; gold_usd: fmarket; forex: yahoo → fmarket                                   | 300 s                                  |
-| Candles                                 | vnstock → yahoo → fmarket                                                                              | 300 s (closed ranges: until 5am ICT)   |
+| Series                                  | equity: vnstock → fmarket → algolab; gold_usd: fmarket; forex: yahoo → fmarket                         | 300 s                                  |
+| Candles                                 | vnstock → yahoo → fmarket → algolab (fmarket: SJC only; XAUUSD is Yahoo's `GC=F` alone)                | 300 s (closed ranges: until 5am ICT)   |
 | Bank rates                              | fmarket                                                                                                | 3600 s                                 |
 | Funds, gold                             | fmarket                                                                                                | 60 s (WM's current fmarket action TTL) |
 | Fundamentals                            | vnstock → algolab (TCBS once evaluated)                                                                | until 5am ICT                          |
 | Foreign flows, macro, research, signals | algolab                                                                                                | until 5am ICT (intraday: 60 s)         |
+
+Sources in one chain must be interchangeable: a fallback may change the provider but never the units or the instrument. VN stocks, ETFs and warrants are in thousands of VND on every source (Yahoo and Algolab publish VND and are scaled), indices in points (`tests/test_market_units.py`). Where sources genuinely quote different things for the same request, the answer says which: exchange rates carry a `basis` (`bank_sell`, `market`, `reference`, `crypto_market`). For the same reason fmarket no longer serves XAUUSD candles (spot, close-only) behind Yahoo's COMEX future.
 
 ## 4. Behaviour to carry over
 
@@ -235,6 +237,6 @@ Done (phase 3):
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MDS-Q1 | TCBS MCP: refresh-token lifetime, whether its terms allow use from a personal server rather than an AI assistant, the tool list and whether tools return structured data. Answered by the first login in phase 6. The user guide (`https://help.tcbs.com.vn/tcbs-mcp-server/`) is behind a Cloudflare check that blocks scripted access. |
 | MDS-Q7 | Algolab terms (`algolab.vn/terms`, `/library/policies`): caching, storing results in the price store, and which plan the daily volume needs.                                                                                                                                                                                             |
-| MDS-Q8 | Add the official Python `mcp` SDK as a dependency (recommended) or write a minimal Streamable HTTP client.                                                                                                                                                                                                                               |
+| MDS-Q8 | Add the official Python `mcp` SDK as a dependency or keep the minimal Streamable HTTP client in `src/sources/mcp.py` (in use for Algolab since 2026-10-14). Revisit for TCBS's OAuth flow.                                                                                                                                               |
 
 Resolved on 2026-10-14: Q2 (section 4.1); Q3 licensing (private local use is within the Community licence); Q4 auth (none, MDS-D9); Q5 Upstash (optional L2 with SQLite fallback, MDS-D5); Q6 name (`market-data-server`, MDS-D7).

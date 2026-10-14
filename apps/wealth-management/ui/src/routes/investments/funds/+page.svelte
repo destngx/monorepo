@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import Card from '$lib/components/Card.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { FUND_TYPES, type FundType } from '$lib/investments/fmarket';
   import BankRatesChart from '$lib/investments/fmarket/BankRatesChart.svelte';
   import FundTable from '$lib/investments/fmarket/FundTable.svelte';
@@ -60,6 +61,7 @@
 {#if tab === 'funds'}
   <Card title="{fundLabel} funds" subtitle="Ranked by 12-month return; select a fund for details">
     {#snippet actions()}
+      {#if funds.ok && funds.value.source}<SourceBadge source={funds.value.source} />{/if}
       <div
         class="flex flex-wrap gap-0.5 rounded-xl bg-slate-900/5 p-0.5 dark:bg-white/5"
         role="group"
@@ -72,21 +74,24 @@
             aria-pressed={fundType === t.key}
             class="rounded-lg px-2.5 py-1 text-xs font-medium transition {pill(fundType === t.key)}"
             onclick={() => select('type', t.key, 'STOCK')}
-            >{t.label}{#if list.ok}<span class="ml-1 opacity-60">{list.value.length}</span>{/if}</button
+            >{t.label}{#if list.ok}<span class="ml-1 opacity-60">{list.value.data.length}</span>{/if}</button
           >
         {/each}
       </div>
     {/snippet}
     {#if funds.ok}
-      <FundTable funds={funds.value} label={fundLabel} />
+      <FundTable funds={funds.value.data} label={fundLabel} />
     {:else}
       <SectionError title="{fundLabel} funds are unavailable" message={funds.error} />
     {/if}
   </Card>
 {:else if tab === 'bank'}
   <Card title="Bank savings rates" subtitle="Highest published deposit rate per bank, % per year">
+    {#snippet actions()}
+      {#if data.bankRates.ok && data.bankRates.value.source}<SourceBadge source={data.bankRates.value.source} />{/if}
+    {/snippet}
     {#if data.bankRates.ok}
-      <BankRatesChart rates={data.bankRates.value} />
+      <BankRatesChart rates={data.bankRates.value.rates} />
     {:else}
       <SectionError title="Bank rates are unavailable" message={data.bankRates.error} />
     {/if}

@@ -56,8 +56,9 @@ func TestGetTickerDecodesTheEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := domain.Ticker{Symbol: "FPT", Type: domain.TickerTypeEquity, Provider: "vnstock", Currency: "VND", Price: 57.1}
-	if ticker != want {
+	want := domain.Ticker{Symbol: "FPT", Type: domain.TickerTypeEquity, Provider: "vnstock", Currency: "VND", Price: 57.1,
+		Source: &domain.DataSource{Provider: "vnstock", AsOf: "2026-10-14T01:00:00Z"}}
+	if !reflect.DeepEqual(ticker, want) {
 		t.Fatalf("ticker = %+v", ticker)
 	}
 	request := (*requests)[0]
@@ -71,10 +72,10 @@ func TestGetTickerDecodesTheEnvelope(t *testing.T) {
 
 func TestBypassCacheBecomesSkipCache(t *testing.T) {
 	client, requests := fakeServer(t, func(*http.Request) (int, any) {
-		return 200, answer(map[string]any{"from": "USD", "to": "VND", "rate": 26080, "provider": "fmarket"}, nil)
+		return 200, answer(map[string]any{"from": "USD", "to": "VND", "rate": 26080, "provider": "fmarket", "basis": "bank_sell"}, nil)
 	})
 	rate, err := client.GetExchangeRate(domain.WithBypassCache(context.Background(), true), "USD", "VND")
-	if err != nil || rate.Rate != 26080 || rate.From != "USD" {
+	if err != nil || rate.Rate != 26080 || rate.From != "USD" || rate.Basis != domain.RateBasisBankSell || rate.Source.Provider != "vnstock" {
 		t.Fatalf("rate = %+v, err %v", rate, err)
 	}
 	query := (*requests)[0].URL.Query()
@@ -83,17 +84,37 @@ func TestBypassCacheBecomesSkipCache(t *testing.T) {
 	}
 }
 
-func TestStaleAnswersAreMarkedOnTheRequest(t *testing.T) {
+func TestStaleAnswersAreMarkedOnTheRequestAndTheSource(t *testing.T) {
 	client, _ := fakeServer(t, func(*http.Request) (int, any) {
-		return 200, answer([]any{}, map[string]any{"stale": true, "as_of": "2026-10-13T08:00:00Z"})
+		return 200, answer([]any{}, map[string]any{"provider": "fmarket", "stale": true, "as_of": "2026-10-13T08:00:00Z"})
 	})
 	recorder := &domain.StaleRecorder{}
-	if _, err := client.GetBankInterestRate(domain.WithStaleRecorder(context.Background(), recorder)); err != nil {
+	rates, err := client.GetBankInterestRate(domain.WithStaleRecorder(context.Background(), recorder))
+	if err != nil {
 		t.Fatal(err)
 	}
 	asOf, stale := recorder.AsOf()
 	if !stale || !asOf.Equal(time.Date(2026, 10, 13, 8, 0, 0, 0, time.UTC)) {
 		t.Fatalf("stale = %v as of %v", stale, asOf)
+	}
+	want := &domain.DataSource{Provider: "fmarket", Stale: true, AsOf: "2026-10-13T08:00:00Z"}
+	if !reflect.DeepEqual(rates.Source, want) || len(rates.Rates) != 0 {
+		t.Fatalf("rates = %+v", rates)
+	}
+}
+
+func TestEveryAnswerCarriesItsSource(t *testing.T) {
+	client, _ := fakeServer(t, func(r *http.Request) (int, any) {
+		return 200, answer(map[string]any{"provider": "yahoo"}, map[string]any{"provider": "yahoo", "fallback": []string{"fmarket: down"}})
+	})
+	want := &domain.DataSource{Provider: "yahoo", Fallback: []string{"fmarket: down"}, AsOf: "2026-10-14T01:00:00Z"}
+	series, err := client.GetPriceSeries(context.Background(), "USD_VND", domain.SeriesTypeForex)
+	if err != nil || !reflect.DeepEqual(series.Source, want) {
+		t.Fatalf("series = %+v, err %v", series, err)
+	}
+	rate, err := client.GetExchangeRate(context.Background(), "USD", "VND")
+	if err != nil || !reflect.DeepEqual(rate.Source, want) {
+		t.Fatalf("rate = %+v, err %v", rate, err)
 	}
 }
 
@@ -138,7 +159,7 @@ func TestUnreachableServerIsAnError(t *testing.T) {
 	}
 }
 
-func TestGetCandlesJoinsTheFallbackIndicator(t *testing.T) {
+func TestGetCandlesCarriesTheFallbackIndicator(t *testing.T) {
 	client, requests := fakeServer(t, func(*http.Request) (int, any) {
 		series := map[string]any{"symbol": "FPT", "timeframe": "4h", "provider": "yahoo", "currency": "VND", "candles": []any{
 			map[string]any{"time": "2026-10-12T02:00:00Z", "open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 10},
@@ -149,7 +170,7 @@ func TestGetCandlesJoinsTheFallbackIndicator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if series.Fallback != "vnstock: quota; fmarket: down" || series.Provider != "yahoo" || series.Timeframe != domain.Timeframe4H {
+	if !reflect.DeepEqual(series.Source.Fallback, []string{"vnstock: quota", "fmarket: down"}) || series.Source.Provider != "yahoo" || series.Provider != "yahoo" || series.Timeframe != domain.Timeframe4H {
 		t.Fatalf("series = %+v", series)
 	}
 	if len(series.Candles) != 1 || !series.Candles[0].Time.Equal(time.Date(2026, 10, 12, 2, 0, 0, 0, time.UTC)) || series.Candles[0].Close != 1.5 {
@@ -205,7 +226,8 @@ func TestFmarketActionsMapToServerEndpoints(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(result, map[string]any{"data": map[string]any{"rows": []any{}}}) {
+			want := fmarketPayload{Data: map[string]any{"rows": []any{}}, Source: &domain.DataSource{Provider: "vnstock", AsOf: "2026-10-14T01:00:00Z"}}
+			if !reflect.DeepEqual(result, want) {
 				t.Fatalf("result = %#v", result)
 			}
 			request := (*requests)[0]
@@ -218,15 +240,19 @@ func TestFmarketActionsMapToServerEndpoints(t *testing.T) {
 
 func TestGoldHistoryRestoresFmarketsEnvelope(t *testing.T) {
 	client, requests := fakeServer(t, func(*http.Request) (int, any) {
-		return 200, answer(map[string]any{"rows": []any{map[string]any{"price": 4150.26}}, "summary": map[string]any{"goldRingPriceBuy": 142000000}}, nil)
+		return 200, answer(map[string]any{"rows": []any{map[string]any{"price": 4150.26}}, "summary": map[string]any{"goldRingPriceBuy": 142000000}}, map[string]any{"provider": "fmarket"})
 	})
 	result, err := client.RunAction(context.Background(), domain.FmarketRequest{Action: domain.FmarketActionGoldPriceHistory}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]any{"data": []any{map[string]any{"price": 4150.26}}, "extra": map[string]any{"goldRingPriceBuy": float64(142000000)}}
-	if !reflect.DeepEqual(result, want) {
-		t.Fatalf("result = %#v", result)
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"data":[{"price":4150.26}],"extra":{"goldRingPriceBuy":142000000},"source":{"provider":"fmarket","asOf":"2026-10-14T01:00:00Z"}}`
+	if string(encoded) != want {
+		t.Fatalf("result = %s", encoded)
 	}
 	if query := (*requests)[0].URL.Query(); !reflect.DeepEqual(query, url.Values{"skip_cache": {"true"}}) {
 		t.Fatalf("forceFresh must bypass the server cache, query = %v", query)
@@ -241,7 +267,11 @@ func TestBankRatesActionStaysTyped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(result, []domain.BankRate{{Bank: "VCB", Rate: 4.6, Currency: "VND", UpdatedAt: "2026-10-10"}}) {
+	want := domain.BankRates{
+		Rates:  []domain.BankRate{{Bank: "VCB", Rate: 4.6, Currency: "VND", UpdatedAt: "2026-10-10"}},
+		Source: &domain.DataSource{Provider: "vnstock", AsOf: "2026-10-14T01:00:00Z"},
+	}
+	if !reflect.DeepEqual(result, want) {
 		t.Fatalf("result = %#v", result)
 	}
 }

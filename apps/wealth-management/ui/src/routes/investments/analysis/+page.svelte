@@ -14,7 +14,7 @@
   import LevelsPanel from '$lib/investments/market/LevelsPanel.svelte';
   import RiskCard from '$lib/investments/market/RiskCard.svelte';
   import SeasonalityCard from '$lib/investments/market/SeasonalityCard.svelte';
-  import SourceBadge from '$lib/investments/market/SourceBadge.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import TechnicalsCard from '$lib/investments/market/TechnicalsCard.svelte';
   import TimeframeSwitcher from '$lib/investments/market/TimeframeSwitcher.svelte';
   import {
@@ -173,12 +173,16 @@
         {#if current.currency}<span class="muted text-sm font-normal">{current.currency}</span>{/if}
       </p>
       <p class="muted mt-1 flex flex-wrap items-center justify-end gap-2 text-xs">
-        <SourceBadge provider={current.provider} fallback={current.fallback} />
+        <SourceBadge source={current.source} />
         <span>Generated {formatDateTime(current.generatedAt)}</span>
         {#if isLoading}<Icon name="refresh" size={12} class="animate-spin" />{/if}
       </p>
-      {#if current.fallback}
-        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">Fallback: {current.fallback}</p>
+      {#if current.source?.stale}
+        <p class="mt-1 text-xs text-orange-700 dark:text-orange-300">
+          Every provider failed; these candles are the last good copy from {formatDateTime(current.source.asOf)}.
+        </p>
+      {:else if current.source?.fallback?.length}
+        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">Fallback: {current.source.fallback.join('; ')}</p>
       {/if}
     </div>
   </div>

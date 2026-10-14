@@ -7,6 +7,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate, formatPercent, formatSignedPercent, formatVND, todayISO } from '$lib/format';
   import { downsample, FUND_TYPES, periodReturn, sliceRange, type Range } from '$lib/investments/fmarket';
@@ -25,7 +26,7 @@
 
   // WM-INV-10 fund detail: NAV chart by range.
   let range = $state<Range>('1Y');
-  const navPoints = $derived(data.nav.ok ? sliceRange(data.nav.value, range, todayISO()) : []);
+  const navPoints = $derived(data.nav.ok ? sliceRange(data.nav.value.data, range, todayISO()) : []);
   const chartPoints = $derived(downsample(navPoints));
   const rangeReturn = $derived(periodReturn(navPoints));
 
@@ -77,6 +78,7 @@
   {#if fund.issuer}<Badge tone="violet">{fund.issuer}</Badge>{/if}
   {#if fund.assetType}<Badge tone="blue">{fund.assetType}</Badge>{/if}
   {#if fund.riskLevel}<Badge tone="amber">Risk: {fund.riskLevel}</Badge>{/if}
+  {#if data.detailSource}<SourceBadge source={data.detailSource} />{/if}
 </div>
 
 <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -98,6 +100,7 @@
 
 <Card title="NAV history" subtitle="₫ per unit" class="mt-4">
   {#snippet actions()}
+    {#if data.nav.ok && data.nav.value.source}<SourceBadge source={data.nav.value.source} />{/if}
     <RangeButtons value={range} onchange={(next) => (range = next)} />
   {/snippet}
   {#if data.nav.ok}

@@ -81,6 +81,7 @@ func (s *portfolioService) Valuation(ctx context.Context, forceFresh bool) (doma
 				Currency:  domain.Currency(strings.ToUpper(ticker.Currency)),
 				Provider:  ticker.Provider,
 				Timestamp: ticker.Timestamp,
+				Source:    ticker.Source,
 			}
 		})
 	}

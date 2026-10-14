@@ -9,7 +9,7 @@ from typing import Dict, Optional
 import httpx
 
 from ...market.errors import Unsupported, ValidationError
-from ...market.models import ExchangeRate, Ticker, TickerType, utc_iso
+from ...market.models import ExchangeRate, RateBasis, Ticker, TickerType, utc_iso
 from ..http import new_client, request_json
 
 DEFAULT_BASE_URL = "https://api.coingecko.com/api/v3"
@@ -60,7 +60,7 @@ class CoinGeckoSource:
         if currency not in ("usd", "vnd"):
             raise Unsupported("coingecko quotes coins only in USD or VND")
         price = await self._price(base, currency)
-        return ExchangeRate(base=base.upper(), quote=currency.upper(), rate=price.value, provider=self.name, timestamp=price.updated_at)
+        return ExchangeRate(base=base.upper(), quote=currency.upper(), rate=price.value, provider=self.name, timestamp=price.updated_at, basis=RateBasis.CRYPTO_MARKET)
 
     async def _price(self, symbol: str, currency: str) -> _Quote:
         coin = await self._coin_id(symbol)

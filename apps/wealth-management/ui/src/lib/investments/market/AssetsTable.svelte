@@ -13,7 +13,7 @@
     type QuoteSortKey,
     type SortDirection,
   } from '../market';
-  import SourceBadge from './SourceBadge.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { symbolHref } from './link';
 
   interface Props {
@@ -125,7 +125,7 @@
                   </span>
                 </td>
               {/if}
-              <td class="px-5 py-2"><SourceBadge provider={quote.provider} fallback={quote.fallback} /></td>
+              <td class="px-5 py-2"><SourceBadge source={quote.source} /></td>
             </tr>
           {/each}
         </tbody>

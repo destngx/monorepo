@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 
 from ..modules.shared.deps import get_cache_manager
+from ..sources.algolab import AlgolabSource
 from ..sources.coingecko import CoinGeckoSource
 from ..sources.currencyapi import CurrencyApiSource
 from ..sources.fmarket import FmarketSource
@@ -19,7 +20,7 @@ _SERVICE: Optional[MarketService] = None
 
 
 def build_market_service() -> MarketService:
-    sources = [VnstockSource(), FmarketSource(), YahooSource(), CoinGeckoSource(), CurrencyApiSource()]
+    sources = [VnstockSource(), FmarketSource(), YahooSource(), CoinGeckoSource(), CurrencyApiSource(), AlgolabSource()]
     store = LastGoodStore()
     logger.info("✓ Market sources: %s; last-good store at %s", ", ".join(s.name for s in sources), store.path)
     return MarketService({s.name: s for s in sources}, chains=load_chains(), cache=get_cache_manager(), last_good=store)

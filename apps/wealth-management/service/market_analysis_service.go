@@ -102,7 +102,7 @@ func (s *marketAnalysisService) Analysis(ctx context.Context, symbol string, tim
 		Symbol:      symbol,
 		Timeframe:   timeframe,
 		Provider:    primary.Provider,
-		Fallback:    primary.Fallback,
+		Source:      primary.Source,
 		Currency:    primary.Currency,
 		Technicals:  domain.ComputeTechnicals(primary.Candles),
 		Seasonality: []domain.SeasonalityBucket{},
@@ -123,6 +123,7 @@ func (s *marketAnalysisService) Analysis(ctx context.Context, symbol string, tim
 		views[tf] = domain.TimeframeView{
 			Timeframe: tf,
 			Provider:  series[tf].Provider,
+			Source:    series[tf].Source,
 			Candles:   technicals.Candles,
 			Price:     technicals.Price,
 			Trend:     technicals.Trend,

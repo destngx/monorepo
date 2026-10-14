@@ -4,9 +4,11 @@ import {
   fundListParams,
   parseFundList,
   settle,
+  sourced,
   type FundSummary,
   type FundType,
   type Section,
+  type Sourced,
 } from '$lib/investments/fmarket';
 import type { PageLoad } from './$types';
 
@@ -16,13 +18,13 @@ export const load: PageLoad = async ({ fetch }) => {
     Promise.all(
       FUND_TYPES.map(({ key }) =>
         settle(async () =>
-          parseFundList(await api.fmarket<unknown>('getProductsFilterNav', fundListParams(key), { fetch })),
+          sourced(await api.fmarket<unknown>('getProductsFilterNav', fundListParams(key), { fetch }), parseFundList),
         ),
       ),
     ),
     settle(() => api.bankRates(fetch)),
   ]);
-  const funds = {} as Record<FundType, Section<FundSummary[]>>;
+  const funds = {} as Record<FundType, Section<Sourced<FundSummary[]>>>;
   FUND_TYPES.forEach(({ key }, i) => (funds[key] = lists[i]));
   return { funds, bankRates };
 };

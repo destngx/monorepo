@@ -15,14 +15,15 @@ const (
 
 // TimeframeView is one row of the WM-INV-13 confluence matrix.
 type TimeframeView struct {
-	Timeframe Timeframe `json:"timeframe"`
-	Provider  string    `json:"provider,omitempty"`
-	Candles   int       `json:"candles"`
-	Price     float64   `json:"price"`
-	Trend     string    `json:"trend"`
-	Phase     string    `json:"phase"`
-	RSI       *float64  `json:"rsi"`
-	Error     string    `json:"error,omitempty"`
+	Timeframe Timeframe   `json:"timeframe"`
+	Provider  string      `json:"provider,omitempty"`
+	Source    *DataSource `json:"source,omitempty"`
+	Candles   int         `json:"candles"`
+	Price     float64     `json:"price"`
+	Trend     string      `json:"trend"`
+	Phase     string      `json:"phase"`
+	RSI       *float64    `json:"rsi"`
+	Error     string      `json:"error,omitempty"`
 }
 
 type TimeframePair struct {
@@ -102,7 +103,7 @@ type MarketAnalysis struct {
 	Symbol      string              `json:"symbol"`
 	Timeframe   Timeframe           `json:"timeframe"`
 	Provider    string              `json:"provider"`
-	Fallback    string              `json:"fallback,omitempty"`
+	Source      *DataSource         `json:"source,omitempty"`
 	Currency    string              `json:"currency,omitempty"`
 	Technicals  Technicals          `json:"technicals"`
 	Confluence  Confluence          `json:"confluence"`

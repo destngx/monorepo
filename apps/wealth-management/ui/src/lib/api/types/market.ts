@@ -1,6 +1,8 @@
 // Market intelligence (WM-INV-11..18). Every figure below is computed by the
 // engine from candles; nothing here comes from a model.
 
+import type { DataSource } from './source';
+
 export type Timeframe = '1h' | '4h' | '1d' | '1w';
 export const TIMEFRAMES: Timeframe[] = ['1h', '4h', '1d', '1w'];
 
@@ -12,8 +14,7 @@ export interface PulseQuote {
   symbol: string;
   name: string;
   provider?: string;
-  /** Providers tried before `provider` and why they failed. */
-  fallback?: string;
+  source?: DataSource;
   currency?: string;
   price: number;
   time?: string;
@@ -92,6 +93,7 @@ export interface MarketPulse {
 export interface TimeframeView {
   timeframe: Timeframe;
   provider?: string;
+  source?: DataSource;
   candles: number;
   price: number;
   trend: Trend;
@@ -150,7 +152,7 @@ export interface MarketAnalysis {
   symbol: string;
   timeframe: Timeframe;
   provider: string;
-  fallback?: string;
+  source?: DataSource;
   currency?: string;
   technicals: Technicals;
   confluence: Confluence;

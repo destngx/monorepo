@@ -18,10 +18,10 @@ ANY_PAIR = "*"
 class Chains:
     ticker: Dict[str, List[str]] = field(
         default_factory=lambda: {
-            "equity": ["vnstock", "fmarket"],
+            "equity": ["vnstock", "fmarket", "algolab"],
             "ifc": ["fmarket", "vnstock"],
             "gold": ["fmarket"],
-            "crypto": ["coingecko"],
+            "crypto": ["coingecko", "yahoo"],
         }
     )
     fx: Dict[str, List[str]] = field(
@@ -33,12 +33,12 @@ class Chains:
     )
     series: Dict[str, List[str]] = field(
         default_factory=lambda: {
-            "equity": ["vnstock", "fmarket"],
+            "equity": ["vnstock", "fmarket", "algolab"],
             "gold_usd": ["fmarket"],
             "forex": ["yahoo", "fmarket"],
         }
     )
-    candles: List[str] = field(default_factory=lambda: ["vnstock", "yahoo", "fmarket"])
+    candles: List[str] = field(default_factory=lambda: ["vnstock", "yahoo", "fmarket", "algolab"])
     bank_rates: List[str] = field(default_factory=lambda: ["fmarket"])
     # Fund NAVs, gold products and fmarket's rate histories.
     funds: List[str] = field(default_factory=lambda: ["fmarket"])

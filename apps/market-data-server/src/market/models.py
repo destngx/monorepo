@@ -25,6 +25,23 @@ class SeriesType(str, Enum):
     FOREX = "forex"
 
 
+class RateBasis(str, Enum):
+    """
+    What an exchange rate means. Sources in one FX chain quote different
+    rates for the same pair, so a fallback changes the basis, not just the
+    provider.
+    """
+
+    # A bank's published sell rate (what a buyer of USD pays).
+    BANK_SELL = "bank_sell"
+    # The FX market rate.
+    MARKET = "market"
+    # A daily reference snapshot.
+    REFERENCE = "reference"
+    # A coin's price on crypto exchanges.
+    CRYPTO_MARKET = "crypto_market"
+
+
 @dataclass
 class Ticker:
     symbol: str
@@ -44,10 +61,12 @@ class ExchangeRate:
     rate: float
     provider: str
     timestamp: Optional[str] = None
+    basis: Optional[RateBasis] = None
 
     def to_json(self) -> dict:
         # "from"/"to" are Python keywords, so the fields are renamed here only.
-        return {"from": self.base, "to": self.quote, "rate": self.rate, "provider": self.provider, "timestamp": self.timestamp}
+        basis = self.basis.value if self.basis else None
+        return {"from": self.base, "to": self.quote, "rate": self.rate, "provider": self.provider, "timestamp": self.timestamp, "basis": basis}
 
 
 @dataclass

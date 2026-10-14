@@ -14,10 +14,11 @@ const (
 
 // LivePrice is a market quote for one holding, with its source.
 type LivePrice struct {
-	Price     float64  `json:"price"`
-	Currency  Currency `json:"currency"`
-	Provider  string   `json:"provider"`
-	Timestamp string   `json:"timestamp,omitempty"`
+	Price     float64     `json:"price"`
+	Currency  Currency    `json:"currency"`
+	Provider  string      `json:"provider"`
+	Timestamp string      `json:"timestamp,omitempty"`
+	Source    *DataSource `json:"source,omitempty"`
 }
 
 // ValuedHolding is a sheet holding with its live price and VND value. Issue

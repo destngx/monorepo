@@ -4,7 +4,7 @@
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { TIMEFRAME_LABELS, formatNumber, formatPrice, pairTone, rsiTone, trendTone } from '../market';
-  import SourceBadge from './SourceBadge.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
 
   interface Props {
     confluence: Confluence;
@@ -60,7 +60,7 @@
               </td>
               <td class="tabular px-5 py-2 text-right">{formatPrice(view.price)}</td>
             {/if}
-            <td class="px-5 py-2"><SourceBadge provider={view.provider} /></td>
+            <td class="px-5 py-2"><SourceBadge source={view.source} /></td>
           </tr>
         {/each}
       </tbody>

@@ -55,23 +55,23 @@ const (
 // least 24 h / 7 days older and are nil when the history is too short.
 type PulseQuote struct {
 	PulseAsset
-	Provider      string   `json:"provider,omitempty"`
-	Fallback      string   `json:"fallback,omitempty"`
-	Currency      string   `json:"currency,omitempty"`
-	Price         float64  `json:"price"`
-	Time          string   `json:"time,omitempty"`
-	ChangePct     float64  `json:"changePct"`
-	DayChangePct  *float64 `json:"dayChangePct"`
-	WeekChangePct *float64 `json:"weekChangePct"`
-	Direction     string   `json:"direction"`
-	Momentum      string   `json:"momentum"`
-	Candles       int      `json:"candles"`
-	Error         string   `json:"error,omitempty"`
+	Provider      string      `json:"provider,omitempty"`
+	Source        *DataSource `json:"source,omitempty"`
+	Currency      string      `json:"currency,omitempty"`
+	Price         float64     `json:"price"`
+	Time          string      `json:"time,omitempty"`
+	ChangePct     float64     `json:"changePct"`
+	DayChangePct  *float64    `json:"dayChangePct"`
+	WeekChangePct *float64    `json:"weekChangePct"`
+	Direction     string      `json:"direction"`
+	Momentum      string      `json:"momentum"`
+	Candles       int         `json:"candles"`
+	Error         string      `json:"error,omitempty"`
 }
 
 // QuotePulse computes the quote from a cleaned series.
 func QuotePulse(asset PulseAsset, series CandleSeries) PulseQuote {
-	quote := PulseQuote{PulseAsset: asset, Provider: series.Provider, Fallback: series.Fallback, Currency: series.Currency, Candles: len(series.Candles)}
+	quote := PulseQuote{PulseAsset: asset, Provider: series.Provider, Source: series.Source, Currency: series.Currency, Candles: len(series.Candles)}
 	candles := series.Candles
 	if len(candles) < 2 {
 		quote.Error = "not enough candles"

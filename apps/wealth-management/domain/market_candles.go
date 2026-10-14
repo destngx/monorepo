@@ -71,14 +71,14 @@ type Candle struct {
 }
 
 // CandleSeries is a provider answer with its data-source indicator
-// (WM-INV-15): Fallback is set when the first provider in the chain failed.
+// (WM-INV-15).
 type CandleSeries struct {
-	Symbol    string    `json:"symbol"`
-	Timeframe Timeframe `json:"timeframe"`
-	Provider  string    `json:"provider"`
-	Currency  string    `json:"currency,omitempty"`
-	Candles   []Candle  `json:"candles"`
-	Fallback  string    `json:"fallback,omitempty"`
+	Symbol    string      `json:"symbol"`
+	Timeframe Timeframe   `json:"timeframe"`
+	Provider  string      `json:"provider"`
+	Currency  string      `json:"currency,omitempty"`
+	Candles   []Candle    `json:"candles"`
+	Source    *DataSource `json:"source,omitempty"`
 }
 
 // Closes returns the close prices in order.

@@ -3,6 +3,8 @@
   import Badge from '$lib/components/Badge.svelte';
   import Money from '$lib/components/Money.svelte';
   import { biasTone, formatTimestamp, sourceHost } from '../news';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
+  import { rateDetail } from '$lib/rates';
   import { mask } from '$lib/state/mask.svelte';
 
   // What the models saw, disclosed as the engine sent it (WM-INV-18).
@@ -46,7 +48,10 @@
           <dt class="muted">USDT/VND</dt>
           <dd class="tabular">
             {#if context.usdtRate}{nf.format(context.usdtRate.rate)}
-              <span class="muted text-xs">{context.usdtRate.provider}</span>{:else}<span class="muted">N/A</span>{/if}
+              <SourceBadge
+                source={context.usdtRate.source ?? { provider: context.usdtRate.provider }}
+                detail={rateDetail(context.usdtRate)}
+              />{:else}<span class="muted">N/A</span>{/if}
           </dd>
         </div>
         <div class="flex justify-between gap-2">

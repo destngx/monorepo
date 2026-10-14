@@ -117,7 +117,7 @@ type fakeMarketService struct {
 	ticker          domain.Ticker
 	exchangeRate    domain.ExchangeRate
 	priceSeries     domain.PriceSeries
-	bankRates       []domain.BankRate
+	bankRates       domain.BankRates
 	health          domain.MarketProviderHealth
 	err             error
 	lastBypassCache bool
@@ -145,7 +145,7 @@ func (f *fakeMarketService) GetPriceSeries(_ context.Context, _ string, _ domain
 	return f.priceSeries, f.err
 }
 
-func (f *fakeMarketService) GetBankInterestRate(_ context.Context) ([]domain.BankRate, error) {
+func (f *fakeMarketService) GetBankInterestRate(_ context.Context) (domain.BankRates, error) {
 	return f.bankRates, f.err
 }
 

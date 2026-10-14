@@ -10,7 +10,7 @@ The server is the single market-data API for the monorepo. It owns every source 
 
 - `src/modules/*`: `/api/v1`, thin vnstock wrappers (listings, finance, company, stocks, health).
 - `src/market/`: `/api/v2`. `api.py` (routes, envelope, v2 error shape), `service.py` (input validation, cache, last-good fallback), `router.py` (chains), `chains.py` (default chains, `MARKET_CHAINS`, TTLs), `store.py` (last-good SQLite at `MARKET_DB_PATH`), `candles.py` (cleaning and aggregation in ICT), `models.py`, `symbols.py`, `errors.py`.
-- `src/sources/<name>/provider.py`: one class per source. A source implements only the capabilities it has (`get_ticker`, `get_exchange_rate`, `get_price_series`, `get_candles`, `get_bank_rates`, fund and gold methods) plus `health()` and `aclose()`. `src/sources/http.py` has the shared httpx client and `request_json`.
+- `src/sources/<name>/provider.py`: one class per source. A source implements only the capabilities it has (`get_ticker`, `get_exchange_rate`, `get_price_series`, `get_candles`, `get_bank_rates`, fund and gold methods) plus `health()` and `aclose()`. `src/sources/http.py` has the shared httpx client and `request_json`; `src/sources/mcp.py` is the minimal MCP (Streamable HTTP) client used by MCP sources such as `algolab`. Algolab prices stocks in VND, so the adapter divides by 1000 to match the other sources; tests fake the MCP server in `tests/test_market_algolab.py`.
 
 ### 📁 Stack & Tooling
 
@@ -34,6 +34,8 @@ The server is the single market-data API for the monorepo. It owns every source 
 - When nothing answers, the router raises `UpstreamError` (502) if any source failed, else `NotFound` (404), else `ValidationError` (400). Only `UpstreamError` serves the last-good copy (`stale=true`, `X-Data-Stale`).
 - Validate input in `MarketService` before routing. Add a capability by implementing the method on its sources, a chain entry in `chains.py` and a route in `api.py` that returns `envelope(...)`.
 - Fund and gold endpoints return fmarket's raw `data`, because consumers parse fmarket fields.
+- A fallback must never change units or instrument. Sources return VN stocks, ETFs and warrants in thousands of VND and indices in points, scaling in the adapter if the upstream differs; add the source to `tests/test_market_units.py`. Exchange rates set `basis` (`RateBasis`).
+- `is_vn_listing` only accepts VN-shaped symbols (3-10 letters and digits); VN-only sources raise `Unsupported` for anything else so they do not spend quota on global symbols.
 
 ## ⚡ Caching Policy
 

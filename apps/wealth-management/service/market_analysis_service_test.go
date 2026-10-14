@@ -20,6 +20,8 @@ type candleMarket struct {
 	mu       sync.Mutex
 	series   map[string][]domain.Candle
 	failures map[string]error
+	// fallback lists the providers that failed before "test", per request key.
+	fallback map[string][]string
 	requests []string
 }
 
@@ -38,7 +40,8 @@ func (m *candleMarket) GetCandles(_ context.Context, symbol string, timeframe do
 	if !ok {
 		return domain.CandleSeries{}, errors.New("no data")
 	}
-	return domain.CandleSeries{Symbol: symbol, Timeframe: timeframe, Provider: "test", Currency: "VND", Candles: candles}, nil
+	source := &domain.DataSource{Provider: "test", Fallback: m.fallback[key]}
+	return domain.CandleSeries{Symbol: symbol, Timeframe: timeframe, Provider: "test", Currency: "VND", Candles: candles, Source: source}, nil
 }
 
 var analysisStart = time.Date(2025, 1, 1, 2, 0, 0, 0, time.UTC)
@@ -71,6 +74,9 @@ func TestGivenEveryTimeframeWhenAnalysisThenBuildsConfluenceSeasonalityAndRisk(t
 	}
 	if len(market.requests) != 4 {
 		t.Fatalf("expected one request per timeframe, got %v", market.requests)
+	}
+	if analysis.Source == nil || analysis.Source.Provider != "test" {
+		t.Fatalf("expected the candles' source on the analysis, got %#v", analysis.Source)
 	}
 	for _, request := range market.requests {
 		if !strings.HasPrefix(request, "FPT/1d/730") && !strings.HasPrefix(request, "FPT/1h/60") && !strings.HasPrefix(request, "FPT/4h/180") && !strings.HasPrefix(request, "FPT/1w/1825") {
@@ -135,5 +141,25 @@ func TestGivenSomeInstrumentsFailWhenPulseThenListsThemAndUsesRuleLookback(t *te
 	}
 	if _, err := NewMarketAnalysisService(empty, nil).Pulse(context.Background(), domain.Timeframe("2h")); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("expected a validation error, got %v", err)
+	}
+}
+
+func TestGivenAFallbackWhenAnalysisThenEachViewKeepsItsOwnSource(t *testing.T) {
+	market := &candleMarket{
+		series:   map[string][]domain.Candle{"FPT": trendingDays(400, 24*time.Hour)},
+		fallback: map[string][]string{"FPT/4h": {"vnstock: quota"}},
+	}
+	analysis, err := NewMarketAnalysisService(market, nil).Analysis(context.Background(), "FPT", domain.Timeframe1D)
+	if err != nil {
+		t.Fatalf("analysis error: %v", err)
+	}
+	if len(analysis.Source.Fallback) != 0 {
+		t.Fatalf("the daily answer did not fall back, got %#v", analysis.Source)
+	}
+	for _, view := range analysis.Confluence.Views {
+		fellBack := view.Source != nil && len(view.Source.Fallback) == 1
+		if fellBack != (view.Timeframe == domain.Timeframe4H) {
+			t.Fatalf("view %s source %#v", view.Timeframe, view.Source)
+		}
 	}
 }

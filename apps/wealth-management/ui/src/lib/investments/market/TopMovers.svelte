@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { PulseQuote, Timeframe } from '$lib/api/types';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { formatSignedPercent } from '$lib/format';
+  import { sourceState } from '$lib/source';
   import { changeClass, formatPrice } from '../market';
   import { symbolHref } from './link';
 
@@ -27,6 +29,10 @@
         >
       </p>
       <p class="muted truncate text-xs">{mover.name} · {formatPrice(mover.price)}</p>
+      <!-- The assets table shows every source; a card only flags a fallback or a stale copy. -->
+      {#if mover.source && sourceState(mover.source) !== 'live'}
+        <p class="mt-1"><SourceBadge source={mover.source} /></p>
+      {/if}
     </a>
   {/each}
 </div>

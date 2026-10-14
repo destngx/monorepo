@@ -59,9 +59,9 @@ func (f *Market) GetPriceSeries(ctx context.Context, symbol string, seriesType d
 	return domain.PriceSeries{Provider: "fake", SeriesType: seriesType}, f.Err
 }
 
-func (f *Market) GetBankInterestRate(ctx context.Context) ([]domain.BankRate, error) {
+func (f *Market) GetBankInterestRate(ctx context.Context) (domain.BankRates, error) {
 	f.record(ctx, MarketCall{Kind: "bank-rates"})
-	return []domain.BankRate{{Bank: "Test Bank", Rate: 6.5}}, f.Err
+	return domain.BankRates{Rates: []domain.BankRate{{Bank: "Test Bank", Rate: 6.5}}, Source: &domain.DataSource{Provider: "fake"}}, f.Err
 }
 
 func (f *Market) GetCandles(ctx context.Context, symbol string, timeframe domain.Timeframe, lookbackDays int) (domain.CandleSeries, error) {

@@ -15,9 +15,9 @@ var _ port.FmarketService = (*Client)(nil)
 
 // RunAction serves the fmarket actions of /api/fmarket/action and MCP from
 // the server's fund and gold endpoints. The UI parses fmarket's own payloads,
-// so each answer is wrapped as `{data}` like fmarket's envelope (gold
-// history adds `extra`); getBankInterestRates stays typed. forceFresh
-// bypasses the server cache.
+// so each answer is wrapped as `{data, source}` like fmarket's envelope plus
+// the data source (gold history adds `extra`); getBankInterestRates stays
+// typed. forceFresh bypasses the server cache.
 func (c *Client) RunAction(ctx context.Context, request domain.FmarketRequest, forceFresh bool) (any, error) {
 	ctx = domain.WithBypassCache(ctx, forceFresh || domain.ShouldBypassCache(ctx))
 	params := request.Params
@@ -45,14 +45,14 @@ func (c *Client) RunAction(ctx context.Context, request domain.FmarketRequest, f
 		}
 		return c.raw(ctx, "/api/v2/funds/"+strconv.Itoa(productID)+"/nav", nil)
 	case domain.FmarketActionGoldPriceHistory:
-		history, _, err := get[struct {
+		history, meta, err := get[struct {
 			Rows    any `json:"rows"`
 			Summary any `json:"summary"`
 		}](ctx, c, "/api/v2/gold/history", dateRange(params))
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"data": history.Rows, "extra": history.Summary}, nil
+		return fmarketPayload{Data: history.Rows, Extra: history.Summary, Source: meta.source()}, nil
 	case domain.FmarketActionUsdRateHistory:
 		return c.raw(ctx, "/api/v2/fx/history", dateRange(params))
 	case domain.FmarketActionGoldProducts:
@@ -62,13 +62,20 @@ func (c *Client) RunAction(ctx context.Context, request domain.FmarketRequest, f
 	}
 }
 
-// raw returns the server's fmarket payload in fmarket's `{data}` envelope.
+// fmarketPayload is fmarket's `{data, extra}` envelope with the data source.
+type fmarketPayload struct {
+	Data   any                `json:"data"`
+	Extra  any                `json:"extra,omitempty"`
+	Source *domain.DataSource `json:"source,omitempty"`
+}
+
+// raw returns the server's fmarket payload in fmarket's envelope.
 func (c *Client) raw(ctx context.Context, path string, query url.Values) (any, error) {
-	data, _, err := get[any](ctx, c, path, query)
+	data, meta, err := get[any](ctx, c, path, query)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"data": data}, nil
+	return fmarketPayload{Data: data, Source: meta.source()}, nil
 }
 
 // fundsQuery maps getProductsFilterNav params: page, pageSize, assetTypes

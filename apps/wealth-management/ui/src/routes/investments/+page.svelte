@@ -20,6 +20,8 @@
   } from '$lib/investments/allocation';
   import HoldingsCard from '$lib/investments/HoldingsCard.svelte';
   import { nf } from '$lib/investments/holdings';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
+  import { rateDetail } from '$lib/rates';
   import { targetAllocation } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
 
@@ -80,7 +82,9 @@
     editingTargets = false;
   }
 
-  const bankRates = $derived([...data.bankRates].sort((a, b) => b.rate - a.rate).slice(0, 15));
+  const bankRates = $derived(
+    data.bankRates.ok ? [...data.bankRates.value.rates].sort((a, b) => b.rate - a.rate).slice(0, 15) : [],
+  );
 </script>
 
 <PageHeader title="Investments" subtitle="Holdings from the sheet, valued in VND by the engine">
@@ -120,8 +124,8 @@
           <span class="muted text-xs font-normal">{rate.from}</span>
           <span class="tabular">{nf.format(rate.rate)}</span>
         </span>
-        <span class="muted block text-xs font-normal"
-          >{rate.provider}{rate.timestamp ? ` · ${formatDate(rate.timestamp)}` : ''}</span
+        <span class="block text-xs font-normal"
+          ><SourceBadge source={rate.source ?? { provider: rate.provider }} detail={rateDetail(rate)} /></span
         >
       {/each}
     {:else}<span class="muted">-</span>{/if}
@@ -223,7 +227,12 @@
 <p class="muted mt-2 text-right text-xs">Valued {formatDate(valuation.generatedAt)}</p>
 
 <Card title="Bank savings rates" subtitle="Highest published rates" class="mt-4">
-  {#if bankRates.length}
+  {#snippet actions()}
+    {#if data.bankRates.ok && data.bankRates.value.source}<SourceBadge source={data.bankRates.value.source} />{/if}
+  {/snippet}
+  {#if !data.bankRates.ok}
+    <p class="muted text-sm">Bank rates are unavailable right now: {data.bankRates.error}</p>
+  {:else if bankRates.length}
     <ul class="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
       {#each bankRates as rate, i (i)}
         <li class="flex justify-between gap-3 border-b border-slate-900/5 py-1.5 dark:border-white/5">
@@ -233,6 +242,6 @@
       {/each}
     </ul>
   {:else}
-    <p class="muted text-sm">Bank rates are unavailable right now.</p>
+    <p class="muted text-sm">No bank published a rate.</p>
   {/if}
 </Card>

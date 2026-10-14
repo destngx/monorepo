@@ -11,7 +11,7 @@ from urllib.parse import quote as url_quote
 import httpx
 
 from ...market.errors import ValidationError
-from ...market.models import ExchangeRate, utc_iso
+from ...market.models import ExchangeRate, RateBasis, utc_iso
 from ..http import new_client, request_json
 
 # jsDelivr mirror of the latest daily snapshot.
@@ -49,4 +49,4 @@ class CurrencyApiSource:
         except ValueError:
             # Without a date the router rejects the rate as unreadable and moves on.
             pass
-        return ExchangeRate(base=base.upper(), quote=quote.upper(), rate=rate, provider=self.name, timestamp=timestamp)
+        return ExchangeRate(base=base.upper(), quote=quote.upper(), rate=rate, provider=self.name, timestamp=timestamp, basis=RateBasis.REFERENCE)

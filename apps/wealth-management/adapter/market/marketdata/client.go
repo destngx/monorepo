@@ -57,6 +57,18 @@ type meta struct {
 	AsOf     string   `json:"as_of"`
 }
 
+// source is the meta as the engine shows it next to the data.
+func (m meta) source() *domain.DataSource {
+	if m.Provider == "" {
+		return nil
+	}
+	source := &domain.DataSource{Provider: m.Provider, Stale: m.Stale, AsOf: m.AsOf}
+	if len(m.Fallback) > 0 {
+		source.Fallback = m.Fallback
+	}
+	return source
+}
+
 type envelope[T any] struct {
 	Data T    `json:"data"`
 	Meta meta `json:"meta"`

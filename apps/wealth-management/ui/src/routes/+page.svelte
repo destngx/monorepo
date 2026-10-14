@@ -12,9 +12,11 @@
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { budgetBarClass, trendDelta, vndToUsd } from '$lib/dashboard';
   import { formatDate, formatMonth, formatPercent, formatSignedPercent } from '$lib/format';
+  import { rateDetail } from '$lib/rates';
   import { sync } from '$lib/state/sync.svelte';
 
   let { data } = $props();
@@ -55,9 +57,11 @@
   <!-- WM-DASH-1 -->
   <Card title="Net worth" class="lg:col-span-1">
     <div class="text-3xl font-semibold tracking-tight"><Money value={summary.balanceSheet.netWorth} /></div>
-    <p class="muted mt-0.5 text-sm">
+    <p class="muted mt-0.5 flex flex-wrap items-center gap-x-2 text-sm">
       {#if netWorthUsd !== null}
-        ≈ <Money value={netWorthUsd} currency="USD" />
+        {@const quote = data.usd.quotes.USD}
+        <span>≈ <Money value={netWorthUsd} currency="USD" /></span>
+        {#if quote}<SourceBadge source={quote.source ?? { provider: quote.provider }} detail={rateDetail(quote)} />{/if}
       {:else}
         <span title={data.usd.errors.join('; ')}>USD value unavailable</span>
       {/if}
