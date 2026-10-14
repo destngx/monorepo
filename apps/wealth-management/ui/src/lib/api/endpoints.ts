@@ -1,3 +1,4 @@
+import { aiRequestDone } from '$lib/ai/activity';
 import { readNDJSON } from '$lib/ai/ndjson';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
@@ -69,8 +70,17 @@ interface AIOptions {
   signal?: AbortSignal;
 }
 
+// Model calls: each one reports when it ends, so the quota shown refreshes.
 const ai = <T>(path: string, body: Record<string, unknown>, { force, signal }: AIOptions = {}) =>
-  request<T>(path, { method: 'POST', body: { ...body, force: force || undefined }, signal });
+  request<T>(path, { method: 'POST', body: { ...body, force: force || undefined }, signal }).finally(aiRequestDone);
+
+async function* aiStream<T>(path: string, body: unknown, signal?: AbortSignal): AsyncGenerator<T> {
+  try {
+    yield* readNDJSON<T>(await requestStream(path, { method: 'POST', body, signal }));
+  } finally {
+    aiRequestDone();
+  }
+}
 
 export const api = {
   // 503 still carries the per-dependency report, so it is not an error here.
@@ -168,7 +178,7 @@ export const api = {
       method: 'POST',
       body: { payee },
       signal,
-    }),
+    }).finally(aiRequestDone),
   review: (kind: ReviewKind, input: { month?: string; card?: string } = {}, options?: AIOptions) =>
     ai<Insight>('/ai/review', { kind, ...input }, options),
   healthCommentary: (options?: AIOptions) => ai<Insight>('/ai/health-commentary', {}, options),
@@ -182,36 +192,14 @@ export const api = {
   tickerInsight: (symbol: string, timeframe: Timeframe, options?: AIOptions) =>
     ai<Insight>('/ai/ticker-insight', { symbol, timeframe }, options),
   /** Streams the think tank (WM-AI-9); failures after the stream starts arrive as an "error" event. */
-  investmentAnalysis: async function* (news: NewsReport[], signal?: AbortSignal): AsyncGenerator<InvestmentEvent> {
-    const stream = await requestStream('/ai/investment-analysis', {
-      method: 'POST',
-      body: { news: news.length ? news : undefined },
-      signal,
-    });
-    yield* readNDJSON<InvestmentEvent>(stream);
-  },
+  investmentAnalysis: (news: NewsReport[], signal?: AbortSignal) =>
+    aiStream<InvestmentEvent>('/ai/investment-analysis', { news: news.length ? news : undefined }, signal),
   /** Streams chat events (WM-AI-11); errors after the stream starts arrive as an "error" event. */
-  chat: async function* (
-    messages: ChatMessage[],
-    page: ChatPageContext | undefined,
-    signal?: AbortSignal,
-  ): AsyncGenerator<ChatEvent> {
-    const stream = await requestStream('/ai/chat', {
-      method: 'POST',
-      body: { messages, page },
-      signal,
-    });
-    yield* readNDJSON<ChatEvent>(stream);
-  },
+  chat: (messages: ChatMessage[], page: ChatPageContext | undefined, signal?: AbortSignal) =>
+    aiStream<ChatEvent>('/ai/chat', { messages, page }, signal),
   /** Streams Smart Capture progress then the result (§6.2); failures after the stream starts arrive as an "error" event. */
-  capture: async function* (materials: CaptureMaterialPayload[], signal?: AbortSignal): AsyncGenerator<CaptureEvent> {
-    const stream = await requestStream('/ai/capture', {
-      method: 'POST',
-      body: { materials },
-      signal,
-    });
-    yield* readNDJSON<CaptureEvent>(stream);
-  },
+  capture: (materials: CaptureMaterialPayload[], signal?: AbortSignal) =>
+    aiStream<CaptureEvent>('/ai/capture', { materials }, signal),
   captureRules: (options?: ReadOptions) => read<CaptureRule[]>('/capture/rules', options),
   saveCaptureRules: (rules: CaptureRule[]) =>
     request<CaptureRulesSaveResult>('/capture/rules', { method: 'POST', body: { rules } }),
