@@ -99,4 +99,31 @@
   & hr {
     @apply border-slate-900/10 dark:border-white/10;
   }
+  & .md-table {
+    @apply overflow-x-auto rounded-xl border border-slate-900/10 bg-white/60 dark:border-white/10 dark:bg-slate-900/40;
+  }
+  & table {
+    @apply w-full border-collapse text-left;
+    font-variant-numeric: tabular-nums;
+  }
+  & th {
+    @apply bg-slate-900/[0.04] px-3 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-slate-600 uppercase dark:bg-white/5 dark:text-slate-300;
+  }
+  & td {
+    @apply border-t border-slate-900/5 px-3 py-2 align-top dark:border-white/5;
+  }
+  & tbody tr {
+    @apply transition-colors hover:bg-indigo-500/5;
+  }
+  & [data-align='right'] {
+    @apply text-right whitespace-nowrap;
+  }
+  & [data-align='center'] {
+    @apply text-center;
+  }
+}
+
+/* Small icon buttons, such as the chat message toolbar. */
+@utility icon-btn {
+  @apply inline-grid size-7 cursor-pointer place-items-center rounded-lg text-slate-500 transition duration-150 hover:bg-slate-900/[0.07] hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:outline-none active:scale-90 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white;
 }

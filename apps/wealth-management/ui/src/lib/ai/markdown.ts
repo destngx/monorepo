@@ -28,6 +28,56 @@ function inline(text: string): string {
   return html.replace(/\uE000(\d+)\uE000/g, (_, index: string) => codes[Number(index)]);
 }
 
+type Align = 'left' | 'center' | 'right' | null;
+
+/** Splits a table row into cells; pipes inside code spans or escaped as \| stay in the cell. */
+function splitRow(line: string): string[] {
+  let row = line.trim();
+  if (row.startsWith('|')) row = row.slice(1);
+  if (row.endsWith('|') && !row.endsWith('\\|')) row = row.slice(0, -1);
+  const cells: string[] = [];
+  let cell = '';
+  let isInCode = false;
+  for (let i = 0; i < row.length; i++) {
+    const char = row[i];
+    if (char === '\\' && row[i + 1] === '|') {
+      cell += '|';
+      i++;
+    } else if (char === '|' && !isInCode) {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      if (char === '`') isInCode = !isInCode;
+      cell += char;
+    }
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+/** Column alignments when the line is a table delimiter row such as |---|:--:|. */
+function delimiterRow(line: string): Align[] | null {
+  if (!line.includes('|')) return null;
+  const cells = splitRow(line);
+  if (!cells.every((cell) => /^:?-+:?$/.test(cell))) return null;
+  return cells.map((cell) => {
+    const isLeft = cell.startsWith(':');
+    const isRight = cell.endsWith(':');
+    return isLeft && isRight ? 'center' : isRight ? 'right' : isLeft ? 'left' : null;
+  });
+}
+
+function renderTable(header: string[], aligns: Align[], rows: string[][]): string {
+  const cell = (tag: 'th' | 'td', text: string | undefined, column: number) => {
+    const align = aligns[column] ? ` data-align="${aligns[column]}"` : '';
+    return `<${tag}${align}>${inline(text ?? '')}</${tag}>`;
+  };
+  const row = (tag: 'th' | 'td', cells: string[]) =>
+    `<tr>${header.map((_, column) => cell(tag, cells[column], column)).join('')}</tr>`;
+  const body = rows.length ? `<tbody>${rows.map((cells) => row('td', cells)).join('')}</tbody>` : '';
+  return `<div class="md-table"><table><thead>${row('th', header)}</thead>${body}</table></div>`;
+}
+
 type Block = { kind: 'p' | 'ul' | 'ol'; lines: string[] };
 
 export function renderMarkdown(markdown: string): string {
@@ -50,7 +100,9 @@ export function renderMarkdown(markdown: string): string {
     block = { kind, lines: [line] };
   };
 
-  for (const raw of markdown.replace(/\r\n?/g, '\n').split('\n')) {
+  const lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+  for (let index = 0; index < lines.length; index++) {
+    const raw = lines[index];
     if (fence) {
       if (/^\s*```/.test(raw)) {
         out.push(`<pre><code>${escapeHTML(fence.join('\n'))}</code></pre>`);
@@ -60,6 +112,7 @@ export function renderMarkdown(markdown: string): string {
     }
     const line = raw.trim();
     let match: RegExpMatchArray | null;
+    let aligns: Align[] | null;
     if (line.startsWith('```')) {
       flush();
       fence = [];
@@ -69,6 +122,20 @@ export function renderMarkdown(markdown: string): string {
       flush();
       const level = Math.min(match[1].length + 2, 6);
       out.push(`<h${level}>${inline(match[2])}</h${level}>`);
+    } else if (
+      line.includes('|') &&
+      (aligns = delimiterRow(lines[index + 1] ?? '')) &&
+      aligns.length === splitRow(line).length
+    ) {
+      flush();
+      const rows: string[][] = [];
+      index += 2;
+      while (index < lines.length && lines[index].includes('|') && lines[index].trim()) {
+        rows.push(splitRow(lines[index]));
+        index++;
+      }
+      index--;
+      out.push(renderTable(splitRow(line), aligns, rows));
     } else if (/^([-*_])\1{2,}$/.test(line)) {
       flush();
       out.push('<hr>');
