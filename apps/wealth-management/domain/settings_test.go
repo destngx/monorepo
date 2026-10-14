@@ -33,9 +33,35 @@ func TestGivenTheRegistryWhenListingThenKeysAreUniqueAndGroupsKnown(t *testing.T
 			t.Fatalf("missing per use case model %s", key)
 		}
 	}
-	for _, bootstrap := range []string{"HOST", "PORT", "API_TOKEN", "WM_SETTINGS_PATH", "CACHE_SQLITE_PATH", "WM_TEST_MODE"} {
+	for _, bootstrap := range []string{"HOST", "PORT", "API_TOKEN", "WM_SETTINGS_PATH", "CACHE_SQLITE_PATH", "WM_TEST_WORKBOOK"} {
 		if seen[bootstrap] {
 			t.Fatalf("%s is bootstrap and must not be editable", bootstrap)
+		}
+	}
+}
+
+func TestGivenTheRegistryWhenRenderingThenEveryHintResolves(t *testing.T) {
+	for _, definition := range SettingDefinitions() {
+		if definition.Kind == SettingChoice && len(definition.Options) == 0 {
+			t.Fatalf("%s is a choice without options", definition.Key)
+		}
+		if definition.Inherits != "" {
+			if _, found := LookupSetting(definition.Inherits); !found || definition.Inherits == definition.Key {
+				t.Fatalf("%s inherits unknown setting %s", definition.Key, definition.Inherits)
+			}
+		}
+	}
+	for _, key := range []string{"AI_MODEL", "AI_MODEL_CHAT", "AI_FALLBACK_MODEL"} {
+		if definition, _ := LookupSetting(key); definition.Kind != SettingModel {
+			t.Fatalf("%s should offer the endpoint's models, kind is %s", key, definition.Kind)
+		}
+	}
+	if definition, _ := LookupSetting("AI_MODEL_VISION"); definition.Inherits != "AI_MODEL" {
+		t.Fatalf("per use case models fall back to AI_MODEL, got %q", definition.Inherits)
+	}
+	for _, key := range []string{"GOOGLE_SHEETS_ID", "AI_BASE_URL", "AI_MODEL", "MARKET_DATA_SERVER_URL"} {
+		if definition, _ := LookupSetting(key); definition.Advanced {
+			t.Fatalf("%s is essential and must not hide under Advanced", key)
 		}
 	}
 }
@@ -53,6 +79,9 @@ func TestGivenValuesWhenNormalizingThenKindsAreEnforced(t *testing.T) {
 		{"AI_BASE_URL", "example.com", "", false},
 		{"LOG_LEVEL", "debug", "debug", true},
 		{"LOG_LEVEL", "verbose", "", false},
+		{"AI_PROVIDER", "github-copilot", "github-copilot", true},
+		{"AI_PROVIDER", "copilot", "", false},
+		{"AI_MODEL", " gpt-5 ", "gpt-5", true},
 		{"GOOGLE_SHEETS_ID", "abc\ndef", "", false},
 		{"GOOGLE_SHEETS_ID", strings.Repeat("a", 5000), "", false},
 		{"GOOGLE_SHEETS_ID", "   ", "", true},

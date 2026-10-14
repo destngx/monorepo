@@ -114,9 +114,9 @@ func callbackReason(err error) string {
 func RegisterGoogleAuthRoutes(api RouteRegistrar, h *GoogleAuthHandler, guard WriteGuard) {
 	auth := api.Group("/auth/google", "settings")
 	auth.Post("/start", guard.Wrap(h.Start), RouteMeta{
-		Summary: "Starts connecting a Google account. Purpose is sheets (GOOGLE_REFRESH_TOKEN) or test (GOOGLE_TEST_REFRESH_TOKEN, adds Drive). Open authUrl in a browser; the sign-in expires after 10 minutes.",
+		Summary: "Starts connecting a Google account. Purpose is sheets (saves GOOGLE_REFRESH_TOKEN, spreadsheets scope only). Open authUrl in a browser; the sign-in expires after 10 minutes.",
 		RequestBody: jsonBody(map[string]any{
-			"purpose": map[string]any{"type": "string", "enum": []string{string(domain.GoogleAuthSheets), string(domain.GoogleAuthTest)}},
+			"purpose": map[string]any{"type": "string", "enum": []string{string(domain.GoogleAuthSheets)}},
 		}),
 	})
 	auth.Get("/callback", h.Callback, RouteMeta{

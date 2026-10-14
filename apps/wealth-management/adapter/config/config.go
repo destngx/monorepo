@@ -14,8 +14,8 @@ import (
 // There is no env file. Integration settings come from the settings store
 // (edited in the UI) as Values; only bootstrap values the engine needs
 // before it can open the store are read from the process environment:
-// HOST, PORT, API_TOKEN, WM_SETTINGS_PATH, CACHE_SQLITE_PATH, WM_TEST_MODE
-// and LOG_COLOR.
+// HOST, PORT, API_TOKEN, WM_SETTINGS_PATH, CACHE_SQLITE_PATH,
+// WM_TEST_WORKBOOK and LOG_COLOR.
 
 // Values are the stored settings, keyed by the names in
 // domain.SettingDefinitions.
@@ -52,11 +52,25 @@ func LoadSettingsPath() string {
 	return strings.TrimSpace(os.Getenv("WM_SETTINGS_PATH"))
 }
 
-// LoadTestMode reads WM_TEST_MODE: the engine then refuses to start unless
-// the spreadsheet is a disposable test copy (WM-TEST-2).
-func LoadTestMode() bool {
-	enabled, _ := strconv.ParseBool(strings.TrimSpace(os.Getenv("WM_TEST_MODE")))
-	return enabled
+// LoadTestWorkbook reads WM_TEST_WORKBOOK, a local .xlsx export the engine
+// then serves the sheet from, in memory, instead of Google Sheets
+// (WM-TEST-2). Empty means Google Sheets; a leading "~/" is expanded.
+func LoadTestWorkbook() (string, error) {
+	return ExpandHome(os.Getenv("WM_TEST_WORKBOOK"))
+}
+
+// ExpandHome trims path and expands a leading "~/" to the home directory.
+func ExpandHome(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	rest, ok := strings.CutPrefix(path, "~/")
+	if !ok {
+		return path, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("expand %s: %w", path, err)
+	}
+	return filepath.Join(home, rest), nil
 }
 
 func LoadSheetsConfig(values Values) (domain.SheetsConfig, error) {

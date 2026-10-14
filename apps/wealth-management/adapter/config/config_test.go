@@ -124,11 +124,19 @@ func TestLoadSettingsPath(t *testing.T) {
 	}
 }
 
-func TestLoadTestMode(t *testing.T) {
-	for value, want := range map[string]bool{"": false, "false": false, "true": true, "TRUE": true, "1": true} {
-		t.Setenv("WM_TEST_MODE", value)
-		if got := LoadTestMode(); got != want {
-			t.Fatalf("WM_TEST_MODE=%q: got %v", value, got)
+func TestGivenATestWorkbookWhenLoadingThenHomeIsExpanded(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for value, want := range map[string]string{
+		"":                           "",
+		" /data/book.xlsx ":          "/data/book.xlsx",
+		"~/projects/Money Book.xlsx": filepath.Join(home, "projects", "Money Book.xlsx"),
+	} {
+		t.Setenv("WM_TEST_WORKBOOK", value)
+		if got, err := LoadTestWorkbook(); err != nil || got != want {
+			t.Fatalf("WM_TEST_WORKBOOK=%q: got %q, %v", value, got, err)
 		}
 	}
 }

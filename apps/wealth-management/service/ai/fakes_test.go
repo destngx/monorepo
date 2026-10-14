@@ -19,6 +19,10 @@ type scriptedClient struct {
 	usage      domain.AIProviderUsage
 	usageErr   error
 	usageCalls int
+	// providerModels and modelsErr answer Models; modelCalls counts the calls.
+	providerModels []string
+	modelsErr      error
+	modelCalls     int
 }
 
 type reply struct {
@@ -79,6 +83,13 @@ func (c *scriptedClient) Usage(context.Context) (domain.AIProviderUsage, error) 
 	defer c.mu.Unlock()
 	c.usageCalls++
 	return c.usage, c.usageErr
+}
+
+func (c *scriptedClient) Models(context.Context) ([]string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.modelCalls++
+	return c.providerModels, c.modelsErr
 }
 
 func (c *scriptedClient) models() []string {

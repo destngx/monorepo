@@ -24,7 +24,7 @@ var defaultFiles = []string{"../../.env.local", ".env.local"}
 
 // bootstrapKeys stay in the process environment: the engine needs them
 // before it can open the settings store.
-var bootstrapKeys = []string{"HOST", "PORT", "API_TOKEN", "WM_SETTINGS_PATH", "CACHE_SQLITE_PATH", "WM_TEST_MODE", "LOG_COLOR"}
+var bootstrapKeys = []string{"HOST", "PORT", "API_TOKEN", "WM_SETTINGS_PATH", "CACHE_SQLITE_PATH", "WM_TEST_WORKBOOK", "LOG_COLOR"}
 
 func main() {
 	if err := run(context.Background(), os.Args[1:]); err != nil {

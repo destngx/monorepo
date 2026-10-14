@@ -11,7 +11,7 @@ import (
 // Engine settings are edited in the UI and stored by the engine; there is
 // no env file. Only bootstrap values the engine needs before it can open the
 // store (HOST, PORT, API_TOKEN, WM_SETTINGS_PATH, CACHE_SQLITE_PATH,
-// WM_TEST_MODE, LOG_COLOR) stay process environment. Keys keep the former
+// WM_TEST_WORKBOOK, LOG_COLOR) stay process environment. Keys keep the former
 // variable names so docs, errors and the import tool line up.
 
 // SettingKind decides how a value is validated and edited.
@@ -24,7 +24,12 @@ const (
 	SettingURL     SettingKind = "url"
 	SettingChoice  SettingKind = "choice"
 	SettingPath    SettingKind = "path"
+	// SettingModel is a model id; the UI offers the AI endpoint's models.
+	SettingModel SettingKind = "model"
 )
+
+// AIProviders are the X-AI-Provider values ai-gateway routes.
+var AIProviders = []string{"github-copilot", "openai", "anthropic", "ollama", "bedrock", "xiaomi-mimo"}
 
 // SettingGroup is one card in the Settings UI.
 type SettingGroup struct {
@@ -44,6 +49,10 @@ type SettingDefinition struct {
 	Kind        SettingKind `json:"kind"`
 	Default     string      `json:"default,omitempty"`
 	Options     []string    `json:"options,omitempty"`
+	// Inherits names the setting whose value applies when this one is empty.
+	Inherits string `json:"inherits,omitempty"`
+	// Advanced settings rarely change; the UI folds them away.
+	Advanced bool `json:"advanced,omitempty"`
 }
 
 // Secret settings are write-only: the API reports whether they are set,
@@ -79,63 +88,64 @@ type SettingsUpdate struct {
 const maxSettingLength = 4096
 
 var settingGroups = []SettingGroup{
-	{ID: "sheets", Label: "Google Sheets", Description: "The spreadsheet that is the system of record. Save the OAuth client, then use Connect Google account to mint the refresh token."},
-	{ID: "cache", Label: "Cache", Description: "Upstash Redis when both URL and token are set; otherwise a local SQLite cache."},
-	{ID: "ai", Label: "AI provider", Description: "OpenAI-compatible endpoint, e.g. ai-gateway. AI features need a base URL and a model."},
-	{ID: "search", Label: "Web search", Description: "Optional keys; DuckDuckGo is always the last fallback."},
-	{ID: "market", Label: "Market data", Description: "Provider endpoints; empty uses each provider's public default."},
+	{ID: "sheets", Label: "Google Sheets", Description: "The spreadsheet that holds your data."},
+	{ID: "cache", Label: "Cache", Description: "Upstash Redis when both are set, otherwise a local SQLite cache."},
+	{ID: "ai", Label: "AI provider", Description: "Any OpenAI-compatible endpoint, such as ai-gateway."},
+	{ID: "search", Label: "Web search", Description: "Optional; DuckDuckGo is always the fallback."},
+	{ID: "market", Label: "Market data", Description: "Empty uses each provider's public endpoint."},
 	{ID: "capture", Label: "Smart Capture", Description: "Limits for one batch of screenshots and text."},
-	{ID: "general", Label: "General", Description: "Logging and card programs."},
-	{ID: "testing", Label: "Live tests", Description: "Used only by the e2e harness, never by the engine."},
+	{ID: "general", Label: "Engine", Description: "Logging and card programs."},
 }
 
 func settingDefinitions() []SettingDefinition {
 	definitions := []SettingDefinition{
-		{Key: "GOOGLE_CLIENT_ID", Group: "sheets", Label: "OAuth client ID", Kind: SettingText, Description: "Google Cloud OAuth client (Desktop app)."},
+		{Key: "GOOGLE_SHEETS_ID", Group: "sheets", Label: "Spreadsheet ID", Kind: SettingText, Description: "The part of the sheet URL between /d/ and /edit."},
+		{Key: "GOOGLE_CLIENT_ID", Group: "sheets", Label: "OAuth client ID", Kind: SettingText, Description: "A Google Cloud OAuth client (Desktop app)."},
 		{Key: "GOOGLE_CLIENT_SECRET", Group: "sheets", Label: "OAuth client secret", Kind: SettingSecret},
-		{Key: "GOOGLE_REFRESH_TOKEN", Group: "sheets", Label: "Refresh token", Kind: SettingSecret, Description: "Written by Connect Google account, or paste one."},
-		{Key: "GOOGLE_SHEETS_ID", Group: "sheets", Label: "Spreadsheet ID", Kind: SettingText, Description: "The id in the sheet URL, between /d/ and /edit."},
-		{Key: "GOOGLE_REDIRECT_URL", Group: "sheets", Label: "OAuth redirect URL", Kind: SettingURL, Description: "Where Google returns after sign-in. Empty uses /api/auth/google/callback on the loopback address the UI is open on; a Web OAuth client must list it."},
-		{Key: "SHEETS_READS_PER_MINUTE", Group: "sheets", Label: "Reads per minute", Kind: SettingInteger, Default: "60", Description: "Pace of Sheets read requests (WM-NFR-3)."},
-		{Key: "BUDGET_SHEET_TEMPLATE", Group: "sheets", Label: "Budget tab name", Kind: SettingText, Default: "Budget_{year}", Description: "{year} is replaced with the requested year."},
+		{Key: "GOOGLE_REFRESH_TOKEN", Group: "sheets", Label: "Refresh token", Kind: SettingSecret, Description: "Set by Connect Google account."},
+		{Key: "GOOGLE_REDIRECT_URL", Group: "sheets", Label: "OAuth redirect URL", Kind: SettingURL, Advanced: true, Description: "Empty uses /api/auth/google/callback on this origin."},
+		{Key: "SHEETS_READS_PER_MINUTE", Group: "sheets", Label: "Reads per minute", Kind: SettingInteger, Default: "60", Advanced: true},
+		{Key: "BUDGET_SHEET_TEMPLATE", Group: "sheets", Label: "Budget tab name", Kind: SettingText, Default: "Budget_{year}", Advanced: true, Description: "{year} becomes the year."},
 
 		{Key: "UPSTASH_REDIS_REST_URL", Group: "cache", Label: "Upstash REST URL", Kind: SettingURL},
 		{Key: "UPSTASH_REDIS_REST_TOKEN", Group: "cache", Label: "Upstash REST token", Kind: SettingSecret},
-		{Key: "CACHE_KEY_PREFIX", Group: "cache", Label: "Key prefix", Kind: SettingText, Default: "wm:", Description: "Namespaces every key so environments never share keys (WM-OPS-2b)."},
+		{Key: "CACHE_KEY_PREFIX", Group: "cache", Label: "Key prefix", Kind: SettingText, Default: "wm:", Advanced: true, Description: "Keeps environments from sharing keys (WM-OPS-2b)."},
 
 		{Key: "AI_BASE_URL", Group: "ai", Label: "Base URL", Kind: SettingURL, Description: "e.g. http://127.0.0.1:8081/v1 for ai-gateway."},
-		{Key: "AI_API_KEY", Group: "ai", Label: "API key", Kind: SettingSecret, Description: "Only if the endpoint requires one."},
-		{Key: "AI_PROVIDER", Group: "ai", Label: "Provider header", Kind: SettingText, Description: "X-AI-Provider sent to ai-gateway."},
-		{Key: "AI_MODEL", Group: "ai", Label: "Default model", Kind: SettingText, Description: "Used by every use case without its own model."},
+		{Key: "AI_API_KEY", Group: "ai", Label: "API key", Kind: SettingSecret, Description: "Only if the endpoint needs one."},
+		{Key: "AI_PROVIDER", Group: "ai", Label: "Gateway provider", Kind: SettingChoice, Options: AIProviders, Description: "ai-gateway only; empty sends no provider."},
+		{Key: "AI_MODEL", Group: "ai", Label: "Default model", Kind: SettingModel},
 	}
 	for _, useCase := range AIUseCases {
-		name := string(useCase)
 		definitions = append(definitions, SettingDefinition{
-			Key: "AI_MODEL_" + strings.ToUpper(name), Group: "ai", Label: strings.ToUpper(name[:1]) + name[1:] + " model", Kind: SettingText,
-			Description: "Overrides the default model for " + name + ".",
+			Key: "AI_MODEL_" + strings.ToUpper(string(useCase)), Group: "ai", Label: aiUseCaseLabels[useCase] + " model", Kind: SettingModel, Inherits: "AI_MODEL",
 		})
 	}
 	definitions = append(definitions, []SettingDefinition{
-		{Key: "AI_FALLBACK_MODEL", Group: "ai", Label: "Fallback model", Kind: SettingText, Description: "Tried once when the main model fails."},
-		{Key: "AI_TIMEOUT_SECONDS", Group: "ai", Label: "Timeout (seconds)", Kind: SettingInteger, Default: "90"},
-		{Key: "AI_PII_NAMES", Group: "ai", Label: "Names to mask", Kind: SettingText, Description: "Comma separated; masked before text reaches the provider."},
+		{Key: "AI_FALLBACK_MODEL", Group: "ai", Label: "Fallback model", Kind: SettingModel, Description: "Tried once when the main model fails."},
+		{Key: "AI_PII_NAMES", Group: "ai", Label: "Names to mask", Kind: SettingText, Description: "Comma separated; hidden from the provider."},
+		{Key: "AI_TIMEOUT_SECONDS", Group: "ai", Label: "Timeout (seconds)", Kind: SettingInteger, Default: "90", Advanced: true},
 
 		{Key: "TAVILY_API_KEY", Group: "search", Label: "Tavily API key", Kind: SettingSecret},
 		{Key: "EXA_API_KEY", Group: "search", Label: "Exa API key", Kind: SettingSecret},
 
 		{Key: "MARKET_DATA_SERVER_URL", Group: "market", Label: "Market data server URL", Kind: SettingURL, Default: "http://localhost:8000", Description: "apps/market-data-server; it calls vnstock, fmarket, Yahoo Finance, CoinGecko and currency-api."},
 
-		{Key: "CAPTURE_MAX_ITEMS", Group: "capture", Label: "Max items per batch", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxItems)},
-		{Key: "CAPTURE_MAX_ITEM_MB", Group: "capture", Label: "Max item size (MB)", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxItemBytes >> 20)},
-		{Key: "CAPTURE_MAX_BATCH_MB", Group: "capture", Label: "Max batch size (MB)", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxBatchBytes >> 20)},
+		{Key: "CAPTURE_MAX_ITEMS", Group: "capture", Label: "Items per batch", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxItems)},
+		{Key: "CAPTURE_MAX_ITEM_MB", Group: "capture", Label: "Item size (MB)", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxItemBytes >> 20)},
+		{Key: "CAPTURE_MAX_BATCH_MB", Group: "capture", Label: "Batch size (MB)", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxBatchBytes >> 20)},
 
 		{Key: "LOG_LEVEL", Group: "general", Label: "Log level", Kind: SettingChoice, Default: "info", Options: []string{"debug", "info", "warn", "error"}},
-		{Key: "CARD_PROGRAMS_FILE", Group: "general", Label: "Card programs file", Kind: SettingPath, Description: "JSON file replacing the built-in card programs."},
-
-		{Key: "GOOGLE_TEST_REFRESH_TOKEN", Group: "testing", Label: "Test refresh token", Kind: SettingSecret, Description: "Spreadsheets + Drive scopes; written by Connect test account."},
-		{Key: "E2E_SOURCE_XLSX", Group: "testing", Label: "Source workbook", Kind: SettingPath, Description: "Local .xlsx export uploaded as the disposable test sheet."},
+		{Key: "CARD_PROGRAMS_FILE", Group: "general", Label: "Card programs file", Kind: SettingPath, Advanced: true, Description: "JSON that replaces the built-in card programs."},
 	}...)
 	return definitions
+}
+
+var aiUseCaseLabels = map[AIUseCase]string{
+	AIUseCaseInsight: "Insights",
+	AIUseCaseSuggest: "Category suggestion",
+	AIUseCaseVision:  "Smart Capture",
+	AIUseCaseChat:    "Chat",
 }
 
 var definitionsByKey = func() map[string]SettingDefinition {

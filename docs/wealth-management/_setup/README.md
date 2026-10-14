@@ -45,7 +45,7 @@ The only values read from the environment: the engine needs them before it can o
 | `WM_SETTINGS_PATH`  | user config directory                      | Settings store file (section 2).                                                                                                            |
 | `CACHE_SQLITE_PATH` | `<system temp>/wealth-management/cache.db` | SQLite cache file, used when Upstash is not configured. Several engines (dev server, e2e runs) can share the file.                          |
 | `LOG_COLOR`         | enabled                                    | Set to `false` to disable coloured logs.                                                                                                    |
-| `WM_TEST_MODE`      | `false`                                    | Test mode for live e2e runs: startup aborts unless the spreadsheet title starts with `wm-e2e-` (WM-TEST-2). Set by the harness only.        |
+| `WM_TEST_WORKBOOK`  | -                                          | Path to a local `.xlsx` export served in memory instead of Google Sheets (section 6). Set by the e2e harness; never written to disk.        |
 
 ### 3.2 General
 
@@ -82,7 +82,9 @@ Optional. With both the Upstash URL and token set, the cache is Upstash. With ne
 
 AI routes are disabled, and `GET /api/ai/status` says why, until `AI_BASE_URL` and a model for every use case (normally via `AI_MODEL`) are set. They also need the Google Sheet, because prompts come from its `Prompts` tab. See REQUIREMENTS.md §10.1.
 
-`GET /api/ai/usage` (Settings, AI card) shows the OpenAI quota by calling the ai-gateway `GET {AI_BASE_URL}/usage` with `X-AI-Provider: openai`. It needs only `AI_BASE_URL` (and `AI_API_KEY` if the gateway requires one); it answers 503 UNAVAILABLE when the gateway has no OpenAI provider configured or cannot reach it.
+`GET /api/ai/usage` (Settings, AI tab) shows the OpenAI quota by calling the ai-gateway `GET {AI_BASE_URL}/usage` with `X-AI-Provider: openai`. It needs only `AI_BASE_URL` (and `AI_API_KEY` if the gateway requires one); it answers 503 UNAVAILABLE when the gateway has no OpenAI provider configured or cannot reach it.
+
+`GET /api/ai/models` lists the model ids from `GET {AI_BASE_URL}/models` (with `AI_PROVIDER` as `X-AI-Provider`), so the model settings are selects. It reflects the running engine: after changing `AI_BASE_URL` or `AI_PROVIDER`, restart to list the new endpoint's models. When it fails, the model settings fall back to text fields.
 
 | Setting                | Default    | Meaning                                                                                                                   |
 | ---------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -129,10 +131,10 @@ Google returns the browser to `GET /api/auth/google/callback` on the address the
 
 - A **Desktop** client accepts any loopback port, so every address above works as is.
 - A **Web** client must list each exact redirect URI it is used with, e.g. both the `5173` (dev) and `8080` (engine) callbacks. A mismatch is Google's `Error 400: redirect_uri_mismatch`.
-- After consent the callback redirects (303) to `/ui/settings?google=connected&purpose=sheets|test`, or `google=error&reason=denied|expired|rejected|no_refresh_token|invalid|failed`. The page turns the fixed reason into a message, so a crafted link cannot show arbitrary text, then removes the query.
+- After consent the callback redirects (303) to `/ui/settings?google=connected&purpose=sheets`, or `google=error&reason=denied|expired|rejected|no_refresh_token|invalid|failed`. The page turns the fixed reason into a message, so a crafted link cannot show arbitrary text, then removes the query.
 - When Google returns to another origin than the page (the UI opened from another host, or `GOOGLE_REDIRECT_URL` set elsewhere), the sign-in opens in a new tab instead. If that tab ends on a page that cannot be reached, paste its address into the dialog; it is sent to `POST /api/auth/google/exchange`.
 
-Re-authorise the same way when the token expires (`invalid_grant`). **Connect test account** on the Testing card mints `GOOGLE_TEST_REFRESH_TOKEN` (section 6).
+Re-authorise the same way when the token expires (`invalid_grant`).
 
 ## 4. Nx targets
 
@@ -162,16 +164,14 @@ The CLIs read and write the same settings store as the engine (`WM_SETTINGS_PATH
 - **`verify-auth`** (`cmd/verify_auth`): reads `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` and `GOOGLE_SHEETS_ID`, refreshes an access token, then opens the spreadsheet. `invalid_grant` means the refresh token expired or was revoked (a Google Cloud project in "Testing" mode expires tokens after 7 days): use **Connect Google account** again (section 3.8).
 - **`import-settings`** (`cmd/import_settings`): see section 2. Values are validated like the Settings page; bootstrap and unknown keys are listed by name and skipped.
 
-## 6. Live E2E tests (disposable test sheet)
+## 6. Live E2E tests (local workbook)
 
-Live tests never touch the production sheet ([REQUIREMENTS.md §14.3](../REQUIREMENTS.md#143-disposable-sheet-copy-never-test-against-the-real-sheet)). Each run uploads a local `.xlsx` export of the workbook to Drive and converts it into a new Google Sheet. It starts the engine against that sheet and deletes it afterwards. The harness never opens the production sheet.
+Live tests never touch the production sheet ([REQUIREMENTS.md §14.3](../REQUIREMENTS.md#143-local-workbook-never-test-against-the-real-sheet)). The engine reads a local `.xlsx` export of the workbook into memory through a second sheet adapter (`adapter/db/local_workbook`) and serves every route from it. Nothing is uploaded, no Google token is used, and the file on disk is never written.
 
 **One-time setup**:
 
-1. Mint the test token: click **Connect test account** on the Testing card of the Settings page. It asks for the `spreadsheets` and `drive.file` scopes and saves `GOOGLE_TEST_REFRESH_TOKEN`. The production token keeps the `spreadsheets` scope only.
-
-2. Export the workbook as `.xlsx` (File > Download > Microsoft Excel). Keep it **outside the repo**, because it holds real financial data.
-3. Point the harness at it: set `E2E_SOURCE_XLSX` under Testing on the Settings page (for example `~/projects/Money Manager.xlsx`), or export it in the shell, which wins.
+1. Export the workbook as `.xlsx` (File > Download > Microsoft Excel). Keep it **outside the repo**, because it holds real financial data.
+2. Export its path in the shell, for example `export E2E_SOURCE_XLSX="$HOME/projects/Money Manager.xlsx"`. A leading `~/` is expanded.
 
 Re-export the workbook whenever the sheet's structure changes.
 
@@ -185,26 +185,16 @@ RUN_LIVE_API_TESTS=true go test ./e2e/ -run '^TestE2E' -count=1 -v
 
 Without `RUN_LIVE_API_TESTS=true` the suite is skipped, so `go test ./...` stays offline.
 
-| Name                        | Meaning                                                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `RUN_LIVE_API_TESTS`        | Environment: `true` opts in to the live suite.                                                                           |
-| `E2E_SOURCE_XLSX`           | Setting or environment: path to the `.xlsx` export used as test data; a leading `~/` is expanded.                        |
-| `GOOGLE_TEST_REFRESH_TOKEN` | Setting: test-only token from **Connect test account**. Scopes: `spreadsheets` and `drive.file` (only files it created). |
-| `KEEP_TEST_SHEET`           | Environment: `true` keeps the test sheet after the run for debugging; its name is logged.                                |
+| Name                 | Meaning                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `RUN_LIVE_API_TESTS` | Environment: `true` opts in to the live suite.                                     |
+| `E2E_SOURCE_XLSX`    | Environment: path to the `.xlsx` export used as test data.                         |
+| `WM_TEST_WORKBOOK`   | Engine bootstrap: serve this `.xlsx` instead of Google Sheets. Set by the harness. |
 
-`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` come from the settings store, which a run only reads. `GOOGLE_SHEETS_ID` is optional here. When it is set, it is used only to refuse the production sheet.
+What a run does (`apps/wealth-management/e2e/harness_test.go`):
 
-What a run does (`apps/wealth-management/e2e/harness_test.go`, `internal/e2esheet`):
-
-1. **Janitor**: deletes leftover `wm-e2e-*` test sheets older than 24 h. Because of the `drive.file` scope, it can only see sheets that the harness itself created.
-2. **Upload**: converts the workbook into a sheet named `wm-e2e-<runId>-<UTC timestamp>`. Tabs, formulas, `Prompts` and `Knowledge` come along. It aborts if the new id equals `GOOGLE_SHEETS_ID` or the name lacks the prefix.
-3. **Engine**: builds and starts the engine with a settings store of its own in the run's work directory, seeded from the user's settings (without the Testing group):
-   - the store points at the test sheet, uses the test token as `GOOGLE_REFRESH_TOKEN` and sets `CACHE_KEY_PREFIX=wm-test:<runId>:`;
-   - the environment holds only bootstrap variables: `WM_SETTINGS_PATH`, `CACHE_SQLITE_PATH` in the work directory, `WM_TEST_MODE=true`, a random `API_TOKEN` and a free port on 127.0.0.1.
-
-   In test mode the engine refuses to start unless the sheet title has the `wm-e2e-` prefix.
-
-4. **Tests**, run serially on the one sheet:
+1. **Engine**: builds and starts the engine with a settings store of its own in the run's work directory, seeded from the user's settings without any `GOOGLE_*` value, and with `CACHE_KEY_PREFIX=wm-test:<runId>:`. The environment holds only bootstrap variables: `WM_SETTINGS_PATH`, `CACHE_SQLITE_PATH` in the work directory, `WM_TEST_WORKBOOK=<the export>`, a random `API_TOKEN` and a free port on 127.0.0.1. With `WM_TEST_WORKBOOK` set the engine builds no Google client at all, and it stops at startup when the file cannot be read.
+2. **Tests**, run serially on the one in-memory workbook:
    - Every sheet read route in the OpenAPI spec parses.
    - Structural checks.
    - Round-trips for accounts, transactions (including the stale ETag 409), idempotent batches, budget limits and Smart Capture rules.
@@ -213,4 +203,12 @@ What a run does (`apps/wealth-management/e2e/harness_test.go`, `internal/e2eshee
 
    Assertions are relative or structural, because the workbook holds real data that changes with each export.
 
-5. **Teardown**: invalidates the run's cache keys and stops the engine. It deletes the test sheet unless `KEEP_TEST_SHEET=true`; before deleting, it re-checks the name prefix. The engine log is in `apps/wealth-management/tmp/e2e-<runId>/engine.log` and is kept when the run fails.
+3. **Teardown**: invalidates the run's cache keys and stops the engine. Writes vanish with the process. The engine log is in `apps/wealth-management/tmp/e2e-<runId>/engine.log` and is kept when the run fails.
+
+The same mode works by hand: start the engine with `WM_TEST_WORKBOOK=/path/to/book.xlsx` to click through the UI on exported data without touching the real sheet.
+
+**Limits of the local workbook**:
+
+- Formulas are not recalculated. A formula cell reads the value cached in the export, so balances and totals do not change after a write, and a formula the engine writes reads back empty.
+- Reads and writes follow the Sheets API rules the engine relies on (unformatted values, user-entered typing of numbers, `dd/MM/yyyy` dates and a leading `'`), not the full Sheets behaviour.
+- Excel tab names cannot hold `\ / ? * [ ] :`, so the export drops them (`Loan / Dept` becomes `Loan  Dept`). The adapter matches tab names ignoring those characters and case.

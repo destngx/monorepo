@@ -117,12 +117,27 @@ func (s *Service) ProviderUsage(ctx context.Context) (domain.AIProviderUsage, er
 	if strings.TrimSpace(s.config.BaseURL) == "" {
 		return domain.AIProviderUsage{}, fmt.Errorf("%w: set AI_BASE_URL", domain.ErrAIUnavailable)
 	}
-	if s.config.Timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.config.Timeout)
-		defer cancel()
-	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
 	return s.client.Usage(ctx)
+}
+
+// ProviderModels lists the endpoint's models so Settings can offer them. Like
+// ProviderUsage it needs only the endpoint.
+func (s *Service) ProviderModels(ctx context.Context) ([]string, error) {
+	if strings.TrimSpace(s.config.BaseURL) == "" {
+		return nil, fmt.Errorf("%w: set AI_BASE_URL", domain.ErrAIUnavailable)
+	}
+	ctx, cancel := s.withTimeout(ctx)
+	defer cancel()
+	return s.client.Models(ctx)
+}
+
+func (s *Service) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	if s.config.Timeout > 0 {
+		return context.WithTimeout(ctx, s.config.Timeout)
+	}
+	return ctx, func() {}
 }
 
 func (s *Service) Status(ctx context.Context) domain.AIStatus {

@@ -7,19 +7,13 @@ import (
 )
 
 // GoogleAuthPurpose picks which refresh token a Google consent mints. The
-// production token reads and writes sheets only; the test token adds Drive
-// so the live harness can upload and delete its disposable sheet (WM-TEST-3).
+// only one is the sheets token, which reads and writes sheets and nothing
+// else; the live e2e tests use a local workbook and need no token (WM-TEST-3).
 type GoogleAuthPurpose string
 
-const (
-	GoogleAuthSheets GoogleAuthPurpose = "sheets"
-	GoogleAuthTest   GoogleAuthPurpose = "test"
-)
+const GoogleAuthSheets GoogleAuthPurpose = "sheets"
 
-const (
-	googleSheetsScope    = "https://www.googleapis.com/auth/spreadsheets"
-	googleDriveFileScope = "https://www.googleapis.com/auth/drive.file"
-)
+const googleSheetsScope = "https://www.googleapis.com/auth/spreadsheets"
 
 // GoogleAuthCallbackPath is the engine route Google redirects to.
 const GoogleAuthCallbackPath = "/api/auth/google/callback"
@@ -34,25 +28,17 @@ func ParseGoogleAuthPurpose(raw string) (GoogleAuthPurpose, error) {
 	switch purpose := GoogleAuthPurpose(strings.TrimSpace(raw)); purpose {
 	case "", GoogleAuthSheets:
 		return GoogleAuthSheets, nil
-	case GoogleAuthTest:
-		return purpose, nil
 	default:
-		return "", fmt.Errorf("%w: purpose must be %q or %q", ErrValidation, GoogleAuthSheets, GoogleAuthTest)
+		return "", fmt.Errorf("%w: purpose must be %q", ErrValidation, GoogleAuthSheets)
 	}
 }
 
 func (p GoogleAuthPurpose) Scopes() []string {
-	if p == GoogleAuthTest {
-		return []string{googleSheetsScope, googleDriveFileScope}
-	}
 	return []string{googleSheetsScope}
 }
 
 // SettingKey is where the minted refresh token is saved.
 func (p GoogleAuthPurpose) SettingKey() string {
-	if p == GoogleAuthTest {
-		return "GOOGLE_TEST_REFRESH_TOKEN"
-	}
 	return "GOOGLE_REFRESH_TOKEN"
 }
 

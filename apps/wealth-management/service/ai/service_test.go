@@ -248,3 +248,22 @@ func TestChartInsightReturnsMarkdown(t *testing.T) {
 		t.Fatalf("missing data should be a validation error, got %v", err)
 	}
 }
+
+func TestProviderModelsNeedsOnlyTheEndpoint(t *testing.T) {
+	config := testConfig()
+	config.Models = nil
+	client := &scriptedClient{providerModels: []string{"gpt-5"}}
+	models, err := New(client, fixtureDatabase(), nil, nil, config, logger.NewTestLogger(t), Options{}).ProviderModels(context.Background())
+	if err != nil || len(models) != 1 || models[0] != "gpt-5" {
+		t.Fatalf("models %v, err %v", models, err)
+	}
+
+	config.BaseURL = ""
+	svc := New(client, fixtureDatabase(), nil, nil, config, logger.NewTestLogger(t), Options{})
+	if _, err := svc.ProviderModels(context.Background()); !errors.Is(err, domain.ErrAIUnavailable) {
+		t.Fatalf("want ErrAIUnavailable without AI_BASE_URL, got %v", err)
+	}
+	if client.modelCalls != 1 {
+		t.Fatalf("client called %d times, want 1", client.modelCalls)
+	}
+}

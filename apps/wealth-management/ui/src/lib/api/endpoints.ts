@@ -1,5 +1,4 @@
 import { readNDJSON } from '$lib/ai/ndjson';
-import { aiModels } from '$lib/state/settings.svelte';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
   AIProviderUsage,
@@ -70,10 +69,8 @@ interface AIOptions {
   signal?: AbortSignal;
 }
 
-const insightModel = () => aiModels.insight.value || undefined;
-
 const ai = <T>(path: string, body: Record<string, unknown>, { force, signal }: AIOptions = {}) =>
-  request<T>(path, { method: 'POST', body: { ...body, force: force || undefined, model: insightModel() }, signal });
+  request<T>(path, { method: 'POST', body: { ...body, force: force || undefined }, signal });
 
 export const api = {
   // 503 still carries the per-dependency report, so it is not an error here.
@@ -165,10 +162,11 @@ export const api = {
 
   aiStatus: (fetch?: Fetch) => request<AIStatus>('/ai/status', { fetch }),
   aiUsage: (fetch?: Fetch) => request<AIProviderUsage>('/ai/usage', { fetch }),
+  aiModels: () => request<{ models: string[] }>('/ai/models'),
   suggestCategory: (payee: string, signal?: AbortSignal) =>
     request<CategorySuggestion>('/ai/suggest-category', {
       method: 'POST',
-      body: { payee, model: aiModels.suggest.value || undefined },
+      body: { payee },
       signal,
     }),
   review: (kind: ReviewKind, input: { month?: string; card?: string } = {}, options?: AIOptions) =>
@@ -187,7 +185,7 @@ export const api = {
   investmentAnalysis: async function* (news: NewsReport[], signal?: AbortSignal): AsyncGenerator<InvestmentEvent> {
     const stream = await requestStream('/ai/investment-analysis', {
       method: 'POST',
-      body: { news: news.length ? news : undefined, model: insightModel() },
+      body: { news: news.length ? news : undefined },
       signal,
     });
     yield* readNDJSON<InvestmentEvent>(stream);
@@ -200,7 +198,7 @@ export const api = {
   ): AsyncGenerator<ChatEvent> {
     const stream = await requestStream('/ai/chat', {
       method: 'POST',
-      body: { messages, page, model: aiModels.chat.value || undefined },
+      body: { messages, page },
       signal,
     });
     yield* readNDJSON<ChatEvent>(stream);
@@ -209,7 +207,7 @@ export const api = {
   capture: async function* (materials: CaptureMaterialPayload[], signal?: AbortSignal): AsyncGenerator<CaptureEvent> {
     const stream = await requestStream('/ai/capture', {
       method: 'POST',
-      body: { materials, model: aiModels.vision.value || undefined },
+      body: { materials },
       signal,
     });
     yield* readNDJSON<CaptureEvent>(stream);

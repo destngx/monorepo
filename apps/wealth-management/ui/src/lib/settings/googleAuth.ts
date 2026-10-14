@@ -20,10 +20,8 @@ const reasons: Record<string, string> = {
  */
 export function googleAuthNotice(params: URLSearchParams): { kind: ToastKind; message: string } | null {
   switch (params.get('google')) {
-    case 'connected': {
-      const account = params.get('purpose') === 'test' ? 'Test account' : 'Google account';
-      return { kind: 'success', message: `${account} connected. Restart the engine to use it.` };
-    }
+    case 'connected':
+      return { kind: 'success', message: 'Google account connected. Restart the engine to use it.' };
     case 'error':
       return {
         kind: 'error',

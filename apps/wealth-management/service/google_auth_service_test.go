@@ -92,25 +92,6 @@ func TestGivenAConfiguredClientWhenConsentCompletesThenTheRefreshTokenIsSavedAnd
 	}
 }
 
-func TestGivenTheTestPurposeWhenConsentCompletesThenTheTestTokenGetsDriveScope(t *testing.T) {
-	f := newGoogleAuthFixture(configuredClient())
-	ctx := context.Background()
-
-	start, err := f.svc.Start(ctx, domain.GoogleAuthTest, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(f.oauth.scopes) != 2 {
-		t.Fatalf("scopes = %v", f.oauth.scopes)
-	}
-	if _, err := f.svc.Complete(ctx, stateOf(t, start), "4/code"); err != nil {
-		t.Fatal(err)
-	}
-	if f.store.values["GOOGLE_TEST_REFRESH_TOKEN"] != "1//refresh" || f.store.values["GOOGLE_REFRESH_TOKEN"] != "" {
-		t.Fatalf("stored = %v", f.store.values)
-	}
-}
-
 func TestGivenAConfiguredRedirectWhenStartingThenItOverridesTheEngineCallback(t *testing.T) {
 	values := configuredClient()
 	values["GOOGLE_REDIRECT_URL"] = "https://wm.example/api/auth/google/callback"

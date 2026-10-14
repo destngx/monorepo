@@ -1,5 +1,6 @@
 /** Engine settings stored by the engine; they replace the env file. */
-export type SettingKind = 'text' | 'secret' | 'integer' | 'url' | 'choice' | 'path';
+/** `model` is a model id; Settings offers the AI endpoint's models (GET /api/ai/models). */
+export type SettingKind = 'text' | 'secret' | 'integer' | 'url' | 'choice' | 'path' | 'model';
 
 export interface SettingGroup {
   id: string;
@@ -16,6 +17,10 @@ export interface EngineSetting {
   /** What the engine uses when the setting is empty. */
   default?: string;
   options?: string[];
+  /** The setting whose value applies when this one is empty. */
+  inherits?: string;
+  /** Rarely changed; folded under Advanced. */
+  advanced?: boolean;
   /** Secrets are write-only: only isSet is reported, never the value. */
   secret: boolean;
   isSet: boolean;
@@ -35,7 +40,7 @@ export interface EngineSettings {
 export type SettingsChanges = Record<string, string | null>;
 
 /** Which refresh token a Google sign-in mints. */
-export type GoogleAuthPurpose = 'sheets' | 'test';
+export type GoogleAuthPurpose = 'sheets';
 
 export interface GoogleAuthStart {
   /** Google's consent page; open it in a browser. */

@@ -1,0 +1,99 @@
+<script lang="ts">
+  import Card from '$lib/components/Card.svelte';
+  import { apiToken, entryReminder, theme, type Theme } from '$lib/state/settings.svelte';
+  import { toasts } from '$lib/state/toasts.svelte';
+  import { parseReminderHour } from '$lib/transactions/reminder';
+
+  let tokenDraft = $state(apiToken.value);
+  let showToken = $state(false);
+
+  const themes: [Theme, string][] = [
+    ['system', 'Follow the system'],
+    ['light', 'Light'],
+    ['dark', 'Dark'],
+  ];
+  const hours = Array.from({ length: 24 }, (_, hour) => String(hour));
+
+  function saveToken() {
+    apiToken.value = tokenDraft.trim();
+    toasts.push('success', apiToken.value ? 'API token saved in this browser.' : 'API token cleared.');
+  }
+
+  function setReminder(enabled: boolean) {
+    entryReminder.enabled.value = enabled ? 'true' : 'false';
+    toasts.info(enabled ? 'Daily entry reminder on.' : 'Daily entry reminder off.');
+  }
+
+  function setReminderHour(value: string) {
+    entryReminder.hour.value = String(parseReminderHour(value));
+    toasts.info(`Reminder shows after ${entryReminder.hour.value}:00.`);
+  }
+</script>
+
+<Card title="This browser" subtitle="Stored only in this browser">
+  <div class="-my-3 divide-y divide-slate-900/5 dark:divide-white/5">
+    <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+      <label class="text-sm font-medium" for="theme">Theme</label>
+      <select
+        id="theme"
+        class="field"
+        value={theme.value}
+        onchange={(event) => (theme.value = event.currentTarget.value as Theme)}
+      >
+        {#each themes as [value, label] (value)}<option {value}>{label}</option>{/each}
+      </select>
+    </div>
+
+    <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+      <div>
+        <label class="text-sm font-medium" for="api-token">API token</label>
+        <p class="muted text-xs">Needed for changes when the engine sets API_TOKEN.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <input
+          id="api-token"
+          class="field font-mono"
+          type={showToken ? 'text' : 'password'}
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Not set"
+          bind:value={tokenDraft}
+          onkeydown={(event) => event.key === 'Enter' && saveToken()}
+        />
+        <button type="button" class="btn-ghost px-2" onclick={() => (showToken = !showToken)}
+          >{showToken ? 'Hide' : 'Show'}</button
+        >
+        <button type="button" class="btn-ghost px-2" disabled={tokenDraft.trim() === apiToken.value} onclick={saveToken}
+          >Save</button
+        >
+      </div>
+    </div>
+
+    <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+      <div>
+        <label class="text-sm font-medium" for="reminder">Daily entry reminder</label>
+        <p class="muted text-xs">A banner when nothing is recorded today.</p>
+      </div>
+      <div class="flex items-center gap-3 text-sm">
+        <input
+          id="reminder"
+          type="checkbox"
+          class="size-4 accent-indigo-600"
+          checked={entryReminder.enabled.value === 'true'}
+          onchange={(event) => setReminder(event.currentTarget.checked)}
+        />
+        <label for="reminder-hour" class="muted">after</label>
+        <select
+          id="reminder-hour"
+          class="field w-24"
+          value={entryReminder.hour.value}
+          disabled={entryReminder.enabled.value !== 'true'}
+          onchange={(event) => setReminderHour(event.currentTarget.value)}
+        >
+          {#each hours as hour (hour)}<option value={hour}>{hour.padStart(2, '0')}:00</option>{/each}
+        </select>
+        <span class="muted text-xs">Vietnam time</span>
+      </div>
+    </div>
+  </div>
+</Card>

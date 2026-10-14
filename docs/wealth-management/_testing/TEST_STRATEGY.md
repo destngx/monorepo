@@ -56,7 +56,7 @@ The current layer definitions and targets are in [REQUIREMENTS.md §14](../REQUI
 - **Unit Layer**: table-driven Go tests (`pnpx nx run wealth-management:test`) for mappers, business rules and market math; Vitest (`pnpx nx run wealth-management:test-ui`) for UI logic.
   - _SLA_: 95%+ coverage for financial formulas.
 - **Contract Layer**: sheet adapter against recorded, anonymised Sheets API responses; handlers and MCP tools against fakes.
-- **Live Layer**: engine against a disposable copy of the real sheet, never the production sheet (REQUIREMENTS.md §14.3).
+- **Live Layer**: engine against a local `.xlsx` export of the real sheet served in memory (`WM_TEST_WORKBOOK`), never the production sheet (REQUIREMENTS.md §14.3).
 - **E2E Layer (Playwright)**: Testing critical "Wealth Journeys" in the UI against the engine wired to the test copy.
 - **AI Regression**: Using fixed seeds to ensure AI briefings remain consistent across deployments.
 

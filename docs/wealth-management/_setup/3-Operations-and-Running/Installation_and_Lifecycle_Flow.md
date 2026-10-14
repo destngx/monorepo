@@ -36,4 +36,4 @@ Then check `GET /api/health` (per-dependency status) and open `/api/docs` for th
 
 - **Refresh data**: sheet reads are cached; `POST /api/sync` invalidates every sheet-derived key (WM-OPS-3).
 - **Token expired** (`invalid_grant`): use **Connect Google account** in Settings again, then `verify-auth`, then restart the engine from Settings.
-- **Tests**: `pnpx nx run wealth-management:test` and `pnpx nx run wealth-management:test-ui`. Live tests: [setup README §6](../README.md#6-live-e2e-tests-disposable-sheet-copy).
+- **Tests**: `pnpx nx run wealth-management:test` and `pnpx nx run wealth-management:test-ui`. Live tests: [setup README §6](../README.md#6-live-e2e-tests-local-workbook).

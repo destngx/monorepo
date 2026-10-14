@@ -13,7 +13,6 @@ describe('googleAuthNotice', () => {
       kind: 'success',
       message: 'Google account connected. Restart the engine to use it.',
     });
-    expect(googleAuthNotice(new URLSearchParams('google=connected&purpose=test'))?.message).toMatch(/^Test account/);
   });
 
   it('explains each failure reason with fixed text', () => {

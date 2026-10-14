@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Assertions are structural or relative because the copy holds current real
+// Assertions are structural or relative because the workbook holds current real
 // data (WM-TEST-5).
 
 // sheetTags are the OpenAPI tags of routes that read the sheet.
@@ -50,7 +50,7 @@ func TestE2EReadsAreStructurallySound(t *testing.T) {
 	h := engine(t)
 	accounts := listAccounts(t, h)
 	if len(accounts) == 0 {
-		t.Fatal("the copy has no accounts")
+		t.Fatal("the workbook has no accounts")
 	}
 	for _, account := range accounts {
 		if account.Name == "" || account.Type == "" {
@@ -65,7 +65,7 @@ func TestE2EReadsAreStructurallySound(t *testing.T) {
 	var initResult domain.InitResult
 	h.request(t, http.MethodGet, "/api/init", nil, http.StatusOK, &initResult)
 	if !initResult.Ready || initResult.Loaded.Prompts == 0 {
-		t.Fatalf("the copy must carry the Prompts tab: %+v", initResult)
+		t.Fatalf("the workbook must carry the Prompts tab: %+v", initResult)
 	}
 }
 
@@ -220,7 +220,7 @@ func firstCategory(t *testing.T, h *harness) string {
 			return category.Name
 		}
 	}
-	t.Fatal("the copy has no categories")
+	t.Fatal("the workbook has no categories")
 	return ""
 }
 

@@ -7,30 +7,74 @@ import (
 	mcpAdapter "apps/wealth-management/adapter/mcp"
 	"apps/wealth-management/domain"
 	"apps/wealth-management/service"
+	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-func TestGivenTestModeWhenCheckingSpreadsheetThenOnlyCopiesPass(t *testing.T) {
-	title := func(name string, err error) func() (string, error) {
-		return func() (string, error) { return name, err }
+func TestGivenATestWorkbookWhenBuildingTheSheetsClientThenGoogleIsNeverUsed(t *testing.T) {
+	log := loggerAdapter.NewTestLogger(t)
+	path := filepath.Join(t.TempDir(), "Book.xlsx")
+	writeMinimalWorkbook(t, path)
+	t.Setenv("WM_TEST_WORKBOOK", path)
+
+	// Google settings are present but must be ignored.
+	client, spreadsheetID, err := newSheetsClient(context.Background(), log, configAdapter.Values{"GOOGLE_SHEETS_ID": "production"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err := checkTestSheet("copy", title("wm-e2e-run-20261013T000000Z", nil)); err != nil {
-		t.Fatalf("copy rejected: %v", err)
+	if spreadsheetID != "" {
+		t.Fatalf("spreadsheet id = %q, want none for a local workbook", spreadsheetID)
 	}
-	if err := checkTestSheet("prod", title("Wealth 2026", nil)); !errors.Is(err, domain.ErrNotTestSheet) {
-		t.Fatalf("production title accepted: %v", err)
+	if title, err := client.SpreadsheetTitle(); err != nil || title != "Book" {
+		t.Fatalf("title = %q, %v", title, err)
 	}
-	unreachable := errors.New("forbidden")
-	if err := checkTestSheet("copy", title("", unreachable)); !errors.Is(err, unreachable) {
-		t.Fatalf("title read error lost: %v", err)
+}
+
+func TestGivenAnUnreadableTestWorkbookWhenBuildingTheSheetsClientThenItFailsWithoutFallingBack(t *testing.T) {
+	log := loggerAdapter.NewTestLogger(t)
+	t.Setenv("WM_TEST_WORKBOOK", filepath.Join(t.TempDir(), "missing.xlsx"))
+
+	_, _, err := newSheetsClient(context.Background(), log, configAdapter.Values{})
+	if !errors.Is(err, errTestWorkbook) {
+		t.Fatalf("err = %v, want errTestWorkbook", err)
+	}
+}
+
+// writeMinimalWorkbook writes an .xlsx with one empty tab.
+func writeMinimalWorkbook(t *testing.T, path string) {
+	t.Helper()
+	parts := map[string]string{
+		"xl/workbook.xml":            `<workbook xmlns:r="r"><sheets><sheet name="Accounts" r:id="rId1"/></sheets></workbook>`,
+		"xl/_rels/workbook.xml.rels": `<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`,
+		"xl/worksheets/sheet1.xml":   `<worksheet><sheetData/></worksheet>`,
+	}
+	var buffer bytes.Buffer
+	archive := zip.NewWriter(&buffer)
+	for name, content := range parts {
+		part, err := archive.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := part.Write([]byte(content)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, buffer.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 

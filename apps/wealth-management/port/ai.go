@@ -17,6 +17,8 @@ type AIClient interface {
 	Ping(ctx context.Context) error
 	// Usage reports the provider's quota (WM-SET-4).
 	Usage(ctx context.Context) (domain.AIProviderUsage, error)
+	// Models lists the model ids the provider offers.
+	Models(ctx context.Context) ([]string, error)
 }
 
 // ReviewKind names a structured review (WM-AI-5).
@@ -92,6 +94,8 @@ type AIService interface {
 	Status(ctx context.Context) domain.AIStatus
 	// ProviderUsage reports the AI provider's quota (WM-SET-4).
 	ProviderUsage(ctx context.Context) (domain.AIProviderUsage, error)
+	// ProviderModels lists the models the AI endpoint offers, for Settings.
+	ProviderModels(ctx context.Context) ([]string, error)
 	SuggestCategory(ctx context.Context, payee string, model string) (CategorySuggestion, error)
 	Review(ctx context.Context, request ReviewRequest) (domain.Insight, error)
 	HealthCommentary(ctx context.Context, force bool, model string) (domain.Insight, error)

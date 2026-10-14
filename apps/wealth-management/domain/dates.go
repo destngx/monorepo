@@ -36,6 +36,12 @@ func SerialToDate(serial float64) time.Time {
 	return sheetEpoch.AddDate(0, 0, int(math.Floor(serial)))
 }
 
+// DateToSerial is the Sheets date serial of a calendar date (its UTC day).
+func DateToSerial(date time.Time) int {
+	day := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	return int(day.Sub(sheetEpoch).Hours() / 24)
+}
+
 // ParseSheetDate parses a calendar date the way the sheet stores it. Day comes
 // before month in every slash format (the app writes dd/MM/yyyy), so 05/03/2026
 // is always 5 March. Unparseable input is an error, never "now".

@@ -52,6 +52,19 @@ func TestGivenWrittenDateWhenReadBackThenSameCalendarDay(t *testing.T) {
 	}
 }
 
+func TestGivenACalendarDateWhenConvertingToASerialThenSerialToDateReturnsIt(t *testing.T) {
+	date := time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC)
+	if got := DateToSerial(date); got != 46309 {
+		t.Fatalf("DateToSerial(%v) = %d, want 46309", date, got)
+	}
+	if got := DateToSerial(time.Date(2026, 10, 14, 23, 30, 0, 0, time.UTC)); got != 46309 {
+		t.Fatalf("a time of day must not change the serial, got %d", got)
+	}
+	if back := SerialToDate(float64(DateToSerial(date))); !back.Equal(date) {
+		t.Fatalf("SerialToDate(DateToSerial) = %v", back)
+	}
+}
+
 func TestTodayUsesVietnamTimezone(t *testing.T) {
 	// 20:00 UTC on 4 March is 03:00 on 5 March in Ho Chi Minh City.
 	now := time.Date(2026, 3, 4, 20, 0, 0, 0, time.UTC)

@@ -46,6 +46,16 @@ func (h *AIHandler) GetUsage(c *fiber.Ctx) error {
 	return respondWith(c, h.log, aiScope)(h.ai.ProviderUsage(c.UserContext()))
 }
 
+// AIModels is the response of GET /api/ai/models.
+type AIModels struct {
+	Models []string `json:"models"`
+}
+
+func (h *AIHandler) GetModels(c *fiber.Ctx) error {
+	models, err := h.ai.ProviderModels(c.UserContext())
+	return respondWith(c, h.log, aiScope)(AIModels{Models: models}, err)
+}
+
 func (h *AIHandler) SuggestCategory(c *fiber.Ctx) error {
 	var body struct {
 		Payee string `json:"payee"`

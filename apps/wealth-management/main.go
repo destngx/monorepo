@@ -5,6 +5,7 @@ import (
 	cacheAdapter "apps/wealth-management/adapter/cache"
 	configAdapter "apps/wealth-management/adapter/config"
 	dbAdapter "apps/wealth-management/adapter/db/google_sheets"
+	workbookAdapter "apps/wealth-management/adapter/db/local_workbook"
 	fiberAdapter "apps/wealth-management/adapter/fiber"
 	googleauthAdapter "apps/wealth-management/adapter/googleauth"
 	loggerAdapter "apps/wealth-management/adapter/logger"
@@ -23,8 +24,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -242,31 +245,21 @@ func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.H
 // routes are still registered and answer 503 SHEETS_NOT_CONFIGURED naming
 // the missing settings (or the client error) so clients can say what to fix.
 func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, cards domain.CardConfig, values configAdapter.Values) (port.DatabaseService, port.AnalyticsService) {
-	sheetsConfig, err := configAdapter.LoadSheetsConfig(values)
+	client, spreadsheetID, err := newSheetsClient(ctx, log, values)
+	if errors.Is(err, errTestWorkbook) {
+		// WM-TEST-2: a test engine must never fall back to the real sheet.
+		log.LogError(ctx, "test workbook unavailable", err)
+		os.Exit(1)
+	}
 	if err != nil {
 		log.LogError(ctx, "sheet features disabled", err)
 		health.Register(port.HealthCheck{Name: "sheets"})
 		fiberAdapter.RegisterUnconfiguredSheetRoutes(api, err, log)
 		return nil, nil
 	}
-	client, err := dbAdapter.NewSheetsClient(ctx, sheetsConfig, log)
-	if err != nil {
-		log.LogError(ctx, "failed to initialize google sheets client", err)
-		health.Register(port.HealthCheck{Name: "sheets"})
-		fiberAdapter.RegisterUnconfiguredSheetRoutes(api, fmt.Errorf("%w: google sheets client could not be built: %w", configAdapter.ErrMissingSheetsConfig, err), log)
-		return nil, nil
-	}
-	if configAdapter.LoadTestMode() {
-		// WM-TEST-2: a test-mode engine must never touch the real sheet.
-		if err := checkTestSheet(sheetsConfig.SpreadsheetID, client.SpreadsheetTitle); err != nil {
-			log.LogError(ctx, "WM_TEST_MODE refuses this spreadsheet", err)
-			os.Exit(1)
-		}
-		log.LogApplicationEvent(ctx, "test mode: using a disposable spreadsheet copy")
-	}
 	dbSvc := service.NewDatabaseService(client, cacheSvc, log, service.DatabaseServiceOptions{
 		BudgetSheetTemplate: configAdapter.BudgetSheetTemplate(values),
-		SpreadsheetID:       sheetsConfig.SpreadsheetID,
+		SpreadsheetID:       spreadsheetID,
 	})
 	analyticsSvc := service.NewAnalyticsService(dbSvc, cards, nil)
 	health.Register(port.HealthCheck{Name: "sheets", Probe: func(context.Context) error { return dbSvc.Ping() }})
@@ -277,14 +270,35 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 	return dbSvc, analyticsSvc
 }
 
-// checkTestSheet allows only a disposable copy; the harness separately
-// checks the copy id against the production id.
-func checkTestSheet(spreadsheetID string, title func() (string, error)) error {
-	name, err := title()
+// errTestWorkbook is a WM_TEST_WORKBOOK the engine cannot serve.
+var errTestWorkbook = errors.New("WM_TEST_WORKBOOK cannot be served")
+
+// newSheetsClient returns the local workbook when WM_TEST_WORKBOOK is set,
+// so a test engine never reaches Google (WM-TEST-2), else the Google Sheets
+// client from the stored settings with its spreadsheet id.
+func newSheetsClient(ctx context.Context, log *loggerAdapter.Logger, values configAdapter.Values) (port.DatabaseClient, string, error) {
+	workbook, err := configAdapter.LoadTestWorkbook()
 	if err != nil {
-		return fmt.Errorf("read spreadsheet title: %w", err)
+		return nil, "", fmt.Errorf("%w: %w", errTestWorkbook, err)
 	}
-	return domain.CheckTestSheet(spreadsheetID, name, "")
+	if workbook != "" {
+		client, err := workbookAdapter.Open(workbook)
+		if err != nil {
+			return nil, "", fmt.Errorf("%w: %s: %w", errTestWorkbook, workbook, err)
+		}
+		log.LogApplicationEvent(ctx, "test workbook: serving the sheet from a local file in memory; writes are not saved and nothing reaches Google",
+			slog.String("workbook", filepath.Base(workbook)))
+		return client, "", nil
+	}
+	sheetsConfig, err := configAdapter.LoadSheetsConfig(values)
+	if err != nil {
+		return nil, "", err
+	}
+	client, err := dbAdapter.NewSheetsClient(ctx, sheetsConfig, log)
+	if err != nil {
+		return nil, "", fmt.Errorf("%w: google sheets client could not be built: %w", configAdapter.ErrMissingSheetsConfig, err)
+	}
+	return client, sheetsConfig.SpreadsheetID, nil
 }
 
 // setupAI wires the AI use cases (§10). They read prompts and data from the

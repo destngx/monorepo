@@ -69,6 +69,16 @@ func TestAIUsageUnavailableIs503(t *testing.T) {
 	}
 }
 
+func TestAIModelsListsTheEndpointModels(t *testing.T) {
+	if status, body := call(t, newAIApp(t, &fakes.AI{}), http.MethodGet, "/api/ai/models", ""); status != http.StatusOK || body != `{"models":["gpt-5","gpt-5-mini"]}` {
+		t.Fatalf("models: %d %s", status, body)
+	}
+	app := newAIApp(t, &fakes.AI{Err: fmt.Errorf("%w: set AI_BASE_URL", domain.ErrAIUnavailable)})
+	if status, body := call(t, app, http.MethodGet, "/api/ai/models", ""); status != http.StatusServiceUnavailable || !strings.Contains(body, "UNAVAILABLE") {
+		t.Fatalf("models unavailable: %d %s", status, body)
+	}
+}
+
 func TestAIChatStreamsNDJSON(t *testing.T) {
 	status, body := call(t, newAIApp(t, &fakes.AI{}), http.MethodPost, "/api/ai/chat", `{"messages":[{"role":"user","content":"hi"}]}`)
 	if status != http.StatusOK || body != "{\"type\":\"tool\",\"tool\":\"getBudgetStatus\",\"status\":\"running\"}\n{\"type\":\"text\",\"delta\":\"Hel\"}\n{\"type\":\"text\",\"delta\":\"lo\"}\n{\"type\":\"done\",\"model\":\"m\"}\n" {

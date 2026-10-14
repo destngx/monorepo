@@ -11,12 +11,13 @@ func TestGivenAPurposeWhenParsingThenScopesAndKeyFollow(t *testing.T) {
 	if err != nil || sheets != GoogleAuthSheets || sheets.SettingKey() != "GOOGLE_REFRESH_TOKEN" || len(sheets.Scopes()) != 1 {
 		t.Fatalf("default purpose = %q %v %v", sheets, sheets.Scopes(), err)
 	}
-	test, err := ParseGoogleAuthPurpose("test")
-	if err != nil || test.SettingKey() != "GOOGLE_TEST_REFRESH_TOKEN" || !slices.Contains(test.Scopes(), googleDriveFileScope) {
-		t.Fatalf("test purpose = %q %v %v", test, test.Scopes(), err)
+	if !slices.Equal(sheets.Scopes(), []string{googleSheetsScope}) {
+		t.Fatalf("the sheets token must not ask for more than spreadsheets: %v", sheets.Scopes())
 	}
-	if _, err := ParseGoogleAuthPurpose("drive"); !errors.Is(err, ErrValidation) {
-		t.Fatalf("unknown purpose err = %v", err)
+	for _, retired := range []string{"test", "drive"} {
+		if _, err := ParseGoogleAuthPurpose(retired); !errors.Is(err, ErrValidation) {
+			t.Fatalf("purpose %q err = %v", retired, err)
+		}
 	}
 }
 

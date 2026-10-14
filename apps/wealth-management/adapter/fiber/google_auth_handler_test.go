@@ -47,14 +47,15 @@ func TestGivenAPurposeWhenStartingThenTheConsentAddressIsReturned(t *testing.T) 
 	auth := &fakeGoogleAuth{}
 	app := newGoogleAuthApp(t, auth)
 
-	status, body := call(t, app, http.MethodPost, "/api/auth/google/start", `{"purpose":"test"}`, "Origin", "http://127.0.0.1:5173")
+	status, body := call(t, app, http.MethodPost, "/api/auth/google/start", `{"purpose":"sheets"}`, "Origin", "http://127.0.0.1:5173")
 
 	if auth.origin != "http://127.0.0.1:5173" {
 		t.Fatalf("origin = %q", auth.origin)
 	}
-	if status != http.StatusOK || auth.purpose != domain.GoogleAuthTest || !strings.Contains(body, `"authUrl":"https://accounts.example/auth"`) {
+	if status != http.StatusOK || auth.purpose != domain.GoogleAuthSheets || !strings.Contains(body, `"authUrl":"https://accounts.example/auth"`) {
 		t.Fatalf("status %d purpose %q body %s", status, auth.purpose, body)
 	}
+	auth.purpose = ""
 	if status, _ := call(t, app, http.MethodPost, "/api/auth/google/start", ""); status != http.StatusOK || auth.purpose != domain.GoogleAuthSheets {
 		t.Fatalf("default purpose: status %d purpose %q", status, auth.purpose)
 	}
@@ -62,7 +63,7 @@ func TestGivenAPurposeWhenStartingThenTheConsentAddressIsReturned(t *testing.T) 
 
 func TestGivenAnUnknownPurposeOrMissingClientWhenStartingThenItIsAValidationError(t *testing.T) {
 	app := newGoogleAuthApp(t, &fakeGoogleAuth{})
-	if status, body := call(t, app, http.MethodPost, "/api/auth/google/start", `{"purpose":"drive"}`); status != http.StatusBadRequest || !strings.Contains(body, CodeValidation) {
+	if status, body := call(t, app, http.MethodPost, "/api/auth/google/start", `{"purpose":"test"}`); status != http.StatusBadRequest || !strings.Contains(body, CodeValidation) {
 		t.Fatalf("status %d body %s", status, body)
 	}
 
