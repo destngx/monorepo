@@ -7,7 +7,8 @@ from src.models.crawl import CrawledPost
 
 PAGE_RE = re.compile(r"page-(\d+)", re.IGNORECASE)
 OF_RE = re.compile(r"\bof\s+(\d+)\b", re.IGNORECASE)
-THREAD_ID_RE = re.compile(r"\.(\d+)(?:/|$)")
+# The id ends the thread segment: "/t/slug.123/" or a bare "/t/123/".
+THREAD_ID_RE = re.compile(r"[./](\d+)/$")
 POST_NUMBER_RE = re.compile(r"#(\d+)")
 USER_ID_RE = re.compile(r"\.(\d+)/?$")
 ITEM_POST_ID_RE = re.compile(r"/p/(\d+)/?")

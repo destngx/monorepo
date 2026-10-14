@@ -1,3 +1,5 @@
+import pytest
+
 from src.modules.sites.voz.parser import VozParser
 
 HTML = """
@@ -163,3 +165,18 @@ def test_post_nodes_follow_document_order_without_duplicates():
     )
 
     assert [post.post_id for post in posts] == ["1", "2", "3"]
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://voz.vn/t/ca-phe-tai-gia-2025.1048163/", "1048163"),
+        ("https://voz.vn/t/ca-phe-tai-gia-2025.1048163", "1048163"),
+        ("https://voz.vn/t/913440/", "913440"),
+        ("https://voz.vn/t/913440/page-3", "913440"),
+        ("https://voz.vn/t/913440", "913440"),
+        ("https://voz.vn/t/no-id-here/", "thread"),
+    ],
+)
+def test_thread_id_from_url_with_and_without_slug(url, expected):
+    assert VozParser().thread_id_from_url(url) == expected
