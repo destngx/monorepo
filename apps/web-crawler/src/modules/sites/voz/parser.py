@@ -103,7 +103,6 @@ class VozParser:
                     ),
                     created_timestamp=self._timestamp(time_node),
                     text=body_node.get_text("\n", strip=True) if body_node else "",
-                    html=str(body_node) if body_node else "",
                     images=self._images(node, page_url),
                     url=post_url,
                 )

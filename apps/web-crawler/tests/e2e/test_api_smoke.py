@@ -81,6 +81,7 @@ class FakeThreadCrawlerService:
         delay_seconds: float = 1.5,
         fresh_profile: bool = False,
         resume_from_page: int | None = None,
+        restart: bool = False,
         on_progress=None,
     ):
         _ = (
@@ -90,6 +91,7 @@ class FakeThreadCrawlerService:
             delay_seconds,
             fresh_profile,
             resume_from_page,
+            restart,
         )
         on_progress(CrawlProgress(current_page=70, pages_crawled=1, posts_written=1))
         return ThreadCrawlResult(

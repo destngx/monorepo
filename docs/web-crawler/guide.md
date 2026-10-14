@@ -29,7 +29,7 @@ curl -X POST 'http://127.0.0.1:8002/v1/pages/probe/browser' \
 1. Send `POST /v1/threads/crawl/browser` with a VOZ thread URL. It returns a `job_id` right away.
 2. Poll `GET /v1/threads/crawl/jobs/<job_id>` until `status` is no longer `running`. Use `DELETE` on the same path to stop a crawl.
 3. Use `fresh_profile=true` if a profile becomes blocked.
-4. Use `resume_from_page` to continue from a checkpoint.
+4. Send the same request again later to pick up new replies: only the last saved page and newer pages are fetched. Use `resume_from_page` to start at a specific page, or `restart=true` to crawl everything again.
 5. Inspect the output JSON under `data/crawls/voz.vn/<thread_id>/`.
 
 Example:

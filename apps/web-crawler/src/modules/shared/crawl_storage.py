@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from src.models.crawl import CrawlCheckpoint
@@ -84,6 +85,15 @@ class CrawlStorage:
         checkpoint: CrawlCheckpoint,
     ) -> None:
         self._write_atomic(checkpoint_path, checkpoint.model_dump_json(indent=2))
+
+    def write_snapshot(self, thread_dir: Path, page: int, kind: str, html: str) -> Path:
+        """Keep the HTML of a page that failed so the cause can be inspected."""
+        snapshot_dir = thread_dir / "snapshots"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        path = snapshot_dir / f"page-{page}-{kind}-{stamp}.html"
+        path.write_text(html, encoding="utf-8")
+        return path
 
     @staticmethod
     def clear_thread_state(*paths: Path) -> None:

@@ -35,6 +35,14 @@ class ThreadCrawlRequest(BaseModel):
         le=500,
         description="Optional page to resume crawling from",
     )
+    restart: bool = Field(
+        default=False,
+        description=(
+            "Discard saved pages and crawl from page 1. By default a thread "
+            "with saved pages is updated: missing pages are filled, the last "
+            "saved page is refreshed and new pages are crawled"
+        ),
+    )
 
 
 class CrawledPost(BaseModel):
@@ -47,7 +55,6 @@ class CrawledPost(BaseModel):
     created_at: str = ""
     created_timestamp: int | None = None
     text: str = ""
-    html: str = ""
     images: list[str] = Field(default_factory=list)
     url: str = ""
 
@@ -61,7 +68,12 @@ class CrawledPage(BaseModel):
     bytes: int = 0
     post_count: int = 0
     last_page: int = 1
+    load_ms: int = 0
+    snapshot_path: str = ""
     error: str = ""
+
+
+CrawlMode = Literal["fresh", "resume", "update"]
 
 
 class ThreadCrawlResult(BaseModel):
@@ -74,6 +86,7 @@ class ThreadCrawlResult(BaseModel):
     pages_crawled: int
     posts_written: int
     last_page: int
+    mode: CrawlMode = "fresh"
     resume_from_page: int
     stopped_reason: str = ""
     pages: list[CrawledPage] = Field(default_factory=list)

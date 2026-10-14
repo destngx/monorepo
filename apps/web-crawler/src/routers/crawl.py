@@ -36,6 +36,7 @@ async def crawl_thread_browser(
             ),
             fresh_profile=request.fresh_profile,
             resume_from_page=request.resume_from_page,
+            restart=request.restart,
             on_progress=on_progress,
         )
 

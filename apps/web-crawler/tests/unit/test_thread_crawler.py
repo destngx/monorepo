@@ -83,6 +83,7 @@ def test_thread_crawler_writes_structured_json(tmp_path):
                     "url": base_url,
                     "replies": [
                         {
+                            "post_id": "101",
                             "author": "user1",
                             "created_at": "2024-01-26T11:38:20+0700",
                             "text": "post 1",
@@ -94,6 +95,7 @@ def test_thread_crawler_writes_structured_json(tmp_path):
                     "url": page_two_url,
                     "replies": [
                         {
+                            "post_id": "102",
                             "author": "user2",
                             "created_at": "2024-01-26T11:38:20+0700",
                             "text": "post 2",
@@ -251,3 +253,83 @@ def test_thread_crawler_reports_progress_per_page(tmp_path):
         (1, 1, 1),
         (2, 2, 2),
     ]
+
+
+def test_recrawl_updates_only_last_saved_and_new_pages(tmp_path):
+    base_url = "https://voz.vn/t/example.913440/"
+    page_two_url = "https://voz.vn/t/example.913440/page-2"
+    page_three_url = "https://voz.vn/t/example.913440/page-3"
+    browser = _two_page_browser(base_url, page_two_url)
+    service = VozThreadCrawler(browser_client=browser, output_dir=str(tmp_path))
+    anyio.run(service.crawl_thread, base_url, None, 5, None, 0)
+
+    # The thread grew: page 2 now points at a third page.
+    browser.pages[page_two_url] = _html(page=2, last_page=3, post_id=102)
+    browser.pages[page_three_url] = _html(page=3, last_page=3, post_id=103)
+    browser.urls.clear()
+    result = anyio.run(service.crawl_thread, base_url, None, 5, None, 0)
+
+    assert result.mode == "update"
+    assert result.resume_from_page == 2
+    assert browser.urls == [page_two_url, page_three_url]
+    assert result.posts_written == 3
+    payload = json.loads(
+        (tmp_path / "voz.vn" / "913440" / "913440.json").read_text(encoding="utf-8")
+    )
+    assert [page["page"] for page in payload[0]["pages"]] == [1, 2, 3]
+
+
+def test_restart_discards_saved_pages(tmp_path):
+    base_url = "https://voz.vn/t/example.913440/"
+    page_two_url = "https://voz.vn/t/example.913440/page-2"
+    browser = _two_page_browser(base_url, page_two_url)
+    service = VozThreadCrawler(browser_client=browser, output_dir=str(tmp_path))
+    anyio.run(service.crawl_thread, base_url, None, 5, None, 0)
+    browser.urls.clear()
+
+    result = anyio.run(
+        service.crawl_thread, base_url, None, 5, None, 0, False, None, True
+    )
+
+    assert result.mode == "fresh"
+    assert browser.urls == [base_url, page_two_url]
+    assert result.posts_written == 2
+
+
+@pytest.mark.parametrize(
+    ("saved", "expected"),
+    [({1, 2, 3}, 3), ({1, 3}, 2), ({5}, 1), ({1}, 1)],
+)
+def test_update_start_page(saved, expected):
+    pages = {page: {"page": page, "replies": []} for page in saved}
+
+    assert VozThreadCrawler._update_start_page(pages) == expected
+
+
+def test_failed_page_is_snapshotted_and_stops_crawl(tmp_path):
+    base_url = "https://voz.vn/t/example.913440/"
+    blocked_html = "<html><head><title>Just a moment...</title></head></html>"
+    browser = FakeBrowserClient({base_url: blocked_html}, status_code=403)
+    service = VozThreadCrawler(browser_client=browser, output_dir=str(tmp_path))
+
+    # fresh_profile=True leaves no fresh-profile retry, so the crawl stops.
+    result = anyio.run(service.crawl_thread, base_url, None, 5, None, 0, True)
+
+    assert result.stopped_reason == "blocked"
+    snapshot = result.pages[0].snapshot_path
+    assert "snapshots/page-1-blocked-" in snapshot
+    assert (tmp_path / snapshot).read_text(encoding="utf-8") == blocked_html
+    assert isinstance(result.pages[0].load_ms, int)
+
+
+def test_page_without_posts_stops_crawl_without_saving(tmp_path):
+    base_url = "https://voz.vn/t/example.913440/"
+    browser = FakeBrowserClient({base_url: "<html><body>Loading</body></html>"})
+    service = VozThreadCrawler(browser_client=browser, output_dir=str(tmp_path))
+
+    result = anyio.run(service.crawl_thread, base_url, None, 5, None, 0)
+
+    assert result.stopped_reason == "no_posts"
+    assert result.posts_written == 0
+    assert result.pages[0].snapshot_path
+    assert not (tmp_path / "voz.vn" / "913440" / "913440.pages.jsonl").exists()

@@ -1,9 +1,12 @@
 import asyncio
+import time
 from collections.abc import Callable
+from pathlib import Path
 
 from src.models.crawl import (
     CrawlCheckpoint,
     CrawledPage,
+    CrawlMode,
     CrawlProgress,
     ThreadCrawlResult,
 )
@@ -45,13 +48,14 @@ class VozThreadCrawler:
         delay_seconds: float = 1.5,
         fresh_profile: bool = False,
         resume_from_page: int | None = None,
+        restart: bool = False,
         on_progress: Callable[[CrawlProgress], None] | None = None,
     ) -> ThreadCrawlResult:
         browser_client = self._browser_client(fresh_profile)
         thread_id = self.parser.thread_id_from_url(url)
         paths = self.storage.resolve_thread_paths(url, thread_id)
         await asyncio.to_thread(self.storage.ensure_thread_dir, paths.thread_dir)
-        if resume_from_page is None:
+        if restart:
             await asyncio.to_thread(
                 self.storage.clear_thread_state,
                 paths.output_path,
@@ -59,12 +63,21 @@ class VozThreadCrawler:
                 paths.checkpoint_path,
             )
             saved_pages: dict[int, dict] = {}
-            resume_from_page = 1
         else:
             saved_pages = await asyncio.to_thread(
                 self.storage.load_pages, paths.pages_path
             )
+
+        mode: CrawlMode
+        if resume_from_page is not None:
+            mode = "resume"
             resume_from_page = max(1, resume_from_page)
+        elif saved_pages:
+            mode = "update"
+            resume_from_page = self._update_start_page(saved_pages)
+        else:
+            mode = "fresh"
+            resume_from_page = 1
 
         last_page = 1
         pages: list[CrawledPage] = []
@@ -103,6 +116,7 @@ class VozThreadCrawler:
                     cookie=cookie,
                     timeout_seconds=timeout_seconds,
                     browser_client=browser_client,
+                    thread_dir=paths.thread_dir,
                 )
                 pages.append(crawled_page)
                 last_page = max(last_page, crawled_page.last_page)
@@ -114,6 +128,7 @@ class VozThreadCrawler:
                         "url": crawled_page.final_url or crawled_page.url,
                         "replies": [
                             {
+                                "post_id": post.post_id,
                                 "author": post.author,
                                 "created_at": post.created_at,
                                 "text": post.text,
@@ -179,6 +194,7 @@ class VozThreadCrawler:
             pages_crawled=len(pages),
             posts_written=posts_written,
             last_page=last_page,
+            mode=mode,
             resume_from_page=resume_from_page,
             stopped_reason=stopped_reason,
             pages=pages,
@@ -192,7 +208,9 @@ class VozThreadCrawler:
         cookie: str | None,
         timeout_seconds: int,
         browser_client: BrowserClient,
+        thread_dir: Path,
     ) -> tuple[CrawledPage, list]:
+        started = time.perf_counter()
         try:
             result = await browser_client.acquire(
                 url,
@@ -201,9 +219,16 @@ class VozThreadCrawler:
             )
         except BrowserAcquireError as exc:
             return (
-                CrawledPage(page=page, url=url, kind="network_error", error=str(exc)),
+                CrawledPage(
+                    page=page,
+                    url=url,
+                    kind="network_error",
+                    load_ms=self._elapsed_ms(started),
+                    error=str(exc),
+                ),
                 [],
             )
+        load_ms = self._elapsed_ms(started)
 
         soup = self.parser.parse_html(result.body)
         kind = classify_page(result.status_code, soup)
@@ -215,7 +240,18 @@ class VozThreadCrawler:
         )
         if 200 <= result.status_code < 300 and posts:
             kind = "ok"
+        elif kind == "ok":
+            # A real thread page always has posts; an empty one means the
+            # page did not render or the thread is gone.
+            kind = "no_posts"
         last_page = max(1, self.parser.parse_last_page(soup))
+
+        snapshot_path = ""
+        if kind != "ok":
+            snapshot = await asyncio.to_thread(
+                self.storage.write_snapshot, thread_dir, page, kind, result.body
+            )
+            snapshot_path = str(snapshot)
 
         return (
             CrawledPage(
@@ -227,9 +263,26 @@ class VozThreadCrawler:
                 bytes=len(result.body.encode("utf-8")),
                 post_count=len(posts),
                 last_page=last_page,
+                load_ms=load_ms,
+                snapshot_path=snapshot_path,
             ),
             posts,
         )
+
+    @staticmethod
+    def _elapsed_ms(started: float) -> int:
+        return round((time.perf_counter() - started) * 1000)
+
+    @staticmethod
+    def _update_start_page(saved_pages: dict[int, dict]) -> int:
+        """Fill the first gap, otherwise refresh the last saved page.
+
+        The last saved page may have gained replies since it was crawled.
+        """
+        first_gap = next(
+            page for page in range(1, len(saved_pages) + 2) if page not in saved_pages
+        )
+        return min(first_gap, max(saved_pages))
 
     @staticmethod
     def _posts_written(saved_pages: dict[int, dict]) -> int:

@@ -68,7 +68,8 @@ Request body:
   "max_pages": 20,
   "delay_seconds": 5,
   "fresh_profile": false,
-  "resume_from_page": 71
+  "resume_from_page": 71,
+  "restart": false
 }
 ```
 
@@ -88,6 +89,14 @@ Response body:
   }
 }
 ```
+
+Where the crawl starts (reported as `result.mode`):
+
+- `resume`: `resume_from_page` is set, so the crawl starts there.
+- `update` (default when the thread already has saved pages): fills the first missing page, otherwise re-fetches the last saved page (it may have new replies), then continues to the current last page. Re-crawling a grown thread only fetches the new pages.
+- `fresh`: nothing is saved yet, or `restart=true` discarded the saved pages, so the crawl starts at page 1.
+
+Each entry in `result.pages` reports `kind`, `load_ms` (time to fetch and render the page) and, for any page that is not `ok`, `snapshot_path` pointing at the saved HTML.
 
 Returns `409 Conflict` with the running `job_id` if a crawl for the same thread is already in progress.
 
@@ -109,6 +118,7 @@ Job state is in memory only: it is lost on restart and the 100 most recent finis
 
 - `kind=ok` means the browser returned HTML that does not look like a challenge page.
 - `kind=challenge` means the page loaded but its title or markup is a bot-challenge interstitial (for example Cloudflare's "Just a moment..."). Words like "captcha" inside posts do not count.
+- `kind=no_posts` (crawler only) means the page returned `2xx` without any posts, so it did not render or the thread is gone. The crawl stops instead of saving an empty page.
 - `kind=blocked`, `kind=rate_limited` and `kind=server_error` come from HTTP `403`, `429` and `5xx`.
 - `kind=network_error` means the browser could not launch or navigate successfully.
 - `cookie` is treated as an in-memory Cookie header string and is never written to disk.

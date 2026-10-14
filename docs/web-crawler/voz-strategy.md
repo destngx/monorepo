@@ -31,12 +31,14 @@ This document captures the current site-specific crawl strategy for `voz.vn`.
 - `<thread_id>.pages.jsonl` is the durable page log: one page per line, flushed and fsynced before the checkpoint advances past that page. A torn last line from a crash is dropped on the next resume.
 - The checkpoint file is `<thread_id>.checkpoint.json`, replaced atomically.
 - The main output file is `<thread_id>.json`, assembled from the page log (one entry per page, sorted) and replaced atomically at the end of every run, including failed or cancelled runs.
+- Any page that is not `ok` has its HTML saved under `snapshots/page-<n>-<kind>-<timestamp>.html` for diagnosis.
 - Resuming over pages that were already saved replaces them instead of duplicating them.
 - The crawl output is nested by thread, page, and reply:
   - thread
   - pages
   - replies
 - Reply records only keep:
+  - `post_id`
   - `author`
   - `created_at`
   - `text`
@@ -50,7 +52,9 @@ This document captures the current site-specific crawl strategy for `voz.vn`.
 - On first `403 blocked`, the crawler writes a checkpoint and retries once with a fresh browser profile.
 - If the retry fails, the crawl stops and preserves the checkpoint.
 - Jittered pacing is used between page fetches instead of a fixed interval.
-- `resume_from_page` resumes the crawl from the requested page or the checkpointed page.
+- `resume_from_page` resumes the crawl from the requested page.
+- Without `resume_from_page`, a thread with saved pages is updated: the first missing page is filled, otherwise the last saved page is re-fetched, then new pages are crawled. `restart=true` discards saved pages and starts over.
+- A `2xx` page without posts stops the crawl as `no_posts` instead of being saved as an empty page.
 
 ## Shared Dependencies
 
