@@ -236,6 +236,9 @@ func TestBuildCaptureSuggestions(t *testing.T) {
 		if suggestion.ID == "" || !suggestion.Selected || (index > 0 && suggestion.ID == suggestions[index-1].ID) {
 			t.Fatalf("ids and selection: %+v", suggestions)
 		}
+		if !suggestion.Transaction.Cleared {
+			t.Fatalf("suggestion %d should default to cleared like manual entry: %+v", index, suggestion.Transaction)
+		}
 	}
 
 	ApplyCaptureDuplicates(suggestions, []Transaction{{ID: "r9", AccountName: "Ví MoMo", Payee: "VCB", Date: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC), Deposit: amountPointer(2000000)}})

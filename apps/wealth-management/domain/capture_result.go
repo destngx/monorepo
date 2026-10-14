@@ -145,6 +145,9 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 		Date:        event.Date().Format(SheetDateLayout),
 		Tags:        []string{},
 		Memo:        captureMemo(item, materials),
+		// Captured from a bank or wallet record, so already settled; manual
+		// entry defaults to cleared too.
+		Cleared: true,
 	}
 	if event.Reference != "" {
 		transaction.ReferenceNumber = stringPointer(event.Reference)
