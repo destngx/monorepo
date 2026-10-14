@@ -69,28 +69,21 @@
   }
 
   /**
-   * Saves the edit. A rewritten user message is answered again (after
-   * confirmation), since the replies after it no longer match; a reply is
-   * rewritten in place.
+   * Sends the rewritten message after confirmation; the replies after it are
+   * dropped since they no longer match.
    */
-  function saveEdit(entry: ChatEntry) {
+  function saveEdit() {
     if (!editing?.text.trim()) return;
-    const { index, text } = editing;
-    if (entry.role === 'user') {
-      pending = { index, text };
-      return;
-    }
-    editing = null;
-    chat.edit(index, text);
+    pending = { ...editing };
   }
 
-  function onEditKeydown(event: KeyboardEvent, entry: ChatEntry) {
+  function onEditKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       event.preventDefault();
       editing = null;
     } else if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
-      saveEdit(entry);
+      saveEdit();
     }
   }
 
@@ -119,7 +112,7 @@
   }
 </script>
 
-<!-- Copy, retry and edit share one toolbar so they always sit together; older messages show it faded until hovered. -->
+<!-- One toolbar per message: copy and edit on yours, copy and retry on replies. Older messages show it faded until hovered. -->
 {#snippet actions(entry: ChatEntry, index: number)}
   {#if !chat.streaming && editing?.index !== index}
     <div
@@ -140,7 +133,7 @@
           ><Icon name={copied === index ? 'check' : 'copy'} size={14} /></button
         >
       {/if}
-      {#if retryFrom(chat.entries, index)}
+      {#if entry.role === 'assistant' && retryFrom(chat.entries, index)}
         <button
           type="button"
           class="group/retry icon-btn"
@@ -152,24 +145,26 @@
           ></button
         >
       {/if}
-      <button
-        type="button"
-        class="icon-btn"
-        aria-label="Edit message"
-        title="Edit"
-        onclick={() => startEdit(entry, index)}><Icon name="pencil" size={14} /></button
-      >
+      {#if entry.role === 'user'}
+        <button
+          type="button"
+          class="icon-btn"
+          aria-label="Edit message"
+          title="Edit"
+          onclick={() => startEdit(entry, index)}><Icon name="pencil" size={14} /></button
+        >
+      {/if}
     </div>
   {/if}
 {/snippet}
 
-{#snippet editor(entry: ChatEntry)}
+{#snippet editor()}
   {#if editing}
     <form
       class="w-full space-y-2"
       onsubmit={(event) => {
         event.preventDefault();
-        saveEdit(entry);
+        saveEdit();
       }}
     >
       <label class="sr-only" for="chat-edit-{compact ? 'widget' : 'page'}">Edit message</label>
@@ -177,21 +172,17 @@
         id="chat-edit-{compact ? 'widget' : 'page'}"
         class="field max-h-64 min-h-20 w-full resize-y text-sm"
         bind:value={editing.text}
-        onkeydown={(event) => onEditKeydown(event, entry)}
+        onkeydown={onEditKeydown}
         {@attach focusEnd}
       ></textarea>
       <div class="flex justify-end gap-2">
         <button type="button" class="btn-ghost text-xs" onclick={() => (editing = null)}>Cancel</button>
-        {#if entry.role === 'user'}
-          <button
-            type="submit"
-            class="btn-primary text-xs"
-            title="Answer again; removes later messages"
-            disabled={!editing.text.trim()}>Save &amp; send</button
-          >
-        {:else}
-          <button type="submit" class="btn-primary text-xs" disabled={!editing.text.trim()}>Save</button>
-        {/if}
+        <button
+          type="submit"
+          class="btn-primary text-xs"
+          title="Answer again; removes later messages"
+          disabled={!editing.text.trim()}>Save &amp; send</button
+        >
       </div>
     </form>
   {/if}
@@ -245,7 +236,7 @@
         {#if entry.role === 'user'}
           <div class="group flex flex-col items-end gap-1">
             {#if editing?.index === index}
-              {@render editor(entry)}
+              {@render editor()}
             {:else}
               <p
                 class="max-w-[85%] rounded-2xl rounded-br-md bg-indigo-600 px-3 py-2 text-sm whitespace-pre-wrap text-white"
@@ -256,7 +247,7 @@
             {@render actions(entry, index)}
           </div>
         {:else}
-          <div class="group space-y-1.5 {editing?.index === index ? '' : 'max-w-[95%]'}">
+          <div class="group max-w-[95%] space-y-1.5">
             {#if entry.tools?.length}
               <div class="flex flex-wrap gap-1.5">
                 {#each entry.tools as tool, toolIndex (toolIndex)}
@@ -275,9 +266,7 @@
                 {/each}
               </div>
             {/if}
-            {#if editing?.index === index}
-              {@render editor(entry)}
-            {:else if entry.content}
+            {#if entry.content}
               <div class="rounded-2xl rounded-bl-md bg-slate-900/5 px-3 py-2 dark:bg-white/5">
                 <Markdown text={entry.content} />
               </div>
@@ -288,7 +277,7 @@
                 <span class="size-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]"></span>
               </div>
             {/if}
-            {#if entry.error && editing?.index !== index}
+            {#if entry.error}
               <p class="text-xs text-rose-600 dark:text-rose-400" role="alert">{entry.error}</p>
             {/if}
             {@render actions(entry, index)}
