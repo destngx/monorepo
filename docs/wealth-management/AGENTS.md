@@ -10,7 +10,7 @@ One Nx project, `wealth-management`, at `apps/wealth-management/`:
 
 - Go engine (Fiber) at the project root, API under `/api`, MCP server over stdio (stdout is reserved for JSON-RPC; logs go to stderr).
 - SvelteKit UI in `ui/`, built with `adapter-static` (base `/ui`) and served by the engine at `/ui`. One process, one origin in production.
-- Dev: `pnpx nx run wealth-management:serve` (air + vite with `/api` proxied to `:8080`). Prod-like: `pnpx nx run wealth-management:start` (builds the UI, then runs the engine).
+- Dev: `pnpx nx run wealth-management:serve` (air + vite with `/api` proxied to `:9090`). Prod-like: `pnpx nx run wealth-management:start` (builds the UI, then runs the engine).
 - Settings: no env file. Integration settings live in a SQLite store edited on the UI Settings page (`GET/PATCH /api/settings`, applied by `POST /api/settings/restart`); only bootstrap values (`HOST`, `PORT`, `API_TOKEN`, `WM_SETTINGS_PATH`, `CACHE_SQLITE_PATH`, `WM_TEST_WORKBOOK`, `LOG_COLOR`) come from the environment. Registry: `domain/settings.go`.
 - Google OAuth: **Connect Google account** in Settings (`/api/auth/google/*`, saves to the settings store); check with `pnpx nx run wealth-management:verify-auth`.
 

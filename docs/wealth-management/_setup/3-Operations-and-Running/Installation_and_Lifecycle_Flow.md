@@ -27,7 +27,7 @@ There is no env file ([setup README §2](../README.md#2-settings-no-env-file)). 
 
 | Mode      | Command                               | Result                                                                           |
 | --------- | ------------------------------------- | -------------------------------------------------------------------------------- |
-| Dev       | `pnpx nx run wealth-management:serve` | Engine with live reload on `:8080` plus the Vite dev server with `/api` proxied. |
+| Dev       | `pnpx nx run wealth-management:serve` | Engine with live reload on `:9090` plus the Vite dev server with `/api` proxied. |
 | Prod-like | `pnpx nx run wealth-management:start` | Builds the UI, then runs the engine, which serves the UI at `/ui` (one origin).  |
 
 Then check `GET /api/health` (per-dependency status) and open `/api/docs` for the API reference.

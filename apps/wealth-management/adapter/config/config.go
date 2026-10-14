@@ -165,10 +165,10 @@ func LoadMarketDataServerURL(values Values) string {
 	return values.getOrDefault("MARKET_DATA_SERVER_URL", "http://localhost:8000")
 }
 
-// LoadServerConfig reads HOST (default 127.0.0.1), PORT (default 8080) and
+// LoadServerConfig reads HOST (default 127.0.0.1), PORT (default 9090) and
 // API_TOKEN, which guards write endpoints when set, from the environment.
 func LoadServerConfig() (domain.ServerConfig, error) {
-	port, err := strconv.Atoi(envOrDefault("PORT", "8080"))
+	port, err := strconv.Atoi(envOrDefault("PORT", "9090"))
 	if err != nil || port < 1 || port > 65535 {
 		return domain.ServerConfig{}, fmt.Errorf("%w: PORT must be 1-65535", ErrInvalidServerConfig)
 	}

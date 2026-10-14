@@ -526,7 +526,7 @@ func init() {
 
 4. **Endpoints work immediately**:
    ```bash
-   curl http://localhost:8080/api/market/ticker?symbol=BTCUSDT&type=crypto
+   curl http://localhost:9090/api/market/ticker?symbol=BTCUSDT&type=crypto
    ```
 
 ### 6.2 Swapping Provider Priority (A/B Testing)

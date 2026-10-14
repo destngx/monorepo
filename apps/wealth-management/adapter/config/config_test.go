@@ -15,8 +15,8 @@ func TestLoadServerConfig(t *testing.T) {
 		wantPort                int
 		wantErr                 bool
 	}{
-		{name: "defaults", wantHost: "127.0.0.1", wantPort: 8080},
-		{name: "overrides", host: "0.0.0.0", port: "9090", token: "t", wantHost: "0.0.0.0", wantPort: 9090},
+		{name: "defaults", wantHost: "127.0.0.1", wantPort: 9090},
+		{name: "overrides", host: "0.0.0.0", port: "9191", token: "t", wantHost: "0.0.0.0", wantPort: 9191},
 		{name: "bad port", port: "http", wantErr: true},
 		{name: "port out of range", port: "70000", wantErr: true},
 	}

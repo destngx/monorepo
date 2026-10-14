@@ -40,7 +40,7 @@ The only values read from the environment: the engine needs them before it can o
 | Variable            | Default                                    | Meaning                                                                                                                                     |
 | ------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `HOST`              | `127.0.0.1`                                | Bind address.                                                                                                                               |
-| `PORT`              | `8080`                                     | Listen port (1-65535; anything else aborts startup). The UI dev proxy targets `localhost:8080`.                                             |
+| `PORT`              | `9090`                                     | Listen port (1-65535; anything else aborts startup). The UI dev proxy targets `localhost:9090`.                                             |
 | `API_TOKEN`         | empty                                      | Bearer token required on write endpoints. When empty, writes are allowed only if `HOST` is a loopback address, and refused (403) otherwise. |
 | `WM_SETTINGS_PATH`  | user config directory                      | Settings store file (section 2).                                                                                                            |
 | `CACHE_SQLITE_PATH` | `<system temp>/wealth-management/cache.db` | SQLite cache file, used when Upstash is not configured. Several engines (dev server, e2e runs) can share the file.                          |
@@ -128,10 +128,10 @@ The engine does not call market sources (fmarket, vnstock, Yahoo Finance, CoinGe
 3. Click **Connect Google account** on the Google Sheets card. The tab goes to Google's consent page; allow access and the engine saves `GOOGLE_REFRESH_TOKEN` and brings you back to Settings, which confirms it and shows **Restart to apply**. The sign-in expires after 10 minutes and works once.
 4. Click **Restart engine**. Add the cache, AI and search settings as needed, then restart again.
 
-Google returns the browser to `GET /api/auth/google/callback` on the address the UI is open on, when that is a loopback address: `http://127.0.0.1:5173/api/auth/google/callback` with the Vite dev server (it forwards `/api` to the engine), `http://127.0.0.1:8080/api/auth/google/callback` when the engine serves the UI. From any other host it uses the engine's `http://127.0.0.1:<PORT>` callback, because Google accepts plain-http redirects on loopback only. `GOOGLE_REDIRECT_URL` overrides all of this. The dialog shows the address in use. The callback needs no API token: a one-time state and a PKCE verifier held by the engine protect it, and the request log redacts `code` and `state`. The OAuth client must allow the redirect:
+Google returns the browser to `GET /api/auth/google/callback` on the address the UI is open on, when that is a loopback address: `http://127.0.0.1:5173/api/auth/google/callback` with the Vite dev server (it forwards `/api` to the engine), `http://127.0.0.1:9090/api/auth/google/callback` when the engine serves the UI. From any other host it uses the engine's `http://127.0.0.1:<PORT>` callback, because Google accepts plain-http redirects on loopback only. `GOOGLE_REDIRECT_URL` overrides all of this. The dialog shows the address in use. The callback needs no API token: a one-time state and a PKCE verifier held by the engine protect it, and the request log redacts `code` and `state`. The OAuth client must allow the redirect:
 
 - A **Desktop** client accepts any loopback port, so every address above works as is.
-- A **Web** client must list each exact redirect URI it is used with, e.g. both the `5173` (dev) and `8080` (engine) callbacks. A mismatch is Google's `Error 400: redirect_uri_mismatch`.
+- A **Web** client must list each exact redirect URI it is used with, e.g. both the `5173` (dev) and `9090` (engine) callbacks. A mismatch is Google's `Error 400: redirect_uri_mismatch`.
 - After consent the callback redirects (303) to `/ui/settings?google=connected&purpose=sheets`, or `google=error&reason=denied|expired|rejected|no_refresh_token|invalid|failed`. The page turns the fixed reason into a message, so a crafted link cannot show arbitrary text, then removes the query.
 - When Google returns to another origin than the page (the UI opened from another host, or `GOOGLE_REDIRECT_URL` set elsewhere), the sign-in opens in a new tab instead. If that tab ends on a page that cannot be reached, paste its address into the dialog; it is sent to `POST /api/auth/google/exchange`.
 
@@ -144,8 +144,8 @@ Run from the repo root with `pnpx nx run wealth-management:<target>`. pnpm only;
 | Target            | What it does                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------- |
 | `serve`           | Dev: runs `serve-api` and `serve-ui` in parallel.                                                    |
-| `serve-api`       | Engine with live reload (`air`, `.air.toml`), port 8080 by default.                                  |
-| `serve-ui`        | Vite dev server for the UI (default port 5173, `/api` proxied to `localhost:8080`).                  |
+| `serve-api`       | Engine with live reload (`air`, `.air.toml`), port 9090 by default.                                  |
+| `serve-ui`        | Vite dev server for the UI (default port 5173, `/api` proxied to `localhost:9090`).                  |
 | `start`           | Prod-like: builds the UI (`build-ui:production`), then `go run .`; UI served by the engine at `/ui`. |
 | `build`           | Go build of the engine.                                                                              |
 | `build-ui`        | `vite build` into `ui/build/`.                                                                       |
