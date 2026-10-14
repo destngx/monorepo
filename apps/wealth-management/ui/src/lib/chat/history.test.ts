@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyEvent,
-  canRetry,
+  editEntry,
   MAX_SENT,
   parseHistory,
+  removedByRetry,
   suggestionsFor,
   toMessages,
-  withoutLastReply,
+  retryFrom,
   type ChatEntry,
 } from './history';
 
@@ -55,22 +56,58 @@ describe('toMessages', () => {
   });
 });
 
-describe('withoutLastReply', () => {
-  it('drops the last assistant reply so the user message can be answered again', () => {
-    const entries: ChatEntry[] = [
-      { role: 'user', content: 'first' },
-      { role: 'assistant', content: 'one' },
-      { role: 'user', content: 'second' },
-      { role: 'assistant', content: '', error: 'boom' },
-    ];
-    expect(canRetry(entries)).toBe(true);
-    expect(withoutLastReply(entries)).toEqual(entries.slice(0, 3));
+describe('retryFrom', () => {
+  const entries: ChatEntry[] = [
+    { role: 'user', content: 'first' },
+    { role: 'assistant', content: 'one' },
+    { role: 'user', content: 'second' },
+    { role: 'assistant', content: '', error: 'boom' },
+  ];
+
+  it('keeps the history up to the user message being answered again', () => {
+    expect(retryFrom(entries, 3)).toEqual(entries.slice(0, 3));
+    expect(retryFrom(entries, 1)).toEqual(entries.slice(0, 1));
+    expect(retryFrom(entries, 2)).toEqual(entries.slice(0, 3));
+    expect(retryFrom(entries, 0)).toEqual(entries.slice(0, 1));
   });
 
-  it('refuses when there is no reply to a user message', () => {
-    expect(canRetry([])).toBe(false);
-    expect(withoutLastReply([{ role: 'user', content: 'hi' }])).toBeNull();
-    expect(withoutLastReply([{ role: 'assistant', content: 'hello' }])).toBeNull();
+  it('counts the messages a retry removes', () => {
+    expect(removedByRetry(entries, 3)).toBe(1);
+    expect(removedByRetry(entries, 1)).toBe(3);
+    expect(removedByRetry(entries, 2)).toBe(1);
+    expect(removedByRetry(entries.slice(0, 3), 2)).toBe(0);
+    expect(removedByRetry(entries, 4)).toBe(0);
+  });
+
+  it('refuses when there is no user message to answer', () => {
+    expect(retryFrom([{ role: 'assistant', content: 'hello' }], 0)).toBeNull();
+    expect(retryFrom(entries, 4)).toBeNull();
+    expect(retryFrom(entries, -1)).toBeNull();
+  });
+});
+
+describe('editEntry', () => {
+  it('rewrites one message in place and keeps the rest of the history', () => {
+    const entries: ChatEntry[] = [
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'partial', error: 'boom', model: 'm1' },
+      { role: 'user', content: 'second' },
+    ];
+    const edited = editEntry(entries, 1, '  fixed  ');
+    expect(edited).toEqual([
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'fixed', model: 'm1' },
+      { role: 'user', content: 'second' },
+    ]);
+    // The rewritten reply is sent as context again once its error is gone.
+    expect(toMessages(edited ?? [])).toHaveLength(3);
+    expect(entries[1].content).toBe('partial');
+  });
+
+  it('refuses empty text and unknown messages', () => {
+    const entries: ChatEntry[] = [{ role: 'user', content: 'hi' }];
+    expect(editEntry(entries, 0, '   ')).toBeNull();
+    expect(editEntry(entries, 1, 'x')).toBeNull();
   });
 });
 

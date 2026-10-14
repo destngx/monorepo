@@ -2,10 +2,11 @@
   import Markdown from '$lib/ai/Markdown.svelte';
   import type { ChatPageContext } from '$lib/api/types';
   import Icon from '$lib/components/Icon.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { tick } from 'svelte';
   import { chat } from './chat.svelte';
-  import { canRetry, suggestionsFor } from './history';
+  import { removedByRetry, retryFrom, suggestionsFor, type ChatEntry } from './history';
 
   interface Props {
     page: ChatPageContext;
@@ -32,8 +33,12 @@
   /** Index of the message just copied, to flash a check mark. */
   let copied = $state<number | null>(null);
   let copiedTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The message being rewritten and its draft text. */
+  let editing = $state<{ index: number; text: string } | null>(null);
+  /** A retry or an edited resend waiting for confirmation, since both drop messages. */
+  let pending = $state<{ index: number; text?: string } | null>(null);
+  const pendingRemoved = $derived(pending ? removedByRetry(chat.entries, pending.index) : 0);
   const suggestions = $derived(suggestionsFor(page.path));
-  const retryable = $derived(!chat.streaming && canRetry(chat.entries));
 
   // Keep the newest message in view while streaming.
   $effect(() => {
@@ -46,7 +51,52 @@
   function send(text: string) {
     if (chat.streaming || !text.trim()) return;
     draft = '';
+    editing = null;
     void chat.send(text, page);
+  }
+
+  function confirmPending() {
+    if (!pending) return;
+    const { index, text } = pending;
+    pending = null;
+    editing = null;
+    if (text === undefined) void chat.retry(index, page);
+    else void chat.editAndRetry(index, text, page);
+  }
+
+  function startEdit(entry: ChatEntry, index: number) {
+    editing = { index, text: entry.content };
+  }
+
+  /**
+   * Saves the edit. A rewritten user message is answered again (after
+   * confirmation), since the replies after it no longer match; a reply is
+   * rewritten in place.
+   */
+  function saveEdit(entry: ChatEntry) {
+    if (!editing?.text.trim()) return;
+    const { index, text } = editing;
+    if (entry.role === 'user') {
+      pending = { index, text };
+      return;
+    }
+    editing = null;
+    chat.edit(index, text);
+  }
+
+  function onEditKeydown(event: KeyboardEvent, entry: ChatEntry) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      editing = null;
+    } else if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      saveEdit(entry);
+    }
+  }
+
+  function focusEnd(node: HTMLTextAreaElement) {
+    node.focus();
+    node.setSelectionRange(node.value.length, node.value.length);
   }
 
   async function copy(text: string, index: number) {
@@ -69,35 +119,104 @@
   }
 </script>
 
-{#snippet actions(text: string, index: number, retry: boolean)}
-  {@const writing = chat.streaming && index === chat.entries.length - 1}
-  {#if (text && !writing) || retry}
+<!-- Copy, retry and edit share one toolbar so they always sit together; older messages show it faded until hovered. -->
+{#snippet actions(entry: ChatEntry, index: number)}
+  {#if !chat.streaming && editing?.index !== index}
     <div
-      class="muted flex gap-0.5 transition-opacity focus-within:opacity-100 group-hover:opacity-100 {retry
+      class="flex gap-0.5 transition-opacity duration-200 focus-within:opacity-100 group-hover:opacity-100 {index ===
+      chat.entries.length - 1
         ? ''
-        : 'opacity-0 [@media(hover:none)]:opacity-100'}"
+        : 'opacity-40 [@media(hover:none)]:opacity-100'}"
     >
-      {#if text && !writing}
+      {#if entry.content}
         <button
           type="button"
-          class="rounded-md p-1 hover:bg-slate-900/5 dark:hover:bg-white/5"
+          class="icon-btn {copied === index
+            ? 'text-emerald-600 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-400'
+            : ''}"
           aria-label={copied === index ? 'Copied' : 'Copy message'}
           title={copied === index ? 'Copied' : 'Copy'}
-          onclick={() => copy(text, index)}><Icon name={copied === index ? 'check' : 'copy'} size={14} /></button
+          onclick={() => copy(entry.content, index)}
+          ><Icon name={copied === index ? 'check' : 'copy'} size={14} /></button
         >
       {/if}
-      {#if retry}
+      {#if retryFrom(chat.entries, index)}
         <button
           type="button"
-          class="rounded-md p-1 hover:bg-slate-900/5 dark:hover:bg-white/5"
+          class="group/retry icon-btn"
           aria-label="Retry"
           title="Retry"
-          onclick={() => chat.retry(page)}><Icon name="refresh" size={14} /></button
+          onclick={() => (pending = { index })}
+          ><span class="transition-transform duration-300 group-hover/retry:rotate-180"
+            ><Icon name="refresh" size={14} /></span
+          ></button
         >
       {/if}
+      <button
+        type="button"
+        class="icon-btn"
+        aria-label="Edit message"
+        title="Edit"
+        onclick={() => startEdit(entry, index)}><Icon name="pencil" size={14} /></button
+      >
     </div>
   {/if}
 {/snippet}
+
+{#snippet editor(entry: ChatEntry)}
+  {#if editing}
+    <form
+      class="w-full space-y-2"
+      onsubmit={(event) => {
+        event.preventDefault();
+        saveEdit(entry);
+      }}
+    >
+      <label class="sr-only" for="chat-edit-{compact ? 'widget' : 'page'}">Edit message</label>
+      <textarea
+        id="chat-edit-{compact ? 'widget' : 'page'}"
+        class="field max-h-64 min-h-20 w-full resize-y text-sm"
+        bind:value={editing.text}
+        onkeydown={(event) => onEditKeydown(event, entry)}
+        {@attach focusEnd}
+      ></textarea>
+      <div class="flex justify-end gap-2">
+        <button type="button" class="btn-ghost text-xs" onclick={() => (editing = null)}>Cancel</button>
+        {#if entry.role === 'user'}
+          <button
+            type="submit"
+            class="btn-primary text-xs"
+            title="Answer again; removes later messages"
+            disabled={!editing.text.trim()}>Save &amp; send</button
+          >
+        {:else}
+          <button type="submit" class="btn-primary text-xs" disabled={!editing.text.trim()}>Save</button>
+        {/if}
+      </div>
+    </form>
+  {/if}
+{/snippet}
+
+<Modal
+  open={pending !== null}
+  title={pending?.text === undefined ? 'Retry this message?' : 'Send the edited message?'}
+  onclose={() => (pending = null)}
+>
+  <p class="text-sm">
+    {#if pendingRemoved === 0}
+      The assistant will answer this message again.
+    {:else}
+      This removes {pendingRemoved === 1 ? '1 message' : `${pendingRemoved} messages`} from the conversation and the assistant
+      will answer again. This can't be undone.
+    {/if}
+  </p>
+  {#snippet footer()}
+    <button type="button" class="btn-ghost" onclick={() => (pending = null)}>Cancel</button>
+    <button type="button" class="btn-primary" onclick={confirmPending}
+      >{pending?.text === undefined ? 'Retry' : 'Send'}</button
+    >
+  {/snippet}
+</Modal>
 
 <div class="flex min-h-0 flex-col {className}">
   <div
@@ -125,15 +244,19 @@
       {#each chat.entries as entry, index (index)}
         {#if entry.role === 'user'}
           <div class="group flex flex-col items-end gap-1">
-            <p
-              class="max-w-[85%] rounded-2xl rounded-br-md bg-indigo-600 px-3 py-2 text-sm whitespace-pre-wrap text-white"
-            >
-              {entry.content}
-            </p>
-            {@render actions(entry.content, index, false)}
+            {#if editing?.index === index}
+              {@render editor(entry)}
+            {:else}
+              <p
+                class="max-w-[85%] rounded-2xl rounded-br-md bg-indigo-600 px-3 py-2 text-sm whitespace-pre-wrap text-white"
+              >
+                {entry.content}
+              </p>
+            {/if}
+            {@render actions(entry, index)}
           </div>
         {:else}
-          <div class="group max-w-[95%] space-y-1.5">
+          <div class="group space-y-1.5 {editing?.index === index ? '' : 'max-w-[95%]'}">
             {#if entry.tools?.length}
               <div class="flex flex-wrap gap-1.5">
                 {#each entry.tools as tool, toolIndex (toolIndex)}
@@ -152,7 +275,9 @@
                 {/each}
               </div>
             {/if}
-            {#if entry.content}
+            {#if editing?.index === index}
+              {@render editor(entry)}
+            {:else if entry.content}
               <div class="rounded-2xl rounded-bl-md bg-slate-900/5 px-3 py-2 dark:bg-white/5">
                 <Markdown text={entry.content} />
               </div>
@@ -163,10 +288,10 @@
                 <span class="size-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]"></span>
               </div>
             {/if}
-            {#if entry.error}
+            {#if entry.error && editing?.index !== index}
               <p class="text-xs text-rose-600 dark:text-rose-400" role="alert">{entry.error}</p>
             {/if}
-            {@render actions(entry.content, index, retryable && index === chat.entries.length - 1)}
+            {@render actions(entry, index)}
           </div>
         {/if}
       {/each}
@@ -186,7 +311,10 @@
         class="btn-ghost px-2"
         aria-label="Clear conversation"
         title="Clear conversation"
-        onclick={() => chat.clear()}><Icon name="trash" size={16} /></button
+        onclick={() => {
+          editing = null;
+          chat.clear();
+        }}><Icon name="trash" size={16} /></button
       >
     {/if}
     <label class="sr-only" for="chat-input-{compact ? 'widget' : 'page'}">Message</label>

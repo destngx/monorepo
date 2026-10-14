@@ -2,11 +2,12 @@ import { api } from '$lib/api/endpoints';
 import type { ChatPageContext } from '$lib/api/types';
 import {
   applyEvent,
+  editEntry,
   HISTORY_KEY,
   MAX_STORED,
   parseHistory,
   toMessages,
-  withoutLastReply,
+  retryFrom,
   type ChatEntry,
 } from './history';
 
@@ -40,13 +41,32 @@ class ChatStore {
     await this.#reply(page);
   }
 
-  /** Answers the last user message again, replacing the reply it got. */
-  async retry(page?: ChatPageContext): Promise<void> {
+  /**
+   * Answers the message at index again: a user message, or the user message an
+   * assistant reply answers. Everything after it is dropped.
+   */
+  async retry(index: number, page?: ChatPageContext): Promise<void> {
     if (this.streaming) return;
-    const entries = withoutLastReply(this.entries);
+    const entries = retryFrom(this.entries, index);
     if (!entries) return;
     this.entries = entries;
     await this.#reply(page);
+  }
+
+  /** Rewrites one message in place, keeping the rest of the conversation. */
+  edit(index: number, content: string): boolean {
+    if (this.streaming) return false;
+    const entries = editEntry(this.entries, index, content);
+    if (!entries) return false;
+    this.entries = entries;
+    save(this.entries);
+    return true;
+  }
+
+  /** Rewrites a user message and answers it again, dropping what followed. */
+  async editAndRetry(index: number, content: string, page?: ChatPageContext): Promise<void> {
+    if (this.entries[index]?.role !== 'user' || !this.edit(index, content)) return;
+    await this.retry(index, page);
   }
 
   async #reply(page?: ChatPageContext): Promise<void> {

@@ -56,16 +56,35 @@ export function toMessages(entries: ChatEntry[]): ChatMessage[] {
 }
 
 /**
- * The conversation with its last assistant reply removed, so the user message
- * before it can be answered again; null when there is no such reply.
+ * The history kept when the message at index is answered again: everything up
+ * to the user message it is or replies to. Later messages are dropped. Null
+ * when there is no such user message.
  */
-export function withoutLastReply(entries: ChatEntry[]): ChatEntry[] | null {
-  if (entries.at(-1)?.role !== 'assistant' || entries.at(-2)?.role !== 'user') return null;
-  return entries.slice(0, -1);
+export function retryFrom(entries: ChatEntry[], index: number): ChatEntry[] | null {
+  const entry = entries[index];
+  if (!entry) return null;
+  const end = entry.role === 'user' ? index + 1 : index;
+  if (entries[end - 1]?.role !== 'user') return null;
+  return entries.slice(0, end);
 }
 
-export function canRetry(entries: ChatEntry[]): boolean {
-  return withoutLastReply(entries) !== null;
+/** How many messages answering the message at index again removes. */
+export function removedByRetry(entries: ChatEntry[], index: number): number {
+  const kept = retryFrom(entries, index);
+  return kept ? entries.length - kept.length : 0;
+}
+
+/**
+ * The history with one message rewritten. Its error is cleared so an edited
+ * reply counts as context again. Null for empty text or an unknown message.
+ */
+export function editEntry(entries: ChatEntry[], index: number, content: string): ChatEntry[] | null {
+  const text = content.trim();
+  const entry = entries[index];
+  if (!text || !entry) return null;
+  const edited: ChatEntry = { ...entry, content: text };
+  delete edited.error;
+  return entries.with(index, edited);
 }
 
 function isEntry(item: unknown): item is ChatEntry {
