@@ -103,6 +103,9 @@ func loadCodexVersion() string {
 }
 
 func (p *Provider) Responses(ctx context.Context, req domain.ResponsesRequest) (*domain.ResponsesResponse, error) {
+	if p.useCodex() {
+		return p.responsesCodex(ctx, req)
+	}
 	req = req.WithStream(false)
 	resp, err := p.doResponsesRequest(ctx, req)
 	if err != nil {
