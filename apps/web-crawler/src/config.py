@@ -24,6 +24,9 @@ class WebCrawlerConfig:
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
     )
     BROWSER_NO_SANDBOX = os.getenv("BROWSER_NO_SANDBOX", "false").lower() == "true"
+    BROWSER_BLOCK_RESOURCES = (
+        os.getenv("BROWSER_BLOCK_RESOURCES", "false").lower() == "true"
+    )
 
     @staticmethod
     def validate() -> None:
@@ -45,13 +48,9 @@ class WebCrawlerConfig:
     def validate_prerequisites() -> None:
         chrome_bin = Path(WebCrawlerConfig.CHROME_BIN).expanduser()
         if not chrome_bin.exists():
-            raise FileNotFoundError(
-                f"Chrome executable not found: {chrome_bin}"
-            )
+            raise FileNotFoundError(f"Chrome executable not found: {chrome_bin}")
         if not chrome_bin.is_file():
-            raise FileNotFoundError(
-                f"Chrome executable is not a file: {chrome_bin}"
-            )
+            raise FileNotFoundError(f"Chrome executable is not a file: {chrome_bin}")
 
         browser_profile_dir = Path(WebCrawlerConfig.BROWSER_PROFILE_DIR).expanduser()
         browser_profile_dir.mkdir(parents=True, exist_ok=True)

@@ -19,15 +19,19 @@ This document captures the current site-specific crawl strategy for `voz.vn`.
 
 - Input is a VOZ thread URL.
 - The crawler resolves the VOZ thread ID from the URL.
-- The crawler determines the last page from the rendered XenForo HTML.
+- The crawler determines the last page from the XenForo page navigation only (`input.js-pageJumpPage[max]`, `.pageNav` links and the "N of M" label). Page numbers inside post bodies are ignored.
 - Pages are fetched sequentially from page 1 through the last page or an optional `max_pages` cap.
+- Each page's HTML is parsed once and reused for classification, posts and pagination.
 - Each page is parsed into replies and appended to the thread output.
+- Crawls run as background jobs; see `api.md`.
 
 ## Output Shape
 
 - Results are stored under `data/crawls/<domain>/<thread_id>/`.
-- The main output file is `<thread_id>.json`.
-- The checkpoint file is `<thread_id>.checkpoint.json`.
+- `<thread_id>.pages.jsonl` is the durable page log: one page per line, flushed and fsynced before the checkpoint advances past that page. A torn last line from a crash is dropped on the next resume.
+- The checkpoint file is `<thread_id>.checkpoint.json`, replaced atomically.
+- The main output file is `<thread_id>.json`, assembled from the page log (one entry per page, sorted) and replaced atomically at the end of every run, including failed or cancelled runs.
+- Resuming over pages that were already saved replaces them instead of duplicating them.
 - The crawl output is nested by thread, page, and reply:
   - thread
   - pages

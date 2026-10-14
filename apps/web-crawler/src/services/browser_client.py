@@ -4,6 +4,9 @@ from http.cookies import SimpleCookie
 from pathlib import Path
 from typing import Protocol
 
+# Never needed for parsing: the parser reads image URLs straight from the HTML.
+BLOCKED_RESOURCE_TYPES = frozenset({"image", "media", "font"})
+
 
 @dataclass(slots=True)
 class BrowserAcquireResult:
@@ -37,6 +40,7 @@ class PlaywrightBrowserClient:
         no_sandbox: bool = False,
         persistent_profile: bool = True,
         profile_dir: str = "./data/browser-profile",
+        block_resources: bool = False,
     ) -> None:
         self.executable_path = executable_path or None
         self.headless = headless
@@ -44,6 +48,7 @@ class PlaywrightBrowserClient:
         self.no_sandbox = no_sandbox
         self.persistent_profile = persistent_profile
         self.profile_dir = Path(profile_dir).expanduser()
+        self.block_resources = block_resources
         self._persistent_profile_lock = (
             asyncio.Lock() if self.persistent_profile else None
         )
@@ -147,6 +152,8 @@ class PlaywrightBrowserClient:
     ) -> BrowserAcquireResult:
         if cookie and cookie.strip():
             await context.add_cookies(self._cookie_payload(url, cookie))
+        if self.block_resources:
+            await context.route("**/*", self._route_request)
 
         page = await context.new_page()
         response = await page.goto(
@@ -185,6 +192,12 @@ class PlaywrightBrowserClient:
             await page.wait_for_selector(selector, timeout=selector_timeout_ms)
         except Exception:
             await page.wait_for_timeout(300)
+
+    async def _route_request(self, route) -> None:
+        if route.request.resource_type in BLOCKED_RESOURCE_TYPES:
+            await route.abort()
+            return
+        await route.continue_()
 
     def _launch_args(self) -> list[str]:
         args = [

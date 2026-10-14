@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -65,6 +68,7 @@ class ThreadCrawlResult(BaseModel):
     thread_id: str
     url: str
     output_path: str
+    pages_path: str
     checkpoint_path: str
     pages_requested: int
     pages_crawled: int
@@ -107,5 +111,30 @@ class CrawlCheckpoint(BaseModel):
         )
 
 
-class ThreadCrawlResponse(BaseModel):
-    result: ThreadCrawlResult
+class CrawlProgress(BaseModel):
+    current_page: int = 0
+    last_page: int = 1
+    pages_crawled: int = 0
+    posts_written: int = 0
+
+
+CrawlJobStatus = Literal["running", "succeeded", "failed", "cancelled"]
+
+
+class CrawlJob(BaseModel):
+    job_id: str
+    status: CrawlJobStatus = "running"
+    url: str
+    created_at: datetime
+    finished_at: datetime | None = None
+    progress: CrawlProgress = Field(default_factory=CrawlProgress)
+    result: ThreadCrawlResult | None = None
+    error: str = ""
+
+
+class CrawlJobResponse(BaseModel):
+    job: CrawlJob
+
+
+class CrawlJobListResponse(BaseModel):
+    jobs: list[CrawlJob]

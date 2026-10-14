@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from src.app_logging import get_logger, setup_logging
 from src.config import WebCrawlerConfig
-from src.modules.shared.deps import init_services
+from src.modules.shared.deps import init_services, shutdown_services
 from src.routers.browser import router as browser_router
 from src.routers.crawl import router as crawl_router
 from src.routers.health import router as health_router
@@ -21,6 +21,7 @@ async def lifespan(app: FastAPI):
     init_services()
     logger.info("web-crawler services initialized")
     yield
+    await shutdown_services()
 
 
 app = FastAPI(

@@ -159,3 +159,68 @@ def test_acquire_uses_ephemeral_context_when_persistent_profile_disabled(
     assert playwright.chromium.launch_kwargs is not None
     assert playwright.chromium.launch_persistent_kwargs is None
     assert playwright.chromium.browser.new_context_kwargs["user_agent"] == "test-agent"
+
+
+class FakeRoute:
+    def __init__(self, resource_type: str):
+        self.request = types.SimpleNamespace(resource_type=resource_type)
+        self.outcome = None
+
+    async def abort(self):
+        self.outcome = "aborted"
+
+    async def continue_(self):
+        self.outcome = "continued"
+
+
+def test_acquire_blocks_heavy_resources_when_enabled(monkeypatch):
+    playwright = FakePlaywright()
+    _install_fake_playwright(monkeypatch, playwright)
+    routes = []
+
+    async def route(pattern, handler):
+        routes.append((pattern, handler))
+
+    playwright.chromium.browser.context.route = route
+
+    client = PlaywrightBrowserClient(
+        executable_path=None,
+        headless=True,
+        user_agent="test-agent",
+        persistent_profile=False,
+        block_resources=True,
+    )
+
+    anyio.run(client.acquire, "https://voz.vn/t/example.123/", 10, None)
+
+    assert [pattern for pattern, _ in routes] == ["**/*"]
+    handler = routes[0][1]
+    outcomes = {}
+    for resource_type in ("image", "font", "media", "document", "script"):
+        fake_route = FakeRoute(resource_type)
+        anyio.run(handler, fake_route)
+        outcomes[resource_type] = fake_route.outcome
+    assert outcomes == {
+        "image": "aborted",
+        "font": "aborted",
+        "media": "aborted",
+        "document": "continued",
+        "script": "continued",
+    }
+
+
+def test_acquire_does_not_route_requests_by_default(monkeypatch):
+    playwright = FakePlaywright()
+    _install_fake_playwright(monkeypatch, playwright)
+
+    client = PlaywrightBrowserClient(
+        executable_path=None,
+        headless=True,
+        user_agent="test-agent",
+        persistent_profile=False,
+    )
+
+    # FakeContext has no `route`, so any routing attempt would fail.
+    result = anyio.run(client.acquire, "https://voz.vn/t/example.123/", 10, None)
+
+    assert result.status_code == 200

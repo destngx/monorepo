@@ -1,6 +1,7 @@
 import json
 
 import anyio
+import pytest
 
 from src.modules.sites.voz.crawler import VozThreadCrawler
 
@@ -181,3 +182,72 @@ def test_thread_crawler_recovers_blocked_page_with_fresh_profile(tmp_path):
         (tmp_path / "voz.vn" / "913440" / "913440.json").read_text(encoding="utf-8")
     )
     assert payload[0]["pages"][0]["page"] == 71
+
+
+def _two_page_browser(base_url: str, page_two_url: str) -> FakeBrowserClient:
+    return FakeBrowserClient(
+        {
+            base_url: _html(page=1, last_page=2, post_id=101),
+            page_two_url: _html(page=2, last_page=2, post_id=102),
+        }
+    )
+
+
+def test_thread_crawler_keeps_completed_pages_when_crawl_crashes(tmp_path):
+    base_url = "https://voz.vn/t/example.913440/"
+    # Page 2 is missing, so the fake browser raises a non-acquire error.
+    browser = FakeBrowserClient({base_url: _html(page=1, last_page=2, post_id=101)})
+    service = VozThreadCrawler(browser_client=browser, output_dir=str(tmp_path))
+
+    with pytest.raises(KeyError):
+        anyio.run(service.crawl_thread, base_url, None, 5, None, 0)
+
+    thread_dir = tmp_path / "voz.vn" / "913440"
+    checkpoint = json.loads(
+        (thread_dir / "913440.checkpoint.json").read_text(encoding="utf-8")
+    )
+    assert checkpoint["last_successful_page"] == 1
+    lines = (thread_dir / "913440.pages.jsonl").read_text(encoding="utf-8")
+    assert [json.loads(line)["page"] for line in lines.splitlines()] == [1]
+    payload = json.loads((thread_dir / "913440.json").read_text(encoding="utf-8"))
+    assert [page["page"] for page in payload[0]["pages"]] == [1]
+
+
+def test_thread_crawler_resume_replaces_already_saved_pages(tmp_path):
+    base_url = "https://voz.vn/t/example.913440/"
+    page_two_url = "https://voz.vn/t/example.913440/page-2"
+    service = VozThreadCrawler(
+        browser_client=_two_page_browser(base_url, page_two_url),
+        output_dir=str(tmp_path),
+    )
+    anyio.run(service.crawl_thread, base_url, None, 5, None, 0)
+
+    result = anyio.run(service.crawl_thread, base_url, None, 5, None, 0, False, 1)
+
+    payload = json.loads(
+        (tmp_path / "voz.vn" / "913440" / "913440.json").read_text(encoding="utf-8")
+    )
+    assert [page["page"] for page in payload[0]["pages"]] == [1, 2]
+    assert result.posts_written == 2
+
+
+def test_thread_crawler_reports_progress_per_page(tmp_path):
+    base_url = "https://voz.vn/t/example.913440/"
+    page_two_url = "https://voz.vn/t/example.913440/page-2"
+    service = VozThreadCrawler(
+        browser_client=_two_page_browser(base_url, page_two_url),
+        output_dir=str(tmp_path),
+    )
+    progress = []
+
+    async def crawl():
+        return await service.crawl_thread(
+            base_url, delay_seconds=0, on_progress=progress.append
+        )
+
+    anyio.run(crawl)
+
+    assert [(p.current_page, p.pages_crawled, p.posts_written) for p in progress] == [
+        (1, 1, 1),
+        (2, 2, 2),
+    ]

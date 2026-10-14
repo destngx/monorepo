@@ -5,15 +5,32 @@ from bs4 import BeautifulSoup
 
 from src.models.crawl import CrawledPost
 
-PAGE_RE = re.compile(r"page-(\d+)")
-OF_RE = re.compile(r"of\s+(\d+)")
-PAGE_INPUT_MAX_RE = re.compile(r'\bmax=["\']?(\d+)')
+PAGE_RE = re.compile(r"page-(\d+)", re.IGNORECASE)
+OF_RE = re.compile(r"\bof\s+(\d+)\b", re.IGNORECASE)
 THREAD_ID_RE = re.compile(r"\.(\d+)(?:/|$)")
 POST_NUMBER_RE = re.compile(r"#(\d+)")
 USER_ID_RE = re.compile(r"\.(\d+)/?$")
+ITEM_POST_ID_RE = re.compile(r"/p/(\d+)/?")
+
+MAX_PAGE = 10_000
+PAGE_JUMP_SELECTOR = "input.js-pageJumpPage[max]"
+PAGE_NAV_LINK_SELECTOR = (
+    ".pageNav a[href], .pageNav-main a[href], .pageNavSimple a[href]"
+)
+PAGE_NAV_TEXT_SELECTOR = ".pageNav-main, .pageNavSimple-el--current"
+POST_SELECTOR = (
+    "article.message--post.js-post, "
+    "article.js-post[id^='js-post-'], "
+    "article[data-content^='post-'], "
+    "article[itemtype='https://schema.org/Comment'], "
+    "article[id^='post-']"
+)
 
 
 class VozParser:
+    def parse_html(self, html: str) -> BeautifulSoup:
+        return BeautifulSoup(html, "lxml")
+
     def canonical_thread_url(self, url: str) -> str:
         parsed = urlsplit(url.strip())
         path = re.sub(r"/page-\d+/?$", "/", parsed.path)
@@ -22,50 +39,34 @@ class VozParser:
             path = f"{path}/"
         return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
 
-    def parse_last_page(self, html: str) -> int:
-        soup = BeautifulSoup(html, "lxml")
+    def parse_last_page(self, soup: BeautifulSoup) -> int:
+        # Only the XenForo page navigation is trusted: post bodies routinely
+        # contain text like "page-300" or "5 of 300".
         candidates: set[int] = set()
 
-        patterns = [
-            r"page-(\d+)",
-            r"\bof\s+(\d+)\b",
-            r'\bmax=["\'](\d+)["\']',
-        ]
+        for node in soup.select(PAGE_JUMP_SELECTOR):
+            self._add_page_candidate(candidates, str(node.get("max")))
 
-        for pattern in patterns:
-            for match in re.finditer(pattern, html, flags=re.IGNORECASE):
-                value = int(match.group(1))
-                if 1 <= value <= 10_000:
-                    candidates.add(value)
+        for link in soup.select(PAGE_NAV_LINK_SELECTOR):
+            for match in PAGE_RE.finditer(str(link.get("href"))):
+                self._add_page_candidate(candidates, match.group(1))
 
-        for node in soup.select('a[href*="page-"], input.js-pageJumpPage'):
-            href = node.get("href")
-            if href:
-                for match in re.finditer(r"page-(\d+)", str(href), flags=re.IGNORECASE):
-                    value = int(match.group(1))
-                    if 1 <= value <= 10_000:
-                        candidates.add(value)
-
-            max_attr = node.get("max")
-            if max_attr and str(max_attr).isdigit():
-                value = int(str(max_attr))
-                if 1 <= value <= 10_000:
-                    candidates.add(value)
+        for node in soup.select(PAGE_NAV_TEXT_SELECTOR):
+            for match in OF_RE.finditer(node.get_text(" ", strip=True)):
+                self._add_page_candidate(candidates, match.group(1))
 
         return max(candidates, default=1)
 
-    def count_posts(self, html: str) -> int:
-        soup = BeautifulSoup(html, "lxml")
+    def count_posts(self, soup: BeautifulSoup) -> int:
         return len(self._post_nodes(soup))
 
     def extract_posts(
         self,
-        html: str,
+        soup: BeautifulSoup,
         page: int,
         page_url: str,
         thread_id: str | None = None,
     ) -> list[CrawledPost]:
-        soup = BeautifulSoup(html, "lxml")
         resolved_thread_id = thread_id or self.thread_id_from_url(page_url)
         posts: list[CrawledPost] = []
 
@@ -123,28 +124,20 @@ class VozParser:
         return f"{base.rstrip('/')}/page-{page}"
 
     def _post_nodes(self, soup: BeautifulSoup) -> list:
-        selectors = [
-            "article.message--post.js-post",
-            "article.js-post[id^='js-post-']",
-            "article[data-content^='post-']",
-            "article[itemtype='https://schema.org/Comment']",
-            "article[id^='post-']",
-        ]
         seen: set[str] = set()
         nodes = []
 
-        for selector in selectors:
-            for node in soup.select(selector):
-                node_id = (
-                    node.get("data-content")
-                    or node.get("itemid")
-                    or node.get("id")
-                    or f"anon-{id(node)}"
-                )
-                if node_id in seen:
-                    continue
-                seen.add(node_id)
-                nodes.append(node)
+        for node in soup.select(POST_SELECTOR):
+            node_id = (
+                node.get("data-content")
+                or node.get("itemid")
+                or node.get("id")
+                or f"anon-{id(node)}"
+            )
+            if node_id in seen:
+                continue
+            seen.add(node_id)
+            nodes.append(node)
 
         return nodes
 
@@ -160,7 +153,7 @@ class VozParser:
             return node_id.removeprefix("post-")
 
         item_id = str(node.get("itemid") or "")
-        match = re.search(r"/p/(\d+)/?", item_id)
+        match = ITEM_POST_ID_RE.search(item_id)
         if match:
             return match.group(1)
 
@@ -201,6 +194,10 @@ class VozParser:
             return int(str(raw))
         except ValueError:
             return None
+
+    def _add_page_candidate(self, candidates: set[int], raw: str) -> None:
+        if raw.isdigit() and 1 <= int(raw) <= MAX_PAGE:
+            candidates.add(int(raw))
 
     def _images(self, node, page_url: str) -> list[str]:
         images: list[str] = []

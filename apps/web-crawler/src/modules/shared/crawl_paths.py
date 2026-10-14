@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 class CrawlPaths:
     thread_dir: Path
     output_path: Path
+    pages_path: Path
     checkpoint_path: Path
 
 

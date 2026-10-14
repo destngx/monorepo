@@ -1,13 +1,20 @@
 import asyncio
+from collections.abc import Callable
 
-from src.models.crawl import CrawledPage, CrawlCheckpoint, ThreadCrawlResult
+from src.models.crawl import (
+    CrawlCheckpoint,
+    CrawledPage,
+    CrawlProgress,
+    ThreadCrawlResult,
+)
+from src.modules.shared.crawl_storage import CrawlStorage
 from src.services.browser_client import (
     BrowserAcquireError,
     BrowserClient,
     PlaywrightBrowserClient,
 )
-from src.modules.shared.crawl_storage import CrawlStorage
-from src.services.detector import classify_html
+from src.services.detector import classify_page
+
 from .pacing import CrawlPacing
 from .parser import VozParser
 
@@ -24,6 +31,11 @@ class VozThreadCrawler:
         self.storage = CrawlStorage(output_dir)
         self.pacing = CrawlPacing()
 
+    def thread_key(self, url: str) -> str:
+        """Identify the on-disk state a crawl of `url` owns."""
+        thread_id = self.parser.thread_id_from_url(url)
+        return str(self.storage.thread_dir(url, thread_id))
+
     async def crawl_thread(
         self,
         url: str,
@@ -33,58 +45,71 @@ class VozThreadCrawler:
         delay_seconds: float = 1.5,
         fresh_profile: bool = False,
         resume_from_page: int | None = None,
+        on_progress: Callable[[CrawlProgress], None] | None = None,
     ) -> ThreadCrawlResult:
         browser_client = self._browser_client(fresh_profile)
         thread_id = self.parser.thread_id_from_url(url)
         paths = self.storage.resolve_thread_paths(url, thread_id)
-        output_path = paths.output_path
-        checkpoint_path = paths.checkpoint_path
-        self.storage.ensure_thread_dir(output_path.parent)
+        await asyncio.to_thread(self.storage.ensure_thread_dir, paths.thread_dir)
         if resume_from_page is None:
-            self.storage.clear_thread_state(output_path, checkpoint_path)
-            crawled_data = [{"url": url, "pages": []}]
+            await asyncio.to_thread(
+                self.storage.clear_thread_state,
+                paths.output_path,
+                paths.pages_path,
+                paths.checkpoint_path,
+            )
+            saved_pages: dict[int, dict] = {}
             resume_from_page = 1
         else:
-            crawled_data = self.storage.load_crawl(output_path) or [{"url": url, "pages": []}]
+            saved_pages = await asyncio.to_thread(
+                self.storage.load_pages, paths.pages_path
+            )
             resume_from_page = max(1, resume_from_page)
 
-        start_page = resume_from_page
         last_page = 1
         pages: list[CrawledPage] = []
-        posts_written = sum(
-            len(page.get("replies", []))
-            for thread in crawled_data
-            for page in thread.get("pages", [])
-        )
-        pages_requested = max(1, resume_from_page)
+        posts_written = self._posts_written(saved_pages)
+        pages_requested = resume_from_page
         stopped_reason = ""
         retried_with_fresh_profile = fresh_profile
 
         current_page = resume_from_page
 
-        while True:
-            if delay_seconds > 0 and current_page != start_page:
-                await asyncio.sleep(self.pacing.delay_seconds(delay_seconds))
-
-            current_url = (
-                url if current_page == 1 else self.parser.page_url(url, current_page)
-            )
-            crawled_page, replies = await self._fetch_page(
-                url=current_url,
-                page=current_page,
+        def checkpoint(last_successful_page: int) -> CrawlCheckpoint:
+            return CrawlCheckpoint.for_page(
                 thread_id=thread_id,
-                cookie=cookie,
-                timeout_seconds=timeout_seconds,
-                browser_client=browser_client,
+                url=url,
+                last_successful_page=last_successful_page,
+                last_page=last_page,
+                pages_requested=max(pages_requested, last_page),
+                posts_written=posts_written,
+                output_path=str(paths.output_path),
             )
-            pages.append(crawled_page)
-            last_page = max(last_page, crawled_page.last_page)
-            pages_requested = self._pages_requested(last_page, max_pages)
-            posts_written += crawled_page.post_count
 
-            if crawled_page.kind == "ok":
-                crawled_data[0]["pages"].append(
-                    {
+        try:
+            while True:
+                if delay_seconds > 0 and pages:
+                    await asyncio.sleep(self.pacing.delay_seconds(delay_seconds))
+
+                current_url = (
+                    url
+                    if current_page == 1
+                    else self.parser.page_url(url, current_page)
+                )
+                crawled_page, replies = await self._fetch_page(
+                    url=current_url,
+                    page=current_page,
+                    thread_id=thread_id,
+                    cookie=cookie,
+                    timeout_seconds=timeout_seconds,
+                    browser_client=browser_client,
+                )
+                pages.append(crawled_page)
+                last_page = max(last_page, crawled_page.last_page)
+                pages_requested = self._pages_requested(last_page, max_pages)
+
+                if crawled_page.kind == "ok":
+                    page_record = {
                         "page": crawled_page.page,
                         "url": crawled_page.final_url or crawled_page.url,
                         "replies": [
@@ -96,63 +121,60 @@ class VozThreadCrawler:
                             for post in replies
                         ],
                     }
-                )
-                self.storage.write_checkpoint(
-                    checkpoint_path,
-                    checkpoint=CrawlCheckpoint.for_page(
-                        thread_id=thread_id,
-                        url=url,
-                        last_successful_page=current_page,
-                        last_page=last_page,
-                        pages_requested=max(pages_requested, last_page),
-                        posts_written=posts_written,
-                        output_path=str(output_path),
-                    ),
-                )
-            else:
-                if crawled_page.kind == "blocked" and not retried_with_fresh_profile:
-                    self.storage.write_checkpoint(
-                        checkpoint_path,
-                        checkpoint=CrawlCheckpoint.for_page(
-                            thread_id=thread_id,
-                            url=url,
-                            last_successful_page=current_page - 1,
-                            last_page=last_page,
-                            pages_requested=max(pages_requested, last_page),
-                            posts_written=posts_written,
-                            output_path=str(output_path),
-                        ),
+                    # The page must be durable before the checkpoint moves past it.
+                    await asyncio.to_thread(
+                        self.storage.append_page, paths.pages_path, page_record
                     )
-                    browser_client = self._browser_client(True)
-                    retried_with_fresh_profile = True
-                    continue
-                stopped_reason = crawled_page.kind
-                self.storage.write_checkpoint(
-                    checkpoint_path,
-                    checkpoint=CrawlCheckpoint.for_page(
-                        thread_id=thread_id,
-                        url=url,
-                        last_successful_page=current_page - 1,
-                        last_page=last_page,
-                        pages_requested=max(pages_requested, last_page),
-                        posts_written=posts_written,
-                        output_path=str(output_path),
-                    ),
-                )
-                break
+                    saved_pages[crawled_page.page] = page_record
+                    posts_written = self._posts_written(saved_pages)
+                    await asyncio.to_thread(
+                        self.storage.write_checkpoint,
+                        paths.checkpoint_path,
+                        checkpoint(current_page),
+                    )
+                else:
+                    await asyncio.to_thread(
+                        self.storage.write_checkpoint,
+                        paths.checkpoint_path,
+                        checkpoint(current_page - 1),
+                    )
+                    if (
+                        crawled_page.kind == "blocked"
+                        and not retried_with_fresh_profile
+                    ):
+                        browser_client = self._browser_client(True)
+                        retried_with_fresh_profile = True
+                        continue
+                    stopped_reason = crawled_page.kind
+                    break
 
-            if current_page >= pages_requested:
-                break
+                if on_progress:
+                    on_progress(
+                        CrawlProgress(
+                            current_page=current_page,
+                            last_page=last_page,
+                            pages_crawled=len(pages),
+                            posts_written=posts_written,
+                        )
+                    )
 
-            current_page += 1
+                if current_page >= pages_requested:
+                    break
 
-        self.storage.write_crawl(output_path, crawled_data)
+                current_page += 1
+        finally:
+            # Also runs on cancellation or errors so the assembled JSON always
+            # matches the durable page log.
+            await asyncio.to_thread(
+                self.storage.write_crawl, paths.output_path, url, saved_pages
+            )
 
         return ThreadCrawlResult(
             thread_id=thread_id,
             url=url,
-            output_path=str(output_path),
-            checkpoint_path=str(checkpoint_path),
+            output_path=str(paths.output_path),
+            pages_path=str(paths.pages_path),
+            checkpoint_path=str(paths.checkpoint_path),
             pages_requested=max(pages_requested, last_page),
             pages_crawled=len(pages),
             posts_written=posts_written,
@@ -183,16 +205,17 @@ class VozThreadCrawler:
                 [],
             )
 
-        kind = classify_html(result.status_code, result.body)
+        soup = self.parser.parse_html(result.body)
+        kind = classify_page(result.status_code, soup)
         posts = self.parser.extract_posts(
-            result.body,
+            soup,
             page=page,
             page_url=result.final_url or url,
             thread_id=thread_id,
         )
         if 200 <= result.status_code < 300 and posts:
             kind = "ok"
-        last_page = max(1, self.parser.parse_last_page(result.body))
+        last_page = max(1, self.parser.parse_last_page(soup))
 
         return (
             CrawledPage(
@@ -207,6 +230,10 @@ class VozThreadCrawler:
             ),
             posts,
         )
+
+    @staticmethod
+    def _posts_written(saved_pages: dict[int, dict]) -> int:
+        return sum(len(page["replies"]) for page in saved_pages.values())
 
     def _pages_requested(self, last_page: int, max_pages: int | None) -> int:
         if max_pages is None:
@@ -223,5 +250,6 @@ class VozThreadCrawler:
                 user_agent=self.browser_client.user_agent,
                 no_sandbox=self.browser_client.no_sandbox,
                 persistent_profile=False,
+                block_resources=self.browser_client.block_resources,
             )
         return self.browser_client

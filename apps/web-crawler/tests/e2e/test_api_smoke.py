@@ -1,12 +1,31 @@
+import time
+from unittest.mock import patch
+
+import pytest
 from fastapi.testclient import TestClient
 
+from src.config import WebCrawlerConfig
 from src.main import app
 from src.models.browser import BrowserProbeStep
-from src.models.crawl import ThreadCrawlResult
+from src.models.crawl import CrawlProgress, ThreadCrawlResult
+from src.modules.shared.crawl_jobs import CrawlJobManager
 from src.modules.shared.deps import (
     get_browser_probe_service,
+    get_crawl_job_manager,
     get_thread_crawler_service,
 )
+
+
+@pytest.fixture(autouse=True)
+def _startup_config(tmp_path):
+    # Lifespan startup validates that Chrome and the data dirs exist.
+    with patch.multiple(
+        WebCrawlerConfig,
+        CHROME_BIN=__file__,
+        BROWSER_PROFILE_DIR=str(tmp_path / "browser-profile"),
+        CRAWL_OUTPUT_DIR=str(tmp_path / "crawls"),
+    ):
+        yield
 
 
 class FakeBrowserProbeService:
@@ -50,6 +69,9 @@ def test_browser_probe_smoke():
 
 
 class FakeThreadCrawlerService:
+    def thread_key(self, url: str) -> str:
+        return url
+
     async def crawl_thread(
         self,
         url: str,
@@ -59,6 +81,7 @@ class FakeThreadCrawlerService:
         delay_seconds: float = 1.5,
         fresh_profile: bool = False,
         resume_from_page: int | None = None,
+        on_progress=None,
     ):
         _ = (
             cookie,
@@ -68,10 +91,12 @@ class FakeThreadCrawlerService:
             fresh_profile,
             resume_from_page,
         )
+        on_progress(CrawlProgress(current_page=70, pages_crawled=1, posts_written=1))
         return ThreadCrawlResult(
             thread_id="123",
             url=url,
             output_path="./data/crawls/123.json",
+            pages_path="./data/crawls/123.pages.jsonl",
             checkpoint_path="./data/crawls/123.checkpoint.json",
             pages_requested=1,
             pages_crawled=1,
@@ -83,10 +108,22 @@ class FakeThreadCrawlerService:
         )
 
 
+def _wait_for_job(client: TestClient, job_id: str) -> dict:
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        job = client.get(f"/v1/threads/crawl/jobs/{job_id}").json()["job"]
+        if job["status"] != "running":
+            return job
+        time.sleep(0.01)
+    raise AssertionError(f"crawl job {job_id} did not finish")
+
+
 def test_thread_crawl_smoke():
     app.dependency_overrides[get_thread_crawler_service] = (
         lambda: FakeThreadCrawlerService()
     )
+    manager = CrawlJobManager()
+    app.dependency_overrides[get_crawl_job_manager] = lambda: manager
     try:
         with TestClient(app) as client:
             response = client.post(
@@ -100,7 +137,16 @@ def test_thread_crawl_smoke():
                     "resume_from_page": 70,
                 },
             )
-            assert response.status_code == 200
-            assert response.json()["result"]["posts_written"] == 1
+            assert response.status_code == 202
+            job_id = response.json()["job"]["job_id"]
+
+            job = _wait_for_job(client, job_id)
+
+            assert job["status"] == "succeeded"
+            assert job["progress"]["current_page"] == 70
+            assert job["result"]["posts_written"] == 1
+            listed = client.get("/v1/threads/crawl/jobs").json()["jobs"]
+            assert [item["job_id"] for item in listed] == [job_id]
+            assert client.get("/v1/threads/crawl/jobs/missing").status_code == 404
     finally:
         app.dependency_overrides.clear()

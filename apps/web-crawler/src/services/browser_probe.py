@@ -1,7 +1,8 @@
 from src.models.browser import BrowserProbeStep
-from .browser_client import BrowserAcquireError, BrowserClient
-from .detector import classify_html
 from src.modules.sites.voz.parser import VozParser
+
+from .browser_client import BrowserAcquireError, BrowserClient
+from .detector import classify_page
 
 
 class BrowserProbeService:
@@ -43,14 +44,16 @@ class BrowserProbeService:
         step.status_code = result.status_code
         step.content_type = result.content_type
         step.bytes = len(result.body.encode("utf-8"))
-        step.kind = classify_html(result.status_code, result.body)
 
         try:
-            step.last_page = max(1, self.parser.parse_last_page(result.body))
-            step.post_count = self.parser.count_posts(result.body)
+            soup = self.parser.parse_html(result.body)
+            step.kind = classify_page(result.status_code, soup)
+            step.last_page = max(1, self.parser.parse_last_page(soup))
+            step.post_count = self.parser.count_posts(soup)
             if 200 <= step.status_code < 300 and step.post_count > 0:
                 step.kind = "ok"
         except Exception as exc:
+            step.kind = step.kind or "parse_error"
             if not step.error:
                 step.error = str(exc)
 
