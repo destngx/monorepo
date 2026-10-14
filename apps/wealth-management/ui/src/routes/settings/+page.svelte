@@ -89,7 +89,7 @@
     {:else if active === 'connections'}
       <ConnectionsSection />
     {:else if active === 'ai'}
-      <AIStatusCard />
+      {#key form.generation}<AIStatusCard />{/key}
     {/if}
 
     {#if current.groups.length}

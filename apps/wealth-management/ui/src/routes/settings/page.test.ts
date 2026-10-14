@@ -26,6 +26,11 @@ vi.mock('$app/navigation', () => navigation);
 vi.mock('$app/state', () => appState);
 vi.mock('$app/paths', () => ({ base: '/ui' }));
 vi.mock('$lib/state/toasts.svelte', () => ({ toasts: toastMock }));
+// The restarted engine answers at once instead of after a poll interval.
+vi.mock('$lib/settings/form', async (original) => ({
+  ...(await original<typeof import('$lib/settings/form')>()),
+  waitForRestart: (load: () => Promise<EngineSettings>) => load(),
+}));
 
 import SettingsPage from './+page.svelte';
 
@@ -172,6 +177,27 @@ describe('Settings page', () => {
     expect(endpoints.updateSettings).toHaveBeenCalledWith({ AI_MODEL: 'claude-opus-5-5', AI_API_KEY: null });
     expect(screen.getByText('Saved. Restart the engine to apply.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Restart engine' })).toBeTruthy();
+  });
+
+  it('shows what the restarted engine runs with: AI status and the new endpoint models', async () => {
+    const status = { configured: true, models: {}, prompts: 3, missingPrompts: [], missingKeys: [] };
+    endpoints.settings.mockResolvedValueOnce(view(true)).mockResolvedValue(view());
+    endpoints.restartEngine.mockResolvedValue({ status: 'restarting' });
+    endpoints.aiStatus
+      .mockResolvedValueOnce({ ...status, endpoint: 'http://old-gateway:8081' })
+      .mockResolvedValue({ ...status, endpoint: 'http://new-gateway:8080' });
+    endpoints.aiModels.mockResolvedValueOnce({ models: ['old-model'] }).mockResolvedValue({ models: ['new-model'] });
+    await open('ai');
+    expect(screen.getByText('http://old-gateway:8081')).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Restart engine' }));
+    await settle();
+
+    expect(screen.getByText('http://new-gateway:8080')).toBeTruthy();
+    expect(screen.queryByText('http://old-gateway:8081')).toBeNull();
+    const models = [...screen.getByLabelText<HTMLSelectElement>('Default model').options].map((option) => option.value);
+    expect(models).toContain('new-model');
+    expect(models).not.toContain('old-model');
   });
 
   it('opens Advanced while it holds an unsaved change', async () => {

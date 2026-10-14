@@ -21,6 +21,8 @@ export class EngineSettingsForm {
   /** The AI endpoint's models; null until loaded. */
   models = $state<string[] | null>(null);
   modelsError = $state('');
+  /** Bumped when the engine restarts, so views of the running engine reload. */
+  generation = $state(0);
 
   readonly groups = $derived(this.view ? groupSettings(this.view) : []);
   readonly changes = $derived(this.view ? pendingChanges(this.view.settings, this.drafts) : {});
@@ -86,6 +88,9 @@ export class EngineSettingsForm {
     try {
       await api.restartEngine();
       this._show(await waitForRestart(() => api.settings()));
+      // The models and status came from the old engine's endpoint.
+      this.models = null;
+      this.generation++;
       await invalidateAll();
       toasts.push('success', 'Engine restarted with the saved settings.');
     } catch (failure) {
