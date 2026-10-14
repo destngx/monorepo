@@ -143,7 +143,7 @@ func (s *Service) withTimeout(ctx context.Context) (context.Context, context.Can
 func (s *Service) Status(ctx context.Context) domain.AIStatus {
 	status := domain.AIStatus{
 		Configured:    s.config.Configured(),
-		Provider:      s.config.Provider,
+		Provider:      domain.AIProvider,
 		Endpoint:      endpointHost(s.config.BaseURL),
 		Models:        s.config.Models,
 		FallbackModel: s.config.FallbackModel,

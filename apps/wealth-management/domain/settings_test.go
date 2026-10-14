@@ -79,8 +79,6 @@ func TestGivenValuesWhenNormalizingThenKindsAreEnforced(t *testing.T) {
 		{"AI_BASE_URL", "example.com", "", false},
 		{"LOG_LEVEL", "debug", "debug", true},
 		{"LOG_LEVEL", "verbose", "", false},
-		{"AI_PROVIDER", "github-copilot", "github-copilot", true},
-		{"AI_PROVIDER", "copilot", "", false},
 		{"AI_MODEL", " gpt-5 ", "gpt-5", true},
 		{"GOOGLE_SHEETS_ID", "abc\ndef", "", false},
 		{"GOOGLE_SHEETS_ID", strings.Repeat("a", 5000), "", false},

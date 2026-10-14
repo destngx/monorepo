@@ -287,7 +287,7 @@ L's page is 100% hardcoded (score 85). Build from the spec.
 
 The engine removed its in-process LLM layer on 2026-04-02 (`f4ec0ec`) in favour of MCP-first. Revision 2 brings in-app AI back: **all AI features from the legacy app (analysis, reviews, briefings, advisor, chat, think tank) are in scope and run inside the engine**, plus Smart Capture (§6.2).
 
-- **Engine `ai` port** (hexagonal): `Complete`, `CompleteJSON` (schema-validated), `Stream`, tool calling, and **image input** (required by Smart Capture). Provider adapters behind it; the provider is configuration, not code (D10).
+- **Engine `ai` port** (hexagonal): `Complete`, `CompleteJSON` (schema-validated), `Stream`, tool calling, and **image input** (required by Smart Capture). One adapter behind it for the OpenAI Responses API; the provider is OpenAI only, reached through ai-gateway (every call sends `X-AI-Provider: openai`) or the official API (D10).
 - **Deterministic first**: every number (net worth, budget actuals, health score, cashback, technicals) is computed by the engine (§12) and passed to the model as facts. The model explains and recommends; it never computes ledger figures.
 - **MCP stays** as the interface for external agents, exposing the same data and the same AI use cases.
 - One AI use-case service per feature, each with: prompt keys, input builder, output schema, cache policy, and tests against a stubbed `ai` port.
@@ -298,7 +298,6 @@ The engine removed its in-process LLM layer on 2026-04-02 (`f4ec0ec`) in favour 
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AI_BASE_URL`                                                              | OpenAI Responses API base URL (`POST {AI_BASE_URL}/responses`), e.g. `http://127.0.0.1:8081/v1` for ai-gateway.                                         |
 | `AI_API_KEY`                                                               | Bearer key for the provider (optional for a local gateway).                                                                                             |
-| `AI_PROVIDER`                                                              | Sent as `X-AI-Provider` (ai-gateway routing); optional, one of the gateway providers that serve `/v1/responses` (`github-copilot`, `openai`).           |
 | `AI_MODEL`                                                                 | Default model for every use case.                                                                                                                       |
 | `AI_MODEL_INSIGHT`, `AI_MODEL_SUGGEST`, `AI_MODEL_VISION`, `AI_MODEL_CHAT` | Per-use-case model (WM-AI-4); empty uses `AI_MODEL`. Settings offers the endpoint's models (`GET /api/ai/models`).                                      |
 | `AI_FALLBACK_MODEL`                                                        | Retried once when the primary model fails or returns invalid output (WM-AI-15).                                                                         |

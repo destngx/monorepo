@@ -1,5 +1,5 @@
-// Package openai is an AIClient for any OpenAI Responses API compatible
-// endpoint: the monorepo ai-gateway, OpenAI, or another provider (D10).
+// Package openai is an AIClient for the OpenAI Responses API, reached through
+// the monorepo ai-gateway or the official endpoint (D10).
 package openai
 
 import (
@@ -22,10 +22,9 @@ const (
 )
 
 type Client struct {
-	baseURL  string
-	apiKey   string
-	provider string
-	http     *http.Client
+	baseURL string
+	apiKey  string
+	http    *http.Client
 }
 
 // NewClient talks to baseURL (".../v1"). Request deadlines come from the
@@ -35,10 +34,9 @@ func NewClient(config domain.AIConfig, httpClient *http.Client) *Client {
 		httpClient = &http.Client{}
 	}
 	return &Client{
-		baseURL:  strings.TrimRight(config.BaseURL, "/"),
-		apiKey:   config.APIKey,
-		provider: config.Provider,
-		http:     httpClient,
+		baseURL: strings.TrimRight(config.BaseURL, "/"),
+		apiKey:  config.APIKey,
+		http:    httpClient,
 	}
 }
 
@@ -71,9 +69,7 @@ func (c *Client) authorize(request *http.Request) {
 	if c.apiKey != "" {
 		request.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
-	if c.provider != "" {
-		request.Header.Set(providerHeader, c.provider)
-	}
+	request.Header.Set(providerHeader, domain.AIProvider)
 }
 
 func providerError(response *http.Response) error {

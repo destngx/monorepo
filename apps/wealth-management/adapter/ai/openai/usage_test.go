@@ -41,14 +41,12 @@ func TestUsageReadsCodexRateLimitWindows(t *testing.T) {
 	}
 }
 
-func TestUsageSendsOpenAIProviderEvenWhenConfiguredOtherwise(t *testing.T) {
+func TestUsageSendsTheOpenAIProvider(t *testing.T) {
 	var provider string
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		provider = r.Header.Get(providerHeader)
 		_, _ = io.WriteString(w, `{"rate_limits":{}}`)
 	})
-	client.provider = "github-copilot"
-
 	usage, err := client.Usage(context.Background())
 	if err != nil {
 		t.Fatal(err)

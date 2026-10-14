@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	// usageProvider is fixed: the app only uses OpenAI through the ai-gateway.
-	usageProvider = "openai"
-	maxUsageBody  = 1 << 20
+	maxUsageBody = 1 << 20
 	// usageResetLayout is how the ai-gateway formats codex reset times.
 	usageResetLayout = "2006-01-02 15:04 UTC"
 )
@@ -56,7 +54,6 @@ func (c *Client) Usage(ctx context.Context) (domain.AIProviderUsage, error) {
 		return domain.AIProviderUsage{}, fmt.Errorf("%w: %v", domain.ErrAIUnavailable, err)
 	}
 	c.authorize(request)
-	request.Header.Set(providerHeader, usageProvider)
 	request.Header.Set("Accept", "application/json")
 	response, err := c.http.Do(request)
 	if err != nil {
@@ -75,7 +72,7 @@ func (c *Client) Usage(ctx context.Context) (domain.AIProviderUsage, error) {
 
 func (u wireQuota) toDomain() (domain.AIProviderUsage, error) {
 	usage := domain.AIProviderUsage{
-		Provider: firstNonEmpty(u.Provider, usageProvider),
+		Provider: firstNonEmpty(u.Provider, domain.AIProvider),
 		AuthMode: u.AuthMode,
 		Source:   u.Source,
 		Windows:  []domain.AIUsageWindow{},

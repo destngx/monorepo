@@ -56,7 +56,6 @@ const view = (restartRequired = false): EngineSettings => ({
   settings: [
     setting('GOOGLE_SHEETS_ID', 'sheets', 'Spreadsheet ID'),
     setting('AI_API_KEY', 'ai', 'API key', { kind: 'secret', secret: true, isSet: true }),
-    setting('AI_PROVIDER', 'ai', 'Gateway provider', { kind: 'choice', options: ['github-copilot', 'openai'] }),
     setting('AI_MODEL', 'ai', 'Default model', { kind: 'model', isSet: true, value: 'gpt-5' }),
     setting('AI_MODEL_CHAT', 'ai', 'Chat model', { kind: 'model', inherits: 'AI_MODEL' }),
     setting('AI_TIMEOUT_SECONDS', 'ai', 'Timeout (seconds)', { kind: 'integer', default: '90', advanced: true }),
@@ -103,7 +102,8 @@ describe('Settings page', () => {
 
     expect(screen.getByRole('link', { name: 'General' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByText('This browser')).toBeTruthy();
-    expect(screen.getByLabelText('Log level')).toBeTruthy();
+    const logLevel = screen.getByLabelText<HTMLSelectElement>('Log level');
+    expect([...logLevel.options].map((option) => option.textContent)).toEqual(['Default (info)', 'debug', 'info']);
     expect(screen.getByText('/config/settings.db')).toBeTruthy();
     expect(screen.queryByLabelText('Market data server URL')).toBeNull();
   });
@@ -132,7 +132,7 @@ describe('Settings page', () => {
     expect(screen.getByText('Market data server URL').getAttribute('title')).toBe('MARKET_DATA_SERVER_URL');
   });
 
-  it('offers the endpoint models and the gateway providers as options instead of free text', async () => {
+  it('offers the endpoint models as options instead of free text', async () => {
     await open('ai');
 
     const model = screen.getByLabelText<HTMLSelectElement>('Default model');
@@ -141,8 +141,6 @@ describe('Settings page', () => {
     expect([...model.options].map((option) => option.value)).toEqual(['', 'claude-opus-5-5', 'gpt-5']);
     const chat = screen.getByLabelText<HTMLSelectElement>('Chat model');
     expect(chat.options[0].textContent).toBe('Default (gpt-5)');
-    const provider = screen.getByLabelText<HTMLSelectElement>('Gateway provider');
-    expect([...provider.options].map((option) => option.textContent)).toEqual(['None', 'github-copilot', 'openai']);
   });
 
   it('falls back to typing model ids when the endpoint cannot list them', async () => {

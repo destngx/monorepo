@@ -17,7 +17,7 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	return NewClient(domain.AIConfig{BaseURL: server.URL + "/v1/", APIKey: "key", Provider: "openai"}, server.Client())
+	return NewClient(domain.AIConfig{BaseURL: server.URL + "/v1/", APIKey: "key"}, server.Client())
 }
 
 func streamEvents(w http.ResponseWriter, events ...string) {

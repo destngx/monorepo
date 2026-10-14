@@ -28,10 +28,6 @@ const (
 	SettingModel SettingKind = "model"
 )
 
-// AIProviders are the X-AI-Provider values ai-gateway serves on
-// /v1/responses; its other providers answer only chat completions.
-var AIProviders = []string{"github-copilot", "openai"}
-
 // SettingGroup is one card in the Settings UI.
 type SettingGroup struct {
 	ID          string `json:"id"`
@@ -114,7 +110,6 @@ func settingDefinitions() []SettingDefinition {
 
 		{Key: "AI_BASE_URL", Group: "ai", Label: "Base URL", Kind: SettingURL, Description: "e.g. http://127.0.0.1:8081/v1 for ai-gateway."},
 		{Key: "AI_API_KEY", Group: "ai", Label: "API key", Kind: SettingSecret, Description: "Only if the endpoint needs one."},
-		{Key: "AI_PROVIDER", Group: "ai", Label: "Gateway provider", Kind: SettingChoice, Options: AIProviders, Description: "ai-gateway only; empty sends no provider."},
 		{Key: "AI_MODEL", Group: "ai", Label: "Default model", Kind: SettingModel},
 	}
 	for _, useCase := range AIUseCases {

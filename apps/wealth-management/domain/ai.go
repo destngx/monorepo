@@ -40,13 +40,15 @@ func (u AIUseCase) Valid() bool {
 	return false
 }
 
-// AIConfig is the provider-agnostic model configuration (D10). The provider
-// speaks the OpenAI Responses API (POST /responses); ai-gateway or an official API.
+// AIProvider is the only model provider the app uses. It is sent as
+// X-AI-Provider so ai-gateway routes every AI call to OpenAI.
+const AIProvider = "openai"
+
+// AIConfig is the model configuration (D10). The endpoint speaks the OpenAI
+// Responses API (POST /responses): ai-gateway or the official OpenAI API.
 type AIConfig struct {
 	BaseURL string
 	APIKey  string
-	// Provider is sent as X-AI-Provider for ai-gateway routing; optional.
-	Provider string
 	// Models per use case; every use case has a model once loaded.
 	Models map[AIUseCase]string
 	// FallbackModel is retried once when the primary model fails (WM-AI-15).

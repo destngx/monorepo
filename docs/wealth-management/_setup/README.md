@@ -78,30 +78,31 @@ Optional. With both the Upstash URL and token set, the cache is Upstash. With ne
 | `UPSTASH_REDIS_REST_TOKEN` | none    | Upstash REST token.                                                                                              |
 | `CACHE_KEY_PREFIX`         | `wm:`   | Prefix on every cache key, so environments and test runs never share keys (WM-OPS-2b). Applies to both backends. |
 
-### 3.5 AI (OpenAI-compatible provider)
+### 3.5 AI (OpenAI)
 
 AI routes are disabled, and `GET /api/ai/status` says why, until `AI_BASE_URL` and a model for every use case (normally via `AI_MODEL`) are set. They also need the Google Sheet, because prompts come from its `Prompts` tab. See REQUIREMENTS.md §10.1.
 
+The app uses OpenAI only: every AI call goes to `POST {AI_BASE_URL}/responses` with `X-AI-Provider: openai`, so ai-gateway routes it to its OpenAI provider (the header is ignored by the official API).
+
 `GET /api/ai/usage` (Settings, AI tab) shows the OpenAI quota by calling the ai-gateway `GET {AI_BASE_URL}/usage` with `X-AI-Provider: openai`. It needs only `AI_BASE_URL` (and `AI_API_KEY` if the gateway requires one); it answers 503 UNAVAILABLE when the gateway has no OpenAI provider configured or cannot reach it.
 
-`GET /api/ai/models` lists the model ids from `GET {AI_BASE_URL}/models` (with `AI_PROVIDER` as `X-AI-Provider`), so the model settings are selects. It reflects the running engine: after changing `AI_BASE_URL` or `AI_PROVIDER`, restart to list the new endpoint's models. When it fails, the model settings fall back to text fields.
+`GET /api/ai/models` lists the model ids from `GET {AI_BASE_URL}/models`, so the model settings are selects. It reflects the running engine: after changing `AI_BASE_URL`, restart to list the new endpoint's models. When it fails, the model settings fall back to text fields.
 
-| Setting                | Default    | Meaning                                                                                                                                                                             |
-| ---------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI_BASE_URL`          | none       | OpenAI Responses API base URL (`POST {AI_BASE_URL}/responses`), e.g. `http://127.0.0.1:8081/v1` for ai-gateway.                                                                     |
-| `AI_API_KEY`           | empty      | Bearer key for the provider (optional for a local gateway).                                                                                                                         |
-| `AI_PROVIDER`          | empty      | Sent as `X-AI-Provider` on model calls (ai-gateway routing): `github-copilot` or `openai`, the gateway providers that serve `/v1/responses`. The usage check always sends `openai`. |
-| `AI_MODEL`             | none       | Default model for every use case.                                                                                                                                                   |
-| `AI_MODEL_INSIGHT`     | `AI_MODEL` | Model for reviews, briefings and insights.                                                                                                                                          |
-| `AI_MODEL_SUGGEST`     | `AI_MODEL` | Model for category suggestion.                                                                                                                                                      |
-| `AI_MODEL_VISION`      | `AI_MODEL` | Image-capable model for Smart Capture.                                                                                                                                              |
-| `AI_MODEL_CHAT`        | `AI_MODEL` | Model for chat.                                                                                                                                                                     |
-| `AI_FALLBACK_MODEL`    | empty      | Retried once when the primary model fails or returns invalid output.                                                                                                                |
-| `AI_TIMEOUT_SECONDS`   | `90`       | Per-call timeout; must be a positive integer.                                                                                                                                       |
-| `AI_PII_NAMES`         | empty      | Comma-separated names masked as `[name]` before text reaches a model.                                                                                                               |
-| `CAPTURE_MAX_ITEMS`    | `20`       | Smart Capture: materials per batch.                                                                                                                                                 |
-| `CAPTURE_MAX_ITEM_MB`  | `5`        | Smart Capture: size per material. Must not exceed `CAPTURE_MAX_BATCH_MB`.                                                                                                           |
-| `CAPTURE_MAX_BATCH_MB` | `20`       | Smart Capture: size per batch. HTTP body and MCP request limits grow to fit it. Invalid values fall back to the defaults.                                                           |
+| Setting                | Default    | Meaning                                                                                                                   |
+| ---------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `AI_BASE_URL`          | none       | OpenAI Responses API base URL (`POST {AI_BASE_URL}/responses`), e.g. `http://127.0.0.1:8081/v1` for ai-gateway.           |
+| `AI_API_KEY`           | empty      | Bearer key for the provider (optional for a local gateway).                                                               |
+| `AI_MODEL`             | none       | Default model for every use case.                                                                                         |
+| `AI_MODEL_INSIGHT`     | `AI_MODEL` | Model for reviews, briefings and insights.                                                                                |
+| `AI_MODEL_SUGGEST`     | `AI_MODEL` | Model for category suggestion.                                                                                            |
+| `AI_MODEL_VISION`      | `AI_MODEL` | Image-capable model for Smart Capture.                                                                                    |
+| `AI_MODEL_CHAT`        | `AI_MODEL` | Model for chat.                                                                                                           |
+| `AI_FALLBACK_MODEL`    | empty      | Retried once when the primary model fails or returns invalid output.                                                      |
+| `AI_TIMEOUT_SECONDS`   | `90`       | Per-call timeout; must be a positive integer.                                                                             |
+| `AI_PII_NAMES`         | empty      | Comma-separated names masked as `[name]` before text reaches a model.                                                     |
+| `CAPTURE_MAX_ITEMS`    | `20`       | Smart Capture: materials per batch.                                                                                       |
+| `CAPTURE_MAX_ITEM_MB`  | `5`        | Smart Capture: size per material. Must not exceed `CAPTURE_MAX_BATCH_MB`.                                                 |
+| `CAPTURE_MAX_BATCH_MB` | `20`       | Smart Capture: size per batch. HTTP body and MCP request limits grow to fit it. Invalid values fall back to the defaults. |
 
 ### 3.6 Web search
 

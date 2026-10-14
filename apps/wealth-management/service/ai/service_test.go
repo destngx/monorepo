@@ -64,7 +64,6 @@ func fixtureDatabase() *fakes.Database {
 func testConfig() domain.AIConfig {
 	return domain.AIConfig{
 		BaseURL:       "http://user:secret@gateway.local:8080/v1",
-		Provider:      "openai",
 		Models:        map[domain.AIUseCase]string{domain.AIUseCaseInsight: "primary", domain.AIUseCaseSuggest: "primary", domain.AIUseCaseChat: "primary", domain.AIUseCaseVision: "primary"},
 		FallbackModel: "fallback",
 		Timeout:       time.Second,

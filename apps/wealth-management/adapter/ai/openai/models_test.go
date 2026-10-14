@@ -27,19 +27,17 @@ func TestModelsListsSortedUniqueIDs(t *testing.T) {
 	}
 }
 
-func TestModelsSendsTheConfiguredProvider(t *testing.T) {
+func TestModelsSendsTheOpenAIProvider(t *testing.T) {
 	var provider string
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		provider = r.Header.Get(providerHeader)
 		_, _ = io.WriteString(w, `{"data":[]}`)
 	})
-	client.provider = "github-copilot"
-
 	models, err := client.Models(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if provider != "github-copilot" || models == nil || len(models) != 0 {
+	if provider != "openai" || models == nil || len(models) != 0 {
 		t.Fatalf("provider %q, models %#v", provider, models)
 	}
 }
