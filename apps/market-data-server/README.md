@@ -23,7 +23,7 @@ vnstock 4.x is not on PyPI. `requirements.txt` pins `vnstock` and `vnai` by URL 
 
 ## Caching
 
-Responses go through a two-tier cache: an in-process LRU (always on) in front of Upstash Redis when `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are set, otherwise a local SQLite file (`CACHE_SQLITE_PATH`, default `data/cache.sqlite3`). `CACHE_ENABLED=false` keeps only the in-process tier. Concurrent requests for the same uncached key share one upstream call, and only cache misses count against the vnstock rate limit.
+Responses go through a two-tier cache: an in-process LRU (always on) in front of Upstash Redis when `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` are set, otherwise a local SQLite file (`CACHE_SQLITE_PATH`). The default is wealth-management's cache file, `<system temp>/wealth-management/cache.db` (`$TMPDIR` on macOS, `/tmp` on Linux), and both apps use the same table, so one file holds both caches. L2 keys start with `CACHE_KEY_PREFIX` (default `mds:`; wealth-management uses `wm:`). `CACHE_ENABLED=false` keeps only the in-process tier. Concurrent requests for the same uncached key share one upstream call, and only cache misses count against the vnstock rate limit.
 
 - Quotes, intraday, price board: 1 minute
 - Listings: 1 hour
@@ -31,7 +31,7 @@ Responses go through a two-tier cache: an in-process LRU (always on) in front of
 - Historical (range ended before today): until 5am GMT+7
 - Finance and company: until 5am GMT+7
 
-Every entry also expires at the next 5am GMT+7 reset. `POST /api/v1/health/cache/clear` clears both tiers.
+Every entry also expires at the next 5am GMT+7 reset. `POST /api/v1/health/cache/clear` clears the in-process tier and this server's keys in L2 (those under `CACHE_KEY_PREFIX`); wealth-management's keys in a shared SQLite file or Upstash database stay.
 
 ## Market API (v2)
 

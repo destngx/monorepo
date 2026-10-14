@@ -1,10 +1,16 @@
 import asyncio
+import os
+import sqlite3
+import stat
+import tempfile
 import threading
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 
 from src.cache import CacheConfig, CacheManager, MemoryCache
@@ -192,3 +198,144 @@ def test_sqlite_flush_and_delete(tmp_path):
     assert asyncio.run(cache.get_with_ttl("b"))[0] == "2"
     asyncio.run(cache.flushall())
     assert len(cache) == 0
+
+
+def _wealth_management_row(path, key, value, expires_at_ms):
+    """Write a row the way apps/wealth-management/adapter/cache/sqlite_client.go does."""
+    conn = sqlite3.connect(path)
+    with conn:
+        conn.execute("INSERT INTO cache_entries (key, value, expires_at) VALUES (?, ?, ?)", (key, value, expires_at_ms))
+    conn.close()
+
+
+def test_given_no_path_when_starting_then_the_cache_is_wealth_managements_file():
+    from src.cache import DEFAULT_SQLITE_PATH
+
+    assert DEFAULT_SQLITE_PATH == Path(tempfile.gettempdir()) / "wealth-management" / "cache.db"
+
+
+def test_given_a_shared_file_when_writing_then_rows_use_wealth_managements_format(tmp_path):
+    from src.cache import SQLiteCache
+
+    path = tmp_path / "cache.db"
+    cache = SQLiteCache(path)
+    before = int(time.time() * 1000)
+    asyncio.run(cache.set("ticker:symbol=FPT", "{}", ex=60))
+
+    conn = sqlite3.connect(path)
+    key, expires_at = conn.execute("SELECT key, expires_at FROM cache_entries").fetchone()
+    conn.close()
+    assert key == "mds:ticker:symbol=FPT"
+    # Unix milliseconds, as the Go client stores them.
+    assert before + 60_000 <= expires_at <= int(time.time() * 1000) + 60_000
+
+
+def test_given_another_apps_keys_when_clearing_then_only_this_prefix_is_deleted(tmp_path):
+    from src.cache import SQLiteCache
+
+    path = tmp_path / "cache.db"
+    cache = SQLiteCache(path)
+    asyncio.run(cache.set("ticker:symbol=FPT", "{}", ex=60))
+    future = int(time.time() * 1000) + 60_000
+    _wealth_management_row(path, "wm:accounts", "[]", future)
+    _wealth_management_row(path, "wm:settings", "{}", None)
+    # Shares the prefix's first letters but not the prefix.
+    _wealth_management_row(path, "mdsx:other", "{}", future)
+
+    assert len(cache) == 1
+    assert asyncio.run(cache.get_with_ttl("accounts")) == (None, 0)
+    asyncio.run(cache.flushall())
+
+    conn = sqlite3.connect(path)
+    keys = sorted(row[0] for row in conn.execute("SELECT key FROM cache_entries"))
+    conn.close()
+    assert keys == ["mdsx:other", "wm:accounts", "wm:settings"]
+
+
+def test_given_expired_rows_of_any_app_when_purging_then_live_and_unexpiring_rows_stay(tmp_path):
+    from src.cache import SQLiteCache
+
+    path = tmp_path / "cache.db"
+    cache = SQLiteCache(path)
+    now = int(time.time() * 1000)
+    _wealth_management_row(path, "wm:old", "1", now - 1)
+    _wealth_management_row(path, "wm:live", "1", now + 60_000)
+    _wealth_management_row(path, "wm:forever", "1", None)
+    cache._purge()
+
+    conn = sqlite3.connect(path)
+    keys = sorted(row[0] for row in conn.execute("SELECT key FROM cache_entries"))
+    conn.close()
+    assert keys == ["wm:forever", "wm:live"]
+
+
+def test_given_a_new_file_when_opening_then_it_is_private(tmp_path):
+    from src.cache import SQLiteCache
+
+    path = tmp_path / "nested" / "cache.db"
+    SQLiteCache(path)
+    assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+    assert stat.S_IMODE(os.stat(path.parent).st_mode) == 0o700
+
+
+def test_given_a_key_prefix_setting_when_starting_then_l2_keys_use_it(tmp_path, monkeypatch):
+    monkeypatch.setenv("CACHE_KEY_PREFIX", "mds-dev:")
+    manager = CacheManager(redis_url="", redis_token="", sqlite_path=tmp_path / "c.db", enabled=True)
+    asyncio.run(manager.set("ticker", {"symbol": "FPT"}, {"price": 1}, ttl=60))
+
+    conn = sqlite3.connect(tmp_path / "c.db")
+    (key,) = conn.execute("SELECT key FROM cache_entries").fetchone()
+    conn.close()
+    assert manager.key_prefix == "mds-dev:"
+    assert key == "mds-dev:ticker:symbol=FPT"
+
+
+def test_given_an_empty_prefix_when_building_a_client_then_it_is_rejected(tmp_path):
+    from src.cache import SQLiteCache, UpstashRedisClient
+
+    with pytest.raises(ValueError):
+        SQLiteCache(tmp_path / "c.db", prefix="")
+    with pytest.raises(ValueError):
+        UpstashRedisClient("https://x", "t", prefix="")
+    with pytest.raises(ValueError):
+        CacheManager(redis_url="", redis_token="", enabled=False, key_prefix="")
+
+
+def test_given_a_shared_upstash_when_clearing_then_only_prefixed_keys_are_deleted():
+    from src.cache import UpstashRedisClient
+
+    redis = UpstashRedisClient("https://x", "t", prefix="mds:")
+    pages = {"0": ["7", ["mds:a", "mds:b"]], "7": ["0", ["mds:c"]]}
+    sent = []
+
+    async def pipeline(commands):
+        sent.extend(commands)
+        command = commands[0]
+        if command[0] == "SCAN":
+            return [{"result": pages[command[1]]}]
+        return [{"result": len(command) - 1}]
+
+    redis.pipeline = pipeline
+    assert asyncio.run(redis.flushall()) is True
+
+    assert ["FLUSHALL"] not in sent
+    assert [c for c in sent if c[0] == "SCAN"] == [
+        ["SCAN", "0", "MATCH", "mds:*", "COUNT", "1000"],
+        ["SCAN", "7", "MATCH", "mds:*", "COUNT", "1000"],
+    ]
+    assert [c for c in sent if c[0] == "DEL"] == [["DEL", "mds:a", "mds:b"], ["DEL", "mds:c"]]
+
+
+def test_given_glob_characters_in_the_prefix_when_clearing_upstash_then_they_match_literally():
+    from src.cache import UpstashRedisClient
+
+    redis = UpstashRedisClient("https://x", "t", prefix="m*[1]:")
+    sent = []
+
+    async def pipeline(commands):
+        sent.extend(commands)
+        return [{"result": ["0", []]}]
+
+    redis.pipeline = pipeline
+    asyncio.run(redis.flushall())
+    assert sent[0][3] == "m\\*\\[1\\]:*"

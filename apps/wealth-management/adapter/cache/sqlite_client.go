@@ -19,7 +19,8 @@ import (
 // (expired keys are invisible and purged), glob SCAN, DEL counting only keys
 // that existed, and the key prefix so environments sharing one file never
 // see each other's keys (WM-OPS-2b). Several engine processes (dev server,
-// e2e run) can share the file.
+// e2e run) can share the file, and so does apps/market-data-server by
+// default (src/cache.py, keys under mds:): keep the two schemas identical.
 type SQLiteClient struct {
 	db     *sql.DB
 	prefix string

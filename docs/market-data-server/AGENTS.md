@@ -41,7 +41,7 @@ The server is the single market-data API for the monorepo. It owns every source 
 
 Endpoints that call an upstream use `upstream_endpoint(name, ttl, cost)` from `src/modules/shared/deps.py`, which applies, in order: in-memory LRU, the L2 tier, single-flight, rate limit (`cost` = upstream calls the endpoint makes), then runs the synchronous endpoint in a threadpool. Endpoint bodies must be plain `def` (vnstock is blocking), and `name` must be unique per route because it namespaces the cache key.
 
-The L2 tier is Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set, otherwise SQLite at `CACHE_SQLITE_PATH` (default `apps/market-data-server/data/cache.sqlite3`, gitignored). `CACHE_ENABLED=false` keeps only the in-process tier.
+The L2 tier is Upstash Redis when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set, otherwise SQLite at `CACHE_SQLITE_PATH`, default wealth-management's cache file `<system temp>/wealth-management/cache.db`. The two apps share its `cache_entries` table, so its schema (expires_at in Unix milliseconds, NULL never expires) must stay identical to `apps/wealth-management/adapter/cache/sqlite_client.go`. Every L2 key carries `CACHE_KEY_PREFIX` (default `mds:`, never empty), and a cache clear deletes only keys under it: never `FLUSHALL` or an unscoped `DELETE`, because the database may hold wealth-management's keys. `CACHE_ENABLED=false` keeps only the in-process tier.
 
 TTLs live in `CacheConfig` (`src/cache.py`) and are all capped at the next 5am GMT+7 reset:
 

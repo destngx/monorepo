@@ -30,6 +30,7 @@ def get_cache_status():
     return {
         "cache_enabled": cache_manager.enabled,
         "backend": cache_manager.backend,
+        "key_prefix": cache_manager.key_prefix,
         "memory_entries": len(cache_manager.memory),
         "ttl_config": CacheConfig.describe(),
     }
@@ -81,7 +82,7 @@ def get_quota_status():
 
 @router.post("/cache/clear")
 async def clear_all_cache():
-    """Clear the in-memory cache and the L2 tier (Upstash Redis or SQLite)."""
+    """Clear the in-memory cache and this server's keys (CACHE_KEY_PREFIX) in the L2 tier."""
     cache_manager = get_cache_manager()
     if not cache_manager:
         raise HTTPException(status_code=503, detail="Cache manager not initialized")
@@ -90,7 +91,7 @@ async def clear_all_cache():
         success = await cache_manager.flush_all()
         return {
             "success": success,
-            "message": "All cache data cleared successfully"
+            "message": f"Cache cleared (keys under {cache_manager.key_prefix!r})"
             if success
             else "Failed to clear cache",
             "timestamp": datetime.now().isoformat(),
