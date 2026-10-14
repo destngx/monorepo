@@ -6,6 +6,7 @@
   import { base } from '$app/paths';
   import { navigating, page } from '$app/state';
   import AIUsageGauge from '$lib/ai/AIUsageGauge.svelte';
+  import { endBootScreen } from '$lib/boot';
   import ChatWidget from '$lib/chat/ChatWidget.svelte';
   import DependencyBanner from '$lib/components/DependencyBanner.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -38,6 +39,9 @@
     mask.hide();
     mobileNavOpen = false;
   });
+
+  // The first render replaces app.html's loading screen.
+  $effect(() => endBootScreen());
 
   // Theme follows the setting, and the OS when set to system.
   $effect(() => {

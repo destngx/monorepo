@@ -3,9 +3,91 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      // The saved theme, applied before the first paint (same rule as applyTheme).
+      (() => {
+        let theme = null;
+        try {
+          theme = localStorage.getItem('wm.theme');
+        } catch {
+          // Storage unavailable: follow the system.
+        }
+        const dark =
+          theme === 'dark' || (theme !== 'light' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      })();
+    </script>
+    <style>
+      /* Shown until the root layout renders (endBootScreen); inline because the app's CSS arrives with its JS. */
+      .boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 0.75rem;
+        background: #f1f5f9;
+        color: #64748b;
+        font:
+          500 0.875rem/1.25rem ui-sans-serif,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        opacity: 0;
+        animation: boot-in 0.2s ease-out 0.3s forwards;
+      }
+      .dark .boot {
+        background: #020617;
+        color: #94a3b8;
+      }
+      .boot-mark {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.875rem;
+        background: #4f46e5;
+        color: #fff;
+        font-size: 1.125rem;
+      }
+      .boot-mark::after {
+        content: '';
+        position: absolute;
+        inset: -0.5rem;
+        border: 2px solid transparent;
+        border-top-color: #6366f1;
+        border-radius: 1.25rem;
+        animation: boot-spin 0.9s linear infinite;
+      }
+      @keyframes boot-in {
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-mark::after {
+          animation-duration: 3s;
+        }
+      }
+    </style>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
-    <div style="display: contents">%sveltekit.body%</div>
+    <div style="display: contents">
+      <div id="boot" class="boot" role="status" aria-live="polite">
+        <span class="boot-mark" aria-hidden="true">₫</span>
+        <span>Loading…</span>
+      </div>
+      %sveltekit.body%
+    </div>
   </body>
 </html>
