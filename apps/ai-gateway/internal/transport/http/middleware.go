@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -48,7 +49,18 @@ func Chain(h http.Handler, middlewares ...func(http.Handler) http.Handler) http.
 	return h
 }
 
-// Logger logs method, path, provider, model, status, and duration, including a unique Request ID.
+// clientIP returns the host part of the request's TCP peer address.
+// Forwarding headers are ignored because the gateway is served directly,
+// so any client could set them to an arbitrary value.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// Logger logs method, path, client IP, provider, model, status, and duration, including a unique Request ID.
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -94,6 +106,7 @@ func Logger(next http.Handler) http.Handler {
 		attrs := []any{
 			"method", method,
 			"path", r.URL.Path,
+			"client_ip", clientIP(r),
 			"status", status,
 			"provider", provider,
 			"model", model,

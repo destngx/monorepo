@@ -69,3 +69,33 @@ func TestLoggerKeepsPrimaryWhenStreamStartedBeforeLimit(t *testing.T) {
 	assert.Equal(t, domain.FailoverReasonStreamStarted, entry["failover"])
 	assert.NotContains(t, entry, "failover_fallback_error")
 }
+
+func TestLoggerIncludesClientIP(t *testing.T) {
+	var buf bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	handler := Logger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	req.RemoteAddr = "203.0.113.7:51234"
+	req.Header.Set("X-Forwarded-For", "198.51.100.1")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	var entry map[string]any
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &entry))
+	assert.Equal(t, "203.0.113.7", entry["client_ip"])
+}
+
+func TestClientIP(t *testing.T) {
+	cases := map[string]string{
+		"203.0.113.7:51234": "203.0.113.7",
+		"[::1]:8080":        "::1",
+		"203.0.113.7":       "203.0.113.7",
+	}
+	for remoteAddr, want := range cases {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.RemoteAddr = remoteAddr
+		assert.Equal(t, want, clientIP(r), remoteAddr)
+	}
+}
