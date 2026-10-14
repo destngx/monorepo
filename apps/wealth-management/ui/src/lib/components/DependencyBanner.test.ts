@@ -41,7 +41,7 @@ describe('DependencyBanner', () => {
       },
     });
     const text = screen.getByRole('status').textContent ?? '';
-    expect(text).toMatch(/auth:sheets/);
+    expect(text).toMatch(/Connect Google account/);
     expect(text).toMatch(/7 days/);
   });
 

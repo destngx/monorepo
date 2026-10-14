@@ -74,9 +74,14 @@ var routeTools = map[string]string{
 
 // unexposedRoutes are HTTP routes intentionally without an MCP tool.
 var unexposedRoutes = map[string]string{
-	"GET /api/openapi.json": "describes the HTTP API itself; MCP clients get tools/list instead",
-	"GET /api/docs":         "Swagger UI HTML for browsers, not data",
-	"GET /api/cache/health": "cache backend ping; EngineHealth already reports the cache check",
+	"GET /api/openapi.json":          "describes the HTTP API itself; MCP clients get tools/list instead",
+	"GET /api/docs":                  "Swagger UI HTML for browsers, not data",
+	"GET /api/cache/health":          "cache backend ping; EngineHealth already reports the cache check",
+	"GET /api/settings":              "engine configuration and credentials are edited by the user in the UI, not by agents",
+	"POST /api/settings/restart":     "restarts the engine, and with it the MCP session an agent would call it from",
+	"POST /api/auth/google/start":    "connecting a Google account needs the user's consent in a browser",
+	"GET /api/auth/google/callback":  "Google redirects the user's browser here after consent",
+	"POST /api/auth/google/exchange": "completes the user's browser consent; an agent has no consent to complete",
 }
 
 // TestGivenEveryHTTPRouteWhenListingMCPToolsThenEachIsMappedOrAllowlisted
@@ -130,6 +135,8 @@ func registeredRoutes(t *testing.T) []string {
 	app.Get("/api/docs", openAPI.Docs)
 	api.Group("/cache", "cache").Get("/health", fiberAdapter.NewCacheHandler(nil, log).Ping, fiberAdapter.RouteMeta{Summary: "cache"})
 	fiberAdapter.RegisterSheetRoutes(api, fiberAdapter.NewDatabaseHandler(nil, log), guard)
+	fiberAdapter.RegisterSettingsRoutes(api, fiberAdapter.NewSettingsHandler(nil, log), guard)
+	fiberAdapter.RegisterGoogleAuthRoutes(api, fiberAdapter.NewGoogleAuthHandler(nil, log), guard)
 	fiberAdapter.RegisterAnalyticsRoutes(api, fiberAdapter.NewAnalyticsHandler(nil, log))
 	fiberAdapter.RegisterMarketRoutes(api, fiberAdapter.NewMarketHandler(nil, log), fiberAdapter.NewMarketProviderHandler(nil, log))
 	fiberAdapter.RegisterFmarketRoutes(api, fiberAdapter.NewFmarketHandler(nil, nil, log))

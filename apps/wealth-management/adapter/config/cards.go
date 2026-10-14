@@ -17,9 +17,11 @@ var defaultCardConfig []byte
 
 var ErrInvalidCardConfig = errors.New("invalid card programs configuration")
 
-func LoadCardConfig() (domain.CardConfig, error) {
+// LoadCardConfig reads CARD_PROGRAMS_FILE, a JSON file replacing the
+// built-in card programs.
+func LoadCardConfig(values Values) (domain.CardConfig, error) {
 	raw := defaultCardConfig
-	if path := os.Getenv("CARD_PROGRAMS_FILE"); path != "" {
+	if path := values.get("CARD_PROGRAMS_FILE"); path != "" {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return domain.CardConfig{}, fmt.Errorf("read CARD_PROGRAMS_FILE: %w", err)

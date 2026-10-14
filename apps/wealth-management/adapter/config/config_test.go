@@ -40,29 +40,38 @@ func TestLoadServerConfig(t *testing.T) {
 }
 
 func TestBudgetSheetTemplate(t *testing.T) {
-	t.Setenv("BUDGET_SHEET_TEMPLATE", "")
-	if BudgetSheetTemplate() != "Budget_{year}" {
+	if BudgetSheetTemplate(Values{}) != "Budget_{year}" {
 		t.Fatal("default template")
 	}
-	t.Setenv("BUDGET_SHEET_TEMPLATE", "Ngân sách {year}")
-	if BudgetSheetTemplate() != "Ngân sách {year}" {
+	if BudgetSheetTemplate(Values{"BUDGET_SHEET_TEMPLATE": "Ngân sách {year}"}) != "Ngân sách {year}" {
 		t.Fatal("override template")
 	}
 }
 
-func TestLoadAIConfig(t *testing.T) {
-	for _, key := range []string{"AI_BASE_URL", "AI_API_KEY", "AI_PROVIDER", "AI_MODEL", "AI_MODEL_INSIGHT", "AI_MODEL_SUGGEST", "AI_MODEL_VISION", "AI_MODEL_CHAT", "AI_FALLBACK_MODEL", "AI_TIMEOUT_SECONDS", "AI_PII_NAMES"} {
-		t.Setenv(key, "")
+func TestGivenProcessEnvWhenLoadingIntegrationSettingsThenItIsIgnored(t *testing.T) {
+	t.Setenv("AI_BASE_URL", "http://from-shell/v1")
+	t.Setenv("AI_MODEL", "from-shell")
+	t.Setenv("GOOGLE_SHEETS_ID", "from-shell")
+
+	if _, err := LoadAIConfig(Values{}); !errors.Is(err, ErrMissingAIConfig) {
+		t.Fatalf("AI must not read the environment, got %v", err)
 	}
-	if _, err := LoadAIConfig(); !errors.Is(err, ErrMissingAIConfig) {
+	if _, err := LoadSheetsConfig(Values{}); !errors.Is(err, ErrMissingSheetsConfig) {
+		t.Fatalf("sheets must not read the environment, got %v", err)
+	}
+}
+
+func TestLoadAIConfig(t *testing.T) {
+	if _, err := LoadAIConfig(Values{}); !errors.Is(err, ErrMissingAIConfig) {
 		t.Fatalf("unconfigured AI must report missing config, got %v", err)
 	}
 
-	t.Setenv("AI_BASE_URL", "http://127.0.0.1:8081/v1")
-	t.Setenv("AI_MODEL", "gpt-main")
-	t.Setenv("AI_MODEL_SUGGEST", "gpt-mini")
-	t.Setenv("AI_PII_NAMES", " Nguyen Van A , ,B")
-	config, err := LoadAIConfig()
+	config, err := LoadAIConfig(Values{
+		"AI_BASE_URL":      "http://127.0.0.1:8081/v1",
+		"AI_MODEL":         "gpt-main",
+		"AI_MODEL_SUGGEST": "gpt-mini",
+		"AI_PII_NAMES":     " Nguyen Van A , ,B",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,58 +84,43 @@ func TestLoadAIConfig(t *testing.T) {
 }
 
 func TestLoadCaptureLimits(t *testing.T) {
-	for _, key := range []string{"CAPTURE_MAX_ITEMS", "CAPTURE_MAX_ITEM_MB", "CAPTURE_MAX_BATCH_MB"} {
-		t.Setenv(key, "")
-	}
-	limits, err := LoadCaptureLimits()
+	limits, err := LoadCaptureLimits(Values{})
 	if err != nil || limits != domain.DefaultCaptureLimits() {
 		t.Fatalf("expected defaults, got %+v %v", limits, err)
 	}
 
-	t.Setenv("CAPTURE_MAX_ITEMS", "8")
-	t.Setenv("CAPTURE_MAX_ITEM_MB", "2")
-	t.Setenv("CAPTURE_MAX_BATCH_MB", "10")
-	limits, err = LoadCaptureLimits()
+	limits, err = LoadCaptureLimits(Values{"CAPTURE_MAX_ITEMS": "8", "CAPTURE_MAX_ITEM_MB": "2", "CAPTURE_MAX_BATCH_MB": "10"})
 	if err != nil || limits != (domain.CaptureLimits{MaxItems: 8, MaxItemBytes: 2 << 20, MaxBatchBytes: 10 << 20}) {
 		t.Fatalf("unexpected limits %+v %v", limits, err)
 	}
 
 	for key, value := range map[string]string{"CAPTURE_MAX_ITEMS": "0", "CAPTURE_MAX_ITEM_MB": "abc", "CAPTURE_MAX_BATCH_MB": "1"} {
-		t.Run(key, func(t *testing.T) {
-			t.Setenv(key, value)
-			if _, err := LoadCaptureLimits(); !errors.Is(err, ErrInvalidCaptureConfig) {
-				t.Fatalf("%s=%s must be rejected, got %v", key, value, err)
-			}
-		})
+		if _, err := LoadCaptureLimits(Values{key: value}); !errors.Is(err, ErrInvalidCaptureConfig) {
+			t.Fatalf("%s=%s must be rejected, got %v", key, value, err)
+		}
 	}
 }
 
 func TestLoadSearchConfigTrimsKeys(t *testing.T) {
-	t.Setenv("TAVILY_API_KEY", " tvly ")
-	t.Setenv("EXA_API_KEY", "")
-	if config := LoadSearchConfig(); config.TavilyAPIKey != "tvly" || config.ExaAPIKey != "" {
+	if config := LoadSearchConfig(Values{"TAVILY_API_KEY": " tvly "}); config.TavilyAPIKey != "tvly" || config.ExaAPIKey != "" {
 		t.Fatalf("unexpected config %+v", config)
 	}
 }
 
-func TestGivenEnvFileOverrideWhenLoadingThenReadsOnlyThatFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "custom.env")
-	if err := os.WriteFile(path, []byte("WM_CONFIG_PROBE=from-file\n"), 0o600); err != nil {
-		t.Fatal(err)
+func TestLoadLogging(t *testing.T) {
+	if LoadLogLevel(Values{}) != "info" || LoadLogLevel(Values{"LOG_LEVEL": "debug"}) != "debug" {
+		t.Fatal("log level")
 	}
-	t.Setenv("WM_CONFIG_PROBE", "from-shell")
-
-	t.Setenv("WM_ENV_FILE", "none")
-	Load()
-	if os.Getenv("WM_CONFIG_PROBE") != "from-shell" {
-		t.Fatalf("WM_ENV_FILE=none must not load any file")
+	t.Setenv("LOG_COLOR", "false")
+	if LoadLogColor() {
+		t.Fatal("LOG_COLOR=false must disable colour")
 	}
+}
 
-	t.Setenv("WM_ENV_FILE", path)
-	Load()
-	if os.Getenv("WM_CONFIG_PROBE") != "from-file" {
-		t.Fatalf("WM_ENV_FILE must load the named file")
+func TestLoadSettingsPath(t *testing.T) {
+	t.Setenv("WM_SETTINGS_PATH", " /tmp/wm/settings.db ")
+	if LoadSettingsPath() != "/tmp/wm/settings.db" {
+		t.Fatalf("path = %q", LoadSettingsPath())
 	}
 }
 
@@ -139,19 +133,16 @@ func TestLoadTestMode(t *testing.T) {
 	}
 }
 
-func setSheetsEnv(t *testing.T) {
-	t.Helper()
-	t.Setenv("GOOGLE_CLIENT_ID", "id")
-	t.Setenv("GOOGLE_CLIENT_SECRET", "secret")
-	t.Setenv("GOOGLE_REFRESH_TOKEN", "token")
-	t.Setenv("GOOGLE_SHEETS_ID", "sheet")
+func sheetsValues(extra Values) Values {
+	values := Values{"GOOGLE_CLIENT_ID": "id", "GOOGLE_CLIENT_SECRET": "secret", "GOOGLE_REFRESH_TOKEN": "token", "GOOGLE_SHEETS_ID": "sheet"}
+	for key, value := range extra {
+		values[key] = value
+	}
+	return values
 }
 
 func TestGivenNoReadQuotaWhenLoadingSheetsConfigThenItDefaultsToSixtyPerMinute(t *testing.T) {
-	setSheetsEnv(t)
-	t.Setenv("SHEETS_READS_PER_MINUTE", "")
-
-	config, err := LoadSheetsConfig()
+	config, err := LoadSheetsConfig(sheetsValues(nil))
 
 	if err != nil || config.ReadsPerMinute != 60 {
 		t.Fatalf("config = %+v err = %v", config.ReadsPerMinute, err)
@@ -159,10 +150,7 @@ func TestGivenNoReadQuotaWhenLoadingSheetsConfigThenItDefaultsToSixtyPerMinute(t
 }
 
 func TestGivenAReadQuotaWhenLoadingSheetsConfigThenItIsUsed(t *testing.T) {
-	setSheetsEnv(t)
-	t.Setenv("SHEETS_READS_PER_MINUTE", "300")
-
-	config, err := LoadSheetsConfig()
+	config, err := LoadSheetsConfig(sheetsValues(Values{"SHEETS_READS_PER_MINUTE": "300"}))
 
 	if err != nil || config.ReadsPerMinute != 300 {
 		t.Fatalf("config = %+v err = %v", config.ReadsPerMinute, err)
@@ -170,11 +158,46 @@ func TestGivenAReadQuotaWhenLoadingSheetsConfigThenItIsUsed(t *testing.T) {
 }
 
 func TestGivenAnInvalidReadQuotaWhenLoadingSheetsConfigThenItFails(t *testing.T) {
-	setSheetsEnv(t)
 	for _, value := range []string{"0", "-5", "fast"} {
-		t.Setenv("SHEETS_READS_PER_MINUTE", value)
-		if _, err := LoadSheetsConfig(); !errors.Is(err, ErrInvalidSheetsConfig) {
+		if _, err := LoadSheetsConfig(sheetsValues(Values{"SHEETS_READS_PER_MINUTE": value})); !errors.Is(err, ErrInvalidSheetsConfig) {
 			t.Fatalf("value %q: err = %v, want ErrInvalidSheetsConfig", value, err)
+		}
+	}
+}
+
+func TestGivenUpstashCredentialsWhenLoadingCacheConfigThenUpstashIsUsed(t *testing.T) {
+	config, err := LoadCacheConfig(Values{"UPSTASH_REDIS_REST_URL": "https://redis.example", "UPSTASH_REDIS_REST_TOKEN": "token"})
+
+	if err != nil || config.Backend != domain.CacheBackendUpstash || config.RESTURL != "https://redis.example" || config.KeyPrefix != "wm:" {
+		t.Fatalf("config = %+v err = %v", config, err)
+	}
+}
+
+func TestGivenNoUpstashWhenLoadingCacheConfigThenSQLiteInTheSystemTempDirIsUsed(t *testing.T) {
+	t.Setenv("CACHE_SQLITE_PATH", "")
+
+	config, err := LoadCacheConfig(Values{"CACHE_KEY_PREFIX": "wm-test:1:"})
+
+	want := filepath.Join(os.TempDir(), "wealth-management", "cache.db")
+	if err != nil || config.Backend != domain.CacheBackendSQLite || config.SQLitePath != want || config.KeyPrefix != "wm-test:1:" {
+		t.Fatalf("config = %+v err = %v, want sqlite at %s", config, err, want)
+	}
+}
+
+func TestGivenASQLitePathInTheEnvironmentWhenLoadingCacheConfigThenItIsUsed(t *testing.T) {
+	t.Setenv("CACHE_SQLITE_PATH", "/var/cache/wm.db")
+
+	config, err := LoadCacheConfig(Values{})
+
+	if err != nil || config.SQLitePath != "/var/cache/wm.db" {
+		t.Fatalf("config = %+v err = %v", config, err)
+	}
+}
+
+func TestGivenHalfTheUpstashCredentialsWhenLoadingCacheConfigThenItFails(t *testing.T) {
+	for _, values := range []Values{{"UPSTASH_REDIS_REST_URL": "https://redis.example"}, {"UPSTASH_REDIS_REST_TOKEN": "token"}} {
+		if _, err := LoadCacheConfig(values); !errors.Is(err, ErrMissingCacheConfig) {
+			t.Fatalf("values %v: err = %v, want ErrMissingCacheConfig", values, err)
 		}
 	}
 }

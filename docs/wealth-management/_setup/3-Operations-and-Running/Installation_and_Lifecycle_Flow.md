@@ -10,12 +10,10 @@ pnpm install
 
 ## 2. Configure
 
-1. Create `.env.local` at the repo root with `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_SHEETS_ID` (see [setup README §3](../README.md#3-environment-variables)).
-2. Mint the refresh token. This prints a consent URL, asks for the redirected URL, and writes `GOOGLE_REFRESH_TOKEN` into `.env.local`:
+There is no env file ([setup README §2](../README.md#2-settings-no-env-file)). Start the engine (section 3) and open `/ui/settings`.
 
-   ```sh
-   pnpm run auth:sheets
-   ```
+1. Under Engine settings > Google Sheets, set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_SHEETS_ID`, and save. An existing `.env.local` can be imported instead with `pnpx nx run wealth-management:import-settings`.
+2. Click **Connect Google account** on the Google Sheets card and allow access in the Google tab. The engine saves `GOOGLE_REFRESH_TOKEN` to the settings store ([setup README §3.8](../README.md#38-first-run) covers the redirect the OAuth client must allow).
 
 3. Verify the token and sheet access:
 
@@ -23,7 +21,7 @@ pnpm install
    pnpx nx run wealth-management:verify-auth
    ```
 
-4. Optionally add cache, AI, search and market variables.
+4. Optionally add cache, AI, search and market settings, then click **Restart engine** on the Settings page to apply them.
 
 ## 3. Run
 
@@ -37,5 +35,5 @@ Then check `GET /api/health` (per-dependency status) and open `/api/docs` for th
 ## 4. Operations
 
 - **Refresh data**: sheet reads are cached; `POST /api/sync` invalidates every sheet-derived key (WM-OPS-3).
-- **Token expired** (`invalid_grant`): rerun `pnpm run auth:sheets`, then `verify-auth`.
+- **Token expired** (`invalid_grant`): use **Connect Google account** in Settings again, then `verify-auth`, then restart the engine from Settings.
 - **Tests**: `pnpx nx run wealth-management:test` and `pnpx nx run wealth-management:test-ui`. Live tests: [setup README §6](../README.md#6-live-e2e-tests-disposable-sheet-copy).

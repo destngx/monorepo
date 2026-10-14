@@ -5,17 +5,23 @@
 //	RUN_LIVE_API_TESTS=true go test ./e2e/ -run '^TestE2E' -count=1 -v
 //
 // or `pnpx nx run wealth-management:test-e2e`. It needs GOOGLE_CLIENT_ID,
-// GOOGLE_CLIENT_SECRET, GOOGLE_TEST_REFRESH_TOKEN (minted by
-// `pnpx nx run wealth-management:auth-sheets -- --test`) and E2E_SOURCE_XLSX
-// (path to the workbook) in the environment or .env.local. GOOGLE_SHEETS_ID,
-// when set, is only used to refuse the production sheet.
-// KEEP_TEST_SHEET=true keeps the test sheet for debugging.
+// GOOGLE_CLIENT_SECRET and GOOGLE_TEST_REFRESH_TOKEN (minted by Connect
+// test account in Settings) in the settings store (WM_SETTINGS_PATH or the user config directory), and E2E_SOURCE_XLSX
+// (path to the workbook) in the store or the environment, the environment
+// winning. GOOGLE_SHEETS_ID, when set, is only used to refuse the production
+// sheet. KEEP_TEST_SHEET=true keeps the test sheet for debugging.
+//
+// The engine runs with its own settings store, seeded from the user's, so
+// the run never changes the user's settings.
 package e2e
 
 import (
+	configAdapter "apps/wealth-management/adapter/config"
+	settingsAdapter "apps/wealth-management/adapter/settings"
 	"apps/wealth-management/domain"
 	"apps/wealth-management/internal/e2esheet"
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -33,17 +39,12 @@ import (
 	"syscall"
 	"testing"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 const (
 	startupTimeout = 90 * time.Second
 	requestTimeout = 60 * time.Second
 )
-
-// Env files, relative to this package, in the order the engine loads them.
-var envFiles = []string{"../../../.env.local", "../.env.local"}
 
 // harness is the running engine shared by every test in the run (WM-TEST-7).
 type harness struct {
@@ -66,23 +67,23 @@ func run(m *testing.M) int {
 		return m.Run()
 	}
 	ctx := context.Background()
-	env, err := loadEnv()
+	settings, err := loadSettings(ctx)
 	if err != nil {
-		return abort("read .env.local", err)
+		return abort("read the settings store", err)
 	}
 	runID := randomHex(4)
-	productionID := strings.TrimSpace(env["GOOGLE_SHEETS_ID"])
-	source, err := sourceWorkbook(env["E2E_SOURCE_XLSX"])
+	productionID := strings.TrimSpace(settings["GOOGLE_SHEETS_ID"])
+	source, err := sourceWorkbook(cmp.Or(strings.TrimSpace(os.Getenv("E2E_SOURCE_XLSX")), settings["E2E_SOURCE_XLSX"]))
 	if err != nil {
 		return abort("find the test workbook", err)
 	}
 	drive, err := e2esheet.New(ctx, e2esheet.Credentials{
-		ClientID:     strings.TrimSpace(env["GOOGLE_CLIENT_ID"]),
-		ClientSecret: strings.TrimSpace(env["GOOGLE_CLIENT_SECRET"]),
-		RefreshToken: strings.TrimSpace(env["GOOGLE_TEST_REFRESH_TOKEN"]),
+		ClientID:     strings.TrimSpace(settings["GOOGLE_CLIENT_ID"]),
+		ClientSecret: strings.TrimSpace(settings["GOOGLE_CLIENT_SECRET"]),
+		RefreshToken: strings.TrimSpace(settings["GOOGLE_TEST_REFRESH_TOKEN"]),
 	}, productionID)
 	if err != nil {
-		return abort("set up Drive (run `pnpx nx run wealth-management:auth-sheets -- --test` first)", err)
+		return abort("set up Drive (use Connect test account in Settings first)", err)
 	}
 
 	// WM-TEST-6: clear copies that earlier runs failed to delete.
@@ -115,7 +116,7 @@ func run(m *testing.M) int {
 	if err := os.MkdirAll(workDir, 0o700); err != nil {
 		return abort("create the work directory", err)
 	}
-	h, stop, err := startEngine(ctx, env, runID, copied, workDir)
+	h, stop, err := startEngine(ctx, settings, runID, copied, workDir)
 	if err != nil {
 		return abort("start the engine (log: "+filepath.Join(workDir, "engine.log")+")", err)
 	}
@@ -152,37 +153,48 @@ func sourceWorkbook(raw string) (string, error) {
 	return path, nil
 }
 
-// loadEnv merges the process environment with .env.local, the file winning
-// as it does in the engine (config.Load).
-func loadEnv() (map[string]string, error) {
-	env := map[string]string{}
-	for _, entry := range os.Environ() {
-		if key, value, ok := strings.Cut(entry, "="); ok {
-			env[key] = value
+// loadSettings reads the user's settings store without creating it.
+func loadSettings(ctx context.Context) (map[string]string, error) {
+	path, err := settingsAdapter.ResolvePath(configAdapter.LoadSettingsPath())
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(path); err != nil {
+		return nil, fmt.Errorf("%w (configure the engine on the Settings page or run import-settings first)", err)
+	}
+	store, err := settingsAdapter.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+	return store.Values(ctx)
+}
+
+// seedSettings writes the engine's settings for the run: the user's, minus
+// the testing group the engine never reads, pointed at the copy with the
+// test token and a cache namespace of its own (WM-TEST-4).
+func seedSettings(ctx context.Context, path string, settings map[string]string, runID string, copied e2esheet.Copy) error {
+	values := map[string]string{}
+	for key, value := range settings {
+		if definition, known := domain.LookupSetting(key); known && definition.Group != "testing" {
+			values[key] = value
 		}
 	}
-	files := envFiles
-	if override := strings.TrimSpace(os.Getenv("WM_ENV_FILE")); override != "" && override != "none" {
-		files = []string{override}
+	values["GOOGLE_SHEETS_ID"] = copied.ID
+	values["GOOGLE_REFRESH_TOKEN"] = settings["GOOGLE_TEST_REFRESH_TOKEN"]
+	values["CACHE_KEY_PREFIX"] = "wm-test:" + runID + ":"
+	values["LOG_LEVEL"] = "info"
+
+	store, err := settingsAdapter.Open(path)
+	if err != nil {
+		return err
 	}
-	for _, path := range files {
-		values, err := godotenv.Read(path)
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", path, err)
-		}
-		for key, value := range values {
-			env[key] = value
-		}
-	}
-	return env, nil
+	return errors.Join(store.Save(ctx, values), store.Close())
 }
 
 // startEngine builds the engine and runs it against the copy with its own
 // cache namespace, write token and test mode on (WM-TEST-2, WM-TEST-4).
-func startEngine(ctx context.Context, env map[string]string, runID string, copied e2esheet.Copy, workDir string) (*harness, func() error, error) {
+func startEngine(ctx context.Context, settings map[string]string, runID string, copied e2esheet.Copy, workDir string) (*harness, func() error, error) {
 	binary := filepath.Join(workDir, "wm")
 	build := exec.CommandContext(ctx, "go", "build", "-o", binary, ".")
 	build.Dir = ".."
@@ -200,26 +212,22 @@ func startEngine(ctx context.Context, env map[string]string, runID string, copie
 		copy:     copied,
 		client:   &http.Client{Timeout: requestTimeout},
 	}
-	overrides := map[string]string{
-		"WM_ENV_FILE":          "none",
-		"WM_TEST_MODE":         "true",
-		"GOOGLE_SHEETS_ID":     copied.ID,
-		"GOOGLE_REFRESH_TOKEN": env["GOOGLE_TEST_REFRESH_TOKEN"],
-		"CACHE_KEY_PREFIX":     "wm-test:" + runID + ":",
-		"HOST":                 "127.0.0.1",
-		"PORT":                 strconv.Itoa(port),
-		"API_TOKEN":            h.apiToken,
-		"LOG_LEVEL":            "info",
-		"LOG_COLOR":            "false",
+	settingsPath := filepath.Join(workDir, "settings.db")
+	if err := seedSettings(ctx, settingsPath, settings, runID, copied); err != nil {
+		return nil, nil, fmt.Errorf("seed the run settings: %w", err)
 	}
-	environment := make([]string, 0, len(env)+len(overrides))
-	for key, value := range env {
-		if _, overridden := overrides[key]; !overridden {
-			environment = append(environment, key+"="+value)
-		}
-	}
-	for key, value := range overrides {
-		environment = append(environment, key+"="+value)
+	// Only bootstrap values: integration settings come from the run's store.
+	environment := []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + os.Getenv("HOME"),
+		"TMPDIR=" + os.TempDir(),
+		"WM_SETTINGS_PATH=" + settingsPath,
+		"CACHE_SQLITE_PATH=" + filepath.Join(workDir, "cache.db"),
+		"WM_TEST_MODE=true",
+		"HOST=127.0.0.1",
+		"PORT=" + strconv.Itoa(port),
+		"API_TOKEN=" + h.apiToken,
+		"LOG_COLOR=false",
 	}
 
 	logFile, err := os.Create(filepath.Join(workDir, "engine.log"))

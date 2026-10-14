@@ -12,6 +12,7 @@
   import { apiToken, entryReminder, theme, type Theme } from '$lib/state/settings.svelte';
   import { sync } from '$lib/state/sync.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
+  import EngineSettings from '$lib/settings/EngineSettings.svelte';
   import { parseReminderHour } from '$lib/transactions/reminder';
 
   // Engine health comes from the root layout load.
@@ -224,6 +225,8 @@
     >
   </Card>
 </div>
+
+<EngineSettings />
 
 <Modal open={confirmFlush} title="Flush caches?" onclose={() => (confirmFlush = false)}>
   <p class="text-sm">

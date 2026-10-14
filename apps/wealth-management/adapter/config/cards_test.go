@@ -8,8 +8,7 @@ import (
 )
 
 func TestDefaultCardConfigIsValid(t *testing.T) {
-	t.Setenv("CARD_PROGRAMS_FILE", "")
-	config, err := LoadCardConfig()
+	config, err := LoadCardConfig(Values{})
 	if err != nil {
 		t.Fatalf("default config: %v", err)
 	}
@@ -36,16 +35,14 @@ func TestParseCardConfigRejectsInvalidData(t *testing.T) {
 }
 
 func TestLoadCardConfigFromMissingFileFails(t *testing.T) {
-	t.Setenv("CARD_PROGRAMS_FILE", "./does-not-exist.json")
-	if _, err := LoadCardConfig(); err == nil {
+	if _, err := LoadCardConfig(Values{"CARD_PROGRAMS_FILE": "./does-not-exist.json"}); err == nil {
 		t.Fatal("expected error for missing file")
 	}
 }
 
 // WM-RULE-7 decision: UNIQ pays at most 300k per cycle across all its rules.
 func TestGivenDefaultCardsWhenUNIQRulesEachHitTheirCapThenTheCardTotalIsCappedAt300k(t *testing.T) {
-	t.Setenv("CARD_PROGRAMS_FILE", "")
-	config, err := LoadCardConfig()
+	config, err := LoadCardConfig(Values{})
 	if err != nil {
 		t.Fatalf("default config: %v", err)
 	}

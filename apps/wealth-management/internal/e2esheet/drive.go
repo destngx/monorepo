@@ -33,7 +33,7 @@ const (
 )
 
 // Credentials are the OAuth client and the test-only refresh token minted
-// by `auth-sheets --test` (WM-TEST-3).
+// by Connect test account in Settings (WM-TEST-3).
 type Credentials struct {
 	ClientID     string
 	ClientSecret string

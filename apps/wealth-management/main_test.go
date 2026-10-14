@@ -1,6 +1,7 @@
 package main
 
 import (
+	configAdapter "apps/wealth-management/adapter/config"
 	fiberAdapter "apps/wealth-management/adapter/fiber"
 	loggerAdapter "apps/wealth-management/adapter/logger"
 	mcpAdapter "apps/wealth-management/adapter/mcp"
@@ -33,16 +34,13 @@ func TestGivenTestModeWhenCheckingSpreadsheetThenOnlyCopiesPass(t *testing.T) {
 	}
 }
 
-func TestGivenNoGoogleCredentialsWhenStartingThenSheetRoutesAnswer503NamingTheMissingVars(t *testing.T) {
-	for _, name := range []string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "GOOGLE_SHEETS_ID"} {
-		t.Setenv(name, "")
-	}
+func TestGivenNoGoogleCredentialsWhenStartingThenSheetRoutesAnswer503NamingTheMissingSettings(t *testing.T) {
 	log := loggerAdapter.NewTestLogger(t)
 	health := service.NewHealthService()
 	app := fiber.New()
 	api := fiberAdapter.NewRouteRegistrar(app, "/api", "")
 
-	dbSvc, analyticsSvc := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard("", "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, domain.CardConfig{})
+	dbSvc, analyticsSvc := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard("", "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, domain.CardConfig{}, configAdapter.Values{})
 
 	if dbSvc != nil || analyticsSvc != nil {
 		t.Fatal("services must be nil without credentials")
@@ -58,5 +56,11 @@ func TestGivenNoGoogleCredentialsWhenStartingThenSheetRoutesAnswer503NamingTheMi
 	}
 	if response.StatusCode != http.StatusServiceUnavailable || !strings.Contains(string(body), `"code":"SHEETS_NOT_CONFIGURED"`) || !strings.Contains(string(body), "GOOGLE_SHEETS_ID") {
 		t.Fatalf("status = %d, body = %s", response.StatusCode, body)
+	}
+}
+
+func TestGivenAPortWhenDerivingTheGoogleRedirectThenItIsTheLoopbackCallback(t *testing.T) {
+	if got := defaultGoogleRedirect(8080); got != "http://127.0.0.1:8080/api/auth/google/callback" {
+		t.Fatalf("redirect = %q", got)
 	}
 }

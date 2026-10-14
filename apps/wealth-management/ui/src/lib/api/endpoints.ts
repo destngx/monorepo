@@ -24,8 +24,12 @@ import type {
   ChatPageContext,
   DashboardSummary,
   EngineHealth,
+  EngineSettings,
   ExchangeRate,
   FinancialHealth,
+  GoogleAuthPurpose,
+  GoogleAuthResult,
+  GoogleAuthStart,
   Goal,
   Insight,
   InvestmentAssets,
@@ -37,6 +41,7 @@ import type {
   PortfolioValuation,
   ReallocateInput,
   ReallocateResult,
+  SettingsChanges,
   SheetInfo,
   ReviewKind,
   SyncResult,
@@ -79,6 +84,15 @@ export const api = {
   },
   sync: () => request<SyncResult>('/sync', { method: 'POST' }),
   sheetInfo: (fetch?: Fetch) => request<SheetInfo>('/sheets/info', { fetch }),
+
+  settings: () => request<EngineSettings>('/settings'),
+  updateSettings: (values: SettingsChanges) =>
+    request<EngineSettings>('/settings', { method: 'PATCH', body: { values } }),
+  restartEngine: () => request<{ status: string }>('/settings/restart', { method: 'POST' }),
+  startGoogleAuth: (purpose: GoogleAuthPurpose) =>
+    request<GoogleAuthStart>('/auth/google/start', { method: 'POST', body: { purpose } }),
+  completeGoogleAuth: (redirectedUrl: string) =>
+    request<GoogleAuthResult>('/auth/google/exchange', { method: 'POST', body: { redirectedUrl } }),
 
   accounts: (options?: ReadOptions) => read<Account[]>('/accounts', options),
   createAccount: (input: { name: string; type: AccountType; balance?: number; currency?: string; note?: string }) =>

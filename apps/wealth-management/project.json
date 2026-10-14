@@ -99,10 +99,10 @@
         "cwd": "apps/wealth-management"
       }
     },
-    "auth-sheets": {
+    "import-settings": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "go run ./cmd/google_oauth_setup",
+        "command": "go run ./cmd/import_settings",
         "cwd": "apps/wealth-management"
       },
       "cache": false

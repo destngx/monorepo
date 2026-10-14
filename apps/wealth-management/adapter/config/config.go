@@ -5,34 +5,51 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
-var envFiles = []string{
-	"../../.env.local",
-	".env.local",
+// There is no env file. Integration settings come from the settings store
+// (edited in the UI) as Values; only bootstrap values the engine needs
+// before it can open the store are read from the process environment:
+// HOST, PORT, API_TOKEN, WM_SETTINGS_PATH, CACHE_SQLITE_PATH, WM_TEST_MODE
+// and LOG_COLOR.
+
+// Values are the stored settings, keyed by the names in
+// domain.SettingDefinitions.
+type Values map[string]string
+
+func (v Values) get(key string) string {
+	return strings.TrimSpace(v[key])
 }
 
-// Load reads .env.local (repo root, then the app directory), overriding
-// the process environment. WM_ENV_FILE names one file to load instead, and
-// "none" loads nothing, so a harness can hand the engine its whole
-// environment (WM-TEST-1).
-func Load() {
-	paths := envFiles
-	switch override := strings.TrimSpace(os.Getenv("WM_ENV_FILE")); override {
-	case "":
-	case "none":
-		return
-	default:
-		paths = []string{override}
+func (v Values) getOrDefault(key string, fallback string) string {
+	if value := v.get(key); value != "" {
+		return value
 	}
-	for _, path := range paths {
-		_ = godotenv.Overload(path)
+	return fallback
+}
+
+func (v Values) getOrDefaultInt(key string, fallback int) int {
+	parsed, err := strconv.Atoi(v.get(key))
+	if err != nil {
+		return fallback
 	}
+	return parsed
+}
+
+func envOrDefault(key string, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		return value
+	}
+	return fallback
+}
+
+// LoadSettingsPath reads WM_SETTINGS_PATH; empty means the default location.
+func LoadSettingsPath() string {
+	return strings.TrimSpace(os.Getenv("WM_SETTINGS_PATH"))
 }
 
 // LoadTestMode reads WM_TEST_MODE: the engine then refuses to start unless
@@ -42,13 +59,13 @@ func LoadTestMode() bool {
 	return enabled
 }
 
-func LoadSheetsConfig() (domain.SheetsConfig, error) {
+func LoadSheetsConfig(values Values) (domain.SheetsConfig, error) {
 	config := domain.SheetsConfig{
-		ClientID:      os.Getenv("GOOGLE_CLIENT_ID"),
-		ClientSecret:  os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RefreshToken:  os.Getenv("GOOGLE_REFRESH_TOKEN"),
-		SpreadsheetID: os.Getenv("GOOGLE_SHEETS_ID"),
-		RedirectURL:   getOrDefault("GOOGLE_REDIRECT_URL", "http://127.0.0.1:3000"),
+		ClientID:      values.get("GOOGLE_CLIENT_ID"),
+		ClientSecret:  values.get("GOOGLE_CLIENT_SECRET"),
+		RefreshToken:  values.get("GOOGLE_REFRESH_TOKEN"),
+		SpreadsheetID: values.get("GOOGLE_SHEETS_ID"),
+		RedirectURL:   values.get("GOOGLE_REDIRECT_URL"),
 	}
 
 	var missing []string
@@ -69,7 +86,7 @@ func LoadSheetsConfig() (domain.SheetsConfig, error) {
 		return domain.SheetsConfig{}, fmt.Errorf("%w: %v", ErrMissingSheetsConfig, missing)
 	}
 
-	readsPerMinute, err := loadSheetsReadsPerMinute()
+	readsPerMinute, err := loadSheetsReadsPerMinute(values)
 	if err != nil {
 		return domain.SheetsConfig{}, err
 	}
@@ -84,8 +101,8 @@ const DefaultSheetsReadsPerMinute = 60
 
 // loadSheetsReadsPerMinute reads SHEETS_READS_PER_MINUTE, the pace of Sheets
 // read requests (default 60).
-func loadSheetsReadsPerMinute() (int, error) {
-	value := strings.TrimSpace(os.Getenv("SHEETS_READS_PER_MINUTE"))
+func loadSheetsReadsPerMinute(values Values) (int, error) {
+	value := values.get("SHEETS_READS_PER_MINUTE")
 	if value == "" {
 		return DefaultSheetsReadsPerMinute, nil
 	}
@@ -96,93 +113,80 @@ func loadSheetsReadsPerMinute() (int, error) {
 	return parsed, nil
 }
 
-func getOrDefault(key string, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
-	}
-
-	return value
-}
-
 var ErrMissingSheetsConfig = errors.New("missing Google Sheets configuration")
 var ErrInvalidSheetsConfig = errors.New("invalid Google Sheets configuration")
 var ErrMissingCacheConfig = errors.New("missing Upstash Redis configuration")
 
-func LoadCacheConfig() (domain.CacheConfig, error) {
-	config := domain.CacheConfig{
-		RESTURL:   os.Getenv("UPSTASH_REDIS_REST_URL"),
-		RESTToken: os.Getenv("UPSTASH_REDIS_REST_TOKEN"),
-		KeyPrefix: getOrDefault("CACHE_KEY_PREFIX", "wm:"),
+// LoadCacheConfig picks Upstash when both UPSTASH_REDIS_REST_URL and
+// UPSTASH_REDIS_REST_TOKEN are set, and a local SQLite file otherwise
+// (CACHE_SQLITE_PATH from the environment, default <system
+// temp>/wealth-management/cache.db). Only one of the two Upstash settings is
+// a mistake and fails rather than silently switching to SQLite.
+func LoadCacheConfig(values Values) (domain.CacheConfig, error) {
+	prefix := values.getOrDefault("CACHE_KEY_PREFIX", "wm:")
+	url := values.get("UPSTASH_REDIS_REST_URL")
+	token := values.get("UPSTASH_REDIS_REST_TOKEN")
+
+	switch {
+	case url != "" && token != "":
+		return domain.CacheConfig{Backend: domain.CacheBackendUpstash, RESTURL: url, RESTToken: token, KeyPrefix: prefix}, nil
+	case url != "":
+		return domain.CacheConfig{}, fmt.Errorf("%w: [UPSTASH_REDIS_REST_TOKEN]", ErrMissingCacheConfig)
+	case token != "":
+		return domain.CacheConfig{}, fmt.Errorf("%w: [UPSTASH_REDIS_REST_URL]", ErrMissingCacheConfig)
 	}
 
-	var missing []string
-	if config.RESTURL == "" {
-		missing = append(missing, "UPSTASH_REDIS_REST_URL")
-	}
-	if config.RESTToken == "" {
-		missing = append(missing, "UPSTASH_REDIS_REST_TOKEN")
-	}
-
-	if len(missing) > 0 {
-		return domain.CacheConfig{}, fmt.Errorf("%w: %v", ErrMissingCacheConfig, missing)
-	}
-
-	return config, nil
+	return domain.CacheConfig{Backend: domain.CacheBackendSQLite, SQLitePath: envOrDefault("CACHE_SQLITE_PATH", DefaultSQLiteCachePath()), KeyPrefix: prefix}, nil
 }
 
-func LoadMarketDataProviderConfig(baseURLEnv string, fallbackBaseURL string) domain.MarketDataProviderConfig {
+// DefaultSQLiteCachePath is the SQLite cache file in the system temp
+// directory; the cache only holds copies, so losing it on reboot is fine.
+func DefaultSQLiteCachePath() string {
+	return filepath.Join(os.TempDir(), "wealth-management", "cache.db")
+}
+
+func LoadMarketDataProviderConfig(values Values, baseURLKey string, fallbackBaseURL string) domain.MarketDataProviderConfig {
 	return domain.MarketDataProviderConfig{
-		BaseURL: getOrDefault(baseURLEnv, fallbackBaseURL),
+		BaseURL: values.getOrDefault(baseURLKey, fallbackBaseURL),
 	}
 }
 
 // LoadCoinGeckoConfig reads COINGECKO_BASE_URL and the optional
 // COINGECKO_API_KEY (a demo key; it raises the public rate limit).
-func LoadCoinGeckoConfig(fallbackBaseURL string) (domain.MarketDataProviderConfig, string) {
-	return LoadMarketDataProviderConfig("COINGECKO_BASE_URL", fallbackBaseURL), strings.TrimSpace(os.Getenv("COINGECKO_API_KEY"))
-}
-
-func getOrDefaultInt(key string, fallback int) int {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return fallback
-	}
-	return parsed
+func LoadCoinGeckoConfig(values Values, fallbackBaseURL string) (domain.MarketDataProviderConfig, string) {
+	return LoadMarketDataProviderConfig(values, "COINGECKO_BASE_URL", fallbackBaseURL), values.get("COINGECKO_API_KEY")
 }
 
 // LoadServerConfig reads HOST (default 127.0.0.1), PORT (default 8080) and
-// API_TOKEN, which guards write endpoints when set.
+// API_TOKEN, which guards write endpoints when set, from the environment.
 func LoadServerConfig() (domain.ServerConfig, error) {
-	port, err := strconv.Atoi(getOrDefault("PORT", "8080"))
+	port, err := strconv.Atoi(envOrDefault("PORT", "8080"))
 	if err != nil || port < 1 || port > 65535 {
 		return domain.ServerConfig{}, fmt.Errorf("%w: PORT must be 1-65535", ErrInvalidServerConfig)
 	}
 	return domain.ServerConfig{
-		Host:     getOrDefault("HOST", "127.0.0.1"),
+		Host:     envOrDefault("HOST", "127.0.0.1"),
 		Port:     port,
-		APIToken: os.Getenv("API_TOKEN"),
+		APIToken: strings.TrimSpace(os.Getenv("API_TOKEN")),
 	}, nil
 }
 
 var ErrInvalidServerConfig = errors.New("invalid server configuration")
 
 // BudgetSheetTemplate names the budget tab; "{year}" is replaced (WM-DATA-2).
-func BudgetSheetTemplate() string {
-	return getOrDefault("BUDGET_SHEET_TEMPLATE", "Budget_{year}")
+func BudgetSheetTemplate(values Values) string {
+	return values.getOrDefault("BUDGET_SHEET_TEMPLATE", "Budget_{year}")
 }
 
-func LoadLoggerConfig() (logLevel string, colorEnabled bool) {
-	logLevel = os.Getenv("LOG_LEVEL")
-	if logLevel == "" {
-		logLevel = "info"
-	}
-	colorEnabled = os.Getenv("LOG_COLOR") != "false"
-	return logLevel, colorEnabled
+// LoadLogLevel reads LOG_LEVEL (default info).
+func LoadLogLevel(values Values) string {
+	return values.getOrDefault("LOG_LEVEL", "info")
+}
+
+// LoadLogColor reads LOG_COLOR from the environment: colour is a property
+// of the terminal, not of the engine.
+func LoadLogColor() bool {
+	return os.Getenv("LOG_COLOR") != "false"
 }
 
 var ErrMissingAIConfig = errors.New("missing AI configuration")
@@ -194,18 +198,18 @@ const defaultAITimeoutSeconds = 90
 // AI_PROVIDER (X-AI-Provider for ai-gateway), AI_MODEL as the default model,
 // AI_MODEL_{INSIGHT,SUGGEST,VISION,CHAT} per use case, AI_FALLBACK_MODEL,
 // AI_TIMEOUT_SECONDS and AI_PII_NAMES (comma separated names to mask).
-func LoadAIConfig() (domain.AIConfig, error) {
+func LoadAIConfig(values Values) (domain.AIConfig, error) {
 	config := domain.AIConfig{
-		BaseURL:       strings.TrimSpace(os.Getenv("AI_BASE_URL")),
-		APIKey:        os.Getenv("AI_API_KEY"),
-		Provider:      strings.TrimSpace(os.Getenv("AI_PROVIDER")),
-		FallbackModel: strings.TrimSpace(os.Getenv("AI_FALLBACK_MODEL")),
-		Timeout:       time.Duration(getOrDefaultInt("AI_TIMEOUT_SECONDS", defaultAITimeoutSeconds)) * time.Second,
+		BaseURL:       values.get("AI_BASE_URL"),
+		APIKey:        values.get("AI_API_KEY"),
+		Provider:      values.get("AI_PROVIDER"),
+		FallbackModel: values.get("AI_FALLBACK_MODEL"),
+		Timeout:       time.Duration(values.getOrDefaultInt("AI_TIMEOUT_SECONDS", defaultAITimeoutSeconds)) * time.Second,
 		Models:        map[domain.AIUseCase]string{},
 	}
-	defaultModel := strings.TrimSpace(os.Getenv("AI_MODEL"))
+	defaultModel := values.get("AI_MODEL")
 	for _, useCase := range domain.AIUseCases {
-		model := strings.TrimSpace(os.Getenv("AI_MODEL_" + strings.ToUpper(string(useCase))))
+		model := values.get("AI_MODEL_" + strings.ToUpper(string(useCase)))
 		if model == "" {
 			model = defaultModel
 		}
@@ -213,7 +217,7 @@ func LoadAIConfig() (domain.AIConfig, error) {
 			config.Models[useCase] = model
 		}
 	}
-	for _, name := range strings.Split(os.Getenv("AI_PII_NAMES"), ",") {
+	for _, name := range strings.Split(values.get("AI_PII_NAMES"), ",") {
 		if name = strings.TrimSpace(name); name != "" {
 			config.PIINames = append(config.PIINames, name)
 		}
@@ -240,10 +244,10 @@ var ErrInvalidCaptureConfig = errors.New("invalid Smart Capture configuration")
 // LoadCaptureLimits reads the Smart Capture batch limits (WM-CAP-1):
 // CAPTURE_MAX_ITEMS (default 20), CAPTURE_MAX_ITEM_MB (default 5) and
 // CAPTURE_MAX_BATCH_MB (default 20).
-func LoadCaptureLimits() (domain.CaptureLimits, error) {
+func LoadCaptureLimits(values Values) (domain.CaptureLimits, error) {
 	defaults := domain.DefaultCaptureLimits()
 	read := func(key string, fallback int) (int, error) {
-		value := strings.TrimSpace(os.Getenv(key))
+		value := values.get(key)
 		if value == "" {
 			return fallback, nil
 		}
@@ -272,9 +276,9 @@ func LoadCaptureLimits() (domain.CaptureLimits, error) {
 }
 
 // LoadSearchConfig reads the optional TAVILY_API_KEY and EXA_API_KEY.
-func LoadSearchConfig() domain.SearchConfig {
+func LoadSearchConfig(values Values) domain.SearchConfig {
 	return domain.SearchConfig{
-		TavilyAPIKey: strings.TrimSpace(os.Getenv("TAVILY_API_KEY")),
-		ExaAPIKey:    strings.TrimSpace(os.Getenv("EXA_API_KEY")),
+		TavilyAPIKey: values.get("TAVILY_API_KEY"),
+		ExaAPIKey:    values.get("EXA_API_KEY"),
 	}
 }

@@ -4,6 +4,7 @@ import (
 	logger "apps/wealth-management/adapter/logger"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	fiberLib "github.com/gofiber/fiber/v2"
@@ -47,7 +48,7 @@ func LoggingMiddleware(log *logger.Logger) fiberLib.Handler {
 			slog.Int("response_size_bytes", len(c.Response().Body())),
 		}
 		if query := c.Request().URI().QueryString(); len(query) > 0 {
-			attrs = append(attrs, slog.String("query", string(query)))
+			attrs = append(attrs, slog.String("query", redactQuery(string(query))))
 		}
 
 		level := slog.LevelInfo
@@ -80,4 +81,26 @@ func RecoveryMiddleware(log *logger.Logger) fiberLib.Handler {
 		}()
 		return c.Next()
 	}
+}
+
+// redactedQueryKeys never reach the log: the Google sign-in callback carries
+// an authorization code and its state in the query.
+var redactedQueryKeys = []string{"code", "state"}
+
+func redactQuery(raw string) string {
+	values, err := url.ParseQuery(raw)
+	if err != nil {
+		return "[unparsable query]"
+	}
+	redacted := false
+	for _, key := range redactedQueryKeys {
+		if values.Has(key) {
+			values.Set(key, "REDACTED")
+			redacted = true
+		}
+	}
+	if !redacted {
+		return raw
+	}
+	return values.Encode()
 }

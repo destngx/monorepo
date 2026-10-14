@@ -13,3 +13,4 @@ export * from './types/ai';
 export * from './types/capture';
 export * from './types/market';
 export * from './types/news';
+export * from './types/settings';

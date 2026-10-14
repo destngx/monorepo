@@ -6,6 +6,7 @@ import (
 	configAdapter "apps/wealth-management/adapter/config"
 	dbAdapter "apps/wealth-management/adapter/db/google_sheets"
 	fiberAdapter "apps/wealth-management/adapter/fiber"
+	googleauthAdapter "apps/wealth-management/adapter/googleauth"
 	loggerAdapter "apps/wealth-management/adapter/logger"
 	coingeckoProvider "apps/wealth-management/adapter/market/coingecko"
 	currencyapiProvider "apps/wealth-management/adapter/market/currencyapi"
@@ -16,6 +17,7 @@ import (
 	duckduckgoSearch "apps/wealth-management/adapter/search/duckduckgo"
 	exaSearch "apps/wealth-management/adapter/search/exa"
 	tavilySearch "apps/wealth-management/adapter/search/tavily"
+	settingsAdapter "apps/wealth-management/adapter/settings"
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"apps/wealth-management/service"
@@ -23,36 +25,57 @@ import (
 	cacheService "apps/wealth-management/service/cache"
 	marketProviderService "apps/wealth-management/service/market_provider"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func main() {
-	// Load .env.local first so LOG_LEVEL and the rest of the config come from it.
-	configAdapter.Load()
-	logLevel, colorEnabled := configAdapter.LoadLoggerConfig()
-	log := loggerAdapter.NewLogger(logLevel, colorEnabled)
-	ctx := context.Background()
+	os.Exit(run())
+}
 
+// run serves until the server fails (exit 1) or a settings restart is
+// requested, in which case the process replaces itself with a fresh copy of
+// the binary so every service is rebuilt from the saved settings.
+func run() int {
+	ctx := context.Background()
+	colorEnabled := configAdapter.LoadLogColor()
 	serverConfig, err := configAdapter.LoadServerConfig()
 	if err != nil {
-		log.LogError(ctx, "invalid server configuration", err)
-		os.Exit(1)
+		loggerAdapter.NewLogger("info", colorEnabled).LogError(ctx, "invalid server configuration", err)
+		return 1
 	}
-	cardConfig, err := configAdapter.LoadCardConfig()
+	store, values, err := openSettings()
 	if err != nil {
-		log.LogError(ctx, "invalid card programs configuration", err)
-		os.Exit(1)
+		loggerAdapter.NewLogger("info", colorEnabled).LogError(ctx, "cannot open the settings store", err)
+		return 1
 	}
-	captureLimits, err := configAdapter.LoadCaptureLimits()
+	defer store.Close()
+	log := loggerAdapter.NewLogger(configAdapter.LoadLogLevel(values), colorEnabled)
+	log.LogApplicationEvent(ctx, "settings loaded from "+store.Path())
+
+	// A bad stored value must not stop the engine, or the Settings page
+	// could not be reached to fix it: fall back to the defaults.
+	cardConfig, err := configAdapter.LoadCardConfig(values)
 	if err != nil {
-		log.LogError(ctx, "invalid Smart Capture configuration", err)
-		os.Exit(1)
+		log.LogError(ctx, "invalid card programs configuration: using the built-in programs", err)
+		if cardConfig, err = configAdapter.LoadCardConfig(configAdapter.Values{}); err != nil {
+			log.LogError(ctx, "invalid built-in card programs", err)
+			return 1
+		}
+	}
+	captureLimits, err := configAdapter.LoadCaptureLimits(values)
+	if err != nil {
+		log.LogError(ctx, "invalid Smart Capture configuration: using the default limits", err)
+		captureLimits = domain.DefaultCaptureLimits()
 	}
 
 	health := service.NewHealthService()
@@ -83,13 +106,27 @@ func main() {
 	app.Get("/api/openapi.json", openAPIHandler.Spec)
 	app.Get("/api/docs", openAPIHandler.Docs)
 
-	cacheClient, cacheSvc := setupCache(ctx, log, health, api)
-	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig)
+	restart := make(chan struct{}, 1)
+	settingsSvc := service.NewSettingsService(store, func() {
+		select {
+		case restart <- struct{}{}:
+		default:
+		}
+	})
+	fiberAdapter.RegisterSettingsRoutes(api, fiberAdapter.NewSettingsHandler(settingsSvc, log), guard)
+	googleAuthSvc := service.NewGoogleAuthService(store, settingsSvc, googleauthAdapter.New(), defaultGoogleRedirect(serverConfig.Port))
+	fiberAdapter.RegisterGoogleAuthRoutes(api, fiberAdapter.NewGoogleAuthHandler(googleAuthSvc, log), guard)
+
+	cacheClient, cacheSvc := setupCache(ctx, log, health, api, values)
+	if closer, ok := cacheClient.(io.Closer); ok {
+		defer closer.Close()
+	}
+	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig, values)
 	if dbSvc != nil {
 		staleData.Watch(dbSvc)
 	}
-	marketSvc := setupMarket(ctx, log, health, api, mcpServer, cacheClient)
-	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc)}
+	marketSvc := setupMarket(ctx, log, health, api, mcpServer, cacheClient, values)
+	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc, values)}
 	if marketSvc != nil {
 		analysisSvc := service.NewMarketAnalysisService(marketSvc, nil)
 		fiberAdapter.RegisterMarketAnalysisRoutes(api, fiberAdapter.NewMarketAnalysisHandler(analysisSvc, log))
@@ -102,7 +139,7 @@ func main() {
 		aiOptions.Portfolio = portfolioSvc
 		mcpServer.SetPortfolioService(portfolioSvc)
 	}
-	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions)
+	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions, values)
 
 	// Mounted last so every API route above keeps priority over the UI.
 	if !fiberAdapter.MountUI(app, fiberAdapter.DefaultUIBuildDir) {
@@ -117,22 +154,86 @@ func main() {
 
 	address := net.JoinHostPort(serverConfig.Host, strconv.Itoa(serverConfig.Port))
 	log.LogApplicationEvent(ctx, "starting server on "+address)
-	if err := app.Listen(address); err != nil {
+	served := make(chan error, 1)
+	go func() { served <- app.Listen(address) }()
+
+	select {
+	case err := <-served:
 		log.LogError(ctx, "server failed to start", err)
-		os.Exit(1)
+		return 1
+	case <-restart:
 	}
+	// Shutdown lets in-flight requests finish, so the restart request gets
+	// its 202 before the process is replaced.
+	log.LogApplicationEvent(ctx, "restarting to apply saved settings")
+	if err := app.ShutdownWithTimeout(restartShutdownTimeout); err != nil {
+		log.LogError(ctx, "graceful shutdown before restart failed", err)
+	}
+	if err := <-served; err != nil {
+		log.LogError(ctx, "server stopped with an error before restart", err)
+	}
+	if closer, ok := cacheClient.(io.Closer); ok {
+		if err := closer.Close(); err != nil {
+			log.LogError(ctx, "closing the cache before restart failed", err)
+		}
+	}
+	if err := store.Close(); err != nil {
+		log.LogError(ctx, "closing the settings store before restart failed", err)
+	}
+	err = reexec()
+	log.LogError(ctx, "restart failed: start the engine again by hand", err)
+	return 1
 }
 
-func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar) (port.CacheClient, port.CacheService) {
-	cacheConfig, err := configAdapter.LoadCacheConfig()
+const restartShutdownTimeout = 10 * time.Second
+
+// reexec replaces the process with the same binary, arguments and
+// environment, keeping the pid (so air and go run keep tracking it) and the
+// stdio streams (MCP clients reconnect on their side).
+func reexec() error {
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("locate executable: %w", err)
+	}
+	return syscall.Exec(executable, os.Args, os.Environ())
+}
+
+// defaultGoogleRedirect is the engine's own Google sign-in callback on
+// loopback, which a Desktop OAuth client accepts on any port. A browser on
+// another machine cannot reach it; GOOGLE_REDIRECT_URL or the paste fallback
+// covers that.
+func defaultGoogleRedirect(port int) string {
+	return "http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(port)) + domain.GoogleAuthCallbackPath
+}
+
+// openSettings opens WM_SETTINGS_PATH, or settings.db in the user config
+// directory, and reads every stored setting.
+func openSettings() (*settingsAdapter.Store, configAdapter.Values, error) {
+	path, err := settingsAdapter.ResolvePath(configAdapter.LoadSettingsPath())
+	if err != nil {
+		return nil, nil, err
+	}
+	store, err := settingsAdapter.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	values, err := store.Values(context.Background())
+	if err != nil {
+		return nil, nil, errors.Join(err, store.Close())
+	}
+	return store, configAdapter.Values(values), nil
+}
+
+func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, values configAdapter.Values) (port.CacheClient, port.CacheService) {
+	cacheConfig, err := configAdapter.LoadCacheConfig(values)
 	if err != nil {
 		log.LogError(ctx, "cache disabled: reads go straight to the sheet", err)
 		health.Register(port.HealthCheck{Name: "cache"})
 		return nil, nil
 	}
-	client, err := cacheAdapter.NewClient(cacheConfig, log)
+	client, err := cacheAdapter.NewBackend(cacheConfig, log)
 	if err != nil {
-		log.LogError(ctx, "failed to initialize upstash redis client", err)
+		log.LogError(ctx, "failed to initialize the "+string(cacheConfig.Backend)+" cache: reads go straight to the sheet", err)
 		health.Register(port.HealthCheck{Name: "cache"})
 		return nil, nil
 	}
@@ -144,9 +245,9 @@ func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.H
 
 // setupSheets returns nil services when the sheet is not configured; its
 // routes are still registered and answer 503 SHEETS_NOT_CONFIGURED naming
-// the missing variables (or the client error) so clients can say what to fix.
-func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, cards domain.CardConfig) (port.DatabaseService, port.AnalyticsService) {
-	sheetsConfig, err := configAdapter.LoadSheetsConfig()
+// the missing settings (or the client error) so clients can say what to fix.
+func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, cards domain.CardConfig, values configAdapter.Values) (port.DatabaseService, port.AnalyticsService) {
+	sheetsConfig, err := configAdapter.LoadSheetsConfig(values)
 	if err != nil {
 		log.LogError(ctx, "sheet features disabled", err)
 		health.Register(port.HealthCheck{Name: "sheets"})
@@ -169,7 +270,7 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 		log.LogApplicationEvent(ctx, "test mode: using a disposable spreadsheet copy")
 	}
 	dbSvc := service.NewDatabaseService(client, cacheSvc, log, service.DatabaseServiceOptions{
-		BudgetSheetTemplate: configAdapter.BudgetSheetTemplate(),
+		BudgetSheetTemplate: configAdapter.BudgetSheetTemplate(values),
 		SpreadsheetID:       sheetsConfig.SpreadsheetID,
 	})
 	analyticsSvc := service.NewAnalyticsService(dbSvc, cards, nil)
@@ -193,12 +294,12 @@ func checkTestSheet(spreadsheetID string, title func() (string, error)) error {
 
 // setupAI wires the AI use cases (§10). They read prompts and data from the
 // sheet, so they need it; the status route stays up to report what is missing.
-func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService, options aiService.Options) {
+func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService, options aiService.Options, values configAdapter.Values) {
 	if dbSvc == nil {
 		log.LogApplicationEvent(ctx, "AI features disabled: they need the Google Sheet")
 		return
 	}
-	aiConfig, err := configAdapter.LoadAIConfig()
+	aiConfig, err := configAdapter.LoadAIConfig(values)
 	if err != nil {
 		log.LogError(ctx, "AI features disabled", err)
 		health.Register(port.HealthCheck{Name: "ai"})
@@ -214,8 +315,8 @@ func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.Heal
 
 // setupSearch chains the web search providers (WM-AI-12): Tavily and Exa
 // when their keys are set, then DuckDuckGo, which needs none.
-func setupSearch(ctx context.Context, log *loggerAdapter.Logger, cacheSvc port.CacheService) port.SearchService {
-	config := configAdapter.LoadSearchConfig()
+func setupSearch(ctx context.Context, log *loggerAdapter.Logger, cacheSvc port.CacheService, values configAdapter.Values) port.SearchService {
+	config := configAdapter.LoadSearchConfig(values)
 	providers := make([]port.SearchProvider, 0, 3)
 	if config.TavilyAPIKey != "" {
 		if provider, err := tavilySearch.NewProvider(tavilySearch.DefaultBaseURL, config.TavilyAPIKey); err != nil {
@@ -247,7 +348,7 @@ func bodyLimit(limits domain.CaptureLimits) int {
 // setupMarket registers every market data provider (WM-MKT-1). A provider
 // whose config is invalid is skipped and the routing chains fall through to
 // the next one. It returns nil when no provider could be built.
-func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, cacheClient port.CacheClient) port.MarketProviderService {
+func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, cacheClient port.CacheClient, values configAdapter.Values) port.MarketProviderService {
 	providers := make([]port.MarketProvider, 0, 5)
 	add := func(provider port.MarketProvider, err error) {
 		if err != nil {
@@ -257,13 +358,13 @@ func setupMarket(ctx context.Context, log *loggerAdapter.Logger, health service.
 		providers = append(providers, provider)
 	}
 
-	fmarket, err := fmarketProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("FMARKET_BASE_URL", "https://api.fmarket.vn"), log)
+	fmarket, err := fmarketProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "FMARKET_BASE_URL", "https://api.fmarket.vn"), log)
 	add(fmarket, err)
-	add(vnstockProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("VNSTOCK_SERVER_URL", "http://localhost:8000"), log))
-	coingeckoConfig, coingeckoKey := configAdapter.LoadCoinGeckoConfig(coingeckoProvider.DefaultBaseURL)
+	add(vnstockProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "VNSTOCK_SERVER_URL", "http://localhost:8000"), log))
+	coingeckoConfig, coingeckoKey := configAdapter.LoadCoinGeckoConfig(values, coingeckoProvider.DefaultBaseURL)
 	add(coingeckoProvider.NewProvider(coingeckoConfig, coingeckoKey, log))
-	add(currencyapiProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("CURRENCY_API_BASE_URL", currencyapiProvider.DefaultBaseURL), log))
-	add(yahooProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig("YAHOO_FINANCE_BASE_URL", yahooProvider.DefaultBaseURL), log))
+	add(currencyapiProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "CURRENCY_API_BASE_URL", currencyapiProvider.DefaultBaseURL), log))
+	add(yahooProvider.NewProvider(configAdapter.LoadMarketDataProviderConfig(values, "YAHOO_FINANCE_BASE_URL", yahooProvider.DefaultBaseURL), log))
 
 	for _, provider := range providers {
 		health.Register(port.HealthCheck{Name: "market:" + provider.Name(), Probe: func(ctx context.Context) error {
