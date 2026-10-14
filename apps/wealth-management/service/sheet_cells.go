@@ -83,9 +83,14 @@ func splitTags(value string) []string {
 	return cleanStrings(strings.Split(value, ","))
 }
 
+// parseCleared reads column H; "x" is what the app writes, the others are
+// marks entered by hand or by older versions.
 func parseCleared(value string) bool {
-	lower := strings.ToLower(strings.TrimSpace(value))
-	return lower == "y" || lower == "yes" || lower == "true" || value == "✓"
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "x", "y", "yes", "true", "✓":
+		return true
+	}
+	return false
 }
 
 func formatDueDate(value string) string {
@@ -152,9 +157,10 @@ func cleanStrings(values []string) []string {
 	return cleaned
 }
 
-func boolToCheckmark(value bool) string {
-	if value {
-		return "✓"
+// clearedCell renders the cleared flag for column H.
+func clearedCell(cleared bool) string {
+	if cleared {
+		return "x"
 	}
 	return ""
 }

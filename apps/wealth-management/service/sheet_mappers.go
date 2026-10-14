@@ -114,7 +114,7 @@ func transactionRowValues(input domain.TransactionCreateInput, currency domain.C
 		strings.Join(cleanStrings(input.Tags), ","),
 		nilToString(input.Memo),
 		strings.TrimSpace(input.Category),
-		boolToCheckmark(input.Cleared),
+		clearedCell(input.Cleared),
 		formatTransactionAmount(input.Payment, input.AccountName, currency),
 		formatTransactionAmount(input.Deposit, input.AccountName, currency),
 	}, nil

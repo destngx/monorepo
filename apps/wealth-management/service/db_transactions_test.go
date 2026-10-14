@@ -9,7 +9,7 @@ import (
 func validTransactionInput() domain.TransactionCreateInput {
 	return domain.TransactionCreateInput{
 		AccountName: "Bank", Date: "2026-10-12", Payee: "Coffee", Category: "Food",
-		Tags: []string{" a ", "", "b"}, Payment: ptr(50000.0),
+		Tags: []string{" a ", "", "b"}, Payment: ptr(50000.0), Cleared: true,
 	}
 }
 
@@ -77,7 +77,7 @@ func TestCreateTransactionReturnsRowIDAndInvalidatesBalances(t *testing.T) {
 		t.Fatalf("id = %s", result.ID)
 	}
 	row := client.appends[0].rows[0]
-	if row[1] != "12/10/2026" || row[4] != "a,b" || row[8] != 50000.0 || row[9] != "" {
+	if row[1] != "12/10/2026" || row[4] != "a,b" || row[7] != "x" || row[8] != 50000.0 || row[9] != "" {
 		t.Fatalf("row = %#v", row)
 	}
 	if len(cache.invalidated) != 3 || cache.invalidated[2] != "accounts:*" {
