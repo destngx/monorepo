@@ -16,7 +16,6 @@ import (
 	"apps/ai-gateway/internal/providers/ollama"
 	"apps/ai-gateway/internal/providers/openai"
 	"apps/ai-gateway/internal/providers/shared"
-	"apps/ai-gateway/internal/providers/xiaomi_mimo"
 )
 
 const (
@@ -74,11 +73,6 @@ func NewRegistry(cfg *config.Config) *Registry {
 	r.register(shared.NewRateLimitedProvider(
 		ollama.New(cfg.OllamaBaseURL),
 		cfg.OllamaRate.RPM, cfg.OllamaRate.Burst,
-	))
-
-	r.register(shared.NewRateLimitedProvider(
-		xiaomi_mimo.New(cfg.MimoKey, cfg.MimoBaseURL),
-		cfg.MimoRate.RPM, cfg.MimoRate.Burst,
 	))
 
 	if bp, err := bedrock.New(context.Background(), cfg.BedrockRegion); err == nil {
