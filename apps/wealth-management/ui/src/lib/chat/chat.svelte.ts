@@ -1,6 +1,14 @@
 import { api } from '$lib/api/endpoints';
 import type { ChatPageContext } from '$lib/api/types';
-import { applyEvent, HISTORY_KEY, MAX_STORED, parseHistory, toMessages, type ChatEntry } from './history';
+import {
+  applyEvent,
+  HISTORY_KEY,
+  MAX_STORED,
+  parseHistory,
+  toMessages,
+  withoutLastReply,
+  type ChatEntry,
+} from './history';
 
 function load(): ChatEntry[] {
   try {
@@ -29,6 +37,19 @@ class ChatStore {
     const content = text.trim();
     if (!content || this.streaming) return;
     this.entries.push({ role: 'user', content });
+    await this.#reply(page);
+  }
+
+  /** Answers the last user message again, replacing the reply it got. */
+  async retry(page?: ChatPageContext): Promise<void> {
+    if (this.streaming) return;
+    const entries = withoutLastReply(this.entries);
+    if (!entries) return;
+    this.entries = entries;
+    await this.#reply(page);
+  }
+
+  async #reply(page?: ChatPageContext): Promise<void> {
     // Snapshot before the placeholder so the newest user message is included.
     const messages = toMessages(this.entries);
     this.entries.push({ role: 'assistant', content: '' });

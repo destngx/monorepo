@@ -2,9 +2,10 @@
   import Markdown from '$lib/ai/Markdown.svelte';
   import type { ChatPageContext } from '$lib/api/types';
   import Icon from '$lib/components/Icon.svelte';
+  import { toasts } from '$lib/state/toasts.svelte';
   import { tick } from 'svelte';
   import { chat } from './chat.svelte';
-  import { suggestionsFor } from './history';
+  import { canRetry, suggestionsFor } from './history';
 
   interface Props {
     page: ChatPageContext;
@@ -24,9 +25,15 @@
     getGoals: 'Reading goals',
   };
 
+  const COPIED_MS = 1500;
+
   let draft = $state('');
   let scroller = $state<HTMLDivElement>();
+  /** Index of the message just copied, to flash a check mark. */
+  let copied = $state<number | null>(null);
+  let copiedTimer: ReturnType<typeof setTimeout> | undefined;
   const suggestions = $derived(suggestionsFor(page.path));
+  const retryable = $derived(!chat.streaming && canRetry(chat.entries));
 
   // Keep the newest message in view while streaming.
   $effect(() => {
@@ -42,6 +49,18 @@
     void chat.send(text, page);
   }
 
+  async function copy(text: string, index: number) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      toasts.error(error, 'Copy failed');
+      return;
+    }
+    copied = index;
+    clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => (copied = null), COPIED_MS);
+  }
+
   function onkeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
@@ -49,6 +68,36 @@
     }
   }
 </script>
+
+{#snippet actions(text: string, index: number, retry: boolean)}
+  {@const writing = chat.streaming && index === chat.entries.length - 1}
+  {#if (text && !writing) || retry}
+    <div
+      class="muted flex gap-0.5 transition-opacity focus-within:opacity-100 group-hover:opacity-100 {retry
+        ? ''
+        : 'opacity-0 [@media(hover:none)]:opacity-100'}"
+    >
+      {#if text && !writing}
+        <button
+          type="button"
+          class="rounded-md p-1 hover:bg-slate-900/5 dark:hover:bg-white/5"
+          aria-label={copied === index ? 'Copied' : 'Copy message'}
+          title={copied === index ? 'Copied' : 'Copy'}
+          onclick={() => copy(text, index)}><Icon name={copied === index ? 'check' : 'copy'} size={14} /></button
+        >
+      {/if}
+      {#if retry}
+        <button
+          type="button"
+          class="rounded-md p-1 hover:bg-slate-900/5 dark:hover:bg-white/5"
+          aria-label="Retry"
+          title="Retry"
+          onclick={() => chat.retry(page)}><Icon name="refresh" size={14} /></button
+        >
+      {/if}
+    </div>
+  {/if}
+{/snippet}
 
 <div class="flex min-h-0 flex-col {className}">
   <div
@@ -75,15 +124,16 @@
     {:else}
       {#each chat.entries as entry, index (index)}
         {#if entry.role === 'user'}
-          <div class="flex justify-end">
+          <div class="group flex flex-col items-end gap-1">
             <p
               class="max-w-[85%] rounded-2xl rounded-br-md bg-indigo-600 px-3 py-2 text-sm whitespace-pre-wrap text-white"
             >
               {entry.content}
             </p>
+            {@render actions(entry.content, index, false)}
           </div>
         {:else}
-          <div class="max-w-[95%] space-y-1.5">
+          <div class="group max-w-[95%] space-y-1.5">
             {#if entry.tools?.length}
               <div class="flex flex-wrap gap-1.5">
                 {#each entry.tools as tool, toolIndex (toolIndex)}
@@ -116,6 +166,7 @@
             {#if entry.error}
               <p class="text-xs text-rose-600 dark:text-rose-400" role="alert">{entry.error}</p>
             {/if}
+            {@render actions(entry.content, index, retryable && index === chat.entries.length - 1)}
           </div>
         {/if}
       {/each}

@@ -55,6 +55,19 @@ export function toMessages(entries: ChatEntry[]): ChatMessage[] {
     .slice(-MAX_SENT);
 }
 
+/**
+ * The conversation with its last assistant reply removed, so the user message
+ * before it can be answered again; null when there is no such reply.
+ */
+export function withoutLastReply(entries: ChatEntry[]): ChatEntry[] | null {
+  if (entries.at(-1)?.role !== 'assistant' || entries.at(-2)?.role !== 'user') return null;
+  return entries.slice(0, -1);
+}
+
+export function canRetry(entries: ChatEntry[]): boolean {
+  return withoutLastReply(entries) !== null;
+}
+
 function isEntry(item: unknown): item is ChatEntry {
   if (typeof item !== 'object' || item === null) return false;
   const { role, content } = item as Record<string, unknown>;

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { applyEvent, MAX_SENT, parseHistory, suggestionsFor, toMessages, type ChatEntry } from './history';
+import {
+  applyEvent,
+  canRetry,
+  MAX_SENT,
+  parseHistory,
+  suggestionsFor,
+  toMessages,
+  withoutLastReply,
+  type ChatEntry,
+} from './history';
 
 describe('applyEvent', () => {
   it('appends text deltas and tracks tool status', () => {
@@ -43,6 +52,25 @@ describe('toMessages', () => {
     const messages = toMessages(entries);
     expect(messages).toHaveLength(MAX_SENT);
     expect(messages.at(-1)?.content).toBe('29');
+  });
+});
+
+describe('withoutLastReply', () => {
+  it('drops the last assistant reply so the user message can be answered again', () => {
+    const entries: ChatEntry[] = [
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'one' },
+      { role: 'user', content: 'second' },
+      { role: 'assistant', content: '', error: 'boom' },
+    ];
+    expect(canRetry(entries)).toBe(true);
+    expect(withoutLastReply(entries)).toEqual(entries.slice(0, 3));
+  });
+
+  it('refuses when there is no reply to a user message', () => {
+    expect(canRetry([])).toBe(false);
+    expect(withoutLastReply([{ role: 'user', content: 'hi' }])).toBeNull();
+    expect(withoutLastReply([{ role: 'assistant', content: 'hello' }])).toBeNull();
   });
 });
 
