@@ -84,6 +84,10 @@ func (h *DatabaseHandler) CreateTransactionBatch(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.CreateTransactions(body))
 }
 
+func (h *DatabaseHandler) GetCardPrograms(c *fiber.Ctx) error {
+	return h.respond(c)(h.databaseService.ListCardConfig(forceFresh(c)))
+}
+
 func (h *DatabaseHandler) GetCaptureRules(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.ListCaptureRules(forceFresh(c)))
 }

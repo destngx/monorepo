@@ -201,6 +201,7 @@
   {#if paged.items.length}
     <TransactionTable
       items={paged.items}
+      cardKeywords={data.cardKeywords}
       {selectedIds}
       {pageSelected}
       {sortKey}

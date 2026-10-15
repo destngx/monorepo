@@ -33,6 +33,7 @@ type captureData struct {
 	transactions []domain.Transaction
 	rules        []domain.CaptureRule
 	tagOptions   map[string][]string
+	cards        []domain.CaptureCard
 }
 
 func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, progress func(port.CaptureProgress)) (domain.CaptureResult, error) {
@@ -53,7 +54,7 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 	}
 	system, err := p.render(keyCaptureExtract, map[string]string{
 		"today":    s.today().Format("2006-01-02"),
-		"accounts": captureAccountList(data.accounts),
+		"accounts": captureAccountList(data.accounts, data.cards),
 		"aliases":  captureAliasList(data.rules),
 	})
 	if err != nil {
@@ -72,7 +73,7 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 			result.Unreadable = append(result.Unreadable, domain.CaptureUnreadable{MaterialID: materialID, Reason: extraction.reason()})
 		}
 		for _, event := range extraction.value.Events {
-			items = append(items, domain.NewCaptureItem(event, domain.MatchCaptureAccount(event.AccountHint, event.SourceApp, data.accounts, data.rules)))
+			items = append(items, domain.NewCaptureItem(event, matchCaptureAccount(event, data)))
 		}
 	}
 
@@ -126,17 +127,43 @@ func (s *Service) loadCaptureData() (captureData, error) {
 		if err != nil {
 			return captureData{}, fmt.Errorf("load card programs: %w", err)
 		}
+		// A card's keyword as a tag files a row on a shared account to that
+		// card; a closed card takes no new payments.
 		for _, bank := range reports {
-			for _, group := range bank.Accounts {
-				for _, card := range group.Cards {
-					for _, rule := range card.Rules {
-						data.tagOptions[card.AccountName] = appendUnique(data.tagOptions[card.AccountName], rule.Tag)
-					}
+			for _, card := range bank.Cards {
+				if card.ClosedFrom != "" {
+					continue
 				}
+				data.tagOptions[card.AccountName] = appendUnique(data.tagOptions[card.AccountName], card.Keyword)
+				data.cards = append(data.cards, domain.CaptureCard{Name: card.Name, Account: card.AccountName, Keyword: card.Keyword, Last4: card.Last4})
 			}
 		}
 	}
 	return data, nil
+}
+
+// matchCaptureAccount prefers a held card's last four digits to every
+// other match but a confirmed alias: they name the card, not just a bank.
+func matchCaptureAccount(event domain.CaptureEvent, data captureData) domain.AccountMatch {
+	match := domain.MatchCaptureAccount(event.AccountHint, event.SourceApp, data.accounts, data.rules)
+	if match.Source == domain.MatchSourceAlias {
+		return match
+	}
+	if card, ok := domain.MatchCaptureCard(event.AccountHint, data.cards); ok {
+		if name, ok := accountNamed(card.Account, data.accounts); ok {
+			return domain.AccountMatch{Name: name, Source: domain.MatchSourceDigits}
+		}
+	}
+	return match
+}
+
+func accountNamed(name string, accounts []domain.Account) (string, bool) {
+	for _, account := range accounts {
+		if account.Type != domain.AccountTypeDeprecated && strings.EqualFold(account.Name, name) {
+			return account.Name, true
+		}
+	}
+	return "", false
 }
 
 func appendUnique(values []string, value string) []string {
@@ -148,13 +175,26 @@ func appendUnique(values []string, value string) []string {
 	return append(values, value)
 }
 
-func captureAccountList(accounts []domain.Account) string {
+// captureAccountList lists the accounts for the extract prompt, each with
+// the open cards billing to it and their last four digits, so the model
+// can copy a card's "*1234" into the account hint.
+func captureAccountList(accounts []domain.Account, cards []domain.CaptureCard) string {
 	lines := []string{}
 	for _, account := range accounts {
 		if account.Type == domain.AccountTypeDeprecated {
 			continue
 		}
 		lines = append(lines, fmt.Sprintf("- %s (%s, %s)", account.Name, account.Type, account.Currency))
+		for _, card := range cards {
+			if !strings.EqualFold(card.Account, account.Name) {
+				continue
+			}
+			if card.Last4 != "" {
+				lines = append(lines, fmt.Sprintf("  - card %s *%s", card.Name, card.Last4))
+			} else {
+				lines = append(lines, fmt.Sprintf("  - card %s", card.Name))
+			}
+		}
 	}
 	return strings.Join(lines, "\n")
 }

@@ -10,6 +10,8 @@
 
   interface Props {
     items: Transaction[];
+    /** Card keywords from the Cards tab, to colour card tags. */
+    cardKeywords: string[];
     selectedIds: string[];
     pageSelected: boolean;
     sortKey: SortKey;
@@ -21,8 +23,19 @@
     ondelete: TransactionHandler;
   }
 
-  let { items, selectedIds, pageSelected, sortKey, sortDir, onsort, ontoggle, ontogglepage, onedit, ondelete }: Props =
-    $props();
+  let {
+    items,
+    cardKeywords,
+    selectedIds,
+    pageSelected,
+    sortKey,
+    sortDir,
+    onsort,
+    ontoggle,
+    ontogglepage,
+    onedit,
+    ondelete,
+  }: Props = $props();
 
   const columns: { key: SortKey; label: string; align?: string }[] = [
     { key: 'date', label: 'Date' },
@@ -80,7 +93,7 @@
             {#if tx.memo}<p class="muted text-xs">{tx.memo}</p>{/if}
             {#if tx.tags.length}
               <div class="mt-1 flex flex-wrap gap-1">
-                {#each tx.tags as tag (tag)}<TagChip {tag} />{/each}
+                {#each tx.tags as tag (tag)}<TagChip {tag} {cardKeywords} />{/each}
               </div>
             {/if}
             {#if tx.issues?.length}

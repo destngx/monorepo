@@ -17,6 +17,9 @@ import type {
   CaptureRule,
   CaptureRulesSaveResult,
   CardBankReport,
+  CardConfig,
+  CardPaymentQuery,
+  CardSuggestion,
   Category,
   CategorySuggestion,
   ChatEvent,
@@ -39,6 +42,7 @@ import type {
   NewsReport,
   Loan,
   PortfolioValuation,
+  ProgramComparisonReport,
   ReallocateInput,
   ReallocateResult,
   SettingsChanges,
@@ -143,6 +147,9 @@ export const api = {
   budgetHistory: (month: string, months: number, options?: ReadOptions) =>
     read<BudgetHistory>('/analytics/budget/history', options, { month, months }),
   cards: (options?: ReadOptions) => read<CardBankReport[]>('/analytics/cards', options),
+  suggestCards: ({ payee, amount, mcc }: CardPaymentQuery, options?: ReadOptions) =>
+    read<CardSuggestion[]>('/analytics/cards/suggest', options, { payee, amount, mcc }),
+  comparePrograms: (options?: ReadOptions) => read<ProgramComparisonReport>('/analytics/cards/compare', options),
   financialHealth: (options?: ReadOptions) => read<FinancialHealth>('/analytics/health', options),
   accountHistories: (days: number, options?: ReadOptions) =>
     read<Record<string, TrendPoint[]>>('/analytics/account-histories', options, { days }),
@@ -200,6 +207,8 @@ export const api = {
   /** Streams Smart Capture progress then the result (§6.2); failures after the stream starts arrive as an "error" event. */
   capture: (materials: CaptureMaterialPayload[], signal?: AbortSignal) =>
     aiStream<CaptureEvent>('/ai/capture', { materials }, signal),
+  /** The sheet's card configuration: programmes, banks, cards held and merchant MCCs. */
+  cardPrograms: (options?: ReadOptions) => read<CardConfig>('/cards/programs', options),
   captureRules: (options?: ReadOptions) => read<CaptureRule[]>('/capture/rules', options),
   saveCaptureRules: (rules: CaptureRule[]) =>
     request<CaptureRulesSaveResult>('/capture/rules', { method: 'POST', body: { rules } }),

@@ -74,7 +74,7 @@ func testConfig() domain.AIConfig {
 func newTestService(t *testing.T, db *fakes.Database, client *scriptedClient, cache port.CacheService) *Service {
 	t.Helper()
 	now := func() time.Time { return testToday }
-	analytics := service.NewAnalyticsService(db, domain.CardConfig{}, now)
+	analytics := service.NewAnalyticsService(db, now)
 	return New(client, db, analytics, cache, testConfig(), logger.NewTestLogger(t), Options{Now: now})
 }
 

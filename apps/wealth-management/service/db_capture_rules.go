@@ -51,16 +51,21 @@ func mapCaptureRule(row []string) (domain.CaptureRule, bool) {
 }
 
 func (s *dbService) hasSheet(title string) (bool, error) {
+	titles, err := s.sheetTitles()
+	return titles[title], err
+}
+
+// sheetTitles is the set of tab names, read in one request.
+func (s *dbService) sheetTitles() (map[string]bool, error) {
 	titles, err := s.client.SheetTitles()
 	if err != nil {
-		return false, fmt.Errorf("list sheet tabs: %w", err)
+		return nil, fmt.Errorf("list sheet tabs: %w", err)
 	}
-	for _, existing := range titles {
-		if existing == title {
-			return true, nil
-		}
+	set := make(map[string]bool, len(titles))
+	for _, title := range titles {
+		set[title] = true
 	}
-	return false, nil
+	return set, nil
 }
 
 // SaveCaptureRules upserts rules by kind and folded pattern: an existing

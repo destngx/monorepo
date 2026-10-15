@@ -195,41 +195,106 @@ func (s *Service) cardSummaryInputs(snap snapshot, request port.ReviewRequest) (
 		monthLabel = "for the month of " + month.Format("01/2006")
 	}
 
+	// closedStat is a closed period: its estimate next to the refund actually paid for it.
+	type closedStat struct {
+		Start            string  `json:"start"`
+		End              string  `json:"end"`
+		Spent            float64 `json:"spent"`
+		CashbackEstimate float64 `json:"cashbackEstimate"`
+		ActualRefund     float64 `json:"actualRefund"`
+		Reconciliation   string  `json:"reconciliation"`
+		Missed           float64 `json:"missedCashback,omitempty"`
+	}
+	closedPeriod := func(history domain.CardPeriodHistory) *closedStat {
+		return &closedStat{
+			Start: history.Start, End: history.End, Spent: history.Spent, CashbackEstimate: history.Cashback.Total,
+			ActualRefund: history.Refund, Reconciliation: string(history.Status), Missed: history.Missed,
+		}
+	}
+	// currentStat is the open period: its cashback is only an estimate (the
+	// part on confirmed MCCs is the surer share); no refund is paid for it yet.
+	type currentStat struct {
+		Start               string             `json:"start"`
+		End                 string             `json:"end"`
+		Spent               float64            `json:"spent"`
+		CashbackEstimate    float64            `json:"cashbackEstimate"`
+		CashbackOnConfirmed float64            `json:"cashbackEstimateOnConfirmedMcc"`
+		UnconfirmedPayments int                `json:"unconfirmedMccPayments,omitempty"`
+		CapLeft             float64            `json:"capLeft,omitempty"`
+		RuleCapsLeft        map[string]float64 `json:"ruleCapsLeft,omitempty"`
+		NextTierSpendNeeded float64            `json:"nextTierSpendNeeded,omitempty"`
+	}
 	type cardStat struct {
-		Card              string   `json:"card"`
-		Bank              string   `json:"bank"`
-		Limit             float64  `json:"limit"`
-		Utilization       float64  `json:"utilizationPercent"`
-		Spent             float64  `json:"spent"`
-		EstimatedCashback float64  `json:"estimatedCashback"`
-		ActualRefund      float64  `json:"actualRefund,omitempty"`
-		Missed            float64  `json:"missedCashback,omitempty"`
-		DaysUntilDue      int      `json:"daysUntilDue,omitempty"`
-		Rules             []string `json:"cashbackRules"`
+		Card              string       `json:"card"`
+		Bank              string       `json:"bank"`
+		Program           string       `json:"program"`
+		BankLimit         float64      `json:"bankLimit"`
+		BankUtilization   float64      `json:"bankUtilizationPercent"`
+		ClosedFrom        string       `json:"closedFrom,omitempty"`
+		CurrentPeriod     *currentStat `json:"currentPeriod,omitempty"`
+		PreviousPeriod    *closedStat  `json:"previousPeriod,omitempty"`
+		ClosedPeriod      *closedStat  `json:"closedPeriod,omitempty"`
+		StatementEstimate float64      `json:"statementEstimate,omitempty"`
+		PayBy             string       `json:"payBy,omitempty"`
+		DaysUntilPayBy    int          `json:"daysUntilPayBy,omitempty"`
+		Rules             []string     `json:"cashbackRules"`
 	}
 	stats := []cardStat{}
 	accountNames := map[string]bool{}
 	for _, bank := range reports {
-		for _, group := range bank.Accounts {
-			for _, card := range group.Cards {
-				if request.Card != "" && !strings.EqualFold(card.AccountName, request.Card) && !strings.EqualFold(card.Name, request.Card) {
-					continue
-				}
-				accountNames[strings.ToLower(card.AccountName)] = true
-				stat := cardStat{Card: card.Name, Bank: bank.Name, Limit: card.Limit, Utilization: card.Utilization, Spent: card.SpentThisCycle, EstimatedCashback: card.EstimatedCashback, DaysUntilDue: card.Cycle.DaysUntilDue}
-				for _, rule := range card.Rules {
-					stat.Rules = append(stat.Rules, fmt.Sprintf("%s: %.2f%% on tag %q", rule.Name, rule.Rate, rule.Tag))
-				}
-				if !isCurrent {
-					stat.Spent, stat.EstimatedCashback, stat.DaysUntilDue = 0, 0, 0
-					for _, history := range card.History {
-						if history.Month == domain.MonthKey(month) {
-							stat.Spent, stat.EstimatedCashback, stat.ActualRefund, stat.Missed = history.Spent, history.PotentialCashback, history.ActualRefund, history.Missed
-						}
+		for _, card := range bank.Cards {
+			if request.Card != "" && !strings.EqualFold(card.AccountName, request.Card) && !strings.EqualFold(card.Name, request.Card) {
+				continue
+			}
+			accountNames[strings.ToLower(card.AccountName)] = true
+			stat := cardStat{Card: card.Name, Bank: bank.Name, Program: card.Program, BankLimit: bank.Limit, BankUtilization: bank.Utilization, ClosedFrom: card.ClosedFrom}
+			for _, rule := range card.Rules {
+				stat.Rules = append(stat.Rules, rule.Describe())
+			}
+			if !isCurrent {
+				// A past month is reported as that period alone.
+				for _, history := range card.History {
+					if history.Month == domain.MonthKey(month) {
+						stat.ClosedPeriod = closedPeriod(history)
 					}
 				}
 				stats = append(stats, stat)
+				continue
 			}
+			// History is newest first; the first period that is not open is the last one a refund is paid for.
+			for _, history := range card.History {
+				if history.Status != domain.ReconciliationOpen {
+					stat.PreviousPeriod = closedPeriod(history)
+					break
+				}
+			}
+			// A closed card has no current period, and its spend is paid with the bank's open cards.
+			if card.ClosedFrom == "" {
+				standing := card.Standing
+				current := &currentStat{
+					Start: standing.Start, End: standing.End, Spent: standing.Spent,
+					CashbackEstimate: standing.Cashback.Total, CashbackOnConfirmed: standing.Cashback.Confirmed,
+					UnconfirmedPayments: standing.UnconfirmedPayments, CapLeft: standing.CapLeft,
+				}
+				// Rule and cap-group caps bound what the card earns even when it has no card-level cap.
+				for _, rule := range standing.Rules {
+					if rule.Cap > 0 {
+						if current.RuleCapsLeft == nil {
+							current.RuleCapsLeft = map[string]float64{}
+						}
+						current.RuleCapsLeft[rule.Name] = rule.CapLeft
+					}
+				}
+				if standing.NextTier != nil {
+					current.NextTierSpendNeeded = standing.NextTier.SpendNeeded
+				}
+				stat.CurrentPeriod = current
+				stat.PayBy, stat.DaysUntilPayBy = card.Cycle.PayBy, card.Cycle.DaysUntilPayBy
+			}
+			if card.Statement != nil {
+				stat.StatementEstimate = card.Statement.Amount
+			}
+			stats = append(stats, stat)
 		}
 	}
 	if len(stats) == 0 {

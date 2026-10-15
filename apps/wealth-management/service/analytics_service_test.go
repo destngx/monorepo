@@ -14,7 +14,7 @@ func expenseBudget(category string, monthly float64) domain.BudgetItem {
 }
 
 func newAnalytics(db *fakes.Database) *analyticsService {
-	return NewAnalyticsService(db, domain.CardConfig{}, func() time.Time { return fixedNow }).(*analyticsService)
+	return NewAnalyticsService(db, func() time.Time { return fixedNow }).(*analyticsService)
 }
 
 func TestGivenMonthsAcrossYearsWhenReadingBudgetHistoryThenEachMonthUsesItsYearTab(t *testing.T) {
@@ -74,6 +74,83 @@ func TestGivenBadParametersWhenReadingBudgetHistoryThenValidationFails(t *testin
 func TestGivenAnyFailureWhenReadingBudgetHistoryThenItIsReturned(t *testing.T) {
 	failure := errors.New("sheet down")
 	if _, err := newAnalytics(&fakes.Database{Err: failure}).BudgetHistory("2026-10", 6, false); !errors.Is(err, failure) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func cardsDatabase() *fakes.Database {
+	payment := 1_000_000.0
+	return &fakes.Database{
+		Cards: domain.CardConfig{
+			Programs: []domain.Program{{Name: "Gold", Bank: "Acme", Versions: []domain.ProgramVersion{{
+				From: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Period: domain.CapPeriodCycle,
+				Rules: []domain.CashbackRule{{Name: "Others", Rate: 1, Fallback: true}},
+			}}}},
+			Banks:     []domain.Bank{{Name: "Acme", SharedAccount: "Credit Card Acme", ReferenceLimit: 10_000_000}},
+			Cards:     []domain.Card{{Name: "Gold Card", Program: "Gold", Keyword: "gold", StatementDay: 5, DueDay: 30, Default: true}},
+			Merchants: []domain.MerchantMCC{},
+		},
+		Accounts:     []domain.Account{{Name: "Credit Card Acme", Type: domain.AccountTypeNegativeActive, ClearedBalance: -1_000_000}},
+		Transactions: []domain.Transaction{{AccountName: "Credit Card Acme", Date: domain.Today(fixedNow), Category: "Shopping", Payment: &payment}},
+	}
+}
+
+func TestGivenCardsInTheSheetWhenReadingCardReportsThenTheyAreEvaluated(t *testing.T) {
+	reports, err := newAnalytics(cardsDatabase()).CardReports(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reports) != 1 || reports[0].Usage != 1_000_000 || reports[0].Cards[0].Standing.Cashback.Total != 10_000 {
+		t.Fatalf("reports = %+v", reports)
+	}
+}
+
+func TestGivenAPaymentWhenSuggestingCardsThenHeldCardsAreRanked(t *testing.T) {
+	suggestions, err := newAnalytics(cardsDatabase()).SuggestCards(domain.CardPaymentQuery{Payee: "Shop", Amount: 2_000_000}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(suggestions) != 1 || suggestions[0].Card != "Gold Card" || suggestions[0].Cashback.Total != 20_000 || !suggestions[0].FitsLimit {
+		t.Fatalf("suggestions = %+v", suggestions)
+	}
+}
+
+func TestGivenABadPaymentWhenSuggestingCardsThenValidationFails(t *testing.T) {
+	negative := -1
+	for name, query := range map[string]domain.CardPaymentQuery{
+		"no amount":    {Payee: "Shop"},
+		"negative mcc": {Payee: "Shop", Amount: 1, MCC: &negative},
+		"no payee":     {Amount: 1},
+	} {
+		if _, err := newAnalytics(cardsDatabase()).SuggestCards(query, false); !errors.Is(err, domain.ErrValidation) {
+			t.Fatalf("%s: err = %v", name, err)
+		}
+	}
+}
+
+func TestGivenCardsInTheSheetWhenComparingProgrammesThenTheYearIsReplayed(t *testing.T) {
+	report, err := newAnalytics(cardsDatabase()).ComparePrograms(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Payments != 1 || len(report.Programs) != 1 || report.Programs[0].Cashback.Total != 10_000 {
+		t.Fatalf("report = %+v", report)
+	}
+}
+
+func TestGivenAnyFailureWhenAdvisingOnCardsThenItIsReturned(t *testing.T) {
+	db := &fakes.Database{Err: domain.ErrValidation}
+	if _, err := newAnalytics(db).SuggestCards(domain.CardPaymentQuery{Payee: "Shop", Amount: 1}, false); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("suggest err = %v", err)
+	}
+	if _, err := newAnalytics(db).ComparePrograms(false); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("compare err = %v", err)
+	}
+}
+
+func TestGivenInvalidCardsWhenReadingCardReportsThenTheErrorIsReturned(t *testing.T) {
+	db := &fakes.Database{Err: domain.ErrValidation}
+	if _, err := newAnalytics(db).CardReports(false); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("err = %v", err)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	fiberAdapter "apps/wealth-management/adapter/fiber"
 	loggerAdapter "apps/wealth-management/adapter/logger"
 	mcpAdapter "apps/wealth-management/adapter/mcp"
-	"apps/wealth-management/domain"
 	"apps/wealth-management/service"
 	"archive/zip"
 	"bytes"
@@ -84,7 +83,7 @@ func TestGivenNoGoogleCredentialsWhenStartingThenSheetRoutesAnswer503NamingTheMi
 	app := fiber.New()
 	api := fiberAdapter.NewRouteRegistrar(app, "/api", "")
 
-	dbSvc, analyticsSvc := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard("", "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, domain.CardConfig{}, configAdapter.Values{})
+	dbSvc, analyticsSvc := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard("", "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, configAdapter.Values{})
 
 	if dbSvc != nil || analyticsSvc != nil {
 		t.Fatal("services must be nil without credentials")

@@ -2,14 +2,18 @@
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { api } from '$lib/api/endpoints';
   import { base } from '$app/paths';
+  import BestCardForm from '$lib/cards/BestCardForm.svelte';
   import {
     allCards,
+    capsLeft,
     compareCards,
     historyYears,
     portfolioTotals,
     UTILIZATION_BAR,
+    visibleCards,
     type CardMetric,
   } from '$lib/cards/cards';
+  import ProgramComparison from '$lib/cards/ProgramComparison.svelte';
   import { PALETTE } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -26,15 +30,19 @@
   const totals = $derived(portfolioTotals(data.banks));
   const utilization = $derived(totals.limit ? (totals.usage / totals.limit) * 100 : 0);
 
+  // Closed cards are hidden unless asked for; totals still count them.
+  let showClosed = $state(false);
+  const closedCount = $derived(allCards(data.banks).filter((card) => card.closedFrom).length);
+
   // Cross-card history comparison (WM-CARD-2).
-  const cards = $derived(allCards(data.banks));
+  const cards = $derived(visibleCards(allCards(data.banks), showClosed));
   const years = $derived(historyYears(cards));
   let year = $state<string | null>(null);
   const activeYear = $derived(year ?? years[0] ?? '');
-  let metric = $state<CardMetric>('actualRefund');
+  let metric = $state<CardMetric>('refund');
   const metrics: [CardMetric, string][] = [
-    ['actualRefund', 'Refund'],
-    ['potentialCashback', 'Potential cashback'],
+    ['refund', 'Refund'],
+    ['cashback', 'Estimated cashback'],
     ['spent', 'Spent'],
     ['efficiency', 'Efficiency %'],
   ];
@@ -52,90 +60,149 @@
     metric === 'efficiency' ? formatPercent(value, 0) : mask.revealed ? formatCompact(value) : MASK;
 </script>
 
-<PageHeader title="Credit Cards" subtitle="Cashback, utilisation and statement cycles" />
+<PageHeader title="Credit Cards" subtitle="Cashback, bank limits and pay-by dates">
+  {#snippet actions()}
+    {#if closedCount}
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" bind:checked={showClosed} />
+        Show closed cards ({closedCount})
+      </label>
+    {/if}
+  {/snippet}
+</PageHeader>
 
 <div class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
   <Stat label="Total limit" value={totals.limit} />
   <Stat label="Used" value={totals.usage} hint=" {formatPercent(utilization, 0)} utilisation" />
-  <Stat label="Est. cashback (cycle)" value={totals.estimatedCashback} />
+  <Stat
+    label="Cashback this period"
+    value={totals.cashback.total}
+    hint={mask.revealed ? `${formatCompact(totals.cashback.confirmed)} confirmed` : undefined}
+  />
   <Stat label="Refunds YTD" value={totals.refundYtd} />
-  <Stat label="Annual fees" value={totals.annualFees} />
+  <!-- Every card, closed ones included: fees count once paid (memo "bankfee"). -->
+  <Stat label="Fees paid YTD">
+    <Money value={totals.feesPaidYtd} />
+    <ul class="mt-1.5 space-y-0.5 text-xs font-normal">
+      {#each allCards(data.banks) as card (card.name)}
+        <li class="flex justify-between gap-2">
+          <span class="muted truncate" title={card.name}>{card.name}{card.closedFrom ? ' (closed)' : ''}</span>
+          {#if card.feesPaidYtd === 0 && !card.closedFrom && card.annualFee > 0}
+            <span class="muted whitespace-nowrap">unpaid · <Money value={card.annualFee} /></span>
+          {:else}
+            <Money value={card.feesPaidYtd} />
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  </Stat>
   <Stat label="Net earn YTD"><Money value={totals.netEarnYtd} tone signed /></Stat>
 </div>
 
 {#if data.banks.length === 0}
   <Card class="mt-4"
-    ><EmptyState title="No credit cards configured" detail="Cards come from the engine's card configuration." /></Card
+    ><EmptyState
+      title="No credit cards configured"
+      detail="Add the Programs, ProgramRules, Banks and Cards tabs (and Merchants for payee MCCs) to the Google Sheet. See the setup guide for their columns."
+    /></Card
   >
 {/if}
 
 {#each data.banks as bank (bank.name)}
-  <h2 class="mt-8 mb-3 text-lg font-semibold">{bank.name}</h2>
-  {#each bank.accounts as group (group.name)}
-    <Card
-      title={group.name}
-      subtitle={group.shared ? `Shared limit across ${group.cards.length} cards` : undefined}
-      class="mb-4"
-    >
-      {#snippet actions()}
-        <span class="muted text-xs"
-          >Limit <Money value={group.limit} /> · Remaining <Money value={group.remainingLimit} /></span
+  {@const bankCards = visibleCards(bank.cards, showClosed)}
+  {@const hiddenCount = bank.cards.length - bankCards.length}
+  <!-- WM-CARD-16: the limit and usage are the bank's, shared by its cards -->
+  <Card
+    title={bank.name}
+    subtitle="{bank.sharedAccount ? `${bank.sharedAccount} · ` : ''}{bankCards.length} {bankCards.length === 1
+      ? 'card'
+      : 'cards'}{hiddenCount ? ` · ${hiddenCount} closed hidden` : ''}"
+    class="mt-6"
+  >
+    {#snippet actions()}
+      <span class="muted text-xs">Limit <Money value={bank.limit} /> · Room <Money value={bank.remainingLimit} /></span>
+    {/snippet}
+    <div class="mb-4 flex items-center gap-2">
+      <ProgressBar percent={bank.utilization} color={UTILIZATION_BAR[bank.utilizationBand]} label="Bank utilisation" />
+      <span class="muted text-xs whitespace-nowrap">{formatPercent(bank.utilization, 0)} used</span>
+    </div>
+    <div class="grid gap-3 md:grid-cols-2">
+      {#each bankCards as card (card.name)}
+        {@const standing = card.standing}
+        <a
+          href="{base}/accounts/credit-cards/{encodeURIComponent(card.name)}"
+          class="rounded-xl border border-slate-900/10 p-4 transition hover:border-indigo-400 hover:bg-indigo-500/5 dark:border-white/10"
         >
-      {/snippet}
-      <div class="grid gap-3 md:grid-cols-2">
-        {#each group.cards as card (card.name)}
-          <a
-            href="{base}/accounts/credit-cards/{encodeURIComponent(card.name)}"
-            class="rounded-xl border border-slate-900/10 p-4 transition hover:border-indigo-400 hover:bg-indigo-500/5 dark:border-white/10"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="font-medium">{card.name}</p>
-                <p class="muted text-xs">Due {formatDate(card.cycle.nextDueDate)} · {card.cycle.daysUntilDue} days</p>
-              </div>
-              {#if card.cycle.dueUrgent}<Badge tone="red">Due soon</Badge>{/if}
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-medium">{card.name}</p>
+              <p class="muted text-xs">
+                {#if card.closedFrom}
+                  {card.program} · closed {formatDate(card.closedFrom)}
+                {:else}
+                  {card.program} · pay by {formatDate(card.cycle.payBy)} · {card.cycle.daysUntilPayBy} days
+                {/if}
+              </p>
             </div>
-            <div class="mt-3 flex items-center gap-2">
-              <ProgressBar
-                percent={card.utilization}
-                color={UTILIZATION_BAR[card.utilizationBand]}
-                label="Utilisation"
-              />
-              <span class="muted text-xs whitespace-nowrap">{formatPercent(card.utilization, 0)}</span>
+            {#if card.closedFrom}<Badge>Closed</Badge>{:else if card.cycle.payByUrgent}<Badge tone="red">Pay soon</Badge
+              >{/if}
+          </div>
+          <!-- WM-CARD-1, WM-CARD-12 -->
+          <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
+            {#if !card.closedFrom}
+              <div>
+                <dt class="muted">Spent this period</dt>
+                <dd><Money value={standing.spent} /></dd>
+              </div>
+              <div>
+                <dt class="muted">Cashback</dt>
+                <dd><Money value={standing.cashback.total} /></dd>
+              </div>
+              <div>
+                <dt class="muted">Confirmed</dt>
+                <dd><Money value={standing.cashback.confirmed} /></dd>
+              </div>
+              <div>
+                <dt class="muted">Cap left</dt>
+                <dd>
+                  {#each capsLeft(standing) as capped (capped.name)}
+                    <p title={capped.name}><Money value={capped.left} /></p>
+                  {:else}<span class="muted">No cap</span>{/each}
+                </dd>
+              </div>
+            {/if}
+            <div>
+              <dt class="muted">Refunds YTD</dt>
+              <dd><Money value={card.refundYtd} /></dd>
             </div>
-            <!-- WM-CARD-1 -->
-            <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <dt class="muted">This cycle</dt>
-                <dd><Money value={card.spentThisCycle} /></dd>
-              </div>
-              <div>
-                <dt class="muted">Est. cashback</dt>
-                <dd><Money value={card.estimatedCashback} /></dd>
-              </div>
-              <div>
-                <dt class="muted">Refunds YTD</dt>
-                <dd><Money value={card.refundYtd} /></dd>
-              </div>
-              <div>
-                <dt class="muted">Annual fee</dt>
-                <dd><Money value={card.annualFee} /></dd>
-              </div>
-              <div>
-                <dt class="muted">Net earn YTD</dt>
-                <dd><Money value={card.netEarnYtd} tone /></dd>
-              </div>
-            </dl>
-          </a>
-        {/each}
-      </div>
-    </Card>
-  {/each}
+            <div>
+              <dt class="muted">Net earn YTD</dt>
+              <dd><Money value={card.netEarnYtd} tone /></dd>
+            </div>
+          </dl>
+          {#if standing.nextTier}
+            <p class="muted mt-2 text-xs">
+              <Money value={standing.nextTier.spendNeeded} /> more this period reaches {standing.nextTier.rules.join(
+                ', ',
+              )}.
+            </p>
+          {/if}
+        </a>
+      {/each}
+    </div>
+  </Card>
 {/each}
 
 {#if cards.length}
+  <div class="mt-4 grid gap-4 xl:grid-cols-2">
+    <BestCardForm />
+    <ProgramComparison />
+  </div>
+{/if}
+
+{#if cards.length}
   <!-- WM-CARD-2: cross-card comparison -->
-  <Card title="Compare cards" subtitle="Monthly history per card" class="mt-4">
+  <Card title="Compare cards" subtitle="History per card, by the month each period starts in" class="mt-4">
     {#snippet actions()}
       <select class="field w-auto py-1" aria-label="Metric" bind:value={metric}>
         {#each metrics as [value, text] (value)}<option {value}>{text}</option>{/each}

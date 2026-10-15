@@ -24,7 +24,7 @@ func TestListCaptureRulesSkipsInvalidRows(t *testing.T) {
 	client := newFakeSheetClient()
 	client.titles = []string{captureRulesSheet}
 	client.ranges[captureRulesRange] = [][]string{
-		{"alias", "Sacombank 1234", "Credit Card Sacombank", "2026-10-01 10:00"},
+		{"alias", "Acme 1234", "Credit Card Acme", "2026-10-01 10:00"},
 		{"Payee", " Highlands ", "Food"},
 		{"other", "x", "y"},
 		{"alias", "", "Ví MoMo"},

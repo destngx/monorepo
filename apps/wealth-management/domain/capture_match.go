@@ -136,6 +136,34 @@ func matchDigits(hint string, accounts []Account) (string, bool) {
 	return found, found != ""
 }
 
+// CaptureCard is an open card the user holds: the account it bills to, the
+// keyword tag that files a row to it and its last four digits, if known.
+type CaptureCard struct {
+	Name    string
+	Account string
+	Keyword string
+	Last4   string
+}
+
+// MatchCaptureCard finds the one card whose last four digits end a digit
+// run in the hint ("Acme *0123"). Two cards sharing the digits match none.
+func MatchCaptureCard(hint string, cards []CaptureCard) (CaptureCard, bool) {
+	wanted := map[string]bool{}
+	for _, run := range digitRunPattern.FindAllString(hint, -1) {
+		wanted[run[len(run)-4:]] = true
+	}
+	var found []CaptureCard
+	for _, card := range cards {
+		if card.Last4 != "" && wanted[card.Last4] {
+			found = append(found, card)
+		}
+	}
+	if len(found) != 1 {
+		return CaptureCard{}, false
+	}
+	return found[0], true
+}
+
 // matchName scores accounts by distinctive name words found in the hint.
 // A tie is broken towards credit cards when the hint talks about a card;
 // a remaining tie is returned as candidates.

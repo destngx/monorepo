@@ -132,7 +132,6 @@ func settingDefinitions() []SettingDefinition {
 		{Key: "CAPTURE_MAX_BATCH_MB", Group: "capture", Label: "Batch size (MB)", Kind: SettingInteger, Default: strconv.Itoa(DefaultCaptureLimits().MaxBatchBytes >> 20)},
 
 		{Key: "LOG_LEVEL", Group: "general", Label: "Log level", Kind: SettingChoice, Default: "info", Options: []string{"debug", "info", "warn", "error"}},
-		{Key: "CARD_PROGRAMS_FILE", Group: "general", Label: "Card programs file", Kind: SettingPath, Advanced: true, Description: "JSON that replaces the built-in card programs."},
 	}...)
 	return definitions
 }

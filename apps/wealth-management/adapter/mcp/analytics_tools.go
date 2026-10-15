@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"apps/wealth-management/domain"
 	"context"
 	"encoding/json"
 )
@@ -42,7 +43,28 @@ func (s *Server) analyticsTools() []tool {
 				return analytics.BudgetHistory(args.Month, args.Months, args.Force)
 			},
 		},
-		readTool("GetCardReports", "Credit card cashback, statement cycle, utilisation and history.", analytics.CardReports),
+		readTool("GetCardReports", "Credit cards per bank: shared limit, usage and room; per card the current period's spend, confirmed and estimated cashback, caps left, next tier, pay-by date and reconciled history.", analytics.CardReports),
+		{
+			definition: definition("SuggestCardForPayment", "Ranks the held cards for a payment by the cashback it would add this period, cards whose bank has room first. Pass mcc when known; otherwise the payee's mapping is used, else only fallback rules apply.", object(map[string]any{
+				"payee":  map[string]any{"type": "string", "description": "Payee of the payment; required without mcc."},
+				"amount": map[string]any{"type": "number", "exclusiveMinimum": 0, "description": "Payment amount in VND."},
+				"mcc":    map[string]any{"type": "integer", "minimum": 0, "maximum": 9999, "description": "Merchant category code, when known."},
+				"force":  forceSchema,
+			}, "amount")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var args struct {
+					Payee  string  `json:"payee"`
+					Amount float64 `json:"amount"`
+					MCC    *int    `json:"mcc"`
+					Force  bool    `json:"force"`
+				}
+				if err := decodeArguments(arguments, &args); err != nil {
+					return nil, err
+				}
+				return analytics.SuggestCards(domain.CardPaymentQuery{Payee: args.Payee, Amount: args.Amount, MCC: args.MCC}, args.Force)
+			},
+		},
+		readTool("CompareCardPrograms", "Replays the last 12 months of card payments under every programme's current terms, held or not, ranked by cashback less the annual fee.", analytics.ComparePrograms),
 		readTool("GetFinancialHealth", "Financial health score with per-pillar formulas and recommendations.", analytics.FinancialHealth),
 		{
 			definition: definition("GetAccountHistories", "Back-calculated daily balances per account.", object(map[string]any{

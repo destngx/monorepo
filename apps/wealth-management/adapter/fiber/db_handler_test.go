@@ -173,6 +173,17 @@ func TestInitReportsReadiness(t *testing.T) {
 	}
 }
 
+func TestCardProgramsRoute(t *testing.T) {
+	db := &fakes.Database{Cards: domain.CardConfig{Cards: []domain.Card{{Name: "Gold Card", Program: "Gold", Keyword: "gold"}}}}
+	if status, body := call(t, newSheetsApp(t, db), http.MethodGet, "/api/cards/programs", ""); status != http.StatusOK || !strings.Contains(body, `"keyword":"gold"`) {
+		t.Fatalf("list: %d %s", status, body)
+	}
+	invalid := &fakes.Database{Err: fmt.Errorf("%w: Cards row 2: keyword is required", domain.ErrValidation)}
+	if status, body := call(t, newSheetsApp(t, invalid), http.MethodGet, "/api/cards/programs", ""); status != http.StatusBadRequest || !strings.Contains(body, "Cards row 2") {
+		t.Fatalf("an invalid Cards tab should be a 400 naming the row: %d %s", status, body)
+	}
+}
+
 func TestCaptureRulesRoutes(t *testing.T) {
 	db := &fakes.Database{CaptureRules: []domain.CaptureRule{{Kind: domain.CaptureRuleAlias, Pattern: "VCB", Value: "Vietcombank"}}}
 	app := newSheetsApp(t, db)

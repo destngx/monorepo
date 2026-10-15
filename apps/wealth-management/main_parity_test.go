@@ -4,7 +4,6 @@ import (
 	fiberAdapter "apps/wealth-management/adapter/fiber"
 	loggerAdapter "apps/wealth-management/adapter/logger"
 	mcpAdapter "apps/wealth-management/adapter/mcp"
-	"apps/wealth-management/domain"
 	"apps/wealth-management/internal/fakes"
 	"apps/wealth-management/service"
 	"net/http"
@@ -35,12 +34,15 @@ var routeTools = map[string]string{
 	"GET /api/investments/assets":       "GetInvestmentAssets",
 	"GET /api/capture/rules":            "GetCaptureRules",
 	"POST /api/capture/rules":           "SaveCaptureRules",
+	"GET /api/cards/programs":           "GetCardPrograms",
 	"POST /api/sync":                    "SyncSheetsCache",
 	"GET /api/init":                     "WarmAIContent",
 
 	"GET /api/analytics/dashboard":         "GetDashboard",
 	"GET /api/analytics/budget":            "GetBudgetReport",
 	"GET /api/analytics/cards":             "GetCardReports",
+	"GET /api/analytics/cards/suggest":     "SuggestCardForPayment",
+	"GET /api/analytics/cards/compare":     "CompareCardPrograms",
 	"GET /api/analytics/health":            "GetFinancialHealth",
 	"GET /api/analytics/account-histories": "GetAccountHistories",
 
@@ -170,7 +172,7 @@ func fullMCPServer(t *testing.T) *mcpAdapter.Server {
 	server := mcpAdapter.NewServer(nil, loggerAdapter.NewTestLogger(t))
 	market := &fakes.Market{}
 	server.SetDatabaseService(&fakes.Database{})
-	server.SetAnalyticsService(service.NewAnalyticsService(&fakes.Database{}, domain.CardConfig{}, nil))
+	server.SetAnalyticsService(service.NewAnalyticsService(&fakes.Database{}, nil))
 	server.SetMarketService(market)
 	server.SetFmarketService(market)
 	server.SetMarketAnalysisService(market)

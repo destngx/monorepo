@@ -119,6 +119,7 @@ var InsightFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON object
 Rules:
 - Provide 3-5 sections, each on a different aspect.
 - Provide 2-4 actionable items.
+- State each fact once: no section repeats another, the summary does not repeat a section's figures, and action items are concrete next steps, not restatements of a section.
 - severity "critical" = needs immediate attention, "warning" = should address soon, "success" = positive finding, "info" = informational.
 - Keep the summary under 20 words.
 - Quote amounts exactly as given in the data; never compute new ledger totals.`

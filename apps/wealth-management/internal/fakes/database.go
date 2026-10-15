@@ -26,6 +26,7 @@ type Database struct {
 	Init         domain.InitResult
 	AIContent    domain.AIContent
 	CaptureRules []domain.CaptureRule
+	Cards        domain.CardConfig
 	Err          error
 	// StaleAt, when set, is reported as the time of stale data served.
 	StaleAt time.Time
@@ -190,6 +191,10 @@ func (f *Database) SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureR
 	}
 	f.SavedCaptureRules = append(f.SavedCaptureRules, rules)
 	return domain.CaptureRulesSaveResult{Created: len(rules)}, nil
+}
+
+func (f *Database) ListCardConfig(bool) (domain.CardConfig, error) {
+	return f.Cards, f.Err
 }
 
 func (f *Database) SyncCache() (domain.SyncResult, error) {

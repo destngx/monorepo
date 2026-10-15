@@ -11,6 +11,10 @@ type AnalyticsService interface {
 	// month ("YYYY-MM", empty = current), oldest first (WM-BUD-7).
 	BudgetHistory(month string, months int, forceFresh bool) (domain.BudgetHistory, error)
 	CardReports(forceFresh bool) ([]domain.CardBankReport, error)
+	// SuggestCards ranks held cards for a payment by the cashback it would add (WM-CARD-13).
+	SuggestCards(query domain.CardPaymentQuery, forceFresh bool) ([]domain.CardSuggestion, error)
+	// ComparePrograms replays the last year of card spend under every programme (WM-CARD-14).
+	ComparePrograms(forceFresh bool) (domain.ProgramComparisonReport, error)
 	FinancialHealth(forceFresh bool) (domain.FinancialHealth, error)
 	// AccountHistories back-calculates daily balances per account (WM-ACC-3).
 	AccountHistories(days int, forceFresh bool) (map[string][]domain.TrendPoint, error)

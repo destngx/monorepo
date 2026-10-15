@@ -5,12 +5,14 @@ import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/internal/fakes"
 	"apps/wealth-management/port"
+	"apps/wealth-management/service"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 type rpcResponse struct {
@@ -265,6 +267,14 @@ func TestCaptureToolSuggestsWithoutWriting(t *testing.T) {
 	}
 }
 
+func TestCardProgramsTool(t *testing.T) {
+	db := &fakes.Database{Cards: domain.CardConfig{Cards: []domain.Card{{Name: "Gold Card", Program: "Gold", Keyword: "gold"}}}}
+	result, err := newTestServer(t, db).CallTool(context.Background(), "GetCardPrograms", nil)
+	if err != nil || !strings.Contains(result.Content, `"keyword":"gold"`) {
+		t.Fatalf("list: %v %s", err, result.Content)
+	}
+}
+
 func TestCaptureRuleTools(t *testing.T) {
 	db := &fakes.Database{CaptureRules: []domain.CaptureRule{{Kind: domain.CaptureRuleAlias, Pattern: "VCB", Value: "Vietcombank"}}}
 	server := newTestServer(t, db)
@@ -293,4 +303,27 @@ func TestRunAcceptsRequestsUpToTheConfiguredLimit(t *testing.T) {
 
 func (f *fakeMarketServiceForMCP) GetCandles(context.Context, string, domain.Timeframe, int) (domain.CandleSeries, error) {
 	return domain.CandleSeries{}, nil
+}
+
+func TestCardAdviceTools(t *testing.T) {
+	db := &fakes.Database{Cards: domain.CardConfig{
+		Programs: []domain.Program{{Name: "Gold", Bank: "Acme", Versions: []domain.ProgramVersion{{
+			Period: domain.CapPeriodCycle, Rules: []domain.CashbackRule{{Name: "Others", Rate: 1, Fallback: true}},
+		}}}},
+		Banks: []domain.Bank{{Name: "Acme", SharedAccount: "Credit Card Acme"}},
+		Cards: []domain.Card{{Name: "Gold Card", Program: "Gold", Keyword: "gold", StatementDay: 5, DueDay: 30, Default: true}},
+	}}
+	server := newTestServer(t, db)
+	server.SetAnalyticsService(service.NewAnalyticsService(db, func() time.Time { return time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC) }))
+	result, err := server.CallTool(context.Background(), "SuggestCardForPayment", json.RawMessage(`{"payee":"Shop","amount":1000000}`))
+	if err != nil || !strings.Contains(result.Content, `"card":"Gold Card"`) {
+		t.Fatalf("suggest: %v %s", err, result.Content)
+	}
+	if _, err := server.CallTool(context.Background(), "SuggestCardForPayment", json.RawMessage(`{"payee":"Shop"}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("a payment without an amount should be rejected, got %v", err)
+	}
+	result, err = server.CallTool(context.Background(), "CompareCardPrograms", nil)
+	if err != nil || !strings.Contains(result.Content, `"program":"Gold"`) {
+		t.Fatalf("compare: %v %s", err, result.Content)
+	}
 }

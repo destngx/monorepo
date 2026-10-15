@@ -15,16 +15,15 @@ const (
 )
 
 type analyticsService struct {
-	db    port.DatabaseService
-	cards domain.CardConfig
-	now   func() time.Time
+	db  port.DatabaseService
+	now func() time.Time
 }
 
-func NewAnalyticsService(db port.DatabaseService, cards domain.CardConfig, now func() time.Time) port.AnalyticsService {
+func NewAnalyticsService(db port.DatabaseService, now func() time.Time) port.AnalyticsService {
 	if now == nil {
 		now = time.Now
 	}
-	return &analyticsService{db: db, cards: cards, now: now}
+	return &analyticsService{db: db, now: now}
 }
 
 func (s *analyticsService) today() time.Time {
@@ -102,11 +101,42 @@ func (s *analyticsService) BudgetHistory(month string, months int, forceFresh bo
 }
 
 func (s *analyticsService) CardReports(forceFresh bool) ([]domain.CardBankReport, error) {
+	cards, err := s.db.ListCardConfig(forceFresh)
+	if err != nil {
+		return nil, err
+	}
 	accounts, _, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return nil, err
 	}
-	return domain.ComputeCardReports(s.cards, accounts, transactions, s.today()), nil
+	return domain.ComputeCardReports(cards, accounts, transactions, s.today()), nil
+}
+
+func (s *analyticsService) SuggestCards(query domain.CardPaymentQuery, forceFresh bool) ([]domain.CardSuggestion, error) {
+	if err := query.Validate(); err != nil {
+		return nil, err
+	}
+	cards, err := s.db.ListCardConfig(forceFresh)
+	if err != nil {
+		return nil, err
+	}
+	accounts, _, transactions, err := s.position(forceFresh)
+	if err != nil {
+		return nil, err
+	}
+	return domain.SuggestCards(cards, accounts, transactions, query, s.today()), nil
+}
+
+func (s *analyticsService) ComparePrograms(forceFresh bool) (domain.ProgramComparisonReport, error) {
+	cards, err := s.db.ListCardConfig(forceFresh)
+	if err != nil {
+		return domain.ProgramComparisonReport{}, err
+	}
+	accounts, _, transactions, err := s.position(forceFresh)
+	if err != nil {
+		return domain.ProgramComparisonReport{}, err
+	}
+	return domain.ComparePrograms(cards, accounts, transactions, s.today()), nil
 }
 
 func (s *analyticsService) FinancialHealth(forceFresh bool) (domain.FinancialHealth, error) {

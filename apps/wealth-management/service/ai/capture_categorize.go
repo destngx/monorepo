@@ -34,7 +34,10 @@ func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions
 				suggestion.Transaction.Category, suggestion.CategorySource = category, domain.CategorySourceHistory
 			}
 		}
-		if tag, ok := historyTag(payee, suggestion.Transaction.AccountName, suggestion.TagOptions, data.transactions); ok {
+		// The card's own digits on the material outrank the payee's history.
+		if card, ok := domain.MatchCaptureCard(suggestion.AccountHint, data.cards); ok && strings.EqualFold(card.Account, suggestion.Transaction.AccountName) {
+			suggestion.Transaction.Tags = []string{card.Keyword}
+		} else if tag, ok := historyTag(payee, suggestion.Transaction.AccountName, suggestion.TagOptions, data.transactions); ok {
 			suggestion.Transaction.Tags = []string{tag}
 		}
 		if suggestion.Transaction.Category == "" || (len(suggestion.TagOptions) > 0 && len(suggestion.Transaction.Tags) == 0) {
@@ -113,7 +116,7 @@ const captureCategorizeFormat = `IMPORTANT: Respond with ONLY a valid JSON objec
 Rules:
 - One entry per input item, same id.
 - category must be copied exactly from the category list; use "" when none fits.
-- tag must be copied exactly from that item's tagOptions (the card's cashback rule that the merchant falls under); use "" when the item has no tagOptions.`
+- tag must be copied exactly from that item's tagOptions (the card the payment was made with, when the item shows which); use "" when it does not or the item has no tagOptions.`
 
 func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, pending []int, categories []string) error {
 	task, ok := p.lookup(keyCaptureCategorize, map[string]string{"categories": strings.Join(categories, ", ")})

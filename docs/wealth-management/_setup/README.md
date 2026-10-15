@@ -49,10 +49,9 @@ The only values read from the environment: the engine needs them before it can o
 
 ### 3.2 General
 
-| Setting              | Default       | Meaning                                                                                                                                                           |
-| -------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LOG_LEVEL`          | `info`        | `debug`, `info`, `warn` or `error`.                                                                                                                               |
-| `CARD_PROGRAMS_FILE` | embedded file | Path to a JSON file replacing the embedded credit card programs (`adapter/config/cards.default.json`, WM-CARD-3). An invalid file falls back to the embedded one. |
+| Setting     | Default | Meaning                             |
+| ----------- | ------- | ----------------------------------- |
+| `LOG_LEVEL` | `info`  | `debug`, `info`, `warn` or `error`. |
 
 ### 3.3 Google Sheets (system of record)
 
@@ -127,6 +126,7 @@ The engine does not call market sources (fmarket, vnstock, Yahoo Finance, CoinGe
 2. Under Google Sheets, set `GOOGLE_SHEETS_ID`, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and save.
 3. Click **Connect Google account** on the Google Sheets card. The tab goes to Google's consent page; allow access and the engine saves `GOOGLE_REFRESH_TOKEN` and brings you back to Settings, which confirms it and shows **Restart to apply**. The sign-in expires after 10 minutes and works once.
 4. Click **Restart engine**. Add the cache, AI and search settings as needed, then restart again.
+5. For credit cards, add the `Programs` (one row per programme version), `ProgramRules` (one row per cashback rule of a version), `Banks` (shared account and reference limit), `Cards` (one row per card held) and `Merchants` (payee pattern to MCC, with confidence) tabs to the sheet, with the columns in [REQUIREMENTS.md §2](../REQUIREMENTS.md#2-data-contract-the-google-sheet). Card details stay in the sheet, never in the repo.
 
 Google returns the browser to `GET /api/auth/google/callback` on the address the UI is open on, when that is a loopback address: `http://127.0.0.1:5173/api/auth/google/callback` with the Vite dev server (it forwards `/api` to the engine), `http://127.0.0.1:9090/api/auth/google/callback` when the engine serves the UI. From any other host it uses the engine's `http://127.0.0.1:<PORT>` callback, because Google accepts plain-http redirects on loopback only. `GOOGLE_REDIRECT_URL` overrides all of this. The dialog shows the address in use. The callback needs no API token: a one-time state and a PKCE verifier held by the engine protect it, and the request log redacts `code` and `state`. The OAuth client must allow the redirect:
 

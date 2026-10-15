@@ -163,6 +163,7 @@ func (s *Server) databaseTools() []tool {
 		readTool("GetLoans", "Lists loans and debts with progress.", db.ListLoans),
 		readTool("GetTags", "Lists normalised transaction tags.", db.ListTags),
 		readTool("GetInvestmentAssets", "Returns crypto and fund holdings with symbol, quantity, price and value.", db.GetInvestmentAssets),
+		readTool("GetCardPrograms", "Card configuration from the sheet: programmes with dated versions and cashback rules, banks with shared account and reference limit, cards held (keyword, expiry, statement and due days) and payee MCC mappings.", db.ListCardConfig),
 		readTool("GetCaptureRules", "Lists Smart Capture rules: alias (text in a material -> account) and payee (payee -> category).", db.ListCaptureRules),
 		{
 			definition: definition("SaveCaptureRules", "Creates or updates Smart Capture rules, keyed by kind and pattern (case and accents ignored).", object(map[string]any{

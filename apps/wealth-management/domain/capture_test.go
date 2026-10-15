@@ -72,7 +72,7 @@ func TestParseCaptureExtractionReportsUnreadable(t *testing.T) {
 }
 
 func TestFoldText(t *testing.T) {
-	for input, want := range map[string]string{"Ví MoMo": "vi momo", "Đức  Anh!": "duc anh", "Sacombank *1234": "sacombank 1234", "TIỀN": "tien"} {
+	for input, want := range map[string]string{"Ví MoMo": "vi momo", "Đức  Anh!": "duc anh", "Acme *1234": "acme 1234", "TIỀN": "tien"} {
 		if got := FoldText(input); got != want {
 			t.Errorf("FoldText(%q) = %q, want %q", input, got, want)
 		}
@@ -82,8 +82,8 @@ func TestFoldText(t *testing.T) {
 func note(text string) *string { return &text }
 
 var captureAccounts = []Account{
-	{Name: "Credit Card Sacombank", Type: AccountTypeNegativeActive, Currency: CurrencyVND},
-	{Name: "Sacombank Saving", Type: AccountTypeBank, Currency: CurrencyVND},
+	{Name: "Credit Card Acme", Type: AccountTypeNegativeActive, Currency: CurrencyVND},
+	{Name: "Acme Saving", Type: AccountTypeBank, Currency: CurrencyVND},
 	{Name: "Ví MoMo", Type: AccountTypeActiveUse, Currency: CurrencyVND},
 	{Name: "Techcombank", Type: AccountTypeBank, Currency: CurrencyVND, Note: note("acc 1903 4567 8899")},
 	{Name: "Vietcombank", Type: AccountTypeBank, Currency: CurrencyVND},
@@ -93,7 +93,7 @@ var captureAccounts = []Account{
 
 func TestMatchCaptureAccount(t *testing.T) {
 	rules := []CaptureRule{
-		{Kind: CaptureRuleAlias, Pattern: "Sacombank 1234", Value: "Credit Card Sacombank"},
+		{Kind: CaptureRuleAlias, Pattern: "Acme 1234", Value: "Credit Card Acme"},
 		{Kind: CaptureRuleAlias, Pattern: "VCB", Value: "Vietcombank"},
 		{Kind: CaptureRuleAlias, Pattern: "Gone", Value: "Closed Account"},
 	}
@@ -103,12 +103,12 @@ func TestMatchCaptureAccount(t *testing.T) {
 		source     string
 		candidates int
 	}{
-		{"Sacombank *1234", "", "Credit Card Sacombank", MatchSourceAlias, 0},
+		{"Acme *1234", "", "Credit Card Acme", MatchSourceAlias, 0},
 		{"", "VCB Digibank", "Vietcombank", MatchSourceAlias, 0},
 		{"TK ****8899", "", "Techcombank", MatchSourceDigits, 0},
 		{"vi momo", "MoMo", "Ví MoMo", MatchSourceName, 0},
-		{"Thẻ tín dụng Sacombank", "", "Credit Card Sacombank", MatchSourceName, 0},
-		{"Sacombank", "", "Sacombank Saving", MatchSourceName, 0},
+		{"Thẻ tín dụng Acme", "", "Credit Card Acme", MatchSourceName, 0},
+		{"Acme", "", "Acme Saving", MatchSourceName, 0},
 		{"Gone", "", "", "", 0},
 		{"Shopee Pay", "", "", "", 0},
 	} {
@@ -121,6 +121,33 @@ func TestMatchCaptureAccount(t *testing.T) {
 	accounts = append(accounts, Account{Name: "MoMo Savings", Type: AccountTypeActiveUse})
 	if got := MatchCaptureAccount("MoMo", "", accounts, nil); got.Name != "" || len(got.Candidates) != 2 {
 		t.Errorf("ambiguous hint must ask the user, got %+v", got)
+	}
+}
+
+func TestMatchCaptureCardByLastFourDigits(t *testing.T) {
+	cards := []CaptureCard{
+		{Name: "Gold Card", Account: "Credit Card Acme", Keyword: "gold", Last4: "0123"},
+		{Name: "Silver Card", Account: "Credit Card Acme", Keyword: "silver", Last4: "4567"},
+		{Name: "No Digits", Account: "Credit Card Acme", Keyword: "plain"},
+		{Name: "Twin A", Account: "Card A", Keyword: "a", Last4: "9999"},
+		{Name: "Twin B", Account: "Card B", Keyword: "b", Last4: "9999"},
+	}
+	for _, tc := range []struct {
+		hint string
+		want string
+	}{
+		{"Acme *0123", "Gold Card"},
+		{"Visa 4111 11xx xxxx 4567", "Silver Card"},
+		{"the 401234567", "Silver Card"},
+		{"Acme *012", ""},
+		{"Thẻ tín dụng Acme", ""},
+		{"card *9999", ""},
+		{"", ""},
+	} {
+		got, ok := MatchCaptureCard(tc.hint, cards)
+		if got.Name != tc.want || ok != (tc.want != "") {
+			t.Errorf("hint %q: got %+v (%v), want %q", tc.hint, got, ok, tc.want)
+		}
 	}
 }
 
@@ -254,11 +281,11 @@ func TestCaptureBalancesUsesLatestPerAccountAndSkipsCards(t *testing.T) {
 	second.BalanceAfter = amountPointer(90)
 	card := captureEvent("c", "2026-10-03 10:00", 10, CaptureOut)
 	card.BalanceAfter = amountPointer(5000)
-	accounts := []Account{{Name: "Vietcombank", Balance: 120, Type: AccountTypeBank}, {Name: "Credit Card Sacombank", Type: AccountTypeNegativeActive}}
+	accounts := []Account{{Name: "Vietcombank", Balance: 120, Type: AccountTypeBank}, {Name: "Credit Card Acme", Type: AccountTypeNegativeActive}}
 	balances := CaptureBalances([]CaptureItem{
 		NewCaptureItem(second, AccountMatch{Name: "Vietcombank"}),
 		NewCaptureItem(first, AccountMatch{Name: "Vietcombank"}),
-		NewCaptureItem(card, AccountMatch{Name: "Credit Card Sacombank"}),
+		NewCaptureItem(card, AccountMatch{Name: "Credit Card Acme"}),
 	}, accounts)
 	if len(balances) != 1 || balances[0].BalanceAfter != 90 || balances[0].SheetBalance != 120 || balances[0].AsOf != "2026-10-03 10:00" || balances[0].MaterialID != "b" {
 		t.Fatalf("balances: %+v", balances)

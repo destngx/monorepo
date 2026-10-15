@@ -19,7 +19,7 @@ func captureDatabase() *fakes.Database {
 	db.Accounts = []domain.Account{
 		{Name: "Vietcombank", Type: domain.AccountTypeBank, Currency: domain.CurrencyVND, Balance: 7_045_000},
 		{Name: "Ví MoMo", Type: domain.AccountTypeActiveUse, Currency: domain.CurrencyVND},
-		{Name: "Credit Card Sacombank", Type: domain.AccountTypeNegativeActive, Currency: domain.CurrencyVND},
+		{Name: "Credit Card Acme", Type: domain.AccountTypeNegativeActive, Currency: domain.CurrencyVND},
 	}
 	db.Categories = append(db.Categories, domain.Category{Name: "Shopping", Type: domain.CategoryTypeExpense}, domain.Category{Name: "Transfer", Type: domain.CategoryTypeNonBudget})
 	db.Transactions = append(db.Transactions, domain.Transaction{
@@ -27,23 +27,34 @@ func captureDatabase() *fakes.Database {
 		Date: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC), Payment: money(45_000),
 	})
 	db.CaptureRules = []domain.CaptureRule{{Kind: domain.CaptureRuleAlias, Pattern: "VCB", Value: "Vietcombank"}}
+	db.Cards = captureCards
 	db.AIContent.Prompts[keyCaptureExtract] = "Today is {{today}}. Accounts:\n{{accounts}}\nAliases:\n{{aliases}}"
 	db.AIContent.Prompts[keyCaptureCategorize] = "Categorise into: {{categories}}"
 	return db
 }
 
-var captureCards = domain.CardConfig{Banks: []domain.CardBank{{
-	Name: "Sacombank", SharedAccount: "Credit Card Sacombank", DefaultCardKeyword: "platinum",
-	Cards: []domain.CardProgram{{Name: "Platinum", Keyword: "platinum", Rules: []domain.CashbackRule{
-		{Name: "Online", Tag: "platinum online", Rate: 5},
-		{Name: "Others", Tag: "platinum", Rate: 0.5, Fallback: true},
-	}}},
-}}}
+// captureCards bills two open cards to the shared account: their keywords
+// are the tags offered on its rows; the closed card's is not.
+var captureCardClosed = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+var captureCards = domain.CardConfig{
+	Programs: []domain.Program{
+		{Name: "Gold", Bank: "Acme", Versions: []domain.ProgramVersion{{Period: domain.CapPeriodCycle, Rules: []domain.CashbackRule{}}}},
+		{Name: "Silver", Bank: "Acme", Versions: []domain.ProgramVersion{{Period: domain.CapPeriodMonth, Rules: []domain.CashbackRule{}}}},
+	},
+	Banks: []domain.Bank{{Name: "Acme", SharedAccount: "Credit Card Acme"}},
+	Cards: []domain.Card{
+		{Name: "Gold Card", Program: "Gold", Keyword: "gold", StatementDay: 5, DueDay: 30, Last4: "0123"},
+		{Name: "Silver Card", Program: "Silver", Keyword: "silver", StatementDay: 5, DueDay: 30, Default: true},
+		{Name: "Old Card", Program: "Silver", Keyword: "old", StatementDay: 5, DueDay: 30, ClosedFrom: &captureCardClosed, Last4: "7777"},
+	},
+	Merchants: []domain.MerchantMCC{},
+}
 
 func newCaptureService(t *testing.T, db *fakes.Database, client *scriptedClient) *Service {
 	t.Helper()
 	now := func() time.Time { return testToday }
-	analytics := service.NewAnalyticsService(db, captureCards, now)
+	analytics := service.NewAnalyticsService(db, now)
 	return New(client, db, analytics, nil, testConfig(), logger.NewTestLogger(t), Options{Now: now})
 }
 
@@ -53,7 +64,7 @@ const (
 		{"occurredAt":"2026-10-03 12:30","amount":45000,"currency":"VND","direction":"out","counterparty":"Highlands Coffee","sourceApp":"Vietcombank","accountHint":"VCB *1234","confidence":0.9,"quote":"-45,000VND"}
 	]}`
 	momoReply = `{"events":[{"occurredAt":"2026-10-03 09:01","amount":2000000,"currency":"VND","direction":"in","counterparty":"Vietcombank","sourceApp":"MoMo","accountHint":"Ví MoMo","confidence":0.9,"quote":"+2.000.000đ"}]}`
-	cardReply = `{"events":[{"occurredAt":"2026-10-04","amount":300000,"currency":"VND","direction":"out","counterparty":"Shopee","sourceApp":"Sacombank","accountHint":"Thẻ tín dụng Sacombank","confidence":0.8,"quote":"Shopee 300,000"}]}`
+	cardReply = `{"events":[{"occurredAt":"2026-10-04","amount":300000,"currency":"VND","direction":"out","counterparty":"Shopee","sourceApp":"Acme","accountHint":"Thẻ tín dụng Acme","confidence":0.8,"quote":"Shopee 300,000"}]}`
 )
 
 func captureRoute(t *testing.T, categorize string) func(domain.AIRequest) reply {
@@ -91,7 +102,7 @@ func captureMaterials() []domain.CaptureMaterial {
 
 func TestCapturePipeline(t *testing.T) {
 	client := &scriptedClient{}
-	client.route = captureRoute(t, `{"items":[{"id":"s4","category":"shopping","tag":"platinum online"},{"id":"s9","category":"Food"}]}`)
+	client.route = captureRoute(t, `{"items":[{"id":"s4","category":"shopping","tag":"gold"},{"id":"s9","category":"Food"}]}`)
 	svc := newCaptureService(t, captureDatabase(), client)
 
 	var mu sync.Mutex
@@ -115,7 +126,7 @@ func TestCapturePipeline(t *testing.T) {
 	if coffee.Transaction.Category != "Coffee" || coffee.CategorySource != domain.CategorySourceHistory || coffee.Selected || coffee.Duplicate == nil || coffee.Duplicate.TransactionID != "r7" {
 		t.Fatalf("coffee should come from history and be flagged as recorded: %+v", coffee)
 	}
-	if card.Transaction.AccountName != "Credit Card Sacombank" || card.Transaction.Category != "Shopping" || card.CategorySource != domain.CategorySourceAI || len(card.Transaction.Tags) != 1 || card.Transaction.Tags[0] != "platinum online" || len(card.TagOptions) != 2 {
+	if card.Transaction.AccountName != "Credit Card Acme" || card.Transaction.Category != "Shopping" || card.CategorySource != domain.CategorySourceAI || len(card.Transaction.Tags) != 1 || card.Transaction.Tags[0] != "gold" || len(card.TagOptions) != 2 {
 		t.Fatalf("card purchase: %+v", card)
 	}
 	if len(result.Unreadable) != 2 || result.Unreadable[0].MaterialID != "blur" || result.Unreadable[0].Reason != "Image too blurry." || result.Unreadable[1].MaterialID != "junk" {
@@ -153,6 +164,39 @@ func TestCapturePipeline(t *testing.T) {
 	}
 	if extractEvents != 5 {
 		t.Fatalf("expected one finished extract event per material: %+v", progress)
+	}
+}
+
+func TestCaptureFilesACardPaymentByItsLastFourDigits(t *testing.T) {
+	client := &scriptedClient{}
+	client.route = func(request domain.AIRequest) reply {
+		user := request.Messages[len(request.Messages)-1].Content
+		if strings.Contains(user, "Items:") {
+			return reply{content: `{"items":[{"id":"s1","category":"Shopping","tag":"silver"},{"id":"s2","category":"Shopping"}]}`}
+		}
+		return reply{content: `{"events":[
+			{"occurredAt":"2026-10-04","amount":300000,"currency":"VND","direction":"out","counterparty":"Shopee","sourceApp":"Acme","accountHint":"Visa *0123","confidence":0.8,"quote":"Shopee 300,000"},
+			{"occurredAt":"2026-10-04","amount":90000,"currency":"VND","direction":"out","counterparty":"Grab","sourceApp":"Acme","accountHint":"Visa *7777","confidence":0.8,"quote":"Grab 90,000"}
+		]}`}
+	}
+	result, err := newCaptureService(t, captureDatabase(), client).Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Suggestions) != 2 {
+		t.Fatalf("expected two card payments: %+v", result.Suggestions)
+	}
+	gold, closed := result.Suggestions[0], result.Suggestions[1]
+	if gold.Transaction.AccountName != "Credit Card Acme" || gold.AccountSource != domain.MatchSourceDigits || len(gold.Transaction.Tags) != 1 || gold.Transaction.Tags[0] != "gold" {
+		t.Fatalf("the card's digits should file the payment to it, ahead of the model: %+v", gold)
+	}
+	// A closed card's digits match nothing: the row falls back to the name match.
+	if closed.AccountSource == domain.MatchSourceDigits || (len(closed.Transaction.Tags) > 0 && closed.Transaction.Tags[0] == "old") {
+		t.Fatalf("a closed card takes no payments: %+v", closed)
+	}
+	system := client.requests[0].Messages[0].Content
+	if !strings.Contains(system, "Gold Card *0123") || strings.Contains(system, "7777") {
+		t.Fatalf("the extract prompt should list open cards with their last 4 digits: %q", system)
 	}
 }
 

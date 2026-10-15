@@ -88,7 +88,7 @@ func newMarketService(t *testing.T, db *fakes.Database, client *scriptedClient, 
 	t.Helper()
 	now := func() time.Time { return testToday }
 	options := Options{Now: now, Search: search, Market: &fakeAnalysis{}, Portfolio: fakePortfolio{}}
-	return New(client, db, service.NewAnalyticsService(db, domain.CardConfig{}, now), cache, testConfig(), logger.NewTestLogger(t), options)
+	return New(client, db, service.NewAnalyticsService(db, now), cache, testConfig(), logger.NewTestLogger(t), options)
 }
 
 var newsResults = []domain.SearchResult{

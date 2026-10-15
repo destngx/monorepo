@@ -41,6 +41,10 @@ type DatabaseService interface {
 	ListCaptureRules(forceFresh bool) ([]domain.CaptureRule, error)
 	// SaveCaptureRules upserts rules, creating the tab on first use.
 	SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureRulesSaveResult, error)
+	// ListCardConfig returns the card programmes, banks, cards held and
+	// merchant MCCs from the Programs, ProgramRules, Banks, Cards and
+	// Merchants tabs (WM-CARD-3); a missing tab contributes no rows.
+	ListCardConfig(forceFresh bool) (domain.CardConfig, error)
 	SyncCache() (domain.SyncResult, error)
 	// SheetInfo returns the spreadsheet id and title and the time of the
 	// last successful SyncCache (WM-SET-2).

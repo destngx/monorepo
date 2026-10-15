@@ -183,7 +183,7 @@ func newAnalyticsApp(t *testing.T, db *fakes.Database) *fiber.App {
 	t.Helper()
 	app := fiber.New()
 	now := func() time.Time { return time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC) }
-	analytics := service.NewAnalyticsService(db, domain.CardConfig{}, now)
+	analytics := service.NewAnalyticsService(db, now)
 	RegisterAnalyticsRoutes(NewRouteRegistrar(app, "/api", ""), NewAnalyticsHandler(analytics, logger.NewTestLogger(t)))
 	return app
 }
@@ -210,6 +210,52 @@ func TestGivenANonNumericMonthsWhenReadingHistoryThenValidationEnvelope(t *testi
 	status, body := call(t, app, http.MethodGet, "/api/analytics/budget/history?months=six", "")
 
 	if envelope := decodeEnvelope(t, body); status != http.StatusBadRequest || envelope.Code != CodeValidation {
+		t.Fatalf("status = %d, body = %s", status, body)
+	}
+}
+
+func cardAdviceDatabase() *fakes.Database {
+	return &fakes.Database{
+		Cards: domain.CardConfig{
+			Programs: []domain.Program{{Name: "Gold", Bank: "Acme", Versions: []domain.ProgramVersion{{
+				From: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), Period: domain.CapPeriodCycle,
+				Rules: []domain.CashbackRule{{Name: "Dining", MCCs: []domain.MCCRange{{From: 5812, To: 5812}}, Rate: 3}, {Name: "Others", Rate: 1, Fallback: true}},
+			}}}},
+			Banks: []domain.Bank{{Name: "Acme", SharedAccount: "Credit Card Acme", ReferenceLimit: 10_000_000}},
+			Cards: []domain.Card{{Name: "Gold Card", Program: "Gold", Keyword: "gold", StatementDay: 5, DueDay: 30, Default: true}},
+		},
+		Accounts: []domain.Account{{Name: "Credit Card Acme", Type: domain.AccountTypeNegativeActive}},
+	}
+}
+
+func TestGivenAPaymentWhenSuggestingCardsThenTheRankedCardsAreReturned(t *testing.T) {
+	app := newAnalyticsApp(t, cardAdviceDatabase())
+
+	status, body := call(t, app, http.MethodGet, "/api/analytics/cards/suggest?payee=New+place&amount=1000000&mcc=5812", "")
+
+	var suggestions []domain.CardSuggestion
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &suggestions) != nil {
+		t.Fatalf("status = %d, body = %s", status, body)
+	}
+	if len(suggestions) != 1 || suggestions[0].Rule != "Dining" || suggestions[0].Cashback.Confirmed != 30_000 {
+		t.Fatalf("suggestions = %+v", suggestions)
+	}
+}
+
+func TestGivenABadPaymentWhenSuggestingCardsThenValidationEnvelope(t *testing.T) {
+	app := newAnalyticsApp(t, cardAdviceDatabase())
+	for _, query := range []string{"payee=Shop&amount=lots", "payee=Shop&amount=1&mcc=dining", "payee=Shop", "amount=1"} {
+		status, body := call(t, app, http.MethodGet, "/api/analytics/cards/suggest?"+query, "")
+		if envelope := decodeEnvelope(t, body); status != http.StatusBadRequest || envelope.Code != CodeValidation {
+			t.Fatalf("%s: status = %d, body = %s", query, status, body)
+		}
+	}
+}
+
+func TestGivenCardsWhenComparingProgrammesThenTheReportIsReturned(t *testing.T) {
+	status, body := call(t, newAnalyticsApp(t, cardAdviceDatabase()), http.MethodGet, "/api/analytics/cards/compare", "")
+	var report domain.ProgramComparisonReport
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &report) != nil || len(report.Programs) != 1 || report.To != "2026-10-12" {
 		t.Fatalf("status = %d, body = %s", status, body)
 	}
 }

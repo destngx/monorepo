@@ -62,14 +62,6 @@ func run() int {
 
 	// A bad stored value must not stop the engine, or the Settings page
 	// could not be reached to fix it: fall back to the defaults.
-	cardConfig, err := configAdapter.LoadCardConfig(values)
-	if err != nil {
-		log.LogError(ctx, "invalid card programs configuration: using the built-in programs", err)
-		if cardConfig, err = configAdapter.LoadCardConfig(configAdapter.Values{}); err != nil {
-			log.LogError(ctx, "invalid built-in card programs", err)
-			return 1
-		}
-	}
 	captureLimits, err := configAdapter.LoadCaptureLimits(values)
 	if err != nil {
 		log.LogError(ctx, "invalid Smart Capture configuration: using the default limits", err)
@@ -119,7 +111,7 @@ func run() int {
 	if closer, ok := cacheClient.(io.Closer); ok {
 		defer closer.Close()
 	}
-	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, cardConfig, values)
+	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, values)
 	if dbSvc != nil {
 		staleData.Watch(dbSvc)
 	}
@@ -244,7 +236,7 @@ func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.H
 // setupSheets returns nil services when the sheet is not configured; its
 // routes are still registered and answer 503 SHEETS_NOT_CONFIGURED naming
 // the missing settings (or the client error) so clients can say what to fix.
-func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, cards domain.CardConfig, values configAdapter.Values) (port.DatabaseService, port.AnalyticsService) {
+func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, values configAdapter.Values) (port.DatabaseService, port.AnalyticsService) {
 	client, spreadsheetID, err := newSheetsClient(ctx, log, values)
 	if errors.Is(err, errTestWorkbook) {
 		// WM-TEST-2: a test engine must never fall back to the real sheet.
@@ -261,7 +253,7 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 		BudgetSheetTemplate: configAdapter.BudgetSheetTemplate(values),
 		SpreadsheetID:       spreadsheetID,
 	})
-	analyticsSvc := service.NewAnalyticsService(dbSvc, cards, nil)
+	analyticsSvc := service.NewAnalyticsService(dbSvc, nil)
 	health.Register(port.HealthCheck{Name: "sheets", Probe: func(context.Context) error { return dbSvc.Ping() }})
 	mcpServer.SetDatabaseService(dbSvc)
 	mcpServer.SetAnalyticsService(analyticsSvc)

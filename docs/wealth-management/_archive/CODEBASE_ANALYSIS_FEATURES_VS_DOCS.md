@@ -26,7 +26,7 @@ The wealth-management codebase is feature-rich with **21 pages**, **8 major feat
 | **Budget**       | ✅ Complete | Monthly budgets with spending tracking    | Comparison vs. actual spending                         |
 | **Goals**        | ⚠️ Partial  | CRUD operations + projections             | Missing: compound interest algorithms, goal milestones |
 | **Loans**        | ✅ Complete | Loan tracking, terms, rates               | No amortization schedule visualization                 |
-| **Credit Cards** | ✅ Complete | Cashback rules per card, balance tracking | Sacombank-specific rules hardcoded                     |
+| **Credit Cards** | ✅ Complete | Cashback rules per card, balance tracking | Bank-specific rules hardcoded                          |
 
 ### 1.2 AI & Intelligence Layer
 
@@ -83,14 +83,14 @@ The wealth-management codebase is feature-rich with **21 pages**, **8 major feat
 
 - **Pattern Matching**: Accounts vs. tags vs. card identity (3-tier fallback)
 - **Rule Engine**: 2 cards × 3 rules per card = 6 cashback tiers
-- **Shared Account Logic**: UNIQ + Platinum share same account → tag-based disambiguation
-- **Cap Management**: Monthly caps per card (600k VND for UNIQ, 600k for Platinum)
+- **Shared Account Logic**: Two cards share same account → tag-based disambiguation
+- **Cap Management**: Monthly caps per card (per card)
 - **Double-Counting Prevention**: Must avoid counting transactions in both cards
 
 **Edge Cases** (Not Documented):
 
-1. Transaction with no tags on shared account → assumes Platinum (potential wrong assignment)
-2. Tag mismatch (tags say "uniq" but account is "platinum") → tag takes precedence
+1. Transaction with no tags on shared account → assumes the default card (potential wrong assignment)
+2. Tag mismatch (tag names one card, account another) → tag takes precedence
 3. Monthly cap exhaustion → no logic to spill into lower-tier rates
 4. Partial transactions exceeding cap → rounds but doesn't distribute
 
@@ -379,15 +379,16 @@ features/{feature}/
 2. **In-Memory**: Fallback, ultra-fast, per-instance
 
 **TTL Policies**:
-| Data Type | TTL | Rationale |
-|-----------|-----|-----------|
-| Accounts | 5 min | Financial data changes frequently |
-| Transactions | 5 min | Most dynamic |
-| Budget | 5 min | User-driven updates |
-| Goals | 1 hour | Less frequent changes |
-| AI Content | 1 hour | System prompts, knowledge base |
-| Ticker Details | 30 days | Historical data, slow-moving |
-| Market Data | 5 min | Market open dependency |
+
+| Data Type      | TTL     | Rationale                         |
+| -------------- | ------- | --------------------------------- |
+| Accounts       | 5 min   | Financial data changes frequently |
+| Transactions   | 5 min   | Most dynamic                      |
+| Budget         | 5 min   | User-driven updates               |
+| Goals          | 1 hour  | Less frequent changes             |
+| AI Content     | 1 hour  | System prompts, knowledge base    |
+| Ticker Details | 30 days | Historical data, slow-moving      |
+| Market Data    | 5 min   | Market open dependency            |
 
 **Cache Invalidation**:
 
@@ -446,12 +447,13 @@ features/{feature}/
 **Total**: 13 test files, ~1021 LOC
 
 **By Feature**:
-| Area | Files | LOC | Coverage |
-|------|-------|-----|----------|
-| Data Sources (fallback chain) | 2 | 270 | Adapter pattern, chain logic |
-| Sheets Integration | 3 | 300+ | Mappers, caching, error handling |
-| Services | 2 | 130 | Exchange rate, stock analysis |
-| **App Routes** | 0 | 0 | ❌ No API route tests |
+
+| Area                          | Files | LOC  | Coverage                         |
+| ----------------------------- | ----- | ---- | -------------------------------- |
+| Data Sources (fallback chain) | 2     | 270  | Adapter pattern, chain logic     |
+| Sheets Integration            | 3     | 300+ | Mappers, caching, error handling |
+| Services                      | 2     | 130  | Exchange rate, stock analysis    |
+| **App Routes**                | 0     | 0    | ❌ No API route tests            |
 
 ### 8.2 Test Quality
 
@@ -535,8 +537,8 @@ vi.mock('./client', () => ({
 ### 10.1 Cashback System
 
 1. **Cap Exhaustion**: What if monthly spend > monthly cap? (currently: transactions beyond cap ignored)
-2. **Tag Conflicts**: Transaction with both "uniq" and "platinum" tags? (currently: first match wins)
-3. **Shared Account Fallback**: Untagged transaction on shared account defaults to Platinum (potential silent errors)
+2. **Tag Conflicts**: Transaction with tags of two cards? (currently: first match wins)
+3. **Shared Account Fallback**: Untagged transaction on shared account defaults to the default card (potential silent errors)
 4. **Rate Rounding**: 0.5% of 100 = 0.5 → rounds to 1? (Banker's rounding not specified)
 
 ### 10.2 AI Integration

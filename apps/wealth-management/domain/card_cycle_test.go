@@ -1,64 +1,56 @@
 package domain
 
-import "testing"
-
-func TestParseCardDays(t *testing.T) {
-	tests := []struct {
-		input     *string
-		statement int
-		due       int
-		ok        bool
-	}{
-		{text("5, 30"), 5, 30, true},
-		{text("5,30"), 5, 30, true},
-		{text("12 28"), 12, 28, true},
-		{text("1/4/2026"), 0, 0, false},
-		{text("5, 40"), 0, 0, false},
-		{nil, 0, 0, false},
-	}
-	for _, tt := range tests {
-		statement, due, ok := ParseCardDays(tt.input)
-		if statement != tt.statement || due != tt.due || ok != tt.ok {
-			t.Fatalf("input %v: got %d %d %v", tt.input, statement, due, ok)
-		}
-	}
-}
+import (
+	"testing"
+	"time"
+)
 
 func TestComputeCardCycleAfterStatementDay(t *testing.T) {
-	cycle := ComputeCardCycle(5, 30, -4_000_000, day(2026, 3, 20))
+	cycle := ComputeCardCycle(5, 30, day(2026, 3, 20))
 	if cycle.CycleStart != "2026-03-05" || cycle.CycleEnd != "2026-04-05" || cycle.CycleDays != 31 || cycle.CycleElapsedDays != 15 {
 		t.Fatalf("unexpected cycle %+v", cycle)
 	}
-	if cycle.NextDueDate != "2026-03-30" || cycle.DaysUntilDue != 10 || cycle.DueUrgent {
-		t.Fatalf("unexpected due info %+v", cycle)
-	}
-	if cycle.MinimumPayment != 200_000 || cycle.OutstandingAmount != 4_000_000 {
-		t.Fatalf("unexpected payment info %+v", cycle)
+	if cycle.DueDay != 30 || cycle.PayBy != "2026-03-29" || cycle.DaysUntilPayBy != 9 || cycle.PayByUrgent {
+		t.Fatalf("unexpected pay-by info %+v", cycle)
 	}
 }
 
 func TestComputeCardCycleBeforeStatementDayWrapsToLastMonth(t *testing.T) {
-	cycle := ComputeCardCycle(5, 30, -1, day(2026, 3, 2))
+	cycle := ComputeCardCycle(5, 30, day(2026, 3, 2))
 	if cycle.CycleStart != "2026-02-05" || cycle.CycleElapsedDays != 25 || cycle.CycleDays != 28 {
 		t.Fatalf("unexpected cycle %+v", cycle)
 	}
 }
 
-func TestComputeCardCycleDueDayClampsToMonthLengthAndRollsOver(t *testing.T) {
-	// Due day 30 in February clamps to the 28th; on 1 March the next due is 30 March.
-	feb := ComputeCardCycle(5, 30, -100, day(2026, 2, 26))
-	if feb.NextDueDate != "2026-02-28" || feb.DaysUntilDue != 2 || !feb.DueUrgent {
-		t.Fatalf("unexpected february due %+v", feb)
+func TestPayByDateIsThe29thAndThe28thInFebruary(t *testing.T) {
+	tests := map[time.Time]string{
+		day(2026, 3, 20):  "2026-03-29",
+		day(2026, 3, 29):  "2026-03-29",
+		day(2026, 3, 30):  "2026-04-29",
+		day(2026, 2, 10):  "2026-02-28",
+		day(2028, 2, 10):  "2028-02-28", // leap year too
+		day(2028, 1, 31):  "2028-02-28",
+		day(2026, 12, 30): "2027-01-29",
 	}
-	rolled := ComputeCardCycle(5, 10, -100, day(2026, 3, 11))
-	if rolled.NextDueDate != "2026-04-10" {
-		t.Fatalf("expected rollover to next month, got %+v", rolled)
+	for today, want := range tests {
+		if got := PayByDate(today.Add(15 * time.Hour)).Format(time.DateOnly); got != want {
+			t.Fatalf("%s: got %s want %s", today.Format(time.DateOnly), got, want)
+		}
 	}
 }
 
-func TestDueNotUrgentWhenNothingOwed(t *testing.T) {
-	if ComputeCardCycle(5, 30, 0, day(2026, 3, 29)).DueUrgent {
-		t.Fatal("expected no urgency with zero balance")
+func TestPeriodBounds(t *testing.T) {
+	start, end := PeriodBounds(CapPeriodCycle, 5, day(2026, 3, 4))
+	if !start.Equal(day(2026, 2, 5)) || !end.Equal(day(2026, 3, 5)) {
+		t.Fatalf("cycle: %v - %v", start, end)
+	}
+	start, end = PeriodBounds(CapPeriodMonth, 5, day(2026, 3, 4))
+	if !start.Equal(day(2026, 3, 1)) || !end.Equal(day(2026, 4, 1)) {
+		t.Fatalf("month: %v - %v", start, end)
+	}
+	start, end = PeriodBounds(CapPeriodCycle, 31, day(2026, 2, 28))
+	if !start.Equal(day(2026, 2, 28)) || !end.Equal(day(2026, 3, 31)) {
+		t.Fatalf("clamped cycle: %v - %v", start, end)
 	}
 }
 

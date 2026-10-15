@@ -73,11 +73,17 @@
       </g>
     {/each}
   </svg>
-  <div class="mt-2 flex flex-wrap gap-4 text-xs">
+  <!-- The legend doubles as the readout: hovering a column shows its values. -->
+  <div class="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs" data-testid="bar-legend">
+    {#if hover !== null}<span class="muted tabular">{labels[hover]}</span>{/if}
     {#each series as s (s.name)}
-      <span class="muted inline-flex items-center gap-1.5"
-        ><span class="size-2.5 rounded-sm" style:background={s.color}></span>{s.name}</span
-      >
+      <span class="inline-flex items-center gap-1.5">
+        <span class="size-2.5 rounded-sm" style:background={s.color}></span>
+        <span class="muted">{s.name}</span>
+        {#if hover !== null}
+          <span class="tabular font-medium">{mask.revealed ? formatCompact(s.values[hover] ?? 0) : MASK}</span>
+        {/if}
+      </span>
     {/each}
   </div>
 {:else}
