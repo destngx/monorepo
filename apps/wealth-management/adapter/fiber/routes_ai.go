@@ -51,6 +51,13 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 			"data":        map[string]any{"description": "The series as rendered."},
 		}), "chartType", "data"),
 	})
+	ai.Post("/cashback-explain", guard.Wrap(h.ExplainCashback), RouteMeta{
+		Summary: "Markdown walk-through of how a card period's cashback estimate was reached, payment by payment.",
+		RequestBody: jsonBody(aiOptionProperties(map[string]any{
+			"card":  schemaString,
+			"month": map[string]any{"type": "string", "description": "YYYY-MM the period starts in; omit for the current period."},
+		}), "card"),
+	})
 	ai.Post("/briefing", guard.Wrap(h.Briefing), RouteMeta{
 		Summary:     "Dashboard intelligence briefing: markdown briefing, alerts and pattern cards, with the engine's current-month facts.",
 		RequestBody: optionalJSONBody(aiOptionProperties(nil)),

@@ -11,6 +11,9 @@ type AnalyticsService interface {
 	// month ("YYYY-MM", empty = current), oldest first (WM-BUD-7).
 	BudgetHistory(month string, months int, forceFresh bool) (domain.BudgetHistory, error)
 	CardReports(forceFresh bool) ([]domain.CardBankReport, error)
+	// CardPeriod lays out one card's period starting in month ("YYYY-MM",
+	// empty = current) payment by payment (WM-CARD-17).
+	CardPeriod(card string, month string, forceFresh bool) (domain.CardPeriodDetail, error)
 	// SuggestCards ranks held cards for a payment by the cashback it would add (WM-CARD-13).
 	SuggestCards(query domain.CardPaymentQuery, forceFresh bool) ([]domain.CardSuggestion, error)
 	// ComparePrograms replays the last year of card spend under every programme (WM-CARD-14).

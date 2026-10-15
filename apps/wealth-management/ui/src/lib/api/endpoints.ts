@@ -195,6 +195,8 @@ export const api = {
     input: { chartType: string; title: string; description?: string; timeframe?: string; data: unknown },
     options?: AIOptions,
   ) => ai<{ insight: string }>('/ai/chart-insight', input, options).then((result) => result.insight),
+  explainCashback: (input: { card: string; month?: string }, options?: AIOptions) =>
+    ai<{ explanation: string }>('/ai/cashback-explain', input, options).then((result) => result.explanation),
   newsSentiment: (topic: string, options?: AIOptions) => ai<NewsReport>('/ai/news-sentiment', { topic }, options),
   tickerInsight: (symbol: string, timeframe: Timeframe, options?: AIOptions) =>
     ai<Insight>('/ai/ticker-insight', { symbol, timeframe }, options),

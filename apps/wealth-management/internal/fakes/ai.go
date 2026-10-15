@@ -50,6 +50,10 @@ func (f *AI) ChartInsight(context.Context, port.ChartInsightRequest) (string, er
 	return "**flat**", f.Err
 }
 
+func (f *AI) ExplainCashback(context.Context, port.CashbackExplainRequest) (string, error) {
+	return "**earned**", f.Err
+}
+
 func (f *AI) Briefing(context.Context, bool, string) (domain.Briefing, error) {
 	return domain.Briefing{Briefing: "hi"}, f.Err
 }

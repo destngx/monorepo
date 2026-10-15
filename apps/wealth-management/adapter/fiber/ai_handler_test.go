@@ -37,6 +37,9 @@ func TestAIRoutes(t *testing.T) {
 	if status, body := call(t, app, http.MethodPost, "/api/ai/chart-insight", `{"chartType":"line","data":[1]}`); status != http.StatusOK || body != `{"insight":"**flat**"}` {
 		t.Fatalf("chart insight: %d %s", status, body)
 	}
+	if status, body := call(t, app, http.MethodPost, "/api/ai/cashback-explain", `{"card":"Gold Card"}`); status != http.StatusOK || body != `{"explanation":"**earned**"}` {
+		t.Fatalf("cashback explanation: %d %s", status, body)
+	}
 	if status, _ := call(t, app, http.MethodPost, "/api/ai/briefing", ""); status != http.StatusOK {
 		t.Fatalf("briefing without body: %d", status)
 	}

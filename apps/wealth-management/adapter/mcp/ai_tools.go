@@ -114,6 +114,23 @@ func (s *Server) aiTools() []tool {
 			},
 		},
 		{
+			definition: definition("ExplainCashback", "Markdown walk-through of how a card period's cashback estimate was reached: each payment's rule, minimums and caps.", object(map[string]any{
+				"card": stringSchema, "month": map[string]any{"type": "string", "description": "YYYY-MM the period starts in; omit for the current period."},
+				"force": aiForceSchema, "model": modelSchema,
+			}, "card")),
+			handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+				var request port.CashbackExplainRequest
+				if err := decodeArguments(arguments, &request); err != nil {
+					return nil, err
+				}
+				explanation, err := ai.ExplainCashback(ctx, request)
+				if err != nil {
+					return nil, err
+				}
+				return map[string]any{"explanation": explanation}, nil
+			},
+		},
+		{
 			definition: definition("SuggestTransactionsFromMaterials", "Smart Capture: reads bank or wallet screenshots and pasted texts (notifications, SMS, statements) into suggested transactions with matched accounts, categories, transfer pairs, ledger duplicates and reported balances. Writes nothing; record accepted rows with CreateTransaction.", object(map[string]any{
 				"materials": map[string]any{"type": "array", "minItems": 1, "items": object(map[string]any{
 					"id":        map[string]any{"type": "string", "description": "Unique id within the batch, used as evidence."},

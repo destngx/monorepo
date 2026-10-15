@@ -66,6 +66,7 @@ var routeTools = map[string]string{
 	"POST /api/ai/review":              "ReviewFinances",
 	"POST /api/ai/health-commentary":   "GetHealthCommentary",
 	"POST /api/ai/chart-insight":       "GetChartInsight",
+	"POST /api/ai/cashback-explain":    "ExplainCashback",
 	"POST /api/ai/briefing":            "GetIntelligenceBriefing",
 	"POST /api/ai/budget-advisor":      "GetBudgetAdvice",
 	"POST /api/ai/capture":             "SuggestTransactionsFromMaterials",

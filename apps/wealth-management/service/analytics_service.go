@@ -112,6 +112,18 @@ func (s *analyticsService) CardReports(forceFresh bool) ([]domain.CardBankReport
 	return domain.ComputeCardReports(cards, accounts, transactions, s.today()), nil
 }
 
+func (s *analyticsService) CardPeriod(card string, month string, forceFresh bool) (domain.CardPeriodDetail, error) {
+	cards, err := s.db.ListCardConfig(forceFresh)
+	if err != nil {
+		return domain.CardPeriodDetail{}, err
+	}
+	accounts, _, transactions, err := s.position(forceFresh)
+	if err != nil {
+		return domain.CardPeriodDetail{}, err
+	}
+	return domain.ComputeCardPeriod(cards, accounts, transactions, card, month, s.today())
+}
+
 func (s *analyticsService) SuggestCards(query domain.CardPaymentQuery, forceFresh bool) ([]domain.CardSuggestion, error) {
 	if err := query.Validate(); err != nil {
 		return nil, err

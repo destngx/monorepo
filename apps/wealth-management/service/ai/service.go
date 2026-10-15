@@ -41,6 +41,7 @@ var RequiredPrompts = []string{
 	keyAdvisorTask, "actions/budget-advisor",
 	keyHealthTask, "actions/financial-health",
 	keyChartTask, "actions/chart-insight",
+	"tasks/cashback-explain", "actions/cashback-explain",
 	"tasks/suggest-category", "actions/suggest-category",
 }
 

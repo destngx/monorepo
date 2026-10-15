@@ -53,6 +53,16 @@ type ChartInsightRequest struct {
 	Model string `json:"model,omitempty"`
 }
 
+// CashbackExplainRequest asks why a card's period earned its cashback
+// estimate (WM-CARD-17).
+type CashbackExplainRequest struct {
+	Card string `json:"card"`
+	// Month is the "YYYY-MM" the period starts in; empty is the current one.
+	Month string `json:"month,omitempty"`
+	Force bool   `json:"force,omitempty"`
+	Model string `json:"model,omitempty"`
+}
+
 type CategorySuggestion struct {
 	Category string `json:"category"`
 	// Source is "history" (same payee before), "ai", or "default" when the
@@ -100,6 +110,8 @@ type AIService interface {
 	Review(ctx context.Context, request ReviewRequest) (domain.Insight, error)
 	HealthCommentary(ctx context.Context, force bool, model string) (domain.Insight, error)
 	ChartInsight(ctx context.Context, request ChartInsightRequest) (string, error)
+	// ExplainCashback explains a card period's cashback estimate; markdown.
+	ExplainCashback(ctx context.Context, request CashbackExplainRequest) (string, error)
 	Briefing(ctx context.Context, force bool, model string) (domain.Briefing, error)
 	BudgetAdvice(ctx context.Context, force bool, model string) (domain.BudgetAdvice, error)
 	Chat(ctx context.Context, request ChatRequest, emit func(ChatEvent) error) error

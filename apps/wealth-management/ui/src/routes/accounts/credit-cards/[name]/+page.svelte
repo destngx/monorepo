@@ -1,5 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import AIExplain from '$lib/ai/AIExplain.svelte';
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { api } from '$lib/api/endpoints';
   import BarChart from '$lib/charts/BarChart.svelte';
@@ -146,7 +147,18 @@
           <dd><Money value={standing.spent} /></dd>
         </div>
         <div>
-          <dt class="muted text-xs">Cashback (est.)</dt>
+          <dt class="muted flex items-center gap-1 text-xs">
+            Cashback (est.)
+            <!-- WM-CARD-17; keyed so another card starts a fresh explanation. -->
+            {#key card.name}
+              <AIExplain
+                title="Cashback estimate"
+                label="Explain the cashback estimate with AI"
+                icon="info"
+                load={(force, signal) => api.explainCashback({ card: card.name }, { force, signal })}
+              />
+            {/key}
+          </dt>
           <dd><Money value={standing.cashback.total} /></dd>
         </div>
         <div>

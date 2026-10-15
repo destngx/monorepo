@@ -95,6 +95,18 @@ func (h *AIHandler) ChartInsight(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"insight": insight})
 }
 
+func (h *AIHandler) ExplainCashback(c *fiber.Ctx) error {
+	var body port.CashbackExplainRequest
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	explanation, err := h.ai.ExplainCashback(c.UserContext(), body)
+	if err != nil {
+		return respondError(c, h.log, aiScope, err)
+	}
+	return c.JSON(fiber.Map{"explanation": explanation})
+}
+
 func (h *AIHandler) Briefing(c *fiber.Ctx) error {
 	var body aiOptions
 	if err := parseOptionalBody(c, &body); err != nil {
