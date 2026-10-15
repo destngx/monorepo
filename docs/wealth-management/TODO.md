@@ -6,7 +6,7 @@
 
 **Problem**: transactions are captured 1-5 times a week with Smart Capture. It is repetitive: collect screenshots per app, open the capture page, approve every row.
 
-**Constraints**: iPhone; main accounts are **Techcombank**, **Sacombank** (mostly credit cards) and **ZaloPay**; no SMS or email alerts, changes are only visible in the apps; solutions must cost nothing; prefer privacy.
+**Constraints**: iPhone; the banks and wallets in scope are listed below; no SMS or email alerts, changes are only visible in the apps; solutions must cost nothing; prefer privacy.
 
 ### 1.1 Research findings (2026-10-15)
 

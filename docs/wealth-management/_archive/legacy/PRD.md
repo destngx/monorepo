@@ -35,10 +35,10 @@ A web-based system that:
 
 ## 2. User Personas
 
-### Primary User: Personal Finance Manager (You)
+### Primary User: Personal Finance Manager
 
-- **Context:** Vietnamese professional managing personal finances and building long-term wealth
-- **Accounts:** Vietnamese bank accounts (VND), Binance crypto (individual coins), physical gold (SJC), savings deposits, potential stocks, real estate, business equity
+- **Context:** Single user managing personal finances and building long-term wealth
+- **Accounts:** Bank accounts (VND), crypto (individual coins), physical gold, savings deposits, potential stocks, real estate, business equity
 - **Current workflow:** Google Sheets for tracking, manual entry
 - **Pain points:** Manual categorization, no insights, no automation
 - **Goals:** Automated tracking, smart budgeting, wealth portfolio management, investment growth, achieving financial independence, AI-powered financial advisor

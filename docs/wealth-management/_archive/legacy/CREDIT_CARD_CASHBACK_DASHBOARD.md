@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Credit Card Usage Dashboard** is a comprehensive financial optimization tool designed specifically for managing Sacombank's dual credit card ecosystem. It helps you maximize cashback earnings by providing real-time insights into spending patterns, cashback rules, and optimization strategies.
+The **Credit Card Usage Dashboard** is a comprehensive financial optimization tool designed specifically for managing Sacombank cashback credit cards. It helps you maximize cashback earnings by providing real-time insights into spending patterns, cashback rules, and optimization strategies.
 
 ---
 
