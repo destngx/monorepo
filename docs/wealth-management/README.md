@@ -12,6 +12,7 @@ Start with [REQUIREMENTS.md](./REQUIREMENTS.md). It is the source of truth for s
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | [REQUIREMENTS.md](./REQUIREMENTS.md)           | Source of truth: sheet data contract, features, rules, status, open decisions.                                                   |
 | [AGENTS.md](./AGENTS.md)                       | Code layout and conventions for the Go engine (hexagonal) and SvelteKit UI (feature-sliced).                                     |
+| [TODO.md](./TODO.md)                           | Parked ideas: capture automation and bank feed research, financial health improvements. Not approved scope.                      |
 | [\_setup/](./_setup/README.md)                 | Setup: layout, environment variables and defaults, Nx targets, Google auth CLIs, live E2E tests.                                 |
 | [\_technical/](./_technical/README.md)         | Technical specs: data engine, AI orchestration, financial logic, resilience, code structure, market providers.                   |
 | [\_specs/](./_specs/README.md)                 | Functional specs per module: command center, ledger and budget, intelligence, market terminal.                                   |
