@@ -30,7 +30,7 @@ Rejected for now: unofficial bank libraries (credentials on disk, against bank t
 - [ ] **Local OCR** with `apps/mac-ocr` (Vision, bounding boxes) plus deterministic per-app parsers in the §6.3 pipeline; fall back to the model on PII-masked text only, never images. Drop screenshots with no banking text before anything leaves the Mac. Verify Vision OCR quality on Vietnamese bank screens with one sample per app first.
 - [ ] **On-demand statements**: check whether the Techcombank and Sacombank apps export a statement (sao kê) for any date range, not only monthly. Monthly-only is too slow to be the main source.
 - [ ] **ESP32 ANCS client** (~100k VND) for real-time Sacombank alerts, if wanted later. Techcombank notifications are unreliable, so it cannot replace capture.
-- [ ] **Recurring transactions** (salary, rent, subscriptions, loan payments) proposed or recorded on schedule.
+- [x] **Recurring transactions** (salary, rent, subscriptions, loan payments) proposed or recorded on schedule: moved to [ROADMAP](./ROADMAP.md) R4.
 - [ ] **Balance-only tracking** option for wallets: enter the weekly balance, record one adjustment for the difference.
 - [ ] **Binance read-only API** source (IP-restricted key).
 - [ ] **Bank feed source port**: design a generic "feed" source for the Smart Capture pipeline (WM-ING-3) so a Circular 64 Open API aggregator can be plugged in around 2027. Revisits D11.
@@ -41,15 +41,15 @@ Ordered by impact.
 
 - [ ] **Monthly snapshots**: `Snapshots` sheet tab written at month close (net worth, assets, liabilities, health score and components, savings rate). Trend charts on `/health` and the Dashboard; split each month's net worth change into savings vs market gains. Net worth history today is back-calculated from transactions and misses price changes.
 - [ ] **Fix the diversification score**: `domain/asset_allocation.go` gives full marks for an even cash / investment / crypto split (33% crypto scores as healthy). Score distance from a user-set target allocation, with a crypto ceiling.
-- [ ] **Real goals** (WM-GOAL-3..5): deadline and monthly contribution columns in the Goals sheet; required monthly vs actual pace; check that all goals fit the average monthly surplus. Deadline is hardcoded `"TBD"` in `service/sheet_mappers.go`.
-- [ ] **Debt payoff planner**: add interest rate, principal and term to the Loan sheet; avalanche vs snowball, payoff date, total interest, prepay vs invest.
-- [ ] **Recurring bill and subscription detection** from transaction history; upcoming-bills calendar; price-increase and unused-subscription flags.
+- [x] **Real goals**: moved to [ROADMAP](./ROADMAP.md) R3 (pooled savings, D31, D32). Original note: (WM-GOAL-3..5): deadline and monthly contribution columns in the Goals sheet; required monthly vs actual pace; check that all goals fit the average monthly surplus. Deadline is hardcoded `"TBD"` in `service/sheet_mappers.go`.
+- [x] ~~**Debt payoff planner**~~ dropped: the user lends rather than borrows (D30, [ROADMAP](./ROADMAP.md) R1). Original note:: add interest rate, principal and term to the Loan sheet; avalanche vs snowball, payoff date, total interest, prepay vs invest.
+- [x] **Recurring bill and subscription detection**: moved to [ROADMAP](./ROADMAP.md) R4. Original note: from transaction history; upcoming-bills calendar; price-increase and unused-subscription flags.
 - [ ] **Deterministic cash flow forecast** (30/90 days per account) from recurring items, budget limits and card due dates; replaces the AI-generated projection in the budget advisor.
 - [ ] **Better projection**: `ProjectNetWorth` compounds current net worth only; include average monthly savings and add an FI view (target = annual expenses x 25, year reached, effect of +5 points of savings rate).
-- [ ] **Investment performance**: cost basis per holding, unrealised gain/loss, money-weighted return vs bank savings rate.
+- [x] **Investment performance**: moved to [ROADMAP](./ROADMAP.md) M3. Original note:: cost basis per holding, unrealised gain/loss, money-weighted return vs bank savings rate.
 - [ ] **Protection pillar** in the health score (insurance coverage, dependants).
 - [ ] **Spending anomaly alerts** (category > 2x usual, duplicate charge).
-- [ ] **Monthly close checklist page**: reconcile, review health, apply budget advice, check cards and loans, write the snapshot.
+- [x] **Monthly close checklist page**: moved to [ROADMAP](./ROADMAP.md) R8. Original note:: reconcile, review health, apply budget advice, check cards and loans, write the snapshot.
 
 ## 3. Sources
 

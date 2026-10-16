@@ -8,20 +8,21 @@ Start with [REQUIREMENTS.md](./REQUIREMENTS.md). It is the source of truth for s
 
 ## 1. Index
 
-| Read this                                      | For                                                                                                                              |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| [REQUIREMENTS.md](./REQUIREMENTS.md)           | Source of truth: sheet data contract, features, rules, status, open decisions.                                                   |
-| [AGENTS.md](./AGENTS.md)                       | Code layout and conventions for the Go engine (hexagonal) and SvelteKit UI (feature-sliced).                                     |
-| [TODO.md](./TODO.md)                           | Parked ideas: capture automation and bank feed research, financial health improvements. Not approved scope.                      |
-| [\_setup/](./_setup/README.md)                 | Setup: layout, environment variables and defaults, Nx targets, Google auth CLIs, live E2E tests.                                 |
-| [\_technical/](./_technical/README.md)         | Technical specs: data engine, AI orchestration, financial logic, resilience, code structure, market providers.                   |
-| [\_specs/](./_specs/README.md)                 | Functional specs per module: command center, ledger and budget, intelligence, market terminal.                                   |
-| [\_testing/](./_testing/TEST_STRATEGY.md)      | Test strategy (details in REQUIREMENTS.md §14).                                                                                  |
-| [user-stories/](./user-stories/)               | User stories per area (accounts, budget, transactions, investments, intelligence, and others).                                   |
-| [narratives/](./narratives/)                   | Design rationale essays (market providers, USD rate, portfolio valuation, risk, AI advisor).                                     |
-| [tasks/](./tasks/README.md)                    | Historical sprint plans. Status markers are stale; see REQUIREMENTS.md for current status.                                       |
-| [\_api/](./_api/) and [features/](./features/) | Legacy docs for the removed Next.js app. The live API reference is the engine's `/api/openapi.json` (Swagger UI at `/api/docs`). |
-| `_archive/`                                    | Historical material, kept as is.                                                                                                 |
+| Read this                                      | For                                                                                                                                    |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| [REQUIREMENTS.md](./REQUIREMENTS.md)           | Source of truth: sheet data contract, features, rules, status, open decisions.                                                         |
+| [AGENTS.md](./AGENTS.md)                       | Code layout and conventions for the Go engine (hexagonal) and SvelteKit UI (feature-sliced).                                           |
+| [ROADMAP.md](./ROADMAP.md)                     | Approved build order: wrong-number fixes, cleanup, advisor core (goals, bills, recommendations), markets for the user's money, polish. |
+| [TODO.md](./TODO.md)                           | Parked ideas: capture automation and bank feed research, financial health improvements. Not approved scope.                            |
+| [\_setup/](./_setup/README.md)                 | Setup: layout, environment variables and defaults, Nx targets, Google auth CLIs, live E2E tests.                                       |
+| [\_technical/](./_technical/README.md)         | Technical specs: data engine, AI orchestration, financial logic, resilience, code structure, market providers.                         |
+| [\_specs/](./_specs/README.md)                 | Functional specs per module: command center, ledger and budget, intelligence, market terminal.                                         |
+| [\_testing/](./_testing/TEST_STRATEGY.md)      | Test strategy (details in REQUIREMENTS.md §14).                                                                                        |
+| [user-stories/](./user-stories/)               | User stories per area (accounts, budget, transactions, investments, intelligence, and others).                                         |
+| [narratives/](./narratives/)                   | Design rationale essays (market providers, USD rate, portfolio valuation, risk, AI advisor).                                           |
+| [tasks/](./tasks/README.md)                    | Historical sprint plans. Status markers are stale; see REQUIREMENTS.md for current status.                                             |
+| [\_api/](./_api/) and [features/](./features/) | Legacy docs for the removed Next.js app. The live API reference is the engine's `/api/openapi.json` (Swagger UI at `/api/docs`).       |
+| `_archive/`                                    | Historical material, kept as is.                                                                                                       |
 
 Market data routing as implemented is described in [\_technical/Market_Provider_Capabilities.md §0](./_technical/Market_Provider_Capabilities.md#0-current-implementation-authoritative).
 
