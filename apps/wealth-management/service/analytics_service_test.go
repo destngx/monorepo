@@ -251,3 +251,17 @@ func TestGivenAFailingAllocationSourceWhenScoringHealthThenTheErrorIsReturned(t 
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestGivenGoalSettingsInPreferencesWhenComputingTheGoalPlanThenThePlanUsesThem(t *testing.T) {
+	prefs := domain.ParsePreferences(nil, 2)
+	prefs.GoalPool = domain.GoalPoolSettings{EmergencyMonths: 3, SpendingBufferMonths: 2}
+	db := &fakes.Database{Preferences: &prefs}
+
+	plan, err := newAnalytics(db).GoalPlan(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Settings != prefs.GoalPool || plan.Pool.BufferMonths != 2 {
+		t.Fatalf("settings %+v, buffer months %v", plan.Settings, plan.Pool.BufferMonths)
+	}
+}

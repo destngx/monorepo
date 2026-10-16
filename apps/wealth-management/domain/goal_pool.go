@@ -5,21 +5,6 @@ import (
 	"time"
 )
 
-// GoalPoolSettings tune the goal pool (ROADMAP Preferences keys
-// goal.emergencyMonths and goal.spendingBufferMonths).
-type GoalPoolSettings struct {
-	// EmergencyMonths of needs make the computed emergency fund target.
-	EmergencyMonths float64 `json:"emergencyMonths"`
-	// SpendingBufferMonths of average expense are kept out of the pool as
-	// spending money.
-	SpendingBufferMonths float64 `json:"spendingBufferMonths"`
-}
-
-// DefaultGoalPoolSettings: 6 months of needs, a one-month spending buffer.
-func DefaultGoalPoolSettings() GoalPoolSettings {
-	return GoalPoolSettings{EmergencyMonths: 6, SpendingBufferMonths: 1}
-}
-
 const (
 	// savingsWindowMonths averages expense (buffer) and savings.
 	savingsWindowMonths = 3
@@ -62,11 +47,6 @@ type GoalPool struct {
 	Archived              float64       `json:"archived"`
 	MoneyLent             float64       `json:"moneyLent"`
 	Accounts              []PoolAccount `json:"accounts"`
-}
-
-// isCryptoAccount: USDT entry currency (D25) or the crypto type.
-func isCryptoAccount(account Account) bool {
-	return account.Currency == CurrencyUSDT || account.Type == AccountTypeCrypto
 }
 
 // ComputeGoalPool sums positive balances of non-crypto, non-archived
