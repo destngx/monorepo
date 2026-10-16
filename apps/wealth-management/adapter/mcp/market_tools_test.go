@@ -198,3 +198,22 @@ func TestGivenForceWhenCallingGetFundPerformanceThenThePerformanceIsReturned(t *
 		t.Fatalf("unknown arguments must be rejected: %v", err)
 	}
 }
+
+func TestGivenForceWhenCallingTheExposureToolsThenTheServiceIsCalledFresh(t *testing.T) {
+	for tool, want := range map[string]struct{ kind, content string }{
+		"GetExposure": {"exposure", `"volatileShare"`},
+		"GetHedges":   {"hedges", `"cashShare"`},
+	} {
+		server, market, _ := newMarketTestServer(t)
+		result, err := server.CallTool(context.Background(), tool, json.RawMessage(`{"force":true}`))
+		if err != nil || !strings.Contains(result.Content, want.content) {
+			t.Fatalf("%s: result %v err %v", tool, result.Content, err)
+		}
+		if call := market.Calls[0]; call.Kind != want.kind || !call.ForceRead {
+			t.Fatalf("%s: call = %+v", tool, call)
+		}
+		if _, err := server.CallTool(context.Background(), tool, json.RawMessage(`{"extra":1}`)); !errors.Is(err, domain.ErrValidation) {
+			t.Fatalf("%s: unknown arguments must be rejected: %v", tool, err)
+		}
+	}
+}

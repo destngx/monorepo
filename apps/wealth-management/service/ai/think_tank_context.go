@@ -44,6 +44,17 @@ func (s *Service) thinkTankInputs(ctx context.Context, snap snapshot, news []dom
 		}
 		inputs.FundPerformance = fundPerformanceContext(performance)
 	})
+	wg.Go(func() {
+		exposure, err := s.portfolio.Exposure(ctx, false)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			inputs.ExposureErr = err.Error()
+			return
+		}
+		facts := exposure.Facts()
+		inputs.Exposure = &facts
+	})
 	valuation, err := s.portfolio.Valuation(ctx, false)
 	if err != nil {
 		inputs.ValuationError = err.Error()
@@ -161,7 +172,7 @@ func (s *Service) thinkTankVars(snap snapshot, inputs thinkTankInputs) map[strin
 		"accountsSummary":    toJSON(inputs.Accounts),
 		"moneyLent":          toJSON(inputs.MoneyLent),
 		"recentTransactions": toJSON(inputs.RecentTransactions),
-		"cryptoHoldings":     "[]",
+		"cryptoHoldings":     cryptoHoldingsContext([]map[string]any{}, inputs),
 		"ifcHoldings":        ifcHoldingsContext([]map[string]any{}, inputs),
 		"prices":             "{}",
 		"newsAnalysis":       "N/A: No pre-analyzed news available.",
@@ -191,7 +202,7 @@ func (s *Service) thinkTankVars(snap snapshot, inputs thinkTankInputs) map[strin
 				funds = append(funds, row)
 			}
 		}
-		vars["cryptoHoldings"], vars["ifcHoldings"], vars["prices"] = toJSON(crypto), ifcHoldingsContext(funds, inputs), toJSON(prices)
+		vars["cryptoHoldings"], vars["ifcHoldings"], vars["prices"] = cryptoHoldingsContext(crypto, inputs), ifcHoldingsContext(funds, inputs), toJSON(prices)
 		if len(coins) > 0 {
 			vars["totalCrypto"] = strings.Join(coins, ", ")
 		}
@@ -329,6 +340,21 @@ func ifcHoldingsContext(holdings []map[string]any, inputs thinkTankInputs) strin
 		context["performanceByFund"] = inputs.FundPerformance
 	case inputs.FundPerformanceErr != "":
 		context["performanceByFund"] = "N/A: fund performance failed (" + inputs.FundPerformanceErr + ")"
+	}
+	return toJSON(context)
+}
+
+// cryptoHoldingsContext fills {{cryptoHoldings}}: the coin holdings and, so
+// the existing prompts see it without a change, the exposure (volatile
+// share, today's change, crypto share of net worth and the drawdown
+// scenarios; classes only, no accounts).
+func cryptoHoldingsContext(holdings []map[string]any, inputs thinkTankInputs) string {
+	context := map[string]any{"holdings": holdings}
+	switch {
+	case inputs.Exposure != nil:
+		context["exposure"] = inputs.Exposure
+	case inputs.ExposureErr != "":
+		context["exposure"] = "N/A: exposure failed (" + inputs.ExposureErr + ")"
 	}
 	return toJSON(context)
 }

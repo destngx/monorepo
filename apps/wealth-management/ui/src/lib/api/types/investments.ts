@@ -185,3 +185,119 @@ export interface FundPerformance {
   depositIssue?: string;
   generatedAt: string;
 }
+
+// My exposure (ROADMAP M1/M2): the engine computes every figure.
+
+/** A price against an earlier one: coins over about 24h, funds since the previous NAV. */
+export interface PriceMove {
+  basis: '24h' | 'previous_nav';
+  price: number;
+  previous: number;
+  /** Percent. */
+  changePct: number;
+  asOf: string;
+  since: string;
+  source?: DataSource;
+}
+
+export interface ExposureClass {
+  class: AllocationClass;
+  label: string;
+  value: number;
+  /** Percent of the whole allocation. */
+  share: number;
+  volatile: boolean;
+  /** Today's change in VND of the holdings in `covered`; null for a fixed class or without moves. */
+  change: number | null;
+  changePct: number | null;
+  covered: number;
+}
+
+/** A coin or fund code summed over every platform. */
+export interface HeldPosition {
+  symbol: string;
+  quantity: number | null;
+  price?: LivePrice;
+  value: number;
+  unvalued: number;
+  /** Percent of the section's valued total. */
+  share: number;
+  move?: PriceMove;
+  change: number | null;
+  issue?: string;
+}
+
+export interface DrawdownScenario {
+  fallPct: number;
+  loss: number;
+  netWorthAfter: number;
+  /** Negative percent; null when net worth is not positive. */
+  netWorthChangePct: number | null;
+}
+
+export interface CryptoExposure {
+  value: number;
+  holdings: number;
+  accounts: number;
+  share: number;
+  shareOfNetWorth: number | null;
+  coins: HeldPosition[];
+  change: number | null;
+  scenarios: DrawdownScenario[];
+}
+
+export interface Exposure {
+  total: number;
+  netWorth: number;
+  volatileValue: number;
+  /** Percent of the allocation in funds and crypto. */
+  volatileShare: number;
+  change: number | null;
+  changePct: number | null;
+  covered: number;
+  classes: ExposureClass[];
+  crypto: CryptoExposure;
+  funds: HeldPosition[];
+  issues: string[];
+  generatedAt: string;
+}
+
+// Gold and USD as protection (ROADMAP M4).
+
+export interface TrendChange {
+  period: string;
+  fromDate: string;
+  from: number;
+  changePct: number;
+  /** The history starts after the period start; `from` is the first close. */
+  partial: boolean;
+  /** What the VND cash would have gained or lost held in the asset instead. */
+  onCash: number;
+}
+
+export interface DailyClose {
+  date: string;
+  close: number;
+}
+
+export interface HedgeTrend {
+  asset: 'gold' | 'usd';
+  label: string;
+  symbol: string;
+  unit: string;
+  latest: number;
+  latestDate: string;
+  changes: TrendChange[];
+  points: DailyClose[];
+  source?: DataSource;
+}
+
+export interface Hedges {
+  cash: number;
+  cashShare: number;
+  vndShare: number;
+  gold: HedgeTrend | null;
+  usd: HedgeTrend | null;
+  issues: string[];
+  generatedAt: string;
+}

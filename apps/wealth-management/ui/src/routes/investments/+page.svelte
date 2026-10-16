@@ -1,7 +1,14 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
-  import type { Allocation, FundPerformance, PortfolioSection, PortfolioValuation } from '$lib/api/types';
+  import type {
+    Allocation,
+    Exposure,
+    FundPerformance,
+    Hedges,
+    PortfolioSection,
+    PortfolioValuation,
+  } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -10,7 +17,10 @@
   import AllocationCard from '$lib/investments/AllocationCard.svelte';
   import { BANK_RATES_HREF, bestBankRate } from '$lib/investments/bankRates';
   import { settle } from '$lib/investments/fmarket';
+  import CryptoCard from '$lib/investments/CryptoCard.svelte';
+  import ExposureCard from '$lib/investments/ExposureCard.svelte';
   import FundPerformanceCard from '$lib/investments/FundPerformanceCard.svelte';
+  import HedgesCard from '$lib/investments/HedgesCard.svelte';
   import SectionError from '$lib/investments/fmarket/SectionError.svelte';
   import HoldingsCard from '$lib/investments/HoldingsCard.svelte';
   import { nf } from '$lib/investments/holdings';
@@ -25,26 +35,38 @@
   let refreshed = $state<PortfolioValuation | null>(null);
   let updatedAllocation = $state<Allocation | null>(null);
   let refreshedFunds = $state<FundPerformance | null>(null);
+  let refreshedExposure = $state<Exposure | null>(null);
+  let refreshedHedges = $state<Hedges | null>(null);
   let isRefreshing = $state(false);
   const valuation = $derived(refreshed ?? data.valuation);
   const totals = $derived(valuation.totals);
   const allocation = $derived(updatedAllocation ?? (data.allocation.ok ? data.allocation.value : null));
   const fundPerformance = $derived(refreshedFunds ?? (data.fundPerformance.ok ? data.fundPerformance.value : null));
-  // Valuation issues and ignored Preferences rows, each once.
-  const issues = $derived([...new Set([...valuation.issues, ...(allocation?.issues ?? [])])]);
+  const exposure = $derived(refreshedExposure ?? (data.exposure.ok ? data.exposure.value : null));
+  const hedges = $derived(refreshedHedges ?? (data.hedges.ok ? data.hedges.value : null));
+  // Valuation issues, ignored Preferences rows and missing price moves, each once.
+  const issues = $derived([
+    ...new Set([...valuation.issues, ...(allocation?.issues ?? []), ...(exposure?.issues ?? [])]),
+  ]);
 
   async function refresh() {
     isRefreshing = true;
     try {
-      // Fund performance settles on its own so a NAV outage does not block the prices.
-      const [nextValuation, nextAllocation, nextFunds] = await Promise.all([
+      // Fund performance, exposure and the hedges settle on their own so a market outage does not block the prices.
+      const [nextValuation, nextAllocation, nextFunds, nextExposure, nextHedges] = await Promise.all([
         api.valuation({ force: true }),
         api.allocation({ force: true }),
         settle(() => api.fundPerformance({ force: true })),
+        settle(() => api.exposure({ force: true })),
+        settle(() => api.hedges({ force: true })),
       ]);
       [refreshed, updatedAllocation] = [nextValuation, nextAllocation];
       if (nextFunds.ok) refreshedFunds = nextFunds.value;
       else toasts.error(new Error(nextFunds.error), 'Could not refresh fund performance');
+      if (nextExposure.ok) refreshedExposure = nextExposure.value;
+      else toasts.error(new Error(nextExposure.error), 'Could not refresh your exposure');
+      if (nextHedges.ok) refreshedHedges = nextHedges.value;
+      else toasts.error(new Error(nextHedges.error), 'Could not refresh gold and USD');
     } catch (error) {
       toasts.error(error, 'Could not refresh prices');
     } finally {
@@ -64,7 +86,7 @@
   const bestRate = $derived(data.bankRates.ok ? bestBankRate(data.bankRates.value.rates) : null);
 </script>
 
-<PageHeader title="Investments" subtitle="Holdings from the sheet, valued in VND">
+<PageHeader title="Investments" subtitle="What you hold and how it moves with markets">
   {#snippet actions()}
     <button type="button" class="btn-ghost" disabled={isRefreshing} onclick={refresh}>
       <Icon name="refresh" size={16} class={isRefreshing ? 'animate-spin' : ''} /> Refresh prices
@@ -83,8 +105,31 @@
   </div>
 {/if}
 
+<!-- ROADMAP M1: the headline answer first, from the one allocation -->
+{#if exposure}
+  <ExposureCard {exposure} />
+{:else if !data.exposure.ok}
+  <Card title="My exposure">
+    <SectionError title="Your exposure is unavailable" message={data.exposure.error} />
+  </Card>
+{/if}
+
+<!-- ROADMAP M2 and M4: the crypto view, then gold and USD as protection -->
+<div class="mt-4 grid gap-4 xl:grid-cols-2">
+  {#if exposure}
+    <CryptoCard crypto={exposure.crypto} netWorth={exposure.netWorth} />
+  {/if}
+  {#if hedges}
+    <HedgesCard {hedges} />
+  {:else if !data.hedges.ok}
+    <Card title="Gold and USD as protection">
+      <SectionError title="Gold and USD trends are unavailable" message={data.hedges.error} />
+    </Card>
+  {/if}
+</div>
+
 <!-- WM-INV-4, WM-RULE-8 -->
-<div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+<div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
   <Stat
     label="Portfolio (VND)"
     value={totals.total}

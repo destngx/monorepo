@@ -34,6 +34,7 @@ import type {
   EngineHealth,
   EngineSettings,
   ExchangeRate,
+  Exposure,
   FinancialHealth,
   FundPerformance,
   GoogleAuthPurpose,
@@ -42,6 +43,7 @@ import type {
   GoalInput,
   GoalPlan,
   GoalPlanSetupResult,
+  Hedges,
   PlannedGoal,
   Insight,
   InvestmentAssets,
@@ -184,6 +186,10 @@ export const api = {
   allocation: (options?: ReadOptions) => read<Allocation>('/investments/allocation', options),
   /** Fund holdings vs a bank deposit (WM-INV-21/22). */
   fundPerformance: (options?: ReadOptions) => read<FundPerformance>('/investments/fund-performance', options),
+  /** My exposure: volatile share, today's change and the crypto view (ROADMAP M1/M2). */
+  exposure: (options?: ReadOptions) => read<Exposure>('/investments/exposure', options),
+  /** Gold and USD/VND trends against the VND cash share (ROADMAP M4). */
+  hedges: (options?: ReadOptions) => read<Hedges>('/investments/hedges', options),
   /** The app-managed Preferences tab (WM-SET-6). */
   preferences: (options?: ReadOptions) => read<Preferences>('/preferences', options),
   savePreferences: (values: PreferenceValue[]) =>

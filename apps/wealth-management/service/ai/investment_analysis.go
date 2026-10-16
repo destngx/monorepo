@@ -32,6 +32,8 @@ type thinkTankInputs struct {
 	ValuationError     string                     `json:"valuationError,omitempty"`
 	FundPerformance    *fundPerformanceFacts      `json:"fundPerformance,omitempty"`
 	FundPerformanceErr string                     `json:"fundPerformanceError,omitempty"`
+	Exposure           *domain.ExposureFacts      `json:"exposure,omitempty"`
+	ExposureErr        string                     `json:"exposureError,omitempty"`
 	Accounts           []accountContext           `json:"accounts"`
 	MoneyLent          moneyLentContext           `json:"moneyLent"`
 	RecentTransactions []txContext                `json:"recentTransactions"`

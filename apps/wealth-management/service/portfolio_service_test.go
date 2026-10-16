@@ -5,6 +5,10 @@ import (
 	"apps/wealth-management/port"
 	"context"
 	"errors"
+	"fmt"
+	"math"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -249,5 +253,134 @@ func TestGivenTheSheetFailsWhenComputingFundPerformanceThenTheCallFails(t *testi
 	db := &portfolioDB{err: domain.ErrNotFound}
 	if _, err := NewPortfolioService(db, nil, nil).FundPerformance(context.Background(), false); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// seriesMarket adds candles by symbol to portfolioMarket.
+type seriesMarket struct {
+	portfolioMarket
+	candles  map[string]domain.CandleSeries
+	requests []string
+}
+
+func (m *seriesMarket) GetCandles(ctx context.Context, symbol string, timeframe domain.Timeframe, days int) (domain.CandleSeries, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.requests = append(m.requests, fmt.Sprintf("%s %s %d", symbol, timeframe, days))
+	m.bypassCache = domain.ShouldBypassCache(ctx)
+	series, ok := m.candles[symbol]
+	if !ok {
+		return domain.CandleSeries{}, errors.New("no bars")
+	}
+	return series, nil
+}
+
+func hourly(start time.Time, closes ...float64) domain.CandleSeries {
+	series := domain.CandleSeries{Provider: "yahoo"}
+	for i, close := range closes {
+		series.Candles = append(series.Candles, domain.Candle{Time: start.Add(time.Duration(i) * time.Hour), Close: close})
+	}
+	return series
+}
+
+func exposureDB() *allocationDB {
+	one, ten := 1.0, 10.0
+	return &allocationDB{portfolioDB: portfolioDB{
+		assets: domain.InvestmentAssets{
+			Crypto: domain.InvestmentHoldingSection{Items: []domain.Holding{
+				{Platform: "Exchange A", Symbol: "btc", Quantity: &one, Currency: domain.CurrencyUSD},
+				{Platform: "Wallet B", Symbol: "BTC", Quantity: &one, Currency: domain.CurrencyUSD},
+				{Platform: "Wallet B", Symbol: "ZZZ", Quantity: &one, Currency: domain.CurrencyUSD},
+			}},
+			Funds: domain.InvestmentHoldingSection{Items: []domain.Holding{{Platform: "Fund platform", Symbol: "FUND-A", Quantity: &ten, Currency: domain.CurrencyVND}}},
+		},
+		accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 100_000_000}},
+	}}
+}
+
+func TestGivenHoldingsWhenComputingExposureThenEachCoinAndFundCodeIsMovedOnce(t *testing.T) {
+	start := time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC)
+	closes := make([]float64, 25)
+	for i := range closes {
+		closes[i] = 100
+	}
+	closes[24] = 110
+	market := &seriesMarket{
+		portfolioMarket: portfolioMarket{
+			tickers: map[string]domain.Ticker{
+				"BTC":    {Symbol: "BTC", Price: 1000, Currency: "USD"},
+				"FUND-A": {Symbol: "FUND-A", Price: 20_000, Currency: "VND"},
+			},
+			rates: map[string]domain.ExchangeRate{"USD_VND": {From: "USD", To: "VND", Rate: 25_000}},
+		},
+		candles: map[string]domain.CandleSeries{"BTC-USD": hourly(start, closes...)},
+	}
+	navs := &fundNAVs{points: map[string][]domain.NavPoint{"FUND-A": {{Date: "2026-10-15", NAV: 20_000}, {Date: "2026-10-16", NAV: 20_200}}}}
+	now := func() time.Time { return start.Add(25 * time.Hour) }
+
+	exposure, err := NewPortfolioService(exposureDB(), market, now, WithFundNAVs(navs)).Exposure(context.Background(), true)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(market.requests)
+	if strings.Join(market.requests, ",") != "BTC-USD 1h 2,ZZZ-USD 1h 2" || !market.bypassCache || len(navs.lookups) != 1 || !navs.bypass {
+		t.Fatalf("requests %v navs %v", market.requests, navs.lookups)
+	}
+	// BTC 2 × 1000 USD × 25,000 = 50M after +10%; fund 200k after +1%
+	crypto := exposure.Crypto
+	if len(crypto.Coins) != 2 || crypto.Coins[0].Symbol != "BTC" || crypto.Coins[0].Value != 50_000_000 || crypto.Change == nil {
+		t.Fatalf("crypto = %+v", crypto)
+	}
+	if exposure.Change == nil || math.Abs(*exposure.Change-(50_000_000-50_000_000/1.1+200_000-200_000/1.01)) > 1 {
+		t.Fatalf("change = %v", exposure.Change)
+	}
+	if exposure.NetWorth != 100_000_000 || crypto.ShareOfNetWorth == nil || *crypto.ShareOfNetWorth != 50 {
+		t.Fatalf("net worth %v share %v", exposure.NetWorth, crypto.ShareOfNetWorth)
+	}
+	if len(exposure.Issues) != 1 || !strings.Contains(exposure.Issues[0], "ZZZ: no market change (no bars)") {
+		t.Fatalf("issues = %q", exposure.Issues)
+	}
+}
+
+func TestGivenNoMarketWhenComputingExposureThenMovesAreIssuesAndTheAllocationStillCounts(t *testing.T) {
+	exposure, err := NewPortfolioService(exposureDB(), nil, nil).Exposure(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exposure.Change != nil || len(exposure.Issues) != 3 || exposure.Total != 100_000_000 {
+		t.Fatalf("exposure = %+v", exposure)
+	}
+	db := exposureDB()
+	db.prefsErr = domain.ErrConflict
+	if _, err := NewPortfolioService(db, nil, nil).Exposure(context.Background(), false); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestGivenDailySeriesWhenComputingHedgesThenGoldAndUSDAreReadForAYear(t *testing.T) {
+	start := time.Date(2026, 1, 1, 17, 0, 0, 0, time.UTC)
+	daily := func(first, last float64) domain.CandleSeries {
+		return domain.CandleSeries{Provider: "fmarket", Candles: []domain.Candle{{Time: start, Close: first}, {Time: start.AddDate(0, 6, 0), Close: last}}}
+	}
+	market := &seriesMarket{candles: map[string]domain.CandleSeries{"SJC": daily(100, 110)}}
+	hedges, err := NewPortfolioService(exposureDB(), market, nil).Hedges(context.Background(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(market.requests)
+	if strings.Join(market.requests, ",") != "SJC 1d 380,USDVND 1d 380" || !market.bypassCache {
+		t.Fatalf("requests = %v", market.requests)
+	}
+	if hedges.Gold == nil || hedges.Gold.Change("1Y").ChangePct != 10 || hedges.USD != nil || len(hedges.Issues) != 1 {
+		t.Fatalf("hedges = %+v", hedges)
+	}
+	if hedges.Cash != 100_000_000 {
+		t.Fatalf("cash = %v", hedges.Cash)
+	}
+
+	offline, err := NewPortfolioService(exposureDB(), nil, nil).Hedges(context.Background(), false)
+	if err != nil || offline.Gold != nil || len(offline.Issues) != 2 {
+		t.Fatalf("offline = %+v, err = %v", offline, err)
 	}
 }

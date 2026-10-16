@@ -192,5 +192,27 @@ func (s *Server) portfolioTools() []tool {
 			}
 			return portfolio.FundPerformance(ctx, args.Force)
 		},
+	}, {
+		definition: definition("GetExposure", "My exposure: allocation classes with value and share, the volatile share (funds + crypto), today's change in VND (coins over about 24h, funds since the previous NAV), held coins with prices and moves, crypto share of net worth and the fixed 30%/50% crypto drawdown scenarios.", object(map[string]any{"force": forceSchema})),
+		handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+			var args struct {
+				Force bool `json:"force"`
+			}
+			if err := decodeArguments(arguments, &args); err != nil {
+				return nil, err
+			}
+			return portfolio.Exposure(ctx, args.Force)
+		},
+	}, {
+		definition: definition("GetHedges", "Gold and USD as protection: the VND cash share and a year of daily SJC gold and USD/VND closes with the change over 3M and 1Y and what the cash would have gained or lost held in each.", object(map[string]any{"force": forceSchema})),
+		handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+			var args struct {
+				Force bool `json:"force"`
+			}
+			if err := decodeArguments(arguments, &args); err != nil {
+				return nil, err
+			}
+			return portfolio.Hedges(ctx, args.Force)
+		},
 	}}
 }

@@ -75,6 +75,18 @@ func (fakePortfolio) FundPerformance(context.Context, bool) (domain.FundPerforma
 	}), nil
 }
 
+func (fakePortfolio) Exposure(context.Context, bool) (domain.Exposure, error) {
+	value := 1_500_000_000.0
+	return domain.ComputeExposure(domain.ExposureInputs{
+		Allocation:   domain.ComputeAllocation(domain.AllocationInputs{CryptoHoldings: value, Funds: 500_000_000}),
+		BalanceSheet: domain.BalanceSheet{NetWorth: 2_000_000_000},
+	}), nil
+}
+
+func (fakePortfolio) Hedges(context.Context, bool) (domain.Hedges, error) {
+	return domain.ComputeHedges(domain.HedgeInputs{}), nil
+}
+
 func (fakePortfolio) Valuation(context.Context, bool) (domain.PortfolioValuation, error) {
 	quantity, value := 0.5, 1_500_000_000.0
 	return domain.PortfolioValuation{

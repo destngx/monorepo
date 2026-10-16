@@ -122,23 +122,148 @@ const errMarketNotConfigured = "market data is not configured"
 // Allocation combines the valuation's holdings, the account balances, money
 // lent from the transactions and the targets from the Preferences tab.
 func (s *portfolioService) Allocation(ctx context.Context, forceFresh bool) (domain.Allocation, error) {
+	parts, err := s.allocation(ctx, forceFresh)
+	return parts.allocation, err
+}
+
+// allocationParts is the allocation with the valuation and ledger it was
+// built from, for the answers that need them too.
+type allocationParts struct {
+	allocation domain.Allocation
+	valuation  domain.PortfolioValuation
+	ledger     domain.LedgerSnapshot
+}
+
+func (s *portfolioService) allocation(ctx context.Context, forceFresh bool) (allocationParts, error) {
 	valuation, err := s.Valuation(ctx, forceFresh)
 	if err != nil {
-		return domain.Allocation{}, err
+		return allocationParts{}, err
 	}
 	ledger, err := s.db.ReadLedger(forceFresh)
 	if err != nil {
-		return domain.Allocation{}, fmt.Errorf("read ledger: %w", err)
+		return allocationParts{}, fmt.Errorf("read ledger: %w", err)
 	}
 	prefs, err := s.db.ListPreferences(forceFresh)
 	if err != nil {
-		return domain.Allocation{}, fmt.Errorf("read preferences: %w", err)
+		return allocationParts{}, fmt.Errorf("read preferences: %w", err)
 	}
 	in := domain.AllocationInputsFromValuation(valuation)
 	in.Accounts, in.Transactions = ledger.Accounts, ledger.Transactions
 	in.Targets = prefs.AllocationTargets
 	in.Issues = append(in.Issues, prefs.Issues...)
-	return domain.ComputeAllocation(in), nil
+	return allocationParts{allocation: domain.ComputeAllocation(in), valuation: valuation, ledger: ledger}, nil
+}
+
+// cryptoMoveDays is the hourly history read for a coin's 24-hour change.
+const cryptoMoveDays = 2
+
+// Exposure reads the allocation, then each held coin's hourly bars (the
+// coin against USD, e.g. BTC-USD, from the market data server) and each
+// fund code's NAV history. Market failures become issues on the answer;
+// only sheet failures fail the call.
+func (s *portfolioService) Exposure(ctx context.Context, forceFresh bool) (domain.Exposure, error) {
+	parts, err := s.allocation(ctx, forceFresh)
+	if err != nil {
+		return domain.Exposure{}, err
+	}
+	ctx = domain.WithBypassCache(ctx, forceFresh)
+	in := domain.ExposureInputs{
+		Allocation:   parts.allocation,
+		Valuation:    parts.valuation,
+		BalanceSheet: domain.ComputeBalanceSheet(parts.ledger.Accounts, parts.ledger.Transactions),
+		CryptoMoves:  map[string]domain.PriceMove{},
+		FundMoves:    map[string]domain.PriceMove{},
+		MoveIssues:   map[string]string{},
+		Now:          s.now(),
+	}
+	var mu sync.Mutex
+	record := func(moves map[string]domain.PriceMove, symbol string, move domain.PriceMove, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			in.MoveIssues[symbol] = err.Error()
+			return
+		}
+		moves[symbol] = move
+	}
+	group := newBoundedGroup(maxPriceLookups)
+	for _, symbol := range heldSymbols(parts.valuation, domain.PortfolioSectionCrypto) {
+		if s.market == nil {
+			in.MoveIssues[symbol] = errMarketNotConfigured
+			continue
+		}
+		group.Go(func() {
+			series, err := s.market.GetCandles(ctx, symbol+"-USD", domain.Timeframe1H, cryptoMoveDays)
+			move := domain.PriceMove{}
+			if err == nil {
+				move, err = domain.CryptoDayMove(series)
+			}
+			record(in.CryptoMoves, symbol, move, err)
+		})
+	}
+	for _, code := range heldSymbols(parts.valuation, domain.PortfolioSectionFunds) {
+		if s.navs == nil {
+			in.MoveIssues[code] = errNAVNotConfigured
+			continue
+		}
+		group.Go(func() {
+			history, err := s.navs.GetFundNAVHistory(ctx, code)
+			move := domain.PriceMove{}
+			if err == nil {
+				move, err = domain.FundNAVMove(history.Points)
+				move.Source = history.Source
+			}
+			record(in.FundMoves, code, move, err)
+		})
+	}
+	group.Wait()
+	return domain.ComputeExposure(in), nil
+}
+
+// heldSymbols lists a section's symbols once, in upper case.
+func heldSymbols(valuation domain.PortfolioValuation, section string) []string {
+	symbols := []string{}
+	for _, holding := range valuation.Holdings {
+		if symbol := domain.FundKey(holding.Symbol); holding.Section == section && symbol != "" && !slices.Contains(symbols, symbol) {
+			symbols = append(symbols, symbol)
+		}
+	}
+	return symbols
+}
+
+// Hedges reads the allocation and a year of daily SJC gold and USD/VND
+// closes from the market data server.
+func (s *portfolioService) Hedges(ctx context.Context, forceFresh bool) (domain.Hedges, error) {
+	parts, err := s.allocation(ctx, forceFresh)
+	if err != nil {
+		return domain.Hedges{}, err
+	}
+	in := domain.HedgeInputs{Allocation: parts.allocation, Now: s.now()}
+	if s.market == nil {
+		in.GoldIssue, in.USDIssue = errMarketNotConfigured, errMarketNotConfigured
+		return domain.ComputeHedges(in), nil
+	}
+	ctx = domain.WithBypassCache(ctx, forceFresh)
+	var group sync.WaitGroup
+	for _, target := range []struct {
+		symbol string
+		series **domain.CandleSeries
+		issue  *string
+	}{
+		{domain.HedgeGoldSymbol, &in.Gold, &in.GoldIssue},
+		{domain.HedgeUSDSymbol, &in.USD, &in.USDIssue},
+	} {
+		group.Go(func() {
+			series, err := s.market.GetCandles(ctx, target.symbol, domain.Timeframe1D, domain.HedgeLookbackDays)
+			if err != nil {
+				*target.issue = err.Error()
+				return
+			}
+			*target.series = &series
+		})
+	}
+	group.Wait()
+	return domain.ComputeHedges(in), nil
 }
 
 // errNAVNotConfigured explains missing NAV histories.

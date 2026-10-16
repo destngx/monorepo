@@ -383,3 +383,43 @@ func TestE2EFundPerformanceAddsUpAndOnlyPricesReconciledHistory(t *testing.T) {
 		t.Fatalf("holdings do not add up to the total value (diff %v)", diff)
 	}
 }
+
+func TestE2EExposureAgreesWithTheAllocation(t *testing.T) {
+	h := engine(t)
+	var allocation domain.Allocation
+	h.request(t, http.MethodGet, "/api/investments/allocation?force=true", nil, http.StatusOK, &allocation)
+	var exposure domain.Exposure
+	h.request(t, http.MethodGet, "/api/investments/exposure", nil, http.StatusOK, &exposure)
+	if len(exposure.Classes) != len(allocation.Lines) {
+		t.Fatalf("exposure has %d classes, the allocation %d lines", len(exposure.Classes), len(allocation.Lines))
+	}
+	volatile := 0.0
+	for _, class := range exposure.Classes {
+		if class.Value != allocation.Line(class.Class).Value {
+			t.Fatalf("%s differs from the allocation", class.Class)
+		}
+		if class.Volatile {
+			volatile += class.Value
+		}
+		if class.Change != nil && class.Covered <= 0 {
+			t.Fatalf("%s has a change without a covered value", class.Class)
+		}
+	}
+	if diff := volatile - exposure.VolatileValue; diff > 1 || diff < -1 {
+		t.Fatalf("volatile classes do not add up (diff %v)", diff)
+	}
+	if len(exposure.Crypto.Scenarios) != len(domain.CryptoDrawdowns) {
+		t.Fatalf("scenarios = %d", len(exposure.Crypto.Scenarios))
+	}
+
+	var hedges domain.Hedges
+	h.request(t, http.MethodGet, "/api/investments/hedges", nil, http.StatusOK, &hedges)
+	if hedges.Cash != allocation.Line(domain.AllocationCash).Value {
+		t.Fatal("hedges cash differs from the allocation")
+	}
+	for _, trend := range []*domain.HedgeTrend{hedges.Gold, hedges.USD} {
+		if trend != nil && (len(trend.Points) < 2 || trend.Points[len(trend.Points)-1].Close != trend.Latest) {
+			t.Fatalf("%s trend does not end at its latest close", trend.Asset)
+		}
+	}
+}

@@ -71,7 +71,7 @@ func TestInvestmentAnalysisStreamsPhasesWithFallbackAndCommands(t *testing.T) {
 			debate = request.Messages[0].Content
 		}
 	}
-	for _, fragment := range []string{"VND 40000000", "crypto 0.5 BTC", "p2p 26500", "US N/A: US market coverage", "VN Steady climb", "VN-Index: 1300 (1.25%)", "VNINDEX   : n/a | 0.50", `[1] "Rates cut"`, "Binance [name]", `"symbol":"FUND-A"`, `"annualisedReturnPct":10`, `"vsDeposit":"ahead"`} {
+	for _, fragment := range []string{"VND 40000000", "crypto 0.5 BTC", "p2p 26500", "US N/A: US market coverage", "VN Steady climb", "VN-Index: 1300 (1.25%)", "VNINDEX   : n/a | 0.50", `[1] "Rates cut"`, "Binance [name]", `"symbol":"FUND-A"`, `"annualisedReturnPct":10`, `"vsDeposit":"ahead"`, `"volatileSharePct":100`, `"cryptoShareOfNetWorthPct":75`, `"fallPct":30`} {
 		if !strings.Contains(debate, fragment) {
 			t.Errorf("think-tank prompt is missing %q:\n%s", fragment, debate)
 		}

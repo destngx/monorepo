@@ -32,8 +32,10 @@ type BriefingFacts struct {
 	// next 30 days, overdue count and safe-to-spend until the next income.
 	Bills *BillsFacts `json:"bills,omitempty"`
 	// Unavailable names optional facts that could not be loaded ("goals",
-	// "bills"), so the model does not read their absence as zero.
+	// "bills", "exposure"), so the model does not read their absence as zero.
 	Unavailable []string `json:"unavailable,omitempty"`
+	// Exposure is the market exposure (ROADMAP M1, M2); nil without holdings valuation.
+	Exposure *ExposureFacts `json:"exposure,omitempty"`
 }
 
 // WithBills adds the nameless bills summary.

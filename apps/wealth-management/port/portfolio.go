@@ -17,6 +17,13 @@ type PortfolioService interface {
 	// History priced at the NAV history, compared with a bank deposit
 	// (WM-INV-21..23).
 	FundPerformance(ctx context.Context, forceFresh bool) (domain.FundPerformance, error)
+	// Exposure is the Investments headline (ROADMAP M1, M2): the volatile
+	// share of the allocation, today's change from coin and fund NAV moves,
+	// the held coins and the crypto drawdown scenarios against net worth.
+	Exposure(ctx context.Context, forceFresh bool) (domain.Exposure, error)
+	// Hedges is the gold and USD/VND trend against the VND cash share
+	// (ROADMAP M4).
+	Hedges(ctx context.Context, forceFresh bool) (domain.Hedges, error)
 }
 
 // AllocationSource gives the allocation to features that score it, such as

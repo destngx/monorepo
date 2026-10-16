@@ -21,3 +21,6 @@ export const UNTAGGED = '#94a3b8';
 // Net worth projection, nominal vs real (after inflation); validated as a pair on both themes.
 export const NOMINAL = '#6366f1';
 export const REAL = '#0d9488';
+// Gold and USD protection trends (ROADMAP M4); validated as a pair on both themes.
+export const GOLD = '#d97706';
+export const USD = '#0284c7';

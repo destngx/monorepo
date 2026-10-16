@@ -94,6 +94,16 @@ func (f *Market) FundPerformance(ctx context.Context, forceFresh bool) (domain.F
 	return domain.ComputeFundPerformance(domain.FundPerformanceInputs{}), f.Err
 }
 
+func (f *Market) Exposure(ctx context.Context, forceFresh bool) (domain.Exposure, error) {
+	f.record(ctx, MarketCall{Kind: "exposure", ForceRead: forceFresh})
+	return domain.ComputeExposure(domain.ExposureInputs{}), f.Err
+}
+
+func (f *Market) Hedges(ctx context.Context, forceFresh bool) (domain.Hedges, error) {
+	f.record(ctx, MarketCall{Kind: "hedges", ForceRead: forceFresh})
+	return domain.ComputeHedges(domain.HedgeInputs{}), f.Err
+}
+
 func (f *Market) RunAction(ctx context.Context, request domain.FmarketRequest, forceFresh bool) (any, error) {
 	f.record(ctx, MarketCall{Kind: "fmarket:" + string(request.Action), ForceRead: forceFresh})
 	return map[string]any{"data": map[string]any{}}, f.Err

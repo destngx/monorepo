@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -298,6 +299,47 @@ func TestBriefingSendsTheSameDaysComparisonAndPaceAsFacts(t *testing.T) {
 		if !strings.Contains(prompt, fact) {
 			t.Fatalf("prompt lacks %s", fact)
 		}
+	}
+}
+
+func TestBriefingSendsTheExposureAsFactsWhenHoldingsAreValued(t *testing.T) {
+	client := &scriptedClient{replies: []reply{{content: `{"briefing":"All good.","alerts":[],"patterns":[]}`}}}
+	now := func() time.Time { return testToday }
+	db := fixtureDatabase()
+	svc := New(client, db, service.NewAnalyticsService(db, now), nil, testConfig(), logger.NewTestLogger(t), Options{Now: now, Portfolio: fakePortfolio{}})
+	briefing, err := svc.Briefing(context.Background(), false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if briefing.Facts.Exposure == nil || briefing.Facts.Exposure.VolatileSharePct != 100 {
+		t.Fatalf("exposure facts = %+v", briefing.Facts.Exposure)
+	}
+	prompt := client.requests[0].Messages[1].Content
+	for _, fact := range []string{`"volatileSharePct":100`, `"cryptoDrawdowns":`} {
+		if !strings.Contains(prompt, fact) {
+			t.Fatalf("prompt lacks %s", fact)
+		}
+	}
+}
+
+// failingExposure is a portfolio whose exposure cannot be read.
+type failingExposure struct{ fakePortfolio }
+
+func (failingExposure) Exposure(context.Context, bool) (domain.Exposure, error) {
+	return domain.Exposure{}, errors.New("sheet unavailable")
+}
+
+func TestBriefingRunsAndSaysSoWhenTheExposureIsUnavailable(t *testing.T) {
+	client := &scriptedClient{replies: []reply{{content: `{"briefing":"All good.","alerts":[],"patterns":[]}`}}}
+	now := func() time.Time { return testToday }
+	db := fixtureDatabase()
+	svc := New(client, db, service.NewAnalyticsService(db, now), nil, testConfig(), logger.NewTestLogger(t), Options{Now: now, Portfolio: failingExposure{}})
+	briefing, err := svc.Briefing(context.Background(), false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if briefing.Facts.Exposure != nil || !slices.Contains(briefing.Facts.Unavailable, "exposure") {
+		t.Fatalf("facts = %+v", briefing.Facts)
 	}
 }
 
