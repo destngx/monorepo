@@ -18,6 +18,7 @@
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
   import { titleFor } from '$lib/components/nav';
+  import { pendingDrafts } from '$lib/state/drafts.svelte';
   import { mask } from '$lib/state/mask.svelte';
   import { network } from '$lib/state/network.svelte';
   import { applyTheme, sidebarCollapsed, theme } from '$lib/state/settings.svelte';
@@ -38,6 +39,18 @@
   afterNavigate(() => {
     mask.hide();
     mobileNavOpen = false;
+  });
+
+  // Drafts arrive from the phone in the background: recount on navigation and focus.
+  $effect(() => {
+    if (!sheetsReady) return;
+    const refresh = () => void pendingDrafts.refresh();
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  });
+  afterNavigate(() => {
+    if (untrack(() => sheetsReady)) void pendingDrafts.refresh();
   });
 
   // The first render replaces app.html's loading screen.

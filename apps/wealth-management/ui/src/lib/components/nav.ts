@@ -5,12 +5,23 @@ export interface NavItem {
   label: string;
   icon: IconName;
   children?: NavItem[];
+  /** A count shown next to the label, e.g. drafts waiting for review. */
+  badge?: 'pendingDrafts';
 }
 
 // Navigation order from WM-UI-1. Paths are relative to the app base.
 export const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: 'dashboard' },
-  { href: '/transactions', label: 'Transactions', icon: 'transactions' },
+  {
+    href: '/transactions',
+    label: 'Transactions',
+    icon: 'transactions',
+    badge: 'pendingDrafts',
+    children: [
+      { href: '/transactions/drafts', label: 'Drafts', icon: 'inbox', badge: 'pendingDrafts' },
+      { href: '/transactions/capture', label: 'Smart Capture', icon: 'camera' },
+    ],
+  },
   { href: '/budget', label: 'Budget', icon: 'budget' },
   {
     href: '/accounts',

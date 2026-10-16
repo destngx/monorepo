@@ -39,6 +39,20 @@ describe('request', () => {
     expect(new Headers(calls[1][1]?.headers).get('Authorization')).toBeNull();
   });
 
+  it('sends a form as multipart, leaving the boundary to the browser', async () => {
+    apiToken.value = 'secret';
+    const fetcher = respond(202, { id: 'cap_1' });
+    const form = new FormData();
+    form.append('note', 'team lunch');
+
+    await request('/capture/inbox', { method: 'POST', body: form, fetch: fetcher });
+
+    const init = vi.mocked(fetcher).mock.calls[0][1];
+    expect(init?.body).toBe(form);
+    expect(new Headers(init?.headers).get('Content-Type')).toBeNull();
+    expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer secret');
+  });
+
   it('surfaces the server error message and status', async () => {
     const error = await failure(
       request('/transactions/row-9', {

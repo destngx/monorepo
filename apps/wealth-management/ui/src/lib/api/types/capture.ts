@@ -98,3 +98,56 @@ export interface CaptureRulesSaveResult {
   updated: number;
   unchanged: number;
 }
+
+// Quick capture (WM-CAP-15..19): the phone posts a screenshot, the engine
+// reads it into drafts in the background, the user approves or rejects them.
+
+export type QuickCaptureStatus = 'queued' | 'processing' | 'done' | 'failed';
+
+export interface QuickCapture {
+  id: string;
+  createdAt: string;
+  status: QuickCaptureStatus;
+  note?: string;
+  hasImage: boolean;
+  attempts: number;
+  nextAttemptAt?: string;
+  message?: string;
+  newDrafts: number;
+}
+
+export interface QuickCaptureReceipt extends QuickCapture {
+  /** Set when the same image and note were sent before. */
+  duplicate: boolean;
+}
+
+export interface QuickCaptureOverview {
+  captures: QuickCapture[];
+  pendingDrafts: number;
+}
+
+export interface CaptureDraft {
+  id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  decidedAt?: string;
+  captureIds: string[];
+  suggestion: CaptureSuggestion;
+  transactionId?: string;
+}
+
+export interface CaptureMaterialEntry {
+  id: string;
+  captureId: string;
+  kind: 'image' | 'text';
+  name: string;
+  mediaType?: string;
+  text?: string;
+  createdAt: string;
+}
+
+export interface CaptureDrafts {
+  drafts: CaptureDraft[];
+  materials: CaptureMaterialEntry[];
+  balances: CaptureBalance[];
+}

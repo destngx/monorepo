@@ -2,11 +2,12 @@
 
 How to configure and run `apps/wealth-management` (Go engine + SvelteKit UI, one Nx project). Scope and feature status live in [REQUIREMENTS.md](../REQUIREMENTS.md); this page covers only setup.
 
-| Page                                                                                                 | Covers                                              |
-| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| [Infrastructure and prerequisites](./1-Environment-Requirements/Infrastructure_and_Prerequisites.md) | Toolchain and external services                     |
-| [Variable definitions and secrets](./2-System-Configuration/Variable_Definitions_and_Secrets.md)     | Pointer to the settings tables below, secrets rules |
-| [Installation and lifecycle flow](./3-Operations-and-Running/Installation_and_Lifecycle_Flow.md)     | First run, OAuth, verification, token recovery      |
+| Page                                                                                                 | Covers                                                                   |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [Infrastructure and prerequisites](./1-Environment-Requirements/Infrastructure_and_Prerequisites.md) | Toolchain and external services                                          |
+| [Variable definitions and secrets](./2-System-Configuration/Variable_Definitions_and_Secrets.md)     | Pointer to the settings tables below, secrets rules                      |
+| [Installation and lifecycle flow](./3-Operations-and-Running/Installation_and_Lifecycle_Flow.md)     | First run, OAuth, verification, token recovery                           |
+| [iPhone Quick Capture](./iphone-quick-capture.md)                                                    | Shortcut, AssistiveTouch and Tailscale for sending screenshots as drafts |
 
 ---
 
@@ -43,6 +44,7 @@ The only values read from the environment: the engine needs them before it can o
 | `PORT`              | `9090`                                     | Listen port (1-65535; anything else aborts startup). The UI dev proxy targets `localhost:9090`.                                             |
 | `API_TOKEN`         | empty                                      | Bearer token required on write endpoints. When empty, writes are allowed only if `HOST` is a loopback address, and refused (403) otherwise. |
 | `WM_SETTINGS_PATH`  | user config directory                      | Settings store file (section 2).                                                                                                            |
+| `WM_CAPTURE_PATH`   | `capture.db` next to `settings.db`         | Quick capture store: captures, screenshots and drafts ([iPhone Quick Capture](./iphone-quick-capture.md)).                                  |
 | `CACHE_SQLITE_PATH` | `<system temp>/wealth-management/cache.db` | SQLite cache file, used when Upstash is not configured. Several engines (dev server, e2e runs) can share the file.                          |
 | `LOG_COLOR`         | enabled                                    | Set to `false` to disable coloured logs.                                                                                                    |
 | `WM_TEST_WORKBOOK`  | -                                          | Path to a local `.xlsx` export served in memory instead of Google Sheets (section 6). Set by the e2e harness; never written to disk.        |

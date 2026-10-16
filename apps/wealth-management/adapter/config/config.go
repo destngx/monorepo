@@ -52,6 +52,12 @@ func LoadSettingsPath() string {
 	return strings.TrimSpace(os.Getenv("WM_SETTINGS_PATH"))
 }
 
+// LoadCapturePath reads WM_CAPTURE_PATH, the quick capture store (§6.3);
+// empty means capture.db next to the settings store.
+func LoadCapturePath() string {
+	return strings.TrimSpace(os.Getenv("WM_CAPTURE_PATH"))
+}
+
 // LoadTestWorkbook reads WM_TEST_WORKBOOK, a local .xlsx export the engine
 // then serves the sheet from, in memory, instead of Google Sheets
 // (WM-TEST-2). Empty means Google Sheets; a leading "~/" is expanded.

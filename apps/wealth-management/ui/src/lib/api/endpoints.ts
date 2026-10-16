@@ -12,6 +12,7 @@ import type {
   BudgetHistory,
   BudgetItem,
   BudgetReport,
+  CaptureDrafts,
   CaptureEvent,
   CaptureMaterialPayload,
   CaptureRule,
@@ -42,6 +43,8 @@ import type {
   NewsReport,
   Loan,
   PortfolioValuation,
+  QuickCaptureOverview,
+  QuickCaptureReceipt,
   ProgramComparisonReport,
   ReallocateInput,
   ReallocateResult,
@@ -214,4 +217,23 @@ export const api = {
   captureRules: (options?: ReadOptions) => read<CaptureRule[]>('/capture/rules', options),
   saveCaptureRules: (rules: CaptureRule[]) =>
     request<CaptureRulesSaveResult>('/capture/rules', { method: 'POST', body: { rules } }),
+
+  /** Quick capture status and the number of drafts waiting for review (WM-CAP-19). */
+  captureInbox: (options?: ReadOptions) => read<QuickCaptureOverview>('/capture/inbox', options),
+  /** Sends what the iOS Shortcut sends: an image and/or a note as a multipart form (WM-CAP-15). */
+  submitCapture: (image: Blob | undefined, note: string) => {
+    const form = new FormData();
+    if (image) form.append('image', image, 'capture');
+    if (note.trim()) form.append('note', note.trim());
+    return request<QuickCaptureReceipt>('/capture/inbox', { method: 'POST', body: form });
+  },
+  retryCapture: (id: string) =>
+    request<{ status: string }>(`/capture/inbox/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
+  discardCapture: (id: string) => request<void>(`/capture/inbox/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  captureDrafts: (options?: ReadOptions) => read<CaptureDrafts>('/capture/drafts', options),
+  /** Writes the edited drafts through the batch path; replaying batchId does not write twice. */
+  approveDrafts: (batchId: string, drafts: { id: string; transaction: TransactionInput }[]) =>
+    request<TransactionBatchResult>('/capture/drafts/approve', { method: 'POST', body: { batchId, drafts } }),
+  rejectDrafts: (ids: string[]) => request<void>('/capture/drafts/reject', { method: 'POST', body: { ids } }),
+  captureMaterialUrl: (id: string) => buildPath(`/capture/materials/${encodeURIComponent(id)}`),
 };

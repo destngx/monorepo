@@ -7,6 +7,8 @@ export interface InboxItem {
   id: string;
   kind: 'image' | 'text';
   name: string;
+  /** Short text for evidence chips; the id when unset. */
+  label?: string;
   size: number;
   mediaType?: string;
   blob?: Blob;

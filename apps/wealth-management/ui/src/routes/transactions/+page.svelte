@@ -9,6 +9,7 @@
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { pendingDrafts } from '$lib/state/drafts.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { formatDate } from '$lib/format';
@@ -162,6 +163,9 @@
 <PageHeader title="Transactions" subtitle="{data.transactions.length.toLocaleString('vi-VN')} transactions">
   {#snippet actions()}
     <!-- WM-TX-6 -->
+    <a class="btn-ghost" href="{base}/transactions/drafts"
+      ><Icon name="inbox" size={16} /> Drafts{pendingDrafts.count ? ` (${pendingDrafts.count})` : ''}</a
+    >
     <a class="btn-ghost" href="{base}/transactions/capture"><Icon name="camera" size={16} /> Add from materials</a>
     <button type="button" class="btn-primary" onclick={() => openNew()}><Icon name="plus" size={16} /> Add</button>
   {/snippet}

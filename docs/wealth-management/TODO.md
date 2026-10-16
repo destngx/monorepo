@@ -20,17 +20,16 @@ No free, official, automatic feed exists today for the three main accounts.
 | Binance     | Read-only API key, free, official                                                                                                         | Not needed                                                                                                                                                           |
 | Regulation  | Circular 64/2024/TT-NHNN: banks must offer a consent-based "get transaction history" Open API (existing connections comply by 01/03/2027) | Access goes to contracted third parties, not individuals; consent lasts at most 180 days; e-wallets not covered                                                      |
 
+Notification routes (tested 2026-10-16, see D29): notifications on Mac need iOS 18 and the iPhone 12 Pro stays on iOS 17; macOS hides ANCS from apps (a CoreBluetooth probe saw the iPhone's other services but never ANCS); a fitness band cannot export what it receives; iOS apps cannot read other apps' notifications; Techcombank notifications are unreliable.
+
 Rejected for now: unofficial bank libraries (credentials on disk, against bank terms, only MB Bank is maintained) and SePay/Casso for the main banks (no free official route, third party sees all activity).
 
 ### 1.2 Candidate work
 
-- [ ] **Check statement export** in the Techcombank and Sacombank apps (sao kê: PDF or Excel, which period). If available, build a statement importer feeding the Smart Capture pipeline: one export per bank per month instead of screenshots.
-- [ ] **Screenshot automation, local first** (free, private):
-  - iOS Shortcut on a schedule (iOS 17+ personal automation) uploads screenshots taken since the last run to the engine over the tailnet with `API_TOKEN`.
-  - Server-side capture inbox: materials stored encrypted with a TTL, processed in the background, deleted after commit. **Changes WM-CAP-10.**
-  - Local OCR with `apps/mac-ocr` (Vision, bounding boxes) plus deterministic per-app parsers; fall back to the model on PII-masked text only, never images. Drop screenshots with no banking text before anything leaves the Mac.
-  - Verify Vision OCR quality on Vietnamese bank screens with one sample per app first.
-- [ ] **Auto-commit trusted rows**: high confidence, account and payee matched by `CaptureRules`, no dedup hit, under an amount limit; everything else goes to a review queue with undo. Weekly digest ("N recorded, M need you"). **Changes the "nothing written without approval" rule (§6.2).**
+- [x] **Screenshot capture from the phone**: moved to REQUIREMENTS.md §6.3 (WM-CAP-15..20, D29) on 2026-10-16. AssistiveTouch runs a Shortcut that sends a screenshot to a capture inbox; captures become drafts approved later.
+- [ ] **Local OCR** with `apps/mac-ocr` (Vision, bounding boxes) plus deterministic per-app parsers in the §6.3 pipeline; fall back to the model on PII-masked text only, never images. Drop screenshots with no banking text before anything leaves the Mac. Verify Vision OCR quality on Vietnamese bank screens with one sample per app first.
+- [ ] **On-demand statements**: check whether the Techcombank and Sacombank apps export a statement (sao kê) for any date range, not only monthly. Monthly-only is too slow to be the main source.
+- [ ] **ESP32 ANCS client** (~100k VND) for real-time Sacombank alerts, if wanted later. Techcombank notifications are unreliable, so it cannot replace capture.
 - [ ] **Recurring transactions** (salary, rent, subscriptions, loan payments) proposed or recorded on schedule.
 - [ ] **Balance-only tracking** option for wallets: enter the weekly balance, record one adjustment for the difference.
 - [ ] **Binance read-only API** source (IP-restricted key).

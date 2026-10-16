@@ -124,6 +124,13 @@ func TestLoadSettingsPath(t *testing.T) {
 	}
 }
 
+func TestLoadCapturePath(t *testing.T) {
+	t.Setenv("WM_CAPTURE_PATH", " /tmp/wm/capture.db ")
+	if LoadCapturePath() != "/tmp/wm/capture.db" {
+		t.Fatalf("path = %q", LoadCapturePath())
+	}
+}
+
 func TestGivenATestWorkbookWhenLoadingThenHomeIsExpanded(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

@@ -104,7 +104,9 @@ export function buildPath(path: string, query?: Query): string {
 // Writes need the bearer token (WM-SEC-1); the engine ignores it on reads.
 function headersFor(options: RequestOptions): Headers {
   const headers = new Headers(options.headers);
-  if (options.body !== undefined) headers.set('Content-Type', 'application/json');
+  // FormData sets its own multipart boundary.
+  if (options.body !== undefined && !(options.body instanceof FormData))
+    headers.set('Content-Type', 'application/json');
   const token = apiToken.value;
   if (token && (options.method ?? 'GET') !== 'GET') headers.set('Authorization', `Bearer ${token}`);
   return headers;
@@ -135,7 +137,7 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
   const response = await doFetch(buildPath(path, options.query), {
     method: options.method ?? 'GET',
     headers: headersFor(options),
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: options.body === undefined || options.body instanceof FormData ? options.body : JSON.stringify(options.body),
     signal: options.signal,
   });
   if (!response.ok) {

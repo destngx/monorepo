@@ -2,7 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { ApiError } from '$lib/api/client';
   import { api } from '$lib/api/endpoints';
-  import type { Account, CaptureResult, Category, TransactionInput } from '$lib/api/types';
+  import type { Account, CaptureResult, Category, TransactionBatchResult, TransactionInput } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import type { InboxItem } from './materials';
@@ -21,9 +21,28 @@
     tags: string[];
     /** VND per USD for previewing USD and USDT rows; the sheet does the real conversion. */
     usdRate?: number | null;
+    /** Writes the rows; the batch create path by default. Quick capture approves drafts instead. */
+    write?: (batchId: string, rows: ReviewRow[], inputs: TransactionInput[]) => Promise<TransactionBatchResult>;
+    /** Discards the selected rows; offered only when set (quick capture drafts). */
+    reject?: (rows: ReviewRow[]) => Promise<void>;
+    /** Button verb: "Commit" or "Approve". */
+    verb?: string;
+    emptyText?: string;
   }
 
-  let { rows = $bindable(), result, items, accounts, categories, tags, usdRate = null }: Props = $props();
+  let {
+    rows = $bindable(),
+    result,
+    items,
+    accounts,
+    categories,
+    tags,
+    usdRate = null,
+    write = (batchId, _rows, inputs) => api.createTransactions(batchId, inputs),
+    reject,
+    verb = 'Commit',
+    emptyText = 'No transactions were found in these materials.',
+  }: Props = $props();
 
   const itemById = $derived(new Map(items.map((item) => [item.id, item])));
   const accountByName = $derived(new Map(accounts.map((account) => [account.name, account])));
@@ -49,8 +68,10 @@
   // so the engine replays instead of writing twice (WM-TX-10).
   let pending = $state<{ batchId: string; indices: number[]; inputs: TransactionInput[] } | null>(null);
   let committing = $state(false);
+  let rejecting = $state(false);
+  const busy = $derived(committing || rejecting);
   const pendingIndices = $derived(new Set(pending?.indices ?? []));
-  const locked = (index: number) => Boolean(rows[index].createdId) || pendingIndices.has(index) || committing;
+  const locked = (index: number) => Boolean(rows[index].createdId) || pendingIndices.has(index) || busy;
 
   function selectAll(selected: boolean) {
     for (const row of rows) if (!row.createdId) row.selected = selected;
@@ -60,7 +81,7 @@
     let batch = pending;
     if (!batch) {
       if (problems.some((list) => list.length)) {
-        toasts.push('warning', 'Fix the highlighted rows before committing.');
+        toasts.push('warning', `Fix the highlighted rows before you ${verb.toLowerCase()}.`);
         return;
       }
       batch = { batchId: crypto.randomUUID(), ...commitBatch(rows) };
@@ -69,7 +90,11 @@
     pending = batch;
     committing = true;
     try {
-      const outcome = await api.createTransactions(batch.batchId, batch.inputs);
+      const outcome = await write(
+        batch.batchId,
+        batch.indices.map((index) => rows[index]),
+        batch.inputs,
+      );
       pending = null;
       for (const line of outcome.rows) {
         const row = rows[batch.indices[line.index]];
@@ -83,15 +108,35 @@
       const failed = outcome.rows.filter((line) => !line.id).length;
       const created = outcome.rows.length - failed;
       if (failed)
-        toasts.push('warning', `${created} written, ${failed} failed. Fix the rows marked in red and commit again.`);
+        toasts.push(
+          'warning',
+          `${created} written, ${failed} failed. Fix the rows marked in red and ${verb.toLowerCase()} again.`,
+        );
       else toasts.push('success', `${created} transaction${created === 1 ? '' : 's'} written to the sheet.`);
       await invalidateAll();
     } catch (error) {
       // A 4xx means the engine rejected the whole batch and wrote nothing.
       if (error instanceof ApiError && error.status >= 400 && error.status < 500) pending = null;
-      toasts.error(error, pending ? 'No response from the engine; retry is safe' : 'Commit failed');
+      toasts.error(error, pending ? 'No response from the engine; retry is safe' : `${verb} failed`);
     } finally {
       committing = false;
+    }
+  }
+
+  async function rejectSelected() {
+    if (!reject) return;
+    const chosen = rows.filter((row, index) => row.selected && !row.createdId && !pendingIndices.has(index));
+    if (!chosen.length) return;
+    rejecting = true;
+    try {
+      await reject(chosen);
+      rows = rows.filter((row) => !chosen.includes(row));
+      toasts.push('success', `${chosen.length} draft${chosen.length === 1 ? '' : 's'} rejected.`);
+      await invalidateAll();
+    } catch (error) {
+      toasts.error(error, 'Reject failed');
+    } finally {
+      rejecting = false;
     }
   }
 
@@ -148,8 +193,8 @@
     : ''}. Highlighted fields need a closer look."
 >
   {#snippet actions()}
-    <button type="button" class="btn-ghost" disabled={committing} onclick={() => selectAll(true)}>Select all</button>
-    <button type="button" class="btn-ghost" disabled={committing} onclick={() => selectAll(false)}>None</button>
+    <button type="button" class="btn-ghost" disabled={busy} onclick={() => selectAll(true)}>Select all</button>
+    <button type="button" class="btn-ghost" disabled={busy} onclick={() => selectAll(false)}>None</button>
   {/snippet}
 
   {#if rows.length}
@@ -183,26 +228,31 @@
       </table>
     </div>
   {:else}
-    <p class="muted text-sm">No transactions were found in these materials.</p>
+    <p class="muted text-sm">{emptyText}</p>
   {/if}
 
   <div class="mt-4 flex flex-wrap items-center justify-end gap-3">
     {#if pending && !committing}
       <p class="muted text-xs">
-        The last commit got no response. Retrying sends the same rows and cannot write them twice.
+        The last {verb.toLowerCase()} got no response. Retrying sends the same rows and cannot write them twice.
       </p>
     {/if}
-    <button
-      type="button"
-      class="btn-primary"
-      disabled={committing || (!pending && selectedCount === 0)}
-      onclick={commit}
-    >
+    {#if reject}
+      <button
+        type="button"
+        class="btn-ghost"
+        disabled={busy || selectedCount === 0 || Boolean(pending)}
+        onclick={rejectSelected}
+      >
+        {rejecting ? 'Rejecting…' : `Reject ${selectedCount}`}
+      </button>
+    {/if}
+    <button type="button" class="btn-primary" disabled={busy || (!pending && selectedCount === 0)} onclick={commit}>
       {committing
         ? 'Writing…'
         : pending
-          ? 'Retry commit'
-          : `Commit ${selectedCount} row${selectedCount === 1 ? '' : 's'}`}
+          ? `Retry ${verb.toLowerCase()}`
+          : `${verb} ${selectedCount} row${selectedCount === 1 ? '' : 's'}`}
     </button>
   </div>
 </Card>

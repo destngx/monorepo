@@ -3,6 +3,7 @@ package main
 import (
 	openaiAdapter "apps/wealth-management/adapter/ai/openai"
 	cacheAdapter "apps/wealth-management/adapter/cache"
+	captureInboxAdapter "apps/wealth-management/adapter/captureinbox"
 	configAdapter "apps/wealth-management/adapter/config"
 	dbAdapter "apps/wealth-management/adapter/db/google_sheets"
 	workbookAdapter "apps/wealth-management/adapter/db/local_workbook"
@@ -30,6 +31,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -129,7 +131,9 @@ func run() int {
 		aiOptions.Portfolio = portfolioSvc
 		mcpServer.SetPortfolioService(portfolioSvc)
 	}
-	setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions, values)
+	aiSvc := setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions, values)
+	stopCaptureInbox := setupCaptureInbox(ctx, log, api, guard, store.Path(), dbSvc, aiSvc, captureLimits)
+	defer stopCaptureInbox()
 
 	// Mounted last so every API route above keeps priority over the UI.
 	if !fiberAdapter.MountUI(app, fiberAdapter.DefaultUIBuildDir) {
@@ -167,6 +171,7 @@ func run() int {
 			log.LogError(ctx, "closing the cache before restart failed", err)
 		}
 	}
+	stopCaptureInbox()
 	if err := store.Close(); err != nil {
 		log.LogError(ctx, "closing the settings store before restart failed", err)
 	}
@@ -295,10 +300,11 @@ func newSheetsClient(ctx context.Context, log *loggerAdapter.Logger, values conf
 
 // setupAI wires the AI use cases (§10). They read prompts and data from the
 // sheet, so they need it; the status route stays up to report what is missing.
-func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService, options aiService.Options, values configAdapter.Values) {
+// It returns nil without the sheet.
+func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, dbSvc port.DatabaseService, analyticsSvc port.AnalyticsService, cacheSvc port.CacheService, options aiService.Options, values configAdapter.Values) *aiService.Service {
 	if dbSvc == nil {
 		log.LogApplicationEvent(ctx, "AI features disabled: they need the Google Sheet")
-		return
+		return nil
 	}
 	aiConfig, err := configAdapter.LoadAIConfig(values)
 	if err != nil {
@@ -312,6 +318,45 @@ func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.Heal
 	aiSvc := aiService.New(client, dbSvc, analyticsSvc, cacheSvc, aiConfig, log, options)
 	mcpServer.SetAIService(aiSvc)
 	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(aiSvc, log).WithCaptureLimits(options.CaptureLimits), guard)
+	return aiSvc
+}
+
+// setupCaptureInbox wires quick capture (§6.3): its store, routes and the
+// background worker. Captures are accepted while AI is unconfigured and
+// fail until it is set, then can be retried. The returned stop ends the
+// worker and closes the store; it is safe to call more than once.
+func setupCaptureInbox(ctx context.Context, log *loggerAdapter.Logger, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, settingsPath string, dbSvc port.DatabaseService, aiSvc *aiService.Service, limits domain.CaptureLimits) func() {
+	if dbSvc == nil || aiSvc == nil {
+		cause := fmt.Errorf("%w: quick capture needs the Google Sheet", configAdapter.ErrMissingSheetsConfig)
+		fiberAdapter.RegisterUnavailableCaptureInboxRoutes(api, cause, log)
+		return func() {}
+	}
+	store, err := captureInboxAdapter.Open(captureInboxAdapter.ResolvePath(configAdapter.LoadCapturePath(), settingsPath))
+	if err != nil {
+		log.LogError(ctx, "quick capture disabled", err)
+		fiberAdapter.RegisterUnavailableCaptureInboxRoutes(api, err, log)
+		return func() {}
+	}
+	log.LogApplicationEvent(ctx, "quick capture store: "+store.Path())
+	inbox := service.NewCaptureInbox(store, aiSvc, dbSvc, log, service.CaptureInboxOptions{Limits: limits})
+	fiberAdapter.RegisterCaptureInboxRoutes(api, fiberAdapter.NewCaptureInboxHandler(inbox, log), guard)
+
+	workerCtx, cancel := context.WithCancel(ctx)
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		inbox.Run(workerCtx)
+	}()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			cancel()
+			<-stopped
+			if err := store.Close(); err != nil {
+				log.LogError(ctx, "closing the quick capture store failed", err)
+			}
+		})
+	}
 }
 
 // setupSearch chains the web search providers (WM-AI-12): Tavily and Exa

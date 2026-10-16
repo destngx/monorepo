@@ -165,7 +165,7 @@
                 <img src={item.previewUrl} alt={item.name} class="h-8 w-8 rounded object-cover object-top" />
               </a>
             {/if}
-            <span class="font-medium">{evidence.materialId}</span>
+            <span class="font-medium">{item?.label ?? evidence.materialId}</span>
             {#if evidence.quote}<span class="muted truncate font-mono" title={evidence.quote}>“{evidence.quote}”</span
               >{/if}
           </span>
