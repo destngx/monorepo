@@ -1,37 +1,47 @@
 <script lang="ts">
   import type { BudgetReport } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
   import Money from '$lib/components/Money.svelte';
+  import PageHeadline from '$lib/components/PageHeadline.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatPercent } from '$lib/format';
   import { statusBar, statusLabel, statusTone } from './status';
 
-  // WM-BUD-3 overview.
+  // WM-BUD-3 overview, headline first (ROADMAP P2): am I within budget?
   interface Props {
     report: BudgetReport;
   }
 
   let { report }: Props = $props();
+  const burst = $derived(report.percentUsed > 100);
+  const tone = $derived(burst ? 'critical' : statusTone[report.status]);
+  const overPace = $derived(report.totalLimit > 0 && report.projectedSpend > report.totalLimit);
 </script>
 
-<Card>
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <p class="muted text-xs tracking-wide uppercase">Spent of expense budget</p>
-      <p class="mt-1 text-2xl font-semibold">
-        <Money value={report.totalSpent} />
-        <span class="muted text-base font-normal">/ <Money value={report.totalLimit} /></span>
-      </p>
-    </div>
-    <div class="flex items-center gap-2">
-      {#if report.percentUsed > 100}<Badge status="critical">Budget Burst</Badge>{/if}
-      <Badge status={statusTone[report.status]}
-        >{statusLabel[report.status]} · {formatPercent(report.percentUsed, 0)}</Badge
-      >
-    </div>
-  </div>
+<PageHeadline question="Am I within budget?" {tone} id="budget-headline">
+  {#snippet actions()}
+    {#if burst}<Badge status="critical">Budget Burst</Badge>{/if}
+    <Badge status={statusTone[report.status]}
+      >{statusLabel[report.status]} · {formatPercent(report.percentUsed, 0)}</Badge
+    >
+  {/snippet}
+  {#snippet answer()}
+    <span><Money value={report.totalSpent} /> spent of <Money value={report.totalLimit} /></span>
+  {/snippet}
+  <p data-testid="budget-pace">
+    {#if report.totalLimit <= 0}
+      No expense limits are set for this month.
+    {:else if burst}
+      Over the expense budget by <Money value={report.totalSpent - report.totalLimit} />.
+    {:else if report.daysRemaining === 0}
+      The month ended within the expense budget.
+    {:else if overPace}
+      On pace to spend <Money value={report.projectedSpend} /> by the month end, over the limit.
+    {:else}
+      On pace to spend <Money value={report.projectedSpend} /> by the month end, within the limit.
+    {/if}
+  </p>
   <div class="mt-4">
     <ProgressBar percent={report.percentUsed} color={statusBar[report.status]} label="Budget used" />
   </div>
@@ -44,4 +54,4 @@
       <span class="muted text-sm font-normal">of {report.daysInMonth}</span>
     </Stat>
   </div>
-</Card>
+</PageHeadline>

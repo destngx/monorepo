@@ -1,15 +1,17 @@
 import { api } from '$lib/api/endpoints';
-import { loadOrError } from '$lib/api/load';
-import { currentMonth } from '$lib/format';
+import { loadOrError, settle } from '$lib/api/load';
 import { loadVndRates } from '$lib/rates';
 import type { PageLoad } from './$types';
 
+// The inbox and safe-to-spend fail on their own: the rest of the home page
+// still shows, with the error in their place.
 export const load: PageLoad = ({ fetch }) =>
   loadOrError(async () => {
-    const [summary, budget, usd] = await Promise.all([
+    const [summary, usd, needsYou, safeToSpend] = await Promise.all([
       api.dashboard({ fetch }),
-      api.budgetReport(currentMonth(), { fetch }),
       loadVndRates(['USD'], fetch),
+      settle(api.needsYou({ fetch })),
+      settle(api.safeToSpend({ fetch })),
     ]);
-    return { summary, budget, usd };
+    return { summary, usd, needsYou, safeToSpend };
   });

@@ -170,4 +170,5 @@ func RegisterUnconfiguredSheetRoutes(api RouteRegistrar, cause error, log *logge
 	RegisterPortfolioRoutes(unavailable, NewPortfolioHandler(nil, log))
 	RegisterRecommendationRoutes(unavailable, NewRecommendationHandler(nil, log), WriteGuard{})
 	RegisterMonthlyCloseRoutes(unavailable, NewCloseHandler(nil, log), WriteGuard{})
+	RegisterHomeRoutes(unavailable, NewHomeHandler(nil, log))
 }

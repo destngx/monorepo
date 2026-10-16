@@ -8,6 +8,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import PageHeadline from '$lib/components/PageHeadline.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatMonth } from '$lib/format';
   import GoalCard from '$lib/goals/GoalCard.svelte';
@@ -131,27 +132,26 @@
   </Card>
   <div class="mt-4 max-w-xl"><PoolCard pool={plan.pool} asOf={plan.asOf} /></div>
 {:else}
-  <!-- Headline: am I on track? -->
-  <section class="glass border-l-4 p-5 {style.edge}" aria-labelledby="goals-verdict">
-    <p class="muted text-xs font-medium uppercase">Am I on track?</p>
-    <h2 id="goals-verdict" class="mt-1 text-lg font-semibold">
-      {#if check.verdict === 'no_deadlines'}
-        You save <Money value={check.monthlySavings} /> a month
-      {:else}
-        Your goals need <Money value={check.requiredPerMonth} /> a month, you save
-        <Money value={check.monthlySavings} />
-      {/if}
-    </h2>
-    <p class="mt-1 flex items-center gap-2 text-sm {style.ink}">
-      <Icon name={style.icon} size={16} />{verdict.label}{#if check.verdict === 'short'}: short by <Money
-          value={check.gap}
-        /> a month{/if}.
+  <!-- Headline (ROADMAP P2): am I on track? -->
+  <PageHeadline question="Am I on track?" tone={verdict.tone} id="goals-verdict">
+    {#snippet answer()}
+      <span>
+        {#if check.verdict === 'no_deadlines'}
+          You save <Money value={check.monthlySavings} /> a month
+        {:else}
+          Your goals need <Money value={check.requiredPerMonth} /> a month, you save
+          <Money value={check.monthlySavings} />
+        {/if}
+      </span>
+    {/snippet}
+    <p class="font-medium {style.ink}">
+      {verdict.label}{#if check.verdict === 'short'}: short by <Money value={check.gap} /> a month{/if}.
     </p>
     <p class="muted mt-1 text-xs">
       Savings are the average of income minus spending over the last {plan.monthlySavings.months}
       {plan.monthlySavings.months === 1 ? 'month' : 'months'}, money lent left out.
     </p>
-  </section>
+  </PageHeadline>
 
   {#if check.tradeOffs.length}
     <Card title="Ways to fit the plan" subtitle="Each change alone closes the gap; lowest priority first" class="mt-4">

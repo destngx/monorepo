@@ -139,6 +139,7 @@ func run() int {
 		// The close checklist counts the drafts waiting for approval.
 		sheets.close.SetDraftCounter(inbox)
 	}
+	setupHome(api, mcpServer, log, sheets, inbox)
 
 	// Mounted last so every API route above keeps priority over the UI.
 	if !fiberAdapter.MountUI(app, fiberAdapter.DefaultUIBuildDir) {
@@ -359,6 +360,28 @@ func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.Heal
 	mcpServer.SetAIService(aiSvc)
 	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(aiSvc, log).WithCaptureLimits(options.CaptureLimits), guard)
 	return aiSvc
+}
+
+// setupHome wires the home inbox (ROADMAP R5) on the sheet services, with
+// the quick capture drafts when the inbox is running (captureInbox may be
+// nil). Without the sheet its routes answer from RegisterUnconfiguredSheetRoutes.
+func setupHome(api fiberAdapter.RouteRegistrar, mcpServer *mcpAdapter.Server, log *loggerAdapter.Logger, sheets sheetServices, captureInbox *service.CaptureInbox) {
+	if sheets.db == nil {
+		return
+	}
+	sources := service.HomeSources{Analytics: sheets.analytics, Ledger: sheets.db, Recommendations: sheets.recommendations}
+	if sheets.portfolio != nil {
+		sources.Allocation = sheets.portfolio
+	}
+	if captureInbox != nil {
+		sources.Drafts = captureInbox
+	}
+	if sheets.close != nil {
+		sources.Close = sheets.close
+	}
+	homeSvc := service.NewHomeService(sources, log, nil)
+	mcpServer.SetHomeService(homeSvc)
+	fiberAdapter.RegisterHomeRoutes(api, fiberAdapter.NewHomeHandler(homeSvc, log))
 }
 
 // setupCaptureInbox wires quick capture (§6.3): its store, routes and the

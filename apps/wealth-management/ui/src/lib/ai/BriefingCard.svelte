@@ -11,7 +11,10 @@
   import { AITask } from './task.svelte';
   import { recordNote } from '$lib/recommendations/recommendations';
 
-  // Dashboard intelligence briefing (WM-DASH-6, WM-AI-6).
+  // Dashboard intelligence briefing (WM-DASH-6, WM-AI-6). Compact (the home
+  // page, ROADMAP R5) keeps the alerts and the briefing, and folds the
+  // pattern cards away.
+  let { compact = false }: { compact?: boolean } = $props();
   const task = new AITask((force, signal) => api.briefing({ force, signal }));
 
   const patternLabels: Record<string, string> = {
@@ -59,17 +62,27 @@
       </p>
     {/if}
     {#if briefing.patterns.length}
-      <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {#each briefing.patterns as pattern, index (index)}
-          <div class="rounded-xl border border-slate-900/10 p-3 dark:border-white/10">
-            <p class="muted text-xs font-medium tracking-wide uppercase">
-              {patternLabels[pattern.kind] ?? pattern.kind}
-            </p>
-            <p class="mt-1 text-sm font-semibold">{maskText(pattern.title, mask.revealed)}</p>
-            <Markdown text={pattern.content} class="mt-1" />
-          </div>
-        {/each}
-      </div>
+      {#snippet patterns()}
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {#each briefing.patterns as pattern, index (index)}
+            <div class="rounded-xl border border-slate-900/10 p-3 dark:border-white/10">
+              <p class="muted text-xs font-medium tracking-wide uppercase">
+                {patternLabels[pattern.kind] ?? pattern.kind}
+              </p>
+              <p class="mt-1 text-sm font-semibold">{maskText(pattern.title, mask.revealed)}</p>
+              <Markdown text={pattern.content} class="mt-1" />
+            </div>
+          {/each}
+        </div>
+      {/snippet}
+      {#if compact}
+        <details class="mt-3 text-sm">
+          <summary class="cursor-pointer text-xs font-medium">Show {briefing.patterns.length} patterns</summary>
+          {@render patterns()}
+        </details>
+      {:else}
+        {@render patterns()}
+      {/if}
     {/if}
   {:else}
     <AIStatusLine

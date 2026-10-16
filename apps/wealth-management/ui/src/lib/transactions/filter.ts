@@ -14,6 +14,16 @@ export function searchTransactions(transactions: Transaction[], query: string): 
   );
 }
 
+/**
+ * Rows that still need a category, as the engine counts them (domain
+ * NeedsCategory): blank, "Uncategorized", or a category the Categories tab
+ * does not know (no type).
+ */
+export function needsCategory(tx: Pick<Transaction, 'category' | 'categoryType'>): boolean {
+  const category = tx.category.trim().toLowerCase();
+  return category === '' || category === 'uncategorized' || !tx.categoryType;
+}
+
 export function sortTransactions(transactions: Transaction[], key: SortKey, dir: SortDir): Transaction[] {
   const sign = dir === 'asc' ? 1 : -1;
   const value = (tx: Transaction): string | number => {

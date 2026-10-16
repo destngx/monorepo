@@ -20,7 +20,14 @@
   import TransactionForm from '$lib/transactions/TransactionForm.svelte';
   import TransactionTable from '$lib/transactions/TransactionTable.svelte';
   import { nextEntry, prefillFromURL, recategorise, type BulkFailure } from '$lib/transactions/entry';
-  import { paginate, searchTransactions, sortTransactions, type SortDir, type SortKey } from '$lib/transactions/filter';
+  import {
+    needsCategory,
+    paginate,
+    searchTransactions,
+    sortTransactions,
+    type SortDir,
+    type SortKey,
+  } from '$lib/transactions/filter';
 
   let { data } = $props();
 
@@ -30,7 +37,17 @@
   let sortDir = $state<SortDir>('desc');
   let pageNumber = $state(1);
 
-  const filtered = $derived(sortTransactions(searchTransactions(data.transactions, query), sortKey, sortDir));
+  // `?uncategorized=1` (from the home inbox) lists the rows that still need a category.
+  const onlyUncategorized = $derived(page.url.searchParams.get('uncategorized') === '1');
+  const scoped = $derived(onlyUncategorized ? data.transactions.filter(needsCategory) : data.transactions);
+  const filtered = $derived(sortTransactions(searchTransactions(scoped, query), sortKey, sortDir));
+
+  function showAllRows() {
+    const url = new URL(page.url);
+    url.searchParams.delete('uncategorized');
+    pageNumber = 1;
+    void goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+  }
   const paged = $derived(paginate(filtered, pageNumber, PAGE_SIZE));
 
   // Editor: null = closed, 'new' = add, otherwise the row being edited.
@@ -184,6 +201,11 @@
         oninput={() => (pageNumber = 1)}
       />
     </label>
+    {#if onlyUncategorized}
+      <button type="button" class="btn-ghost text-sm" onclick={showAllRows}
+        >Without a category ({scoped.length}) <Icon name="x" size={14} /><span class="sr-only">Show all</span></button
+      >
+    {/if}
     {#if query}<p class="muted text-sm">{filtered.length} matches</p>{/if}
   </div>
 
@@ -240,8 +262,16 @@
     {/if}
   {:else}
     <EmptyState
-      title={query ? 'No matching transactions' : 'No transactions yet'}
-      detail={query ? 'Try another search.' : 'Add the first one with the Add button.'}
+      title={query
+        ? 'No matching transactions'
+        : onlyUncategorized
+          ? 'Every transaction has a category'
+          : 'No transactions yet'}
+      detail={query
+        ? 'Try another search.'
+        : onlyUncategorized
+          ? 'Nothing left to categorize.'
+          : 'Add the first one with the Add button.'}
     />
   {/if}
 </Card>

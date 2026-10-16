@@ -6,9 +6,16 @@ import type {
   RecurringKind,
   RecurringStatus,
   RecurringSuggestion,
+  SafeToSpend,
   SuggestionConfidence,
 } from '$lib/api/types';
 import type { StatusTone } from '$lib/status';
+
+/** Safe-to-spend status: short is serious, nothing left is a warning, else good. */
+export function safeToSpendTone(safe: Pick<SafeToSpend, 'shortBy' | 'safeToSpend'>): StatusTone {
+  if (safe.shortBy > 0) return 'serious';
+  return safe.safeToSpend > 0 ? 'good' : 'warning';
+}
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

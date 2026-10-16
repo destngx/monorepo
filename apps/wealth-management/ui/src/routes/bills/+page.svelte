@@ -12,6 +12,7 @@
     recurringFormFor,
     recurringFormFromSuggestion,
     recurringInputFrom,
+    safeToSpendTone,
     scheduleLabel,
     splitCalendar,
     suggestionEvidence,
@@ -25,6 +26,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import PageHeadline from '$lib/components/PageHeadline.svelte';
   import { formatDate } from '$lib/format';
   import { toasts } from '$lib/state/toasts.svelte';
   import { STATUS } from '$lib/status';
@@ -35,7 +37,7 @@
   const calendar = $derived(bills.calendar);
   const sections = $derived(splitCalendar(calendar.occurrences, bills.asOf));
   const groups = $derived(groupItems(bills.items));
-  const headline = $derived(STATUS[safe.shortBy > 0 ? 'serious' : safe.safeToSpend > 0 ? 'good' : 'warning']);
+  const headlineTone = $derived(safeToSpendTone(safe));
 
   let busy = $state(false);
   let creating = $state(false);
@@ -155,19 +157,19 @@
   {/snippet}
 </PageHeader>
 
-<!-- Headline: how much can I spend until the next income? -->
-<section class="glass border-l-4 p-5 {headline.edge}" aria-labelledby="safe-headline">
-  <p class="muted text-xs font-medium uppercase">Safe to spend until {formatDate(safe.until)}</p>
-  <h2 id="safe-headline" class="mt-1 text-2xl font-semibold"><Money value={safe.safeToSpend} /></h2>
-  <p class="mt-1 flex flex-wrap items-center gap-2 text-sm {headline.ink}">
-    <Icon name={headline.icon} size={16} />
-    {#if safe.shortBy > 0}
-      Short by <Money value={safe.shortBy} /> before {safe.untilIncome ? 'the next income' : 'the end of the period'}
-    {:else}
-      About <Money value={safe.perDay} /> a day for {safe.days}
-      {safe.days === 1 ? 'day' : 'days'}
-    {/if}
-  </p>
+<!-- Headline (ROADMAP P2): how much can I spend until the next income? -->
+<PageHeadline question="Safe to spend until {formatDate(safe.until)}" tone={headlineTone} id="safe-headline">
+  {#snippet answer()}
+    <Money value={safe.safeToSpend} class="text-2xl" />
+    <span class="text-sm font-normal">
+      {#if safe.shortBy > 0}
+        Short by <Money value={safe.shortBy} /> before {safe.untilIncome ? 'the next income' : 'the end of the period'}
+      {:else}
+        About <Money value={safe.perDay} /> a day for {safe.days}
+        {safe.days === 1 ? 'day' : 'days'}
+      {/if}
+    </span>
+  {/snippet}
   <dl class="mt-4 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
     <dt>Spendable cash</dt>
     <dd class="text-right"><Money value={safe.spendableCash} /></dd>
@@ -212,7 +214,7 @@
       </div>
     </details>
   {/if}
-</section>
+</PageHeadline>
 
 <IdleCashCard idle={data.idleCash} />
 

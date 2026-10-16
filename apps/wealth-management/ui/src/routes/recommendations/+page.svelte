@@ -7,16 +7,17 @@
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import PageHeadline from '$lib/components/PageHeadline.svelte';
   import RecommendationItem from '$lib/recommendations/RecommendationItem.svelte';
   import { GROUPS, groupByStatus, headline, STATUS_TONE } from '$lib/recommendations/recommendations';
   import { mask } from '$lib/state/mask.svelte';
-  import { STATUS } from '$lib/status';
+  import type { StatusTone } from '$lib/status';
   import { toasts } from '$lib/state/toasts.svelte';
 
   let { data } = $props();
   const list = $derived(data.list);
   const groups = $derived(groupByStatus(list.items));
-  const tone = $derived(list.summary.open > 0 ? STATUS.warning : STATUS.good);
+  const tone = $derived<StatusTone>(list.summary.open > 0 ? 'warning' : 'good');
   let busy = $state(false);
 
   async function setStatus(item: Recommendation, input: RecommendationStatusInput) {
@@ -37,27 +38,32 @@
   subtitle="What the reviews and the engine checks suggest, until you act on it. Mark items done, dismiss or snooze them."
 />
 
-<section class="glass mb-4 border-l-4 p-5 {tone.edge}" aria-labelledby="recommendations-headline">
-  <h2 id="recommendations-headline" class="text-lg font-semibold">{headline(list.summary, !mask.revealed)}</h2>
-  <p class="muted mt-1 text-sm">
+<PageHeadline
+  question="What should I do next?"
+  {tone}
+  title={headline(list.summary, !mask.revealed)}
+  id="recommendations-headline"
+  class="mb-4"
+>
+  <p class="muted">
     {list.summary.snoozed} snoozed, {list.summary.done} done, {list.summary.dismissed} dismissed.
     {#if list.summary.openWithoutImpact}
       {list.summary.openWithoutImpact} open {list.summary.openWithoutImpact === 1 ? 'item has' : 'items have'} no estimate.
     {/if}
   </p>
   {#if data.page}
-    <p class="mt-2 text-sm">
+    <p class="mt-2">
       Showing {data.page}.
       <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/recommendations">Show every page</a>
     </p>
   {/if}
   {#if !data.refreshed}
-    <p class="mt-2 text-sm text-amber-700 dark:text-amber-300" role="status">
+    <p class="mt-2 text-amber-700 dark:text-amber-300" role="status">
       The engine checks did not run: they write to the sheet, and this connection has no write access. The list below is
       as stored.
     </p>
   {/if}
-</section>
+</PageHeadline>
 
 {#if list.issues.length}
   <Card title="Rows left out" subtitle="Rows of the Recommendations tab the engine could not read" class="mb-4">

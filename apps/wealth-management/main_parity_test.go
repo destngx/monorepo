@@ -66,6 +66,8 @@ var routeTools = map[string]string{
 	"POST /api/recommendations/refresh":    "RefreshRecommendations",
 	"POST /api/recommendations/:id/status": "SetRecommendationStatus",
 
+	"GET /api/home/needs-you": "GetNeedsYou",
+
 	"GET /api/external/market/providers/:provider/health": "GetMarketProviderHealth",
 	"GET /api/external/vnstock/health":                    "GetMarketProviderHealth",
 	"GET /api/fmarket/health":                             "GetMarketProviderHealth",
@@ -173,6 +175,7 @@ func registeredRoutes(t *testing.T) []string {
 	fiberAdapter.RegisterMonthlyCloseRoutes(api, fiberAdapter.NewCloseHandler(nil, log), guard)
 	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(nil, log), guard)
 	fiberAdapter.RegisterRecommendationRoutes(api, fiberAdapter.NewRecommendationHandler(nil, log), guard)
+	fiberAdapter.RegisterHomeRoutes(api, fiberAdapter.NewHomeHandler(nil, log))
 
 	seen := map[string]bool{}
 	routes := []string{}
@@ -207,6 +210,10 @@ func fullMCPServer(t *testing.T) *mcpAdapter.Server {
 	server.SetMarketAnalysisService(market)
 	server.SetPortfolioService(market)
 	server.SetAIService(&fakes.AI{})
-	server.SetRecommendationService(service.NewRecommendationService(&fakes.Database{}, service.NewAnalyticsService(&fakes.Database{}, nil), nil, loggerAdapter.NewTestLogger(t), nil))
+	recommendations := service.NewRecommendationService(&fakes.Database{}, service.NewAnalyticsService(&fakes.Database{}, nil), nil, loggerAdapter.NewTestLogger(t), nil)
+	server.SetRecommendationService(recommendations)
+	server.SetHomeService(service.NewHomeService(service.HomeSources{
+		Analytics: service.NewAnalyticsService(&fakes.Database{}, nil), Ledger: &fakes.Database{}, Recommendations: recommendations,
+	}, loggerAdapter.NewTestLogger(t), nil))
 	return server
 }

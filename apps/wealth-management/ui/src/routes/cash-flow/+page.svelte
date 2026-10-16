@@ -14,9 +14,9 @@
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import PageHeadline from '$lib/components/PageHeadline.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { currentMonth, formatMonth, formatPercent } from '$lib/format';
-  import { STATUS } from '$lib/status';
 
   let { data } = $props();
   const report = $derived(data.report);
@@ -34,7 +34,6 @@
   );
 
   const verdict = $derived(verdictMessage(report.year, report.verdict, report.savingsTarget, report.monthsElapsed));
-  const style = $derived(STATUS[verdict.tone]);
 
   // Room to save leaves out the month under way, like the engine.
   const completedMonths = $derived(report.year === thisYear ? report.monthsElapsed - 1 : report.monthsElapsed);
@@ -76,14 +75,10 @@
 </PageHeader>
 
 <div class="mb-4 grid gap-4 {report.projection ? 'lg:grid-cols-2' : ''}">
-  <section class="glass border-l-4 p-5 {style.edge}" aria-labelledby="verdict-title">
-    <p class="muted text-xs font-medium uppercase">Am I okay? {report.year}</p>
-    <h2 id="verdict-title" class="mt-1 flex items-center gap-2 text-lg font-semibold {style.ink}">
-      <Icon name={style.icon} />{verdict.title}
-    </h2>
-    <p class="mt-1 text-sm">{verdict.text}</p>
-    {#if verdict.detail}<p class="muted mt-1 text-sm">{verdict.detail}</p>{/if}
-  </section>
+  <PageHeadline question="Am I okay? {report.year}" tone={verdict.tone} title={verdict.title} id="verdict-title">
+    <p>{verdict.text}</p>
+    {#if verdict.detail}<p class="muted mt-1">{verdict.detail}</p>{/if}
+  </PageHeadline>
   {#if report.projection}
     {@const projection = report.projection}
     <section class="glass p-5" aria-labelledby="projection-title">

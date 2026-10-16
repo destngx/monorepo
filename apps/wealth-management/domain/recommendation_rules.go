@@ -35,6 +35,9 @@ type RuleFinding struct {
 	Title     string
 	Action    string
 	ImpactVND *float64
+	// AmountVND is the money the finding is about (to move, owed, short a
+	// month, idle); the home inbox shows it, the sheet does not store it.
+	AmountVND *float64
 	Evidence  string
 	Page      string
 }
@@ -95,6 +98,7 @@ func idleCashFinding(idle IdleCash) (RuleFinding, bool) {
 		Action: fmt.Sprintf("Put about %s of idle cash in a savings deposit at %s (%.1f%%, %s); it would earn about %s more a year.",
 			FormatVND(idle.Idle), idle.Best.Bank, idle.Best.Rate, idle.Best.Tenor, FormatVND(extra)),
 		ImpactVND: &extra,
+		AmountVND: vndAmount(idle.Idle),
 		Evidence: fmt.Sprintf("%s idle beyond what stays liquid; earning %.1f%% now vs %.1f%% best published",
 			FormatVND(idle.Idle), idle.CurrentRate, idle.Best.Rate),
 		Page: "/bills",
@@ -129,11 +133,12 @@ func rebalanceFinding(allocation Allocation) (RuleFinding, bool) {
 		direction = "under"
 	}
 	return RuleFinding{
-		Rule:     RuleRebalance,
-		Title:    fmt.Sprintf("Rebalance: %s is %.0f points %s target", widest.Label, math.Abs(*widest.Drift), direction),
-		Action:   fmt.Sprintf("Move about %s from the classes over target to those under it, or change the targets on Investments.", FormatVND(toMove)),
-		Evidence: fmt.Sprintf("%s; rebalance beyond %.0f points", strings.Join(parts, ", "), allocation.DriftThreshold),
-		Page:     "/investments",
+		Rule:      RuleRebalance,
+		Title:     fmt.Sprintf("Rebalance: %s is %.0f points %s target", widest.Label, math.Abs(*widest.Drift), direction),
+		Action:    fmt.Sprintf("Move about %s from the classes over target to those under it, or change the targets on Investments.", FormatVND(toMove)),
+		AmountVND: vndAmount(toMove),
+		Evidence:  fmt.Sprintf("%s; rebalance beyond %.0f points", strings.Join(parts, ", "), allocation.DriftThreshold),
+		Page:      "/investments",
 	}, true
 }
 
@@ -161,6 +166,7 @@ func goalPlanShortFinding(plan GoalPlan) (RuleFinding, bool) {
 		Title:     fmt.Sprintf("Goal plan is short by %s a month", FormatVND(check.Gap)),
 		Action:    action + ".",
 		ImpactVND: &yearly,
+		AmountVND: vndAmount(check.Gap),
 		Evidence:  fmt.Sprintf("dated goals need %s a month; average savings %s a month", FormatVND(check.RequiredPerMonth), FormatVND(check.MonthlySavings)),
 		Page:      "/accounts/goals",
 	}, true
@@ -185,12 +191,19 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 		who = fmt.Sprintf("%d people owe", people)
 	}
 	return RuleFinding{
-		Rule:     RuleLentOverdue,
-		Title:    fmt.Sprintf("Chase money lent: %s %s for over %d days", who, FormatVND(total), LentOverdueDays),
-		Action:   "Ask for repayment or agree a date, and record repayments as deposits in the lending category.",
-		Evidence: fmt.Sprintf("%s open longer than %d days; oldest %d days", FormatVND(total), LentOverdueDays, oldest),
-		Page:     "/accounts/lent",
+		Rule:      RuleLentOverdue,
+		Title:     fmt.Sprintf("Chase money lent: %s %s for over %d days", who, FormatVND(total), LentOverdueDays),
+		Action:    "Ask for repayment or agree a date, and record repayments as deposits in the lending category.",
+		AmountVND: vndAmount(total),
+		Evidence:  fmt.Sprintf("%s open longer than %d days; oldest %d days", FormatVND(total), LentOverdueDays, oldest),
+		Page:      "/accounts/lent",
 	}, true
+}
+
+// vndAmount rounds a figure to whole VND.
+func vndAmount(value float64) *float64 {
+	rounded := math.Round(value)
+	return &rounded
 }
 
 // PlanRuleRecommendations adds an item for each finding whose rule has no

@@ -55,6 +55,7 @@ import type {
   MarketAnalysis,
   MarketPulse,
   MoneyLent,
+  NeedsYou,
   NewsReport,
   PortfolioValuation,
   PreferenceValue,
@@ -227,6 +228,8 @@ export const api = {
     request<ReallocateResult>('/budget/reallocate', { method: 'POST', body: input }),
 
   dashboard: (options?: ReadOptions) => read<DashboardSummary>('/analytics/dashboard', options),
+  /** The home inbox, ranked (ROADMAP R5). */
+  needsYou: (options?: ReadOptions) => read<NeedsYou>('/home/needs-you', options),
   budgetReport: (month: string, options?: ReadOptions) => read<BudgetReport>('/analytics/budget', options, { month }),
   budgetHistory: (month: string, months: number, options?: ReadOptions) =>
     read<BudgetHistory>('/analytics/budget/history', options, { month, months }),
