@@ -35,11 +35,15 @@ type BriefingFacts struct {
 	// beyond what must stay liquid against the best published rate.
 	IdleCash *IdleCashFacts `json:"idleCash,omitempty"`
 	// Unavailable names optional facts that could not be loaded ("goals",
-	// "bills", "idleCash", "exposure"), so the model does not read their
+	// "bills", "idleCash", "exposure", "netWorthHistory"), so the model does not read their
 	// absence as zero.
 	Unavailable []string `json:"unavailable,omitempty"`
 	// Exposure is the market exposure (ROADMAP M1, M2); nil without holdings valuation.
 	Exposure *ExposureFacts `json:"exposure,omitempty"`
+	// NetWorthHistory summarises the monthly net worth history (ROADMAP P3):
+	// the change over a year, the all-time high and the latest month split
+	// into savings and market.
+	NetWorthHistory *NetWorthHistoryFacts `json:"netWorthHistory,omitempty"`
 }
 
 // WithBills adds the nameless bills summary.

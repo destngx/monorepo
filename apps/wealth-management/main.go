@@ -129,9 +129,16 @@ func run() int {
 		// portfolio when the market data server is configured.
 		aiOptions.Portfolio = sheets.portfolio
 	}
+	if sheets.close != nil {
+		aiOptions.Close = sheets.close
+	}
 	aiSvc := setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions, values)
-	stopCaptureInbox := setupCaptureInbox(ctx, log, api, guard, store.Path(), dbSvc, aiSvc, captureLimits)
+	inbox, stopCaptureInbox := setupCaptureInbox(ctx, log, api, guard, store.Path(), dbSvc, aiSvc, captureLimits)
 	defer stopCaptureInbox()
+	if sheets.close != nil && inbox != nil {
+		// The close checklist counts the drafts waiting for approval.
+		sheets.close.SetDraftCounter(inbox)
+	}
 
 	// Mounted last so every API route above keeps priority over the UI.
 	if !fiberAdapter.MountUI(app, fiberAdapter.DefaultUIBuildDir) {
@@ -244,6 +251,7 @@ type sheetServices struct {
 	portfolio port.PortfolioService
 	// recommendations is the recommendations list (ROADMAP R7).
 	recommendations port.RecommendationService
+	close           *service.MonthlyCloseService
 }
 
 // setupSheets returns nil services when the sheet is not configured; its
@@ -291,7 +299,12 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 	recommendationSvc := service.NewRecommendationService(dbSvc, analyticsSvc, portfolioSvc, log, nil)
 	mcpServer.SetRecommendationService(recommendationSvc)
 	fiberAdapter.RegisterRecommendationRoutes(api, fiberAdapter.NewRecommendationHandler(recommendationSvc, log), guard)
-	return sheetServices{db: dbSvc, analytics: analyticsSvc, portfolio: portfolioSvc, recommendations: recommendationSvc}
+	// Monthly close and net worth history (ROADMAP R8, P3): snapshots value
+	// the holdings with the one allocation.
+	closeSvc := service.NewMonthlyCloseService(dbSvc, analyticsSvc, portfolioSvc, recommendationSvc, log, nil)
+	mcpServer.SetMonthlyCloseService(closeSvc)
+	fiberAdapter.RegisterMonthlyCloseRoutes(api, fiberAdapter.NewCloseHandler(closeSvc, log), guard)
+	return sheetServices{db: dbSvc, analytics: analyticsSvc, portfolio: portfolioSvc, recommendations: recommendationSvc, close: closeSvc}
 }
 
 // errTestWorkbook is a WM_TEST_WORKBOOK the engine cannot serve.
@@ -351,18 +364,19 @@ func setupAI(ctx context.Context, log *loggerAdapter.Logger, health service.Heal
 // setupCaptureInbox wires quick capture (§6.3): its store, routes and the
 // background worker. Captures are accepted while AI is unconfigured and
 // fail until it is set, then can be retried. The returned stop ends the
-// worker and closes the store; it is safe to call more than once.
-func setupCaptureInbox(ctx context.Context, log *loggerAdapter.Logger, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, settingsPath string, dbSvc port.DatabaseService, aiSvc *aiService.Service, limits domain.CaptureLimits) func() {
+// worker and closes the store; it is safe to call more than once. The
+// inbox is nil when quick capture is unavailable.
+func setupCaptureInbox(ctx context.Context, log *loggerAdapter.Logger, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, settingsPath string, dbSvc port.DatabaseService, aiSvc *aiService.Service, limits domain.CaptureLimits) (*service.CaptureInbox, func()) {
 	if dbSvc == nil || aiSvc == nil {
 		cause := fmt.Errorf("%w: quick capture needs the Google Sheet", configAdapter.ErrMissingSheetsConfig)
 		fiberAdapter.RegisterUnavailableCaptureInboxRoutes(api, cause, log)
-		return func() {}
+		return nil, func() {}
 	}
 	store, err := captureInboxAdapter.Open(captureInboxAdapter.ResolvePath(configAdapter.LoadCapturePath(), settingsPath))
 	if err != nil {
 		log.LogError(ctx, "quick capture disabled", err)
 		fiberAdapter.RegisterUnavailableCaptureInboxRoutes(api, err, log)
-		return func() {}
+		return nil, func() {}
 	}
 	log.LogApplicationEvent(ctx, "quick capture store: "+store.Path())
 	inbox := service.NewCaptureInbox(store, aiSvc, dbSvc, log, service.CaptureInboxOptions{Limits: limits})
@@ -375,7 +389,7 @@ func setupCaptureInbox(ctx context.Context, log *loggerAdapter.Logger, api fiber
 		inbox.Run(workerCtx)
 	}()
 	var once sync.Once
-	return func() {
+	return inbox, func() {
 		once.Do(func() {
 			cancel()
 			<-stopped

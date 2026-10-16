@@ -14,6 +14,7 @@
   import Stat from '$lib/components/Stat.svelte';
   import { formatPercent } from '$lib/format';
   import AllocationSummary from '$lib/investments/AllocationSummary.svelte';
+  import NetWorthHistoryCard from '$lib/networth/NetWorthHistoryCard.svelte';
   import { pillarText, projectionRows } from '$lib/health';
   import { STATUS, type StatusTone } from '$lib/status';
 
@@ -117,6 +118,11 @@
     {/each}
   </ul>
 </Card>
+
+<!-- ROADMAP P3: net worth history from the monthly snapshots. -->
+<div id="net-worth-history" class="mt-4 scroll-mt-4">
+  <NetWorthHistoryCard history={data.netWorthHistory} />
+</div>
 
 {#if projection.length}
   <!-- WM-HEA-2, WM-RULE-12 -->

@@ -49,6 +49,7 @@ export const NAV: NavItem[] = [
   },
   { href: '/health', label: 'Health', icon: 'health' },
   { href: '/recommendations', label: 'Recommendations', icon: 'lightbulb' },
+  { href: '/close', label: 'Monthly close', icon: 'check' },
   { href: '/chat', label: 'Assistant', icon: 'chat' },
   { href: '/settings', label: 'Settings', icon: 'settings' },
 ];

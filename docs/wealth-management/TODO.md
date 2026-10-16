@@ -39,7 +39,7 @@ Rejected for now: unofficial bank libraries (credentials on disk, against bank t
 
 Ordered by impact.
 
-- [ ] **Monthly snapshots**: `Snapshots` sheet tab written at month close (net worth, assets, liabilities, health score and components, savings rate). Trend charts on `/health` and the Dashboard; split each month's net worth change into savings vs market gains. Net worth history today is back-calculated from transactions and misses price changes.
+- [x] **Monthly snapshots**: moved to [ROADMAP](./ROADMAP.md) R8 and P3 (done, WM-NW-1..7). Original note: `Snapshots` sheet tab written at month close (net worth, assets, liabilities, health score and components, savings rate). Trend charts on `/health` and the Dashboard; split each month's net worth change into savings vs market gains. Net worth history today is back-calculated from transactions and misses price changes.
 - [ ] **Fix the diversification score**: `domain/asset_allocation.go` gives full marks for an even cash / investment / crypto split (33% crypto scores as healthy). Score distance from a user-set target allocation, with a crypto ceiling.
 - [x] **Real goals**: moved to [ROADMAP](./ROADMAP.md) R3 (pooled savings, D31, D32). Original note: (WM-GOAL-3..5): deadline and monthly contribution columns in the Goals sheet; required monthly vs actual pace; check that all goals fit the average monthly surplus. Deadline is hardcoded `"TBD"` in `service/sheet_mappers.go`.
 - [x] ~~**Debt payoff planner**~~ dropped: the user lends rather than borrows (D30, [ROADMAP](./ROADMAP.md) R1). Original note:: add interest rate, principal and term to the Loan sheet; avalanche vs snowball, payoff date, total interest, prepay vs invest.

@@ -54,6 +54,9 @@ var routeTools = map[string]string{
 	"GET /api/bills":                       "GetBills",
 	"GET /api/bills/safe-to-spend":         "GetSafeToSpend",
 	"GET /api/bills/idle-cash":             "GetIdleCash",
+	"GET /api/close":                       "GetMonthlyClose",
+	"POST /api/close/snapshot":             "WriteMonthSnapshot",
+	"GET /api/net-worth/history":           "GetNetWorthHistory",
 
 	"POST /api/bills/items":               "CreateRecurringItem",
 	"POST /api/bills/items/:id/status":    "SetRecurringItemStatus",
@@ -167,6 +170,7 @@ func registeredRoutes(t *testing.T) []string {
 	fiberAdapter.RegisterFmarketRoutes(api, fiberAdapter.NewFmarketHandler(nil, nil, log))
 	fiberAdapter.RegisterMarketAnalysisRoutes(api, fiberAdapter.NewMarketAnalysisHandler(nil, log))
 	fiberAdapter.RegisterPortfolioRoutes(api, fiberAdapter.NewPortfolioHandler(nil, log))
+	fiberAdapter.RegisterMonthlyCloseRoutes(api, fiberAdapter.NewCloseHandler(nil, log), guard)
 	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(nil, log), guard)
 	fiberAdapter.RegisterRecommendationRoutes(api, fiberAdapter.NewRecommendationHandler(nil, log), guard)
 
@@ -195,7 +199,9 @@ func fullMCPServer(t *testing.T) *mcpAdapter.Server {
 	server := mcpAdapter.NewServer(nil, loggerAdapter.NewTestLogger(t))
 	market := &fakes.Market{}
 	server.SetDatabaseService(&fakes.Database{})
-	server.SetAnalyticsService(service.NewAnalyticsService(&fakes.Database{}, nil))
+	analytics := service.NewAnalyticsService(&fakes.Database{}, nil)
+	server.SetAnalyticsService(analytics)
+	server.SetMonthlyCloseService(service.NewMonthlyCloseService(&fakes.Database{}, analytics, nil, nil, loggerAdapter.NewTestLogger(t), nil))
 	server.SetMarketService(market)
 	server.SetFmarketService(market)
 	server.SetMarketAnalysisService(market)

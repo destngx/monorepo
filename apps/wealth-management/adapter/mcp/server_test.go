@@ -411,3 +411,26 @@ func TestBillsTools(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 }
+
+func TestMonthlyCloseTools(t *testing.T) {
+	db := &fakes.Database{Accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 20_000_000}}}
+	now := func() time.Time { return time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC) }
+	server := newTestServer(t, db)
+	server.SetMonthlyCloseService(service.NewMonthlyCloseService(db, service.NewAnalyticsService(db, now), nil, nil, logger.NewTestLogger(t), now))
+	call := func(name, arguments string) (domain.ToolResult, error) {
+		return server.CallTool(context.Background(), name, json.RawMessage(arguments))
+	}
+
+	if result, err := call("GetMonthlyClose", `{"month":"2026-10"}`); err != nil || !strings.Contains(result.Content, `"key":"snapshot"`) {
+		t.Fatalf("close: %v %s", err, result.Content)
+	}
+	if result, err := call("WriteMonthSnapshot", `{}`); err != nil || !strings.Contains(result.Content, `"created":true`) || len(db.SavedSnapshots) != 1 {
+		t.Fatalf("snapshot: %v %s", err, result.Content)
+	}
+	if _, err := call("WriteMonthSnapshot", `{"month":"2026-01"}`); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("an old month must be a validation error: %v", err)
+	}
+	if result, err := call("GetNetWorthHistory", `{}`); err != nil || !strings.Contains(result.Content, `"tabExists":true`) {
+		t.Fatalf("history: %v %s", err, result.Content)
+	}
+}

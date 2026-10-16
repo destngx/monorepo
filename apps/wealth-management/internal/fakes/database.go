@@ -36,6 +36,9 @@ type Database struct {
 	// GoalPlanErr and RecurringErr fail only that read (optional context).
 	GoalPlanErr  error
 	RecurringErr error
+	// Snapshots is the Snapshots tab; SnapshotsErr fails only its read.
+	Snapshots    domain.SnapshotSheet
+	SnapshotsErr error
 	// StaleAt, when set, is reported as the time of stale data served.
 	StaleAt time.Time
 
@@ -65,6 +68,7 @@ type Database struct {
 	DeletedRecurring    map[string]string
 	// RecommendationWrites counts UpdateRecommendations calls that wrote.
 	RecommendationWrites int
+	SavedSnapshots       []domain.MonthSnapshot
 }
 
 var _ port.DatabaseService = (*Database)(nil)
@@ -473,4 +477,38 @@ func (f *Database) UpdateRecommendations(plan domain.RecommendationPlan) (domain
 
 func recommendationETag(item domain.Recommendation) string {
 	return fmt.Sprintf("etag-%s-%s-%s-%s-%d", item.ID, item.Status, item.SnoozedUntil, item.StatusChanged, len(item.Outcome))
+}
+
+func (f *Database) ReadSnapshots(bool) (domain.SnapshotSheet, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.SnapshotsErr != nil {
+		return domain.SnapshotSheet{}, f.SnapshotsErr
+	}
+	sheet := f.Snapshots
+	sheet.Snapshots = append([]domain.MonthSnapshot{}, sheet.Snapshots...)
+	sheet.Issues = append([]domain.SnapshotIssue{}, sheet.Issues...)
+	return sheet, f.Err
+}
+
+// SaveSnapshot upserts by month like the service: the month's row is
+// replaced, else a row is added after the last one.
+func (f *Database) SaveSnapshot(snapshot domain.MonthSnapshot) (domain.SnapshotSaveResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Err != nil {
+		return domain.SnapshotSaveResult{}, f.Err
+	}
+	f.SavedSnapshots = append(f.SavedSnapshots, snapshot)
+	f.Snapshots.Exists = true
+	for i, existing := range f.Snapshots.Snapshots {
+		if existing.Month == snapshot.Month {
+			snapshot.Row, snapshot.Note = existing.Row, existing.Note
+			f.Snapshots.Snapshots[i] = snapshot
+			return domain.SnapshotSaveResult{Snapshot: snapshot}, nil
+		}
+	}
+	snapshot.Row = len(f.Snapshots.Snapshots) + 2
+	f.Snapshots.Snapshots = append(f.Snapshots.Snapshots, snapshot)
+	return domain.SnapshotSaveResult{Snapshot: snapshot, Created: true}, nil
 }

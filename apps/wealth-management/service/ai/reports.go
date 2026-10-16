@@ -18,7 +18,7 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		return domain.Briefing{}, fmt.Errorf("load dashboard: %w", err)
 	}
 	facts = facts.WithMonthComparison(dashboard)
-	// Goals, bills and exposure are optional context: when one cannot be read, the
+	// Goals, bills, exposure and the net worth history are optional context: when one cannot be read, the
 	// briefing still runs, the error is logged and the model is told.
 	if plan, err := s.analytics.GoalPlan(false); err != nil {
 		s.log.LogError(ctx, "briefing: goal plan unavailable", err)
@@ -44,6 +44,14 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 			facts.Unavailable = append(facts.Unavailable, "exposure")
 		} else {
 			facts = facts.WithExposure(exposure)
+		}
+	}
+	if s.close != nil {
+		if history, err := s.close.NetWorthHistory(ctx, false); err != nil {
+			s.log.LogError(ctx, "briefing: net worth history unavailable", err)
+			facts.Unavailable = append(facts.Unavailable, "netWorthHistory")
+		} else {
+			facts = facts.WithNetWorthHistory(history)
 		}
 	}
 	budget := []map[string]any{}

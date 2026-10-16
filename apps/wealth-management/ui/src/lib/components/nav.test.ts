@@ -13,5 +13,6 @@ describe('nav', () => {
     expect(titleFor('/')).toBe('Dashboard');
     expect(titleFor('/bills')).toBe('Bills');
     expect(titleFor('/recommendations')).toBe('Recommendations');
+    expect(titleFor('/close')).toBe('Monthly close');
   });
 });

@@ -73,6 +73,12 @@ type DatabaseService interface {
 	// one (creating the tab on first use) and the status columns H-K of
 	// existing rows. No other tab is written.
 	UpdateRecommendations(plan domain.RecommendationPlan) (domain.RecommendationWrite, error)
+	// ReadSnapshots reads the app-managed Snapshots tab (WM-NW-1); Exists
+	// is false until the first snapshot is written.
+	ReadSnapshots(forceFresh bool) (domain.SnapshotSheet, error)
+	// SaveSnapshot writes a month's row, updating the month's existing row
+	// rather than adding a second one, creating the tab on first use.
+	SaveSnapshot(snapshot domain.MonthSnapshot) (domain.SnapshotSaveResult, error)
 	ListTags(forceFresh bool) ([]string, error)
 	GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error)
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)

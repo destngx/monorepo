@@ -43,7 +43,7 @@ Removes fakes and duplicates before new features build on them. Ships with the P
 | R5  | **Home: Needs you**         | Dashboard leads with an action inbox (drafts, card due, budget over pace, money lent overdue, goal behind, rebalance drift, uncategorized), then safe-to-spend, net worth trend and savings on pace, then a short briefing.                                                                                                                                                                                                                                                                                                                                                                                                              | None                                                                                                                                                                                                       |
 | R6  | **Idle cash check**         | Cash beyond safe-to-spend and the emergency fund, compared with the best published deposit rates; estimated extra interest per year. Advice about rate, never about splitting goal money into accounts (D31). ✅ Done (WM-CASH-1..5).                                                                                                                                                                                                                                                                                                                                                                                                    | None                                                                                                                                                                                                       |
 | R7  | **Recommendations list**    | One list replaces the separate AI review cards: action, VND impact, evidence link, status (open / done / dismissed / snoozed). Weekly, monthly and yearly reviews add to it; the next review checks outcomes. ✅ Done (WM-REC-1..7).                                                                                                                                                                                                                                                                                                                                                                                                     | App-managed `Recommendations` tab                                                                                                                                                                          |
-| R8  | **Monthly close**           | A short checklist: approve drafts, categorize, budget vs actual, surplus to goals, chase money lent, review recommendations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | None                                                                                                                                                                                                       |
+| R8  | **Monthly close**           | A short checklist: approve drafts, categorize, budget vs actual, surplus to goals, chase money lent, review recommendations. Each item is derived from data and links to its page; the snapshot is written from the checklist. ✅ Done (WM-CLOSE-1..4, WM-NW-1, WM-NW-2).                                                                                                                                                                                                                                                                                                                                                                | App-managed `Snapshots` tab (below): created on the first written snapshot; one row per month                                                                                                              |
 
 ### `Goal Plan` tab layout
 
@@ -81,6 +81,34 @@ Removes fakes and duplicates before new features build on them. Ships with the P
 | B      | Value | Number                                                                                                                                                       |
 | C      | Note  | Free text                                                                                                                                                    |
 
+### `Snapshots` tab layout
+
+Written by the engine (one row per month, rewritten in place); months before the first snapshot may be typed by hand with only Month and Net worth.
+
+| Column | Field                  | Notes                                                    |
+| ------ | ---------------------- | -------------------------------------------------------- |
+| A      | Month                  | `yyyy-mm`; required, one row per month                   |
+| B      | As of                  | `yyyy-mm-dd`; the month end, or the write date mid-month |
+| C      | Net worth              | VND; required                                            |
+| D      | Assets                 | VND                                                      |
+| E      | Liabilities            | VND                                                      |
+| F      | Money lent             | VND owed to the user                                     |
+| G      | Cash                   | VND; cash and deposits allocation line                   |
+| H      | Funds                  | VND; fund certificates at the write date's prices        |
+| I      | Crypto                 | VND; crypto at the write date's prices                   |
+| J      | Income                 | VND; the month to the as-of date                         |
+| K      | Expense                | VND; the month to the as-of date                         |
+| L      | Savings                | VND; income minus expense                                |
+| M      | Savings rate           | Percent                                                  |
+| N      | Health score           | 0-100 (WM-HEA-1)                                         |
+| O      | Savings pillar         | Score out of 30                                          |
+| P      | Emergency pillar       | Score out of 30                                          |
+| Q      | Debt pillar            | Score out of 20                                          |
+| R      | Diversification pillar | Score out of 20                                          |
+| S      | Emergency months       | Months of expenses the liquid assets cover               |
+| T      | Written                | `yyyy-mm-dd` the row was written                         |
+| U      | Note                   | The user's; never overwritten                            |
+
 Dates typed by hand may arrive as date serials (Sheets parses `yyyy-mm`); readers accept both.
 
 ## Tier 4: Markets for the user's money
@@ -97,11 +125,11 @@ Market pages today read like a VN-equity trading terminal. Re-aim them at what t
 
 ## Tier 5: Polish
 
-| #   | Item                     | Scope                                                                                                                                                                        |
-| --- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P1  | **Five-area navigation** | Home / Money (month, cash flow, transactions, bills) / Wealth (net worth, accounts, investments, money lent) / Plan (goals, health, projections) / Research, plus Assistant. |
-| P2  | **Page hierarchy**       | Headline answer, evidence, detail on every page (see Principles).                                                                                                            |
-| P3  | **Net worth history**    | 1Y and all-time views with milestones; needs the monthly snapshot from TODO §2.                                                                                              |
+| #   | Item                     | Scope                                                                                                                                                                                                                                    |
+| --- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | **Five-area navigation** | Home / Money (month, cash flow, transactions, bills) / Wealth (net worth, accounts, investments, money lent) / Plan (goals, health, projections) / Research, plus Assistant.                                                             |
+| P2  | **Page hierarchy**       | Headline answer, evidence, detail on every page (see Principles).                                                                                                                                                                        |
+| P3  | **Net worth history**    | 1Y and all-time views with milestones; needs the monthly snapshot from TODO §2. ✅ Done (WM-NW-3..7) on `/health`: months without a snapshot are estimated and marked; savings vs market split where both neighbouring months are known. |
 
 ## Implementation route
 

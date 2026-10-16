@@ -66,6 +66,8 @@ type Options struct {
 	// Recommendations, when set, receives what the reviews and the briefing
 	// recommend and gives them the earlier items to check (WM-REC-2, 4).
 	Recommendations port.RecommendationService
+	// Close gives the briefing the net worth history (ROADMAP P3); optional.
+	Close port.MonthlyCloseService
 }
 
 type Service struct {
@@ -83,6 +85,7 @@ type Service struct {
 	market        port.MarketAnalysisService
 	portfolio     port.PortfolioService
 	recommend     port.RecommendationService
+	close         port.MonthlyCloseService
 }
 
 var _ port.AIService = (*Service)(nil)
@@ -110,6 +113,7 @@ func New(client port.AIClient, db port.DatabaseService, analytics port.Analytics
 		market:        options.Market,
 		portfolio:     options.Portfolio,
 		recommend:     options.Recommendations,
+		close:         options.Close,
 	}
 }
 

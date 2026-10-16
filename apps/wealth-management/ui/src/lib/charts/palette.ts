@@ -24,3 +24,6 @@ export const REAL = '#0d9488';
 // Gold and USD protection trends (ROADMAP M4); validated as a pair on both themes.
 export const GOLD = '#d97706';
 export const USD = '#0284c7';
+// Net worth history (ROADMAP P3): one series, the first categorical hue. Estimated months are told
+// apart by a dashed line and hollow markers, milestones by a labelled diamond, never by colour.
+export const NET_WORTH = '#6366f1';

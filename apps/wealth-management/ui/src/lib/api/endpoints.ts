@@ -10,6 +10,9 @@ import type {
   BankRates,
   Bills,
   BillsSummary,
+  MonthlyClose,
+  NetWorthHistory,
+  SnapshotSaveResult,
   IdleCash,
   Briefing,
   BudgetAdvice,
@@ -175,6 +178,10 @@ export const api = {
   safeToSpend: (options?: ReadOptions) => read<BillsSummary>('/bills/safe-to-spend', options),
   /** Idle cash against the best published deposit rate (ROADMAP R6). */
   idleCash: (options?: ReadOptions) => read<IdleCash>('/bills/idle-cash', options),
+  monthlyClose: (month?: string, options?: ReadOptions) =>
+    read<MonthlyClose>('/close', options, { month: month || undefined }),
+  writeSnapshot: (month: string) => request<SnapshotSaveResult>('/close/snapshot', { method: 'POST', body: { month } }),
+  netWorthHistory: (options?: ReadOptions) => read<NetWorthHistory>('/net-worth/history', options),
   createRecurring: (input: RecurringInput) => request<RecurringItem>('/bills/items', { method: 'POST', body: input }),
   confirmSuggestion: (input: RecurringConfirmInput) =>
     request<RecurringItem>('/bills/suggestions/confirm', { method: 'POST', body: input }),

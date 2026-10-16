@@ -110,6 +110,16 @@ func (s *CaptureInbox) Overview(ctx context.Context) (domain.QuickCaptureOvervie
 	return domain.QuickCaptureOverview{Captures: captures, PendingDrafts: len(pending)}, nil
 }
 
+// PendingDraftCount counts the drafts waiting for approval, for the monthly
+// close checklist (WM-CLOSE-2).
+func (s *CaptureInbox) PendingDraftCount(ctx context.Context) (int, error) {
+	pending, err := s.store.ListDrafts(ctx, domain.CaptureDraftPending, time.Time{})
+	if err != nil {
+		return 0, fmt.Errorf("count pending drafts: %w", err)
+	}
+	return len(pending), nil
+}
+
 // Retry queues a failed capture again with a fresh set of attempts.
 func (s *CaptureInbox) Retry(ctx context.Context, captureID string) error {
 	capture, err := s.store.GetCapture(ctx, captureID)

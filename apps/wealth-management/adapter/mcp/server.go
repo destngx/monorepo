@@ -46,6 +46,7 @@ type Server struct {
 	marketAnalysis   port.MarketAnalysisService
 	portfolio        port.PortfolioService
 	recommendations  port.RecommendationService
+	monthlyClose     port.MonthlyCloseService
 	log              *logger.Logger
 	now              func() time.Time
 	maxRequestBytes  int
@@ -195,6 +196,9 @@ func (s *Server) tools() []tool {
 	}
 	if s.analyticsService != nil {
 		tools = append(tools, s.analyticsTools()...)
+	}
+	if s.monthlyClose != nil {
+		tools = append(tools, s.closeTools()...)
 	}
 	if s.marketService != nil {
 		tools = append(tools, s.marketTools()...)

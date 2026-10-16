@@ -349,6 +349,42 @@ func TestBriefingRunsAndSaysSoWhenTheExposureIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestBriefingSendsTheNetWorthHistoryAsNamelessFacts(t *testing.T) {
+	client := &scriptedClient{replies: []reply{{content: `{"briefing":"All good.","alerts":[],"patterns":[]}`}}}
+	now := func() time.Time { return testToday }
+	db := fixtureDatabase()
+	analytics := service.NewAnalyticsService(db, now)
+	closeSvc := service.NewMonthlyCloseService(db, analytics, nil, nil, logger.NewTestLogger(t), now)
+	svc := New(client, db, analytics, nil, testConfig(), logger.NewTestLogger(t), Options{Now: now, Close: closeSvc})
+	briefing, err := svc.Briefing(context.Background(), false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if briefing.Facts.NetWorthHistory == nil || briefing.Facts.NetWorthHistory.Months == 0 {
+		t.Fatalf("history facts = %+v", briefing.Facts.NetWorthHistory)
+	}
+	if prompt := client.requests[0].Messages[1].Content; !strings.Contains(prompt, `"netWorthHistory":`) {
+		t.Fatal("prompt lacks the net worth history")
+	}
+}
+
+func TestBriefingRunsAndSaysSoWhenTheNetWorthHistoryIsUnavailable(t *testing.T) {
+	client := &scriptedClient{replies: []reply{{content: `{"briefing":"All good.","alerts":[],"patterns":[]}`}}}
+	now := func() time.Time { return testToday }
+	db := fixtureDatabase()
+	db.SnapshotsErr = errors.New("snapshots unreadable")
+	analytics := service.NewAnalyticsService(db, now)
+	closeSvc := service.NewMonthlyCloseService(db, analytics, nil, nil, logger.NewTestLogger(t), now)
+	svc := New(client, db, analytics, nil, testConfig(), logger.NewTestLogger(t), Options{Now: now, Close: closeSvc})
+	briefing, err := svc.Briefing(context.Background(), false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if briefing.Facts.NetWorthHistory != nil || !slices.Contains(briefing.Facts.Unavailable, "netWorthHistory") {
+		t.Fatalf("facts = %+v", briefing.Facts)
+	}
+}
+
 func TestChartInsightReturnsMarkdown(t *testing.T) {
 	client := &scriptedClient{replies: []reply{{content: "  **Spending** is flat.  "}}}
 	text, err := newTestService(t, fixtureDatabase(), client, nil).ChartInsight(context.Background(), port.ChartInsightRequest{ChartType: "line", Title: "Cash flow", Data: []int{1, 2, 3}})
