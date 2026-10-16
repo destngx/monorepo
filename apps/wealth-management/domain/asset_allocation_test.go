@@ -74,6 +74,25 @@ func TestGivenTargetsWhenAClassDriftsBeyondTheThresholdThenRebalanceIsSuggested(
 	}
 }
 
+func TestGivenAnInvestmentAccountWhenComputingAllocationThenItCountsAsFundsNotCash(t *testing.T) {
+	accounts := []Account{
+		{Name: "Bank", Type: AccountTypeBank, Balance: 40_000_000},
+		{Name: "Fund mirror", Type: AccountTypeInvestment, Balance: 25_000_000},
+	}
+	// The investment account and the fund holdings track the same certificates.
+	for _, tc := range []struct {
+		holdings, funds float64
+	}{{30_000_000, 30_000_000}, {20_000_000, 25_000_000}, {0, 25_000_000}} {
+		allocation := ComputeAllocation(AllocationInputs{Accounts: accounts, Funds: tc.holdings})
+		if got := allocation.Line(AllocationFunds).Value; got != tc.funds {
+			t.Errorf("holdings %v: funds = %v, want %v", tc.holdings, got, tc.funds)
+		}
+		if got := allocation.Line(AllocationCash).Value; got != 40_000_000 {
+			t.Errorf("holdings %v: cash = %v, want only the bank", tc.holdings, got)
+		}
+	}
+}
+
 func TestGivenDriftAtExactlyTheThresholdWhenComputingAllocationThenItIsOnTarget(t *testing.T) {
 	allocation := ComputeAllocation(AllocationInputs{
 		Accounts: []Account{{Name: "Bank", Type: AccountTypeBank, Balance: 55}},

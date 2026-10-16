@@ -10,9 +10,11 @@ import (
 // Accounts and Health all show this answer, so they agree on every figure.
 //
 // Classes:
-//   - cash: positive balances of every VND account (bank, cash, savings,
-//     long holding and investment accounts), as the WM-RULE-8 VND accounts;
-//   - funds: fund certificate holdings valued in VND (WM-RULE-8);
+//   - cash: positive balances of every VND account (bank, cash, savings and
+//     long holding accounts), as the WM-RULE-8 VND accounts;
+//   - funds: the larger of positive investment account balances and the
+//     fund certificate holdings value (WM-RULE-8): an investment account
+//     mirrors the certificates the holdings tab values, as crypto does;
 //   - crypto: the larger of positive crypto account balances and the crypto
 //     holdings value (WM-RULE-8: the two track the same coins);
 //   - money lent: what people still owe the user (D30). It is shown as its
@@ -128,21 +130,24 @@ func isCryptoAccount(account Account) bool {
 
 // ComputeAllocation builds the allocation with targets and drift.
 func ComputeAllocation(in AllocationInputs) Allocation {
-	var cash, cryptoAccounts float64
+	var cash, cryptoAccounts, fundAccounts float64
 	for _, account := range in.Accounts {
 		if account.Type == AccountTypeDeprecated || account.Balance <= 0 {
 			continue
 		}
-		if isCryptoAccount(account) {
+		switch {
+		case isCryptoAccount(account):
 			cryptoAccounts += account.Balance
-		} else {
+		case account.Type == AccountTypeInvestment:
+			fundAccounts += account.Balance
+		default:
 			cash += account.Balance
 		}
 	}
 	receivables, _ := lendingPositions(in.Transactions)
 	values := map[AllocationClass]float64{
 		AllocationCash:      cash,
-		AllocationFunds:     math.Max(in.Funds, 0),
+		AllocationFunds:     math.Max(math.Max(fundAccounts, in.Funds), 0),
 		AllocationCrypto:    math.Max(math.Max(cryptoAccounts, in.CryptoHoldings), 0),
 		AllocationMoneyLent: receivables,
 	}
