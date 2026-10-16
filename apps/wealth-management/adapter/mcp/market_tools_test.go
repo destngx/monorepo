@@ -170,3 +170,17 @@ func TestGivenTheServiceFailsWhenCallingRunInvestmentAnalysisThenTheErrorIsRetur
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestGivenForceWhenCallingGetAssetAllocationThenTheAllocationIsReturned(t *testing.T) {
+	server, market, _ := newMarketTestServer(t)
+	result, err := server.CallTool(context.Background(), "GetAssetAllocation", json.RawMessage(`{"force":true}`))
+	if err != nil || !strings.Contains(result.Content, `"driftThreshold":5`) {
+		t.Fatalf("result %v err %v", result.Content, err)
+	}
+	if call := market.Calls[0]; call.Kind != "allocation" || !call.ForceRead {
+		t.Fatalf("call = %+v", call)
+	}
+	if _, err := server.CallTool(context.Background(), "GetAssetAllocation", json.RawMessage(`{"extra":1}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("unknown arguments must be rejected: %v", err)
+	}
+}

@@ -1,3 +1,5 @@
+import type { Allocation } from './investments';
+
 export interface HealthComponent {
   key: string;
   label: string;
@@ -20,7 +22,8 @@ export interface FinancialHealth {
   avgMonthlyExpense: number;
   netWorth: number;
   freedomMonths: number | null;
-  allocation: Record<string, number>;
+  /** The one engine allocation; the diversification pillar scores its target classes. */
+  allocation: Allocation;
   lookbackMonths: number;
   insufficientIncome: boolean;
   /** Net worth projected with WM-RULE-12; absent from engines before WM-HEA-2. */

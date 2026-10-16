@@ -44,6 +44,13 @@ type DatabaseService interface {
 	ListCaptureRules(forceFresh bool) ([]domain.CaptureRule, error)
 	// SaveCaptureRules upserts rules, creating the tab on first use.
 	SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureRulesSaveResult, error)
+	// ListPreferences reads the app-managed Preferences tab (WM-SET-6):
+	// typed values with their defaults; a missing tab means every default.
+	ListPreferences(forceFresh bool) (domain.Preferences, error)
+	// SavePreferences writes the given keys (WM-SET-7), creating the tab on
+	// the first save; it writes no other tab. ErrValidation for an unknown
+	// key, a value out of range or allocation targets not adding up to 100.
+	SavePreferences(update domain.PreferencesUpdate) (domain.Preferences, error)
 	// ListCardConfig returns the card programmes, banks, cards held and
 	// merchant MCCs from the Programs, ProgramRules, Banks, Cards and
 	// Merchants tabs (WM-CARD-3); a missing tab contributes no rows.

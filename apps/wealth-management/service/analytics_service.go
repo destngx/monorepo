@@ -3,6 +3,7 @@ package service
 import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -17,15 +18,30 @@ const (
 )
 
 type analyticsService struct {
-	db  port.DatabaseService
-	now func() time.Time
+	db         port.DatabaseService
+	now        func() time.Time
+	allocation port.AllocationSource
 }
 
-func NewAnalyticsService(db port.DatabaseService, now func() time.Time) port.AnalyticsService {
+// AnalyticsOption tunes the analytics service.
+type AnalyticsOption func(*analyticsService)
+
+// WithAllocation scores health diversification on the engine allocation
+// (ROADMAP C4). Without it the allocation is built from the accounts and
+// transactions alone, with no fund holdings.
+func WithAllocation(source port.AllocationSource) AnalyticsOption {
+	return func(s *analyticsService) { s.allocation = source }
+}
+
+func NewAnalyticsService(db port.DatabaseService, now func() time.Time, options ...AnalyticsOption) port.AnalyticsService {
 	if now == nil {
 		now = time.Now
 	}
-	return &analyticsService{db: db, now: now}
+	service := &analyticsService{db: db, now: now}
+	for _, option := range options {
+		option(service)
+	}
+	return service
 }
 
 func (s *analyticsService) today() time.Time {
@@ -185,7 +201,24 @@ func (s *analyticsService) FinancialHealth(forceFresh bool) (domain.FinancialHea
 	if err != nil {
 		return domain.FinancialHealth{}, err
 	}
-	return domain.ComputeFinancialHealth(accounts, transactions, s.today()), nil
+	allocation, err := s.allocationFor(accounts, transactions, forceFresh)
+	if err != nil {
+		return domain.FinancialHealth{}, err
+	}
+	return domain.ComputeFinancialHealth(accounts, transactions, allocation, s.today()), nil
+}
+
+// allocationFor returns the engine allocation; health has no request
+// context, so the source runs in the background context.
+func (s *analyticsService) allocationFor(accounts []domain.Account, transactions []domain.Transaction, forceFresh bool) (domain.Allocation, error) {
+	if s.allocation == nil {
+		return domain.ComputeAllocation(domain.AllocationInputs{Accounts: accounts, Transactions: transactions, Now: s.now()}), nil
+	}
+	allocation, err := s.allocation.Allocation(context.Background(), forceFresh)
+	if err != nil {
+		return domain.Allocation{}, fmt.Errorf("allocation: %w", err)
+	}
+	return allocation, nil
 }
 
 func (s *analyticsService) MoneyLent(forceFresh bool) (domain.MoneyLent, error) {

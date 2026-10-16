@@ -113,23 +113,21 @@ func run() int {
 	if closer, ok := cacheClient.(io.Closer); ok {
 		defer closer.Close()
 	}
-	dbSvc, analyticsSvc := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, values)
+	marketSvc := setupMarket(ctx, log, health, api, mcpServer, values)
+	sheets := setupSheets(ctx, log, health, api, guard, mcpServer, cacheSvc, marketSvc, values)
+	dbSvc, analyticsSvc := sheets.db, sheets.analytics
 	if dbSvc != nil {
 		staleData.Watch(dbSvc)
 	}
-	marketSvc := setupMarket(ctx, log, health, api, mcpServer, values)
 	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc, values)}
 	if marketSvc != nil {
 		analysisSvc := service.NewMarketAnalysisService(marketSvc, nil)
 		fiberAdapter.RegisterMarketAnalysisRoutes(api, fiberAdapter.NewMarketAnalysisHandler(analysisSvc, log))
 		aiOptions.Market = analysisSvc
 		mcpServer.SetMarketAnalysisService(analysisSvc)
-	}
-	if dbSvc != nil && marketSvc != nil {
-		portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil)
-		fiberAdapter.RegisterPortfolioRoutes(api, fiberAdapter.NewPortfolioHandler(portfolioSvc, log))
-		aiOptions.Portfolio = portfolioSvc
-		mcpServer.SetPortfolioService(portfolioSvc)
+		// The AI think tank needs live prices, so it only gets the
+		// portfolio when the market data server is configured.
+		aiOptions.Portfolio = sheets.portfolio
 	}
 	aiSvc := setupAI(ctx, log, health, api, guard, mcpServer, dbSvc, analyticsSvc, cacheSvc, aiOptions, values)
 	stopCaptureInbox := setupCaptureInbox(ctx, log, api, guard, store.Path(), dbSvc, aiSvc, captureLimits)
@@ -238,10 +236,19 @@ func setupCache(ctx context.Context, log *loggerAdapter.Logger, health service.H
 	return client, cacheSvc
 }
 
+// sheetServices are the services built on the Google Sheet; all nil when the
+// sheet is not configured.
+type sheetServices struct {
+	db        port.DatabaseService
+	analytics port.AnalyticsService
+	portfolio port.PortfolioService
+}
+
 // setupSheets returns nil services when the sheet is not configured; its
 // routes are still registered and answer 503 SHEETS_NOT_CONFIGURED naming
 // the missing settings (or the client error) so clients can say what to fix.
-func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, values configAdapter.Values) (port.DatabaseService, port.AnalyticsService) {
+// marketSvc may be nil: holdings are then valued from the sheet only.
+func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.HealthRegistry, api fiberAdapter.RouteRegistrar, guard fiberAdapter.WriteGuard, mcpServer *mcpAdapter.Server, cacheSvc port.CacheService, marketSvc port.MarketProviderService, values configAdapter.Values) sheetServices {
 	client, spreadsheetID, err := newSheetsClient(ctx, log, values)
 	if errors.Is(err, errTestWorkbook) {
 		// WM-TEST-2: a test engine must never fall back to the real sheet.
@@ -252,19 +259,24 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 		log.LogError(ctx, "sheet features disabled", err)
 		health.Register(port.HealthCheck{Name: "sheets"})
 		fiberAdapter.RegisterUnconfiguredSheetRoutes(api, err, log)
-		return nil, nil
+		return sheetServices{}
 	}
 	dbSvc := service.NewDatabaseService(client, cacheSvc, log, service.DatabaseServiceOptions{
 		BudgetSheetTemplate: configAdapter.BudgetSheetTemplate(values),
 		SpreadsheetID:       spreadsheetID,
 	})
-	analyticsSvc := service.NewAnalyticsService(dbSvc, nil)
+	// One allocation (ROADMAP C4): Investments, Accounts and the health
+	// diversification pillar all read it from the portfolio service.
+	portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil)
+	analyticsSvc := service.NewAnalyticsService(dbSvc, nil, service.WithAllocation(portfolioSvc))
 	health.Register(port.HealthCheck{Name: "sheets", Probe: func(context.Context) error { return dbSvc.Ping() }})
 	mcpServer.SetDatabaseService(dbSvc)
 	mcpServer.SetAnalyticsService(analyticsSvc)
+	mcpServer.SetPortfolioService(portfolioSvc)
 	fiberAdapter.RegisterSheetRoutes(api, fiberAdapter.NewDatabaseHandler(dbSvc, log), guard)
 	fiberAdapter.RegisterAnalyticsRoutes(api, fiberAdapter.NewAnalyticsHandler(analyticsSvc, log))
-	return dbSvc, analyticsSvc
+	fiberAdapter.RegisterPortfolioRoutes(api, fiberAdapter.NewPortfolioHandler(portfolioSvc, log))
+	return sheetServices{db: dbSvc, analytics: analyticsSvc, portfolio: portfolioSvc}
 }
 
 // errTestWorkbook is a WM_TEST_WORKBOOK the engine cannot serve.

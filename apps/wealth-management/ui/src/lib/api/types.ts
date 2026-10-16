@@ -5,6 +5,7 @@ export * from './types/transactions';
 export * from './types/budget';
 export * from './types/planning';
 export * from './types/investments';
+export * from './types/preferences';
 export * from './types/dashboard';
 export * from './types/cards';
 export * from './types/health';

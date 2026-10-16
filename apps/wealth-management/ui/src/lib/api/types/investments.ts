@@ -59,3 +59,38 @@ export interface PortfolioValuation {
   issues: string[];
   generatedAt: string;
 }
+
+/** Allocation classes (ROADMAP C4); money lent has no target and stays out of drift. */
+export type AllocationClass = 'cash' | 'funds' | 'crypto' | 'moneyLent';
+export type TargetClass = Exclude<AllocationClass, 'moneyLent'>;
+export type AllocationStatus = 'on_target' | 'over' | 'under' | 'no_target';
+
+export interface AllocationLine {
+  class: AllocationClass;
+  label: string;
+  value: number;
+  /** Percent of every allocated asset, money lent included. */
+  share: number;
+  targeted: boolean;
+  /** Percent of the targeted total (cash + funds + crypto); null for money lent. */
+  current: number | null;
+  target: number | null;
+  /** Current minus target, in percentage points. */
+  drift: number | null;
+  status: AllocationStatus;
+}
+
+export type AllocationTargets = Record<TargetClass, number>;
+
+/** The one engine allocation shown by Investments, Accounts and Health. */
+export interface Allocation {
+  lines: AllocationLine[];
+  total: number;
+  targetedTotal: number;
+  targets: AllocationTargets | null;
+  driftThreshold: number;
+  rebalance: boolean;
+  unvalued: number;
+  issues: string[];
+  generatedAt: string;
+}

@@ -1,15 +1,19 @@
 <script lang="ts">
   import type { LiquidityTier } from '$lib/accounts';
-  import Donut from '$lib/charts/Donut.svelte';
+  import type { Allocation } from '$lib/api/types';
   import LineChart from '$lib/charts/LineChart.svelte';
   import Card from '$lib/components/Card.svelte';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatPercent } from '$lib/format';
+  import AllocationSummary from '$lib/investments/AllocationSummary.svelte';
+  import type { Section } from '$lib/investments/fmarket';
+  import SectionError from '$lib/investments/fmarket/SectionError.svelte';
 
-  // WM-ACC-8: every figure is VND (D25).
+  // WM-ACC-8: every figure is VND (D25). The allocation is the engine's one
+  // allocation (ROADMAP C4), loaded on its own so a failure leaves the rest.
   interface Props {
-    allocation: { label: string; value: number }[];
+    allocation: Section<Allocation>;
     tiers: { tier: LiquidityTier; percent: number; value: number }[];
     history: { date: string; value: number }[];
   }
@@ -18,22 +22,13 @@
 </script>
 
 <div class="mt-4 grid gap-4 lg:grid-cols-3">
-  <Card title="Allocation by group">
-    {#if allocation.length}
-      <div class="flex flex-wrap items-center gap-5">
-        <Donut items={allocation} size={140} label="Allocation by account group" />
-        <ul class="min-w-0 flex-1 space-y-1 text-sm">
-          {#each allocation as slice (slice.label)}
-            <li class="flex justify-between gap-3">
-              <span class="truncate">{slice.label}</span><Money value={slice.value} />
-            </li>
-          {/each}
-        </ul>
-      </div>
-    {:else}
-      <p class="muted text-sm">No positive balances to allocate.</p>
-    {/if}
-  </Card>
+  {#if allocation.ok}
+    <AllocationSummary allocation={allocation.value} />
+  {:else}
+    <Card title="Asset allocation">
+      <SectionError title="The allocation is unavailable" message={allocation.error} />
+    </Card>
+  {/if}
   <Card title="Liquidity" subtitle="Immediate: spendable now · T+2: a few days · Illiquid: long holding">
     <ul class="space-y-3">
       {#each tiers as tier (tier.tier)}

@@ -2,7 +2,7 @@
   import InsightCard from '$lib/ai/InsightCard.svelte';
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
-  import { allocationByGroup, groupAccounts, liquidityBreakdown, sumBalances, totalHistory } from '$lib/accounts';
+  import { groupAccounts, liquidityBreakdown, sumBalances, totalHistory } from '$lib/accounts';
   import AccountFormModal from '$lib/accounts/AccountFormModal.svelte';
   import AccountGroupSection from '$lib/accounts/AccountGroupSection.svelte';
   import AccountOverview from '$lib/accounts/AccountOverview.svelte';
@@ -23,7 +23,6 @@
   const groups = $derived(groupAccounts(data.accounts));
 
   // WM-ACC-8: balances are VND, USD/USDT entries included (D25).
-  const allocation = $derived(allocationByGroup(data.accounts));
   const tierRows = $derived(liquidityBreakdown(data.accounts));
   const history = $derived(totalHistory(data.histories, data.accounts));
   // Expansion state per group key; defaults from WM-ACC-1.
@@ -114,7 +113,7 @@
 </div>
 
 <!-- WM-ACC-8 -->
-<AccountOverview {allocation} tiers={tierRows} {history} />
+<AccountOverview allocation={data.allocation} tiers={tierRows} {history} />
 
 {#if groups.length === 0}
   <Card class="mt-4"><EmptyState title="No accounts yet" detail="Create one with New account." /></Card>

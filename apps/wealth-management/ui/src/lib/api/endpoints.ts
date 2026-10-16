@@ -3,6 +3,7 @@ import { readNDJSON } from '$lib/ai/ndjson';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
   AIProviderUsage,
+  Allocation,
   AIStatus,
   Account,
   AccountType,
@@ -44,6 +45,8 @@ import type {
   MoneyLent,
   NewsReport,
   PortfolioValuation,
+  PreferenceValue,
+  Preferences,
   QuickCaptureOverview,
   QuickCaptureReceipt,
   ProgramComparisonReport,
@@ -142,6 +145,12 @@ export const api = {
   moneyLent: (options?: ReadOptions) => read<MoneyLent>('/lending', options),
   investments: (options?: ReadOptions) => read<InvestmentAssets>('/investments/assets', options),
   valuation: (options?: ReadOptions) => read<PortfolioValuation>('/investments/valuation', options),
+  /** The one allocation with targets and drift (ROADMAP C4). */
+  allocation: (options?: ReadOptions) => read<Allocation>('/investments/allocation', options),
+  /** The app-managed Preferences tab (WM-SET-6). */
+  preferences: (options?: ReadOptions) => read<Preferences>('/preferences', options),
+  savePreferences: (values: PreferenceValue[]) =>
+    request<Preferences>('/preferences', { method: 'POST', body: { values } }),
 
   budget: (year: number, options?: ReadOptions) => read<BudgetItem[]>('/budget', options, { year }),
   updateBudgetLimit: (input: { year: number; category: string; month?: string; limit: number }) =>

@@ -9,6 +9,8 @@ export const sections = [
   { id: 'market', label: 'Market data', groups: ['market'] },
   { id: 'cache', label: 'Cache', groups: ['cache'] },
   { id: 'capture', label: 'Smart Capture', groups: ['capture'] },
+  // Stored in the sheet's Preferences tab, not in the engine settings (WM-SET-8).
+  { id: 'goals', label: 'Goal plan', groups: [] },
 ] as const satisfies readonly { id: string; label: string; groups: readonly string[] }[];
 
 export type SectionId = (typeof sections)[number]['id'];

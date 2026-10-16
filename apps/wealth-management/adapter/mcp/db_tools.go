@@ -195,6 +195,22 @@ func (s *Server) databaseTools() []tool {
 				return db.SaveCaptureRules(args.Rules)
 			},
 		},
+		readTool("GetPreferences", "Reads the Preferences tab: allocation targets (percent, null until set), goal pool settings (emergencyMonths default 6, spendingBufferMonths default 1) and issues naming ignored rows.", db.ListPreferences),
+		{
+			definition: definition("SavePreferences", "Saves preference keys to the Preferences tab (created on first save). Allocation targets are saved together and must add up to 100; a null value clears a key.", object(map[string]any{
+				"values": map[string]any{"type": "array", "minItems": 1, "items": object(map[string]any{
+					"key":   map[string]any{"type": "string", "enum": domain.PreferenceKeyNames()},
+					"value": map[string]any{"type": []string{"number", "null"}},
+				}, "key", "value")},
+			}, "values")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var update domain.PreferencesUpdate
+				if err := decodeArguments(arguments, &update); err != nil {
+					return nil, err
+				}
+				return db.SavePreferences(update)
+			},
+		},
 		readTool("WarmAIContent", "Loads AI prompts and knowledge from the sheet and returns row counts.", db.WarmAIContent),
 		{
 			definition: definition("GetSheetInfo", "Returns the spreadsheet id and title and the time of the last successful sync.", nil),

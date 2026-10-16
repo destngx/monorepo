@@ -114,3 +114,65 @@ func TestGivenSheetFailureWhenValuationThenFails(t *testing.T) {
 		t.Fatalf("expected the sheet error, got %v", err)
 	}
 }
+
+// allocationDB adds the ledger and the Preferences tab to portfolioDB.
+type allocationDB struct {
+	portfolioDB
+	transactions []domain.Transaction
+	prefs        domain.Preferences
+	prefsErr     error
+}
+
+func (d *allocationDB) ReadLedger(bool) (domain.LedgerSnapshot, error) {
+	return domain.LedgerSnapshot{Accounts: d.accounts, Transactions: d.transactions}, nil
+}
+
+func (d *allocationDB) ListPreferences(bool) (domain.Preferences, error) {
+	return d.prefs, d.prefsErr
+}
+
+func TestGivenHoldingsAccountsMoneyLentAndTargetsWhenAllocatingThenOneAllocationCombinesThem(t *testing.T) {
+	value := 40_000_000.0
+	lent := domain.Transaction{Date: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), Payee: "Person A", Category: "Lending / Repayment", CategoryNature: domain.NatureLending, Payment: ptr(10_000_000.0)}
+	db := &allocationDB{
+		portfolioDB: portfolioDB{
+			assets:   domain.InvestmentAssets{Funds: domain.InvestmentHoldingSection{Items: []domain.Holding{{Platform: "Fmarket", Symbol: "FUND", Value: &value, Currency: domain.CurrencyVND}}}},
+			accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 60_000_000}},
+		},
+		transactions: []domain.Transaction{lent},
+		prefs:        domain.ParsePreferences([][]string{{"allocation.target.cash", "50"}, {"allocation.target.funds", "50"}, {"allocation.target.crypto", "0"}, {"bad.key", "1"}}, 2),
+	}
+	allocation, err := NewPortfolioService(db, nil, nil).Allocation(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if allocation.Line(domain.AllocationFunds).Value != 40_000_000 || allocation.Line(domain.AllocationCash).Value != 60_000_000 || allocation.Line(domain.AllocationMoneyLent).Value != 10_000_000 {
+		t.Fatalf("lines %+v", allocation.Lines)
+	}
+	if allocation.Targets == nil || !allocation.Rebalance || *allocation.Line(domain.AllocationCash).Drift != 10 {
+		t.Fatalf("targets and drift %+v", allocation)
+	}
+	// without a market server the rates are issues; the bad preference row is reported too
+	if len(allocation.Issues) != 3 {
+		t.Fatalf("issues %q", allocation.Issues)
+	}
+}
+
+func TestGivenNoMarketWhenValuingThenSheetValuesCountAndLivePricesAreIssues(t *testing.T) {
+	quantity := 1.0
+	db := &portfolioDB{assets: domain.InvestmentAssets{Crypto: domain.InvestmentHoldingSection{Items: []domain.Holding{{Platform: "Wallet", Symbol: "BTC", Quantity: &quantity}}}}}
+	valuation, err := NewPortfolioService(db, nil, nil).Valuation(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if valuation.Totals.Unvalued != 1 || valuation.Holdings[0].Issue == "" {
+		t.Fatalf("valuation %+v", valuation)
+	}
+}
+
+func TestGivenAPreferencesFailureWhenAllocatingThenItFails(t *testing.T) {
+	db := &allocationDB{prefsErr: domain.ErrConflict}
+	if _, err := NewPortfolioService(db, nil, nil).Allocation(context.Background(), false); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("err = %v", err)
+	}
+}

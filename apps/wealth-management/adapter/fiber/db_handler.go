@@ -102,6 +102,18 @@ func (h *DatabaseHandler) SaveCaptureRules(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.SaveCaptureRules(body.Rules))
 }
 
+func (h *DatabaseHandler) GetPreferences(c *fiber.Ctx) error {
+	return h.respond(c)(h.databaseService.ListPreferences(forceFresh(c)))
+}
+
+func (h *DatabaseHandler) SavePreferences(c *fiber.Ctx) error {
+	var body domain.PreferencesUpdate
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return h.respond(c)(h.databaseService.SavePreferences(body))
+}
+
 func (h *DatabaseHandler) UpdateTransaction(c *fiber.Ctx) error {
 	var body domain.TransactionUpdateInput
 	if err := c.BodyParser(&body); err != nil {

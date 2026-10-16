@@ -61,6 +61,10 @@ func (f *fakeAnalysis) Analysis(_ context.Context, symbol string, timeframe doma
 
 type fakePortfolio struct{}
 
+func (fakePortfolio) Allocation(context.Context, bool) (domain.Allocation, error) {
+	return domain.ComputeAllocation(domain.AllocationInputs{}), nil
+}
+
 func (fakePortfolio) Valuation(context.Context, bool) (domain.PortfolioValuation, error) {
 	quantity, value := 0.5, 1_500_000_000.0
 	return domain.PortfolioValuation{

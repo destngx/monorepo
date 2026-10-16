@@ -2,6 +2,7 @@ package fiber
 
 import (
 	"apps/wealth-management/adapter/logger"
+	"apps/wealth-management/domain"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -123,6 +124,18 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 			"value":   map[string]any{"type": "string", "description": "Account name (alias) or category (payee)."},
 		}}}}, "rules"),
 	})
+	preferences := api.Group("/preferences", "preferences")
+	preferences.Get("/", h.GetPreferences, RouteMeta{
+		Summary:     "Reads the app-managed Preferences tab (A Key, B Value, C Note): allocationTargets (cash, funds, crypto percent; null until all three are set and add up to 100), goalPool (emergencyMonths default 6, spendingBufferMonths default 1), the rows of known keys and issues naming ignored rows. tabExists is false before the first save.",
+		QueryParams: []RouteParameter{forceParam()},
+	})
+	preferences.Post("/", guard.Wrap(h.SavePreferences), RouteMeta{
+		Summary: "Saves preference keys: updates the key's row or appends it, creating the Preferences tab on the first save; writes no other tab. A null value clears the key. The three allocation targets are saved together and must add up to 100. Returns the preferences read back.",
+		RequestBody: jsonBody(map[string]any{"values": map[string]any{"type": "array", "minItems": 1, "items": map[string]any{"type": "object", "required": []string{"key", "value"}, "properties": map[string]any{
+			"key":   map[string]any{"type": "string", "enum": domain.PreferenceKeyNames()},
+			"value": map[string]any{"type": "number", "nullable": true, "description": "Percent for allocation targets (0-100), months for goal keys (emergencyMonths 1-24, spendingBufferMonths 0-12); null clears."},
+		}}}}, "values"),
+	})
 	api.Group("/sync", "sync").Post("/", guard.Wrap(h.Sync), RouteMeta{Summary: "Invalidates every sheet-derived cache key so the next reads come from the sheet, and records lastSyncAt."})
 	api.Group("/sheets", "sheets").Get("/info", h.GetSheetInfo, RouteMeta{Summary: "Returns {spreadsheetId, title, lastSyncAt}; lastSyncAt is the RFC3339 time of the last successful sync, null before the first."})
 	api.Group("/init", "init").Get("/", h.Init, RouteMeta{Summary: "Warms AI prompts and knowledge from the sheet and returns row counts.", QueryParams: []RouteParameter{forceParam()}})
@@ -151,4 +164,5 @@ func RegisterUnconfiguredSheetRoutes(api RouteRegistrar, cause error, log *logge
 	})
 	RegisterSheetRoutes(unavailable, NewDatabaseHandler(nil, log), WriteGuard{})
 	RegisterAnalyticsRoutes(unavailable, NewAnalyticsHandler(nil, log))
+	RegisterPortfolioRoutes(unavailable, NewPortfolioHandler(nil, log))
 }

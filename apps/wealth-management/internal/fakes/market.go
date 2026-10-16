@@ -84,6 +84,11 @@ func (f *Market) Valuation(ctx context.Context, forceFresh bool) (domain.Portfol
 	return domain.PortfolioValuation{}, f.Err
 }
 
+func (f *Market) Allocation(ctx context.Context, forceFresh bool) (domain.Allocation, error) {
+	f.record(ctx, MarketCall{Kind: "allocation", ForceRead: forceFresh})
+	return domain.ComputeAllocation(domain.AllocationInputs{}), f.Err
+}
+
 func (f *Market) RunAction(ctx context.Context, request domain.FmarketRequest, forceFresh bool) (any, error) {
 	f.record(ctx, MarketCall{Kind: "fmarket:" + string(request.Action), ForceRead: forceFresh})
 	return map[string]any{"data": map[string]any{}}, f.Err

@@ -57,7 +57,9 @@ export function applyTheme(selected: Theme, prefersDark: boolean): void {
 // Account preselected in the add-transaction form (WM-TX-4).
 export const lastUsedAccount = new Persisted<string>('wm.lastAccount', '');
 
-// Target allocation by asset class as JSON (WM-INV-20); parsed by $lib/investments/allocation.
+// Target allocation as JSON, kept here by older versions. Targets now live in
+// the Preferences tab (WM-SET-6): this is only read to offer moving them to
+// the sheet, then cleared.
 export const targetAllocation = new Persisted<string>('wm.targetAllocation', '');
 
 // Daily entry reminder (WM-TX-9): opt-in, with the hour (0-23, Vietnam time)

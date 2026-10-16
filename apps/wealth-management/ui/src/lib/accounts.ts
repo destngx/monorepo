@@ -126,19 +126,6 @@ export function liquidityBreakdown(accounts: Account[]): { tier: LiquidityTier; 
   });
 }
 
-/** Asset allocation by account group in VND: positive group totals only, archived and credit left out. */
-export function allocationByGroup(accounts: Account[]): { label: string; value: number }[] {
-  const sums = new Map<string, { label: string; value: number }>();
-  for (const account of accounts) {
-    const group = groupFor(account.type);
-    if (group.key === 'archived' || group.key === 'credit') continue;
-    const entry = sums.get(group.key) ?? { label: group.label, value: 0 };
-    entry.value += account.balance;
-    sums.set(group.key, entry);
-  }
-  return [...sums.values()].filter((entry) => entry.value > 0);
-}
-
 /** Total balance history in VND: the accounts' daily series summed by date. */
 export function totalHistory(histories: Record<string, TrendPoint[]>, accounts: Account[]): TrendPoint[] {
   const byDate = new Map<string, number>();

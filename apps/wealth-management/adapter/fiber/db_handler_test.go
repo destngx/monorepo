@@ -198,3 +198,25 @@ func TestCaptureRulesRoutes(t *testing.T) {
 		t.Fatalf("saving rules must be guarded, got %d", status)
 	}
 }
+
+func TestGivenPreferencesRoutesWhenReadingAndSavingThenTheyAreValidatedAndGuarded(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+	if status, body := call(t, app, http.MethodGet, "/api/preferences", ""); status != http.StatusOK || !strings.Contains(body, `"goalPool":{"emergencyMonths":6,"spendingBufferMonths":1}`) || !strings.Contains(body, `"allocationTargets":null`) {
+		t.Fatalf("list: %d %s", status, body)
+	}
+	targets := `{"values":[{"key":"allocation.target.cash","value":60},{"key":"allocation.target.funds","value":30},{"key":"allocation.target.crypto","value":10}]}`
+	status, body := call(t, app, http.MethodPost, "/api/preferences", targets)
+	if status != http.StatusOK || !strings.Contains(body, `"allocationTargets":{"cash":60,"funds":30,"crypto":10}`) || len(db.SavedPreferences) != 1 {
+		t.Fatalf("save: %d %s", status, body)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/preferences", `{"values":[{"key":"allocation.target.cash","value":70}]}`); status != http.StatusBadRequest || !strings.Contains(body, "add up to 100") {
+		t.Fatalf("a target set not adding up to 100 must be a 400: %d %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/preferences", `{"values":[{"key":"theme","value":1}]}`); status != http.StatusBadRequest {
+		t.Fatalf("an unknown key must be a 400, got %d", status)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/preferences", targets, "Authorization", ""); status != http.StatusUnauthorized {
+		t.Fatalf("saving preferences must be guarded, got %d", status)
+	}
+}

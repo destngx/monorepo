@@ -1,92 +1,112 @@
-import type { PortfolioTotals } from '$lib/api/types';
+import type {
+  Allocation,
+  AllocationLine,
+  AllocationStatus,
+  AllocationTargets,
+  PreferenceValue,
+  TargetClass,
+} from '$lib/api/types';
+import { PALETTE } from '$lib/charts/palette';
+import type { StatusTone } from '$lib/status';
 
-// Target allocation and drift (WM-INV-20). Classes follow the engine
-// valuation totals (WM-RULE-8): VND accounts, fund certificates, crypto.
+// The engine computes the one allocation (ROADMAP C4, WM-INV-20); this
+// module only presents it and edits the targets kept in the Preferences tab.
 
-export type AssetClass = 'cash' | 'funds' | 'crypto';
-export type Targets = Record<AssetClass, number>;
-
-export const ASSET_CLASSES: { key: AssetClass; label: string }[] = [
-  { key: 'cash', label: 'Cash (VND accounts)' },
+export const TARGET_CLASSES: { key: TargetClass; label: string }[] = [
+  { key: 'cash', label: 'Cash and deposits' },
   { key: 'funds', label: 'Fund certificates' },
   { key: 'crypto', label: 'Crypto' },
 ];
 
-/** Rebalance when any class is more than this many percentage points off target. */
-export const DRIFT_THRESHOLD = 5;
+const TARGET_KEYS: Record<TargetClass, PreferenceValue['key']> = {
+  cash: 'allocation.target.cash',
+  funds: 'allocation.target.funds',
+  crypto: 'allocation.target.crypto',
+};
 
-/** Value per class from the engine totals. */
-export function classValues(totals: Pick<PortfolioTotals, 'vndAccounts' | 'funds' | 'crypto'>): Targets {
-  return { cash: totals.vndAccounts, funds: totals.funds, crypto: totals.crypto };
+/** One fixed colour per class, from the validated series palette, so every page draws a class alike. */
+export const ALLOCATION_COLORS: Record<AllocationLine['class'], string> = {
+  cash: PALETTE[0],
+  funds: PALETTE[1],
+  crypto: PALETTE[2],
+  moneyLent: PALETTE[8],
+};
+
+/** How a line reads against its target; always shown with the status icon and this label. */
+export function lineStatus(status: AllocationStatus): { tone: StatusTone; label: string } {
+  switch (status) {
+    case 'over':
+      return { tone: 'warning', label: 'Over target' };
+    case 'under':
+      return { tone: 'warning', label: 'Under target' };
+    case 'on_target':
+      return { tone: 'good', label: 'On target' };
+    default:
+      return { tone: 'neutral', label: 'No target' };
+  }
 }
 
-/** Targets stored as JSON; null when nothing (or nothing valid) is stored. */
-export function parseTargets(raw: string): Targets | null {
+/** The headline status of the whole allocation. */
+export function allocationStatus(allocation: Allocation): { tone: StatusTone; label: string } {
+  if (!allocation.targets) return { tone: 'neutral', label: 'No targets set' };
+  return allocation.rebalance
+    ? { tone: 'warning', label: 'Rebalance suggested' }
+    : { tone: 'good', label: 'On target' };
+}
+
+/** "Cash and deposits is over target by 10.0 points" for each class beyond the threshold. */
+export function breachSummary(allocation: Allocation): string[] {
+  return allocation.lines
+    .filter((line) => (line.status === 'over' || line.status === 'under') && line.drift !== null)
+    .map(
+      (line) =>
+        `${line.label} is ${line.status === 'over' ? 'over' : 'under'} target by ${Math.abs(line.drift ?? 0).toFixed(1)} points`,
+    );
+}
+
+/** Donut slices of the lines with a value, in class order. */
+export function allocationSlices(allocation: Allocation): { label: string; value: number; color: string }[] {
+  return allocation.lines
+    .filter((line) => line.value > 0)
+    .map((line) => ({ label: line.label, value: line.value, color: ALLOCATION_COLORS[line.class] }));
+}
+
+/** Validation message for a target set, or null when the engine will accept it. */
+export function targetsError(targets: AllocationTargets): string | null {
+  for (const { key, label } of TARGET_CLASSES) {
+    const value = targets[key];
+    if (!Number.isFinite(value) || value < 0 || value > 100) return `${label} must be between 0 and 100%.`;
+  }
+  const sum = TARGET_CLASSES.reduce((total, { key }) => total + targets[key], 0);
+  if (Math.abs(sum - 100) > 0.01) return `Targets must add up to 100% (now ${Number(sum.toFixed(2))}%).`;
+  return null;
+}
+
+/** Preference values saving the three targets together, or clearing them with null. */
+export function targetValues(targets: AllocationTargets | null): PreferenceValue[] {
+  return TARGET_CLASSES.map(({ key }) => ({ key: TARGET_KEYS[key], value: targets ? targets[key] : null }));
+}
+
+/**
+ * Targets an older version kept in this browser (JSON), read once to offer
+ * moving them to the sheet; null when nothing valid is stored.
+ */
+export function parseBrowserTargets(raw: string): AllocationTargets | null {
   if (!raw) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    // A corrupt stored value means "no targets set"; the user sets them again.
+    // A corrupt stored value is treated as "no targets": there is nothing to move.
     return null;
   }
   if (!parsed || typeof parsed !== 'object') return null;
   const record = parsed as Record<string, unknown>;
-  const targets = {} as Targets;
-  for (const { key } of ASSET_CLASSES) {
+  const targets = {} as AllocationTargets;
+  for (const { key } of TARGET_CLASSES) {
     const value = record[key];
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 100) return null;
+    if (typeof value !== 'number') return null;
     targets[key] = value;
   }
-  return targets;
-}
-
-export function serializeTargets(targets: Targets): string {
-  return JSON.stringify(targets);
-}
-
-/** Validation message for a target set, or null when it is usable. */
-export function targetsError(targets: Targets): string | null {
-  for (const { key, label } of ASSET_CLASSES) {
-    const value = targets[key];
-    if (!Number.isFinite(value) || value < 0 || value > 100) return `${label} must be between 0 and 100%.`;
-  }
-  const sum = ASSET_CLASSES.reduce((total, { key }) => total + targets[key], 0);
-  if (Math.abs(sum - 100) > 0.01) return `Targets must add up to 100% (now ${Number(sum.toFixed(2))}%).`;
-  return null;
-}
-
-export interface DriftRow {
-  key: AssetClass;
-  label: string;
-  value: number;
-  currentPercent: number;
-  targetPercent: number;
-  /** Current minus target, in percentage points. */
-  drift: number;
-  breach: boolean;
-}
-
-/** Drift per class against the targets; `shouldRebalance` when any class is beyond the threshold. */
-export function computeDrift(
-  values: Targets,
-  targets: Targets,
-  threshold = DRIFT_THRESHOLD,
-): { rows: DriftRow[]; total: number; shouldRebalance: boolean } {
-  const total = ASSET_CLASSES.reduce((sum, { key }) => sum + Math.max(values[key], 0), 0);
-  const rows = ASSET_CLASSES.map(({ key, label }) => {
-    const value = Math.max(values[key], 0);
-    const currentPercent = total ? (value / total) * 100 : 0;
-    const drift = currentPercent - targets[key];
-    return {
-      key,
-      label,
-      value,
-      currentPercent,
-      targetPercent: targets[key],
-      drift,
-      breach: Math.abs(drift) > threshold,
-    };
-  });
-  return { rows, total, shouldRebalance: total > 0 && rows.some((row) => row.breach) };
+  return targetsError(targets) ? null : targets;
 }

@@ -11,6 +11,7 @@
   import BrowserPreferences from '$lib/settings/BrowserPreferences.svelte';
   import ConnectionsSection from '$lib/settings/ConnectionsSection.svelte';
   import { EngineSettingsForm } from '$lib/settings/engine.svelte';
+  import GoalPoolCard from '$lib/settings/GoalPoolCard.svelte';
   import GoogleConnect from '$lib/settings/GoogleConnect.svelte';
   import { googleAuthNotice, googleAuthParams } from '$lib/settings/googleAuth';
   import SaveBar from '$lib/settings/SaveBar.svelte';
@@ -90,6 +91,8 @@
       <ConnectionsSection />
     {:else if active === 'ai'}
       {#key form.generation}<AIStatusCard />{/key}
+    {:else if active === 'goals'}
+      <GoalPoolCard />
     {/if}
 
     {#if current.groups.length}

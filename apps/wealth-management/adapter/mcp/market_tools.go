@@ -170,5 +170,16 @@ func (s *Server) portfolioTools() []tool {
 			}
 			return portfolio.Valuation(ctx, args.Force)
 		},
+	}, {
+		definition: definition("GetAssetAllocation", "The one asset allocation (cash, fund certificates, crypto, and money lent without a target) with values, shares, targets from the Preferences tab and drift; rebalance when a class is more than 5 points off target.", object(map[string]any{"force": forceSchema})),
+		handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+			var args struct {
+				Force bool `json:"force"`
+			}
+			if err := decodeArguments(arguments, &args); err != nil {
+				return nil, err
+			}
+			return portfolio.Allocation(ctx, args.Force)
+		},
 	}}
 }

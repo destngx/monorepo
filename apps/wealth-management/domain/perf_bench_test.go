@@ -93,6 +93,6 @@ func BenchmarkComputeFinancialHealth(b *testing.B) {
 	ledger := newBenchLedger(benchLedgerSize)
 	b.ReportAllocs()
 	for b.Loop() {
-		ComputeFinancialHealth(ledger.accounts, ledger.transactions, benchToday)
+		ComputeFinancialHealth(ledger.accounts, ledger.transactions, ComputeAllocation(AllocationInputs{Accounts: ledger.accounts, Transactions: ledger.transactions}), benchToday)
 	}
 }

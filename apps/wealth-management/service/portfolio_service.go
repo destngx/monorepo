@@ -20,6 +20,8 @@ type portfolioService struct {
 	now    func() time.Time
 }
 
+// NewPortfolioService values holdings with live prices from market; with a
+// nil market only sheet values count and the rest are reported as issues.
 func NewPortfolioService(db port.DatabaseService, market port.MarketProviderService, now func() time.Time) port.PortfolioService {
 	if now == nil {
 		now = time.Now
@@ -50,6 +52,16 @@ func (s *portfolioService) Valuation(ctx context.Context, forceFresh bool) (doma
 		Rates:       map[domain.Currency]domain.ExchangeRate{},
 		RateIssues:  map[domain.Currency]string{},
 		Now:         s.now(),
+	}
+
+	if s.market == nil {
+		for _, lookup := range priceLookups(assets) {
+			in.PriceIssues[lookup.key] = errMarketNotConfigured
+		}
+		for _, currency := range []domain.Currency{domain.CurrencyUSD, domain.CurrencyUSDT} {
+			in.RateIssues[currency] = errMarketNotConfigured
+		}
+		return domain.ValuePortfolio(in), nil
 	}
 
 	var mu sync.Mutex
@@ -88,6 +100,31 @@ func (s *portfolioService) Valuation(ctx context.Context, forceFresh bool) (doma
 	group.Wait()
 
 	return domain.ValuePortfolio(in), nil
+}
+
+// errMarketNotConfigured explains missing live prices without a market server.
+const errMarketNotConfigured = "market data is not configured"
+
+// Allocation combines the valuation's holdings, the account balances, money
+// lent from the transactions and the targets from the Preferences tab.
+func (s *portfolioService) Allocation(ctx context.Context, forceFresh bool) (domain.Allocation, error) {
+	valuation, err := s.Valuation(ctx, forceFresh)
+	if err != nil {
+		return domain.Allocation{}, err
+	}
+	ledger, err := s.db.ReadLedger(forceFresh)
+	if err != nil {
+		return domain.Allocation{}, fmt.Errorf("read ledger: %w", err)
+	}
+	prefs, err := s.db.ListPreferences(forceFresh)
+	if err != nil {
+		return domain.Allocation{}, fmt.Errorf("read preferences: %w", err)
+	}
+	in := domain.AllocationInputsFromValuation(valuation)
+	in.Accounts, in.Transactions = ledger.Accounts, ledger.Transactions
+	in.Targets = prefs.AllocationTargets
+	in.Issues = append(in.Issues, prefs.Issues...)
+	return domain.ComputeAllocation(in), nil
 }
 
 type priceLookup struct {

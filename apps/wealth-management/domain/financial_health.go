@@ -68,29 +68,31 @@ type HealthRecommendation struct {
 }
 
 type FinancialHealth struct {
-	Score              float64                `json:"score"`
-	Band               HealthBand             `json:"band"`
-	Components         []HealthComponent      `json:"components"`
-	Recommendations    []HealthRecommendation `json:"recommendations"`
-	LiquidAssets       float64                `json:"liquidAssets"`
-	AvgMonthlyIncome   float64                `json:"avgMonthlyIncome"`
-	AvgMonthlyExpense  float64                `json:"avgMonthlyExpense"`
-	NetWorth           float64                `json:"netWorth"`
-	FreedomMonths      *float64               `json:"freedomMonths"`
-	Allocation         map[AssetClass]float64 `json:"allocation"`
-	LookbackMonths     int                    `json:"lookbackMonths"`
-	InsufficientIncome bool                   `json:"insufficientIncome"`
+	Score             float64                `json:"score"`
+	Band              HealthBand             `json:"band"`
+	Components        []HealthComponent      `json:"components"`
+	Recommendations   []HealthRecommendation `json:"recommendations"`
+	LiquidAssets      float64                `json:"liquidAssets"`
+	AvgMonthlyIncome  float64                `json:"avgMonthlyIncome"`
+	AvgMonthlyExpense float64                `json:"avgMonthlyExpense"`
+	NetWorth          float64                `json:"netWorth"`
+	FreedomMonths     *float64               `json:"freedomMonths"`
+	// Allocation is the one engine allocation (ROADMAP C4); the
+	// diversification pillar scores its target classes.
+	Allocation         Allocation `json:"allocation"`
+	LookbackMonths     int        `json:"lookbackMonths"`
+	InsufficientIncome bool       `json:"insufficientIncome"`
 	// MonthlyDebtPayments is the card minimums (D16).
 	MonthlyDebtPayments float64              `json:"monthlyDebtPayments"`
 	Projection          []NetWorthProjection `json:"projection"`
 }
 
-// ComputeFinancialHealth scores the last full months of activity against the targets.
-func ComputeFinancialHealth(accounts []Account, transactions []Transaction, today time.Time) FinancialHealth {
+// ComputeFinancialHealth scores the last full months of activity against
+// the targets. allocation is the engine allocation (ComputeAllocation).
+func ComputeFinancialHealth(accounts []Account, transactions []Transaction, allocation Allocation, today time.Time) FinancialHealth {
 	sheet := ComputeBalanceSheet(accounts, transactions)
-	allocation := AssetAllocation(accounts)
 	income, expense := averageIncomeExpense(transactions, today, healthLookbackMonths)
-	liquid := allocation[AssetClassCash]
+	liquid := liquidBalance(accounts)
 
 	savingsRate := 0.0
 	if income > 0 {
@@ -132,9 +134,9 @@ func ComputeFinancialHealth(accounts []Account, transactions []Transaction, toda
 			Detail:  fmt.Sprintf("%.0f / %.0f = %.2f%%", debtPayments, income, debtToIncome),
 		},
 		{
-			Key: "diversification", Label: "Diversification", Value: round2(hhi), Target: 1 / float64(len(assetClasses)), Unit: "HHI", MaxScore: healthDiversificationMax,
+			Key: "diversification", Label: "Diversification", Value: round2(hhi), Target: 1 / float64(len(TargetClasses)), Unit: "HHI", MaxScore: healthDiversificationMax,
 			Score:   round2(diversification),
-			Formula: "Herfindahl index over cash, investment and crypto; full score when evenly split",
+			Formula: "Herfindahl index over cash and deposits, fund certificates and crypto (money lent left out); full score when evenly split",
 			Detail:  allocationDetail(allocation),
 		},
 	}
@@ -214,7 +216,7 @@ func recommendationFor(component HealthComponent, health FinancialHealth) Health
 		return HealthRecommendation{component.Key, "Pay down debt", fmt.Sprintf("Debt payments take %.1f%% of monthly income (reference 35%%). Pay card balances in full each cycle.", component.Value)}
 	default:
 		if full {
-			return HealthRecommendation{component.Key, "Well diversified", "Assets are spread evenly across cash, investments and crypto."}
+			return HealthRecommendation{component.Key, "Well diversified", "Assets are spread evenly across cash, fund certificates and crypto."}
 		}
 		return HealthRecommendation{component.Key, "Diversify assets", fmt.Sprintf("Allocation is %s. Move surplus cash beyond the emergency fund into under-weighted classes.", component.Detail)}
 	}

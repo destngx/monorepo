@@ -26,9 +26,17 @@ func healthFixture() ([]Account, []Transaction) {
 	return accounts, transactions
 }
 
+// healthFor scores with the allocation of the accounts alone (no holdings).
+func healthFor(accounts []Account, transactions []Transaction, today time.Time) FinancialHealth {
+	allocation := ComputeAllocation(AllocationInputs{Accounts: accounts, Transactions: transactions, Now: today})
+	return ComputeFinancialHealth(accounts, transactions, allocation, today)
+}
+
 func TestComputeFinancialHealth(t *testing.T) {
 	accounts, transactions := healthFixture()
-	health := ComputeFinancialHealth(accounts, transactions, day(2026, 4, 15))
+	// The fund account holds certificates valued at 60M: an even three-way split.
+	allocation := ComputeAllocation(AllocationInputs{Accounts: []Account{accounts[0], accounts[2]}, Funds: 60_000_000})
+	health := ComputeFinancialHealth(accounts, transactions, allocation, day(2026, 4, 15))
 
 	scores := map[string]HealthComponent{}
 	for _, component := range health.Components {
@@ -62,14 +70,14 @@ func TestComputeFinancialHealth(t *testing.T) {
 }
 
 func TestFinancialHealthWithNoData(t *testing.T) {
-	health := ComputeFinancialHealth(nil, nil, day(2026, 4, 15))
+	health := healthFor(nil, nil, day(2026, 4, 15))
 	if health.Score != 20 || health.Band != HealthBandRed || !health.InsufficientIncome || health.FreedomMonths != nil {
 		t.Fatalf("unexpected empty health %+v", health)
 	}
 }
 
 func TestDiversificationSingleClassScoresZero(t *testing.T) {
-	hhi, score := diversificationScore(map[AssetClass]float64{AssetClassCash: 100})
+	hhi, score := diversificationScore(ComputeAllocation(AllocationInputs{Accounts: []Account{{Name: "Bank", Type: AccountTypeBank, Balance: 100}}}))
 	if hhi != 1 || score != 0 {
 		t.Fatalf("hhi %v score %v", hhi, score)
 	}
@@ -102,7 +110,7 @@ func TestGivenCardBalancesWhenScoringDebtThenCardMinimumsAreComparedToMonthlyInc
 	for month := time.January; month <= time.March; month++ {
 		transactions = append(transactions, txn(day(2026, month, 5), "Salary", CategoryTypeIncome, 0, 10_000_000))
 	}
-	health := ComputeFinancialHealth(accounts, transactions, day(2026, 4, 15))
+	health := healthFor(accounts, transactions, day(2026, 4, 15))
 
 	var debt HealthComponent
 	for _, component := range health.Components {
@@ -120,7 +128,7 @@ func TestGivenCardBalancesWhenScoringDebtThenCardMinimumsAreComparedToMonthlyInc
 }
 
 func TestGivenDebtPaymentsAndNoIncomeWhenScoringDebtThenRatioIsCapped(t *testing.T) {
-	health := ComputeFinancialHealth([]Account{{Name: "Card", Balance: -20}}, nil, day(2026, 4, 15))
+	health := healthFor([]Account{{Name: "Card", Balance: -20}}, nil, day(2026, 4, 15))
 	for _, component := range health.Components {
 		if component.Key == "debt" && (component.Value != 100 || component.Score != 0) {
 			t.Fatalf("debt %+v", component)
@@ -130,7 +138,7 @@ func TestGivenDebtPaymentsAndNoIncomeWhenScoringDebtThenRatioIsCapped(t *testing
 
 func TestGivenNetWorthWhenComputingHealthThenProjectionUsesFallbackReturnAndVNDInflation(t *testing.T) {
 	accounts, transactions := healthFixture()
-	health := ComputeFinancialHealth(accounts, transactions, day(2026, 4, 15))
+	health := healthFor(accounts, transactions, day(2026, 4, 15))
 
 	// net worth 168M at 8% nominal; real at 8% - 6% = 2%
 	want := []NetWorthProjection{

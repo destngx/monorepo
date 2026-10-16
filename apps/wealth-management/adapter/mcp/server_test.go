@@ -350,3 +350,21 @@ func TestMoneyLentTools(t *testing.T) {
 		t.Fatalf("an unknown nature should be rejected, got %v", err)
 	}
 }
+
+func TestPreferenceTools(t *testing.T) {
+	db := &fakes.Database{}
+	server := newTestServer(t, db)
+	result, err := server.CallTool(context.Background(), "GetPreferences", nil)
+	if err != nil || !strings.Contains(result.Content, `"emergencyMonths":6`) {
+		t.Fatalf("list: %v %s", err, result.Content)
+	}
+	if _, err := server.CallTool(context.Background(), "SavePreferences", json.RawMessage(`{"values":[{"key":"goal.emergencyMonths","value":4}]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if len(db.SavedPreferences) != 1 || db.Preferences.GoalPool.EmergencyMonths != 4 {
+		t.Fatalf("saved: %+v", db.SavedPreferences)
+	}
+	if _, err := server.CallTool(context.Background(), "SavePreferences", json.RawMessage(`{"values":[{"key":"allocation.target.cash","value":40}]}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("targets not adding up must be a validation error: %v", err)
+	}
+}

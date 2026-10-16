@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { Account } from './api/types';
 import {
   adjustmentHref,
-  allocationByGroup,
   creditRemaining,
   creditUtilization,
   groupAccounts,
@@ -99,23 +98,6 @@ describe('liquidity tiers (WM-ACC-8)', () => {
       { tier: 'Immediate', value: 500_000, percent: 50 },
       { tier: 'T+2', value: 250_000, percent: 25 },
       { tier: 'Illiquid', value: 250_000, percent: 25 },
-    ]);
-  });
-});
-
-describe('allocationByGroup', () => {
-  it('totals groups in VND and leaves out credit, archived and non-positive groups', () => {
-    const slices = allocationByGroup([
-      account({ type: 'active use', balance: 100 }),
-      account({ type: 'cash', balance: 50 }),
-      account({ type: 'crypto', currency: 'USDT', balance: 200 }),
-      account({ type: 'negative active use', balance: -500 }),
-      account({ type: 'deprecated', balance: 30 }),
-      account({ type: 'rarely use', balance: 0 }),
-    ]);
-    expect(slices).toEqual([
-      { label: 'Everyday Banking', value: 150 },
-      { label: 'Investments', value: 200 },
     ]);
   });
 });

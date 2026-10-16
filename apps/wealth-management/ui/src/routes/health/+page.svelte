@@ -3,7 +3,6 @@
   import { api } from '$lib/api/endpoints';
   import type { FinancialHealth, HealthComponent } from '$lib/api/types';
   import BarChart from '$lib/charts/BarChart.svelte';
-  import Donut from '$lib/charts/Donut.svelte';
   import Radar from '$lib/charts/Radar.svelte';
   import { NOMINAL, REAL } from '$lib/charts/palette';
   import Ring from '$lib/charts/Ring.svelte';
@@ -14,6 +13,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatPercent } from '$lib/format';
+  import AllocationSummary from '$lib/investments/AllocationSummary.svelte';
   import { pillarText, projectionRows } from '$lib/health';
   import { STATUS, type StatusTone } from '$lib/status';
 
@@ -30,11 +30,6 @@
 
   const axes = $derived(
     health.components.map((c) => ({ label: c.label, fraction: c.maxScore ? c.score / c.maxScore : 0 })),
-  );
-  const allocation = $derived(
-    Object.entries(health.allocation)
-      .filter(([, value]) => value > 0)
-      .map(([label, value]) => ({ label, value })),
   );
 
   // WM-RULE-12 net worth projection (nominal and inflation-adjusted).
@@ -178,20 +173,8 @@
       <p class="muted text-sm">No recommendations: every pillar is on target.</p>
     {/if}
   </Card>
-  <Card title="Asset allocation">
-    {#if allocation.length}
-      <div class="flex flex-wrap items-center gap-6">
-        <Donut items={allocation} size={160} label="Asset allocation" />
-        <ul class="space-y-1 text-sm">
-          {#each allocation as item (item.label)}
-            <li class="flex justify-between gap-6"><span>{item.label}</span><Money value={item.value} /></li>
-          {/each}
-        </ul>
-      </div>
-    {:else}
-      <p class="muted text-sm">No positive balances to allocate.</p>
-    {/if}
-  </Card>
+  <!-- ROADMAP C4: the same allocation as Investments; diversification scores it. -->
+  <AllocationSummary allocation={health.allocation} />
 </div>
 
 <!-- WM-AI-14 -->

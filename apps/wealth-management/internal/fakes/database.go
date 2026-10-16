@@ -26,7 +26,9 @@ type Database struct {
 	AIContent    domain.AIContent
 	CaptureRules []domain.CaptureRule
 	Cards        domain.CardConfig
-	Err          error
+	// Preferences, when nil, reads as a workbook without the tab.
+	Preferences *domain.Preferences
+	Err         error
 	// StaleAt, when set, is reported as the time of stale data served.
 	StaleAt time.Time
 
@@ -42,6 +44,7 @@ type Database struct {
 	Reallocations       []domain.BudgetReallocation
 	Syncs               int
 	SavedCaptureRules   [][]domain.CaptureRule
+	SavedPreferences    []domain.PreferencesUpdate
 	NatureUpdates       []domain.CategoryNatureUpdate
 }
 
@@ -191,6 +194,38 @@ func (f *Database) LoadAIContent(bool) (domain.AIContent, error) { return f.AICo
 
 func (f *Database) ListCaptureRules(bool) ([]domain.CaptureRule, error) {
 	return nonNil(f.CaptureRules), f.Err
+}
+
+func (f *Database) ListPreferences(bool) (domain.Preferences, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.preferences(), f.Err
+}
+
+func (f *Database) preferences() domain.Preferences {
+	if f.Preferences != nil {
+		return *f.Preferences
+	}
+	prefs := domain.ParsePreferences(nil, 2)
+	prefs.TabExists = false
+	return prefs
+}
+
+// SavePreferences applies the update with the domain rules and keeps it.
+func (f *Database) SavePreferences(update domain.PreferencesUpdate) (domain.Preferences, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Err != nil {
+		return domain.Preferences{}, f.Err
+	}
+	next, err := domain.ApplyPreferencesUpdate(f.preferences(), update)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	next.TabExists = true
+	f.Preferences = &next
+	f.SavedPreferences = append(f.SavedPreferences, update)
+	return next, nil
 }
 
 func (f *Database) SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureRulesSaveResult, error) {

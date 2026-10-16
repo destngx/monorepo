@@ -83,22 +83,24 @@ func TestGivenNoGoogleCredentialsWhenStartingThenSheetRoutesAnswer503NamingTheMi
 	app := fiber.New()
 	api := fiberAdapter.NewRouteRegistrar(app, "/api", "")
 
-	dbSvc, analyticsSvc := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard("", "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, configAdapter.Values{})
+	sheets := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard("", "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, nil, configAdapter.Values{})
 
-	if dbSvc != nil || analyticsSvc != nil {
+	if sheets.db != nil || sheets.analytics != nil || sheets.portfolio != nil {
 		t.Fatal("services must be nil without credentials")
 	}
-	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/api/accounts", nil), -1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if response.StatusCode != http.StatusServiceUnavailable || !strings.Contains(string(body), `"code":"SHEETS_NOT_CONFIGURED"`) || !strings.Contains(string(body), "GOOGLE_SHEETS_ID") {
-		t.Fatalf("status = %d, body = %s", response.StatusCode, body)
+	for _, path := range []string{"/api/accounts", "/api/preferences", "/api/investments/allocation"} {
+		response, err := app.Test(httptest.NewRequest(http.MethodGet, path, nil), -1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.StatusCode != http.StatusServiceUnavailable || !strings.Contains(string(body), `"code":"SHEETS_NOT_CONFIGURED"`) || !strings.Contains(string(body), "GOOGLE_SHEETS_ID") {
+			t.Fatalf("%s: status = %d, body = %s", path, response.StatusCode, body)
+		}
 	}
 }
 

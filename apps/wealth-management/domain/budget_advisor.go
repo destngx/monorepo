@@ -87,7 +87,7 @@ func ComputeAdvisorFacts(items []BudgetItem, accounts []Account, transactions []
 	facts.AverageIncome = income
 	facts.ForecastedSavings = math.Round(income - report.ProjectedSpend)
 	daily := (income - expense) / averageDaysPerMonth
-	balance := AssetAllocation(accounts)[AssetClassCash]
+	balance := liquidBalance(accounts)
 	facts.Projection = make([]ProjectionPoint, projectionDays)
 	for day := 1; day <= projectionDays; day++ {
 		facts.Projection[day-1] = ProjectionPoint{Date: today.AddDate(0, 0, day).Format(time.DateOnly), Balance: math.Round(balance + daily*float64(day))}

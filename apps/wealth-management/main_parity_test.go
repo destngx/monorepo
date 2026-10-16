@@ -34,6 +34,8 @@ var routeTools = map[string]string{
 	"GET /api/capture/rules":            "GetCaptureRules",
 	"POST /api/capture/rules":           "SaveCaptureRules",
 	"GET /api/cards/programs":           "GetCardPrograms",
+	"GET /api/preferences":              "GetPreferences",
+	"POST /api/preferences":             "SavePreferences",
 	"POST /api/sync":                    "SyncSheetsCache",
 	"GET /api/init":                     "WarmAIContent",
 
@@ -59,6 +61,7 @@ var routeTools = map[string]string{
 	"GET /api/market/pulse":                               "GetMarketPulse",
 	"GET /api/market/analysis":                            "GetMarketAnalysis",
 	"GET /api/investments/valuation":                      "GetInvestmentValuation",
+	"GET /api/investments/allocation":                     "GetAssetAllocation",
 
 	"GET /api/ai/status":               "GetAIStatus",
 	"GET /api/ai/usage":                "GetAIUsage",

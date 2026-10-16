@@ -3,6 +3,7 @@ package service
 import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/internal/fakes"
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -205,6 +206,48 @@ func TestGivenAnyFailureWhenAdvisingOnCardsThenItIsReturned(t *testing.T) {
 func TestGivenInvalidCardsWhenReadingCardReportsThenTheErrorIsReturned(t *testing.T) {
 	db := &fakes.Database{Err: domain.ErrValidation}
 	if _, err := newAnalytics(db).CardReports(false); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// staticAllocation is an AllocationSource with a fixed answer.
+type staticAllocation struct {
+	allocation domain.Allocation
+	err        error
+	forced     []bool
+}
+
+func (s *staticAllocation) Allocation(_ context.Context, forceFresh bool) (domain.Allocation, error) {
+	s.forced = append(s.forced, forceFresh)
+	return s.allocation, s.err
+}
+
+func TestGivenAnAllocationSourceWhenScoringHealthThenDiversificationUsesTheSameAllocation(t *testing.T) {
+	db := &fakes.Database{Accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 30}}}
+	source := &staticAllocation{allocation: domain.ComputeAllocation(domain.AllocationInputs{
+		Accounts: db.Accounts, Funds: 30, CryptoHoldings: 30,
+	})}
+	health, err := NewAnalyticsService(db, func() time.Time { return fixedNow }, WithAllocation(source)).FinancialHealth(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(source.forced) != 1 || !source.forced[0] || health.Allocation.TargetedTotal != 90 {
+		t.Fatalf("allocation %+v forced %v", health.Allocation, source.forced)
+	}
+	for _, component := range health.Components {
+		if component.Key == "diversification" && component.Score != 20 {
+			t.Fatalf("an even split scores full: %+v", component)
+		}
+	}
+	// emergency months still count spendable cash only
+	if health.LiquidAssets != 30 {
+		t.Fatalf("liquid %v", health.LiquidAssets)
+	}
+}
+
+func TestGivenAFailingAllocationSourceWhenScoringHealthThenTheErrorIsReturned(t *testing.T) {
+	source := &staticAllocation{err: domain.ErrNotFound}
+	if _, err := NewAnalyticsService(&fakes.Database{}, nil, WithAllocation(source)).FinancialHealth(false); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("err = %v", err)
 	}
 }

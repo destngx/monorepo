@@ -15,7 +15,7 @@ import (
 // data (WM-TEST-5).
 
 // sheetTags are the OpenAPI tags of routes that read the sheet.
-var sheetTags = []string{"accounts", "transactions", "budget", "categories", "goals", "lending", "tags", "investments", "capture", "init", "analytics"}
+var sheetTags = []string{"accounts", "transactions", "budget", "categories", "goals", "lending", "tags", "investments", "capture", "init", "analytics", "preferences"}
 
 func TestE2EEveryReadRouteParsesTheSheet(t *testing.T) {
 	h := engine(t)
@@ -247,6 +247,54 @@ func TestE2EMoneyLentAddsUp(t *testing.T) {
 	}
 	if diff := owed - ledger.OwedToYou; diff > 1 || diff < -1 {
 		t.Fatalf("owedToYou does not add up (diff %v)", diff)
+	}
+}
+
+func TestE2EPreferencesRoundTrip(t *testing.T) {
+	h := engine(t)
+	var before domain.Preferences
+	h.request(t, http.MethodGet, "/api/preferences?force=true", nil, http.StatusOK, &before)
+	months := 7.0
+	if before.GoalPool.EmergencyMonths == months {
+		months = 8
+	}
+	update := domain.PreferencesUpdate{Values: []domain.PreferenceValue{{Key: domain.PrefGoalEmergencyMonths, Value: &months}}}
+	var saved domain.Preferences
+	h.request(t, http.MethodPost, "/api/preferences", update, http.StatusOK, &saved)
+	if !saved.TabExists || saved.GoalPool.EmergencyMonths != months {
+		t.Fatalf("the saved value did not read back: %+v", saved.GoalPool)
+	}
+	var after domain.Preferences
+	h.request(t, http.MethodGet, "/api/preferences?force=true", nil, http.StatusOK, &after)
+	if after.GoalPool.EmergencyMonths != months {
+		t.Fatalf("emergencyMonths = %v after save", after.GoalPool.EmergencyMonths)
+	}
+}
+
+func TestE2EAllocationAddsUp(t *testing.T) {
+	h := engine(t)
+	var allocation domain.Allocation
+	h.request(t, http.MethodGet, "/api/investments/allocation?force=true", nil, http.StatusOK, &allocation)
+	var targeted, total float64
+	for _, line := range allocation.Lines {
+		if line.Value < 0 {
+			t.Fatalf("%s is negative", line.Class)
+		}
+		total += line.Value
+		if line.Targeted {
+			targeted += line.Value
+		}
+	}
+	if diff := total - allocation.Total; diff > 1 || diff < -1 {
+		t.Fatalf("lines do not add up to the total (diff %v)", diff)
+	}
+	if diff := targeted - allocation.TargetedTotal; diff > 1 || diff < -1 {
+		t.Fatalf("target lines do not add up to the targeted total (diff %v)", diff)
+	}
+	var health domain.FinancialHealth
+	h.request(t, http.MethodGet, "/api/analytics/health", nil, http.StatusOK, &health)
+	if diff := health.Allocation.TargetedTotal - allocation.TargetedTotal; diff > 1 || diff < -1 {
+		t.Fatalf("health and investments disagree on the allocation (diff %v)", diff)
 	}
 }
 
