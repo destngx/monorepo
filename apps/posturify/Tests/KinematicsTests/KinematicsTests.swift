@@ -906,15 +906,24 @@ final class KinematicsTests: XCTestCase {
         XCTAssertNotNil(state.keypoints.c7)
     }
     
-    func testLiveVisionTrackerOnUserImage() {
-        let imagePath = "/Users/destnguyxn/.gemini/antigravity/brain/848cf3b5-67f2-44fd-aecf-f2aee65e6e4e/.user_uploaded/media_1790704033641.jpg"
-        guard FileManager.default.fileExists(atPath: imagePath),
-              let image = NSImage(contentsOfFile: imagePath),
-              let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmapImage.cgImage else {
-            return // Skip if running on machine without user test image
+    /// Loads a real posture photo from the directory in POSTURIFY_TEST_IMAGES_DIR.
+    /// Photos of people stay out of the repo, so these tests skip when it is unset.
+    private func loadPostureTestImage(_ name: String) throws -> CGImage {
+        guard let dir = ProcessInfo.processInfo.environment["POSTURIFY_TEST_IMAGES_DIR"], !dir.isEmpty else {
+            throw XCTSkip("Set POSTURIFY_TEST_IMAGES_DIR to run tests on real posture photos")
         }
+        let imagePath = (dir as NSString).appendingPathComponent(name)
+        guard FileManager.default.fileExists(atPath: imagePath) else {
+            throw XCTSkip("Missing posture test image \(imagePath)")
+        }
+        let image = try XCTUnwrap(NSImage(contentsOfFile: imagePath), "Cannot decode \(imagePath)")
+        let tiffData = try XCTUnwrap(image.tiffRepresentation, "Cannot decode \(imagePath)")
+        let bitmapImage = try XCTUnwrap(NSBitmapImageRep(data: tiffData), "Cannot decode \(imagePath)")
+        return try XCTUnwrap(bitmapImage.cgImage, "Cannot decode \(imagePath)")
+    }
+
+    func testLiveVisionTrackerOnUserImage() throws {
+        let cgImage = try loadPostureTestImage("user.jpg")
         
         let width = cgImage.width
         let height = cgImage.height
@@ -966,15 +975,8 @@ final class KinematicsTests: XCTestCase {
         XCTAssertLessThan(state.posture.shjRatio, 2.0)
     }
     
-    func testLiveVisionTrackerOnNewBareCameraImage() {
-        let imagePath = "/Users/destnguyxn/.gemini/antigravity/brain/848cf3b5-67f2-44fd-aecf-f2aee65e6e4e/.user_uploaded/media_1790751934640.jpg"
-        guard FileManager.default.fileExists(atPath: imagePath),
-              let image = NSImage(contentsOfFile: imagePath),
-              let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmapImage.cgImage else {
-            return
-        }
+    func testLiveVisionTrackerOnNewBareCameraImage() throws {
+        let cgImage = try loadPostureTestImage("bare-camera.jpg")
         
         let width = cgImage.width
         let height = cgImage.height
@@ -1024,15 +1026,8 @@ final class KinematicsTests: XCTestCase {
         print("=================================================================\n")
     }
     
-    func testLiveVisionTrackerOnUserCollarImage() {
-        let imagePath = "/Users/destnguyxn/.gemini/antigravity/brain/848cf3b5-67f2-44fd-aecf-f2aee65e6e4e/.user_uploaded/media_1790826792852.jpg"
-        guard FileManager.default.fileExists(atPath: imagePath),
-              let image = NSImage(contentsOfFile: imagePath),
-              let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmapImage.cgImage else {
-            return
-        }
+    func testLiveVisionTrackerOnUserCollarImage() throws {
+        let cgImage = try loadPostureTestImage("collar.jpg")
         
         let width = cgImage.width
         let height = cgImage.height
@@ -1080,15 +1075,8 @@ final class KinematicsTests: XCTestCase {
         print("===================================================================\n")
     }
     
-    func testLiveVisionTrackerOnUserNguaCoImage() {
-        let imagePath = "/Users/destnguyxn/.gemini/antigravity/brain/848cf3b5-67f2-44fd-aecf-f2aee65e6e4e/.user_uploaded/media_1791010174531.png"
-        guard FileManager.default.fileExists(atPath: imagePath),
-              let image = NSImage(contentsOfFile: imagePath),
-              let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmapImage.cgImage else {
-            return
-        }
+    func testLiveVisionTrackerOnUserNguaCoImage() throws {
+        let cgImage = try loadPostureTestImage("ngua-co.png")
         
         let width = cgImage.width
         let height = cgImage.height

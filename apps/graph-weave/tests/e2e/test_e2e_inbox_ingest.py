@@ -8,12 +8,13 @@ import pytest
 API_URL = "http://localhost:8001"
 TENANT_ID = "persona"
 GENERATOR_ID = "workflow-generator:v1.0.0"
-VAULT_ROOT = "/Users/destnguyxn/projects/obsidian-vaults"
+VAULT_ROOT = os.getenv("GRAPH_WEAVE_VAULT_ROOT")
 
 @pytest.fixture
 def client():
     return httpx.Client(base_url=API_URL, timeout=120.0)
 
+@pytest.mark.skipif(not VAULT_ROOT, reason="GRAPH_WEAVE_VAULT_ROOT is not set")
 def test_inbox_ingest_generator_to_execution_real_server(client):
     """
     E2E test against the real server (localhost:8001):

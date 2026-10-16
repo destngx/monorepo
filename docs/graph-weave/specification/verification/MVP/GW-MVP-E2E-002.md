@@ -89,6 +89,6 @@ Step 5: Verify Provider Switching via Gateway
 
 ## Implementation Notes
 
-- Use the references in the [AI Gateway Integration Guide](file:///Users/destnguyxn/projects/monorepo/docs/ai-gateway/API_GUIDE.md) for expected status codes.
+- Use the references in the [AI Gateway Integration Guide](../../../../ai-gateway/API_GUIDE.md) for expected status codes.
 - Mock MCP responses for deterministic test outcomes.
 - Use a dedicated test provider entry in `ai-gateway` if available.

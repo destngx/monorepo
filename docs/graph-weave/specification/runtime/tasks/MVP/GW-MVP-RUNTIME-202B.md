@@ -90,5 +90,5 @@
 
 ## Reference Documents
 
-- [AI Gateway API Guide](file:///Users/destnguyxn/projects/monorepo/docs/ai-gateway/API_GUIDE.md)
-- [Tool Calling Guide](file:///Users/destnguyxn/projects/monorepo/docs/ai-gateway/tools/TOOL_CALLING_GUIDE.md)
+- [AI Gateway API Guide](../../../../../ai-gateway/API_GUIDE.md)
+- [Tool Calling Guide](../../../../../ai-gateway/tools/TOOL_CALLING_GUIDE.md)

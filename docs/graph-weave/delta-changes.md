@@ -79,7 +79,7 @@ This file is the incremental memory for GraphWeave. It preserves choices and con
   - **Task Refactor**: `[[GW-MVP-RUNTIME-202B]]` refactored to use `AIGatewayClient` instead of direct GitHub Copilot SDK.
   - **Verification Update**: `[[GW-MVP-E2E-002]]` updated to verify proxy connectivity, header propagation (`X-AI-Provider`), and the tool "ping-pong" loop through the gateway.
   - **Environment Change**: Replaced `GITHUB_TOKEN` with `AI_GATEWAY_URL` and `AI_GATEWAY_PROVIDER` in MVP requirements.
-  - **Documentation**: Updated `runtime/README.md` to mandate `ai-gateway` usage and include references to the [AI Gateway Integration Guide](file:///Users/destnguyxn/projects/monorepo/docs/ai-gateway/API_GUIDE.md).
+  - **Documentation**: Updated `runtime/README.md` to mandate `ai-gateway` usage and include references to the [AI Gateway Integration Guide](../ai-gateway/API_GUIDE.md).
 
 - **Post-MVP / FULL Phase Backlog**:
   - Update tests to match new factory behavior

@@ -11,6 +11,7 @@ scratch
 *.log
 *.log.*
 logs/
+/run_status.json
 # Dependencies
 node_modules
 
