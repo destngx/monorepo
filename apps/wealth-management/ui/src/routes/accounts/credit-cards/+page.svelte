@@ -1,5 +1,5 @@
 <script lang="ts">
-  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { api } from '$lib/api/endpoints';
   import { base } from '$app/paths';
   import BestCardForm from '$lib/cards/BestCardForm.svelte';
@@ -243,8 +243,10 @@
 {/if}
 
 <!-- WM-AI-5 -->
-<InsightCard
-  title="AI credit card summary"
+<RecommendationsPanel
+  title="Recommendations"
+  subtitle="From the credit card summary"
+  page="/accounts/credit-cards"
   class="mt-4"
-  load={(force, signal) => api.review('credit-summary', {}, { force, signal })}
+  review={(force, signal) => api.review('credit-summary', {}, { force, signal })}
 />

@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import BudgetAdvisor from '$lib/ai/BudgetAdvisor.svelte';
-  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { api } from '$lib/api/endpoints';
   import type { BudgetLine } from '$lib/api/types';
   import BudgetOverview from '$lib/budget/BudgetOverview.svelte';
@@ -113,10 +113,11 @@
 
 <!-- WM-BUD-5 -->
 <div class="mt-4 grid gap-4 xl:grid-cols-2">
-  <InsightCard
-    title="AI budget review"
-    subtitle={formatMonth(data.month)}
-    load={(force, signal) => api.review('budget-review', { month: data.month }, { force, signal })}
+  <RecommendationsPanel
+    title="Recommendations"
+    subtitle="From the budget review of {formatMonth(data.month)}"
+    page="/budget"
+    review={(force, signal) => api.review('budget-review', { month: data.month }, { force, signal })}
   />
   <BudgetAdvisor />
 </div>

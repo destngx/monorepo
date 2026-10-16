@@ -5,6 +5,7 @@ import (
 	"apps/wealth-management/port"
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -29,7 +30,29 @@ type structuredRequest struct {
 	facts      any
 	model      string
 	force      bool
+	// source and page name a review that feeds the recommendations list
+	// (WM-REC-2); empty for commentary that does not.
+	source string
+	page   string
+	// previous are the source's earlier items, for the outcome check.
+	previous []domain.Recommendation
 }
+
+// reviewPages are the app routes each review's recommendations belong to.
+var reviewPages = map[port.ReviewKind]string{
+	port.ReviewAccounts:     "/accounts",
+	port.ReviewBudget:       "/budget",
+	port.ReviewTransactions: "/transactions",
+	port.ReviewCreditCard:   "/accounts/credit-cards",
+	port.ReviewYear:         "/cash-flow",
+}
+
+const (
+	sourceHealth   = "financial-health"
+	pageHealth     = "/health"
+	sourceBriefing = "intelligence-briefing"
+	pageBriefing   = "/"
+)
 
 func (s *Service) structuredInsight(ctx context.Context, snap snapshot, request structuredRequest) (domain.Insight, error) {
 	return structured(ctx, s, snap, request, domain.InsightFormatInstruction, func(content string) (domain.Insight, error) {
@@ -39,6 +62,51 @@ func (s *Service) structuredInsight(ctx context.Context, snap snapshot, request 
 		}
 		return insight, insight.Normalize()
 	})
+}
+
+// reviewInsight is a structured insight that feeds the recommendations list:
+// the model sees the source's earlier items and may propose new ones and
+// judge the old; the engine records both.
+func (s *Service) reviewInsight(ctx context.Context, snap snapshot, request structuredRequest) (domain.Insight, error) {
+	request, err := s.withPrevious(ctx, request)
+	if err != nil {
+		return domain.Insight{}, err
+	}
+	insight, err := s.structuredInsight(ctx, snap, request)
+	if err != nil {
+		return domain.Insight{}, err
+	}
+	insight.Recorded = s.record(ctx, request, insight.Recommendations, insight.Outcomes)
+	return insight, nil
+}
+
+// withPrevious loads the earlier items of the request's source; without a
+// recommendations service the review runs as before.
+func (s *Service) withPrevious(ctx context.Context, request structuredRequest) (structuredRequest, error) {
+	if s.recommend == nil || request.source == "" {
+		request.source = ""
+		return request, nil
+	}
+	previous, err := s.recommend.RecentForReview(ctx, request.source)
+	if err != nil {
+		return request, fmt.Errorf("load earlier recommendations: %w", err)
+	}
+	request.previous = previous
+	return request, nil
+}
+
+// record writes a review's proposals and outcomes to the list. A failed
+// write is logged and reported in the result: the review itself stands.
+func (s *Service) record(ctx context.Context, request structuredRequest, proposals []domain.RecommendationProposal, outcomes []domain.RecommendationOutcome) *domain.RecommendationRecord {
+	if s.recommend == nil || request.source == "" {
+		return nil
+	}
+	record, err := s.recommend.Record(ctx, domain.ReviewRecommendations{Source: request.source, Page: request.page, Proposals: proposals, Outcomes: outcomes})
+	if err != nil {
+		s.log.LogError(ctx, "recording recommendations failed", err, slog.String("feature", request.feature))
+		return &domain.RecommendationRecord{Created: []domain.Recommendation{}, Checked: []domain.Recommendation{}, Error: "The recommendations could not be saved: " + err.Error()}
+	}
+	return &record
 }
 
 // structured renders task and action prompts, appends the engine facts and
@@ -69,6 +137,9 @@ func structured[T any](ctx context.Context, s *Service, snap snapshot, request s
 		user += factsBlock(request.facts)
 	}
 	user += "\n\n" + format
+	if request.source != "" {
+		user += "\n\n" + domain.RecommendationFormatInstruction + domain.PreviousRecommendationsBlock(request.previous, s.masker.Mask)
+	}
 	messages := []domain.AIMessage{{Role: domain.AIRoleSystem, Content: system}, {Role: domain.AIRoleUser, Content: user}}
 	model := s.models(domain.AIUseCaseInsight, request.model)[0]
 
@@ -97,7 +168,10 @@ func (s *Service) Review(ctx context.Context, request port.ReviewRequest) (domai
 	if err != nil {
 		return domain.Insight{}, err
 	}
-	structured := structuredRequest{feature: string(request.Kind), taskKey: "tasks/" + string(request.Kind), actionKey: "actions/" + string(request.Kind), model: request.Model, force: request.Force}
+	structured := structuredRequest{
+		feature: string(request.Kind), taskKey: "tasks/" + string(request.Kind), actionKey: "actions/" + string(request.Kind),
+		model: request.Model, force: request.Force, source: string(request.Kind), page: reviewPages[request.Kind],
+	}
 
 	switch request.Kind {
 	case port.ReviewAccounts:
@@ -158,7 +232,7 @@ func (s *Service) Review(ctx context.Context, request port.ReviewRequest) (domai
 	default:
 		return domain.Insight{}, fmt.Errorf("%w: unknown review %q", domain.ErrValidation, request.Kind)
 	}
-	return s.structuredInsight(ctx, snap, structured)
+	return s.reviewInsight(ctx, snap, structured)
 }
 
 func weekTotals(transactions []domain.Transaction, from time.Time, to time.Time) map[string]any {

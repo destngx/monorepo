@@ -23,10 +23,13 @@ type Database struct {
 	Categories   []domain.Category
 	GoalPlan     domain.GoalPlanSheet
 	Recurring    domain.RecurringSheet
-	Init         domain.InitResult
-	AIContent    domain.AIContent
-	CaptureRules []domain.CaptureRule
-	Cards        domain.CardConfig
+	// Recommendations is the tab as an in-memory store: UpdateRecommendations
+	// applies the plan's changes to it.
+	Recommendations domain.RecommendationSheet
+	Init            domain.InitResult
+	AIContent       domain.AIContent
+	CaptureRules    []domain.CaptureRule
+	Cards           domain.CardConfig
 	// Preferences, when nil, reads as a workbook without the tab.
 	Preferences *domain.Preferences
 	Err         error
@@ -60,6 +63,8 @@ type Database struct {
 	UpdatedRecurring    map[string]domain.RecurringUpdateInput
 	RecurringStatuses   map[string]domain.RecurringStatusInput
 	DeletedRecurring    map[string]string
+	// RecommendationWrites counts UpdateRecommendations calls that wrote.
+	RecommendationWrites int
 }
 
 var _ port.DatabaseService = (*Database)(nil)
@@ -396,4 +401,76 @@ func (f *Database) DeleteRecurring(id string, etag string) error {
 	}
 	f.DeletedRecurring[id] = etag
 	return f.Err
+}
+
+func (f *Database) ReadRecommendations(bool) (domain.RecommendationSheet, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.recommendations(), f.Err
+}
+
+func (f *Database) recommendations() domain.RecommendationSheet {
+	sheet := f.Recommendations
+	sheet.Items = append([]domain.Recommendation{}, sheet.Items...)
+	if sheet.Issues == nil {
+		sheet.Issues = []domain.RecommendationIssue{}
+	}
+	return sheet
+}
+
+// UpdateRecommendations runs the plan on the in-memory tab and applies it:
+// added rows go below the last one, updates rewrite the status columns and
+// every written row gets a new ETag.
+func (f *Database) UpdateRecommendations(plan domain.RecommendationPlan) (domain.RecommendationWrite, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Err != nil {
+		return domain.RecommendationWrite{}, f.Err
+	}
+	sheet := f.recommendations()
+	changes, err := plan(sheet)
+	if err != nil {
+		return domain.RecommendationWrite{}, err
+	}
+	write := domain.RecommendationWrite{Added: []string{}, Updated: []string{}}
+	if changes.Empty() {
+		write.Sheet = sheet
+		return write, nil
+	}
+	f.RecommendationWrites++
+	for _, update := range changes.Update {
+		found := false
+		for i, item := range sheet.Items {
+			if item.ID != update.ID {
+				continue
+			}
+			item.Status, item.SnoozedUntil, item.StatusChanged, item.Outcome = update.Status, update.SnoozedUntil, update.StatusChanged, update.Outcome
+			item.ETag = recommendationETag(item)
+			sheet.Items[i] = item
+			found = true
+		}
+		if !found {
+			return domain.RecommendationWrite{}, fmt.Errorf("%w: recommendation %s", domain.ErrNotFound, update.ID)
+		}
+		write.Updated = append(write.Updated, update.ID)
+	}
+	next := 2
+	for _, item := range sheet.Items {
+		next = max(next, item.Row+1)
+	}
+	for _, item := range changes.Add {
+		item.Row = next
+		next++
+		item.ETag = recommendationETag(item)
+		sheet.Items = append(sheet.Items, item)
+		write.Added = append(write.Added, item.ID)
+	}
+	sheet.Exists = true
+	f.Recommendations = sheet
+	write.Sheet = f.recommendations()
+	return write, nil
+}
+
+func recommendationETag(item domain.Recommendation) string {
+	return fmt.Sprintf("etag-%s-%s-%s-%s-%d", item.ID, item.Status, item.SnoozedUntil, item.StatusChanged, len(item.Outcome))
 }

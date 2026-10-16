@@ -1,4 +1,5 @@
 import type { CaptureLimits } from './capture';
+import type { RecommendationRecord } from './recommendations';
 
 // AI (§10). Every figure in these payloads that is not prose comes from the engine.
 
@@ -68,6 +69,8 @@ export interface Insight {
   summary: string;
   sections: InsightSection[];
   actionItems: string[];
+  /** What a review wrote to the recommendations list (WM-REC-2). */
+  recorded?: RecommendationRecord;
 }
 
 export type ReviewKind = 'account-review' | 'budget-review' | 'transaction-review' | 'credit-summary' | 'year-review';
@@ -97,6 +100,8 @@ export interface Briefing {
     cashFlow: number;
     savingsRate: number;
   };
+  /** What the briefing wrote to the recommendations list (WM-REC-2). */
+  recorded?: RecommendationRecord;
 }
 
 export interface SuggestedLimit {

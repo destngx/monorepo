@@ -45,6 +45,7 @@ type Server struct {
 	aiService        port.AIService
 	marketAnalysis   port.MarketAnalysisService
 	portfolio        port.PortfolioService
+	recommendations  port.RecommendationService
 	log              *logger.Logger
 	now              func() time.Time
 	maxRequestBytes  int
@@ -203,6 +204,9 @@ func (s *Server) tools() []tool {
 	}
 	if s.portfolio != nil {
 		tools = append(tools, s.portfolioTools()...)
+	}
+	if s.recommendations != nil {
+		tools = append(tools, s.recommendationTools()...)
 	}
 	if s.aiService != nil {
 		tools = append(tools, s.aiTools()...)

@@ -59,6 +59,10 @@ var routeTools = map[string]string{
 	"POST /api/bills/items/:id/status":    "SetRecurringItemStatus",
 	"POST /api/bills/suggestions/confirm": "ConfirmRecurringSuggestion",
 
+	"GET /api/recommendations":             "GetRecommendations",
+	"POST /api/recommendations/refresh":    "RefreshRecommendations",
+	"POST /api/recommendations/:id/status": "SetRecommendationStatus",
+
 	"GET /api/external/market/providers/:provider/health": "GetMarketProviderHealth",
 	"GET /api/external/vnstock/health":                    "GetMarketProviderHealth",
 	"GET /api/fmarket/health":                             "GetMarketProviderHealth",
@@ -164,6 +168,7 @@ func registeredRoutes(t *testing.T) []string {
 	fiberAdapter.RegisterMarketAnalysisRoutes(api, fiberAdapter.NewMarketAnalysisHandler(nil, log))
 	fiberAdapter.RegisterPortfolioRoutes(api, fiberAdapter.NewPortfolioHandler(nil, log))
 	fiberAdapter.RegisterAIRoutes(api, fiberAdapter.NewAIHandler(nil, log), guard)
+	fiberAdapter.RegisterRecommendationRoutes(api, fiberAdapter.NewRecommendationHandler(nil, log), guard)
 
 	seen := map[string]bool{}
 	routes := []string{}
@@ -196,5 +201,6 @@ func fullMCPServer(t *testing.T) *mcpAdapter.Server {
 	server.SetMarketAnalysisService(market)
 	server.SetPortfolioService(market)
 	server.SetAIService(&fakes.AI{})
+	server.SetRecommendationService(service.NewRecommendationService(&fakes.Database{}, service.NewAnalyticsService(&fakes.Database{}, nil), nil, loggerAdapter.NewTestLogger(t), nil))
 	return server
 }

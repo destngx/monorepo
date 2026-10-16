@@ -20,6 +20,13 @@ func optionalJSONBody(properties map[string]any) map[string]any {
 	return body
 }
 
+// reviewRecordSummary describes how a review feeds the recommendations list.
+const reviewRecordSummary = "The model sees this review's earlier recommendations (pending, and done in the last 60 days) and may " +
+	"return recommendations (0-3: title, action, impactVnd per year or null, evidence) and outcomes (id, verdict met|not_met|unclear, note). " +
+	"recorded reports what was written to the Recommendations tab: created (proposals not already pending for the source by title), " +
+	"duplicates, checked (items whose outcome was written; a met item still pending becomes done), ignoredOutcomes, and error when the " +
+	"list could not be written (the review still stands)."
+
 func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 	ai := api.Group("/ai", "ai")
 	ai.Get("/status", h.GetStatus, RouteMeta{Summary: "AI configuration (endpoint host, models, fallback) and required prompts missing from the Prompts sheet."})
@@ -30,7 +37,7 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 		RequestBody: jsonBody(map[string]any{"payee": schemaString, "model": schemaString}, "payee"),
 	})
 	ai.Post("/review", guard.Wrap(h.Review), RouteMeta{
-		Summary: "Structured review (summary, sections, action items) of accounts, budget, the last 7 days of transactions, credit cards, or a calendar year of income and expense.",
+		Summary: "Structured review (summary, sections, action items) of accounts, budget, the last 7 days of transactions, credit cards, or a calendar year of income and expense. " + reviewRecordSummary,
 		RequestBody: jsonBody(aiOptionProperties(map[string]any{
 			"kind":  map[string]any{"type": "string", "enum": []string{"account-review", "budget-review", "transaction-review", "credit-summary", "year-review"}},
 			"month": map[string]any{"type": "string", "description": "YYYY-MM for budget and credit-card reviews; defaults to the current month."},
@@ -39,7 +46,7 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 		}), "kind"),
 	})
 	ai.Post("/health-commentary", guard.Wrap(h.HealthCommentary), RouteMeta{
-		Summary:     "Structured commentary on the deterministic financial health score.",
+		Summary:     "Structured commentary on the deterministic financial health score. " + reviewRecordSummary,
 		RequestBody: optionalJSONBody(aiOptionProperties(nil)),
 	})
 	ai.Post("/chart-insight", guard.Wrap(h.ChartInsight), RouteMeta{
@@ -60,7 +67,7 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 		}), "card"),
 	})
 	ai.Post("/briefing", guard.Wrap(h.Briefing), RouteMeta{
-		Summary:     "Dashboard intelligence briefing: markdown briefing, alerts and pattern cards, with the engine's current-month facts.",
+		Summary:     "Dashboard intelligence briefing: markdown briefing, alerts and pattern cards, with the engine's current-month facts. " + reviewRecordSummary,
 		RequestBody: optionalJSONBody(aiOptionProperties(nil)),
 	})
 	ai.Post("/budget-advisor", guard.Wrap(h.BudgetAdvice), RouteMeta{

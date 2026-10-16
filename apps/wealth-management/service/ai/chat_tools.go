@@ -130,6 +130,29 @@ func (s *Service) chatTools() map[string]chatTool {
 			},
 		},
 	}
+	if s.recommend != nil {
+		tools = append(tools, chatTool{
+			definition: domain.AITool{Name: "getRecommendations", Description: "The recommendations list: advice from the reviews and the engine rules with its action, estimated VND impact per year, evidence, the page it belongs to, the status the user set (open, snoozed, done, dismissed) and the outcome a later review found; plus the open count and their total yearly impact.", Parameters: objectSchema(map[string]any{
+				"status": map[string]any{"type": "string", "enum": []string{"open", "snoozed", "done", "dismissed"}, "description": "Only items with this status; empty is every status"},
+				"page":   str("Only items for this app route, e.g. /budget"),
+			})},
+			run: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+				var filter domain.RecommendationFilter
+				if err := decodeArguments(arguments, &filter); err != nil {
+					return nil, err
+				}
+				list, err := s.recommend.List(ctx, filter, false)
+				if err != nil {
+					return nil, err
+				}
+				for i, item := range list.Items {
+					item.Title, item.Action, item.Evidence, item.Outcome = s.masker.Mask(item.Title), s.masker.Mask(item.Action), s.masker.Mask(item.Evidence), s.masker.Mask(item.Outcome)
+					list.Items[i] = item
+				}
+				return list, nil
+			},
+		})
+	}
 	tools = append(tools, s.marketTools(str)...)
 	byName := make(map[string]chatTool, len(tools))
 	for _, tool := range tools {

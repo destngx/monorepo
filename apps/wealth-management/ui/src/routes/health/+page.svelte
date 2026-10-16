@@ -1,5 +1,5 @@
 <script lang="ts">
-  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { api } from '$lib/api/endpoints';
   import type { FinancialHealth, HealthComponent } from '$lib/api/types';
   import BarChart from '$lib/charts/BarChart.svelte';
@@ -178,9 +178,10 @@
 </div>
 
 <!-- WM-AI-14 -->
-<InsightCard
-  title="AI commentary"
-  subtitle="What the score means and what to do next"
+<RecommendationsPanel
+  title="Recommendations"
+  subtitle="From the health review: what the score means and what to do next"
+  page="/health"
   class="mt-4"
-  load={(force, signal) => api.healthCommentary({ force, signal })}
+  review={(force, signal) => api.healthCommentary({ force, signal })}
 />

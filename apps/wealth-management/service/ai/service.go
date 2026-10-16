@@ -63,6 +63,9 @@ type Options struct {
 	Search    port.SearchService
 	Market    port.MarketAnalysisService
 	Portfolio port.PortfolioService
+	// Recommendations, when set, receives what the reviews and the briefing
+	// recommend and gives them the earlier items to check (WM-REC-2, 4).
+	Recommendations port.RecommendationService
 }
 
 type Service struct {
@@ -79,6 +82,7 @@ type Service struct {
 	search        port.SearchService
 	market        port.MarketAnalysisService
 	portfolio     port.PortfolioService
+	recommend     port.RecommendationService
 }
 
 var _ port.AIService = (*Service)(nil)
@@ -105,6 +109,7 @@ func New(client port.AIClient, db port.DatabaseService, analytics port.Analytics
 		search:        options.Search,
 		market:        options.Market,
 		portfolio:     options.Portfolio,
+		recommend:     options.Recommendations,
 	}
 }
 

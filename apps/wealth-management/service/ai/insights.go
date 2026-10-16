@@ -22,8 +22,10 @@ func (s *Service) HealthCommentary(ctx context.Context, force bool, model string
 	if err != nil {
 		return domain.Insight{}, fmt.Errorf("load dashboard: %w", err)
 	}
-	return s.structuredInsight(ctx, snap, structuredRequest{
+	return s.reviewInsight(ctx, snap, structuredRequest{
 		feature: "financial-health",
+		source:  sourceHealth,
+		page:    pageHealth,
 		taskKey: keyHealthTask,
 		taskVars: map[string]string{
 			"netWorth":         amount(snap.sheet.NetWorth),

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
   import { groupAccounts, liquidityBreakdown, sumBalances, totalHistory } from '$lib/accounts';
@@ -133,10 +133,12 @@
 {/each}
 
 <!-- WM-ACC-5 -->
-<InsightCard
-  title="AI account review"
+<RecommendationsPanel
+  title="Recommendations"
+  subtitle="From the account review"
+  page="/accounts"
   class="mt-4"
-  load={(force, signal) => api.review('account-review', {}, { force, signal })}
+  review={(force, signal) => api.review('account-review', {}, { force, signal })}
 />
 
 <AccountFormModal

@@ -59,6 +59,10 @@ import type {
   QuickCaptureOverview,
   QuickCaptureReceipt,
   ProgramComparisonReport,
+  Recommendation,
+  RecommendationFilter,
+  RecommendationList,
+  RecommendationStatusInput,
   ReallocateInput,
   ReallocateResult,
   RecurringConfirmInput,
@@ -182,6 +186,17 @@ export const api = {
     request<{ success: boolean }>(`/bills/items/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: { 'If-Match': etag },
+    }),
+  /** The recommendations list as stored; reads only (ROADMAP R7). */
+  recommendations: (filter: RecommendationFilter = {}, options?: ReadOptions) =>
+    read<RecommendationList>('/recommendations', options, { ...filter }),
+  /** Runs the engine rules, then lists; writes the Recommendations tab. */
+  refreshRecommendations: (filter: RecommendationFilter = {}, fetch?: Fetch) =>
+    request<RecommendationList>('/recommendations/refresh', { method: 'POST', fetch, query: { ...filter } }),
+  setRecommendationStatus: (id: string, etag: string, input: RecommendationStatusInput) =>
+    request<Recommendation>(`/recommendations/${encodeURIComponent(id)}/status`, {
+      method: 'POST',
+      body: { ...input, etag },
     }),
   investments: (options?: ReadOptions) => read<InvestmentAssets>('/investments/assets', options),
   valuation: (options?: ReadOptions) => read<PortfolioValuation>('/investments/valuation', options),

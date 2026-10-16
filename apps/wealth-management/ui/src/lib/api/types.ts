@@ -12,6 +12,7 @@ export * from './types/cards';
 export * from './types/health';
 export * from './types/rates';
 export * from './types/ai';
+export * from './types/recommendations';
 export * from './types/capture';
 export * from './types/market';
 export * from './types/news';

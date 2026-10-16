@@ -1,5 +1,5 @@
 <script lang="ts">
-  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { untrack } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
@@ -254,10 +254,12 @@
 >
 
 <!-- WM-TX-7 -->
-<InsightCard
-  title="AI weekly review"
+<RecommendationsPanel
+  title="Recommendations"
+  subtitle="From the weekly review of the last 7 days"
+  page="/transactions"
   class="mt-4"
-  load={(force, signal) => api.review('transaction-review', {}, { force, signal })}
+  review={(force, signal) => api.review('transaction-review', {}, { force, signal })}
 />
 
 <Modal

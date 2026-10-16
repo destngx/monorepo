@@ -119,7 +119,7 @@ func run() int {
 	if dbSvc != nil {
 		staleData.Watch(dbSvc)
 	}
-	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc, values)}
+	aiOptions := aiService.Options{CaptureLimits: captureLimits, Search: setupSearch(ctx, log, cacheSvc, values), Recommendations: sheets.recommendations}
 	if marketSvc != nil {
 		analysisSvc := service.NewMarketAnalysisService(marketSvc, nil)
 		fiberAdapter.RegisterMarketAnalysisRoutes(api, fiberAdapter.NewMarketAnalysisHandler(analysisSvc, log))
@@ -242,6 +242,8 @@ type sheetServices struct {
 	db        port.DatabaseService
 	analytics port.AnalyticsService
 	portfolio port.PortfolioService
+	// recommendations is the recommendations list (ROADMAP R7).
+	recommendations port.RecommendationService
 }
 
 // setupSheets returns nil services when the sheet is not configured; its
@@ -286,7 +288,10 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 	fiberAdapter.RegisterSheetRoutes(api, fiberAdapter.NewDatabaseHandler(dbSvc, log), guard)
 	fiberAdapter.RegisterAnalyticsRoutes(api, fiberAdapter.NewAnalyticsHandler(analyticsSvc, log))
 	fiberAdapter.RegisterPortfolioRoutes(api, fiberAdapter.NewPortfolioHandler(portfolioSvc, log))
-	return sheetServices{db: dbSvc, analytics: analyticsSvc, portfolio: portfolioSvc}
+	recommendationSvc := service.NewRecommendationService(dbSvc, analyticsSvc, portfolioSvc, log, nil)
+	mcpServer.SetRecommendationService(recommendationSvc)
+	fiberAdapter.RegisterRecommendationRoutes(api, fiberAdapter.NewRecommendationHandler(recommendationSvc, log), guard)
+	return sheetServices{db: dbSvc, analytics: analyticsSvc, portfolio: portfolioSvc, recommendations: recommendationSvc}
 }
 
 // errTestWorkbook is a WM_TEST_WORKBOOK the engine cannot serve.

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -8,6 +9,7 @@
   import { maskText } from './moneyMask';
   import { severityStatus } from './severity';
   import { AITask } from './task.svelte';
+  import { recordNote } from '$lib/recommendations/recommendations';
 
   // Dashboard intelligence briefing (WM-DASH-6, WM-AI-6).
   const task = new AITask((force, signal) => api.briefing({ force, signal }));
@@ -48,6 +50,14 @@
       </ul>
     {/if}
     <Markdown text={briefing.briefing} />
+    {#if briefing.recorded}
+      <p class="muted mt-3 text-xs" role="status">
+        {recordNote(briefing.recorded)}
+        <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/recommendations"
+          >See recommendations</a
+        >
+      </p>
+    {/if}
     {#if briefing.patterns.length}
       <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {#each briefing.patterns as pattern, index (index)}

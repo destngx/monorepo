@@ -64,7 +64,7 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		"budgetJson":       toJSON(budget),
 		"moneyLentJson":    toJSON(s.moneyLentContext(snap.lent)),
 	}
-	briefing, err := structured(ctx, s, snap, structuredRequest{
+	request, err := s.withPrevious(ctx, structuredRequest{
 		feature:   "intelligence-briefing",
 		taskKey:   "tasks/intelligence-briefing",
 		taskVars:  vars,
@@ -72,7 +72,13 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		facts:     facts,
 		model:     model,
 		force:     force,
-	}, domain.BriefingFormatInstruction, func(content string) (domain.Briefing, error) {
+		source:    sourceBriefing,
+		page:      pageBriefing,
+	})
+	if err != nil {
+		return domain.Briefing{}, err
+	}
+	briefing, err := structured(ctx, s, snap, request, domain.BriefingFormatInstruction, func(content string) (domain.Briefing, error) {
 		var briefing domain.Briefing
 		if err := domain.ParseAIJSON(content, &briefing); err != nil {
 			return briefing, err
@@ -83,6 +89,7 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		return domain.Briefing{}, err
 	}
 	briefing.Facts = facts
+	briefing.Recorded = s.record(ctx, request, briefing.Recommendations, briefing.Outcomes)
 	return briefing, nil
 }
 

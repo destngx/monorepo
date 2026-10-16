@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import AIExplain from '$lib/ai/AIExplain.svelte';
-  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { api } from '$lib/api/endpoints';
   import BarChart from '$lib/charts/BarChart.svelte';
   import Ring from '$lib/charts/Ring.svelte';
@@ -470,9 +470,11 @@
       <option value={month}>{formatMonth(month)}</option>
     {/each}
   </select>
-  <InsightCard
-    title="AI period summary"
-    subtitle="{card.name} · {formatMonth(summaryMonth)}"
-    load={(force, signal) => api.review('credit-summary', { card: card.name, month: summaryMonth }, { force, signal })}
+  <RecommendationsPanel
+    title="Recommendations"
+    subtitle="From the period summary of {card.name} · {formatMonth(summaryMonth)}"
+    page="/accounts/credit-cards"
+    review={(force, signal) =>
+      api.review('credit-summary', { card: card.name, month: summaryMonth }, { force, signal })}
   />
 </div>

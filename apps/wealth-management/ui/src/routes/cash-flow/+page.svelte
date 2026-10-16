@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import ChartInsight from '$lib/ai/ChartInsight.svelte';
-  import InsightCard from '$lib/ai/InsightCard.svelte';
+  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { api } from '$lib/api/endpoints';
   import CategoryMonthsTable from '$lib/cashflow/CategoryMonthsTable.svelte';
   import ExpenseSplitCard from '$lib/cashflow/ExpenseSplitCard.svelte';
@@ -101,12 +101,13 @@
 </div>
 
 {#if report.monthsElapsed > 0}
-  <InsightCard
-    title="AI year review"
-    subtitle={String(report.year)}
+  <RecommendationsPanel
+    title="Recommendations"
+    subtitle="From the {report.year} year review"
+    page="/cash-flow"
     class="mb-4"
-    hint="What went well, what to watch and what to do next, from this page's figures."
-    load={(force, signal) => api.review('year-review', { year: report.year }, { force, signal })}
+    hint="The year review says what went well and what to watch, and adds what to do next to your recommendations."
+    review={(force, signal) => api.review('year-review', { year: report.year }, { force, signal })}
   />
 {/if}
 

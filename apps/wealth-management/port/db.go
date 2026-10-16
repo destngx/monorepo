@@ -65,6 +65,14 @@ type DatabaseService interface {
 	SetRecurringStatus(id string, input domain.RecurringStatusInput) (domain.RecurringItem, error)
 	// DeleteRecurring clears an item row when it still matches the ETag.
 	DeleteRecurring(id string, etag string) error
+	// ReadRecommendations reads the app-managed Recommendations tab
+	// (WM-REC-1); Exists is false until the first item is written.
+	ReadRecommendations(forceFresh bool) (domain.RecommendationSheet, error)
+	// UpdateRecommendations runs the plan on a fresh read of the tab under
+	// the write lock and writes what it returns: new rows below the last
+	// one (creating the tab on first use) and the status columns H-K of
+	// existing rows. No other tab is written.
+	UpdateRecommendations(plan domain.RecommendationPlan) (domain.RecommendationWrite, error)
 	ListTags(forceFresh bool) ([]string, error)
 	GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error)
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)

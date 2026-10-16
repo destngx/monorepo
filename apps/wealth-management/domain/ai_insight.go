@@ -36,6 +36,12 @@ type Insight struct {
 	Summary     string           `json:"summary"`
 	Sections    []InsightSection `json:"sections"`
 	ActionItems []string         `json:"actionItems"`
+	// Recommendations and Outcomes are what a review proposes for the
+	// recommendations list and its verdicts on earlier items (WM-REC-2/4).
+	Recommendations []RecommendationProposal `json:"recommendations,omitempty"`
+	Outcomes        []RecommendationOutcome  `json:"outcomes,omitempty"`
+	// Recorded is what the engine wrote to the list from this review.
+	Recorded *RecommendationRecord `json:"recorded,omitempty"`
 }
 
 // Normalize validates an insight decoded from a model. Cosmetic fields are
@@ -65,6 +71,9 @@ func (i *Insight) Normalize() error {
 	}
 	i.Sections = sections
 	i.ActionItems = compactStrings(i.ActionItems, insightMaxActionItems)
+	i.Recommendations = NormalizeProposals(i.Recommendations)
+	i.Outcomes = NormalizeOutcomes(i.Outcomes)
+	i.Recorded = nil
 	return nil
 }
 

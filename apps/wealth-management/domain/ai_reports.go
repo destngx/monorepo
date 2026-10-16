@@ -106,6 +106,11 @@ type Briefing struct {
 	Alerts   []BriefingAlert   `json:"alerts"`
 	Patterns []BriefingPattern `json:"patterns"`
 	Facts    BriefingFacts     `json:"facts"`
+	// Recommendations, Outcomes and Recorded feed the recommendations list
+	// as for a review (WM-REC-2).
+	Recommendations []RecommendationProposal `json:"recommendations,omitempty"`
+	Outcomes        []RecommendationOutcome  `json:"outcomes,omitempty"`
+	Recorded        *RecommendationRecord    `json:"recorded,omitempty"`
 }
 
 // Normalize validates a briefing decoded from a model; Facts are set by the
@@ -141,6 +146,9 @@ func (b *Briefing) Normalize() error {
 		}
 	}
 	b.Patterns = patterns
+	b.Recommendations = NormalizeProposals(b.Recommendations)
+	b.Outcomes = NormalizeOutcomes(b.Outcomes)
+	b.Recorded = nil
 	return nil
 }
 

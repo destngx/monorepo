@@ -12,5 +12,6 @@ describe('nav', () => {
     expect(titleFor('/accounts/credit-cards/Visa')).toBe('Credit Cards');
     expect(titleFor('/')).toBe('Dashboard');
     expect(titleFor('/bills')).toBe('Bills');
+    expect(titleFor('/recommendations')).toBe('Recommendations');
   });
 });
