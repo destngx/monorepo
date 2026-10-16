@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -263,6 +264,27 @@ func TestBriefingAttachesFacts(t *testing.T) {
 	}
 	if strings.Contains(system, "Person B") {
 		t.Fatalf("lending payee not masked: %s", system)
+	}
+}
+
+func TestBriefingWithoutGoalsOrBillsStillRunsAndSaysWhatIsMissing(t *testing.T) {
+	db := fixtureDatabase()
+	db.GoalPlanErr = errors.New("goal plan tab unreadable")
+	db.RecurringErr = errors.New("recurring tab unreadable")
+	client := &scriptedClient{replies: []reply{{content: `{"briefing":"All good.","alerts":[],"patterns":[]}`}}}
+
+	briefing, err := newTestService(t, db, client, nil).Briefing(context.Background(), false, "")
+	if err != nil {
+		t.Fatalf("optional context must not fail the briefing: %v", err)
+	}
+	if briefing.Facts.Goals != nil || briefing.Facts.Bills != nil {
+		t.Fatalf("no goal or bills facts expected: %+v", briefing.Facts)
+	}
+	if !reflect.DeepEqual(briefing.Facts.Unavailable, []string{"goals", "bills"}) {
+		t.Fatalf("unavailable = %v", briefing.Facts.Unavailable)
+	}
+	if !strings.Contains(client.requests[0].Messages[1].Content, `"unavailable":["goals","bills"]`) {
+		t.Fatal("the model is not told which facts are missing")
 	}
 }
 

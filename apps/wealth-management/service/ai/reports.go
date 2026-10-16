@@ -18,16 +18,20 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		return domain.Briefing{}, fmt.Errorf("load dashboard: %w", err)
 	}
 	facts = facts.WithMonthComparison(dashboard)
-	plan, err := s.analytics.GoalPlan(false)
-	if err != nil {
-		return domain.Briefing{}, fmt.Errorf("load goal plan: %w", err)
+	// Goals and bills are optional context: when one cannot be read, the
+	// briefing still runs, the error is logged and the model is told.
+	if plan, err := s.analytics.GoalPlan(false); err != nil {
+		s.log.LogError(ctx, "briefing: goal plan unavailable", err)
+		facts.Unavailable = append(facts.Unavailable, "goals")
+	} else {
+		facts = facts.WithGoalPlan(plan)
 	}
-	facts = facts.WithGoalPlan(plan)
-	bills, err := s.analytics.Bills(false)
-	if err != nil {
-		return domain.Briefing{}, fmt.Errorf("load bills: %w", err)
+	if bills, err := s.analytics.Bills(false); err != nil {
+		s.log.LogError(ctx, "briefing: bills unavailable", err)
+		facts.Unavailable = append(facts.Unavailable, "bills")
+	} else {
+		facts = facts.WithBills(bills)
 	}
-	facts = facts.WithBills(bills)
 	budget := []map[string]any{}
 	for _, line := range snap.budget.Lines {
 		if line.CountsAsExpense() && (line.Spent > 0 || line.Limit > 0) {

@@ -30,6 +30,9 @@ type Database struct {
 	// Preferences, when nil, reads as a workbook without the tab.
 	Preferences *domain.Preferences
 	Err         error
+	// GoalPlanErr and RecurringErr fail only that read (optional context).
+	GoalPlanErr  error
+	RecurringErr error
 	// StaleAt, when set, is reported as the time of stale data served.
 	StaleAt time.Time
 
@@ -172,7 +175,12 @@ func (f *Database) UpdateBudgetLimit(input domain.BudgetLimitUpdate) error {
 	return f.Err
 }
 
-func (f *Database) ReadGoalPlan(bool) (domain.GoalPlanSheet, error) { return f.GoalPlan, f.Err }
+func (f *Database) ReadGoalPlan(bool) (domain.GoalPlanSheet, error) {
+	if f.GoalPlanErr != nil {
+		return domain.GoalPlanSheet{}, f.GoalPlanErr
+	}
+	return f.GoalPlan, f.Err
+}
 
 func (f *Database) SetupGoalPlan() (domain.GoalPlanSetupResult, error) {
 	f.mu.Lock()
@@ -325,7 +333,12 @@ func (f *Database) StaleSince(uint64) (time.Time, bool) {
 	return f.StaleAt, !f.StaleAt.IsZero()
 }
 
-func (f *Database) ReadRecurring(bool) (domain.RecurringSheet, error) { return f.Recurring, f.Err }
+func (f *Database) ReadRecurring(bool) (domain.RecurringSheet, error) {
+	if f.RecurringErr != nil {
+		return domain.RecurringSheet{}, f.RecurringErr
+	}
+	return f.Recurring, f.Err
+}
 
 // CreateRecurring validates like the service and records the input.
 func (f *Database) CreateRecurring(input domain.RecurringInput) (domain.RecurringItem, error) {

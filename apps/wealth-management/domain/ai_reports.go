@@ -31,6 +31,9 @@ type BriefingFacts struct {
 	// Bills summarises bills and safe-to-spend (ROADMAP R4): unpaid in the
 	// next 30 days, overdue count and safe-to-spend until the next income.
 	Bills *BillsFacts `json:"bills,omitempty"`
+	// Unavailable names optional facts that could not be loaded ("goals",
+	// "bills"), so the model does not read their absence as zero.
+	Unavailable []string `json:"unavailable,omitempty"`
 }
 
 // WithBills adds the nameless bills summary.
