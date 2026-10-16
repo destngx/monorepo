@@ -80,14 +80,14 @@ type FinancialHealth struct {
 	Allocation         map[AssetClass]float64 `json:"allocation"`
 	LookbackMonths     int                    `json:"lookbackMonths"`
 	InsufficientIncome bool                   `json:"insufficientIncome"`
-	// MonthlyDebtPayments = loan monthly payments + the card minimums.
+	// MonthlyDebtPayments is the card minimums (D16).
 	MonthlyDebtPayments float64              `json:"monthlyDebtPayments"`
 	Projection          []NetWorthProjection `json:"projection"`
 }
 
 // ComputeFinancialHealth scores the last full months of activity against the targets.
-func ComputeFinancialHealth(accounts []Account, loans []Loan, transactions []Transaction, today time.Time) FinancialHealth {
-	sheet := ComputeBalanceSheet(accounts, loans)
+func ComputeFinancialHealth(accounts []Account, transactions []Transaction, today time.Time) FinancialHealth {
+	sheet := ComputeBalanceSheet(accounts, transactions)
 	allocation := AssetAllocation(accounts)
 	income, expense := averageIncomeExpense(transactions, today, healthLookbackMonths)
 	liquid := allocation[AssetClassCash]
@@ -103,8 +103,7 @@ func ComputeFinancialHealth(accounts []Account, loans []Loan, transactions []Tra
 	case liquid > 0:
 		emergencyMonths = TargetEmergencyMonths
 	}
-	loanPayments, cardMinimums := monthlyDebtPayments(accounts, loans)
-	debtPayments := loanPayments + cardMinimums
+	debtPayments := cardMinimumPayments(accounts)
 	debtToIncome := 0.0
 	if income > 0 {
 		debtToIncome = round2(debtPayments / income * 100)
@@ -129,8 +128,8 @@ func ComputeFinancialHealth(accounts []Account, loans []Loan, transactions []Tra
 		{
 			Key: "debt", Label: "Debt to income", Value: debtToIncome, Target: ReferenceDebtToIncome, Unit: "%", MaxScore: healthDebtMax,
 			Score:   round2(healthDebtMax * clampUnit(1-debtToIncome/(2*ReferenceDebtToIncome))),
-			Formula: "(loan monthly payments + 5% of each negative account balance) / avg monthly income x 100; full score at 0%, half at 35%, zero at 70%",
-			Detail:  fmt.Sprintf("(%.0f + %.0f) / %.0f = %.2f%%", loanPayments, cardMinimums, income, debtToIncome),
+			Formula: "5% of each negative account balance (card minimum payments) / avg monthly income x 100; full score at 0%, half at 35%, zero at 70%",
+			Detail:  fmt.Sprintf("%.0f / %.0f = %.2f%%", debtPayments, income, debtToIncome),
 		},
 		{
 			Key: "diversification", Label: "Diversification", Value: round2(hhi), Target: 1 / float64(len(assetClasses)), Unit: "HHI", MaxScore: healthDiversificationMax,
@@ -156,20 +155,17 @@ func ComputeFinancialHealth(accounts []Account, loans []Loan, transactions []Tra
 	return health
 }
 
-// monthlyDebtPayments returns the loans' monthly payments and the card
-// minimums: 5% of every negative account balance, liabilities being decided
-// by balance sign as in WM-RULE-2.
-func monthlyDebtPayments(accounts []Account, loans []Loan) (float64, float64) {
-	var loanPayments, cardMinimums float64
-	for _, loan := range loans {
-		loanPayments += loan.MonthlyDebt
-	}
+// cardMinimumPayments is 5% of every negative account balance, liabilities
+// being decided by balance sign as in WM-RULE-2 (D16). Money the user owes
+// people (D30) has no payment schedule, so it is not a monthly payment.
+func cardMinimumPayments(accounts []Account) float64 {
+	var cardMinimums float64
 	for _, account := range accounts {
 		if account.Balance < 0 {
 			cardMinimums += -account.Balance * CardMinimumPaymentPercent / 100
 		}
 	}
-	return math.Round(loanPayments), math.Round(cardMinimums)
+	return math.Round(cardMinimums)
 }
 
 func averageIncomeExpense(transactions []Transaction, today time.Time, months int) (float64, float64) {
@@ -215,7 +211,7 @@ func recommendationFor(component HealthComponent, health FinancialHealth) Health
 		if full {
 			return HealthRecommendation{component.Key, "Stay debt free", "No outstanding liabilities. Keep paying cards in full each cycle."}
 		}
-		return HealthRecommendation{component.Key, "Pay down debt", fmt.Sprintf("Debt payments take %.1f%% of monthly income (reference 35%%). Clear card balances first, then loans.", component.Value)}
+		return HealthRecommendation{component.Key, "Pay down debt", fmt.Sprintf("Debt payments take %.1f%% of monthly income (reference 35%%). Pay card balances in full each cycle.", component.Value)}
 	default:
 		if full {
 			return HealthRecommendation{component.Key, "Well diversified", "Assets are spread evenly across cash, investments and crypto."}

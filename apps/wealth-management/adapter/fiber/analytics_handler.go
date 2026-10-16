@@ -91,6 +91,10 @@ func (h *AnalyticsHandler) GetFinancialHealth(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.FinancialHealth(forceFresh(c)))
 }
 
+func (h *AnalyticsHandler) GetMoneyLent(c *fiber.Ctx) error {
+	return h.respond(c)(h.analytics.MoneyLent(forceFresh(c)))
+}
+
 func (h *AnalyticsHandler) GetAccountHistories(c *fiber.Ctx) error {
 	days := defaultHistoryDays
 	if raw := strings.TrimSpace(c.Query("days")); raw != "" {

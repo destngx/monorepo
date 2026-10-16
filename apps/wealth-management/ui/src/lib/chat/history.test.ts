@@ -14,15 +14,15 @@ import {
 describe('applyEvent', () => {
   it('appends text deltas and tracks tool status', () => {
     let entry: ChatEntry = { role: 'assistant', content: '' };
-    entry = applyEvent(entry, { type: 'tool', tool: 'getLoans', status: 'running' });
-    entry = applyEvent(entry, { type: 'tool', tool: 'getLoans', status: 'ok' });
+    entry = applyEvent(entry, { type: 'tool', tool: 'getMoneyLent', status: 'running' });
+    entry = applyEvent(entry, { type: 'tool', tool: 'getMoneyLent', status: 'ok' });
     entry = applyEvent(entry, { type: 'text', delta: 'Hel' });
     entry = applyEvent(entry, { type: 'text', delta: 'lo' });
     entry = applyEvent(entry, { type: 'done', model: 'm1' });
     expect(entry).toEqual({
       role: 'assistant',
       content: 'Hello',
-      tools: [{ name: 'getLoans', status: 'ok' }],
+      tools: [{ name: 'getMoneyLent', status: 'ok' }],
       model: 'm1',
     });
   });
@@ -123,8 +123,8 @@ describe('parseHistory', () => {
 
 describe('suggestionsFor', () => {
   it('uses the most specific page', () => {
-    expect(suggestionsFor('/accounts/loans')[0]).toContain('loan');
-    expect(suggestionsFor('/accounts/loans/x')[0]).toContain('loan');
+    expect(suggestionsFor('/accounts/lent')[0]).toContain('owed me');
+    expect(suggestionsFor('/accounts/lent/x')[0]).toContain('owed me');
     expect(suggestionsFor('/budget')[0]).toContain('budget');
     expect(suggestionsFor('/unknown')).toHaveLength(2);
   });

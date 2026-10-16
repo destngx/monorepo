@@ -35,7 +35,6 @@ var RequiredPrompts = []string{
 	"tasks/account-review", "actions/account-review",
 	"tasks/budget-review", "actions/budget-review",
 	"tasks/credit-summary", "actions/credit-summary",
-	"tasks/loan-review", "actions/loan-review",
 	"tasks/transaction-review", "actions/transaction-review",
 	"tasks/year-review", "actions/year-review",
 	"tasks/intelligence-briefing", "actions/intelligence-briefing",

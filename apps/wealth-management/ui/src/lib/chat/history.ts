@@ -116,7 +116,7 @@ const SUGGESTIONS: Record<string, string[]> = {
   '/budget': ['Which categories am I over budget on?', 'Where can I cut spending to save more?'],
   '/accounts': ['Summarise my account balances.', 'How much cash do I have available?'],
   '/accounts/credit-cards': ['Which card should I use for groceries?', 'How much credit am I using?'],
-  '/accounts/loans': ['Which loan should I pay down first?', 'How much debt is left this year?'],
+  '/accounts/lent': ['Who has owed me money the longest?', 'How much money have I lent out in total?'],
   '/accounts/goals': ['Am I on track for my goals?', 'How much should I save monthly for my goals?'],
   '/investments': ['How is my portfolio allocated?', 'What are my biggest positions?'],
   '/health': ['How can I improve my financial health score?', 'Is my emergency fund large enough?'],

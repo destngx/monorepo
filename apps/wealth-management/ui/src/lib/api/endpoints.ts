@@ -22,6 +22,7 @@ import type {
   CardPaymentQuery,
   CardSuggestion,
   Category,
+  CategoryNatureInput,
   CategorySuggestion,
   ChatEvent,
   ChatMessage,
@@ -40,8 +41,8 @@ import type {
   InvestmentEvent,
   MarketAnalysis,
   MarketPulse,
+  MoneyLent,
   NewsReport,
-  Loan,
   PortfolioValuation,
   QuickCaptureOverview,
   QuickCaptureReceipt,
@@ -136,7 +137,9 @@ export const api = {
   categories: (options?: ReadOptions) => read<Category[]>('/categories', options),
   tags: (options?: ReadOptions) => read<string[]>('/tags', options),
   goals: (options?: ReadOptions) => read<Goal[]>('/goals', options),
-  loans: (options?: ReadOptions) => read<Loan[]>('/loans', options),
+  setCategoryNature: (input: CategoryNatureInput) =>
+    request<Category>('/categories/nature', { method: 'PATCH', body: input }),
+  moneyLent: (options?: ReadOptions) => read<MoneyLent>('/lending', options),
   investments: (options?: ReadOptions) => read<InvestmentAssets>('/investments/assets', options),
   valuation: (options?: ReadOptions) => read<PortfolioValuation>('/investments/valuation', options),
 

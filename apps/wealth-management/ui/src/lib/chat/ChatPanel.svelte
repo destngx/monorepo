@@ -22,7 +22,7 @@
     getRecentTransactions: 'Searching transactions',
     getBudgetStatus: 'Checking budget',
     getFinancialHealth: 'Scoring health',
-    getLoans: 'Reading loans',
+    getMoneyLent: 'Reading money lent',
     getGoals: 'Reading goals',
   };
 
@@ -220,7 +220,7 @@
         <span class="grid size-10 place-items-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"
           ><Icon name="sparkles" /></span
         >
-        <p class="muted max-w-xs text-sm">Ask about your balances, spending, budget, loans or goals.</p>
+        <p class="muted max-w-xs text-sm">Ask about your balances, spending, budget, money lent or goals.</p>
         <div class="flex flex-wrap justify-center gap-2">
           {#each suggestions as suggestion (suggestion)}
             <button

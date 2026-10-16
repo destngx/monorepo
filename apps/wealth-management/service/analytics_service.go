@@ -33,7 +33,7 @@ func (s *analyticsService) today() time.Time {
 }
 
 func (s *analyticsService) DashboardSummary(forceFresh bool) (domain.DashboardSummary, error) {
-	accounts, loans, transactions, err := s.position(forceFresh)
+	accounts, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return domain.DashboardSummary{}, err
 	}
@@ -42,7 +42,7 @@ func (s *analyticsService) DashboardSummary(forceFresh bool) (domain.DashboardSu
 		return domain.DashboardSummary{}, err
 	}
 	today := s.today()
-	summary := domain.ComputeDashboardSummary(accounts, loans, transactions, today, dashboardHistoryMonths)
+	summary := domain.ComputeDashboardSummary(accounts, transactions, today, dashboardHistoryMonths)
 	pace := domain.ComputeExpensePace(transactions, categories, today)
 	summary.ExpensePace = &pace
 	return summary, nil
@@ -134,7 +134,7 @@ func (s *analyticsService) CardReports(forceFresh bool) ([]domain.CardBankReport
 	if err != nil {
 		return nil, err
 	}
-	accounts, _, transactions, err := s.position(forceFresh)
+	accounts, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func (s *analyticsService) CardPeriod(card string, month string, forceFresh bool
 	if err != nil {
 		return domain.CardPeriodDetail{}, err
 	}
-	accounts, _, transactions, err := s.position(forceFresh)
+	accounts, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return domain.CardPeriodDetail{}, err
 	}
@@ -161,7 +161,7 @@ func (s *analyticsService) SuggestCards(query domain.CardPaymentQuery, forceFres
 	if err != nil {
 		return nil, err
 	}
-	accounts, _, transactions, err := s.position(forceFresh)
+	accounts, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (s *analyticsService) ComparePrograms(forceFresh bool) (domain.ProgramCompa
 	if err != nil {
 		return domain.ProgramComparisonReport{}, err
 	}
-	accounts, _, transactions, err := s.position(forceFresh)
+	accounts, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return domain.ProgramComparisonReport{}, err
 	}
@@ -181,18 +181,26 @@ func (s *analyticsService) ComparePrograms(forceFresh bool) (domain.ProgramCompa
 }
 
 func (s *analyticsService) FinancialHealth(forceFresh bool) (domain.FinancialHealth, error) {
-	accounts, loans, transactions, err := s.position(forceFresh)
+	accounts, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return domain.FinancialHealth{}, err
 	}
-	return domain.ComputeFinancialHealth(accounts, loans, transactions, s.today()), nil
+	return domain.ComputeFinancialHealth(accounts, transactions, s.today()), nil
+}
+
+func (s *analyticsService) MoneyLent(forceFresh bool) (domain.MoneyLent, error) {
+	transactions, err := s.db.ListTransactions(forceFresh)
+	if err != nil {
+		return domain.MoneyLent{}, err
+	}
+	return domain.ComputeMoneyLent(transactions, s.today()), nil
 }
 
 func (s *analyticsService) AccountHistories(days int, forceFresh bool) (map[string][]domain.TrendPoint, error) {
 	if days < 1 || days > maxHistoryDays {
 		return nil, fmt.Errorf("%w: days must be between 1 and %d", domain.ErrValidation, maxHistoryDays)
 	}
-	accounts, _, transactions, err := s.position(forceFresh)
+	accounts, transactions, err := s.position(forceFresh)
 	if err != nil {
 		return nil, err
 	}
@@ -208,10 +216,10 @@ func (s *analyticsService) AccountHistories(days int, forceFresh bool) (map[stri
 	return histories, nil
 }
 
-func (s *analyticsService) position(forceFresh bool) ([]domain.Account, []domain.Loan, []domain.Transaction, error) {
+func (s *analyticsService) position(forceFresh bool) ([]domain.Account, []domain.Transaction, error) {
 	ledger, err := s.db.ReadLedger(forceFresh)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return ledger.Accounts, ledger.Loans, ledger.Transactions, nil
+	return ledger.Accounts, ledger.Transactions, nil
 }

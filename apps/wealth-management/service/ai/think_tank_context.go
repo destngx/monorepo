@@ -16,7 +16,7 @@ import (
 func (s *Service) thinkTankInputs(ctx context.Context, snap snapshot, news []domain.NewsReport) thinkTankInputs {
 	inputs := thinkTankInputs{
 		Accounts:           s.accountContexts(snap.accounts),
-		Loans:              s.loanContexts(snap.loans),
+		MoneyLent:          s.moneyLentContext(snap.lent),
 		RecentTransactions: s.txContexts(recent(snap.transactions, time.Time{}, snap.today, thinkTankRecentTx)),
 		Budget:             monthLimits(snap.budget),
 		News:               news,
@@ -130,7 +130,9 @@ func monthLimits(report domain.BudgetReport) budgetLimits {
 		case domain.CategoryTypeIncome:
 			limits.Income += line.Limit
 		case domain.CategoryTypeExpense:
-			limits.Expenses += line.Limit
+			if line.CountsAsExpense() {
+				limits.Expenses += line.Limit
+			}
 		}
 	}
 	return limits
@@ -146,7 +148,7 @@ func (s *Service) thinkTankVars(snap snapshot, inputs thinkTankInputs) map[strin
 		"expenses":           amount(inputs.Budget.Expenses),
 		"p2pRate":            unavailable,
 		"accountsSummary":    toJSON(inputs.Accounts),
-		"loans":              toJSON(inputs.Loans),
+		"moneyLent":          toJSON(inputs.MoneyLent),
 		"recentTransactions": toJSON(inputs.RecentTransactions),
 		"cryptoHoldings":     "[]",
 		"ifcHoldings":        "[]",

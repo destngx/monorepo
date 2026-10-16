@@ -22,7 +22,7 @@ type AI struct {
 var _ port.AIService = (*AI)(nil)
 
 func (f *AI) Status(context.Context) domain.AIStatus {
-	return domain.AIStatus{Configured: true, MissingKeys: []string{"tasks/loan-review"}}
+	return domain.AIStatus{Configured: true, MissingKeys: []string{"tasks/year-review"}}
 }
 
 func (f *AI) ProviderUsage(context.Context) (domain.AIProviderUsage, error) {

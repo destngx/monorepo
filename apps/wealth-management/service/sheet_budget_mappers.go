@@ -9,8 +9,32 @@ import (
 func parseCategories(rows [][]string) []domain.Category {
 	categories := make([]domain.Category, 0)
 	seen := map[string]struct{}{}
+	for _, row := range scanCategoryRows(rows) {
+		key := normalizeKey(row.category.Name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		categories = append(categories, row.category)
+	}
+	sort.Slice(categories, func(i, j int) bool {
+		return categories[i].Name < categories[j].Name
+	})
+	return categories
+}
+
+// categoryRow is a category cell of the Categories tab and its 1-based row.
+type categoryRow struct {
+	category domain.Category
+	sheetRow int
+}
+
+// scanCategoryRows returns every category row under a section header, in
+// sheet order and with duplicates kept. rows must start at row 1.
+func scanCategoryRows(rows [][]string) []categoryRow {
+	found := []categoryRow{}
 	var currentGroup *domain.CategoryType
-	for _, row := range rows {
+	for i, row := range rows {
 		cell := strings.TrimSpace(cellAt(row, 0))
 		if cell == "" {
 			continue
@@ -35,17 +59,10 @@ func parseCategories(rows [][]string) []domain.Category {
 		if currentGroup == nil {
 			continue
 		}
-		key := normalizeKey(cell)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		categories = append(categories, domain.Category{Name: cell, Type: *currentGroup, Nature: domain.ParseCategoryNature(cellAt(row, 1))})
+		category := domain.Category{Name: cell, Type: *currentGroup, Nature: domain.ParseCategoryNature(cellAt(row, 1))}
+		found = append(found, categoryRow{category: category, sheetRow: i + 1})
 	}
-	sort.Slice(categories, func(i, j int) bool {
-		return categories[i].Name < categories[j].Name
-	})
-	return categories
+	return found
 }
 
 // budgetLayout locates the cells of a budget tab, for reads and limit edits.
@@ -138,11 +155,10 @@ func isJunkBudgetCategory(name string) bool {
 	return onlyDigits(lower)
 }
 
-func buildCategoryIndex(categories []domain.Category) map[string]*domain.CategoryType {
-	index := make(map[string]*domain.CategoryType, len(categories))
+func buildCategoryIndex(categories []domain.Category) map[string]domain.Category {
+	index := make(map[string]domain.Category, len(categories))
 	for _, category := range categories {
-		categoryType := category.Type
-		index[normalizeKey(category.Name)] = &categoryType
+		index[normalizeKey(category.Name)] = category
 	}
 	return index
 }

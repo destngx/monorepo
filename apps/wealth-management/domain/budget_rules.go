@@ -48,13 +48,23 @@ type BudgetLine struct {
 	YearlyRemaining float64      `json:"yearlyRemaining"`
 	// Unbudgeted marks expense spending in a category that has no budget row.
 	Unbudgeted bool `json:"unbudgeted,omitempty"`
+	// Lending marks a lending category (D30): shown, but neither expense nor
+	// part of the totals (WM-RULE-3).
+	Lending bool `json:"lending,omitempty"`
 	// BurnOutDate ("YYYY-MM-DD") is the day the limit runs out at the
 	// month's daily burn so far (WM-BUD-7); null when it will not run out
 	// this month, the month is not the current one, or there is no limit.
 	BurnOutDate *string `json:"burnOutDate"`
 }
 
-// BudgetReport is the month overview (WM-BUD-1, WM-BUD-3). Totals cover expense categories only.
+// CountsAsExpense reports whether the line is expense for totals, burn and
+// history: an expense category that is not lending.
+func (line BudgetLine) CountsAsExpense() bool {
+	return line.CategoryType == CategoryTypeExpense && !line.Lending
+}
+
+// BudgetReport is the month overview (WM-BUD-1, WM-BUD-3). Totals cover
+// expense categories only, lending categories excluded.
 type BudgetReport struct {
 	Month          string       `json:"month"`
 	DaysInMonth    int          `json:"daysInMonth"`
@@ -85,11 +95,15 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 	yearSpend := map[string]float64{}
 	categoryNames := map[string]string{}
 	categoryTypes := map[string]CategoryType{}
+	lending := map[string]bool{}
 	for _, t := range transactions {
 		if !t.Usable() {
 			continue
 		}
 		key := normalizeCategory(t.Category)
+		if t.IsLending() {
+			lending[key] = true
+		}
 		effective := EffectiveDate(t)
 		net := t.PaymentAmount() - t.DepositAmount()
 		if effective.Year() == month.Year() {
@@ -117,6 +131,7 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 			categoryType = *item.CategoryType
 		}
 		line := newBudgetLine(item.Category, categoryType, item.LimitFor(month), monthSpend[key])
+		line.Lending = lending[key]
 		line.Note = item.Note
 		line.YearlyLimit = item.YearlyLimit
 		line.YearlySpent = clampZero(yearSpend[key])
@@ -126,7 +141,7 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 		}
 	}
 	for key, spent := range monthSpend {
-		if budgeted[key] || categoryTypes[key] != CategoryTypeExpense || spent <= 0 {
+		if budgeted[key] || lending[key] || categoryTypes[key] != CategoryTypeExpense || spent <= 0 {
 			continue
 		}
 		line := newBudgetLine(categoryNames[key], CategoryTypeExpense, 0, spent)
@@ -144,7 +159,7 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 	}
 
 	for _, line := range report.Lines {
-		if line.CategoryType != CategoryTypeExpense {
+		if !line.CountsAsExpense() {
 			continue
 		}
 		report.TotalLimit += line.Limit
@@ -178,7 +193,7 @@ func newBudgetLine(category string, categoryType CategoryType, limit float64, ne
 // today included) forward; the limit runs out on the day the cumulative
 // spend reaches it. An exhausted limit has run out by today.
 func burnOutDate(line BudgetLine, today time.Time) *string {
-	if line.CategoryType != CategoryTypeExpense || line.Limit <= 0 || line.Spent <= 0 {
+	if !line.CountsAsExpense() || line.Limit <= 0 || line.Spent <= 0 {
 		return nil
 	}
 	day := today
@@ -233,7 +248,7 @@ func ComputeBudgetHistory(itemsByYear map[int][]BudgetItem, transactions []Trans
 		history.Months[m] = MonthKey(month)
 		report := ComputeBudgetReport(itemsByYear[month.Year()], transactions, month, today)
 		for _, line := range report.Lines {
-			if line.CategoryType != CategoryTypeExpense {
+			if !line.CountsAsExpense() {
 				continue
 			}
 			key := normalizeCategory(line.Category)

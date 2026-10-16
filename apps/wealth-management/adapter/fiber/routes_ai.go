@@ -30,9 +30,9 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 		RequestBody: jsonBody(map[string]any{"payee": schemaString, "model": schemaString}, "payee"),
 	})
 	ai.Post("/review", guard.Wrap(h.Review), RouteMeta{
-		Summary: "Structured review (summary, sections, action items) of accounts, budget, loans, the last 7 days of transactions, credit cards, or a calendar year of income and expense.",
+		Summary: "Structured review (summary, sections, action items) of accounts, budget, the last 7 days of transactions, credit cards, or a calendar year of income and expense.",
 		RequestBody: jsonBody(aiOptionProperties(map[string]any{
-			"kind":  map[string]any{"type": "string", "enum": []string{"account-review", "budget-review", "loan-review", "transaction-review", "credit-summary", "year-review"}},
+			"kind":  map[string]any{"type": "string", "enum": []string{"account-review", "budget-review", "transaction-review", "credit-summary", "year-review"}},
 			"month": map[string]any{"type": "string", "description": "YYYY-MM for budget and credit-card reviews; defaults to the current month."},
 			"card":  map[string]any{"type": "string", "description": "Credit-card account name; empty reviews every card."},
 			"year":  map[string]any{"type": "integer", "description": "Calendar year for year-review; defaults to the current year."},

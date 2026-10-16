@@ -118,7 +118,7 @@ func (s *Service) Review(ctx context.Context, request port.ReviewRequest) (domai
 		monthEnd := month.AddDate(0, 1, -1)
 		active := []map[string]any{}
 		for _, line := range report.Lines {
-			if line.CategoryType == domain.CategoryTypeExpense && (line.Spent > 0 || line.Limit > 0) {
+			if line.CountsAsExpense() && (line.Spent > 0 || line.Limit > 0) {
 				active = append(active, map[string]any{"category": line.Category, "spent": line.Spent, "limit": line.Limit, "remaining": line.Remaining, "percentUsed": line.PercentUsed, "status": line.Status})
 			}
 		}
@@ -134,12 +134,6 @@ func (s *Service) Review(ctx context.Context, request port.ReviewRequest) (domai
 		}
 		structured.actionVars = map[string]string{"view": "month", "date": date}
 		structured.facts = map[string]any{"month": report.Month, "daysElapsed": report.DaysElapsed, "daysInMonth": report.DaysInMonth, "dailyBurn": report.DailyBurn, "projectedSpend": report.ProjectedSpend, "status": report.Status}
-
-	case port.ReviewLoans:
-		structured.taskVars = map[string]string{
-			"totalDebt": amount(snap.sheet.LoansRemaining),
-			"loansJson": toJSON(s.loanContexts(snap.loans)),
-		}
 
 	case port.ReviewTransactions:
 		from := snap.today.AddDate(0, 0, -(weeklyReviewDays - 1))
@@ -171,11 +165,11 @@ func weekTotals(transactions []domain.Transaction, from time.Time, to time.Time)
 	var spent, received float64
 	byCategory := map[string]float64{}
 	for _, t := range transactions {
-		if t.HasCategoryType(domain.CategoryTypeExpense) {
+		if t.CountsAsExpense() {
 			spent += t.PaymentAmount()
 			byCategory[t.Category] += t.PaymentAmount()
 		}
-		if t.HasCategoryType(domain.CategoryTypeIncome) {
+		if t.CountsAsIncome() {
 			received += t.DepositAmount()
 		}
 	}

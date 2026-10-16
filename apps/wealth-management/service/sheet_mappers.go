@@ -163,23 +163,6 @@ func mapGoal(row []string, index int) (domain.Goal, bool) {
 	}, true
 }
 
-func mapLoan(row []string) (domain.Loan, bool) {
-	name := strings.TrimSpace(cellAt(row, 0))
-	if name == "" {
-		return domain.Loan{}, false
-	}
-	return domain.Loan{
-		Name:             name,
-		MonthlyDebt:      parseNumber(cellAt(row, 1)),
-		MonthlyPaid:      parseNumber(cellAt(row, 2)),
-		MonthlyRemaining: parseNumber(cellAt(row, 3)),
-		Extra:            cellAt(row, 4),
-		YearlyDebt:       parseNumber(cellAt(row, 5)),
-		YearlyPaid:       parseNumber(cellAt(row, 6)),
-		YearlyRemaining:  parseNumber(cellAt(row, 7)),
-	}, true
-}
-
 func isJunkAccountName(name string) bool {
 	lower := strings.ToLower(strings.TrimSpace(name))
 	if lower == "" {

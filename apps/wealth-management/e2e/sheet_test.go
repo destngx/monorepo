@@ -15,7 +15,7 @@ import (
 // data (WM-TEST-5).
 
 // sheetTags are the OpenAPI tags of routes that read the sheet.
-var sheetTags = []string{"accounts", "transactions", "budget", "categories", "goals", "loans", "tags", "investments", "capture", "init", "analytics"}
+var sheetTags = []string{"accounts", "transactions", "budget", "categories", "goals", "lending", "tags", "investments", "capture", "init", "analytics"}
 
 func TestE2EEveryReadRouteParsesTheSheet(t *testing.T) {
 	h := engine(t)
@@ -194,6 +194,59 @@ func TestE2ECaptureRulesRoundTrip(t *testing.T) {
 	h.request(t, http.MethodGet, "/api/capture/rules?force=true", nil, http.StatusOK, &rules)
 	if !slices.ContainsFunc(rules, func(r domain.CaptureRule) bool { return r.Pattern == pattern && r.Value == rule.Value }) {
 		t.Fatalf("the saved rule did not read back from %d rules", len(rules))
+	}
+}
+
+func TestE2ECategoryNatureRoundTrip(t *testing.T) {
+	h := engine(t)
+	var categories []domain.Category
+	h.request(t, http.MethodGet, "/api/categories?force=true", nil, http.StatusOK, &categories)
+	if len(categories) == 0 {
+		t.Fatal("the workbook has no categories")
+	}
+	category := categories[0]
+	target := domain.NatureFlexible
+	if category.Nature == target {
+		target = domain.NatureEssential
+	}
+	original := string(category.Nature)
+	if original == "" {
+		original = domain.CategoryNatureNone
+	}
+	update := map[string]any{"category": category.Name, "nature": string(target)}
+	status, _, err := h.call(http.MethodPatch, "/api/categories/nature", update, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status == http.StatusConflict {
+		t.Skipf("%s appears more than once in the Categories tab", category.Name)
+	}
+	if status != http.StatusOK {
+		t.Fatalf("PATCH /api/categories/nature = %d", status)
+	}
+	defer h.request(t, http.MethodPatch, "/api/categories/nature", map[string]any{"category": category.Name, "nature": original}, http.StatusOK, nil)
+	h.request(t, http.MethodGet, "/api/categories?force=true", nil, http.StatusOK, &categories)
+	index := slices.IndexFunc(categories, func(c domain.Category) bool { return c.Name == category.Name })
+	if index < 0 || categories[index].Nature != target {
+		t.Fatalf("%s nature did not read back as %s", category.Name, target)
+	}
+}
+
+func TestE2EMoneyLentAddsUp(t *testing.T) {
+	h := engine(t)
+	var ledger domain.MoneyLent
+	h.request(t, http.MethodGet, "/api/lending?force=true", nil, http.StatusOK, &ledger)
+	var owed float64
+	for _, person := range ledger.People {
+		if diff := person.Lent - person.Repaid - person.Outstanding; diff > 1 || diff < -1 {
+			t.Fatalf("outstanding is not lent - repaid for a person (diff %v)", diff)
+		}
+		if person.Outstanding > 0 {
+			owed += person.Outstanding
+		}
+	}
+	if diff := owed - ledger.OwedToYou; diff > 1 || diff < -1 {
+		t.Fatalf("owedToYou does not add up (diff %v)", diff)
 	}
 }
 

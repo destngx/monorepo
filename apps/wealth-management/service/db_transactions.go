@@ -27,9 +27,6 @@ func (s *dbService) ReadLedger(forceFresh bool) (domain.LedgerSnapshot, error) {
 		dataset(s, cacheKeyAccounts, &ledger.Accounts, func(rows [][][]string) ([]domain.Account, error) {
 			return parseAccounts(rows[0]), nil
 		}, accountsSheetRange),
-		dataset(s, cacheKeyLoans, &ledger.Loans, func(rows [][][]string) ([]domain.Loan, error) {
-			return parseLoans(rows[0]), nil
-		}, loansSheetRange),
 		categoriesDataset(s, &categories),
 		transactionsDataset(s, &ledger.Transactions, &categories),
 	)
@@ -61,8 +58,10 @@ func parseTransactions(rows [][]string, categories []domain.Category) []domain.T
 		if !ok {
 			continue
 		}
-		if categoryType, ok := categoryIndex[normalizeKey(transaction.Category)]; ok {
-			transaction.CategoryType = categoryType
+		if category, ok := categoryIndex[normalizeKey(transaction.Category)]; ok {
+			categoryType := category.Type
+			transaction.CategoryType = &categoryType
+			transaction.CategoryNature = category.Nature
 		}
 		transactions = append(transactions, transaction)
 	}

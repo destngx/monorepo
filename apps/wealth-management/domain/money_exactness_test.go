@@ -91,9 +91,9 @@ func TestGivenOneHundredThousandLargeBalancesWhenComputingTheBalanceSheetThenNet
 	for _, amount := range amounts {
 		accounts = append(accounts, Account{Name: "a", Type: AccountTypeBank, Currency: CurrencyVND, Balance: amount})
 	}
-	loans := []Loan{{Name: "Car", YearlyRemaining: 9_999_999_999}}
+	owed := []Transaction{lendingTxn("row-2", "2026-01-01", "Person A", 0, 9_999_999_999)}
 
-	sheet := ComputeBalanceSheet(accounts, loans)
+	sheet := ComputeBalanceSheet(accounts, owed)
 
 	if got := exactInt(t, sheet.Assets); got.Cmp(wantAssets) != 0 {
 		t.Fatalf("assets = %s, want %s", got, wantAssets)

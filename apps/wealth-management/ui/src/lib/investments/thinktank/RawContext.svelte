@@ -64,7 +64,8 @@
         </div>
       </dl>
       <p class="muted mt-1 text-xs">
-        {context.accounts.length} accounts, {context.loans.length} loans, {context.recentTransactions.length} recent transactions
+        {context.accounts.length} accounts, {context.moneyLent.open.length} open money-lent balances, {context
+          .recentTransactions.length} recent transactions
       </p>
     </div>
     <div>

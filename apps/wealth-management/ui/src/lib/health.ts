@@ -1,7 +1,7 @@
 import type { FinancialHealth, HealthComponent, NetWorthProjection } from './api/types';
 
 export const DEBT_TO_INCOME_EXPLANATION =
-  'Monthly debt payments / monthly income: loan monthly payments plus a 5% minimum on each credit card balance, over the average monthly income.';
+  'Monthly debt payments / monthly income: a 5% minimum on each credit card balance, over the average monthly income. Money lent is an asset, not a debt payment.';
 
 /**
  * Engines that send `projection` compute debt-to-income as monthly debt

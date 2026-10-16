@@ -21,7 +21,6 @@ type Database struct {
 	BudgetByYear map[int][]domain.BudgetItem
 	Info         domain.SheetInfo
 	Categories   []domain.Category
-	Loans        []domain.Loan
 	Goals        []domain.Goal
 	Init         domain.InitResult
 	AIContent    domain.AIContent
@@ -43,6 +42,7 @@ type Database struct {
 	Reallocations       []domain.BudgetReallocation
 	Syncs               int
 	SavedCaptureRules   [][]domain.CaptureRule
+	NatureUpdates       []domain.CategoryNatureUpdate
 }
 
 var _ port.DatabaseService = (*Database)(nil)
@@ -160,7 +160,17 @@ func (f *Database) UpdateBudgetLimit(input domain.BudgetLimitUpdate) error {
 
 func (f *Database) ListGoals(bool) ([]domain.Goal, error) { return nonNil(f.Goals), f.Err }
 
-func (f *Database) ListLoans(bool) ([]domain.Loan, error) { return nonNil(f.Loans), f.Err }
+// UpdateCategoryNature validates like the service and records the update.
+func (f *Database) UpdateCategoryNature(input domain.CategoryNatureUpdate) (domain.Category, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.Category{}, err
+	}
+	f.NatureUpdates = append(f.NatureUpdates, input)
+	nature, _ := input.ParsedNature()
+	return domain.Category{Name: input.Category, Type: domain.CategoryTypeExpense, Nature: nature}, f.Err
+}
 
 func nonNil[T any](values []T) []T {
 	if values == nil {
@@ -209,7 +219,7 @@ func (f *Database) SheetInfo() (domain.SheetInfo, error) { return f.Info, f.Err 
 func (f *Database) Ping() error { return f.Err }
 
 func (f *Database) ReadLedger(bool) (domain.LedgerSnapshot, error) {
-	return domain.LedgerSnapshot{Accounts: nonNil(f.Accounts), Loans: nonNil(f.Loans), Transactions: nonNil(f.Transactions)}, f.Err
+	return domain.LedgerSnapshot{Accounts: nonNil(f.Accounts), Transactions: nonNil(f.Transactions)}, f.Err
 }
 
 func (f *Database) StaleCursor() uint64 { return 0 }

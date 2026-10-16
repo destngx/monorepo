@@ -66,11 +66,11 @@ func TestEffectiveDateOnlyAppliesToRefundDeposits(t *testing.T) {
 	}
 }
 
-func TestComputeBalanceSheetIncludesLoans(t *testing.T) {
+func TestComputeBalanceSheetIncludesMoneyOwedEitherWay(t *testing.T) {
 	accounts := []Account{{Name: "Bank", Balance: 10_000_000}, {Name: "Card", Balance: -2_000_000}, {Name: "Wallet", Balance: 500_000}}
-	loans := []Loan{{Name: "Family", YearlyRemaining: 3_000_000}}
-	got := ComputeBalanceSheet(accounts, loans)
-	want := BalanceSheet{Assets: 10_500_000, Liabilities: 5_000_000, AccountsNet: 8_500_000, LoansRemaining: 3_000_000, NetWorth: 5_500_000}
+	owed := []Transaction{lendingTxn("row-2", "2026-01-01", "Person A", 0, 3_000_000)}
+	got := ComputeBalanceSheet(accounts, owed)
+	want := BalanceSheet{Assets: 10_500_000, Liabilities: 5_000_000, AccountsNet: 8_500_000, Payables: 3_000_000, NetWorth: 5_500_000}
 	if got != want {
 		t.Fatalf("got %+v want %+v", got, want)
 	}

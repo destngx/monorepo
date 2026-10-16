@@ -4,6 +4,7 @@ import (
 	"apps/wealth-management/domain"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 func (s *dbService) ListCategories(forceFresh bool) ([]domain.Category, error) {
@@ -14,6 +15,47 @@ func (s *dbService) ListCategories(forceFresh bool) ([]domain.Category, error) {
 		}
 		return parseCategories(rows), nil
 	})
+}
+
+// categoryNatureColumn is Categories column B.
+const categoryNatureColumn = "B"
+
+// UpdateCategoryNature finds the category's row by exact name (spaces
+// around it ignored) in a fresh read and writes column B (WM-LEND-5). The
+// transactions cache goes too: transactions carry their category's nature.
+func (s *dbService) UpdateCategoryNature(input domain.CategoryNatureUpdate) (domain.Category, error) {
+	if err := input.Validate(); err != nil {
+		return domain.Category{}, err
+	}
+	nature, _ := input.ParsedNature()
+	name := strings.TrimSpace(input.Category)
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	rows, err := s.client.ReadSheet(categoriesSheetRange)
+	if err != nil {
+		return domain.Category{}, fmt.Errorf("read categories: %w", err)
+	}
+	var matches []categoryRow
+	for _, row := range scanCategoryRows(rows) {
+		if row.category.Name == name {
+			matches = append(matches, row)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return domain.Category{}, fmt.Errorf("%w: category %q is not in the Categories tab", domain.ErrNotFound, name)
+	case 1:
+	default:
+		return domain.Category{}, fmt.Errorf("%w: category %q appears %d times in the Categories tab; remove the duplicates first", domain.ErrConflict, name, len(matches))
+	}
+	cell := fmt.Sprintf("Categories!%s%d", categoryNatureColumn, matches[0].sheetRow)
+	if err := s.client.UpdateRow(cell, []any{string(nature)}); err != nil {
+		return domain.Category{}, fmt.Errorf("update category nature: %w", err)
+	}
+	s.invalidate(cacheKeyCats, "transactions:*")
+	category := matches[0].category
+	category.Nature = nature
+	return category, nil
 }
 
 func (s *dbService) ListGoals(forceFresh bool) ([]domain.Goal, error) {
@@ -30,26 +72,6 @@ func (s *dbService) ListGoals(forceFresh bool) ([]domain.Goal, error) {
 		}
 		return goals, nil
 	})
-}
-
-func (s *dbService) ListLoans(forceFresh bool) ([]domain.Loan, error) {
-	return cachedRead(s, cacheKeyLoans, sheetDataTTL, forceFresh, func() ([]domain.Loan, error) {
-		rows, err := s.client.ReadSheet(loansSheetRange)
-		if err != nil {
-			return nil, fmt.Errorf("read loans: %w", err)
-		}
-		return parseLoans(rows), nil
-	})
-}
-
-func parseLoans(rows [][]string) []domain.Loan {
-	loans := make([]domain.Loan, 0)
-	for _, row := range rows {
-		if loan, ok := mapLoan(row); ok {
-			loans = append(loans, loan)
-		}
-	}
-	return loans
 }
 
 func (s *dbService) ListTags(forceFresh bool) ([]string, error) {

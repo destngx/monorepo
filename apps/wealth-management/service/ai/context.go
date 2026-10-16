@@ -28,6 +28,7 @@ func (s *Service) systemPrompt(p *prompts, snapshot snapshot, task string) (stri
 	fmt.Fprintf(&builder, "- **Today**: %s\n", snapshot.today.Format("02/01/2006"))
 	fmt.Fprintf(&builder, "- **Net worth**: %s (assets %s, liabilities %s)\n", vnd(snapshot.sheet.NetWorth), vnd(snapshot.sheet.Assets), vnd(snapshot.sheet.Liabilities))
 	fmt.Fprintf(&builder, "- **Account balances**: %s\n", snapshot.accountsLine(s.masker))
+	fmt.Fprintf(&builder, "- **Money lent**: %s\n", snapshot.moneyLentLine())
 	fmt.Fprintf(&builder, "- **Budget this month**: %s\n", snapshot.budgetLine())
 	builder.WriteString("\n---\n\n")
 	builder.WriteString(operationalDirective)
@@ -43,7 +44,7 @@ type snapshot struct {
 	today        time.Time
 	accounts     []domain.Account
 	transactions []domain.Transaction
-	loans        []domain.Loan
+	lent         domain.MoneyLent
 	sheet        domain.BalanceSheet
 	budget       domain.BudgetReport
 }
@@ -57,20 +58,17 @@ func (s *Service) loadSnapshot() (snapshot, error) {
 	if err != nil {
 		return snapshot{}, fmt.Errorf("load transactions: %w", err)
 	}
-	loans, err := s.db.ListLoans(false)
-	if err != nil {
-		return snapshot{}, fmt.Errorf("load loans: %w", err)
-	}
 	budget, err := s.analytics.BudgetReport("", false)
 	if err != nil {
 		return snapshot{}, fmt.Errorf("load budget: %w", err)
 	}
+	today := s.today()
 	return snapshot{
-		today:        s.today(),
+		today:        today,
 		accounts:     accounts,
 		transactions: usable(transactions),
-		loans:        loans,
-		sheet:        domain.ComputeBalanceSheet(accounts, loans),
+		lent:         domain.ComputeMoneyLent(transactions, today),
+		sheet:        domain.ComputeBalanceSheet(accounts, transactions),
 		budget:       budget,
 	}, nil
 }
@@ -96,10 +94,33 @@ func (s snapshot) accountsLine(masker domain.PIIMasker) string {
 	return strings.Join(parts, ", ")
 }
 
+// moneyLentLine summarises money lent without naming anyone.
+func (s snapshot) moneyLentLine() string {
+	facts := s.lent.MoneyLentFacts
+	if facts.PeopleOwing == 0 && facts.PeopleYouOwe == 0 {
+		return "nothing outstanding"
+	}
+	line := fmt.Sprintf("owed to you %s by %s", vnd(facts.OwedToYou), people(facts.PeopleOwing))
+	if facts.OldestDaysOutstanding != nil {
+		line += fmt.Sprintf(" (oldest open %d days)", *facts.OldestDaysOutstanding)
+	}
+	if facts.PeopleYouOwe > 0 {
+		line += fmt.Sprintf("; you owe %s to %s", vnd(facts.YouOwe), people(facts.PeopleYouOwe))
+	}
+	return line
+}
+
+func people(count int) string {
+	if count == 1 {
+		return "1 person"
+	}
+	return fmt.Sprintf("%d people", count)
+}
+
 func (s snapshot) budgetLine() string {
 	parts := []string{}
 	for _, line := range s.budget.Lines {
-		if line.CategoryType == domain.CategoryTypeExpense && line.Limit > 0 {
+		if line.CountsAsExpense() && line.Limit > 0 {
 			parts = append(parts, fmt.Sprintf("%s: %s / %s", line.Category, vnd(line.Spent), vnd(line.Limit)))
 		}
 	}
@@ -177,27 +198,37 @@ func (s *Service) accountContexts(accounts []domain.Account) []accountContext {
 	return out
 }
 
-type loanContext struct {
-	Name             string  `json:"name"`
-	MonthlyDebt      float64 `json:"monthlyDebt"`
-	MonthlyRemaining float64 `json:"monthlyRemaining"`
-	YearlyDebt       float64 `json:"yearlyDebt"`
-	YearlyPaid       float64 `json:"yearlyPaid"`
-	Remaining        float64 `json:"remaining"`
-	Note             string  `json:"note,omitempty"`
+// lendingContext is the model view of one open lending balance; the
+// person's name is PII-masked (D30).
+type lendingContext struct {
+	Person          string  `json:"person"`
+	Outstanding     float64 `json:"outstanding"`
+	Lent            float64 `json:"lent"`
+	Repaid          float64 `json:"repaid"`
+	LastActivity    string  `json:"lastActivity"`
+	DaysOutstanding *int    `json:"daysOutstanding,omitempty"`
 }
 
-func (s *Service) loanContexts(loans []domain.Loan) []loanContext {
-	out := make([]loanContext, 0, len(loans))
-	for _, loan := range loans {
-		out = append(out, loanContext{
-			Name:             s.masker.Mask(loan.Name),
-			MonthlyDebt:      loan.MonthlyDebt,
-			MonthlyRemaining: loan.MonthlyRemaining,
-			YearlyDebt:       loan.YearlyDebt,
-			YearlyPaid:       loan.YearlyPaid,
-			Remaining:        loan.YearlyRemaining,
-			Note:             s.masker.Mask(loan.Extra),
+// moneyLentContext is the money-lent totals and the open balances; settled
+// people are left out.
+type moneyLentContext struct {
+	domain.MoneyLentFacts
+	Open []lendingContext `json:"open"`
+}
+
+func (s *Service) moneyLentContext(lent domain.MoneyLent) moneyLentContext {
+	out := moneyLentContext{MoneyLentFacts: lent.MoneyLentFacts, Open: []lendingContext{}}
+	for _, person := range lent.People {
+		if person.Outstanding == 0 {
+			continue
+		}
+		out.Open = append(out.Open, lendingContext{
+			Person:          s.masker.Mask(person.Name),
+			Outstanding:     person.Outstanding,
+			Lent:            person.Lent,
+			Repaid:          person.Repaid,
+			LastActivity:    person.LastActivity,
+			DaysOutstanding: person.DaysOutstanding,
 		})
 	}
 	return out

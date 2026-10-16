@@ -137,7 +137,6 @@ func TestGivenSyncWhenInvalidatingThenLastGoodCopiesSurvive(t *testing.T) {
 
 func seedLedger(client *fakeSheetClient) {
 	seedAccounts(client)
-	client.ranges[loansSheetRange] = [][]string{}
 	client.ranges[categoriesSheetRange] = [][]string{{"Expense Categories"}, {"Food"}}
 	client.ranges[transactionsSheetRange] = [][]string{
 		{"Bank", "01/10/2026", "", "Shop", "", "", "Food", "", "50000"},
@@ -154,8 +153,8 @@ func TestGivenAColdCacheWhenReadingTheLedgerThenOneBatchedRequestReadsEveryRange
 	if err != nil {
 		t.Fatal(err)
 	}
-	if client.requests != 1 || len(client.reads) != 4 {
-		t.Fatalf("requests = %d reads = %v, want one batch of 4 ranges", client.requests, client.reads)
+	if client.requests != 1 || len(client.reads) != 3 {
+		t.Fatalf("requests = %d reads = %v, want one batch of 3 ranges", client.requests, client.reads)
 	}
 	if len(ledger.Accounts) != 2 || len(ledger.Transactions) != 1 || ledger.Transactions[0].CategoryType == nil {
 		t.Fatalf("ledger = %+v", ledger)
@@ -174,8 +173,8 @@ func TestGivenSomeDatasetsCachedWhenReadingTheLedgerThenOnlyMissesAreRead(t *tes
 	if _, err := svc.ReadLedger(false); err != nil {
 		t.Fatal(err)
 	}
-	if client.requests != 1 || len(client.reads) != 3 {
-		t.Fatalf("requests = %d reads = %v, want the 3 uncached ranges in one batch", client.requests, client.reads)
+	if client.requests != 1 || len(client.reads) != 2 {
+		t.Fatalf("requests = %d reads = %v, want the 2 uncached ranges in one batch", client.requests, client.reads)
 	}
 
 	client.reads, client.requests = nil, 0

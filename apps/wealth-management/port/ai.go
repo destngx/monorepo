@@ -27,7 +27,6 @@ type ReviewKind string
 const (
 	ReviewAccounts     ReviewKind = "account-review"
 	ReviewBudget       ReviewKind = "budget-review"
-	ReviewLoans        ReviewKind = "loan-review"
 	ReviewTransactions ReviewKind = "transaction-review"
 	ReviewCreditCard   ReviewKind = "credit-summary"
 	ReviewYear         ReviewKind = "year-review"

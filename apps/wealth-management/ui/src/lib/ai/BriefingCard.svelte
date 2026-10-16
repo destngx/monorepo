@@ -65,7 +65,7 @@
     <AIStatusLine
       {task}
       label="Generate briefing"
-      hint="Alerts, patterns and a short briefing from your accounts, budget, loans and recent transactions."
+      hint="Alerts, patterns and a short briefing from your accounts, budget, money lent and recent transactions."
     />
   {/if}
 </Card>

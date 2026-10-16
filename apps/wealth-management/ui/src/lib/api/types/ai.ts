@@ -70,8 +70,7 @@ export interface Insight {
   actionItems: string[];
 }
 
-export type ReviewKind =
-  'account-review' | 'budget-review' | 'loan-review' | 'transaction-review' | 'credit-summary' | 'year-review';
+export type ReviewKind = 'account-review' | 'budget-review' | 'transaction-review' | 'credit-summary' | 'year-review';
 
 export interface BriefingAlert {
   severity: InsightSeverity;

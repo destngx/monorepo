@@ -3,7 +3,7 @@ import { isActive, titleFor } from './nav';
 
 describe('nav', () => {
   it('marks parents active on sub-pages but not the dashboard', () => {
-    expect(isActive('/accounts', '/accounts/loans')).toBe(true);
+    expect(isActive('/accounts', '/accounts/lent')).toBe(true);
     expect(isActive('/', '/accounts')).toBe(false);
     expect(isActive('/accounts', '/accountsx')).toBe(false);
   });

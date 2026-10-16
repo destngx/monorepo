@@ -42,11 +42,14 @@ type DashboardSummary struct {
 // month net worth compares to the start of the month, reconstructed by
 // undoing this month's net flow; the trend is back-calculated daily. Income
 // and expense compare month to date with the same days of last month, so
-// mid-month figures are not set against a whole month.
-func ComputeDashboardSummary(accounts []Account, loans []Loan, transactions []Transaction, today time.Time, historyMonths int) DashboardSummary {
-	sheet := ComputeBalanceSheet(accounts, loans)
+// mid-month figures are not set against a whole month. Lending leaves the
+// net worth change and trend out: it moves money between an account and a
+// receivable.
+func ComputeDashboardSummary(accounts []Account, transactions []Transaction, today time.Time, historyMonths int) DashboardSummary {
+	sheet := ComputeBalanceSheet(accounts, transactions)
 	month := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
-	growth := MonthNetFlow(transactions, today)
+	netWorthFlows := WithoutLending(transactions)
+	growth := MonthNetFlow(netWorthFlows, today)
 	previous := month.AddDate(0, -1, 0)
 	thisMonth := CashFlowToDay(transactions, month, today.Day())
 	comparedDays := min(today.Day(), DaysInMonth(previous))
@@ -59,7 +62,7 @@ func ComputeDashboardSummary(accounts []Account, loans []Loan, transactions []Tr
 		BalanceSheet:          sheet,
 		NetGrowthThisMonth:    growth,
 		NetWorthChangePercent: PercentChange(sheet.NetWorth, sheet.NetWorth-growth),
-		NetWorthTrend:         BackCalculateSeries(sheet.NetWorth, transactions, today, dashboardTrendDays),
+		NetWorthTrend:         BackCalculateSeries(sheet.NetWorth, netWorthFlows, today, dashboardTrendDays),
 		ThisMonth:             thisMonth,
 		LastMonth:             ComputeCashFlow(transactions, previous),
 		LastMonthToDate:       lastMonthToDate,

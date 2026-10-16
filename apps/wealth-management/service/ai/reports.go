@@ -12,7 +12,7 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 	if err != nil {
 		return domain.Briefing{}, err
 	}
-	facts := domain.ComputeBriefingFacts(snap.accounts, snap.loans, snap.transactions, snap.today)
+	facts := domain.ComputeBriefingFacts(snap.accounts, snap.transactions, snap.today)
 	dashboard, err := s.analytics.DashboardSummary(false)
 	if err != nil {
 		return domain.Briefing{}, fmt.Errorf("load dashboard: %w", err)
@@ -20,7 +20,7 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 	facts = facts.WithMonthComparison(dashboard)
 	budget := []map[string]any{}
 	for _, line := range snap.budget.Lines {
-		if line.CategoryType == domain.CategoryTypeExpense && (line.Spent > 0 || line.Limit > 0) {
+		if line.CountsAsExpense() && (line.Spent > 0 || line.Limit > 0) {
 			budget = append(budget, map[string]any{"category": line.Category, "spent": line.Spent, "limit": line.Limit, "status": line.Status})
 		}
 	}
@@ -34,7 +34,7 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		"accountsJson":     toJSON(s.accountContexts(snap.accounts)),
 		"transactionsJson": toJSON(s.txContexts(recent(snap.transactions, monthStart.AddDate(0, -1, 0), snap.today, briefingTransactions))),
 		"budgetJson":       toJSON(budget),
-		"loansJson":        toJSON(s.loanContexts(snap.loans)),
+		"moneyLentJson":    toJSON(s.moneyLentContext(snap.lent)),
 	}
 	briefing, err := structured(ctx, s, snap, structuredRequest{
 		feature:   "intelligence-briefing",

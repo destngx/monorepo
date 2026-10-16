@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"slices"
 	"strings"
 	"time"
 )
@@ -79,9 +80,12 @@ type Transaction struct {
 	Memo            *string       `json:"memo"`
 	Category        string        `json:"category"`
 	CategoryType    *CategoryType `json:"categoryType,omitempty"`
-	Cleared         bool          `json:"cleared"`
-	Payment         *float64      `json:"payment"`
-	Deposit         *float64      `json:"deposit"`
+	// CategoryNature is joined from Categories column B like CategoryType;
+	// lending marks money lent and repaid (D30).
+	CategoryNature CategoryNature `json:"categoryNature,omitempty"`
+	Cleared        bool           `json:"cleared"`
+	Payment        *float64       `json:"payment"`
+	Deposit        *float64       `json:"deposit"`
 	// ETag fingerprints the sheet row (A-J) so edits and deletes can detect
 	// that the row changed or moved since it was read.
 	ETag string `json:"etag"`
@@ -114,31 +118,35 @@ type AccountCreateInput struct {
 type Category struct {
 	Name string       `json:"name"`
 	Type CategoryType `json:"type"`
-	// Nature tags an expense category fixed, essential or flexible (Categories column B); empty when untagged.
+	// Nature tags a category fixed, essential, flexible or lending (Categories column B); empty when untagged.
 	Nature CategoryNature `json:"nature,omitempty"`
 }
 
 // CategoryNature sorts expense by how far it can move: fixed (rent,
-// insurance, loan payments: set by a contract), essential (groceries,
-// transport, utilities: needed, but the amount can be lowered) or flexible
-// (eating out, shopping: wants).
+// insurance: set by a contract), essential (groceries, transport, utilities:
+// needed, but the amount can be lowered) or flexible (eating out, shopping:
+// wants). Lending marks money lent to and repaid by people: it is neither
+// income nor expense (WM-RULE-3, D30).
 type CategoryNature string
 
 const (
 	NatureFixed     CategoryNature = "fixed"
 	NatureEssential CategoryNature = "essential"
 	NatureFlexible  CategoryNature = "flexible"
+	NatureLending   CategoryNature = "lending"
 )
+
+// CategoryNatures lists every nature a category can be tagged with.
+var CategoryNatures = []CategoryNature{NatureFixed, NatureEssential, NatureFlexible, NatureLending}
 
 // ParseCategoryNature reads a Categories column B cell, ignoring case and
 // spaces; anything else is untagged.
 func ParseCategoryNature(cell string) CategoryNature {
-	switch nature := CategoryNature(strings.ToLower(strings.TrimSpace(cell))); nature {
-	case NatureFixed, NatureEssential, NatureFlexible:
+	nature := CategoryNature(strings.ToLower(strings.TrimSpace(cell)))
+	if slices.Contains(CategoryNatures, nature) {
 		return nature
-	default:
-		return ""
 	}
+	return ""
 }
 
 type BudgetItem struct {
@@ -182,17 +190,6 @@ type Goal struct {
 	StreakCount      int            `json:"streakCount"`
 	Milestones       []Milestone    `json:"milestones"`
 	History          []Contribution `json:"history"`
-}
-
-type Loan struct {
-	Name             string  `json:"name"`
-	MonthlyDebt      float64 `json:"monthlyDebt"`
-	MonthlyPaid      float64 `json:"monthlyPaid"`
-	MonthlyRemaining float64 `json:"monthlyRemaining"`
-	Extra            string  `json:"extra"`
-	YearlyDebt       float64 `json:"yearlyDebt"`
-	YearlyPaid       float64 `json:"yearlyPaid"`
-	YearlyRemaining  float64 `json:"yearlyRemaining"`
 }
 
 // Holding is one typed investment position (WM-DATA-7). Value is in

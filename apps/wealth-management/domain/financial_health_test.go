@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func healthFixture() ([]Account, []Loan, []Transaction) {
+func healthFixture() ([]Account, []Transaction) {
 	accounts := []Account{
 		{Name: "Bank", Type: AccountTypeBank, Balance: 60_000_000},
 		{Name: "Fund", Type: AccountTypeInvestment, Balance: 60_000_000},
@@ -23,12 +23,12 @@ func healthFixture() ([]Account, []Loan, []Transaction) {
 	}
 	// the current month is excluded from the lookback
 	transactions = append(transactions, txn(day(2026, 4, 2), "Food", CategoryTypeExpense, 50_000_000, 0))
-	return accounts, nil, transactions
+	return accounts, transactions
 }
 
 func TestComputeFinancialHealth(t *testing.T) {
-	accounts, loans, transactions := healthFixture()
-	health := ComputeFinancialHealth(accounts, loans, transactions, day(2026, 4, 15))
+	accounts, transactions := healthFixture()
+	health := ComputeFinancialHealth(accounts, transactions, day(2026, 4, 15))
 
 	scores := map[string]HealthComponent{}
 	for _, component := range health.Components {
@@ -62,7 +62,7 @@ func TestComputeFinancialHealth(t *testing.T) {
 }
 
 func TestFinancialHealthWithNoData(t *testing.T) {
-	health := ComputeFinancialHealth(nil, nil, nil, day(2026, 4, 15))
+	health := ComputeFinancialHealth(nil, nil, day(2026, 4, 15))
 	if health.Score != 20 || health.Band != HealthBandRed || !health.InsufficientIncome || health.FreedomMonths != nil {
 		t.Fatalf("unexpected empty health %+v", health)
 	}
@@ -92,17 +92,17 @@ func TestProjectRealValue(t *testing.T) {
 	}
 }
 
-func TestGivenLoansAndCardBalancesWhenScoringDebtThenMonthlyPaymentsAreComparedToMonthlyIncome(t *testing.T) {
+func TestGivenCardBalancesWhenScoringDebtThenCardMinimumsAreComparedToMonthlyIncome(t *testing.T) {
 	accounts := []Account{
 		{Name: "Bank", Type: AccountTypeBank, Balance: 50_000_000},
 		{Name: "Card", Type: AccountTypeNegativeActive, Balance: -10_000_000},
 	}
-	loans := []Loan{{Name: "Car", MonthlyDebt: 2_000_000, YearlyRemaining: 24_000_000}}
-	var transactions []Transaction
+	// Money the user owes a person has no payment schedule: not a monthly payment (D16).
+	transactions := []Transaction{lendingTxn("row-2", "2026-01-02", "Person A", 0, 2_000_000)}
 	for month := time.January; month <= time.March; month++ {
 		transactions = append(transactions, txn(day(2026, month, 5), "Salary", CategoryTypeIncome, 0, 10_000_000))
 	}
-	health := ComputeFinancialHealth(accounts, loans, transactions, day(2026, 4, 15))
+	health := ComputeFinancialHealth(accounts, transactions, day(2026, 4, 15))
 
 	var debt HealthComponent
 	for _, component := range health.Components {
@@ -110,17 +110,17 @@ func TestGivenLoansAndCardBalancesWhenScoringDebtThenMonthlyPaymentsAreComparedT
 			debt = component
 		}
 	}
-	// (2M loan + 5% x 10M card) / 10M income = 25%
-	if debt.Value != 25 || health.MonthlyDebtPayments != 2_500_000 {
+	// 5% x 10M card / 10M income = 5%
+	if debt.Value != 5 || health.MonthlyDebtPayments != 500_000 {
 		t.Fatalf("debt %+v, payments %v", debt, health.MonthlyDebtPayments)
 	}
-	if !strings.Contains(debt.Formula, "monthly") || debt.Detail != "(2000000 + 500000) / 10000000 = 25.00%" {
+	if !strings.Contains(debt.Formula, "card minimum") || strings.Contains(debt.Formula, "loan") || debt.Detail != "500000 / 10000000 = 5.00%" {
 		t.Fatalf("formula %q detail %q", debt.Formula, debt.Detail)
 	}
 }
 
 func TestGivenDebtPaymentsAndNoIncomeWhenScoringDebtThenRatioIsCapped(t *testing.T) {
-	health := ComputeFinancialHealth(nil, []Loan{{Name: "Car", MonthlyDebt: 1}}, nil, day(2026, 4, 15))
+	health := ComputeFinancialHealth([]Account{{Name: "Card", Balance: -20}}, nil, day(2026, 4, 15))
 	for _, component := range health.Components {
 		if component.Key == "debt" && (component.Value != 100 || component.Score != 0) {
 			t.Fatalf("debt %+v", component)
@@ -129,8 +129,8 @@ func TestGivenDebtPaymentsAndNoIncomeWhenScoringDebtThenRatioIsCapped(t *testing
 }
 
 func TestGivenNetWorthWhenComputingHealthThenProjectionUsesFallbackReturnAndVNDInflation(t *testing.T) {
-	accounts, loans, transactions := healthFixture()
-	health := ComputeFinancialHealth(accounts, loans, transactions, day(2026, 4, 15))
+	accounts, transactions := healthFixture()
+	health := ComputeFinancialHealth(accounts, transactions, day(2026, 4, 15))
 
 	// net worth 168M at 8% nominal; real at 8% - 6% = 2%
 	want := []NetWorthProjection{

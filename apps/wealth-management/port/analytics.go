@@ -22,6 +22,8 @@ type AnalyticsService interface {
 	// ComparePrograms replays the last year of card spend under every programme (WM-CARD-14).
 	ComparePrograms(forceFresh bool) (domain.ProgramComparisonReport, error)
 	FinancialHealth(forceFresh bool) (domain.FinancialHealth, error)
+	// MoneyLent is the per-person ledger of lending transactions (WM-LEND-1, D30).
+	MoneyLent(forceFresh bool) (domain.MoneyLent, error)
 	// AccountHistories back-calculates daily balances per account (WM-ACC-3).
 	AccountHistories(days int, forceFresh bool) (map[string][]domain.TrendPoint, error)
 }

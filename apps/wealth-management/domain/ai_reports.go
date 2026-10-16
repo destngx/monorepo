@@ -24,6 +24,8 @@ type BriefingFacts struct {
 	IncomeChangePercent  *float64     `json:"incomeChangePercent,omitempty"`
 	ExpenseChangePercent *float64     `json:"expenseChangePercent,omitempty"`
 	ExpensePace          *ExpensePace `json:"expensePace,omitempty"`
+	// MoneyLent is what people owe the user and the user owes people (D30).
+	MoneyLent MoneyLentFacts `json:"moneyLent"`
 }
 
 // WithMonthComparison adds the dashboard's same-days comparison and pace.
@@ -35,10 +37,11 @@ func (f BriefingFacts) WithMonthComparison(summary DashboardSummary) BriefingFac
 	return f
 }
 
-func ComputeBriefingFacts(accounts []Account, loans []Loan, transactions []Transaction, today time.Time) BriefingFacts {
-	sheet := ComputeBalanceSheet(accounts, loans)
+func ComputeBriefingFacts(accounts []Account, transactions []Transaction, today time.Time) BriefingFacts {
+	sheet := ComputeBalanceSheet(accounts, transactions)
 	flow := ComputeCashFlow(transactions, today)
 	return BriefingFacts{
+		MoneyLent:   ComputeMoneyLent(transactions, today).MoneyLentFacts,
 		NetWorth:    sheet.NetWorth,
 		Assets:      sheet.Assets,
 		Liabilities: sheet.Liabilities,

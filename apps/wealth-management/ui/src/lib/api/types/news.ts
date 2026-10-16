@@ -53,7 +53,7 @@ export interface ThinkTankContext {
   valuation?: PortfolioValuation;
   valuationError?: string;
   accounts: unknown[];
-  loans: unknown[];
+  moneyLent: { owedToYou: number; youOwe: number; open: unknown[] };
   recentTransactions: unknown[];
   budget: { income: number; expenses: number };
   usdtRate?: ExchangeRate;

@@ -25,7 +25,7 @@ func TestAIRoutes(t *testing.T) {
 	ai := &fakes.AI{}
 	app := newAIApp(t, ai)
 
-	if status, body := call(t, app, http.MethodGet, "/api/ai/status", ""); status != http.StatusOK || !strings.Contains(body, `"missingPrompts":["tasks/loan-review"]`) {
+	if status, body := call(t, app, http.MethodGet, "/api/ai/status", ""); status != http.StatusOK || !strings.Contains(body, `"missingPrompts":["tasks/year-review"]`) {
 		t.Fatalf("status: %d %s", status, body)
 	}
 	if status, body := call(t, app, http.MethodGet, "/api/ai/usage", ""); status != http.StatusOK || !strings.Contains(body, `"windows":[{"name":"5h","usedPercent":12}]`) {

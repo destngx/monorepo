@@ -98,16 +98,20 @@ func firstOfMonth(year string, month string) time.Time {
 
 // BalanceSheet is the WM-RULE-1/2 position at a point in time.
 type BalanceSheet struct {
-	Assets         float64 `json:"assets"`
-	Liabilities    float64 `json:"liabilities"`
-	AccountsNet    float64 `json:"accountsNet"`
-	LoansRemaining float64 `json:"loansRemaining"`
-	NetWorth       float64 `json:"netWorth"`
+	Assets      float64 `json:"assets"`
+	Liabilities float64 `json:"liabilities"`
+	AccountsNet float64 `json:"accountsNet"`
+	// Receivables is money lent that people still owe the user (D30).
+	Receivables float64 `json:"receivables"`
+	// Payables is money the user owes people (a repayment before lending).
+	Payables float64 `json:"payables"`
+	NetWorth float64 `json:"netWorth"`
 }
 
-// ComputeBalanceSheet: assets are positive balances; liabilities are negative
-// balances plus loans still owed this year; net worth = assets - liabilities.
-func ComputeBalanceSheet(accounts []Account, loans []Loan) BalanceSheet {
+// ComputeBalanceSheet: assets are positive balances plus money owed to the
+// user; liabilities are negative balances plus money the user owes people;
+// net worth = assets - liabilities.
+func ComputeBalanceSheet(accounts []Account, transactions []Transaction) BalanceSheet {
 	var sheet BalanceSheet
 	for _, account := range accounts {
 		if account.Balance >= 0 {
@@ -117,11 +121,10 @@ func ComputeBalanceSheet(accounts []Account, loans []Loan) BalanceSheet {
 		}
 		sheet.AccountsNet += account.Balance
 	}
-	for _, loan := range loans {
-		sheet.LoansRemaining += loan.YearlyRemaining
-	}
-	sheet.Liabilities += sheet.LoansRemaining
-	sheet.NetWorth = sheet.AccountsNet - sheet.LoansRemaining
+	sheet.Receivables, sheet.Payables = lendingPositions(transactions)
+	sheet.Assets += sheet.Receivables
+	sheet.Liabilities += sheet.Payables
+	sheet.NetWorth = sheet.AccountsNet + sheet.Receivables - sheet.Payables
 	return sheet
 }
 
@@ -135,7 +138,8 @@ type CashFlow struct {
 }
 
 // ComputeCashFlow sums income deposits and expense payments attributed to the
-// month (WM-RULE-4). Non-budget categories such as transfers are excluded.
+// month (WM-RULE-4). Non-budget categories such as transfers and lending
+// categories are excluded.
 func ComputeCashFlow(transactions []Transaction, month time.Time) CashFlow {
 	flow := CashFlow{Month: MonthKey(month)}
 	for _, t := range transactions {
@@ -143,9 +147,9 @@ func ComputeCashFlow(transactions []Transaction, month time.Time) CashFlow {
 			continue
 		}
 		switch {
-		case t.HasCategoryType(CategoryTypeIncome):
+		case t.CountsAsIncome():
 			flow.Income += t.DepositAmount()
-		case t.HasCategoryType(CategoryTypeExpense):
+		case t.CountsAsExpense():
 			flow.Expense += t.PaymentAmount()
 		}
 	}

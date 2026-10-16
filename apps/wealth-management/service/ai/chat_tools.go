@@ -49,17 +49,13 @@ func (s *Service) chatTools() map[string]chatTool {
 	}
 	tools := []chatTool{
 		{
-			definition: domain.AITool{Name: "getAccountBalances", Description: "Current balance of every account plus assets, liabilities and net worth.", Parameters: objectSchema(map[string]any{})},
+			definition: domain.AITool{Name: "getAccountBalances", Description: "Current balance of every account plus assets, liabilities and net worth; money lent that people owe is an asset (receivables), money owed to people a liability (payables).", Parameters: objectSchema(map[string]any{})},
 			run: func(ctx context.Context, _ json.RawMessage) (any, error) {
-				accounts, err := s.db.ListAccounts(false)
+				ledger, err := s.db.ReadLedger(false)
 				if err != nil {
 					return nil, err
 				}
-				loans, err := s.db.ListLoans(false)
-				if err != nil {
-					return nil, err
-				}
-				return map[string]any{"accounts": s.accountContexts(accounts), "balanceSheet": domain.ComputeBalanceSheet(accounts, loans)}, nil
+				return map[string]any{"accounts": s.accountContexts(ledger.Accounts), "balanceSheet": domain.ComputeBalanceSheet(ledger.Accounts, ledger.Transactions)}, nil
 			},
 		},
 		{
@@ -104,13 +100,13 @@ func (s *Service) chatTools() map[string]chatTool {
 			},
 		},
 		{
-			definition: domain.AITool{Name: "getLoans", Description: "Loans with monthly and yearly debt, paid and remaining.", Parameters: objectSchema(map[string]any{})},
+			definition: domain.AITool{Name: "getMoneyLent", Description: "Money lent to people: totals owed to the user and owed by the user, and each open balance (outstanding, lent, repaid, last activity, days outstanding; negative outstanding = the user owes that person).", Parameters: objectSchema(map[string]any{})},
 			run: func(ctx context.Context, _ json.RawMessage) (any, error) {
-				loans, err := s.db.ListLoans(false)
+				lent, err := s.analytics.MoneyLent(false)
 				if err != nil {
 					return nil, err
 				}
-				return s.loanContexts(loans), nil
+				return s.moneyLentContext(lent), nil
 			},
 		},
 		{

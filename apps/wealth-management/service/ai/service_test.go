@@ -31,6 +31,7 @@ func allPrompts() map[string]string {
 	}
 	prompts[keyIdentity] = "You are the wealth assistant."
 	prompts["tasks/account-review"] = "Net worth {{totalNetWorth}}. Accounts: {{accountsJson}}"
+	prompts["tasks/intelligence-briefing"] = "Money lent: {{moneyLentJson}}"
 	prompts["tasks/suggest-category"] = "Pick one of: {{categories}}"
 	prompts["actions/suggest-category"] = "Payee: {{payee}}"
 	return prompts
@@ -47,6 +48,7 @@ func fixtureDatabase() *fakes.Database {
 			expense(testToday.AddDate(0, 0, -9), "Highlands Coffee", "Coffee", 55_000),
 			expense(testToday.AddDate(0, 0, -20), "Highlands Coffee", "Food", 80_000),
 			expense(testToday.AddDate(0, 0, -3), "Grab", "Transport", 120_000),
+			{AccountName: "Bank", Date: testToday.AddDate(0, 0, -30), Payee: "Person B", Category: "Lending / Repayment", CategoryType: kind(domain.CategoryTypeNonBudget), CategoryNature: domain.NatureLending, Payment: money(20_000_000)},
 		},
 		Categories: []domain.Category{
 			{Name: "Coffee", Type: domain.CategoryTypeExpense},
@@ -55,7 +57,6 @@ func fixtureDatabase() *fakes.Database {
 			{Name: "Uncategorized", Type: domain.CategoryTypeExpense},
 		},
 		Budget:    []domain.BudgetItem{{Category: "Food", CategoryType: kind(domain.CategoryTypeExpense), MonthlyLimit: 3_000_000}},
-		Loans:     []domain.Loan{{Name: "Car", MonthlyDebt: 2_000_000, YearlyRemaining: 20_000_000}},
 		Goals:     []domain.Goal{{Name: "Trip", TargetAmount: 30_000_000, CurrentAmount: 10_000_000}},
 		AIContent: domain.AIContent{Prompts: allPrompts()},
 	}
@@ -67,7 +68,7 @@ func testConfig() domain.AIConfig {
 		Models:        map[domain.AIUseCase]string{domain.AIUseCaseInsight: "primary", domain.AIUseCaseSuggest: "primary", domain.AIUseCaseChat: "primary", domain.AIUseCaseVision: "primary"},
 		FallbackModel: "fallback",
 		Timeout:       time.Second,
-		PIINames:      []string{"Nguyen Van A"},
+		PIINames:      []string{"Nguyen Van A", "Person B"},
 	}
 }
 
@@ -82,14 +83,14 @@ const validInsight = `{"summary":"Healthy month.","sections":[{"icon":"wallet","
 
 func TestStatusReportsMissingPromptsAndHidesCredentials(t *testing.T) {
 	db := fixtureDatabase()
-	delete(db.AIContent.Prompts, "tasks/loan-review")
+	delete(db.AIContent.Prompts, "tasks/year-review")
 	status := newTestService(t, db, &scriptedClient{}, nil).Status(context.Background())
 
 	if !status.Configured || status.Endpoint != "http://gateway.local:8080" {
 		t.Fatalf("unexpected status %+v", status)
 	}
-	if len(status.MissingKeys) != 1 || status.MissingKeys[0] != "tasks/loan-review" {
-		t.Fatalf("expected the loan prompt to be missing, got %v", status.MissingKeys)
+	if len(status.MissingKeys) != 1 || status.MissingKeys[0] != "tasks/year-review" {
+		t.Fatalf("expected the year review prompt to be missing, got %v", status.MissingKeys)
 	}
 }
 
@@ -138,7 +139,7 @@ func TestReviewRendersPromptsMasksNamesAndCaches(t *testing.T) {
 		t.Fatalf("unexpected insight %+v", insight)
 	}
 	system := client.requests[0].Messages[0].Content
-	if !strings.Contains(system, "Net worth 15000000.") || !strings.Contains(system, "You are the wealth assistant.") || !strings.Contains(system, "OPERATIONAL DIRECTIVE") {
+	if !strings.Contains(system, "Net worth 55000000.") || !strings.Contains(system, "You are the wealth assistant.") || !strings.Contains(system, "OPERATIONAL DIRECTIVE") {
 		t.Fatalf("system prompt not composed: %s", system)
 	}
 	if strings.Contains(system, "Nguyen Van A") || !strings.Contains(system, "Bank [name]") {
@@ -157,7 +158,7 @@ func TestReviewRendersPromptsMasksNamesAndCaches(t *testing.T) {
 }
 
 func TestEveryReviewKindRenders(t *testing.T) {
-	for _, reviewKind := range []port.ReviewKind{port.ReviewBudget, port.ReviewLoans, port.ReviewTransactions, port.ReviewYear} {
+	for _, reviewKind := range []port.ReviewKind{port.ReviewBudget, port.ReviewTransactions, port.ReviewYear} {
 		client := &scriptedClient{replies: []reply{{content: validInsight}}}
 		if _, err := newTestService(t, fixtureDatabase(), client, nil).Review(context.Background(), port.ReviewRequest{Kind: reviewKind}); err != nil {
 			t.Fatalf("%s: %v", reviewKind, err)
@@ -187,9 +188,9 @@ func TestInvalidOutputFallsBackToSecondModel(t *testing.T) {
 
 func TestMissingPromptAndMissingConfig(t *testing.T) {
 	db := fixtureDatabase()
-	delete(db.AIContent.Prompts, "tasks/loan-review")
-	_, err := newTestService(t, db, &scriptedClient{}, nil).Review(context.Background(), port.ReviewRequest{Kind: port.ReviewLoans})
-	if !errors.Is(err, domain.ErrPromptMissing) || !strings.Contains(err.Error(), "tasks/loan-review") {
+	delete(db.AIContent.Prompts, "tasks/transaction-review")
+	_, err := newTestService(t, db, &scriptedClient{}, nil).Review(context.Background(), port.ReviewRequest{Kind: port.ReviewTransactions})
+	if !errors.Is(err, domain.ErrPromptMissing) || !strings.Contains(err.Error(), "tasks/transaction-review") {
 		t.Fatalf("expected a missing prompt error, got %v", err)
 	}
 
@@ -232,7 +233,8 @@ func TestBriefingAttachesFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if briefing.Facts.NetWorth != 15_000_000 || len(briefing.Patterns) != 1 {
+	// Accounts 35M plus 20M lent out (D30).
+	if briefing.Facts.NetWorth != 55_000_000 || len(briefing.Patterns) != 1 {
 		t.Fatalf("unexpected briefing %+v", briefing)
 	}
 	// Day 10: the September row on the 20th is outside the same days.
@@ -242,6 +244,16 @@ func TestBriefingAttachesFacts(t *testing.T) {
 	}
 	if pace == nil || pace.Spent != 235_000 || pace.Projected == nil || *pace.Projected != 728_500 || pace.LastMonthExpense != 80_000 {
 		t.Fatalf("pace = %+v", pace)
+	}
+	if briefing.Facts.MoneyLent.OwedToYou != 20_000_000 || briefing.Facts.MoneyLent.PeopleOwing != 1 {
+		t.Fatalf("money lent facts %+v", briefing.Facts.MoneyLent)
+	}
+	system := client.requests[0].Messages[0].Content
+	if !strings.Contains(system, `"owedToYou":20000000`) || !strings.Contains(system, "owed to you 20.000.000 ₫ by 1 person (oldest open 30 days)") {
+		t.Fatalf("money lent not in the prompt: %s", system)
+	}
+	if strings.Contains(system, "Person B") {
+		t.Fatalf("lending payee not masked: %s", system)
 	}
 }
 

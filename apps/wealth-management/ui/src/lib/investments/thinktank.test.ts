@@ -14,7 +14,7 @@ import {
 
 const context: ThinkTankContext = {
   accounts: [],
-  loans: [],
+  moneyLent: { owedToYou: 0, youOwe: 0, open: [] },
   recentTransactions: [],
   budget: { income: 30_000_000, expenses: 20_000_000 },
   searches: null,

@@ -9,7 +9,7 @@ import (
 // wrap domain.ErrValidation, ErrNotFound or ErrConflict where applicable.
 type DatabaseService interface {
 	ListAccounts(forceFresh bool) ([]domain.Account, error)
-	// ReadLedger returns accounts, loans and transactions, reading every
+	// ReadLedger returns accounts and transactions, reading every
 	// dataset the cache misses in one batched Sheets request (WM-NFR-3).
 	ReadLedger(forceFresh bool) (domain.LedgerSnapshot, error)
 	CreateAccount(input domain.AccountCreateInput) error
@@ -23,6 +23,10 @@ type DatabaseService interface {
 	DeleteTransaction(id string, etag string) error
 
 	ListCategories(forceFresh bool) ([]domain.Category, error)
+	// UpdateCategoryNature writes a category's nature to Categories column B
+	// (WM-LEND-5); ErrNotFound when the name is missing, ErrConflict when it
+	// appears more than once.
+	UpdateCategoryNature(input domain.CategoryNatureUpdate) (domain.Category, error)
 	// ListBudget reads the budget tab of a year; 0 means the current year.
 	ListBudget(year int, forceFresh bool) ([]domain.BudgetItem, error)
 	UpdateBudgetLimit(input domain.BudgetLimitUpdate) error
@@ -30,7 +34,6 @@ type DatabaseService interface {
 	// re-reading the sheet first (WM-BUD-7).
 	ReallocateBudget(input domain.BudgetReallocation) (domain.BudgetReallocationResult, error)
 	ListGoals(forceFresh bool) ([]domain.Goal, error)
-	ListLoans(forceFresh bool) ([]domain.Loan, error)
 	ListTags(forceFresh bool) ([]string, error)
 	GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error)
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)

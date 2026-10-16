@@ -8,6 +8,7 @@
   import BudgetOverview from '$lib/budget/BudgetOverview.svelte';
   import BudgetWall from '$lib/budget/BudgetWall.svelte';
   import CategoryDetailModal from '$lib/budget/CategoryDetailModal.svelte';
+  import CategoryNatureCard from '$lib/budget/CategoryNatureCard.svelte';
   import ExpenseCategoriesCard from '$lib/budget/ExpenseCategoriesCard.svelte';
   import LimitModal from '$lib/budget/LimitModal.svelte';
   import ReallocateModal from '$lib/budget/ReallocateModal.svelte';
@@ -21,10 +22,10 @@
   let { data } = $props();
   const report = $derived(data.report);
 
-  const expenseLines = $derived(
-    report.lines.filter((line) => line.categoryType === 'expense').sort((a, b) => b.percentUsed - a.percentUsed),
-  );
-  const otherLines = $derived(report.lines.filter((line) => line.categoryType !== 'expense'));
+  // Lending categories are neither income nor expense (WM-RULE-3).
+  const isExpense = (line: BudgetLine) => line.categoryType === 'expense' && !line.lending;
+  const expenseLines = $derived(report.lines.filter(isExpense).sort((a, b) => b.percentUsed - a.percentUsed));
+  const otherLines = $derived(report.lines.filter((line) => !isExpense(line)));
 
   function goMonth(month: string) {
     const url = new URL(page.url);
@@ -96,11 +97,13 @@
 <ExpenseCategoriesCard lines={expenseLines} onselect={(line) => (selected = line)} onedit={openEditor} />
 
 {#if otherLines.length}
-  <Card title="Income and non-budget" class="mt-4">
+  <Card title="Income, non-budget and lending" class="mt-4">
     <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
       {#each otherLines as line (line.category)}
         <li class="flex justify-between gap-3 py-2">
-          <span>{line.category} <span class="muted text-xs">({line.categoryType})</span></span>
+          <span
+            >{line.category} <span class="muted text-xs">({line.lending ? 'lending' : line.categoryType})</span></span
+          >
           <span class="tabular"><Money value={line.spent} /> / <Money value={line.limit} /></span>
         </li>
       {/each}
@@ -119,6 +122,8 @@
 </div>
 
 <BudgetWall month={data.month} />
+
+<CategoryNatureCard categories={data.categories} />
 
 <CategoryDetailModal
   line={selected}

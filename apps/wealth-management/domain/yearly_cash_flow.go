@@ -417,8 +417,8 @@ func categoryMonths(transactions []Transaction, year int) (income []CategoryMont
 		}
 		rows, amount := incomeRows, t.DepositAmount()
 		switch {
-		case t.HasCategoryType(CategoryTypeIncome):
-		case t.HasCategoryType(CategoryTypeExpense):
+		case t.CountsAsIncome():
+		case t.CountsAsExpense():
 			rows, amount = expenseRows, t.PaymentAmount()
 		default:
 			continue
@@ -455,7 +455,7 @@ func rankedCategoryMonths(rows map[string]*CategoryMonths) []CategoryMonths {
 func cashFlowYears(transactions []Transaction, requested int, current int) []int {
 	seen := map[int]bool{requested: true, current: true}
 	for _, t := range transactions {
-		if t.Usable() && (t.HasCategoryType(CategoryTypeIncome) || t.HasCategoryType(CategoryTypeExpense)) {
+		if t.Usable() && (t.CountsAsIncome() || t.CountsAsExpense()) {
 			seen[EffectiveDate(t).Year()] = true
 		}
 	}

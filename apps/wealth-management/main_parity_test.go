@@ -29,7 +29,6 @@ var routeTools = map[string]string{
 	"GET /api/analytics/budget/history": "GetBudgetHistory",
 	"GET /api/categories":               "GetCategories",
 	"GET /api/goals":                    "GetGoals",
-	"GET /api/loans":                    "GetLoans",
 	"GET /api/tags":                     "GetTags",
 	"GET /api/investments/assets":       "GetInvestmentAssets",
 	"GET /api/capture/rules":            "GetCaptureRules",
@@ -46,6 +45,7 @@ var routeTools = map[string]string{
 	"GET /api/analytics/health":            "GetFinancialHealth",
 	"GET /api/analytics/account-histories": "GetAccountHistories",
 	"GET /api/analytics/cash-flow/yearly":  "GetYearlyCashFlow",
+	"GET /api/lending":                     "GetMoneyLent",
 
 	"GET /api/external/market/providers/:provider/health": "GetMarketProviderHealth",
 	"GET /api/external/vnstock/health":                    "GetMarketProviderHealth",

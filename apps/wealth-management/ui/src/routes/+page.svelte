@@ -51,7 +51,7 @@
 
   const topBudget = $derived(
     data.budget.lines
-      .filter((line) => line.categoryType === 'expense' && line.limit > 0)
+      .filter((line) => line.categoryType === 'expense' && !line.lending && line.limit > 0)
       .sort((a, b) => b.percentUsed - a.percentUsed)
       .slice(0, 5),
   );
@@ -99,8 +99,16 @@
 
   <!-- WM-DASH-2 -->
   <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:col-span-2">
-    <Stat label="Total assets" value={summary.balanceSheet.assets} />
-    <Stat label="Total liabilities" value={summary.balanceSheet.liabilities} />
+    <Stat
+      label="Total assets"
+      value={summary.balanceSheet.assets}
+      hint={summary.balanceSheet.receivables > 0 ? 'Includes money lent to people' : undefined}
+    />
+    <Stat
+      label="Total liabilities"
+      value={summary.balanceSheet.liabilities}
+      hint={summary.balanceSheet.payables > 0 ? 'Includes money you owe people' : undefined}
+    />
     <Stat label="Income" value={summary.thisMonth.income} change={summary.incomeChangePercent} hint={compareHint} />
     <Stat
       label="Expense"

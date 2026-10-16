@@ -96,7 +96,7 @@
 <PageHeader title="Accounts" subtitle="{data.accounts.length} accounts">
   {#snippet actions()}
     <a class="btn-ghost" href="{base}/accounts/credit-cards"><Icon name="card" size={16} /> Credit cards</a>
-    <a class="btn-ghost" href="{base}/accounts/loans"><Icon name="loan" size={16} /> Loans</a>
+    <a class="btn-ghost" href="{base}/accounts/lent"><Icon name="loan" size={16} /> Money lent</a>
     <a class="btn-ghost" href="{base}/accounts/goals"><Icon name="goal" size={16} /> Goals</a>
     <button type="button" class="btn-primary" onclick={openCreate}><Icon name="plus" size={16} /> New account</button>
   {/snippet}
@@ -104,8 +104,12 @@
 
 <!-- WM-ACC-2 -->
 <div class="grid gap-4 sm:grid-cols-3">
-  <Stat label="Total assets"><Money value={data.balanceSheet.assets} /></Stat>
-  <Stat label="Total liabilities"><Money value={data.balanceSheet.liabilities} /></Stat>
+  <Stat label="Total assets" hint={data.balanceSheet.receivables > 0 ? 'Includes money lent to people' : undefined}
+    ><Money value={data.balanceSheet.assets} /></Stat
+  >
+  <Stat label="Total liabilities" hint={data.balanceSheet.payables > 0 ? 'Includes money you owe people' : undefined}
+    ><Money value={data.balanceSheet.liabilities} /></Stat
+  >
   <Stat label="Net worth"><Money value={data.balanceSheet.netWorth} /></Stat>
 </div>
 

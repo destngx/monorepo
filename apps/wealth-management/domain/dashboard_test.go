@@ -17,24 +17,26 @@ func TestComputeDashboardSummary(t *testing.T) {
 		{Name: "Wallet", Balance: 500_000, Type: AccountTypeCash},
 		{Name: "Old", Balance: 100_000, Type: AccountTypeDeprecated},
 	}
-	loans := []Loan{{Name: "Friend", YearlyRemaining: 3_000_000}}
+	lent := Transaction{AccountName: "Bank", Date: time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC), Payee: "Person A", Category: "Lending / Repayment", CategoryType: &expense, CategoryNature: NatureLending, Payment: amount(3_000_000)}
 	txs := []Transaction{
+		lent,
 		{AccountName: "Bank", Date: time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC), Category: "Salary", CategoryType: &income, Deposit: amount(30_000_000)},
 		{AccountName: "Card", Date: time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC), Category: "Food", CategoryType: &expense, Payment: amount(6_000_000)},
 		{AccountName: "Bank", Date: time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC), Category: "Salary", CategoryType: &income, Deposit: amount(25_000_000)},
 		{AccountName: "Bank", Date: time.Date(2026, 9, 9, 0, 0, 0, 0, time.UTC), Category: "Food", CategoryType: &expense, Payment: amount(5_000_000)},
 	}
 
-	summary := ComputeDashboardSummary(accounts, loans, txs, today, 12)
+	summary := ComputeDashboardSummary(accounts, txs, today, 12)
 
-	if summary.BalanceSheet.NetWorth != 66_600_000 {
+	// Accounts 69.6M plus 3M lent out: lending moves money, not net worth.
+	if summary.BalanceSheet.NetWorth != 72_600_000 || summary.BalanceSheet.Receivables != 3_000_000 {
 		t.Fatalf("net worth = %v", summary.BalanceSheet.NetWorth)
 	}
 	if summary.NetGrowthThisMonth != 24_000_000 {
 		t.Fatalf("net growth = %v", summary.NetGrowthThisMonth)
 	}
-	// Month start net worth = 66.6M - 24M = 42.6M; growth 24M / 42.6M.
-	if summary.NetWorthChangePercent == nil || *summary.NetWorthChangePercent != 56.34 {
+	// Month start net worth = 72.6M - 24M = 48.6M; growth 24M / 48.6M.
+	if summary.NetWorthChangePercent == nil || *summary.NetWorthChangePercent != 49.38 {
 		t.Fatalf("net worth change = %v", summary.NetWorthChangePercent)
 	}
 	if summary.ThisMonth.Income != 30_000_000 || summary.ThisMonth.Expense != 6_000_000 {
@@ -43,7 +45,7 @@ func TestComputeDashboardSummary(t *testing.T) {
 	if summary.LastMonth.Month != "2026-09" || summary.LastMonth.Income != 25_000_000 {
 		t.Fatalf("last month = %+v", summary.LastMonth)
 	}
-	if len(summary.NetWorthTrend) != 30 || summary.NetWorthTrend[29].Value != 66_600_000 {
+	if len(summary.NetWorthTrend) != 30 || summary.NetWorthTrend[29].Value != 72_600_000 || summary.NetWorthTrend[0].Value != 72_600_000-24_000_000 {
 		t.Fatalf("trend end = %+v", summary.NetWorthTrend[len(summary.NetWorthTrend)-1])
 	}
 	if len(summary.CashFlowHistory) != 12 || summary.CashFlowHistory[11].Month != "2026-10" {
@@ -71,7 +73,7 @@ func TestGivenMidMonthWhenComparingThenLastMonthIsCutToTheSameDays(t *testing.T)
 		txn(day(2026, 9, 13), "Food", CategoryTypeExpense, 6_000_000, 0), // after the same days
 	}
 
-	summary := ComputeDashboardSummary(nil, nil, txs, today, 1)
+	summary := ComputeDashboardSummary(nil, txs, today, 1)
 
 	if summary.ThisMonth.Month != "2026-10" || summary.ThisMonth.Expense != 2_000_000 || summary.ThisMonth.Income != 20_000_000 {
 		t.Fatalf("this month to date = %+v", summary.ThisMonth)
@@ -100,7 +102,7 @@ func TestGivenADayLastMonthDidNotHaveWhenComparingThenTheWholeLastMonth(t *testi
 		txn(day(2026, 2, 28), "Food", CategoryTypeExpense, 2_000_000, 0),
 	}
 
-	summary := ComputeDashboardSummary(nil, nil, txs, today, 1)
+	summary := ComputeDashboardSummary(nil, txs, today, 1)
 
 	if summary.ComparedDays != 28 || summary.LastMonthToDate.Expense != 2_000_000 {
 		t.Fatalf("compared %d days, last month to date = %+v", summary.ComparedDays, summary.LastMonthToDate)
@@ -116,7 +118,7 @@ func TestGivenARefundForLastMonthWhenComparingThenItCountsOnTheFirstOfThatMonth(
 	refund.Memo = text("09-2026")
 	txs := []Transaction{refund, txn(day(2026, 9, 25), "Salary", CategoryTypeIncome, 0, 10_000_000)}
 
-	summary := ComputeDashboardSummary(nil, nil, txs, today, 1)
+	summary := ComputeDashboardSummary(nil, txs, today, 1)
 
 	if summary.ThisMonth.Income != 0 {
 		t.Fatalf("this month = %+v, the refund belongs to September", summary.ThisMonth)

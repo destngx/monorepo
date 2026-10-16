@@ -47,13 +47,16 @@ func TestComputeAdvisorFacts(t *testing.T) {
 func TestComputeBriefingFacts(t *testing.T) {
 	today := day(2026, 10, 10)
 	accounts := []Account{{Name: "Bank", Balance: 10_000_000}, {Name: "Card", Balance: -2_000_000}}
-	loans := []Loan{{Name: "Car", YearlyRemaining: 3_000_000}}
 	transactions := []Transaction{
+		lendingTxn("row-9", "2026-09-01", "Person A", 3_000_000, 0),
 		txn(day(2026, 10, 1), "Salary", CategoryTypeIncome, 0, 8_000_000),
 		txn(day(2026, 10, 2), "Food", CategoryTypeExpense, 2_000_000, 0),
 	}
-	facts := ComputeBriefingFacts(accounts, loans, transactions, today)
-	if facts.NetWorth != 5_000_000 || facts.CashFlow != 6_000_000 || facts.SavingsRate != 75 {
+	facts := ComputeBriefingFacts(accounts, transactions, today)
+	if facts.NetWorth != 11_000_000 || facts.CashFlow != 6_000_000 || facts.SavingsRate != 75 {
 		t.Fatalf("unexpected facts %+v", facts)
+	}
+	if facts.MoneyLent.OwedToYou != 3_000_000 || facts.MoneyLent.PeopleOwing != 1 || *facts.MoneyLent.OldestDaysOutstanding != 39 {
+		t.Fatalf("money lent facts %+v", facts.MoneyLent)
 	}
 }

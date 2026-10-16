@@ -1,4 +1,5 @@
 import type { CategoryType } from './accounts';
+import type { CategoryNature } from './budget';
 
 export interface Transaction {
   id: string;
@@ -10,6 +11,8 @@ export interface Transaction {
   memo: string | null;
   category: string;
   categoryType?: CategoryType;
+  /** The category's nature from the Categories tab; lending marks money lent and repaid. */
+  categoryNature?: CategoryNature;
   cleared: boolean;
   payment: number | null;
   deposit: number | null;

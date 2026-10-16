@@ -220,3 +220,36 @@ func validationError(problems []string) error {
 	}
 	return fmt.Errorf("%w: %s", ErrValidation, strings.Join(problems, "; "))
 }
+
+// CategoryNatureNone clears a category's nature.
+const CategoryNatureNone = "none"
+
+// CategoryNatureUpdate sets a category's nature in Categories column B
+// (WM-LEND-5): fixed, essential, flexible, lending, or none (or empty) to
+// clear it. Category is matched by its exact name.
+type CategoryNatureUpdate struct {
+	Category string `json:"category"`
+	Nature   string `json:"nature"`
+}
+
+func (input CategoryNatureUpdate) Validate() error {
+	var problems []string
+	if strings.TrimSpace(input.Category) == "" {
+		problems = append(problems, "category is required")
+	}
+	if _, ok := input.ParsedNature(); !ok {
+		problems = append(problems, fmt.Sprintf("nature %q must be one of fixed, essential, flexible, lending or none", input.Nature))
+	}
+	return validationError(problems)
+}
+
+// ParsedNature returns the nature to write; "" clears it. ok is false for
+// an unknown value.
+func (input CategoryNatureUpdate) ParsedNature() (CategoryNature, bool) {
+	cell := strings.ToLower(strings.TrimSpace(input.Nature))
+	if cell == "" || cell == CategoryNatureNone {
+		return "", true
+	}
+	nature := ParseCategoryNature(cell)
+	return nature, nature != ""
+}

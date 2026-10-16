@@ -233,15 +233,15 @@ func TestAIToolsDelegateToTheService(t *testing.T) {
 	ai := &fakes.AI{}
 	server.SetAIService(ai)
 
-	result, err := server.CallTool(context.Background(), "ReviewFinances", json.RawMessage(`{"kind":"loan-review","force":true}`))
-	if err != nil || len(ai.Reviews) != 1 || ai.Reviews[0].Kind != port.ReviewLoans || !ai.Reviews[0].Force || !strings.Contains(result.Content, `"summary":"ok"`) {
+	result, err := server.CallTool(context.Background(), "ReviewFinances", json.RawMessage(`{"kind":"account-review","force":true}`))
+	if err != nil || len(ai.Reviews) != 1 || ai.Reviews[0].Kind != port.ReviewAccounts || !ai.Reviews[0].Force || !strings.Contains(result.Content, `"summary":"ok"`) {
 		t.Fatalf("review: %v %+v %s", err, ai.Reviews, result.Content)
 	}
 	result, err = server.CallTool(context.Background(), "Chat", json.RawMessage(`{"messages":[{"role":"user","content":"hi"}]}`))
 	if err != nil || result.Content != `{"model":"m","reply":"Hello","tools":["getBudgetStatus"]}` {
 		t.Fatalf("chat: %v %s", err, result.Content)
 	}
-	if _, err := server.CallTool(context.Background(), "ReviewFinances", json.RawMessage(`{"kind":"loan-review","bogus":1}`)); !errors.Is(err, domain.ErrValidation) {
+	if _, err := server.CallTool(context.Background(), "ReviewFinances", json.RawMessage(`{"kind":"account-review","bogus":1}`)); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("unknown arguments should be rejected, got %v", err)
 	}
 }
@@ -325,5 +325,28 @@ func TestCardAdviceTools(t *testing.T) {
 	result, err = server.CallTool(context.Background(), "CompareCardPrograms", nil)
 	if err != nil || !strings.Contains(result.Content, `"program":"Gold"`) {
 		t.Fatalf("compare: %v %s", err, result.Content)
+	}
+}
+
+func TestMoneyLentTools(t *testing.T) {
+	lent := 3_000_000.0
+	nonBudget := domain.CategoryTypeNonBudget
+	db := &fakes.Database{Transactions: []domain.Transaction{{
+		ID: "row-2", AccountName: "Bank", Date: time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC), Payee: "Person A",
+		Category: "Lending / Repayment", CategoryType: &nonBudget, CategoryNature: domain.NatureLending, Payment: &lent,
+	}}}
+	server := newTestServer(t, db)
+	server.SetAnalyticsService(service.NewAnalyticsService(db, func() time.Time { return time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC) }))
+
+	result, err := server.CallTool(context.Background(), "GetMoneyLent", nil)
+	if err != nil || !strings.Contains(result.Content, `"owedToYou":3000000`) {
+		t.Fatalf("money lent: %v %s", err, result.Content)
+	}
+	result, err = server.CallTool(context.Background(), "SetCategoryNature", json.RawMessage(`{"category":"Lending / Repayment","nature":"lending"}`))
+	if err != nil || len(db.NatureUpdates) != 1 || !strings.Contains(result.Content, `"nature":"lending"`) {
+		t.Fatalf("set nature: %v %s", err, result.Content)
+	}
+	if _, err := server.CallTool(context.Background(), "SetCategoryNature", json.RawMessage(`{"category":"Food","nature":"loan"}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("an unknown nature should be rejected, got %v", err)
 	}
 }

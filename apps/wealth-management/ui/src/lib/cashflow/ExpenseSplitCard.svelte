@@ -20,7 +20,12 @@
   const ROOM_SHOWN = 5;
   const UNTAGGED_SHOWN = 8;
   const TYPICAL_MIN_MONTHS = 4;
-  const natureLabel: Record<CategoryNature, string> = { fixed: 'Fixed', essential: 'Essential', flexible: 'Flexible' };
+  const natureLabel: Record<CategoryNature, string> = {
+    fixed: 'Fixed',
+    essential: 'Essential',
+    flexible: 'Flexible',
+    lending: 'Lending',
+  };
 
   const message = $derived(expenseSplitMessage(split));
   const style = $derived(STATUS[message.tone]);

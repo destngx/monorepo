@@ -30,7 +30,7 @@ export const NAV: NavItem[] = [
     icon: 'accounts',
     children: [
       { href: '/accounts/credit-cards', label: 'Credit Cards', icon: 'card' },
-      { href: '/accounts/loans', label: 'Loans', icon: 'loan' },
+      { href: '/accounts/lent', label: 'Money lent', icon: 'loan' },
       { href: '/accounts/goals', label: 'Goals', icon: 'goal' },
     ],
   },

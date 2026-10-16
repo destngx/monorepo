@@ -16,7 +16,6 @@ var benchToday = day(2026, 10, 13)
 
 type benchLedger struct {
 	accounts     []Account
-	loans        []Loan
 	transactions []Transaction
 	budget       []BudgetItem
 }
@@ -35,7 +34,6 @@ func newBenchLedger(size int) benchLedger {
 		{Name: "USD Savings", Type: AccountTypeLongHolding, Currency: CurrencyUSD, Balance: 12_000},
 		{Name: "Old Wallet", Type: AccountTypeDeprecated, Currency: CurrencyVND},
 	}
-	loans := []Loan{{Name: "Car", YearlyDebt: 120_000_000, YearlyPaid: 50_000_000, YearlyRemaining: 70_000_000}}
 	budget := make([]BudgetItem, 0, len(expenses))
 	for i, category := range expenses {
 		limit := float64((i + 2) * 1_000_000)
@@ -63,7 +61,7 @@ func newBenchLedger(size int) benchLedger {
 		t.AccountName = account
 		transactions = append(transactions, t)
 	}
-	return benchLedger{accounts: accounts, loans: loans, transactions: transactions, budget: budget}
+	return benchLedger{accounts: accounts, transactions: transactions, budget: budget}
 }
 
 func BenchmarkComputeBudgetReport(b *testing.B) {
@@ -79,7 +77,7 @@ func BenchmarkComputeBalanceSheet(b *testing.B) {
 	ledger := newBenchLedger(benchLedgerSize)
 	b.ReportAllocs()
 	for b.Loop() {
-		ComputeBalanceSheet(ledger.accounts, ledger.loans)
+		ComputeBalanceSheet(ledger.accounts, ledger.transactions)
 	}
 }
 
@@ -87,7 +85,7 @@ func BenchmarkComputeDashboardSummary(b *testing.B) {
 	ledger := newBenchLedger(benchLedgerSize)
 	b.ReportAllocs()
 	for b.Loop() {
-		ComputeDashboardSummary(ledger.accounts, ledger.loans, ledger.transactions, benchToday, 12)
+		ComputeDashboardSummary(ledger.accounts, ledger.transactions, benchToday, 12)
 	}
 }
 
@@ -95,6 +93,6 @@ func BenchmarkComputeFinancialHealth(b *testing.B) {
 	ledger := newBenchLedger(benchLedgerSize)
 	b.ReportAllocs()
 	for b.Loop() {
-		ComputeFinancialHealth(ledger.accounts, ledger.loans, ledger.transactions, benchToday)
+		ComputeFinancialHealth(ledger.accounts, ledger.transactions, benchToday)
 	}
 }

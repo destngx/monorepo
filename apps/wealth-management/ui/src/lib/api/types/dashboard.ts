@@ -10,7 +10,10 @@ export interface BalanceSheet {
   assets: number;
   liabilities: number;
   accountsNet: number;
-  loansRemaining: number;
+  /** Money lent that people still owe you; part of assets. */
+  receivables: number;
+  /** Money you owe people; part of liabilities. */
+  payables: number;
   netWorth: number;
 }
 

@@ -89,7 +89,7 @@
     {:else}
       <p class="muted text-sm">No transactions this month.</p>
     {/if}
-    {#if line.limit > 0 && line.categoryType === 'expense'}
+    {#if line.limit > 0 && line.categoryType === 'expense' && !line.lending}
       {@const from = line.category}
       <button type="button" class="btn-ghost mt-4" onclick={() => onmove(from)}>Move money from {from}</button>
     {/if}

@@ -31,7 +31,7 @@ type thinkTankInputs struct {
 	Valuation          *domain.PortfolioValuation `json:"valuation,omitempty"`
 	ValuationError     string                     `json:"valuationError,omitempty"`
 	Accounts           []accountContext           `json:"accounts"`
-	Loans              []loanContext              `json:"loans"`
+	MoneyLent          moneyLentContext           `json:"moneyLent"`
 	RecentTransactions []txContext                `json:"recentTransactions"`
 	Budget             budgetLimits               `json:"budget"`
 	USDTRate           *domain.ExchangeRate       `json:"usdtRate,omitempty"`
@@ -89,7 +89,7 @@ func (s *Service) InvestmentAnalysis(ctx context.Context, request port.Investmen
 		return err
 	}
 
-	synthesisVars := pick(vars, "totalVND", "totalCrypto", "income", "expenses", "p2pRate", "accountsSummary", "loans", "recentTransactions")
+	synthesisVars := pick(vars, "totalVND", "totalCrypto", "income", "expenses", "p2pRate", "accountsSummary", "moneyLent", "recentTransactions")
 	synthesisVars["expertDebateContext"] = debate
 	synthesis, model, err := s.runPhase(ctx, p, snap, phaseSynthesis, synthesisVars, map[string]string{"accountsSummary": vars["accountsSummary"], "debate": debate}, request.Model, emit)
 	if err != nil {

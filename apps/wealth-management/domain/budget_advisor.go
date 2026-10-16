@@ -59,7 +59,7 @@ func ComputeAdvisorFacts(items []BudgetItem, accounts []Account, transactions []
 	for i := 1; i <= advisorLookbackMonths; i++ {
 		past := month.AddDate(0, -i, 0)
 		for _, line := range ComputeBudgetReport(items, transactions, past, today).Lines {
-			if line.CategoryType == CategoryTypeExpense {
+			if line.CountsAsExpense() {
 				averages[line.Category] += line.Spent / advisorLookbackMonths
 			}
 		}
@@ -67,7 +67,7 @@ func ComputeAdvisorFacts(items []BudgetItem, accounts []Account, transactions []
 
 	facts := AdvisorFacts{Month: report.Month, Categories: []BudgetCategoryStats{}, UnusualVelocity: []VelocityFlag{}, ProjectedSpend: report.ProjectedSpend}
 	for _, line := range report.Lines {
-		if line.CategoryType != CategoryTypeExpense {
+		if !line.CountsAsExpense() {
 			continue
 		}
 		average := math.Round(averages[line.Category])

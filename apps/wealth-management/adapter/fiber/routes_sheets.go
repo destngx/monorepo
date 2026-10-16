@@ -100,9 +100,16 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 		RequestBody: jsonBody(map[string]any{"year": map[string]any{"type": "integer"}, "month": map[string]any{"type": "string", "description": "YYYY-MM"}, "from": schemaString, "to": schemaString, "amount": schemaNumber}, "month", "from", "to", "amount"),
 	})
 
-	api.Group("/categories", "categories").Get("/", h.GetCategories, RouteMeta{Summary: "Lists income, expense and non-budget categories.", QueryParams: []RouteParameter{forceParam()}})
+	categories := api.Group("/categories", "categories")
+	categories.Get("/", h.GetCategories, RouteMeta{Summary: "Lists income, expense and non-budget categories with their nature (fixed, essential, flexible, lending; omitted when untagged).", QueryParams: []RouteParameter{forceParam()}})
+	categories.Patch("/nature", guard.Wrap(h.UpdateCategoryNature), RouteMeta{
+		Summary: "Sets a category's nature in Categories column B and returns the category. The category is matched by exact name; 404 when it is missing, 409 when it appears more than once, 400 for an unknown nature. Lending categories hold money lent and repaid: they leave income and expense.",
+		RequestBody: jsonBody(map[string]any{
+			"category": schemaString,
+			"nature":   map[string]any{"type": "string", "enum": []string{"fixed", "essential", "flexible", "lending", "none"}, "description": "none clears the nature."},
+		}, "category", "nature"),
+	})
 	api.Group("/goals", "goals").Get("/", h.GetGoals, RouteMeta{Summary: "Lists savings goals with progress and status.", QueryParams: []RouteParameter{forceParam()}})
-	api.Group("/loans", "loans").Get("/", h.GetLoans, RouteMeta{Summary: "Lists loans and debts with monthly and yearly progress.", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/tags", "tags").Get("/", h.GetTags, RouteMeta{Summary: "Lists normalised transaction tags.", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/investments", "investments").Get("/assets", h.GetInvestmentAssets, RouteMeta{Summary: "Returns crypto and fund holdings, raw and typed (symbol, quantity, price, value).", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/cards", "cards").Get("/programs", h.GetCardPrograms, RouteMeta{Summary: "Card configuration from the sheet: programmes with their dated versions and cashback rules (Programs, ProgramRules), banks with the shared account and reference limit (Banks), cards held (Cards) and payee MCC mappings (Merchants). A missing tab contributes no rows; 400 naming each invalid row.", QueryParams: []RouteParameter{forceParam()}})
@@ -130,8 +137,9 @@ func RegisterAnalyticsRoutes(api RouteRegistrar, h *AnalyticsHandler) {
 	analytics.Get("/cards", h.GetCards, RouteMeta{Summary: "Credit cards per bank: the shared limit, usage (what the billed accounts owe) and remaining room; per card the current period's standing (spend, confirmed and estimated cashback, caps left, next tier), the pay-by date and 36 periods of history reconciled with the refunds received.", QueryParams: []RouteParameter{forceParam()}})
 	analytics.Get("/cards/suggest", h.SuggestCards, RouteMeta{Summary: "Ranks the held cards for a payment by the cashback it would add to each card's current period, cards whose bank has room for it first. The MCC comes from the mcc parameter (confirmed), else the payee's Merchants mapping, else it is unknown and only fallback rules apply.", QueryParams: []RouteParameter{forceParam(), QueryParam("payee", "string", "Payee of the payment; required without mcc."), QueryParam("amount", "number", "Payment amount in VND, positive."), QueryParam("mcc", "integer", "Merchant category code, when known.")}})
 	analytics.Get("/cards/compare", h.ComparePrograms, RouteMeta{Summary: "Replays the held cards' payments of the last 12 months under every programme's current terms, held or not, ranked by cashback less the annual fee.", QueryParams: []RouteParameter{forceParam()}})
-	analytics.Get("/health", h.GetFinancialHealth, RouteMeta{Summary: "Financial health score with per-pillar formulas and recommendations. Debt-to-income is monthly debt payments / average monthly income (reference 35%). projection gives net worth in 5, 10 and 20 years, nominal and inflation-adjusted (real).", QueryParams: []RouteParameter{forceParam()}})
+	analytics.Get("/health", h.GetFinancialHealth, RouteMeta{Summary: "Financial health score with per-pillar formulas and recommendations. Debt-to-income is the card minimum payments (5% of each negative account balance) / average monthly income (reference 35%). projection gives net worth in 5, 10 and 20 years, nominal and inflation-adjusted (real).", QueryParams: []RouteParameter{forceParam()}})
 	analytics.Get("/account-histories", h.GetAccountHistories, RouteMeta{Summary: "Back-calculated daily balances per account.", QueryParams: []RouteParameter{forceParam(), QueryParam("days", "integer", "Number of days, 1-366.", defaultHistoryDays)}})
+	api.Group("/lending", "lending").Get("/", h.GetMoneyLent, RouteMeta{Summary: "Money lent per person from transactions in lending categories (payee = person; payment = lent, deposit = repaid): lent, repaid, outstanding (negative = the user owes that person), lastActivity, openSince and daysOutstanding of the open balance, and the person's transactions newest first. Totals owedToYou, youOwe, peopleOwing, peopleYouOwe, oldestDaysOutstanding. People owing the user come first, settled people (outstanding 0) last.", QueryParams: []RouteParameter{forceParam()}})
 }
 
 // RegisterUnconfiguredSheetRoutes registers the sheet and analytics routes

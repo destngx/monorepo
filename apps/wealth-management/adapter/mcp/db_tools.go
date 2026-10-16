@@ -158,9 +158,21 @@ func (s *Server) databaseTools() []tool {
 				return db.ReallocateBudget(input)
 			},
 		},
-		readTool("GetCategories", "Lists income, expense and non-budget categories.", db.ListCategories),
+		readTool("GetCategories", "Lists income, expense and non-budget categories with their nature (fixed, essential, flexible, lending).", db.ListCategories),
+		{
+			definition: definition("SetCategoryNature", "Sets a category's nature in the Categories tab: fixed, essential, flexible, lending (money lent and repaid, left out of income and expense) or none to clear it. The category is matched by exact name.", object(map[string]any{
+				"category": stringSchema,
+				"nature":   map[string]any{"type": "string", "enum": []string{"fixed", "essential", "flexible", "lending", "none"}},
+			}, "category", "nature")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var input domain.CategoryNatureUpdate
+				if err := decodeValidated(arguments, &input); err != nil {
+					return nil, err
+				}
+				return db.UpdateCategoryNature(input)
+			},
+		},
 		readTool("GetGoals", "Lists savings goals with progress and status.", db.ListGoals),
-		readTool("GetLoans", "Lists loans and debts with progress.", db.ListLoans),
 		readTool("GetTags", "Lists normalised transaction tags.", db.ListTags),
 		readTool("GetInvestmentAssets", "Returns crypto and fund holdings with symbol, quantity, price and value.", db.GetInvestmentAssets),
 		readTool("GetCardPrograms", "Card configuration from the sheet: programmes with dated versions and cashback rules, banks with shared account and reference limit, cards held (keyword, expiry, statement and due days) and payee MCC mappings.", db.ListCardConfig),
