@@ -12,6 +12,9 @@ type holdingSection struct {
 	headerKeywords  []string
 	symbolHeaders   []string
 	defaultCurrency domain.Currency
+	// historyHeader names the purchase and sale log column, if the section
+	// has one (WM-INV-21); it is found by name, not position.
+	historyHeader string
 }
 
 var (
@@ -24,6 +27,7 @@ var (
 		headerKeywords:  []string{"Index", "Total Unit", "Certificate"},
 		symbolHeaders:   []string{"Certificate", "Index", "Asset", "Symbol"},
 		defaultCurrency: domain.CurrencyVND,
+		historyHeader:   "history",
 	}
 )
 
@@ -96,12 +100,12 @@ func normaliseHeaders(raw []string) []string {
 }
 
 type holdingColumns struct {
-	symbol, quantity, price, value int
-	priceCurrency, valueCurrency   domain.Currency
+	symbol, quantity, price, value, history int
+	priceCurrency, valueCurrency            domain.Currency
 }
 
 func classifyHoldingColumns(headers []string, section holdingSection) holdingColumns {
-	columns := holdingColumns{symbol: -1, quantity: -1, price: -1, value: -1}
+	columns := holdingColumns{symbol: -1, quantity: -1, price: -1, value: -1, history: -1}
 	for _, wanted := range section.symbolHeaders {
 		for i, header := range headers {
 			if columns.symbol < 0 && strings.TrimSpace(header) == wanted {
@@ -112,6 +116,10 @@ func classifyHoldingColumns(headers []string, section holdingSection) holdingCol
 	for i, header := range headers {
 		lower := strings.ToLower(strings.TrimSpace(header))
 		switch {
+		case section.historyHeader != "" && lower == section.historyHeader:
+			if columns.history < 0 {
+				columns.history = i
+			}
 		case columns.value < 0 && isValueHeader(lower):
 			columns.value = i
 			columns.valueCurrency = headerCurrency(lower, section.defaultCurrency)
@@ -153,6 +161,15 @@ func typedHolding(row []string, platform string, columns holdingColumns, section
 	}
 	if columns.quantity >= 0 {
 		holding.Quantity = parseOptionalNumber(cellAt(row, columns.quantity))
+	}
+	if columns.history >= 0 {
+		trades, issues := domain.ParseFundHistory(cellAt(row, columns.history))
+		if len(trades) > 0 {
+			holding.History = trades
+		}
+		if len(issues) > 0 {
+			holding.HistoryIssues = issues
+		}
 	}
 	if columns.price >= 0 {
 		if price := parseOptionalNumber(cellAt(row, columns.price)); price != nil && *price > 0 {

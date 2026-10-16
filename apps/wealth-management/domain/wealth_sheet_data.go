@@ -156,6 +156,10 @@ type Holding struct {
 	Currency    Currency `json:"currency"`
 	Value       *float64 `json:"value"`
 	ValueSource string   `json:"valueSource"`
+	// History is the fund tab's purchase and sale log (WM-INV-21), with
+	// the entries that could not be read.
+	History       []FundTrade `json:"history,omitempty"`
+	HistoryIssues []string    `json:"historyIssues,omitempty"`
 }
 
 const (

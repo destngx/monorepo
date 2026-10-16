@@ -5,6 +5,7 @@ import (
 	"apps/wealth-management/port"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -17,16 +18,29 @@ const maxPriceLookups = 4
 type portfolioService struct {
 	db     port.DatabaseService
 	market port.MarketProviderService
+	navs   port.FundNAVSource
 	now    func() time.Time
+}
+
+// PortfolioOption configures the portfolio service.
+type PortfolioOption func(*portfolioService)
+
+// WithFundNAVs gives fund performance the NAV histories (WM-INV-21).
+func WithFundNAVs(navs port.FundNAVSource) PortfolioOption {
+	return func(s *portfolioService) { s.navs = navs }
 }
 
 // NewPortfolioService values holdings with live prices from market; with a
 // nil market only sheet values count and the rest are reported as issues.
-func NewPortfolioService(db port.DatabaseService, market port.MarketProviderService, now func() time.Time) port.PortfolioService {
+func NewPortfolioService(db port.DatabaseService, market port.MarketProviderService, now func() time.Time, options ...PortfolioOption) port.PortfolioService {
 	if now == nil {
 		now = time.Now
 	}
-	return &portfolioService{db: db, market: market, now: now}
+	service := &portfolioService{db: db, market: market, now: now}
+	for _, option := range options {
+		option(service)
+	}
+	return service
 }
 
 // Valuation reads holdings and accounts from the sheet, prices every holding
@@ -125,6 +139,72 @@ func (s *portfolioService) Allocation(ctx context.Context, forceFresh bool) (dom
 	in.Targets = prefs.AllocationTargets
 	in.Issues = append(in.Issues, prefs.Issues...)
 	return domain.ComputeAllocation(in), nil
+}
+
+// errNAVNotConfigured explains missing NAV histories.
+const errNAVNotConfigured = "fund NAV history is not configured (market data server)"
+
+// FundPerformance reads the fund holdings with their History, the NAV
+// history of each fund code and the bank rates, then computes gains,
+// returns and the deposit comparison. Market failures become issues on
+// the answer; only sheet failures fail the call.
+func (s *portfolioService) FundPerformance(ctx context.Context, forceFresh bool) (domain.FundPerformance, error) {
+	assets, err := s.db.GetInvestmentAssets(forceFresh)
+	if err != nil {
+		return domain.FundPerformance{}, fmt.Errorf("read holdings: %w", err)
+	}
+	ctx = domain.WithBypassCache(ctx, forceFresh)
+	in := domain.FundPerformanceInputs{
+		Holdings:  assets.Funds.Items,
+		NAVs:      map[string][]domain.NavPoint{},
+		NAVIssues: map[string]string{},
+		Now:       s.now(),
+	}
+	codes := []string{}
+	for _, holding := range assets.Funds.Items {
+		if code := domain.FundKey(holding.Symbol); code != "" && !slices.Contains(codes, code) {
+			codes = append(codes, code)
+		}
+	}
+
+	var mu sync.Mutex
+	group := newBoundedGroup(maxPriceLookups)
+	for _, code := range codes {
+		if s.navs == nil {
+			in.NAVIssues[code] = errNAVNotConfigured
+			continue
+		}
+		group.Go(func() {
+			history, err := s.navs.GetFundNAVHistory(ctx, code)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				in.NAVIssues[code] = err.Error()
+				return
+			}
+			in.NAVs[code] = history.Points
+		})
+	}
+	if s.market == nil {
+		in.DepositIssue = "bank rates unavailable: " + errMarketNotConfigured
+	} else {
+		group.Go(func() {
+			rates, err := s.market.GetBankInterestRate(ctx)
+			mu.Lock()
+			defer mu.Unlock()
+			if err != nil {
+				in.DepositIssue = "bank rates unavailable: " + err.Error()
+				return
+			}
+			if rate, ok := domain.DepositRateFromBankRates(rates.Rates); ok {
+				in.Deposit = &rate
+				return
+			}
+			in.DepositIssue = "no bank published a savings rate"
+		})
+	}
+	group.Wait()
+	return domain.ComputeFundPerformance(in), nil
 }
 
 type priceLookup struct {

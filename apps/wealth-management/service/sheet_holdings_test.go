@@ -50,3 +50,29 @@ func TestParseHoldingsWithoutHeaderIsEmpty(t *testing.T) {
 		t.Fatalf("section = %+v", section)
 	}
 }
+
+func TestGivenAFundTabWithAHistoryColumnWhenParsingThenTradesAreReadByHeaderName(t *testing.T) {
+	rows := [][]string{
+		{"Platform", "Index", "Note", "History", "Total Unit"},
+		{"Platform A", "FUND-A", "monthly", "5-3-2024,10,5;1-6-2024,-2,5", "8"},
+		{"", "FUND-B", "", "", "3"},
+		{"", "FUND-C", "", "5-3-2024", "1"},
+	}
+
+	items := parseHoldings(rows, fundSection).Items
+
+	if len(items) != 3 {
+		t.Fatalf("items = %+v", items)
+	}
+	fundA := items[0]
+	if fundA.Symbol != "FUND-A" || *fundA.Quantity != 8 || len(fundA.History) != 2 ||
+		fundA.History[0] != (domain.FundTrade{Date: "2024-03-05", Units: 10.5}) || fundA.History[1].Units != -2.5 || len(fundA.HistoryIssues) != 0 {
+		t.Fatalf("fund A = %+v", fundA)
+	}
+	if items[1].History != nil || items[1].HistoryIssues != nil {
+		t.Fatalf("a holding without History has no trades: %+v", items[1])
+	}
+	if len(items[2].HistoryIssues) != 1 {
+		t.Fatalf("an unreadable entry is an issue: %+v", items[2])
+	}
+}

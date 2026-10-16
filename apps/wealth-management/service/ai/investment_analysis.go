@@ -30,6 +30,8 @@ var (
 type thinkTankInputs struct {
 	Valuation          *domain.PortfolioValuation `json:"valuation,omitempty"`
 	ValuationError     string                     `json:"valuationError,omitempty"`
+	FundPerformance    *fundPerformanceFacts      `json:"fundPerformance,omitempty"`
+	FundPerformanceErr string                     `json:"fundPerformanceError,omitempty"`
 	Accounts           []accountContext           `json:"accounts"`
 	MoneyLent          moneyLentContext           `json:"moneyLent"`
 	RecentTransactions []txContext                `json:"recentTransactions"`

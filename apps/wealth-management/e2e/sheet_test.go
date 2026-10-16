@@ -351,3 +351,35 @@ func transactionInput(account string, payee string, category string, payment flo
 		"memo":        fmt.Sprintf("e2e %s", payee),
 	}
 }
+
+func TestE2EFundPerformanceAddsUpAndOnlyPricesReconciledHistory(t *testing.T) {
+	h := engine(t)
+	var performance domain.FundPerformance
+	h.request(t, http.MethodGet, "/api/investments/fund-performance?force=true", nil, http.StatusOK, &performance)
+	var value float64
+	known := 0
+	for _, holding := range performance.Holdings {
+		if holding.Value != nil {
+			value += *holding.Value
+		}
+		if holding.CostStatus != domain.FundCostKnown {
+			if holding.Return != nil {
+				t.Fatalf("%s has a return without a known cost", holding.Symbol)
+			}
+			continue
+		}
+		known++
+		if holding.Units == nil || holding.HistoryUnits-*holding.Units > 0.01 || *holding.Units-holding.HistoryUnits > 0.01 {
+			t.Fatalf("%s is priced but its History does not reconcile with Total Unit", holding.Symbol)
+		}
+		if holding.Return == nil || len(holding.CashFlows) == 0 {
+			t.Fatalf("%s has a known cost without cash flows", holding.Symbol)
+		}
+	}
+	if known != performance.Totals.CostKnown || len(performance.Holdings) != performance.Totals.Holdings {
+		t.Fatalf("totals count %d known of %d, holdings say %d of %d", performance.Totals.CostKnown, performance.Totals.Holdings, known, len(performance.Holdings))
+	}
+	if diff := value - performance.Totals.Value; diff > 1 || diff < -1 {
+		t.Fatalf("holdings do not add up to the total value (diff %v)", diff)
+	}
+}

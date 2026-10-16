@@ -299,3 +299,31 @@ func TestLegacyDate(t *testing.T) {
 		}
 	}
 }
+
+func TestGetFundNAVHistoryReadsFmarketRowsByFundCode(t *testing.T) {
+	client, requests := fakeServer(t, func(*http.Request) (int, any) {
+		return 200, answer([]map[string]any{
+			{"nav": 12_000.5, "navDate": "2026-10-12"},
+			{"nav": 11_000, "navDate": float64(time.Date(2026, 10, 9, 17, 30, 0, 0, time.UTC).UnixMilli())},
+			{"nav": 0, "navDate": "2026-10-08"},
+			{"nav": "x", "navDate": "2026-10-07"},
+			{"nav": 10_000, "navDate": "n/a"},
+		}, map[string]any{"provider": "fmarket"})
+	})
+
+	history, err := client.GetFundNAVHistory(context.Background(), " fund-a ")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []domain.NavPoint{{Date: "2026-10-12", NAV: 12_000.5}, {Date: "2026-10-10", NAV: 11_000}}
+	if history.Symbol != "FUND-A" || !reflect.DeepEqual(history.Points, want) || history.Source.Provider != "fmarket" {
+		t.Fatalf("history = %+v", history)
+	}
+	if path := (*requests)[0].URL.Path; path != "/api/v2/funds/FUND-A/nav" {
+		t.Fatalf("path = %s", path)
+	}
+	if _, err := client.GetFundNAVHistory(context.Background(), " "); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("err = %v", err)
+	}
+}

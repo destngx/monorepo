@@ -1,6 +1,6 @@
 import type { ExchangeRate } from './rates';
 import type { MarketPulse } from './market';
-import type { PortfolioValuation } from './investments';
+import type { DepositRate, PortfolioValuation } from './investments';
 
 export interface SearchResult {
   title: string;
@@ -52,6 +52,14 @@ export type InvestmentPhase = 'context' | 'think-tank' | 'synthesis' | 'actions'
 export interface ThinkTankContext {
   valuation?: PortfolioValuation;
   valuationError?: string;
+  /** Fund performance vs a deposit, aggregated per fund code (WM-INV-23). */
+  fundPerformance?: {
+    funds: Record<string, unknown>[];
+    total?: Record<string, unknown>;
+    deposit?: DepositRate;
+    note: string;
+  };
+  fundPerformanceError?: string;
   accounts: unknown[];
   moneyLent: { owedToYou: number; youOwe: number; open: unknown[] };
   recentTransactions: unknown[];

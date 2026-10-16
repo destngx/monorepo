@@ -267,7 +267,12 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 	})
 	// One allocation (ROADMAP C4): Investments, Accounts and the health
 	// diversification pillar all read it from the portfolio service.
-	portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil)
+	var portfolioOptions []service.PortfolioOption
+	if navs, ok := marketSvc.(port.FundNAVSource); ok {
+		// The market data server client also serves fund NAV histories.
+		portfolioOptions = append(portfolioOptions, service.WithFundNAVs(navs))
+	}
+	portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil, portfolioOptions...)
 	analyticsSvc := service.NewAnalyticsService(dbSvc, nil, service.WithAllocation(portfolioSvc))
 	health.Register(port.HealthCheck{Name: "sheets", Probe: func(context.Context) error { return dbSvc.Ping() }})
 	mcpServer.SetDatabaseService(dbSvc)

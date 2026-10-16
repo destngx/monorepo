@@ -181,5 +181,16 @@ func (s *Server) portfolioTools() []tool {
 			}
 			return portfolio.Allocation(ctx, args.Force)
 		},
+	}, {
+		definition: definition("GetFundPerformance", "Fund holdings vs a bank deposit: per holding and per fund code the value at the latest NAV, cost from the History column priced at the NAV history, gain, simple and annualised (XIRR) return, and the same cash flows in a deposit at today's best published 12-month rate (a labelled proxy), with the difference in VND and annualised points; costStatus says why a cost is unknown.", object(map[string]any{"force": forceSchema})),
+		handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+			var args struct {
+				Force bool `json:"force"`
+			}
+			if err := decodeArguments(arguments, &args); err != nil {
+				return nil, err
+			}
+			return portfolio.FundPerformance(ctx, args.Force)
+		},
 	}}
 }

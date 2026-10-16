@@ -65,6 +65,7 @@ var routeTools = map[string]string{
 	"GET /api/market/analysis":                            "GetMarketAnalysis",
 	"GET /api/investments/valuation":                      "GetInvestmentValuation",
 	"GET /api/investments/allocation":                     "GetAssetAllocation",
+	"GET /api/investments/fund-performance":               "GetFundPerformance",
 
 	"GET /api/ai/status":               "GetAIStatus",
 	"GET /api/ai/usage":                "GetAIUsage",

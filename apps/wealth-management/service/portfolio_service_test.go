@@ -176,3 +176,78 @@ func TestGivenAPreferencesFailureWhenAllocatingThenItFails(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+// fundNAVs serves NAV histories by fund code and records the lookups.
+type fundNAVs struct {
+	mu      sync.Mutex
+	points  map[string][]domain.NavPoint
+	lookups []string
+	bypass  bool
+}
+
+func (f *fundNAVs) GetFundNAVHistory(ctx context.Context, code string) (domain.FundNAVHistory, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.lookups = append(f.lookups, code)
+	f.bypass = domain.ShouldBypassCache(ctx)
+	points, ok := f.points[code]
+	if !ok {
+		return domain.FundNAVHistory{}, errors.New("fund not found")
+	}
+	return domain.FundNAVHistory{Symbol: code, Points: points}, nil
+}
+
+type bankRatesMarket struct {
+	port.MarketProviderService
+	rates []domain.BankRate
+	err   error
+}
+
+func (m *bankRatesMarket) GetBankInterestRate(context.Context) (domain.BankRates, error) {
+	return domain.BankRates{Rates: m.rates}, m.err
+}
+
+func TestGivenFundHoldingsWhenComputingFundPerformanceThenEachCodeIsLookedUpOnceAndComparedWithTheBestRate(t *testing.T) {
+	ten, two := 10.0, 2.0
+	db := &portfolioDB{assets: domain.InvestmentAssets{Funds: domain.InvestmentHoldingSection{Items: []domain.Holding{
+		{Platform: "Platform A", Symbol: "FUND-A", Quantity: &ten, History: []domain.FundTrade{{Date: "2025-01-01", Units: 10}}},
+		{Platform: "Platform B", Symbol: "fund-a", Quantity: &two},
+		{Platform: "Platform B", Symbol: "FUND-X", Quantity: &two},
+	}}}}
+	navs := &fundNAVs{points: map[string][]domain.NavPoint{"FUND-A": {{Date: "2025-01-01", NAV: 10_000}, {Date: "2026-01-01", NAV: 11_000}}}}
+	market := &bankRatesMarket{rates: []domain.BankRate{{Bank: "Bank A", Rate: 4}, {Bank: "Bank B", Rate: 5}}}
+	now := func() time.Time { return time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC) }
+
+	result, err := NewPortfolioService(db, market, now, WithFundNAVs(navs)).FundPerformance(context.Background(), true)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(navs.lookups) != 2 || !navs.bypass || !db.forceFreshs[0] {
+		t.Fatalf("lookups = %v, bypass = %v", navs.lookups, navs.bypass)
+	}
+	if result.Deposit == nil || result.Deposit.Bank != "Bank B" || result.Holdings[0].Return == nil || result.Holdings[0].Return.VsDeposit != domain.VsDepositAhead {
+		t.Fatalf("result = %+v", result)
+	}
+	if result.Holdings[2].CostStatus != domain.FundCostNAVUnavailable || result.Totals.Value != 132_000 {
+		t.Fatalf("holdings = %+v, totals = %+v", result.Holdings, result.Totals)
+	}
+}
+
+func TestGivenNoMarketWhenComputingFundPerformanceThenValuesAndCostAreUnknownWithTheReason(t *testing.T) {
+	one := 1.0
+	db := &portfolioDB{assets: domain.InvestmentAssets{Funds: domain.InvestmentHoldingSection{Items: []domain.Holding{{Symbol: "FUND-A", Quantity: &one}}}}}
+
+	result, err := NewPortfolioService(db, nil, nil).FundPerformance(context.Background(), false)
+
+	if err != nil || result.Deposit != nil || result.DepositIssue == "" || result.Holdings[0].CostStatus != domain.FundCostNAVUnavailable {
+		t.Fatalf("result = %+v, err = %v", result, err)
+	}
+}
+
+func TestGivenTheSheetFailsWhenComputingFundPerformanceThenTheCallFails(t *testing.T) {
+	db := &portfolioDB{err: domain.ErrNotFound}
+	if _, err := NewPortfolioService(db, nil, nil).FundPerformance(context.Background(), false); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("err = %v", err)
+	}
+}

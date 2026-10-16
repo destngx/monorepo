@@ -71,12 +71,12 @@ func TestInvestmentAnalysisStreamsPhasesWithFallbackAndCommands(t *testing.T) {
 			debate = request.Messages[0].Content
 		}
 	}
-	for _, fragment := range []string{"VND 40000000", "crypto 0.5 BTC", "p2p 26500", "US N/A: US market coverage", "VN Steady climb", "VN-Index: 1300 (1.25%)", "VNINDEX   : n/a | 0.50", `[1] "Rates cut"`, "Binance [name]"} {
+	for _, fragment := range []string{"VND 40000000", "crypto 0.5 BTC", "p2p 26500", "US N/A: US market coverage", "VN Steady climb", "VN-Index: 1300 (1.25%)", "VNINDEX   : n/a | 0.50", `[1] "Rates cut"`, "Binance [name]", `"symbol":"FUND-A"`, `"annualisedReturnPct":10`, `"vsDeposit":"ahead"`} {
 		if !strings.Contains(debate, fragment) {
 			t.Errorf("think-tank prompt is missing %q:\n%s", fragment, debate)
 		}
 	}
-	if strings.Contains(debate, "Nguyen Van A") {
+	if strings.Contains(debate, "Nguyen Van A") || strings.Contains(debate, "Platform") {
 		t.Fatalf("names must be masked: %s", debate)
 	}
 }

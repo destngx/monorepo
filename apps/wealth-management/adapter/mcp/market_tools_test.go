@@ -184,3 +184,17 @@ func TestGivenForceWhenCallingGetAssetAllocationThenTheAllocationIsReturned(t *t
 		t.Fatalf("unknown arguments must be rejected: %v", err)
 	}
 }
+
+func TestGivenForceWhenCallingGetFundPerformanceThenThePerformanceIsReturned(t *testing.T) {
+	server, market, _ := newMarketTestServer(t)
+	result, err := server.CallTool(context.Background(), "GetFundPerformance", json.RawMessage(`{"force":true}`))
+	if err != nil || !strings.Contains(result.Content, `"totals"`) {
+		t.Fatalf("result %v err %v", result.Content, err)
+	}
+	if call := market.Calls[0]; call.Kind != "fund-performance" || !call.ForceRead {
+		t.Fatalf("call = %+v", call)
+	}
+	if _, err := server.CallTool(context.Background(), "GetFundPerformance", json.RawMessage(`{"extra":1}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("unknown arguments must be rejected: %v", err)
+	}
+}

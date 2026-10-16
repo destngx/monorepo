@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
-  import type { Allocation, PortfolioSection, PortfolioValuation } from '$lib/api/types';
+  import type { Allocation, FundPerformance, PortfolioSection, PortfolioValuation } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -9,6 +9,8 @@
   import { formatDate, formatPercent } from '$lib/format';
   import AllocationCard from '$lib/investments/AllocationCard.svelte';
   import { BANK_RATES_HREF, bestBankRate } from '$lib/investments/bankRates';
+  import { settle } from '$lib/investments/fmarket';
+  import FundPerformanceCard from '$lib/investments/FundPerformanceCard.svelte';
   import SectionError from '$lib/investments/fmarket/SectionError.svelte';
   import HoldingsCard from '$lib/investments/HoldingsCard.svelte';
   import { nf } from '$lib/investments/holdings';
@@ -22,20 +24,27 @@
   // A forced refresh or a target change replaces the loaded figures until the next navigation.
   let refreshed = $state<PortfolioValuation | null>(null);
   let updatedAllocation = $state<Allocation | null>(null);
+  let refreshedFunds = $state<FundPerformance | null>(null);
   let isRefreshing = $state(false);
   const valuation = $derived(refreshed ?? data.valuation);
   const totals = $derived(valuation.totals);
   const allocation = $derived(updatedAllocation ?? (data.allocation.ok ? data.allocation.value : null));
+  const fundPerformance = $derived(refreshedFunds ?? (data.fundPerformance.ok ? data.fundPerformance.value : null));
   // Valuation issues and ignored Preferences rows, each once.
   const issues = $derived([...new Set([...valuation.issues, ...(allocation?.issues ?? [])])]);
 
   async function refresh() {
     isRefreshing = true;
     try {
-      [refreshed, updatedAllocation] = await Promise.all([
+      // Fund performance settles on its own so a NAV outage does not block the prices.
+      const [nextValuation, nextAllocation, nextFunds] = await Promise.all([
         api.valuation({ force: true }),
         api.allocation({ force: true }),
+        settle(() => api.fundPerformance({ force: true })),
       ]);
+      [refreshed, updatedAllocation] = [nextValuation, nextAllocation];
+      if (nextFunds.ok) refreshedFunds = nextFunds.value;
+      else toasts.error(new Error(nextFunds.error), 'Could not refresh fund performance');
     } catch (error) {
       toasts.error(error, 'Could not refresh prices');
     } finally {
@@ -113,6 +122,16 @@
 
 {#each sections as { key, title, rows, total } (key)}
   <HoldingsCard {title} {rows} {total} />
+  {#if key === 'funds'}
+    <!-- ROADMAP M3, WM-INV-21/22: fund holdings vs a bank deposit -->
+    {#if fundPerformance}
+      <FundPerformanceCard performance={fundPerformance} />
+    {:else if !data.fundPerformance.ok}
+      <Card title="Funds vs a bank deposit" class="mt-4">
+        <SectionError title="Fund performance is unavailable" message={data.fundPerformance.error} />
+      </Card>
+    {/if}
+  {/if}
 {/each}
 
 <p class="muted mt-2 text-right text-xs">Valued {formatDate(valuation.generatedAt)}</p>

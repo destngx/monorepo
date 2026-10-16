@@ -65,6 +65,16 @@ func (fakePortfolio) Allocation(context.Context, bool) (domain.Allocation, error
 	return domain.ComputeAllocation(domain.AllocationInputs{}), nil
 }
 
+func (fakePortfolio) FundPerformance(context.Context, bool) (domain.FundPerformance, error) {
+	units := 10.0
+	deposit := domain.DepositRate{Bank: "Bank A", Rate: 5}
+	return domain.ComputeFundPerformance(domain.FundPerformanceInputs{
+		Holdings: []domain.Holding{{Platform: "Platform Person A", Symbol: "FUND-A", Quantity: &units, History: []domain.FundTrade{{Date: "2025-10-01", Units: 10}}}},
+		NAVs:     map[string][]domain.NavPoint{"FUND-A": {{Date: "2025-10-01", NAV: 10_000}, {Date: "2026-10-01", NAV: 11_000}}},
+		Deposit:  &deposit,
+	}), nil
+}
+
 func (fakePortfolio) Valuation(context.Context, bool) (domain.PortfolioValuation, error) {
 	quantity, value := 0.5, 1_500_000_000.0
 	return domain.PortfolioValuation{
@@ -81,7 +91,7 @@ func marketDatabase() *fakes.Database {
 	}
 	db.AIContent.Prompts[keyNewsTask] = "Classify news about {{topic}} in {{year}}."
 	db.AIContent.Prompts[keyTickerTask] = "Ticker {{symbol}} {{timeframe}} at {{price}}, {{trend}}/{{phase}}/{{action}}."
-	db.AIContent.Prompts[phaseThinkTank.taskKey] = "Debate. VND {{totalVND}} crypto {{totalCrypto}} p2p {{p2pRate}} US {{usRegimeName}} VN {{vnRegimeName}} assets {{vnAssets}}\n{{vnCorrelationMatrix}}\nNews:\n{{searchContext}}\nHoldings {{cryptoHoldings}}"
+	db.AIContent.Prompts[phaseThinkTank.taskKey] = "Debate. VND {{totalVND}} crypto {{totalCrypto}} p2p {{p2pRate}} US {{usRegimeName}} VN {{vnRegimeName}} assets {{vnAssets}}\n{{vnCorrelationMatrix}}\nNews:\n{{searchContext}}\nHoldings {{cryptoHoldings}}\nFunds {{ifcHoldings}}"
 	db.AIContent.Prompts[phaseSynthesis.taskKey] = "Synthesise: {{expertDebateContext}}"
 	db.AIContent.Prompts[phaseActions.taskKey] = "Act on: {{synthesisContext}}"
 	db.AIContent.Prompts[phaseThinkTank.fallbackTask] = "Short debate for {{totalVND}}."

@@ -13,6 +13,10 @@ type PortfolioService interface {
 	// certificates and crypto with the Preferences targets and drift, plus
 	// money lent as its own line without a target.
 	Allocation(ctx context.Context, forceFresh bool) (domain.Allocation, error)
+	// FundPerformance is each fund holding's gain and returns from its
+	// History priced at the NAV history, compared with a bank deposit
+	// (WM-INV-21..23).
+	FundPerformance(ctx context.Context, forceFresh bool) (domain.FundPerformance, error)
 }
 
 // AllocationSource gives the allocation to features that score it, such as

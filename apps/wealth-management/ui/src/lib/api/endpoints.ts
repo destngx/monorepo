@@ -33,6 +33,7 @@ import type {
   EngineSettings,
   ExchangeRate,
   FinancialHealth,
+  FundPerformance,
   GoogleAuthPurpose,
   GoogleAuthResult,
   GoogleAuthStart,
@@ -160,6 +161,8 @@ export const api = {
   valuation: (options?: ReadOptions) => read<PortfolioValuation>('/investments/valuation', options),
   /** The one allocation with targets and drift (ROADMAP C4). */
   allocation: (options?: ReadOptions) => read<Allocation>('/investments/allocation', options),
+  /** Fund holdings vs a bank deposit (WM-INV-21/22). */
+  fundPerformance: (options?: ReadOptions) => read<FundPerformance>('/investments/fund-performance', options),
   /** The app-managed Preferences tab (WM-SET-6). */
   preferences: (options?: ReadOptions) => read<Preferences>('/preferences', options),
   savePreferences: (values: PreferenceValue[]) =>

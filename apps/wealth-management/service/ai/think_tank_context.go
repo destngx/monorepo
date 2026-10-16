@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -32,6 +33,16 @@ func (s *Service) thinkTankInputs(ctx context.Context, snap snapshot, news []dom
 			return
 		}
 		inputs.Pulse = &pulse
+	})
+	wg.Go(func() {
+		performance, err := s.portfolio.FundPerformance(ctx, false)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			inputs.FundPerformanceErr = err.Error()
+			return
+		}
+		inputs.FundPerformance = fundPerformanceContext(performance)
 	})
 	valuation, err := s.portfolio.Valuation(ctx, false)
 	if err != nil {
@@ -151,7 +162,7 @@ func (s *Service) thinkTankVars(snap snapshot, inputs thinkTankInputs) map[strin
 		"moneyLent":          toJSON(inputs.MoneyLent),
 		"recentTransactions": toJSON(inputs.RecentTransactions),
 		"cryptoHoldings":     "[]",
-		"ifcHoldings":        "[]",
+		"ifcHoldings":        ifcHoldingsContext([]map[string]any{}, inputs),
 		"prices":             "{}",
 		"newsAnalysis":       "N/A: No pre-analyzed news available.",
 		"searchContext":      inputs.SearchContext,
@@ -180,7 +191,7 @@ func (s *Service) thinkTankVars(snap snapshot, inputs thinkTankInputs) map[strin
 				funds = append(funds, row)
 			}
 		}
-		vars["cryptoHoldings"], vars["ifcHoldings"], vars["prices"] = toJSON(crypto), toJSON(funds), toJSON(prices)
+		vars["cryptoHoldings"], vars["ifcHoldings"], vars["prices"] = toJSON(crypto), ifcHoldingsContext(funds, inputs), toJSON(prices)
 		if len(coins) > 0 {
 			vars["totalCrypto"] = strings.Join(coins, ", ")
 		}
@@ -239,4 +250,85 @@ func pick(vars map[string]string, keys ...string) map[string]string {
 		out[key] = vars[key]
 	}
 	return out
+}
+
+// fundPerformanceFacts are the fund performance figures the think tank
+// sees (WM-INV-23): aggregated per fund code, with no platform, trade dates
+// or units.
+type fundPerformanceFacts struct {
+	Funds   []fundPerformanceFact `json:"funds"`
+	Total   *fundPerformanceFact  `json:"total,omitempty"`
+	Deposit *domain.DepositRate   `json:"deposit,omitempty"`
+	Note    string                `json:"note"`
+}
+
+type fundPerformanceFact struct {
+	Symbol           string   `json:"symbol,omitempty"`
+	ValueVND         float64  `json:"valueVND"`
+	CostKnown        bool     `json:"costKnown"`
+	NetInvestedVND   *float64 `json:"netInvestedVND,omitempty"`
+	GainVND          *float64 `json:"gainVND,omitempty"`
+	SimpleReturnPct  *float64 `json:"simpleReturnPct,omitempty"`
+	AnnualisedPct    *float64 `json:"annualisedReturnPct,omitempty"`
+	DepositValueVND  *float64 `json:"depositValueVND,omitempty"`
+	VsDepositVND     *float64 `json:"vsDepositVND,omitempty"`
+	VsDepositPoints  *float64 `json:"vsDepositPoints,omitempty"`
+	VsDeposit        string   `json:"vsDeposit,omitempty"`
+	HeldSince        string   `json:"heldSince,omitempty"`
+	CostUnknownCause string   `json:"costUnknownReason,omitempty"`
+}
+
+func fundPerformanceContext(performance domain.FundPerformance) *fundPerformanceFacts {
+	facts := &fundPerformanceFacts{
+		Funds:   []fundPerformanceFact{},
+		Deposit: performance.Deposit,
+		Note:    "Engine-computed: returns are money-weighted from the fund tab History priced at published NAVs; the deposit is the same cash at today's best published rate. A fund without a known cost has its value only.",
+	}
+	for _, fund := range performance.Funds {
+		fact := performanceFact(fund.Return)
+		fact.Symbol, fact.ValueVND = fund.Symbol, fund.Value
+		if fund.Return == nil {
+			fact.CostUnknownCause = fund.CostStatus
+		}
+		facts.Funds = append(facts.Funds, fact)
+	}
+	if performance.Totals.Return != nil {
+		total := performanceFact(performance.Totals.Return)
+		total.ValueVND = performance.Totals.ValueCostKnown
+		facts.Total = &total
+	}
+	return facts
+}
+
+func performanceFact(r *domain.FundReturn) fundPerformanceFact {
+	if r == nil {
+		return fundPerformanceFact{}
+	}
+	return fundPerformanceFact{
+		CostKnown: true, NetInvestedVND: rounded(&r.NetInvested, 0), GainVND: rounded(&r.Gain, 0), SimpleReturnPct: rounded(r.SimpleReturn, 2),
+		AnnualisedPct: rounded(r.AnnualisedReturn, 2), DepositValueVND: rounded(r.DepositValue, 0), VsDepositVND: rounded(r.DifferenceVND, 0),
+		VsDepositPoints: rounded(r.DifferencePoints, 2), VsDeposit: r.VsDeposit, HeldSince: r.FirstDate,
+	}
+}
+
+func rounded(value *float64, decimals int) *float64 {
+	if value == nil {
+		return nil
+	}
+	scale := math.Pow(10, float64(decimals))
+	result := math.Round(*value*scale) / scale
+	return &result
+}
+
+// ifcHoldingsContext fills {{ifcHoldings}}: the fund holdings and, so the
+// existing prompts see it without a change, the per-fund performance.
+func ifcHoldingsContext(holdings []map[string]any, inputs thinkTankInputs) string {
+	context := map[string]any{"holdings": holdings}
+	switch {
+	case inputs.FundPerformance != nil:
+		context["performanceByFund"] = inputs.FundPerformance
+	case inputs.FundPerformanceErr != "":
+		context["performanceByFund"] = "N/A: fund performance failed (" + inputs.FundPerformanceErr + ")"
+	}
+	return toJSON(context)
 }
