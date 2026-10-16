@@ -2,7 +2,10 @@ package service
 
 import (
 	"apps/wealth-management/domain"
+	"encoding/json"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -47,6 +50,29 @@ func TestListTransactionsNewestFirstWithTypesAndIssues(t *testing.T) {
 	}
 	if len(txs[3].Issues) != 1 || !txs[3].Date.IsZero() {
 		t.Fatalf("bad date row must be flagged, got %+v", txs[3])
+	}
+}
+
+func TestGivenTheSheetWithoutBalanceColumnsWhenListingTransactionsThenOnlyColumnsAToJAreRead(t *testing.T) {
+	client := newFakeSheetClient()
+	seedTransactions(client)
+	svc := newTestDBService(t, client, newFakeCache())
+
+	txs, err := svc.ListTransactions(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(client.reads, "Transactions!A2:J") {
+		t.Fatalf("reads = %v, want Transactions!A2:J", client.reads)
+	}
+	raw, err := json.Marshal(txs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"accountBalance", "clearedBalance", "runningBalance"} {
+		if strings.Contains(string(raw), `"`+key+`"`) {
+			t.Fatalf("transaction JSON still has %s: %s", key, raw)
+		}
 	}
 }
 

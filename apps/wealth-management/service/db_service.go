@@ -17,7 +17,7 @@ const (
 	accountsSheetRange      = "Accounts!A2:I"
 	accountsAnchorRange     = "Accounts!A2:A"
 	accountsFirstRow        = 2
-	transactionsSheetRange  = "Transactions!A2:M"
+	transactionsSheetRange  = "Transactions!A2:J"
 	transactionsAnchorRange = "Transactions!A2:A"
 	transactionsFirstRow    = 2
 	categoriesSheetRange    = "Categories!A1:A200"

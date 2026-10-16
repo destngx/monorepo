@@ -79,9 +79,6 @@ type Transaction struct {
 	Cleared         bool          `json:"cleared"`
 	Payment         *float64      `json:"payment"`
 	Deposit         *float64      `json:"deposit"`
-	AccountBalance  float64       `json:"accountBalance"`
-	ClearedBalance  float64       `json:"clearedBalance"`
-	RunningBalance  float64       `json:"runningBalance"`
 	// ETag fingerprints the sheet row (A-J) so edits and deletes can detect
 	// that the row changed or moved since it was read.
 	ETag string `json:"etag"`

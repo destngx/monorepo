@@ -195,8 +195,8 @@ func (s *dbService) UpdateTransaction(id string, input domain.TransactionUpdateI
 	return domain.TransactionWriteResult{ID: id}, nil
 }
 
-// DeleteTransaction clears columns A-J (K-M hold sheet formulas). Row numbers
-// of other transactions do not shift, so their IDs stay valid.
+// DeleteTransaction clears columns A-J. Row numbers of other transactions do
+// not shift, so their IDs stay valid.
 func (s *dbService) DeleteTransaction(id string, etag string) error {
 	if strings.TrimSpace(etag) == "" {
 		return fmt.Errorf("%w: etag is required", domain.ErrValidation)

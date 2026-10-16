@@ -14,9 +14,6 @@ const tx = (overrides: Partial<Transaction>): Transaction => ({
   cleared: true,
   payment: null,
   deposit: null,
-  accountBalance: 0,
-  clearedBalance: 0,
-  runningBalance: 0,
   etag: 'e',
   ...overrides,
 });

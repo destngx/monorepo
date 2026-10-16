@@ -3,21 +3,20 @@ import { ApiError } from '$lib/api/client';
 import type { Transaction } from '$lib/api/types';
 import { nextEntry, prefillFromURL, recategorise, toInput } from './entry';
 
-const row = (id: string, category = 'Food'): Transaction =>
-  ({
-    id,
-    accountName: 'Cash',
-    date: '2026-10-13',
-    referenceNumber: null,
-    payee: `Payee ${id}`,
-    tags: ['trip'],
-    memo: null,
-    category,
-    cleared: true,
-    payment: 50_000,
-    deposit: null,
-    etag: `etag-${id}`,
-  }) as Transaction;
+const row = (id: string, category = 'Food'): Transaction => ({
+  id,
+  accountName: 'Cash',
+  date: '2026-10-13',
+  referenceNumber: null,
+  payee: `Payee ${id}`,
+  tags: ['trip'],
+  memo: null,
+  category,
+  cleared: true,
+  payment: 50_000,
+  deposit: null,
+  etag: `etag-${id}`,
+});
 
 describe('nextEntry', () => {
   it('keeps the account, date and cleared flag and clears the rest', () => {

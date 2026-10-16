@@ -11,7 +11,7 @@ import (
 // Row mappers for each sheet tab (REQUIREMENTS §2).
 
 const (
-	transactionWriteColumns = 10 // A-J are user data; K-M are sheet formulas
+	transactionWriteColumns = 10 // A-J, every Transactions column
 	budgetHeaderRowIndex    = 9  // row 10: month serials from column D
 	budgetFirstDataRowIndex = 11 // row 12
 	budgetFirstMonthColumn  = 3  // column D
@@ -72,9 +72,6 @@ func mapTransaction(row []string, rowNumber int) (domain.Transaction, bool) {
 		Cleared:         parseCleared(cellAt(row, 7)),
 		Payment:         nullableNumber(cellAt(row, 8)),
 		Deposit:         nullableNumber(cellAt(row, 9)),
-		AccountBalance:  parseNumber(cellAt(row, 10)),
-		ClearedBalance:  parseNumber(cellAt(row, 11)),
-		RunningBalance:  parseNumber(cellAt(row, 12)),
 		ETag:            rowETag(row, transactionWriteColumns),
 	}
 	date, err := domain.ParseSheetDate(cellAt(row, 1))

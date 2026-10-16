@@ -13,9 +13,6 @@ export interface Transaction {
   cleared: boolean;
   payment: number | null;
   deposit: number | null;
-  accountBalance: number;
-  clearedBalance: number;
-  runningBalance: number;
   etag: string;
   issues?: string[];
   /** Day the rules attribute the row to (refund memo month rule); absent on older engines. */
