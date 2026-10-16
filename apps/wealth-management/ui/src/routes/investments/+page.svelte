@@ -22,6 +22,7 @@
   import { nf } from '$lib/investments/holdings';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { rateDetail } from '$lib/rates';
+  import { STATUS } from '$lib/status';
   import { targetAllocation } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
 
@@ -87,7 +88,7 @@
   );
 </script>
 
-<PageHeader title="Investments" subtitle="Holdings from the sheet, valued in VND by the engine">
+<PageHeader title="Investments" subtitle="Holdings from the sheet, valued in VND">
   {#snippet actions()}
     <button type="button" class="btn-ghost" disabled={isRefreshing} onclick={refresh}>
       <Icon name="refresh" size={16} class={isRefreshing ? 'animate-spin' : ''} /> Refresh prices
@@ -96,8 +97,10 @@
 </PageHeader>
 
 {#if valuation.issues.length}
-  <div class="glass mb-4 border border-amber-500/40 p-3 text-sm text-amber-800 dark:text-amber-200" role="status">
-    <p class="font-medium">Some figures are incomplete:</p>
+  <div class="glass mb-4 border p-3 text-sm {STATUS.warning.box}" role="status">
+    <p class="flex items-center gap-2 font-medium">
+      <Icon name={STATUS.warning.icon} size={16} />Some figures are incomplete:
+    </p>
     <ul class="mt-1 list-disc pl-5">
       {#each valuation.issues as issue, i (i)}<li>{issue}</li>{/each}
     </ul>
@@ -169,16 +172,16 @@
     </form>
   {:else if drift}
     {#if drift.shouldRebalance}
-      <div
-        class="mb-3 rounded-xl border border-orange-500/40 p-3 text-sm text-orange-800 dark:text-orange-200"
-        role="alert"
-      >
-        Rebalance suggested: {breaches
-          .map(
-            (row) =>
-              `${row.label} is ${row.drift > 0 ? 'over' : 'under'} target by ${Math.abs(row.drift).toFixed(1)} points`,
-          )
-          .join('; ')}.
+      <div class="mb-3 flex items-start gap-2 rounded-xl border p-3 text-sm {STATUS.warning.box}" role="alert">
+        <Icon name={STATUS.warning.icon} size={16} class="mt-0.5" />
+        <span
+          >Rebalance suggested: {breaches
+            .map(
+              (row) =>
+                `${row.label} is ${row.drift > 0 ? 'over' : 'under'} target by ${Math.abs(row.drift).toFixed(1)} points`,
+            )
+            .join('; ')}.</span
+        >
       </div>
     {/if}
     <div class="-mx-5 overflow-x-auto">
@@ -200,10 +203,10 @@
               <td class="tabular px-5 py-2 text-right">{formatPercent(row.currentPercent)}</td>
               <td class="tabular px-5 py-2 text-right">{formatPercent(row.targetPercent)}</td>
               <td class="px-5 py-2 text-right">
-                <span class="tabular {row.breach ? 'font-semibold text-orange-600 dark:text-orange-400' : ''}"
+                <span class="tabular {row.breach ? `font-semibold ${STATUS.warning.ink}` : ''}"
                   >{row.drift > 0 ? '+' : ''}{row.drift.toFixed(1)} pts</span
                 >
-                {#if row.breach}<Badge tone="orange">Rebalance</Badge>{/if}
+                {#if row.breach}<Badge status="warning">Rebalance</Badge>{/if}
               </td>
             </tr>
           {/each}

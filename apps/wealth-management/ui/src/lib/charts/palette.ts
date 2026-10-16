@@ -18,3 +18,6 @@ export const FIXED = '#6366f1';
 export const ESSENTIAL = '#0d9488';
 export const FLEXIBLE = '#d97706';
 export const UNTAGGED = '#94a3b8';
+// Net worth projection, nominal vs real (after inflation); validated as a pair on both themes.
+export const NOMINAL = '#6366f1';
+export const REAL = '#0d9488';

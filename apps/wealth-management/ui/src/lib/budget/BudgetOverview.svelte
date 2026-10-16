@@ -26,8 +26,8 @@
       </p>
     </div>
     <div class="flex items-center gap-2">
-      {#if report.percentUsed > 100}<Badge tone="red">Budget Burst</Badge>{/if}
-      <Badge tone={statusTone[report.status]}
+      {#if report.percentUsed > 100}<Badge status="critical">Budget Burst</Badge>{/if}
+      <Badge status={statusTone[report.status]}
         >{statusLabel[report.status]} · {formatPercent(report.percentUsed, 0)}</Badge
       >
     </div>

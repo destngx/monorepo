@@ -46,7 +46,7 @@
             </td>
             <td class="px-5 py-2 text-right">
               {#if line.difference === 0}
-                <Badge tone="green">Matches</Badge>
+                <Badge status="good">Matches</Badge>
               {:else}
                 <Money value={line.difference} currency={line.currency} signed tone />
               {/if}

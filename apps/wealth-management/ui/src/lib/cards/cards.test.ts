@@ -157,9 +157,9 @@ describe('cumulative', () => {
 
 describe('reconciliation labels', () => {
   it('flags only the statuses that need the user', () => {
-    expect(RECONCILIATION.below.tone).toBe('red');
-    expect(RECONCILIATION.above.tone).toBe('amber');
-    expect(RECONCILIATION.match.tone).toBe('green');
+    expect(RECONCILIATION.below.tone).toBe('critical');
+    expect(RECONCILIATION.above.tone).toBe('warning');
+    expect(RECONCILIATION.match.tone).toBe('good');
     expect(RECONCILIATION.open.tone).toBe('neutral');
   });
 });

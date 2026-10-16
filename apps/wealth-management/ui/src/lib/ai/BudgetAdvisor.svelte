@@ -13,7 +13,7 @@
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
   import { maskText } from './moneyMask';
-  import { severityStyle } from './severity';
+  import { severityStatus } from './severity';
   import { AITask } from './task.svelte';
 
   // Budget advisor (WM-BUD-5): model advice over engine-computed facts.
@@ -62,9 +62,11 @@
     {#if advice.alerts.length}
       <ul class="mt-4 grid gap-2 md:grid-cols-2">
         {#each advice.alerts as alert, index (index)}
-          <li class="rounded-xl border p-3 text-sm {severityStyle[alert.severity]}">
-            <p class="font-semibold">
-              {maskText(alert.title, mask.revealed)}{alert.category ? ` · ${alert.category}` : ''}
+          {@const status = severityStatus(alert.severity)}
+          <li class="rounded-xl border p-3 text-sm {status.box}">
+            <p class="flex items-start gap-1.5 font-semibold">
+              <Icon name={status.icon} size={16} class="mt-0.5" /><span class="sr-only">{status.label}:</span>
+              <span>{maskText(alert.title, mask.revealed)}{alert.category ? ` · ${alert.category}` : ''}</span>
             </p>
             <p class="text-slate-700 dark:text-slate-300">{maskText(alert.message, mask.revealed)}</p>
           </li>

@@ -2,10 +2,11 @@
   import type { BudgetLine, Transaction } from '$lib/api/types';
   import BarChart from '$lib/charts/BarChart.svelte';
   import Donut from '$lib/charts/Donut.svelte';
-  import { EXPENSE } from '$lib/charts/palette';
+  import { EXPENSE, INCOME } from '$lib/charts/palette';
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatDate, formatMonth, formatPercent, todayISO } from '$lib/format';
+  import { STATUS } from '$lib/status';
   import { categoryTransactions, dailySpend, detailEnd } from './detail';
   import type { CategoryHandler } from './status';
 
@@ -31,7 +32,7 @@
       <Donut
         items={[
           { label: 'Spent', value: line.spent, color: EXPENSE },
-          { label: 'Remaining', value: line.remaining, color: '#10b981' },
+          { label: 'Remaining', value: line.remaining, color: INCOME },
         ]}
         size={160}
         label="Spent vs remaining"
@@ -60,7 +61,7 @@
         </div>
         {#if line.burnOutDate}<div class="col-span-2">
             <dt class="muted text-xs">Runs out on</dt>
-            <dd class="text-orange-600 dark:text-orange-400">{formatDate(line.burnOutDate)} at the current pace</dd>
+            <dd class={STATUS.serious.ink}>{formatDate(line.burnOutDate)} at the current pace</dd>
           </div>{/if}
         {#if line.note}<div class="col-span-2">
             <dt class="muted text-xs">Note</dt>

@@ -5,7 +5,7 @@
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatPercent } from '$lib/format';
-  import { TONE_STYLE } from './tone';
+  import { STATUS } from '$lib/status';
   import { expenseSplitMessage } from './yearly';
 
   interface Props {
@@ -23,7 +23,7 @@
   const natureLabel: Record<CategoryNature, string> = { fixed: 'Fixed', essential: 'Essential', flexible: 'Flexible' };
 
   const message = $derived(expenseSplitMessage(split));
-  const style = $derived(TONE_STYLE[message.tone]);
+  const style = $derived(STATUS[message.tone]);
   const spending = $derived(split.fixed.total + split.essential.total + split.flexible.total + split.untagged.total);
   const tagged = $derived(split.fixed.total + split.essential.total + split.flexible.total > 0);
   const groups = $derived(
@@ -39,7 +39,7 @@
 </script>
 
 <Card title="Needs vs wants" subtitle="Where your money must go, and where it can be saved" class="mt-4">
-  <div class="border-l-4 pl-3 {style.box}">
+  <div class="border-l-4 pl-3 {style.edge}">
     <p class="flex items-center gap-2 font-semibold {style.ink}"><Icon name={style.icon} />{message.title}</p>
     <p class="mt-1 text-sm">{message.text}</p>
     {#if message.detail}<p class="muted mt-1 text-sm">{message.detail}</p>{/if}

@@ -14,6 +14,7 @@
   import { formatVND } from '$lib/format';
   import { rateDetail } from '$lib/rates';
   import { toasts } from '$lib/state/toasts.svelte';
+  import { STATUS } from '$lib/status';
 
   // Smart Capture (§6.2): materials → streamed analysis → review → commit.
   let { data } = $props();
@@ -24,7 +25,7 @@
   );
   const unavailable = $derived.by(() => {
     if (!data.aiStatus) return 'AI is not available on the engine.';
-    if (!data.aiStatus.configured) return 'AI is not configured: set AI_BASE_URL and AI_MODEL on the engine.';
+    if (!data.aiStatus.configured) return 'AI is not configured: add the AI endpoint and model.';
     if (data.aiStatus.missingPrompts.includes(EXTRACT_PROMPT))
       return `The Prompts sheet has no "${EXTRACT_PROMPT}" prompt.`;
     return null;
@@ -116,13 +117,13 @@
     if (!entry) return { label: 'Queued', tone: 'muted' };
     switch (entry.status) {
       case 'running':
-        return { label: 'Reading…', tone: 'text-sky-600 dark:text-sky-400' };
+        return { label: 'Reading…', tone: STATUS.info.ink };
       case 'ok':
-        return { label: `${entry.events ?? 0} found`, tone: 'text-emerald-600 dark:text-emerald-400' };
+        return { label: `${entry.events ?? 0} found`, tone: STATUS.good.ink };
       case 'unreadable':
-        return { label: `Unreadable: ${entry.message ?? ''}`, tone: 'text-amber-600 dark:text-amber-400' };
+        return { label: `Unreadable: ${entry.message ?? ''}`, tone: STATUS.warning.ink };
       default:
-        return { label: `Failed: ${entry.message ?? ''}`, tone: 'text-rose-600 dark:text-rose-400' };
+        return { label: `Failed: ${entry.message ?? ''}`, tone: STATUS.critical.ink };
     }
   }
 </script>

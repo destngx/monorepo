@@ -144,6 +144,6 @@
       >
     </p>
   {:else}
-    <EmptyState title="No assets returned" detail="The engine returned an empty pulse for this timeframe." />
+    <EmptyState title="No assets returned" detail="No market data came back for this timeframe." />
   {/if}
 </Card>

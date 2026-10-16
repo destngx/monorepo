@@ -13,6 +13,7 @@
   import ConfluenceCard from '$lib/investments/market/ConfluenceCard.svelte';
   import LevelsPanel from '$lib/investments/market/LevelsPanel.svelte';
   import RiskCard from '$lib/investments/market/RiskCard.svelte';
+  import RuleBasedNote from '$lib/investments/market/RuleBasedNote.svelte';
   import SeasonalityCard from '$lib/investments/market/SeasonalityCard.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import TechnicalsCard from '$lib/investments/market/TechnicalsCard.svelte';
@@ -186,6 +187,8 @@
       {/if}
     </div>
   </div>
+
+  <RuleBasedNote class="mb-4" />
 
   <div class="grid gap-4 lg:grid-cols-3">
     <!-- WM-INV-12 -->

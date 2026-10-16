@@ -13,6 +13,7 @@
   import CorrelationMatrix from '$lib/investments/market/CorrelationMatrix.svelte';
   import SentimentGauge from '$lib/investments/market/SentimentGauge.svelte';
   import { symbolHref } from '$lib/investments/market/link';
+  import RuleBasedNote from '$lib/investments/market/RuleBasedNote.svelte';
   import TechnicalsCard from '$lib/investments/market/TechnicalsCard.svelte';
   import TimeframeSwitcher from '$lib/investments/market/TimeframeSwitcher.svelte';
   import TopMovers from '$lib/investments/market/TopMovers.svelte';
@@ -142,6 +143,7 @@
         ><Icon name="refresh" size={12} class="animate-spin" /> Refreshing</span
       >{/if}
   </p>
+  <RuleBasedNote class="mb-3" />
 
   {#if current.topMovers.length}
     <TopMovers movers={current.topMovers} {timeframe} />
@@ -150,7 +152,7 @@
   <AssetsTable quotes={current.assets} {timeframe} />
 
   <div class="mt-4 grid gap-4 lg:grid-cols-2">
-    <Card title="Capital flow and scenario" subtitle="Rule-based reading of the moves above">
+    <Card title="Capital flow and scenario" subtitle="What the moves above suggest">
       <div class="flex flex-wrap items-center gap-2">
         <Badge tone={flowTone[current.capitalFlow.signal]}>{current.capitalFlow.signal}</Badge>
         <span class="text-sm">{current.capitalFlow.summary}</span>
@@ -181,7 +183,7 @@
       <TechnicalsCard
         technicals={current.index}
         title="VN-Index technicals"
-        subtitle="{TIMEFRAME_LABELS[timeframe]} · rule-based heuristics, not a forecast"
+        subtitle={TIMEFRAME_LABELS[timeframe]}
         compact
       >
         {#snippet actions()}

@@ -38,7 +38,7 @@
   const level = $derived(confidenceLevel(suggestion.confidence));
 
   const low = (field: CaptureField) => (suggestion.lowConfidence.includes(field) ? 'ring-2 ring-amber-400/70' : '');
-  const confidenceTone = { high: 'green', medium: 'blue', low: 'amber' } as const;
+  const confidenceTone = { high: 'good', medium: 'info', low: 'warning' } as const;
 
   function setAmount(side: 'payment' | 'deposit', value: string) {
     const parsed = Number(value);
@@ -124,7 +124,7 @@
         </p>{/if}
     </td>
     <td class="px-3 pt-3">
-      <Badge tone={confidenceTone[level]}>{Math.round(suggestion.confidence * 100)}%</Badge>
+      <Badge status={confidenceTone[level]}>{Math.round(suggestion.confidence * 100)}%</Badge>
     </td>
   </tr>
   <tr>

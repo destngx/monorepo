@@ -7,7 +7,6 @@
   import CategoryMonthsTable from '$lib/cashflow/CategoryMonthsTable.svelte';
   import ExpenseSplitCard from '$lib/cashflow/ExpenseSplitCard.svelte';
   import SavingsRateChart from '$lib/cashflow/SavingsRateChart.svelte';
-  import { TONE_STYLE } from '$lib/cashflow/tone';
   import { comparisonSpan, projectionBasis, verdictMessage } from '$lib/cashflow/yearly';
   import BarChart from '$lib/charts/BarChart.svelte';
   import { EXPENSE, INCOME } from '$lib/charts/palette';
@@ -17,6 +16,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { currentMonth, formatMonth, formatPercent } from '$lib/format';
+  import { STATUS } from '$lib/status';
 
   let { data } = $props();
   const report = $derived(data.report);
@@ -34,7 +34,7 @@
   );
 
   const verdict = $derived(verdictMessage(report.year, report.verdict, report.savingsTarget, report.monthsElapsed));
-  const style = $derived(TONE_STYLE[verdict.tone]);
+  const style = $derived(STATUS[verdict.tone]);
 
   // Room to save leaves out the month under way, like the engine.
   const completedMonths = $derived(report.year === thisYear ? report.monthsElapsed - 1 : report.monthsElapsed);
@@ -76,7 +76,7 @@
 </PageHeader>
 
 <div class="mb-4 grid gap-4 {report.projection ? 'lg:grid-cols-2' : ''}">
-  <section class="glass border-l-4 p-5 {style.box}" aria-labelledby="verdict-title">
+  <section class="glass border-l-4 p-5 {style.edge}" aria-labelledby="verdict-title">
     <p class="muted text-xs font-medium uppercase">Am I okay? {report.year}</p>
     <h2 id="verdict-title" class="mt-1 flex items-center gap-2 text-lg font-semibold {style.ink}">
       <Icon name={style.icon} />{verdict.title}

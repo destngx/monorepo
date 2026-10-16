@@ -1,4 +1,5 @@
 import type { AIUsageWindow } from '$lib/api/types';
+import { STATUS } from '$lib/status';
 
 // Presentation of the OpenAI quota reported by the ai-gateway (WM-SET-4).
 
@@ -10,9 +11,9 @@ export function windowLabel(window: Pick<AIUsageWindow, 'name'>): string {
 
 /** Fill colour: amber from 70% used, rose from 90%. */
 export function usageColor(usedPercent: number): string {
-  if (usedPercent >= 90) return 'bg-rose-500';
-  if (usedPercent >= 70) return 'bg-amber-400';
-  return 'bg-emerald-500';
+  if (usedPercent >= 90) return STATUS.critical.fill;
+  if (usedPercent >= 70) return STATUS.warning.fill;
+  return STATUS.good.fill;
 }
 
 /** "in 2d 3h", "in 45m", "due now"; empty when unknown. */

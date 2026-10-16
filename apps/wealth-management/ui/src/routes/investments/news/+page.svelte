@@ -20,7 +20,7 @@
   const NEWS_PROMPT = 'market/news-sentiment';
   const unavailable = $derived.by(() => {
     if (!data.aiStatus) return 'AI is not available on the engine.';
-    if (!data.aiStatus.configured) return 'AI is not configured: set AI_BASE_URL and AI_MODEL on the engine.';
+    if (!data.aiStatus.configured) return 'AI is not configured: add the AI endpoint and model.';
     if (data.aiStatus.missingPrompts.includes(NEWS_PROMPT)) return `The Prompts sheet has no "${NEWS_PROMPT}" prompt.`;
     return null;
   });

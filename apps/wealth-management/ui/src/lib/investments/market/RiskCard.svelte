@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { RiskStats } from '$lib/api/types';
-  import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import { formatDate, formatPercent, formatSignedPercent } from '$lib/format';
   import { changeClass, formatPrice } from '../market';
@@ -13,9 +12,6 @@
 </script>
 
 <Card title="Risk" subtitle="From daily history" class="mt-4">
-  {#snippet actions()}
-    <Badge tone="amber">Heuristic - history only, not a forecast</Badge>
-  {/snippet}
   {#if risk}
     <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
       <div>

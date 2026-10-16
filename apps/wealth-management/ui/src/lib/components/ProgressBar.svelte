@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { STATUS, usageTone } from '$lib/status';
+
   interface Props {
     percent: number;
     /** Tailwind background class for the fill; derived from thresholds when omitted. */
@@ -8,9 +10,7 @@
 
   let { percent, color, label }: Props = $props();
 
-  const fill = $derived(
-    color ?? (percent >= 100 ? 'bg-orange-500' : percent >= 80 ? 'bg-amber-400' : 'bg-emerald-500'),
-  );
+  const fill = $derived(color ?? STATUS[usageTone(percent)].fill);
 </script>
 
 <div

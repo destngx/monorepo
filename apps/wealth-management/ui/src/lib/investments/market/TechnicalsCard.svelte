@@ -18,7 +18,7 @@
   let {
     technicals,
     title = 'Technicals',
-    subtitle = 'Rule-based heuristics computed from candles, not a fitted model',
+    subtitle = 'Computed from candles',
     compact = false,
     class: className = '',
     actions,

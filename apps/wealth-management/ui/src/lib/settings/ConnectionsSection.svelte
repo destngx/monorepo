@@ -7,14 +7,15 @@
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import { sync } from '$lib/state/sync.svelte';
+  import type { StatusTone } from '$lib/status';
 
   // Engine health comes from the root layout load.
   const health = $derived(page.data.health);
 
-  const tone: Record<DependencyStatus, 'green' | 'amber' | 'red' | 'neutral'> = {
-    ok: 'green',
-    degraded: 'amber',
-    down: 'red',
+  const tone: Record<DependencyStatus, StatusTone> = {
+    ok: 'good',
+    degraded: 'warning',
+    down: 'critical',
     unconfigured: 'neutral',
   };
 
@@ -101,7 +102,7 @@
           </div>
           <div class="flex items-center gap-2">
             {#if check.latencyMs !== undefined}<span class="muted tabular text-xs">{check.latencyMs} ms</span>{/if}
-            <Badge tone={tone[check.status]}>{check.status}</Badge>
+            <Badge status={tone[check.status]}>{check.status}</Badge>
           </div>
         </li>
       {/each}

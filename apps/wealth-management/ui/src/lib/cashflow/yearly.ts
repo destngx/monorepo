@@ -1,5 +1,6 @@
 import type { CategoryMonths, ExpenseSplit, SavingsTarget, YearVerdict } from '$lib/api/types';
 import { formatMonth, formatPercent } from '$lib/format';
+import type { StatusTone } from '$lib/status';
 
 /** The `year` URL parameter, when it is a four-digit year. */
 export function parseYear(raw: string | null): number | undefined {
@@ -21,7 +22,8 @@ export function columnTotals(rows: CategoryMonths[]): number[] {
   return Array.from({ length: width }, (_, i) => rows.reduce((sum, row) => sum + (row.values[i] ?? 0), 0));
 }
 
-export type VerdictTone = 'good' | 'warn' | 'bad' | 'neutral';
+/** Status tones a verdict uses; styled by the shared status tokens ($lib/status). */
+export type VerdictTone = Extract<StatusTone, 'good' | 'warning' | 'serious' | 'critical' | 'neutral'>;
 
 export interface VerdictMessage {
   tone: VerdictTone;
@@ -62,7 +64,7 @@ export function verdictMessage(
       };
     case 'watch':
       return {
-        tone: 'warn',
+        tone: 'warning',
         title: 'Worth watching',
         text: `You kept only ${rate} of your income. Aim for at least ${target.healthy}%.`,
         detail,
@@ -70,14 +72,14 @@ export function verdictMessage(
     case 'atRisk':
       if (verdict.savingsRate < 0) {
         return {
-          tone: 'bad',
+          tone: 'critical',
           title: 'Spending more than you earn',
           text: `You spent ${formatPercent(-verdict.savingsRate)} more than you earned.`,
           detail,
         };
       }
       return {
-        tone: 'bad',
+        tone: 'serious',
         title: 'At risk',
         text: `You kept only ${rate} of your income, so one surprise bill could push you into debt. Aim for at least ${target.healthy}%.`,
         detail,
@@ -140,7 +142,7 @@ export function expenseSplitMessage(split: ExpenseSplit): VerdictMessage {
     };
   }
   return {
-    tone: 'warn',
+    tone: 'warning',
     title: 'Needs are heavy',
     text: `Needs (fixed + essential) take ${formatPercent(share)} of your income, above the ${limit}% rule of thumb. Saving more will mean lowering a fixed cost or trimming essentials, not only cutting wants.`,
     detail,

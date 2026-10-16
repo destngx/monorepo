@@ -12,7 +12,7 @@
     formatMccs,
     MCC_STATUS,
     RECONCILIATION,
-    UTILIZATION_COLOR,
+    UTILIZATION,
   } from '$lib/cards/cards';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -24,11 +24,13 @@
   import MultiLineChart from '$lib/investments/fmarket/MultiLineChart.svelte';
   import { currentMonth, formatCompact, formatDate, formatMonth, formatPercent, MASK } from '$lib/format';
   import { mask } from '$lib/state/mask.svelte';
+  import { STATUS } from '$lib/status';
   import CategoryBadge from '$lib/transactions/CategoryBadge.svelte';
   import TagChip from '$lib/transactions/TagChip.svelte';
 
   let { data } = $props();
   const bank = $derived(data.bank);
+  const use = $derived(UTILIZATION[bank.utilizationBand]);
   const card = $derived(data.card);
   const cycle = $derived(card.cycle);
   const standing = $derived(card.standing);
@@ -107,10 +109,13 @@
   <!-- WM-CARD-16: the limit is the bank's, shared by its cards -->
   <Card title="{bank.name} limit" subtitle="Shared by the bank's cards">
     <div class="flex items-center gap-5">
-      <Ring percent={bank.utilization} color={UTILIZATION_COLOR[bank.utilizationBand]} label="Bank utilisation">
-        <span class="text-xl font-semibold">{formatPercent(bank.utilization, 0)}</span>
-        <span class="muted text-xs">used</span>
-      </Ring>
+      <div class="flex flex-col items-center gap-2">
+        <Ring percent={bank.utilization} color={STATUS[use.tone].chart} label="Bank utilisation">
+          <span class="text-xl font-semibold">{formatPercent(bank.utilization, 0)}</span>
+          <span class="muted text-xs">used</span>
+        </Ring>
+        <Badge status={use.tone}>{use.label}</Badge>
+      </div>
       <dl class="space-y-2 text-sm">
         <div>
           <dt class="muted text-xs">Used</dt>
@@ -206,12 +211,11 @@
     <!-- WM-CARD-15 -->
     <Card title="Pay by">
       <div class="flex items-baseline gap-2">
-        <span class="text-3xl font-semibold {cycle.payByUrgent ? 'text-rose-600 dark:text-rose-400' : ''}"
-          >{cycle.daysUntilPayBy}</span
+        <span class="text-3xl font-semibold {cycle.payByUrgent ? STATUS.critical.ink : ''}">{cycle.daysUntilPayBy}</span
         >
         <span class="muted text-sm">days until {formatDate(cycle.payBy)}</span>
       </div>
-      {#if cycle.payByUrgent}<div class="mt-2"><Badge tone="red">Pay soon</Badge></div>{/if}
+      {#if cycle.payByUrgent}<div class="mt-2"><Badge status="critical">Pay soon</Badge></div>{/if}
       {#if statement}
         <div class="mt-4" data-testid="statement-estimate">
           <p class="muted text-xs">
@@ -299,7 +303,7 @@
                 <CategoryBadge name={tx.category} type={tx.categoryType} />
                 {#each tx.tags as tag (tag)}<TagChip {tag} cardKeywords={data.cardKeywords} />{/each}
                 {#if rule}
-                  <Badge tone={MCC_STATUS[mcc.status].tone}
+                  <Badge status={MCC_STATUS[mcc.status].tone}
                     >{mcc.code
                       ? `MCC ${String(mcc.code).padStart(4, '0')} ${MCC_STATUS[mcc.status].label}`
                       : MCC_STATUS[mcc.status].label}</Badge
@@ -391,7 +395,7 @@
               <td class="px-5 py-2 text-right"><Money value={m.cashback.total} /></td>
               <td class="px-5 py-2 text-right"><Money value={m.refund} /></td>
               <td class="px-5 py-2" title={RECONCILIATION[m.status].hint}
-                ><Badge tone={RECONCILIATION[m.status].tone}>{RECONCILIATION[m.status].label}</Badge></td
+                ><Badge status={RECONCILIATION[m.status].tone}>{RECONCILIATION[m.status].label}</Badge></td
               >
             </tr>
           {/each}
@@ -425,7 +429,7 @@
               <td class="py-2"
                 >{rule.name}
                 {#if rule.fallback}<Badge>fallback</Badge>{/if}
-                {#if rule.exclude}<Badge tone="red">no cashback</Badge>{/if}</td
+                {#if rule.exclude}<Badge>no cashback</Badge>{/if}</td
               >
               <td class="py-2">
                 {#if rule.mccs.length}<span class="tabular text-xs">{formatMccs(rule.mccs)}</span>{:else}<span

@@ -77,8 +77,8 @@
             <div>
               <p class="font-medium">
                 {suggestion.card}
-                {#if index === 0 && suggestion.fitsLimit}<Badge tone="green">Best</Badge>{/if}
-                {#if !suggestion.fitsLimit}<Badge tone="red">Over the bank limit</Badge>{/if}
+                {#if index === 0 && suggestion.fitsLimit}<Badge status="good">Best</Badge>{/if}
+                {#if !suggestion.fitsLimit}<Badge status="critical">Over the bank limit</Badge>{/if}
               </p>
               <p class="muted text-xs">
                 {suggestion.bank} · {suggestion.rule ? `rule ${suggestion.rule}` : 'no rule applies'} · room

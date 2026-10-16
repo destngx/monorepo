@@ -5,24 +5,28 @@
   import BarChart from '$lib/charts/BarChart.svelte';
   import Donut from '$lib/charts/Donut.svelte';
   import Radar from '$lib/charts/Radar.svelte';
+  import { NOMINAL, REAL } from '$lib/charts/palette';
   import Ring from '$lib/charts/Ring.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatPercent } from '$lib/format';
   import { pillarText, projectionRows } from '$lib/health';
+  import { STATUS, type StatusTone } from '$lib/status';
 
   let { data } = $props();
   const health = $derived(data.health);
 
   // WM-HEA-1 bands: red < 50, yellow 50-75, green > 75.
-  const band: Record<FinancialHealth['band'], { color: string; tone: 'red' | 'amber' | 'green'; label: string }> = {
-    red: { color: '#f43f5e', tone: 'red', label: 'Needs attention' },
-    yellow: { color: '#f59e0b', tone: 'amber', label: 'Fair' },
-    green: { color: '#10b981', tone: 'green', label: 'Healthy' },
+  const band: Record<FinancialHealth['band'], { tone: StatusTone; label: string }> = {
+    red: { tone: 'critical', label: 'Needs attention' },
+    yellow: { tone: 'warning', label: 'Fair' },
+    green: { tone: 'good', label: 'Healthy' },
   };
+  const scoreStatus = $derived(band[health.band]);
 
   const axes = $derived(
     health.components.map((c) => ({ label: c.label, fraction: c.maxScore ? c.score / c.maxScore : 0 })),
@@ -50,19 +54,26 @@
 <PageHeader title="Financial Health" subtitle="Computed from the last {health.lookbackMonths} months of transactions" />
 
 {#if health.insufficientIncome}
-  <div class="glass mb-4 border border-amber-500/40 p-3 text-sm text-amber-800 dark:text-amber-200" role="status">
-    Not enough income history to score savings and debt reliably; those pillars may read low.
+  <div class="glass mb-4 flex items-start gap-2 border p-3 text-sm {STATUS.warning.box}" role="status">
+    <Icon name={STATUS.warning.icon} size={16} class="mt-0.5" />
+    <span>Not enough income history to score savings and debt reliably; those pillars may read low.</span>
   </div>
 {/if}
 
 <div class="grid gap-4 lg:grid-cols-3">
   <Card title="Health score">
     <div class="flex flex-col items-center gap-3">
-      <Ring percent={health.score} color={band[health.band].color} size={170} thickness={14} label="Health score">
+      <Ring
+        percent={health.score}
+        color={STATUS[scoreStatus.tone].chart}
+        size={170}
+        thickness={14}
+        label="Health score"
+      >
         <span class="text-4xl font-semibold">{Math.round(health.score)}</span>
         <span class="muted text-xs">of 100</span>
       </Ring>
-      <Badge tone={band[health.band].tone}>{band[health.band].label}</Badge>
+      <Badge status={scoreStatus.tone}>{scoreStatus.label}</Badge>
     </div>
   </Card>
   <Card title="Pillars" class="lg:col-span-2">
@@ -114,17 +125,13 @@
 
 {#if projection.length}
   <!-- WM-HEA-2, WM-RULE-12 -->
-  <Card
-    title="Net worth projection"
-    subtitle="Real values are in today's money, after inflation (WM-RULE-12)"
-    class="mt-4"
-  >
+  <Card title="Net worth projection" subtitle="Real values are in today's money, after inflation" class="mt-4">
     <div class="grid items-center gap-4 lg:grid-cols-2">
       <BarChart
         labels={projection.map((row) => `${row.years}y`)}
         series={[
-          { name: 'Nominal', color: '#6366f1', values: projection.map((row) => row.nominal) },
-          { name: 'Real', color: '#14b8a6', values: projection.map((row) => row.real) },
+          { name: 'Nominal', color: NOMINAL, values: projection.map((row) => row.nominal) },
+          { name: 'Real', color: REAL, values: projection.map((row) => row.real) },
         ]}
         height={200}
         label="Projected net worth"

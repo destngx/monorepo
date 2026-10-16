@@ -23,7 +23,7 @@
   const REQUIRED_PROMPTS = ['market/think-tank', 'market/synthesis', 'market/action'];
   const unavailable = $derived.by(() => {
     if (!data.aiStatus) return 'AI is not available on the engine.';
-    if (!data.aiStatus.configured) return 'AI is not configured: set AI_BASE_URL and AI_MODEL on the engine.';
+    if (!data.aiStatus.configured) return 'AI is not configured: add the AI endpoint and model.';
     const missing = REQUIRED_PROMPTS.filter((key) => data.aiStatus?.missingPrompts.includes(key));
     if (missing.length) return `The Prompts sheet is missing: ${missing.join(', ')}.`;
     return null;
@@ -62,7 +62,7 @@
 
 <Card
   title="Analysis"
-  subtitle="Figures come from the engine; the models only interpret them. Commands are advice, nothing is executed."
+  subtitle="Figures are computed by the app; the models only interpret them. Commands are suggestions, nothing is executed."
 >
   <div class="flex flex-wrap items-center justify-between gap-3">
     {#if newsStore.reports.length}

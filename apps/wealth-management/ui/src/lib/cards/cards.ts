@@ -10,6 +10,7 @@ import type {
   ReconciliationStatus,
   UtilizationBand,
 } from '$lib/api/types';
+import type { StatusTone } from '$lib/status';
 
 export function allCards(banks: CardBankReport[]): CardReport[] {
   return banks.flatMap((bank) => bank.cards);
@@ -39,17 +40,11 @@ export function cardTagTone(tag: string, keywords: string[]): CardTagTone {
   return match < 0 ? 'neutral' : CARD_TAG_TONES[match % CARD_TAG_TONES.length];
 }
 
-// WM-CARD-4: <30% green, <70% amber, else red.
-export const UTILIZATION_COLOR: Record<UtilizationBand, string> = {
-  good: '#10b981',
-  fair: '#f59e0b',
-  high: '#f43f5e',
-};
-
-export const UTILIZATION_BAR: Record<UtilizationBand, string> = {
-  good: 'bg-emerald-500',
-  fair: 'bg-amber-400',
-  high: 'bg-rose-500',
+// WM-CARD-4 bands (<30%, <70%, else high) on the shared status scale.
+export const UTILIZATION: Record<UtilizationBand, { label: string; tone: StatusTone }> = {
+  good: { label: 'Low use', tone: 'good' },
+  fair: { label: 'Moderate use', tone: 'warning' },
+  high: { label: 'High use', tone: 'critical' },
 };
 
 /** Totals across banks: limits and usage are per bank, as the bank's cards share them (WM-CARD-16). */
@@ -107,29 +102,27 @@ export function capsLeft(standing: PeriodStanding): CapLeft[] {
     .map((rule) => ({ name: rule.name, left: rule.capLeft, cap: rule.cap }));
 }
 
-type Tone = 'neutral' | 'green' | 'amber' | 'red' | 'blue';
-
 /** How a period's refund compares with its cashback (WM-CARD-11). */
-export const RECONCILIATION: Record<ReconciliationStatus, { label: string; tone: Tone; hint: string }> = {
+export const RECONCILIATION: Record<ReconciliationStatus, { label: string; tone: StatusTone; hint: string }> = {
   open: { label: 'Open', tone: 'neutral', hint: 'The period has not ended.' },
-  awaiting: { label: 'Awaiting refund', tone: 'blue', hint: 'The period ended and no refund is recorded yet.' },
-  match: { label: 'Matches', tone: 'green', hint: 'The refund lies between the confirmed and the estimated cashback.' },
+  awaiting: { label: 'Awaiting refund', tone: 'info', hint: 'The period ended and no refund is recorded yet.' },
+  match: { label: 'Matches', tone: 'good', hint: 'The refund lies between the confirmed and the estimated cashback.' },
   below: {
     label: 'Below',
-    tone: 'red',
+    tone: 'critical',
     hint: 'The refund is less than the confirmed cashback: check the statement with the bank.',
   },
   above: {
     label: 'Above',
-    tone: 'amber',
+    tone: 'warning',
     hint: 'The refund exceeds the estimate: an assumed or unknown MCC is likely wrong.',
   },
 };
 
 /** How sure the engine is of a payment's MCC (C3, C4). */
-export const MCC_STATUS: Record<MccStatus, { label: string; tone: Tone }> = {
-  confirmed: { label: 'confirmed', tone: 'green' },
-  assumed: { label: 'assumed', tone: 'amber' },
+export const MCC_STATUS: Record<MccStatus, { label: string; tone: StatusTone }> = {
+  confirmed: { label: 'confirmed', tone: 'good' },
+  assumed: { label: 'assumed', tone: 'warning' },
   unknown: { label: 'unknown MCC', tone: 'neutral' },
 };
 

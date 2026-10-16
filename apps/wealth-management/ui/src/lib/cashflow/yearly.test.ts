@@ -65,10 +65,10 @@ describe('verdictMessage', () => {
       'You kept 24.0% of your income. 20-30% is healthy; 30% is the target.',
     );
     expect(verdictMessage(2025, verdict('watch', 12), target, 12)).toMatchObject({
-      tone: 'warn',
+      tone: 'warning',
       title: 'Worth watching',
     });
-    expect(verdictMessage(2025, verdict('atRisk', 4), target, 12)).toMatchObject({ tone: 'bad', title: 'At risk' });
+    expect(verdictMessage(2025, verdict('atRisk', 4), target, 12)).toMatchObject({ tone: 'serious', title: 'At risk' });
     expect(verdictMessage(2025, verdict('noData', 0), target, 12)).toMatchObject({
       tone: 'neutral',
       text: 'No income recorded for 2025 yet.',
@@ -77,6 +77,7 @@ describe('verdictMessage', () => {
 
   it('calls out spending more than earned', () => {
     expect(verdictMessage(2025, verdict('atRisk', -25), target, 12)).toMatchObject({
+      tone: 'critical',
       title: 'Spending more than you earn',
       text: 'You spent 25.0% more than you earned.',
     });
@@ -150,7 +151,7 @@ describe('expenseSplitMessage', () => {
       text: 'Needs (fixed + essential) take 40.0% of your income, under the 50% rule of thumb. The rest can go to wants and savings.',
       detail: null,
     });
-    expect(expenseSplitMessage(split(40, 20, 10, 0, 60))).toMatchObject({ tone: 'warn', title: 'Needs are heavy' });
+    expect(expenseSplitMessage(split(40, 20, 10, 0, 60))).toMatchObject({ tone: 'warning', title: 'Needs are heavy' });
     expect(expenseSplitMessage(split(60, 0, 10, 0, null)).text).toBe(
       'No income recorded, so there is no share to judge yet.',
     );

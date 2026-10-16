@@ -4,9 +4,12 @@
   import type { BudgetHistory } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatMonth, formatPercent } from '$lib/format';
+  import { STATUS } from '$lib/status';
   import { wallRows, type WallCell } from './history';
+  import { statusLabel, statusTone } from './status';
 
   // "The Wall" (WM-BUD-7): six months of spent against limit per category.
   let { month }: { month: string } = $props();
@@ -40,13 +43,15 @@
 
   const rows = $derived(history ? wallRows(history) : []);
 
-  const tone: Record<WallCell['status'], string> = {
-    healthy: 'bg-emerald-500/15',
-    warning: 'bg-amber-400/25',
-    urgent: 'bg-rose-500/25',
+  const wash: Record<WallCell['status'], string> = {
+    healthy: STATUS.good.wash,
+    warning: STATUS.warning.wash,
+    urgent: STATUS.critical.wash,
     unbudgeted: 'bg-violet-500/15',
     empty: '',
   };
+  // Over-limit cells carry the status icon too, so the wall does not read by colour alone.
+  const flagged = (status: WallCell['status']) => (status === 'warning' || status === 'urgent' ? status : null);
 </script>
 
 <Card title="The Wall" subtitle="Spent against limit, last {MONTHS} months" class="mt-4">
@@ -75,12 +80,16 @@
             <tr>
               <td class="py-1 pr-3 font-medium whitespace-nowrap">{row.category}</td>
               {#each row.cells as cell (cell.month)}
+                {@const flag = flagged(cell.status)}
                 <td class="px-1 py-1">
-                  <div class="rounded-lg px-2 py-1.5 text-center text-xs {tone[cell.status]}">
+                  <div class="rounded-lg px-2 py-1.5 text-center text-xs {wash[cell.status]}">
                     {#if cell.status === 'empty'}
                       <span class="muted">-</span>
                     {:else}
-                      <p class="font-semibold">
+                      <p class="flex items-center justify-center gap-1 font-semibold">
+                        {#if flag}<Icon name={STATUS[statusTone[flag]].icon} size={12} /><span class="sr-only"
+                            >{statusLabel[flag]}:</span
+                          >{/if}
                         {cell.percent === null ? 'No limit' : formatPercent(cell.percent, 0)}
                       </p>
                       <Money value={cell.spent} class="muted text-[11px]" />
@@ -94,7 +103,8 @@
       </table>
     </div>
     <p class="muted mt-3 text-xs">
-      Green under 70% of the limit, amber from 70%, red from 90%, violet for spending without a limit.
+      Green under 70% of the limit, amber with a warning sign from 70%, red with a stop sign from 90%, violet for
+      spending without a limit.
     </p>
   {:else}
     <EmptyState title="No budget history" detail="Limits and spending of the last months show here." />

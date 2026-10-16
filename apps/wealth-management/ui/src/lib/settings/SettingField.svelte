@@ -62,7 +62,7 @@
         />
       {/if}
       {#if setting.secret && setting.isSet}
-        <Badge tone={draft.clear ? 'amber' : 'green'}>{draft.clear ? 'will be cleared' : 'stored'}</Badge>
+        <Badge status={draft.clear ? 'warning' : 'good'}>{draft.clear ? 'will be cleared' : 'stored'}</Badge>
         <button
           type="button"
           class="btn-ghost px-2"

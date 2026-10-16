@@ -33,7 +33,7 @@
     <dl class="grid grid-cols-[auto_1fr] items-center gap-x-6 gap-y-2 text-sm">
       <dt class="muted">AI</dt>
       <dd>
-        <Badge tone={status.configured ? 'green' : 'neutral'}
+        <Badge status={status.configured ? 'good' : 'neutral'}
           >{status.configured ? 'configured' : 'not configured'}</Badge
         >
       </dd>

@@ -30,9 +30,9 @@ Removes fakes and duplicates before new features build on them. Ships with the P
 | C4  | One allocation view        | Accounts (by group), Health (donut) and Investments (drift) each compute allocation differently. Keep one engine-computed allocation with targets and drift, shown under Wealth; Health links to it.          |
 | C5  | One bank-rates list        | Bank savings rates appear on Investments and on Fmarket. Keep one, used by R6.                                                                                                                                |
 | C6  | Preferences in the sheet   | Allocation targets live in browser storage only, so they differ per device. Move them to the app-managed `Preferences` tab (layout below), edited on Investments (targets) and Settings (goal pool settings). |
-| C7  | Developer text in the UI   | Remove requirement IDs and implementation notes from user-facing copy; one disclaimer per page for rule-based market readings.                                                                                |
-| C8  | Dead requirements          | Close WM-UI-7 (D24), WM-INV-19 (D7) and the legacy WM-ING-2 row.                                                                                                                                              |
-| C9  | Consistent status colours  | One status token set (good / warning / serious / critical, always with icon and label) shared by every page; fix the Health projection colour that fails the dark-mode check.                                 |
+| C7  | Developer text in the UI   | Remove requirement IDs and implementation notes from user-facing copy; one disclaimer per page for rule-based market readings. **Done.**                                                                      |
+| C8  | Dead requirements          | Close WM-UI-7 (D24), WM-INV-19 (D7) and the legacy WM-ING-2 row. **Done.**                                                                                                                                    |
+| C9  | Consistent status colours  | One status token set (good / warning / serious / critical, always with icon and label) shared by every page; fix the Health projection colour that fails the dark-mode check. **Done.**                       |
 
 ## Tier 3: Advisor core
 

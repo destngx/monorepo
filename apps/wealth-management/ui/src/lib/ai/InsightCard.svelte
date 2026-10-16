@@ -6,7 +6,7 @@
   import { mask } from '$lib/state/mask.svelte';
   import Markdown from './Markdown.svelte';
   import { maskText } from './moneyMask';
-  import { insightIcon, severityStyle } from './severity';
+  import { insightIcon, severityStatus } from './severity';
   import { AITask } from './task.svelte';
 
   interface Props {
@@ -49,10 +49,13 @@
     <p class="mb-3 font-medium">{maskText(insight.summary, mask.revealed)}</p>
     <ul class="space-y-2">
       {#each insight.sections as section, index (index)}
-        <li class="flex gap-3 rounded-xl border p-3 {severityStyle[section.severity]}">
+        {@const status = severityStatus(section.severity)}
+        <li class="flex gap-3 rounded-xl border p-3 {status.box}">
           <Icon name={insightIcon[section.icon]} size={18} class="mt-0.5" />
           <div class="min-w-0 text-slate-800 dark:text-slate-200">
-            <p class="text-sm font-semibold">{maskText(section.title, mask.revealed)}</p>
+            <p class="text-sm font-semibold">
+              <span class="sr-only">{status.label}:</span>{maskText(section.title, mask.revealed)}
+            </p>
             <Markdown text={section.content} class="mt-1" />
           </div>
         </li>

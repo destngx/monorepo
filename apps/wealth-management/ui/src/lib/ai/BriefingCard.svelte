@@ -6,7 +6,7 @@
   import { mask } from '$lib/state/mask.svelte';
   import Markdown from './Markdown.svelte';
   import { maskText } from './moneyMask';
-  import { severityStyle } from './severity';
+  import { severityStatus } from './severity';
   import { AITask } from './task.svelte';
 
   // Dashboard intelligence briefing (WM-DASH-6, WM-AI-6).
@@ -35,8 +35,13 @@
     {#if briefing.alerts.length}
       <ul class="mb-4 grid gap-2 md:grid-cols-2">
         {#each briefing.alerts as alert, index (index)}
-          <li class="rounded-xl border p-3 text-sm {severityStyle[alert.severity]}">
-            <p class="font-semibold">{maskText(alert.title, mask.revealed)}</p>
+          {@const status = severityStatus(alert.severity)}
+          <li class="rounded-xl border p-3 text-sm {status.box}">
+            <p class="flex items-start gap-1.5 font-semibold">
+              <Icon name={status.icon} size={16} class="mt-0.5" /><span class="sr-only">{status.label}:</span><span
+                >{maskText(alert.title, mask.revealed)}</span
+              >
+            </p>
             <p class="text-slate-700 dark:text-slate-300">{maskText(alert.message, mask.revealed)}</p>
           </li>
         {/each}

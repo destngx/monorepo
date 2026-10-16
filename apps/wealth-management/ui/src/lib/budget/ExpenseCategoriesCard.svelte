@@ -7,7 +7,8 @@
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatDate } from '$lib/format';
-  import { statusBar, type LineHandler } from './status';
+  import { STATUS } from '$lib/status';
+  import { statusBar, statusLabel, statusTone, type LineHandler } from './status';
 
   interface Props {
     lines: BudgetLine[];
@@ -27,15 +28,18 @@
             <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-sm">
               <span class="flex items-center gap-2 font-medium">
                 {line.category}
-                {#if line.unbudgeted}<Badge tone="violet">No limit</Badge>{/if}
+                {#if line.unbudgeted}<Badge tone="violet">No limit</Badge>
+                {:else if line.status !== 'healthy'}<Badge status={statusTone[line.status]}
+                    >{statusLabel[line.status]}</Badge
+                  >{/if}
               </span>
               <span class="muted tabular text-xs"
                 ><Money value={line.spent} /> / <Money value={line.limit} /> · <Money value={line.remaining} /> left</span
               >
             </div>
             {#if line.burnOutDate}
-              <p class="mb-1 text-xs text-orange-600 dark:text-orange-400">
-                Runs out on {formatDate(line.burnOutDate)} at the current pace
+              <p class="mb-1 flex items-center gap-1 text-xs {STATUS.serious.ink}">
+                <Icon name="clock" size={12} />Runs out on {formatDate(line.burnOutDate)} at the current pace
               </p>
             {/if}
             <ProgressBar

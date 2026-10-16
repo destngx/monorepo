@@ -9,7 +9,7 @@
     compareCards,
     historyYears,
     portfolioTotals,
-    UTILIZATION_BAR,
+    UTILIZATION,
     visibleCards,
     type CardMetric,
   } from '$lib/cards/cards';
@@ -25,6 +25,7 @@
   import MultiLineChart from '$lib/investments/fmarket/MultiLineChart.svelte';
   import { formatCompact, formatDate, formatPercent, MASK } from '$lib/format';
   import { mask } from '$lib/state/mask.svelte';
+  import { STATUS } from '$lib/status';
 
   let { data } = $props();
   const totals = $derived(portfolioTotals(data.banks));
@@ -111,6 +112,7 @@
 {#each data.banks as bank (bank.name)}
   {@const bankCards = visibleCards(bank.cards, showClosed)}
   {@const hiddenCount = bank.cards.length - bankCards.length}
+  {@const use = UTILIZATION[bank.utilizationBand]}
   <!-- WM-CARD-16: the limit and usage are the bank's, shared by its cards -->
   <Card
     title={bank.name}
@@ -123,8 +125,9 @@
       <span class="muted text-xs">Limit <Money value={bank.limit} /> · Room <Money value={bank.remainingLimit} /></span>
     {/snippet}
     <div class="mb-4 flex items-center gap-2">
-      <ProgressBar percent={bank.utilization} color={UTILIZATION_BAR[bank.utilizationBand]} label="Bank utilisation" />
+      <ProgressBar percent={bank.utilization} color={STATUS[use.tone].fill} label="Bank utilisation" />
       <span class="muted text-xs whitespace-nowrap">{formatPercent(bank.utilization, 0)} used</span>
+      <Badge status={use.tone}>{use.label}</Badge>
     </div>
     <div class="grid gap-3 md:grid-cols-2">
       {#each bankCards as card (card.name)}
@@ -144,7 +147,8 @@
                 {/if}
               </p>
             </div>
-            {#if card.closedFrom}<Badge>Closed</Badge>{:else if card.cycle.payByUrgent}<Badge tone="red">Pay soon</Badge
+            {#if card.closedFrom}<Badge>Closed</Badge>{:else if card.cycle.payByUrgent}<Badge status="critical"
+                >Pay soon</Badge
               >{/if}
           </div>
           <!-- WM-CARD-1, WM-CARD-12 -->
