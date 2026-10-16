@@ -110,7 +110,7 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 			"nature":   map[string]any{"type": "string", "enum": []string{"fixed", "essential", "flexible", "lending", "none"}, "description": "none clears the nature."},
 		}, "category", "nature"),
 	})
-	api.Group("/goals", "goals").Get("/", h.GetGoals, RouteMeta{Summary: "Lists savings goals with progress and status.", QueryParams: []RouteParameter{forceParam()}})
+	registerGoalWriteRoutes(api.Group("/goals", "goals"), h, guard)
 	api.Group("/tags", "tags").Get("/", h.GetTags, RouteMeta{Summary: "Lists normalised transaction tags.", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/investments", "investments").Get("/assets", h.GetInvestmentAssets, RouteMeta{Summary: "Returns crypto and fund holdings, raw and typed (symbol, quantity, price, value).", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/cards", "cards").Get("/programs", h.GetCardPrograms, RouteMeta{Summary: "Card configuration from the sheet: programmes with their dated versions and cashback rules (Programs, ProgramRules), banks with the shared account and reference limit (Banks), cards held (Cards) and payee MCC mappings (Merchants). A missing tab contributes no rows; 400 naming each invalid row.", QueryParams: []RouteParameter{forceParam()}})
@@ -152,6 +152,7 @@ func RegisterAnalyticsRoutes(api RouteRegistrar, h *AnalyticsHandler) {
 	analytics.Get("/cards/compare", h.ComparePrograms, RouteMeta{Summary: "Replays the held cards' payments of the last 12 months under every programme's current terms, held or not, ranked by cashback less the annual fee.", QueryParams: []RouteParameter{forceParam()}})
 	analytics.Get("/health", h.GetFinancialHealth, RouteMeta{Summary: "Financial health score with per-pillar formulas and recommendations. Debt-to-income is the card minimum payments (5% of each negative account balance) / average monthly income (reference 35%). projection gives net worth in 5, 10 and 20 years, nominal and inflation-adjusted (real).", QueryParams: []RouteParameter{forceParam()}})
 	analytics.Get("/account-histories", h.GetAccountHistories, RouteMeta{Summary: "Back-calculated daily balances per account.", QueryParams: []RouteParameter{forceParam(), QueryParam("days", "integer", "Number of days, 1-366.", defaultHistoryDays)}})
+	api.Group("/goals", "goals").Get("/", h.GetGoalPlan, RouteMeta{Summary: goalPlanSummary, QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/lending", "lending").Get("/", h.GetMoneyLent, RouteMeta{Summary: "Money lent per person from transactions in lending categories (payee = person; payment = lent, deposit = repaid): lent, repaid, outstanding (negative = the user owes that person), lastActivity, openSince and daysOutstanding of the open balance, and the person's transactions newest first. Totals owedToYou, youOwe, peopleOwing, peopleYouOwe, oldestDaysOutstanding. People owing the user come first, settled people (outstanding 0) last.", QueryParams: []RouteParameter{forceParam()}})
 }
 

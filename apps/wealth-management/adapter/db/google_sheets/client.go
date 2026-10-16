@@ -202,7 +202,7 @@ func (c *SheetsClient) WriteRowsAtFirstEmptyRow(sheetName string, anchorRange st
 	}
 	targetRow := startRow + lastDataIdx + 1
 	err = c.write("values.update", func(ctx context.Context) error {
-		_, err := c.service.Spreadsheets.Values.Update(c.spreadsheetID, fmt.Sprintf("%s!A%d", sheetName, targetRow), &sheets.ValueRange{
+		_, err := c.service.Spreadsheets.Values.Update(c.spreadsheetID, fmt.Sprintf("%s!A%d", a1SheetName(sheetName), targetRow), &sheets.ValueRange{
 			Values: rows,
 		}).
 			ValueInputOption("USER_ENTERED").
@@ -268,6 +268,17 @@ func (c *SheetsClient) CreateSheet(title string, header []any) error {
 		return nil
 	}
 	return c.UpdateRow(fmt.Sprintf("'%s'!A1", strings.ReplaceAll(title, "'", "''")), header)
+}
+
+var plainSheetName = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
+// a1SheetName quotes a tab name for A1 notation when it holds anything but
+// letters, digits and underscores (e.g. "Goal Plan"); a quoted name is kept.
+func a1SheetName(name string) string {
+	if plainSheetName.MatchString(name) || strings.HasPrefix(name, "'") {
+		return name
+	}
+	return "'" + strings.ReplaceAll(name, "'", "''") + "'"
 }
 
 var anchorRowPattern = regexp.MustCompile(`![A-Za-z]+(\d+)`)

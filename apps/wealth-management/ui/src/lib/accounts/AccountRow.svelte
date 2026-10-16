@@ -58,11 +58,6 @@
         />
         <span class="muted text-xs">{formatPercent(utilization, 0)}</span>
       </div>
-    {:else if account.goalProgress !== null && account.goalAmount}
-      <div class="mt-1 flex items-center gap-2">
-        <ProgressBar percent={account.goalProgress} color="bg-indigo-500" label="Goal progress" />
-        <span class="muted text-xs">{formatPercent(account.goalProgress, 0)}</span>
-      </div>
     {/if}
   </div>
   <div class="flex justify-end">

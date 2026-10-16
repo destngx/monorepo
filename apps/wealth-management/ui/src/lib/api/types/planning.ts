@@ -1,14 +1,114 @@
 import type { Transaction } from './transactions';
 
-export interface Goal {
+/** Goal Plan status column (F). */
+export type GoalStatus = 'active' | 'paused' | 'done';
+
+/** A goal's standing in the plan, computed by the engine. */
+export type GoalPace = 'done' | 'paused' | 'funded' | 'on_track' | 'behind' | 'no_deadline';
+
+/** One row of the Goal Plan tab. */
+export interface PlannedGoal {
+  /** goal-N; with etag it addresses the row for edits. */
   id: string;
+  row: number;
   name: string;
-  type: string;
-  emoji: string;
+  /** null only on the emergency fund, whose target is then computed. */
+  target: number | null;
+  /** yyyy-mm; absent means no deadline. */
+  targetDate?: string;
+  priority: number;
+  startingAmount: number;
+  status: GoalStatus;
+  note?: string;
+  etag: string;
+}
+
+/** A goal in the computed plan (D31, D32). */
+export interface GoalProgress extends PlannedGoal {
+  emergencyFund: boolean;
   targetAmount: number;
-  currentAmount: number;
-  deadline: string;
-  status: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK';
+  targetComputed: boolean;
+  funded: number;
+  fromPool: number;
+  remaining: number;
+  percent: number;
+  monthsLeft: number | null;
+  requiredPerMonth: number | null;
+  /** yyyy-mm; null when not reachable within 50 years, paused or done. */
+  projectedFinish: string | null;
+  monthsToReach: number | null;
+  yearsToReach: number | null;
+  longHorizon: boolean;
+  pace: GoalPace;
+}
+
+export type PoolRole = 'asset' | 'cardDebt' | 'crypto' | 'archived' | 'empty';
+
+/** The pooled savings balance: total = max(0, assets - cardDebt - spendingBuffer). */
+export interface GoalPool {
+  assets: number;
+  cardDebt: number;
+  spendingBuffer: number;
+  bufferMonths: number;
+  averageMonthlyExpense: number;
+  total: number;
+  /** Shown as upside, never counted (D32). */
+  crypto: number;
+  archived: number;
+  moneyLent: number;
+  accounts: { name: string; balance: number; role: PoolRole }[];
+}
+
+export interface GoalTradeOff {
+  goalId: string;
+  name: string;
+  targetDate: string;
+  /** yyyy-mm that alone closes the gap; null when moving this goal is not enough. */
+  moveTargetDateTo: string | null;
+  /** Target cut that alone closes the gap; null when not enough. */
+  lowerTargetBy: number | null;
+}
+
+export type PlanVerdict = 'fits' | 'short' | 'no_deadlines';
+
+export interface GoalPlan {
+  asOf: string;
+  setupNeeded: boolean;
+  /** Old Goals rows a setup would import. */
+  legacyGoals: number;
+  settings: { emergencyMonths: number; spendingBufferMonths: number };
+  pool: GoalPool;
+  needs: { perMonth: number; months: number; fromTotalExpense: boolean };
+  monthlySavings: { perMonth: number; months: number };
+  /** Priority order. */
+  goals: GoalProgress[];
+  unallocated: number;
+  check: {
+    requiredPerMonth: number;
+    monthlySavings: number;
+    /** > 0 is the monthly shortfall. */
+    gap: number;
+    verdict: PlanVerdict;
+    datedGoals: number;
+    tradeOffs: GoalTradeOff[];
+  };
+  issues: { row: number; message: string }[];
+}
+
+export interface GoalInput {
+  name: string;
+  target?: number;
+  targetDate?: string;
+  priority?: number;
+  startingAmount?: number;
+  status?: GoalStatus;
+  note?: string;
+}
+
+export interface GoalPlanSetupResult {
+  created: number;
+  imported: number;
+  skipped: string[];
 }
 
 /** One person's money-lent ledger (WM-LEND-1). */

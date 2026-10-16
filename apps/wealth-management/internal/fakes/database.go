@@ -21,7 +21,7 @@ type Database struct {
 	BudgetByYear map[int][]domain.BudgetItem
 	Info         domain.SheetInfo
 	Categories   []domain.Category
-	Goals        []domain.Goal
+	GoalPlan     domain.GoalPlanSheet
 	Init         domain.InitResult
 	AIContent    domain.AIContent
 	CaptureRules []domain.CaptureRule
@@ -46,6 +46,11 @@ type Database struct {
 	SavedCaptureRules   [][]domain.CaptureRule
 	SavedPreferences    []domain.PreferencesUpdate
 	NatureUpdates       []domain.CategoryNatureUpdate
+	GoalSetups          int
+	CreatedGoals        []domain.GoalInput
+	UpdatedGoals        map[string]domain.GoalUpdateInput
+	DeletedGoals        map[string]string
+	GoalOrders          []domain.GoalReorderInput
 }
 
 var _ port.DatabaseService = (*Database)(nil)
@@ -161,7 +166,58 @@ func (f *Database) UpdateBudgetLimit(input domain.BudgetLimitUpdate) error {
 	return f.Err
 }
 
-func (f *Database) ListGoals(bool) ([]domain.Goal, error) { return nonNil(f.Goals), f.Err }
+func (f *Database) ReadGoalPlan(bool) (domain.GoalPlanSheet, error) { return f.GoalPlan, f.Err }
+
+func (f *Database) SetupGoalPlan() (domain.GoalPlanSetupResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.GoalSetups++
+	return domain.GoalPlanSetupResult{Created: 1, Skipped: []string{}}, f.Err
+}
+
+// CreateGoal validates like the service and records the input.
+func (f *Database) CreateGoal(input domain.GoalInput) (domain.PlannedGoal, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.PlannedGoal{}, err
+	}
+	f.CreatedGoals = append(f.CreatedGoals, input)
+	return domain.PlannedGoal{ID: fmt.Sprintf("goal-%d", len(f.CreatedGoals)+1), Name: input.Name, Target: input.Target, Status: domain.GoalActive}, f.Err
+}
+
+func (f *Database) UpdateGoal(id string, input domain.GoalUpdateInput) (domain.PlannedGoal, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.PlannedGoal{}, err
+	}
+	if f.UpdatedGoals == nil {
+		f.UpdatedGoals = map[string]domain.GoalUpdateInput{}
+	}
+	f.UpdatedGoals[id] = input
+	return domain.PlannedGoal{ID: id, Name: input.Name, Target: input.Target, Status: input.Status}, f.Err
+}
+
+func (f *Database) DeleteGoal(id string, etag string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.DeletedGoals == nil {
+		f.DeletedGoals = map[string]string{}
+	}
+	f.DeletedGoals[id] = etag
+	return f.Err
+}
+
+func (f *Database) ReorderGoals(input domain.GoalReorderInput) ([]domain.PlannedGoal, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+	f.GoalOrders = append(f.GoalOrders, input)
+	return nonNil(f.GoalPlan.Goals), f.Err
+}
 
 // UpdateCategoryNature validates like the service and records the update.
 func (f *Database) UpdateCategoryNature(input domain.CategoryNatureUpdate) (domain.Category, error) {

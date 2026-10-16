@@ -18,6 +18,11 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		return domain.Briefing{}, fmt.Errorf("load dashboard: %w", err)
 	}
 	facts = facts.WithMonthComparison(dashboard)
+	plan, err := s.analytics.GoalPlan(false)
+	if err != nil {
+		return domain.Briefing{}, fmt.Errorf("load goal plan: %w", err)
+	}
+	facts = facts.WithGoalPlan(plan)
 	budget := []map[string]any{}
 	for _, line := range snap.budget.Lines {
 		if line.CountsAsExpense() && (line.Spent > 0 || line.Limit > 0) {
@@ -69,7 +74,7 @@ func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (d
 	if err != nil {
 		return domain.BudgetAdvice{}, fmt.Errorf("load budget: %w", err)
 	}
-	goals, err := s.db.ListGoals(false)
+	goals, err := s.analytics.GoalPlan(false)
 	if err != nil {
 		return domain.BudgetAdvice{}, fmt.Errorf("load goals: %w", err)
 	}
@@ -78,7 +83,7 @@ func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (d
 	vars := map[string]string{
 		"date":       snap.today.Format("02/01/2006"),
 		"budget":     toJSON(facts.Categories),
-		"goals":      toJSON(s.goalContexts(goals)),
+		"goals":      toJSON(s.goalPlanContext(goals)),
 		"recentTxns": toJSON(s.txContexts(recent(snap.transactions, monthStart, snap.today, advisorTransactions))),
 	}
 	return structured(ctx, s, snap, structuredRequest{

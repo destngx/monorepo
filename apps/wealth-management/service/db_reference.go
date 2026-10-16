@@ -58,22 +58,6 @@ func (s *dbService) UpdateCategoryNature(input domain.CategoryNatureUpdate) (dom
 	return category, nil
 }
 
-func (s *dbService) ListGoals(forceFresh bool) ([]domain.Goal, error) {
-	return cachedRead(s, cacheKeyGoals, sheetDataTTL, forceFresh, func() ([]domain.Goal, error) {
-		rows, err := s.client.ReadSheet(goalsSheetRange)
-		if err != nil {
-			return nil, fmt.Errorf("read goals: %w", err)
-		}
-		goals := make([]domain.Goal, 0)
-		for i, row := range rows {
-			if goal, ok := mapGoal(row, i); ok {
-				goals = append(goals, goal)
-			}
-		}
-		return goals, nil
-	})
-}
-
 func (s *dbService) ListTags(forceFresh bool) ([]string, error) {
 	transactions, err := s.ListTransactions(forceFresh)
 	if err != nil {

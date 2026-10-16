@@ -60,7 +60,7 @@ type Bank struct {
 	// spend on it belongs to the bank's default card.
 	SharedAccount string `json:"sharedAccount"`
 	// ReferenceLimit is the limit to keep usage under (N9); the shared
-	// account's goal amount, when set, overrides it.
+	// account's credit limit (Accounts C), when set, overrides it.
 	ReferenceLimit float64 `json:"referenceLimit"`
 }
 

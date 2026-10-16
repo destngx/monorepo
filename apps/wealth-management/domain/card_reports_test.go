@@ -92,7 +92,7 @@ func TestBankLimitAndUsage(t *testing.T) {
 
 func TestMoneyPaidInAheadIsRoomNotUsage(t *testing.T) {
 	accounts := []Account{
-		{Name: "Credit Card Acme", Type: AccountTypeNegativeActive, ClearedBalance: -3_000_000, GoalAmount: money(30_000_000)},
+		{Name: "Credit Card Acme", Type: AccountTypeNegativeActive, ClearedBalance: -3_000_000, CreditLimit: money(30_000_000)},
 		{Name: "Card Gold", Type: AccountTypeNegativeActive, ClearedBalance: 2_000_000},
 	}
 	transactions := []Transaction{

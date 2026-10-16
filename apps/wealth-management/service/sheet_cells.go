@@ -59,15 +59,6 @@ func nullableNumber(value string) *float64 {
 	return &parsed
 }
 
-func nullableGoalProgress(value string) *float64 {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return nil
-	}
-	parsed := parseNumber(trimmed) * 100
-	return &parsed
-}
-
 func nullableString(value string) *string {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {

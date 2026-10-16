@@ -21,7 +21,6 @@ const (
 	transactionsAnchorRange = "Transactions!A2:A"
 	transactionsFirstRow    = 2
 	categoriesSheetRange    = "Categories!A1:B200"
-	goalsSheetRange         = "Goals!A1:Z50"
 	cryptoSheetRange        = "Crypto!A1:Z100"
 	fundsSheetRange         = "InvestmentFundCertificate!A1:Z100"
 	promptsSheetRange       = "Prompts!A2:C"
@@ -38,13 +37,12 @@ const (
 	cacheKeyAccounts  = "accounts:all"
 	cacheKeyTxs       = "transactions:all"
 	cacheKeyCats      = "categories:all"
-	cacheKeyGoals     = "goals"
 	cacheKeyInvest    = "investments:assets"
 	cacheKeyAIContent = "sheets:ai-content"
 )
 
 // sheetCachePatterns lists every sheet-derived cache key (WM-OPS-3).
-var sheetCachePatterns = []string{"accounts:*", "transactions:*", "budget:*", "categories:*", cacheKeyGoals, cacheKeyAIContent, cacheKeyInvest, cacheKeyCaptureRules, cacheKeyCards, cacheKeyPreferences}
+var sheetCachePatterns = []string{"accounts:*", "transactions:*", "budget:*", "categories:*", cacheKeyGoalPattern, cacheKeyAIContent, cacheKeyInvest, cacheKeyCaptureRules, cacheKeyCards, cacheKeyPreferences}
 
 // DatabaseServiceOptions tunes the sheet service; zero values use defaults.
 type DatabaseServiceOptions struct {

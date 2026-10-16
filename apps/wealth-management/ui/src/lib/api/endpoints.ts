@@ -36,7 +36,10 @@ import type {
   GoogleAuthPurpose,
   GoogleAuthResult,
   GoogleAuthStart,
-  Goal,
+  GoalInput,
+  GoalPlan,
+  GoalPlanSetupResult,
+  PlannedGoal,
   Insight,
   InvestmentAssets,
   InvestmentEvent,
@@ -139,7 +142,17 @@ export const api = {
 
   categories: (options?: ReadOptions) => read<Category[]>('/categories', options),
   tags: (options?: ReadOptions) => read<string[]>('/tags', options),
-  goals: (options?: ReadOptions) => read<Goal[]>('/goals', options),
+  goalPlan: (options?: ReadOptions) => read<GoalPlan>('/goals', options),
+  setupGoalPlan: () => request<GoalPlanSetupResult>('/goals/setup', { method: 'POST' }),
+  createGoal: (input: GoalInput) => request<PlannedGoal>('/goals', { method: 'POST', body: input }),
+  updateGoal: (id: string, etag: string, input: GoalInput) =>
+    request<PlannedGoal>(`/goals/${encodeURIComponent(id)}`, { method: 'PATCH', body: { ...input, etag } }),
+  deleteGoal: (id: string, etag: string) =>
+    request<{ success: boolean }>(`/goals/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'If-Match': etag },
+    }),
+  reorderGoals: (ids: string[]) => request<PlannedGoal[]>('/goals/reorder', { method: 'POST', body: { ids } }),
   setCategoryNature: (input: CategoryNatureInput) =>
     request<Category>('/categories/nature', { method: 'PATCH', body: input }),
   moneyLent: (options?: ReadOptions) => read<MoneyLent>('/lending', options),

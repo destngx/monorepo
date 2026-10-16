@@ -57,10 +57,10 @@ export function creditRemaining(account: Account): number {
   return noteAmount(account.note) ?? Math.abs(account.balance);
 }
 
-/** Credit utilisation in percent from |balance| / goalAmount (WM-ACC-3). */
+/** Credit utilisation in percent from |balance| / creditLimit (WM-ACC-3). */
 export function creditUtilization(account: Account): number | null {
-  if (!account.goalAmount) return null;
-  return (Math.abs(account.balance) / account.goalAmount) * 100;
+  if (!account.creditLimit) return null;
+  return (Math.abs(account.balance) / account.creditLimit) * 100;
 }
 
 export function accountIcon(type: AccountType): IconName {

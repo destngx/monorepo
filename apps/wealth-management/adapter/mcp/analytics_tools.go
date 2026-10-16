@@ -9,6 +9,7 @@ import (
 func (s *Server) analyticsTools() []tool {
 	analytics := s.analyticsService
 	return []tool{
+		readTool("GetGoals", "The goal plan: goals are claims on one pooled savings balance (assets without crypto, archived accounts and money lent, minus card debt and a spending buffer) filled by priority, emergency fund first. Per goal target, funded, remaining, required per month, projected finish, years to reach and pace (done, paused, funded, on_track, behind, no_deadline); the plan check (required per month vs average monthly savings, gap, verdict, trade-offs). setupNeeded until the Goal Plan tab exists.", analytics.GoalPlan),
 		readTool("GetMoneyLent", "Money lent per person from lending-category transactions: lent, repaid, outstanding (negative = the user owes that person), last activity, days outstanding and the transactions; totals owed to the user and owed by the user.", analytics.MoneyLent),
 		readTool("GetDashboard", "Balance sheet, net worth change this month, month-to-date income and expense against the same days of last month, month-end expense pace, 30-day net worth trend, cash flow history and top accounts.", analytics.DashboardSummary),
 		{

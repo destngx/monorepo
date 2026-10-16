@@ -2,4 +2,4 @@ import { api } from '$lib/api/endpoints';
 import { loadOrError } from '$lib/api/load';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = ({ fetch }) => loadOrError(async () => ({ goals: await api.goals({ fetch }) }));
+export const load: PageLoad = ({ fetch }) => loadOrError(async () => ({ plan: await api.goalPlan({ fetch }) }));

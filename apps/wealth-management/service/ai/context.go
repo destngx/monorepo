@@ -234,23 +234,6 @@ func (s *Service) moneyLentContext(lent domain.MoneyLent) moneyLentContext {
 	return out
 }
 
-type goalContext struct {
-	Name     string            `json:"name"`
-	Type     domain.GoalType   `json:"type"`
-	Target   float64           `json:"target"`
-	Current  float64           `json:"current"`
-	Deadline string            `json:"deadline,omitempty"`
-	Status   domain.GoalStatus `json:"status"`
-}
-
-func (s *Service) goalContexts(goals []domain.Goal) []goalContext {
-	out := make([]goalContext, 0, len(goals))
-	for _, goal := range goals {
-		out = append(out, goalContext{Name: s.masker.Mask(goal.Name), Type: goal.Type, Target: goal.TargetAmount, Current: goal.CurrentAmount, Deadline: goal.Deadline, Status: goal.Status})
-	}
-	return out
-}
-
 // factsBlock appends engine-computed figures to an action prompt so the
 // model quotes them instead of deriving its own.
 func factsBlock(facts any) string {

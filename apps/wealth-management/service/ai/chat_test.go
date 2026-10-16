@@ -60,3 +60,22 @@ func TestChatFallsBackOnlyBeforeStreaming(t *testing.T) {
 		t.Fatalf("expected fallback before streaming: %v %v", err, client.models())
 	}
 }
+
+func TestGivenAGoalPlanWhenTheChatReadsGoalsThenItGetsThePlanWithMaskedNames(t *testing.T) {
+	db := fixtureDatabase()
+	db.GoalPlan.Goals[0].Name = "Trip with Person B"
+	db.GoalPlan.Goals[0].Target = money(300_000_000)
+	tools := newTestService(t, db, &scriptedClient{}, nil).chatTools()
+
+	result, err := tools["getGoals"].run(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, ok := result.(goalPlanContext)
+	if !ok || len(plan.Goals) != 1 || plan.Goals[0].Pace != domain.PaceBehind || plan.Goals[0].Target != 300_000_000 {
+		t.Fatalf("plan = %+v", result)
+	}
+	if strings.Contains(plan.Goals[0].Name, "Person B") || plan.Verdict != domain.PlanShort {
+		t.Fatalf("names must be masked and the check included: %+v", plan)
+	}
+}

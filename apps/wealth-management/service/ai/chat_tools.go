@@ -110,13 +110,13 @@ func (s *Service) chatTools() map[string]chatTool {
 			},
 		},
 		{
-			definition: domain.AITool{Name: "getGoals", Description: "Savings goals with target, current amount, deadline and status.", Parameters: objectSchema(map[string]any{})},
+			definition: domain.AITool{Name: "getGoals", Description: "The goal plan: goals are claims on one pooled savings balance filled by priority (emergency fund first). Per goal target, funded, remaining, target date, required per month, projected finish and pace; the pool, average monthly savings, total required per month, the gap and trade-offs.", Parameters: objectSchema(map[string]any{})},
 			run: func(ctx context.Context, _ json.RawMessage) (any, error) {
-				goals, err := s.db.ListGoals(false)
+				plan, err := s.analytics.GoalPlan(false)
 				if err != nil {
 					return nil, err
 				}
-				return s.goalContexts(goals), nil
+				return s.goalPlanContext(plan), nil
 			},
 		},
 	}

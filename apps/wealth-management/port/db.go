@@ -33,7 +33,22 @@ type DatabaseService interface {
 	// ReallocateBudget moves part of a month's limit between categories,
 	// re-reading the sheet first (WM-BUD-7).
 	ReallocateBudget(input domain.BudgetReallocation) (domain.BudgetReallocationResult, error)
-	ListGoals(forceFresh bool) ([]domain.Goal, error)
+	// ReadGoalPlan reads the app-managed Goal Plan tab (D31); Exists is
+	// false until SetupGoalPlan creates it.
+	ReadGoalPlan(forceFresh bool) (domain.GoalPlanSheet, error)
+	// SetupGoalPlan creates the Goal Plan tab with an emergency fund row and
+	// the rows imported from the old Goals tab, which is only read.
+	// ErrConflict when the tab already exists.
+	SetupGoalPlan() (domain.GoalPlanSetupResult, error)
+	CreateGoal(input domain.GoalInput) (domain.PlannedGoal, error)
+	// UpdateGoal replaces a goal row when it still matches the ETag
+	// (ErrConflict otherwise).
+	UpdateGoal(id string, input domain.GoalUpdateInput) (domain.PlannedGoal, error)
+	// DeleteGoal clears a goal row when it still matches the ETag.
+	DeleteGoal(id string, etag string) error
+	// ReorderGoals sets priorities 1..n in the order of the IDs; unlisted
+	// goals follow in their order. ErrConflict for an ID not in the tab.
+	ReorderGoals(input domain.GoalReorderInput) ([]domain.PlannedGoal, error)
 	ListTags(forceFresh bool) ([]string, error)
 	GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error)
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)

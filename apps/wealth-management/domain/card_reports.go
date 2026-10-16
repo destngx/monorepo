@@ -101,8 +101,8 @@ func ComputeCardReports(config CardConfig, accounts []Account, transactions []Tr
 	return reports
 }
 
-// bankLimit is the bank's limit (the shared account's goal amount, else the
-// reference limit) and its usage: what the accounts its cards bill to owe,
+// bankLimit is the bank's limit (the shared account's credit limit from
+// Accounts C, else the reference limit) and its usage: what the accounts its cards bill to owe,
 // money paid in ahead counting as room (C9).
 func bankLimit(bank Bank, billed map[string]bool, accounts []Account) (float64, float64) {
 	limit, usage := bank.ReferenceLimit, 0.0
@@ -111,8 +111,8 @@ func bankLimit(bank Bank, billed map[string]bool, accounts []Account) (float64, 
 			continue
 		}
 		usage += owedAmount(account.ClearedBalance)
-		if account.Name == bank.SharedAccount && account.GoalAmount != nil && *account.GoalAmount > 0 {
-			limit = *account.GoalAmount
+		if account.Name == bank.SharedAccount && account.CreditLimit != nil && *account.CreditLimit > 0 {
+			limit = *account.CreditLimit
 		}
 	}
 	return limit, usage

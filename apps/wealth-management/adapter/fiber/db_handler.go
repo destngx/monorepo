@@ -177,10 +177,6 @@ func (h *DatabaseHandler) GetCategories(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.ListCategories(forceFresh(c)))
 }
 
-func (h *DatabaseHandler) GetGoals(c *fiber.Ctx) error {
-	return h.respond(c)(h.databaseService.ListGoals(forceFresh(c)))
-}
-
 // UpdateCategoryNature sets a category's nature (WM-LEND-5).
 func (h *DatabaseHandler) UpdateCategoryNature(c *fiber.Ctx) error {
 	var body domain.CategoryNatureUpdate

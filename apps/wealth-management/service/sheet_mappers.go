@@ -37,8 +37,7 @@ func mapAccount(row []string) (domain.Account, bool) {
 	return domain.Account{
 		Name:           name,
 		DueDate:        dueDate,
-		GoalAmount:     nullableNumber(cellAt(row, 2)),
-		GoalProgress:   nullableGoalProgress(cellAt(row, 3)),
+		CreditLimit:    nullableNumber(cellAt(row, 2)),
 		ClearedBalance: parseNumber(cellAt(row, 4)),
 		Balance:        parseNumber(cellAt(row, 5)),
 		Type:           domain.AccountType(typeRaw),
@@ -115,52 +114,6 @@ func transactionRowValues(input domain.TransactionCreateInput, currency domain.C
 		formatTransactionAmount(input.Payment, input.AccountName, currency),
 		formatTransactionAmount(input.Deposit, input.AccountName, currency),
 	}, nil
-}
-
-func mapGoal(row []string, index int) (domain.Goal, bool) {
-	name := strings.TrimSpace(cellAt(row, 4))
-	if name == "" || name == "Instructions" || strings.Contains(name, "Insert more rows") {
-		return domain.Goal{}, false
-	}
-	targetAmount := parseVND(cellAt(row, 6))
-	currentAmount := parseVND(cellAt(row, 8))
-	if targetAmount == 0 && currentAmount == 0 {
-		return domain.Goal{}, false
-	}
-	goalType := domain.GoalTypeSavingsTarget
-	emoji := "🎯"
-	lower := strings.ToLower(name)
-	switch {
-	case strings.Contains(lower, "xe"), strings.Contains(lower, "car"):
-		goalType = domain.GoalTypePurchaseGoal
-		emoji = "🚗"
-	case strings.Contains(lower, "nhà"), strings.Contains(lower, "house"), strings.Contains(lower, "đất"):
-		goalType = domain.GoalTypePurchaseGoal
-		emoji = "🏠"
-	case strings.Contains(lower, "học"), strings.Contains(lower, "school"):
-		emoji = "🎓"
-	case strings.Contains(lower, "du lịch"), strings.Contains(lower, "vacation"):
-		goalType = domain.GoalTypePurchaseGoal
-		emoji = "✈️"
-	}
-	status := domain.GoalStatusAtRisk
-	if targetAmount > 0 && currentAmount/targetAmount >= 0.5 {
-		status = domain.GoalStatusOnTrack
-	}
-	return domain.Goal{
-		ID:               fmt.Sprintf("goal-%d", index),
-		Name:             name,
-		Type:             goalType,
-		Emoji:            emoji,
-		TargetAmount:     targetAmount,
-		CurrentAmount:    currentAmount,
-		Deadline:         "TBD",
-		Status:           status,
-		LinkedAccountID:  "sheet-goals",
-		ContributionType: "MANUAL",
-		Milestones:       []domain.Milestone{},
-		History:          []domain.Contribution{},
-	}, true
 }
 
 func isJunkAccountName(name string) bool {

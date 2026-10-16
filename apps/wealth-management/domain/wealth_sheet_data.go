@@ -36,30 +36,13 @@ const (
 	CategoryTypeNonBudget CategoryType = "non-budget"
 )
 
-type GoalType string
-
-const (
-	GoalTypeSavingsTarget    GoalType = "SAVINGS_TARGET"
-	GoalTypePurchaseGoal     GoalType = "PURCHASE_GOAL"
-	GoalTypeDebtPayoff       GoalType = "DEBT_PAYOFF"
-	GoalTypeInvestmentTarget GoalType = "INVESTMENT_TARGET"
-	GoalTypeIncomeGoal       GoalType = "INCOME_GOAL"
-	GoalTypeNetWorth         GoalType = "NET_WORTH_MILESTONE"
-)
-
-type GoalStatus string
-
-const (
-	GoalStatusOnTrack  GoalStatus = "ON_TRACK"
-	GoalStatusAtRisk   GoalStatus = "AT_RISK"
-	GoalStatusOffTrack GoalStatus = "OFF_TRACK"
-)
-
 type Account struct {
-	Name         string   `json:"name"`
-	DueDate      *string  `json:"dueDate"`
-	GoalAmount   *float64 `json:"goalAmount"`
-	GoalProgress *float64 `json:"goalProgress"`
+	Name    string  `json:"name"`
+	DueDate *string `json:"dueDate"`
+	// CreditLimit is Accounts column C: a card account's credit limit,
+	// which overrides its bank's reference limit (WM-CARD-16). Column D
+	// (the retired per-account goal progress) is no longer read (C2).
+	CreditLimit *float64 `json:"creditLimit"`
 	// Balances are always VND (D25), whatever the currency.
 	ClearedBalance float64     `json:"clearedBalance"`
 	Balance        float64     `json:"balance"`
@@ -160,36 +143,6 @@ type BudgetItem struct {
 	MonthlyRemaining float64            `json:"monthlyRemaining"`
 	YearlyRemaining  float64            `json:"yearlyRemaining"`
 	Note             string             `json:"note,omitempty"`
-}
-
-type Milestone struct {
-	Percentage float64 `json:"percentage"`
-	Label      string  `json:"label"`
-	AchievedAt *string `json:"achievedAt,omitempty"`
-}
-
-type Contribution struct {
-	ID            string  `json:"id"`
-	Date          string  `json:"date"`
-	Amount        float64 `json:"amount"`
-	SourceAccount string  `json:"sourceAccount"`
-	Note          *string `json:"note,omitempty"`
-}
-
-type Goal struct {
-	ID               string         `json:"id"`
-	Name             string         `json:"name"`
-	Type             GoalType       `json:"type"`
-	Emoji            string         `json:"emoji"`
-	TargetAmount     float64        `json:"targetAmount"`
-	CurrentAmount    float64        `json:"currentAmount"`
-	Deadline         string         `json:"deadline"`
-	Status           GoalStatus     `json:"status"`
-	LinkedAccountID  string         `json:"linkedAccountId"`
-	ContributionType string         `json:"contributionType"`
-	StreakCount      int            `json:"streakCount"`
-	Milestones       []Milestone    `json:"milestones"`
-	History          []Contribution `json:"history"`
 }
 
 // Holding is one typed investment position (WM-DATA-7). Value is in

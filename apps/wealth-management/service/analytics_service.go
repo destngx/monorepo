@@ -256,3 +256,29 @@ func (s *analyticsService) position(forceFresh bool) ([]domain.Account, []domain
 	}
 	return ledger.Accounts, ledger.Transactions, nil
 }
+
+// goalPoolSettings returns the goal pool settings. They are the defaults
+// until the Preferences tab (goal.emergencyMonths,
+// goal.spendingBufferMonths) is wired in here.
+func goalPoolSettings() domain.GoalPoolSettings {
+	return domain.DefaultGoalPoolSettings()
+}
+
+// GoalPlan reads the Goal Plan tab, the ledger and the categories and
+// computes the plan (D31, D32). Before setup it still returns the pool, so
+// the page can show it next to the setup action.
+func (s *analyticsService) GoalPlan(forceFresh bool) (domain.GoalPlan, error) {
+	sheet, err := s.db.ReadGoalPlan(forceFresh)
+	if err != nil {
+		return domain.GoalPlan{}, err
+	}
+	accounts, transactions, err := s.position(forceFresh)
+	if err != nil {
+		return domain.GoalPlan{}, err
+	}
+	categories, err := s.db.ListCategories(forceFresh)
+	if err != nil {
+		return domain.GoalPlan{}, err
+	}
+	return domain.ComputeGoalPlan(sheet, accounts, transactions, categories, goalPoolSettings(), s.today()), nil
+}

@@ -26,6 +26,14 @@ type BriefingFacts struct {
 	ExpensePace          *ExpensePace `json:"expensePace,omitempty"`
 	// MoneyLent is what people owe the user and the user owes people (D30).
 	MoneyLent MoneyLentFacts `json:"moneyLent"`
+	// Goals summarises the goal plan (D31); nil before it is set up.
+	Goals *GoalPlanFacts `json:"goals,omitempty"`
+}
+
+// WithGoalPlan adds the goal plan summary.
+func (f BriefingFacts) WithGoalPlan(plan GoalPlan) BriefingFacts {
+	f.Goals = plan.Facts()
+	return f
 }
 
 // WithMonthComparison adds the dashboard's same-days comparison and pace.

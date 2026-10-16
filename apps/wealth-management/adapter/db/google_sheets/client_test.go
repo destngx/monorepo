@@ -155,6 +155,14 @@ func TestWriteRowsAtFirstEmptyRowUpdatesNextDataRow(t *testing.T) {
 	}
 }
 
+func TestGivenTabNamesWhenWritingA1RangesThenNamesWithSpacesAreQuoted(t *testing.T) {
+	for name, want := range map[string]string{"Transactions": "Transactions", "Goal Plan": "'Goal Plan'", "Loan / Dept's": "'Loan / Dept''s'", "'Goal Plan'": "'Goal Plan'"} {
+		if got := a1SheetName(name); got != want {
+			t.Errorf("a1SheetName(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
 func newTestClient(t *testing.T, baseURL string, config domain.SheetsConfig) *SheetsClient {
 	t.Helper()
 

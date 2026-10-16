@@ -56,8 +56,10 @@ func fixtureDatabase() *fakes.Database {
 			{Name: "Transport", Type: domain.CategoryTypeExpense},
 			{Name: "Uncategorized", Type: domain.CategoryTypeExpense},
 		},
-		Budget:    []domain.BudgetItem{{Category: "Food", CategoryType: kind(domain.CategoryTypeExpense), MonthlyLimit: 3_000_000}},
-		Goals:     []domain.Goal{{Name: "Trip", TargetAmount: 30_000_000, CurrentAmount: 10_000_000}},
+		Budget: []domain.BudgetItem{{Category: "Food", CategoryType: kind(domain.CategoryTypeExpense), MonthlyLimit: 3_000_000}},
+		GoalPlan: domain.GoalPlanSheet{Exists: true, Goals: []domain.PlannedGoal{
+			{ID: "goal-2", Row: 2, Name: "Trip", Target: money(30_000_000), TargetDate: "2027-06", Priority: 1, Status: domain.GoalActive},
+		}},
 		AIContent: domain.AIContent{Prompts: allPrompts()},
 	}
 }

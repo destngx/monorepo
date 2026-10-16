@@ -17,8 +17,7 @@ import { ACCOUNT_TYPES } from './api/types';
 const account = (overrides: Partial<Account>): Account => ({
   name: 'A',
   dueDate: null,
-  goalAmount: null,
-  goalProgress: null,
+  creditLimit: null,
   clearedBalance: 0,
   balance: 0,
   type: 'active use',
@@ -50,7 +49,7 @@ describe('credit helpers', () => {
   });
 
   it('computes utilisation against the goal amount', () => {
-    expect(creditUtilization(account({ balance: -45, goalAmount: 50 }))).toBe(90);
+    expect(creditUtilization(account({ balance: -45, creditLimit: 50 }))).toBe(90);
     expect(creditUtilization(account({ balance: -45 }))).toBeNull();
   });
 });

@@ -27,8 +27,8 @@ export type CategoryType = 'income' | 'expense' | 'non-budget';
 export interface Account {
   name: string;
   dueDate: string | null;
-  goalAmount: number | null;
-  goalProgress: number | null;
+  /** Accounts column C: a card account's credit limit; null when blank. */
+  creditLimit: number | null;
   clearedBalance: number;
   balance: number;
   type: AccountType;

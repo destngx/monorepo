@@ -91,6 +91,11 @@ func (h *AnalyticsHandler) GetFinancialHealth(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.FinancialHealth(forceFresh(c)))
 }
 
+// GetGoalPlan returns the computed goal plan (D31, D32).
+func (h *AnalyticsHandler) GetGoalPlan(c *fiber.Ctx) error {
+	return h.respond(c)(h.analytics.GoalPlan(forceFresh(c)))
+}
+
 func (h *AnalyticsHandler) GetMoneyLent(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.MoneyLent(forceFresh(c)))
 }

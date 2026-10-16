@@ -7,6 +7,10 @@ import (
 )
 
 func (s *Server) databaseTools() []tool {
+	return append(s.sheetTools(), s.goalWriteTools()...)
+}
+
+func (s *Server) sheetTools() []tool {
 	db := s.databaseService
 	return []tool{
 		readTool("GetAccounts", "Lists live accounts with type, balance, cleared balance and currency.", db.ListAccounts),
@@ -172,7 +176,6 @@ func (s *Server) databaseTools() []tool {
 				return db.UpdateCategoryNature(input)
 			},
 		},
-		readTool("GetGoals", "Lists savings goals with progress and status.", db.ListGoals),
 		readTool("GetTags", "Lists normalised transaction tags.", db.ListTags),
 		readTool("GetInvestmentAssets", "Returns crypto and fund holdings with symbol, quantity, price and value.", db.GetInvestmentAssets),
 		readTool("GetCardPrograms", "Card configuration from the sheet: programmes with dated versions and cashback rules, banks with shared account and reference limit, cards held (keyword, expiry, statement and due days) and payee MCC mappings.", db.ListCardConfig),
