@@ -9,7 +9,7 @@
   let open = $state(false);
 </script>
 
-<div class="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-3">
+<div class="fixed right-4 bottom-24 z-40 lg:bottom-4 flex flex-col items-end gap-3">
   {#if open}
     <div
       class="glass flex h-[min(34rem,75vh)] w-[min(24rem,calc(100vw-2rem))] flex-col shadow-xl"

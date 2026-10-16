@@ -290,9 +290,16 @@ export const api = {
   newsSentiment: (topic: string, options?: AIOptions) => ai<NewsReport>('/ai/news-sentiment', { topic }, options),
   tickerInsight: (symbol: string, timeframe: Timeframe, options?: AIOptions) =>
     ai<Insight>('/ai/ticker-insight', { symbol, timeframe }, options),
-  /** Streams the think tank (WM-AI-9); failures after the stream starts arrive as an "error" event. */
-  investmentAnalysis: (news: NewsReport[], signal?: AbortSignal) =>
-    aiStream<InvestmentEvent>('/ai/investment-analysis', { news: news.length ? news : undefined }, signal),
+  /**
+   * Streams the think tank (WM-AI-9); failures after the stream starts arrive as an "error" event.
+   * No symbols means the user's current holdings (ROADMAP M5).
+   */
+  investmentAnalysis: (news: NewsReport[], symbols: string[], signal?: AbortSignal) =>
+    aiStream<InvestmentEvent>(
+      '/ai/investment-analysis',
+      { news: news.length ? news : undefined, symbols: symbols.length ? symbols : undefined },
+      signal,
+    ),
   /** Streams chat events (WM-AI-11); errors after the stream starts arrive as an "error" event. */
   chat: (messages: ChatMessage[], page: ChatPageContext | undefined, signal?: AbortSignal) =>
     aiStream<ChatEvent>('/ai/chat', { messages, page }, signal),

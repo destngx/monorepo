@@ -34,6 +34,7 @@ const SOURCE_LABELS: Record<string, string> = {
   'year-review': 'Year review',
   'financial-health': 'Health review',
   'intelligence-briefing': 'Briefing',
+  'think-tank': 'Think Tank',
   'rule:rebalance': 'Allocation check',
   'rule:goal-plan-short': 'Goal plan check',
   'rule:lent-overdue': 'Money lent check',

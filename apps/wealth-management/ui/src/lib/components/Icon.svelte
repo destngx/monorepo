@@ -2,6 +2,9 @@
   // Inline stroke icons (24×24, Lucide-style paths) so no icon package is needed.
   const paths = {
     dashboard: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
+    home: 'M3 10.5 12 3l9 7.5M5 9v12h14V9M10 21v-6h4v6',
+    wallet: 'M3 7h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 7l13-4v4M16 14h.01',
+    compass: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM16.2 7.8l-2.1 6.3-6.3 2.1 2.1-6.3z',
     transactions: 'M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3',
     budget: 'M21 12a9 9 0 1 1-9-9v9zM15 3.5a9 9 0 0 1 5.5 5.5H15z',
     accounts: 'M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M2 21h20M12 3l9 5H3z',

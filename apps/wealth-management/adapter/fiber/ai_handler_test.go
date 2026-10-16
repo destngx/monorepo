@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -159,9 +160,14 @@ func TestAIMarketRoutes(t *testing.T) {
 	}
 
 	status, body := call(t, app, http.MethodPost, "/api/ai/investment-analysis", "")
-	want := "{\"type\":\"phase\",\"phase\":\"think-tank\",\"status\":\"ok\"}\n{\"type\":\"actions\",\"commands\":[{\"action\":\"OBSERVE\",\"target\":\"VN30\",\"rationale\":\"\"}]}\n{\"type\":\"done\"}\n"
+	want := "{\"type\":\"phase\",\"phase\":\"think-tank\",\"status\":\"ok\"}\n" +
+		"{\"type\":\"actions\",\"commands\":[{\"action\":\"OBSERVE\",\"target\":\"VN30\",\"rationale\":\"\"}]," +
+		"\"recorded\":{\"created\":[],\"duplicates\":1,\"checked\":[],\"ignoredOutcomes\":0}}\n{\"type\":\"done\"}\n"
 	if status != http.StatusOK || body != want {
 		t.Fatalf("investment analysis: %d %q", status, body)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/ai/investment-analysis", `{"symbols":["FPT","VCB"]}`); status != http.StatusOK || !slices.Equal(ai.Analyses[len(ai.Analyses)-1].Symbols, []string{"FPT", "VCB"}) {
+		t.Fatalf("the think tank must get the requested symbols: %d %+v", status, ai.Analyses)
 	}
 	status, body = call(t, newAIApp(t, &fakes.AI{Err: fmt.Errorf("%w: market/think-tank", domain.ErrPromptMissing)}), http.MethodPost, "/api/ai/investment-analysis", `{"model":"m"}`)
 	if status != http.StatusOK || !strings.HasSuffix(body, "{\"type\":\"error\",\"message\":\"prompt missing from the Prompts sheet: market/think-tank\"}\n") {

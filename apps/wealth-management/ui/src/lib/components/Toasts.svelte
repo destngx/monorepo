@@ -11,7 +11,7 @@
 </script>
 
 <div
-  class="pointer-events-none fixed right-4 bottom-4 z-50 flex w-[min(24rem,calc(100%-2rem))] flex-col gap-2"
+  class="pointer-events-none fixed right-4 bottom-24 z-50 lg:bottom-4 flex w-[min(24rem,calc(100%-2rem))] flex-col gap-2"
   aria-live="polite"
 >
   {#each toasts.items as toast (toast.id)}

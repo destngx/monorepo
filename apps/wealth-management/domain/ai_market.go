@@ -146,6 +146,10 @@ type InvestmentCommand struct {
 // accepted and folded into Target and Rationale.
 type InvestmentCommands struct {
 	Commands []rawInvestmentCommand `json:"executable_commands"`
+	// Recommendations and Outcomes feed the recommendations list (WM-REC-8);
+	// the engine appends their contract to the action prompt.
+	Recommendations []RecommendationProposal `json:"recommendations,omitempty"`
+	Outcomes        []RecommendationOutcome  `json:"outcomes,omitempty"`
 }
 
 type rawInvestmentCommand struct {

@@ -13,11 +13,14 @@
   import RawContext from '$lib/investments/thinktank/RawContext.svelte';
   import { biasTone } from '$lib/investments/news';
   import { newsStore } from '$lib/investments/newsStore.svelte';
-  import { chatSummary } from '$lib/investments/thinktank';
+  import { chatSummary, focusLabel, parseSymbols } from '$lib/investments/thinktank';
+  import { recordNote } from '$lib/recommendations/recommendations';
   import { thinkTank } from '$lib/investments/thinktank.svelte';
 
   // Think Tank (WM-AI-9, WM-INV-18): the engine gathers the portfolio, market
   // pulse and web searches, then streams a debate, a synthesis and commands.
+  // Without symbols it analyses the user's holdings; what is worth doing goes
+  // to the recommendations list (ROADMAP M5, WM-INV-29, WM-REC-8).
   let { data } = $props();
 
   const REQUIRED_PROMPTS = ['market/think-tank', 'market/synthesis', 'market/action'];
@@ -30,12 +33,14 @@
   });
 
   let includeNews = $state(true);
+  let symbolsText = $state('');
+  const symbols = $derived(parseSymbols(symbolsText));
   const run = $derived(thinkTank.state);
   const started = $derived(run.status !== 'idle');
   const finished = $derived(run.status === 'done');
 
   function start() {
-    void thinkTank.start(includeNews ? newsStore.reports : []);
+    void thinkTank.start(includeNews ? newsStore.reports : [], symbols);
   }
 
   const chatPage = $derived<ChatPageContext>({
@@ -45,7 +50,7 @@
   });
 </script>
 
-<PageHeader title="Think Tank" subtitle="An AI debate over your portfolio, the market pulse and the news">
+<PageHeader title="Think Tank" subtitle="An AI debate over your holdings, the market pulse and the news">
   {#snippet actions()}
     <a class="btn-ghost" href="{base}/investments/news"><Icon name="newspaper" size={16} /> News Scanner</a>
   {/snippet}
@@ -64,6 +69,23 @@
   title="Analysis"
   subtitle="Figures are computed by the app; the models only interpret them. Commands are suggestions, nothing is executed."
 >
+  <div class="mb-4">
+    <label for="think-tank-symbols" class="text-sm font-medium">Symbols <span class="muted">(optional)</span></label>
+    <input
+      id="think-tank-symbols"
+      class="field mt-1 w-full max-w-md"
+      placeholder="e.g. FPT, BTC"
+      autocomplete="off"
+      aria-describedby="think-tank-symbols-hint"
+      bind:value={symbolsText}
+      disabled={thinkTank.running}
+    />
+    <p id="think-tank-symbols-hint" class="muted mt-1 text-xs">
+      {symbols.length
+        ? `Analyses ${symbols.join(', ')}.`
+        : 'Leave empty to analyse your current holdings (symbols only are sent, never account names).'}
+    </p>
+  </div>
   <div class="flex flex-wrap items-center justify-between gap-3">
     {#if newsStore.reports.length}
       <label class="flex items-center gap-2 text-sm">
@@ -103,6 +125,9 @@
     <div class="mt-4" aria-live="polite">
       <PhaseStepper phases={run.phases} />
     </div>
+  {/if}
+  {#if run.context?.focus}
+    <p class="mt-3 text-sm" role="status"><span class="font-medium">Focus:</span> {focusLabel(run.context.focus)}</p>
   {/if}
 
   {#if run.status === 'error'}
@@ -171,6 +196,14 @@
       <CommandCards commands={run.actions.commands} />
     {:else}
       <p class="muted text-sm">The models proposed no commands.</p>
+    {/if}
+    {#if run.actions.recorded}
+      <p class="mt-3 text-sm {run.actions.recorded.error ? 'text-rose-700 dark:text-rose-300' : 'muted'}" role="status">
+        {recordNote(run.actions.recorded)}
+        <a class="underline" href="{base}/recommendations?page={encodeURIComponent('/investments/think-tank')}"
+          >See the recommendations</a
+        >
+      </p>
     {/if}
   </Card>
 {/if}

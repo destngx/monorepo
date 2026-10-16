@@ -125,7 +125,7 @@ func TestGivenNewsAndTickerArgsWhenCallingAIMarketToolsThenRequestsAreForwarded(
 
 func TestGivenAThinkTankStreamWhenCallingRunInvestmentAnalysisThenEventsAreCollected(t *testing.T) {
 	server, _, _ := newMarketTestServer(t)
-	result, err := server.CallTool(context.Background(), "RunInvestmentAnalysis", json.RawMessage(`{"model":"m"}`))
+	result, err := server.CallTool(context.Background(), "RunInvestmentAnalysis", json.RawMessage(`{"model":"m","symbols":["FPT"]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,6 +135,9 @@ func TestGivenAThinkTankStreamWhenCallingRunInvestmentAnalysisThenEventsAreColle
 	}
 	if len(collected.Phases) != 1 || len(collected.Commands) != 1 || collected.Commands[0].Target != "VN30" {
 		t.Fatalf("collected = %+v", collected)
+	}
+	if collected.Recorded == nil || collected.Recorded.Duplicates != 1 {
+		t.Fatalf("the recommendations record must be collected: %+v", collected.Recorded)
 	}
 }
 

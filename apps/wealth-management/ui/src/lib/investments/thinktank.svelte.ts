@@ -16,13 +16,14 @@ class ThinkTankRun {
     return this.state.status === 'running';
   }
 
-  async start(news: NewsReport[] = []): Promise<void> {
+  /** Runs the think tank; no symbols means the user's current holdings. */
+  async start(news: NewsReport[] = [], symbols: string[] = []): Promise<void> {
     this.#controller?.abort();
     const controller = new AbortController();
     this.#controller = controller;
     this.state = startState(news);
     try {
-      for await (const event of api.investmentAnalysis(news, controller.signal)) {
+      for await (const event of api.investmentAnalysis(news, symbols, controller.signal)) {
         if (controller.signal.aborted) break;
         this.state = reduce(this.state, event);
       }

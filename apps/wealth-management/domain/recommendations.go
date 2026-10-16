@@ -68,7 +68,7 @@ type Recommendation struct {
 	Created string `json:"created"`
 	// Source is the review that made it (account-review, budget-review,
 	// transaction-review, credit-summary, year-review, financial-health,
-	// intelligence-briefing) or an engine rule (rule:<id>).
+	// intelligence-briefing, think-tank) or an engine rule (rule:<id>).
 	Source string `json:"source"`
 	Title  string `json:"title"`
 	Action string `json:"action"`

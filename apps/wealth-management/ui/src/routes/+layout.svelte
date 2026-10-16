@@ -13,6 +13,8 @@
   import MaskToggle from '$lib/components/MaskToggle.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import SheetsAuthAlert from '$lib/components/SheetsAuthAlert.svelte';
+  import AreaTabs from '$lib/components/AreaTabs.svelte';
+  import MobileNav from '$lib/components/MobileNav.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import SyncButton from '$lib/components/SyncButton.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -97,6 +99,11 @@
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:window
+  onkeydown={(event) => {
+    if (event.key === 'Escape' && mobileNavOpen) mobileNavOpen = false;
+  }}
+/>
 
 {#if navigating.to}
   <div class="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden" role="progressbar" aria-label="Loading page">
@@ -129,15 +136,21 @@
 
   <!-- Mobile navigation sheet -->
   {#if mobileNavOpen}
-    <div class="fixed inset-0 z-40 lg:hidden">
+    <div class="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="All pages">
       <button
         type="button"
         class="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
-        aria-label="Close menu"
+        tabindex="-1"
+        aria-hidden="true"
         onclick={() => (mobileNavOpen = false)}
       ></button>
       <aside class="glass absolute inset-y-3 left-3 w-64 overflow-y-auto p-3">
-        <p class="mb-4 px-2 py-1 font-semibold tracking-tight">Wealth</p>
+        <div class="mb-2 flex items-center justify-between px-2 py-1">
+          <p class="font-semibold tracking-tight">Wealth</p>
+          <button type="button" class="btn-ghost px-2" aria-label="Close menu" onclick={() => (mobileNavOpen = false)}>
+            <Icon name="x" />
+          </button>
+        </div>
         <Sidebar onnavigate={() => (mobileNavOpen = false)} />
       </aside>
     </div>
@@ -149,6 +162,7 @@
         type="button"
         class="btn-ghost px-2 lg:hidden"
         aria-label="Open menu"
+        aria-expanded={mobileNavOpen}
         onclick={() => (mobileNavOpen = true)}
       >
         <Icon name="menu" />
@@ -160,7 +174,8 @@
       {#if sheetsReady}<SyncButton />{/if}
     </header>
 
-    <main class="mx-auto w-full max-w-7xl flex-1 px-3 pt-3 pb-12 sm:px-6">
+    <main class="mx-auto w-full max-w-7xl flex-1 px-3 pt-3 pb-28 sm:px-6 lg:pb-12">
+      <AreaTabs />
       <DependencyBanner health={data.health} />
       <SheetsAuthAlert />
       <EntryReminder ready={sheetsReady} />
@@ -168,6 +183,8 @@
     </main>
   </div>
 </div>
+
+<MobileNav />
 
 {#if aiReady && path !== '/chat'}<ChatWidget page={{ path, title }} />{/if}
 <Toasts />

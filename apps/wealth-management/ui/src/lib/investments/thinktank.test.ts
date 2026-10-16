@@ -5,7 +5,9 @@ import {
   failedPhase,
   fail,
   finish,
+  focusLabel,
   initialState,
+  parseSymbols,
   reduce,
   startState,
   stop,
@@ -159,5 +161,40 @@ describe('chat summary', () => {
     expect(summary.length).toBeLessThanOrEqual(4000);
     expect(summary).toContain('ALLOCATE VN30 ETF');
     expect(summary.endsWith('…')).toBe(true);
+  });
+});
+
+describe('think tank focus and recommendations (ROADMAP M5)', () => {
+  it('Given typed symbols When parsing Then they are split, trimmed, upper-cased and deduplicated', () => {
+    expect(parseSymbols(' fpt, VCB  btc,fpt ,, ')).toEqual(['FPT', 'VCB', 'BTC']);
+    expect(parseSymbols('   ')).toEqual([]);
+  });
+
+  it('Given the engine focus When labelling it Then holdings and requested symbols read differently', () => {
+    expect(focusLabel({ source: 'holdings', symbols: ['BTC', 'FUND-A'] })).toBe('Your holdings: BTC, FUND-A');
+    expect(focusLabel({ source: 'request', symbols: ['FPT'] })).toBe('Symbols you chose: FPT');
+    expect(focusLabel({ source: 'holdings', symbols: [], note: 'holdings could not be read' })).toBe(
+      'Your holdings: holdings could not be read',
+    );
+    expect(focusLabel({ source: 'holdings', symbols: [] })).toBe('Your holdings: none priced yet');
+  });
+
+  it('Given an actions event with a record When reducing Then the record is kept beside the commands', () => {
+    const recorded = { created: [], duplicates: 1, checked: [], ignoredOutcomes: 0 };
+    const state = run([
+      {
+        type: 'actions',
+        phase: 'actions',
+        name: 'Actions',
+        commands: [{ action: 'OBSERVE', target: 'BTC', rationale: 'Wait.' }],
+        recorded,
+      },
+    ]);
+    expect(state.actions?.recorded).toEqual(recorded);
+  });
+
+  it('Given a focused run When summarising for the chat Then the focus is named', () => {
+    const state = run([{ type: 'context', context: { ...context, focus: { source: 'request', symbols: ['FPT'] } } }]);
+    expect(chatSummary(state)).toContain('Focus: Symbols you chose: FPT.');
   });
 });

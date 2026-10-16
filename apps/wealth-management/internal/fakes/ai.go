@@ -17,6 +17,8 @@ type AI struct {
 	Captures []port.CaptureRequest
 	News     []port.NewsRequest
 	Tickers  []port.TickerInsightRequest
+	// Analyses records think tank requests.
+	Analyses []port.InvestmentAnalysisRequest
 }
 
 var _ port.AIService = (*AI)(nil)
@@ -118,16 +120,18 @@ func (f *AI) TickerInsight(_ context.Context, request port.TickerInsightRequest)
 	return domain.Insight{Summary: request.Symbol}, f.Err
 }
 
-// InvestmentAnalysis streams one phase and a command, then fails with Err
-// or finishes.
-func (f *AI) InvestmentAnalysis(_ context.Context, _ port.InvestmentAnalysisRequest, emit func(port.InvestmentEvent) error) error {
+// InvestmentAnalysis streams one phase and a command with what it recorded,
+// then fails with Err or finishes.
+func (f *AI) InvestmentAnalysis(_ context.Context, request port.InvestmentAnalysisRequest, emit func(port.InvestmentEvent) error) error {
+	f.Analyses = append(f.Analyses, request)
 	if err := emit(port.InvestmentEvent{Type: "phase", Phase: "think-tank", Status: "ok"}); err != nil {
 		return err
 	}
 	if f.Err != nil {
 		return f.Err
 	}
-	if err := emit(port.InvestmentEvent{Type: "actions", Commands: []domain.InvestmentCommand{{Action: domain.ActionObserve, Target: "VN30"}}}); err != nil {
+	recorded := &domain.RecommendationRecord{Created: []domain.Recommendation{}, Duplicates: 1, Checked: []domain.Recommendation{}}
+	if err := emit(port.InvestmentEvent{Type: "actions", Commands: []domain.InvestmentCommand{{Action: domain.ActionObserve, Target: "VN30"}}, Recorded: recorded}); err != nil {
 		return err
 	}
 	return emit(port.InvestmentEvent{Type: "done"})

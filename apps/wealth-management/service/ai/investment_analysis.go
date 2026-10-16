@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -45,6 +46,8 @@ type thinkTankInputs struct {
 	Pulse              *domain.MarketPulse        `json:"pulse,omitempty"`
 	PulseError         string                     `json:"pulseError,omitempty"`
 	News               []domain.NewsReport        `json:"news,omitempty"`
+	// Focus is what the run analyses: the requested symbols or the holdings.
+	Focus domain.ThinkTankFocus `json:"focus"`
 }
 
 // budgetLimits are this month's planned income and expenses (legacy input).
@@ -63,6 +66,10 @@ func (s *Service) InvestmentAnalysis(ctx context.Context, request port.Investmen
 	if s.portfolio == nil {
 		return fmt.Errorf("%w: portfolio valuation is not configured", domain.ErrAIUnavailable)
 	}
+	symbols, err := domain.NormalizeFocusSymbols(request.Symbols)
+	if err != nil {
+		return err
+	}
 	ctx, cancel := context.WithTimeout(ctx, thinkTankTimeout)
 	defer cancel()
 	snap, err := s.loadSnapshot()
@@ -76,7 +83,7 @@ func (s *Service) InvestmentAnalysis(ctx context.Context, request port.Investmen
 	if err := emit(port.InvestmentEvent{Type: "phase", Phase: "context", Status: "running"}); err != nil {
 		return err
 	}
-	inputs := s.thinkTankInputs(ctx, snap, request.News)
+	inputs := s.thinkTankInputs(ctx, snap, request.News, symbols)
 	if err := emit(port.InvestmentEvent{Type: "context", Context: inputs}); err != nil {
 		return err
 	}
@@ -84,8 +91,9 @@ func (s *Service) InvestmentAnalysis(ctx context.Context, request port.Investmen
 		return err
 	}
 	vars := s.thinkTankVars(snap, inputs)
+	focus := inputs.Focus.PromptBlock()
 
-	debate, model, err := s.runPhase(ctx, p, snap, phaseThinkTank, vars, map[string]string{"totalVND": vars["totalVND"], "totalCrypto": vars["totalCrypto"]}, request.Model, emit)
+	debate, model, err := s.runPhase(ctx, p, snap, phaseThinkTank, vars, map[string]string{"totalVND": vars["totalVND"], "totalCrypto": vars["totalCrypto"]}, request.Model, focus, emit)
 	if err != nil {
 		return err
 	}
@@ -95,7 +103,7 @@ func (s *Service) InvestmentAnalysis(ctx context.Context, request port.Investmen
 
 	synthesisVars := pick(vars, "totalVND", "totalCrypto", "income", "expenses", "p2pRate", "accountsSummary", "moneyLent", "recentTransactions")
 	synthesisVars["expertDebateContext"] = debate
-	synthesis, model, err := s.runPhase(ctx, p, snap, phaseSynthesis, synthesisVars, map[string]string{"accountsSummary": vars["accountsSummary"], "debate": debate}, request.Model, emit)
+	synthesis, model, err := s.runPhase(ctx, p, snap, phaseSynthesis, synthesisVars, map[string]string{"accountsSummary": vars["accountsSummary"], "debate": debate}, request.Model, focus, emit)
 	if err != nil {
 		return err
 	}
@@ -105,9 +113,15 @@ func (s *Service) InvestmentAnalysis(ctx context.Context, request port.Investmen
 
 	actionVars := pick(vars, "accountsSummary", "cryptoHoldings", "ifcHoldings")
 	actionVars["synthesisContext"] = synthesis
+	review, previousErr := s.thinkTankReview(ctx)
+	contract := focus + "\n\n" + commandsFormatInstruction
+	if review.source != "" {
+		contract += "\n\n" + domain.RecommendationFormatInstruction + domain.PreviousRecommendationsBlock(review.previous, s.masker.Mask)
+	}
 	var commands []domain.InvestmentCommand
+	var raw domain.InvestmentCommands
 	parse := func(content string) error {
-		var raw domain.InvestmentCommands
+		raw = domain.InvestmentCommands{}
 		if err := domain.ParseAIJSON(content, &raw); err != nil {
 			return err
 		}
@@ -115,18 +129,36 @@ func (s *Service) InvestmentAnalysis(ctx context.Context, request port.Investmen
 		commands = normalized
 		return err
 	}
-	_, model, err = s.runPhaseWith(ctx, p, snap, phaseActions, actionVars, map[string]string{"synthesis": synthesis}, request.Model, true, parse, emit)
+	_, model, err = s.runPhaseWith(ctx, p, snap, phaseActions, actionVars, map[string]string{"synthesis": synthesis}, request.Model, contract, true, parse, emit)
 	if err != nil {
 		return err
 	}
-	if err := emit(port.InvestmentEvent{Type: "actions", Phase: phaseActions.name, Name: phaseActions.title, Commands: commands, Model: model}); err != nil {
+	recorded := previousErr
+	if recorded == nil {
+		recorded = s.record(ctx, review, raw.Recommendations, raw.Outcomes)
+	}
+	if err := emit(port.InvestmentEvent{Type: "actions", Phase: phaseActions.name, Name: phaseActions.title, Commands: commands, Model: model, Recorded: recorded}); err != nil {
 		return err
 	}
 	return emit(port.InvestmentEvent{Type: "done"})
 }
 
-func (s *Service) runPhase(ctx context.Context, p *prompts, snap snapshot, phase thinkTankPhase, vars map[string]string, fallbackVars map[string]string, override string, emit func(port.InvestmentEvent) error) (string, string, error) {
-	return s.runPhaseWith(ctx, p, snap, phase, vars, fallbackVars, override, false, func(content string) error {
+// thinkTankReview is the think tank's place in the recommendations list
+// (WM-REC-8): its source, page and earlier items. When the earlier items
+// cannot be read the run goes on without the contract, and the returned
+// record says why nothing was recorded.
+func (s *Service) thinkTankReview(ctx context.Context) (structuredRequest, *domain.RecommendationRecord) {
+	request, err := s.withPrevious(ctx, structuredRequest{feature: "think-tank", source: domain.RecommendationSourceThinkTank, page: domain.ThinkTankPage})
+	if err != nil {
+		s.log.LogError(ctx, "loading earlier recommendations failed", err, slog.String("feature", request.feature))
+		request.source = ""
+		return request, &domain.RecommendationRecord{Created: []domain.Recommendation{}, Checked: []domain.Recommendation{}, Error: "The recommendations could not be saved: " + err.Error()}
+	}
+	return request, nil
+}
+
+func (s *Service) runPhase(ctx context.Context, p *prompts, snap snapshot, phase thinkTankPhase, vars map[string]string, fallbackVars map[string]string, override string, suffix string, emit func(port.InvestmentEvent) error) (string, string, error) {
+	return s.runPhaseWith(ctx, p, snap, phase, vars, fallbackVars, override, suffix, false, func(content string) error {
 		if strings.TrimSpace(content) == "" {
 			return fmt.Errorf("%w: %s reply is empty", domain.ErrAIOutput, phase.name)
 		}
@@ -135,8 +167,10 @@ func (s *Service) runPhase(ctx context.Context, p *prompts, snap snapshot, phase
 }
 
 // runPhaseWith runs the main prompt pair (with the model fallback) and, if
-// that fails, the fallback pair. It returns the reply and the model used.
-func (s *Service) runPhaseWith(ctx context.Context, p *prompts, snap snapshot, phase thinkTankPhase, vars map[string]string, fallbackVars map[string]string, override string, json bool, validate func(string) error, emit func(port.InvestmentEvent) error) (string, string, error) {
+// that fails, the fallback pair. suffix is engine text appended to the
+// action prompt (the focus, and the output contract of a JSON phase). It
+// returns the reply and the model used.
+func (s *Service) runPhaseWith(ctx context.Context, p *prompts, snap snapshot, phase thinkTankPhase, vars map[string]string, fallbackVars map[string]string, override string, suffix string, json bool, validate func(string) error, emit func(port.InvestmentEvent) error) (string, string, error) {
 	if err := emit(port.InvestmentEvent{Type: "phase", Phase: phase.name, Status: "running"}); err != nil {
 		return "", "", err
 	}
@@ -149,9 +183,7 @@ func (s *Service) runPhaseWith(ctx context.Context, p *prompts, snap snapshot, p
 		if err != nil {
 			return domain.AIResponse{}, err
 		}
-		if json {
-			action += "\n\n" + commandsFormatInstruction
-		}
+		action += suffix
 		system, err := s.systemPrompt(p, snap, task)
 		if err != nil {
 			return domain.AIResponse{}, err

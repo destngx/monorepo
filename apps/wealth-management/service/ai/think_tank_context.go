@@ -14,7 +14,7 @@ import (
 
 // thinkTankInputs gathers valuation, searches and the market pulse in
 // parallel; a failed source is recorded, not fatal.
-func (s *Service) thinkTankInputs(ctx context.Context, snap snapshot, news []domain.NewsReport) thinkTankInputs {
+func (s *Service) thinkTankInputs(ctx context.Context, snap snapshot, news []domain.NewsReport, symbols []string) thinkTankInputs {
 	inputs := thinkTankInputs{
 		Accounts:           s.accountContexts(snap.accounts),
 		MoneyLent:          s.moneyLentContext(snap.lent),
@@ -66,7 +66,8 @@ func (s *Service) thinkTankInputs(ctx context.Context, snap snapshot, news []dom
 			}
 		}
 	}
-	queries := thinkTankQueries(inputs.Valuation, snap.accounts, snap.today)
+	inputs.Focus = domain.ResolveThinkTankFocus(symbols, inputs.Valuation, inputs.ValuationError)
+	queries := thinkTankQueries(inputs.Focus, inputs.Valuation, snap.accounts, snap.today)
 	searches := make([]*domain.SearchResponse, len(queries))
 	searchErrors := make([]string, len(queries))
 	if s.search != nil {
@@ -105,9 +106,16 @@ func (s *Service) thinkTankInputs(ctx context.Context, snap snapshot, news []dom
 }
 
 // thinkTankQueries are the three legacy searches: earn rates, world macro,
-// and either the held coins or the SBV policy.
-func thinkTankQueries(valuation *domain.PortfolioValuation, accounts []domain.Account, today time.Time) []string {
+// and the requested symbols, else the held coins, else the SBV policy.
+func thinkTankQueries(focus domain.ThinkTankFocus, valuation *domain.PortfolioValuation, accounts []domain.Account, today time.Time) []string {
 	month := today.Format("January 2006")
+	queries := []string{
+		"Binance Flexible Earn APY interest rates " + month + " USDT USDC ETH SOL",
+		"World Macro Breaking News Geopolitics FED interest rate " + month,
+	}
+	if focus.Source == domain.ThinkTankFocusRequest && len(focus.Symbols) > 0 {
+		return append(queries, "market outlook "+strings.Join(focus.Symbols[:min(5, len(focus.Symbols))], " ")+" "+month)
+	}
 	coins := []string{}
 	if valuation != nil {
 		for _, holding := range valuation.Holdings {
@@ -120,10 +128,6 @@ func thinkTankQueries(valuation *domain.PortfolioValuation, accounts []domain.Ac
 		if code := string(account.Currency); slices.Contains([]string{"BTC", "ETH", "SOL"}, code) && !slices.Contains(coins, code) {
 			coins = append(coins, code)
 		}
-	}
-	queries := []string{
-		"Binance Flexible Earn APY interest rates " + month + " USDT USDC ETH SOL",
-		"World Macro Breaking News Geopolitics FED interest rate " + month,
 	}
 	if len(coins) == 0 {
 		return append(queries, "Vietnam SBV state bank policy status "+month)

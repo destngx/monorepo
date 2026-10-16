@@ -18,6 +18,14 @@ type investmentAnalysisResult struct {
 	Messages []port.InvestmentEvent     `json:"messages"`
 	Commands []domain.InvestmentCommand `json:"commands"`
 	Context  any                        `json:"context,omitempty"`
+	// Recorded is what the run wrote to the recommendations list (WM-REC-8).
+	Recorded *domain.RecommendationRecord `json:"recorded,omitempty"`
+}
+
+// thinkTankSymbolsSchema is the optional think tank focus (WM-INV-29).
+var thinkTankSymbolsSchema = map[string]any{
+	"type": "array", "maxItems": domain.ThinkTankFocusLimit, "items": map[string]any{"type": "string"},
+	"description": "Symbols to analyse (e.g. FPT, BTC); empty means the user's current holdings.",
 }
 
 func (s *Server) aiInvestmentTools() []tool {
@@ -48,9 +56,10 @@ func (s *Server) aiInvestmentTools() []tool {
 			},
 		},
 		{
-			definition: definition("RunInvestmentAnalysis", "Investment think tank: context, analyst messages, synthesis and suggested commands, collected from the stream into one result.", object(map[string]any{
-				"news":  map[string]any{"type": "array", "description": "News scanner reports to use as pre-analysed context.", "items": map[string]any{"type": "object"}},
-				"model": modelSchema,
+			definition: definition("RunInvestmentAnalysis", "Investment think tank: context (with the focus), analyst messages, synthesis and suggested commands, collected from the stream into one result. Without symbols it analyses the user's current holdings. Its recommendations (0-3) and outcomes for its earlier items go to the recommendations list (source think-tank); recorded says what was written, or why not.", object(map[string]any{
+				"news":    map[string]any{"type": "array", "description": "News scanner reports to use as pre-analysed context.", "items": map[string]any{"type": "object"}},
+				"symbols": thinkTankSymbolsSchema,
+				"model":   modelSchema,
 			})),
 			handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
 				var request port.InvestmentAnalysisRequest
@@ -74,6 +83,7 @@ func collectInvestmentAnalysis(ctx context.Context, ai port.AIService, request p
 			result.Messages = append(result.Messages, event)
 		case "actions":
 			result.Commands = append(result.Commands, event.Commands...)
+			result.Recorded = event.Recorded
 		case "context":
 			result.Context = event.Context
 		case "error":

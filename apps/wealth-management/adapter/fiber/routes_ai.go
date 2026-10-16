@@ -1,5 +1,7 @@
 package fiber
 
+import "apps/wealth-management/domain"
+
 // Route registration for the AI use cases (§10). Every model call costs
 // money and may be slow, so all of them sit behind the WriteGuard.
 
@@ -108,9 +110,15 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 		}), "symbol"),
 	})
 	ai.Post("/investment-analysis", guard.Wrap(h.InvestmentAnalysis), RouteMeta{
-		Summary: "Investment think tank streamed as NDJSON events: phase (phase, status running|ok|fallback|error), context (the raw inputs), message (phase, name, content, model), actions (commands), done and error (message).",
+		Summary: "Investment think tank streamed as NDJSON events: phase (phase, status running|ok|fallback|error), context (the raw inputs and the focus: " +
+			"source request|holdings and symbols), message (phase, name, content, model), actions (commands, and recorded: what the run wrote to the " +
+			"recommendations list as source think-tank, or why not), done and error (message). Without symbols the run analyses the user's current holdings.",
 		RequestBody: optionalJSONBody(map[string]any{
-			"news":  map[string]any{"type": "array", "description": "News scanner reports to use as pre-analysed context.", "items": map[string]any{"type": "object"}},
+			"news": map[string]any{"type": "array", "description": "News scanner reports to use as pre-analysed context.", "items": map[string]any{"type": "object"}},
+			"symbols": map[string]any{
+				"type": "array", "maxItems": domain.ThinkTankFocusLimit, "items": schemaString,
+				"description": "Symbols to analyse (e.g. FPT, BTC); empty means the user's current holdings.",
+			},
 			"model": schemaString,
 		}),
 	})

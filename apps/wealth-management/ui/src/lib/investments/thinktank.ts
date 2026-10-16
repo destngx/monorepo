@@ -1,4 +1,12 @@
-import type { InvestmentCommand, InvestmentEvent, InvestmentPhase, NewsReport, ThinkTankContext } from '$lib/api/types';
+import type {
+  InvestmentCommand,
+  InvestmentEvent,
+  InvestmentPhase,
+  NewsReport,
+  RecommendationRecord,
+  ThinkTankContext,
+  ThinkTankFocus,
+} from '$lib/api/types';
 
 // Think tank run state (WM-AI-9, WM-INV-18). The engine streams phase
 // events; reduce() folds them into one immutable state the page renders.
@@ -22,6 +30,8 @@ export interface ThinkTankActions {
   name: string;
   commands: InvestmentCommand[];
   model?: string;
+  /** What the run wrote to the recommendations list. */
+  recorded?: RecommendationRecord;
 }
 
 export type RunStatus = 'idle' | 'running' | 'done' | 'error' | 'stopped';
@@ -122,7 +132,10 @@ export function reduce(state: ThinkTankState, event: InvestmentEvent): ThinkTank
       return state;
     }
     case 'actions':
-      return { ...state, actions: { name: event.name, commands: event.commands ?? [], model: event.model } };
+      return {
+        ...state,
+        actions: { name: event.name, commands: event.commands ?? [], model: event.model, recorded: event.recorded },
+      };
     case 'done':
       return { ...state, status: 'done' };
     case 'error':
@@ -163,6 +176,7 @@ const truncate = (text: string, max: number) =>
  */
 export function chatSummary(state: ThinkTankState, max = 4000): string {
   const parts: string[] = ['Investment think tank result (AI analysis of the portfolio, market pulse and news).'];
+  if (state.context?.focus) parts.push(`Focus: ${focusLabel(state.context.focus)}.`);
   const news = state.context?.news ?? state.news;
   if (news.length) {
     parts.push(`News bias: ${news.map((r) => `${r.topic}: ${r.bias}`).join('; ')}.`);
@@ -178,4 +192,21 @@ export function chatSummary(state: ThinkTankState, max = 4000): string {
     if (room > 200) summary += header + truncate(state.synthesis.content, room);
   }
   return truncate(summary, max);
+}
+
+/** Symbols typed by the user: split on commas and spaces, upper-cased, once each. */
+export function parseSymbols(text: string): string[] {
+  const symbols: string[] = [];
+  for (const part of text.split(/[\s,;]+/)) {
+    const symbol = part.trim().toUpperCase();
+    if (symbol && !symbols.includes(symbol)) symbols.push(symbol);
+  }
+  return symbols;
+}
+
+/** What the run analysed, in words. */
+export function focusLabel(focus: ThinkTankFocus): string {
+  if (focus.source === 'request') return `Symbols you chose: ${focus.symbols.join(', ')}`;
+  if (focus.symbols.length) return `Your holdings: ${focus.symbols.join(', ')}`;
+  return `Your holdings: ${focus.note ?? 'none priced yet'}`;
 }

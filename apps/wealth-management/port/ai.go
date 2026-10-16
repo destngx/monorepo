@@ -146,8 +146,11 @@ type TickerInsightRequest struct {
 type InvestmentAnalysisRequest struct {
 	// News are scanner reports the user already ran; they are passed to the
 	// think tank as pre-analysed context.
-	News  []domain.NewsReport `json:"news,omitempty"`
-	Model string              `json:"model,omitempty"`
+	News []domain.NewsReport `json:"news,omitempty"`
+	// Symbols are what to analyse (ROADMAP M5, WM-INV-29); empty means the
+	// user's current holdings.
+	Symbols []string `json:"symbols,omitempty"`
+	Model   string   `json:"model,omitempty"`
 }
 
 // InvestmentEvent is one NDJSON line of the think-tank stream. Phases are
@@ -163,6 +166,9 @@ type InvestmentEvent struct {
 	Context any    `json:"context,omitempty"`
 	Model   string `json:"model,omitempty"`
 	Message string `json:"message,omitempty"`
+	// Recorded is what the actions phase wrote to the recommendations list
+	// (WM-REC-8); its Error says when the list could not be written.
+	Recorded *domain.RecommendationRecord `json:"recorded,omitempty"`
 }
 
 // CaptureRequest is one Smart Capture batch (WM-CAP-1).
