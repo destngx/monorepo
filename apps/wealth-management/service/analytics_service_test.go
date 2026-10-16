@@ -78,6 +78,34 @@ func TestGivenAnyFailureWhenReadingBudgetHistoryThenItIsReturned(t *testing.T) {
 	}
 }
 
+func TestGivenFixedCategoriesWhenReadingTheDashboardThenThePaceAddsThemOnce(t *testing.T) {
+	kind := domain.CategoryTypeExpense
+	rent, food := 6_000_000.0, 1_200_000.0
+	db := &fakes.Database{
+		Categories: []domain.Category{{Name: "Rent", Type: kind, Nature: domain.NatureFixed}},
+		Transactions: []domain.Transaction{
+			{AccountName: "Bank", Date: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), Category: "Rent", CategoryType: &kind, Payment: &rent},
+			{AccountName: "Bank", Date: time.Date(2026, 10, 3, 0, 0, 0, 0, time.UTC), Category: "Food", CategoryType: &kind, Payment: &food},
+		},
+	}
+
+	summary, err := newAnalytics(db).DashboardSummary(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Day 12 of 31: 6M rent once + 1.2M / 12 * 31.
+	if summary.ExpensePace == nil || summary.ExpensePace.Projected == nil || *summary.ExpensePace.Projected != 9_100_000 {
+		t.Fatalf("pace = %+v", summary.ExpensePace)
+	}
+}
+
+func TestGivenCategoriesFailWhenReadingTheDashboardThenTheErrorIsReturned(t *testing.T) {
+	failure := errors.New("sheet down")
+	if _, err := newAnalytics(&fakes.Database{Err: failure}).DashboardSummary(false); !errors.Is(err, failure) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestGivenNoYearWhenReadingYearlyCashFlowThenTheCurrentYear(t *testing.T) {
 	kind := domain.CategoryTypeExpense
 	payment := 400.0

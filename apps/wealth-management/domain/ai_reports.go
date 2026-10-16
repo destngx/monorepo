@@ -18,6 +18,21 @@ type BriefingFacts struct {
 	Expense     float64 `json:"expense"`
 	CashFlow    float64 `json:"cashFlow"`
 	SavingsRate float64 `json:"savingsRate"`
+	// Month to date against the same days of last month and the month-end
+	// expense pace (WM-DASH-2/9), as the dashboard shows them.
+	ComparedDays         int          `json:"comparedDays,omitempty"`
+	IncomeChangePercent  *float64     `json:"incomeChangePercent,omitempty"`
+	ExpenseChangePercent *float64     `json:"expenseChangePercent,omitempty"`
+	ExpensePace          *ExpensePace `json:"expensePace,omitempty"`
+}
+
+// WithMonthComparison adds the dashboard's same-days comparison and pace.
+func (f BriefingFacts) WithMonthComparison(summary DashboardSummary) BriefingFacts {
+	f.ComparedDays = summary.ComparedDays
+	f.IncomeChangePercent = summary.IncomeChangePercent
+	f.ExpenseChangePercent = summary.ExpenseChangePercent
+	f.ExpensePace = summary.ExpensePace
+	return f
 }
 
 func ComputeBriefingFacts(accounts []Account, loans []Loan, transactions []Transaction, today time.Time) BriefingFacts {

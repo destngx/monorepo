@@ -15,6 +15,7 @@
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { budgetBarClass, trendDelta, vndToUsd } from '$lib/dashboard';
+  import { expensePaceView, sameDaysHint, savingsRateTile } from '$lib/dashboard-month';
   import { formatDate, formatMonth, formatPercent, formatSignedPercent } from '$lib/format';
   import { rateDetail } from '$lib/rates';
   import { sync } from '$lib/state/sync.svelte';
@@ -25,6 +26,11 @@
   // WM-DASH-7: USD view and an explicit 30-day delta.
   const netWorthUsd = $derived(vndToUsd(summary.balanceSheet.netWorth, data.usd.rates.USD));
   const delta30 = $derived(trendDelta(summary.netWorthTrend));
+
+  // WM-DASH-2/9: month to date against the same days, and the month-end pace.
+  const compareHint = $derived(sameDaysHint(summary));
+  const savings = $derived(savingsRateTile(summary.thisMonth, summary.lastMonthToDate));
+  const pace = $derived(expensePaceView(summary.expensePace));
 
   const quickActions = [
     { href: '/transactions?new=1', label: 'Add transaction', icon: 'plus' },
@@ -95,20 +101,46 @@
   <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:col-span-2">
     <Stat label="Total assets" value={summary.balanceSheet.assets} />
     <Stat label="Total liabilities" value={summary.balanceSheet.liabilities} />
-    <Stat label="Income" value={summary.thisMonth.income} change={summary.incomeChangePercent} hint=" vs last month" />
+    <Stat label="Income" value={summary.thisMonth.income} change={summary.incomeChangePercent} hint={compareHint} />
     <Stat
       label="Expense"
       value={summary.thisMonth.expense}
       change={summary.expenseChangePercent}
       invert
-      hint=" vs last month"
+      hint={compareHint}
     />
-    <Stat label="Cash flow">
+    <Stat label="Cash flow" hint="month to date">
       <Money value={summary.thisMonth.cashFlow} signed tone />
     </Stat>
-    <Stat label="Savings rate">
-      <span class="tabular">{formatPercent(summary.thisMonth.savingsRate)}</span>
+    <Stat label="Savings rate" hint={savings.hint}>
+      <span class="tabular">{formatPercent(savings.rate)}</span>
     </Stat>
+    {#if pace}
+      <!-- WM-DASH-9 -->
+      <p class="glass col-span-full px-4 py-3 text-sm">
+        {#if pace.kind === 'pace'}
+          <span class="muted">Expense on pace for</span>
+          <span class="font-semibold"><Money value={pace.projected} /></span>
+          <span class="muted">by {formatDate(pace.monthEnd)}, vs</span>
+          <Money value={pace.lastMonthExpense} />
+          <span class="muted">in {formatMonth(pace.lastMonth)}</span>
+          {#if pace.changePercent !== null}
+            <span
+              class={pace.changePercent > 0
+                ? 'text-orange-600 dark:text-orange-400'
+                : 'text-emerald-600 dark:text-emerald-400'}>({formatSignedPercent(pace.changePercent)})</span
+            >
+          {/if}
+          {#if pace.fixed > 0}
+            <span class="muted block text-xs">Fixed bills are counted once; the rest is extrapolated by day.</span>
+          {/if}
+        {:else}
+          <span class="muted">Expense pace shows from day {pace.fromDay};</span>
+          <Money value={pace.spent} />
+          <span class="muted">spent so far.</span>
+        {/if}
+      </p>
+    {/if}
   </div>
 </div>
 

@@ -13,6 +13,11 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		return domain.Briefing{}, err
 	}
 	facts := domain.ComputeBriefingFacts(snap.accounts, snap.loans, snap.transactions, snap.today)
+	dashboard, err := s.analytics.DashboardSummary(false)
+	if err != nil {
+		return domain.Briefing{}, fmt.Errorf("load dashboard: %w", err)
+	}
+	facts = facts.WithMonthComparison(dashboard)
 	budget := []map[string]any{}
 	for _, line := range snap.budget.Lines {
 		if line.CategoryType == domain.CategoryTypeExpense && (line.Spent > 0 || line.Limit > 0) {

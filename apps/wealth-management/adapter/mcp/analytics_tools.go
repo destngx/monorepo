@@ -9,7 +9,7 @@ import (
 func (s *Server) analyticsTools() []tool {
 	analytics := s.analyticsService
 	return []tool{
-		readTool("GetDashboard", "Balance sheet, month-over-month change, 30-day net worth trend, cash flow history and top accounts.", analytics.DashboardSummary),
+		readTool("GetDashboard", "Balance sheet, net worth change this month, month-to-date income and expense against the same days of last month, month-end expense pace, 30-day net worth trend, cash flow history and top accounts.", analytics.DashboardSummary),
 		{
 			definition: definition("GetBudgetReport", "Budget actuals for a month: spent, remaining and status per category.", object(map[string]any{
 				"month": map[string]any{"type": "string", "description": "YYYY-MM; defaults to the current month."}, "force": forceSchema,

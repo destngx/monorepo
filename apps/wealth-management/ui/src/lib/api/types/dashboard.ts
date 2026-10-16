@@ -28,12 +28,44 @@ export interface DashboardSummary {
   netGrowthThisMonth: number;
   netWorthChangePercent: number | null;
   netWorthTrend: TrendPoint[];
+  /** Month to date: day 1 to today. */
   thisMonth: CashFlow;
+  /** The whole of last month. */
   lastMonth: CashFlow;
+  /** Last month's first `comparedDays` days, the fair comparison for thisMonth. */
+  lastMonthToDate: CashFlow;
+  /** Today's day of the month, capped at last month's length. */
+  comparedDays: number;
+  /** thisMonth against lastMonthToDate. */
   incomeChangePercent: number | null;
   expenseChangePercent: number | null;
+  /** Month-end expense at the current pace (WM-DASH-9). */
+  expensePace: ExpensePace | null;
   cashFlowHistory: CashFlow[];
   topAccounts: Account[];
+}
+
+/**
+ * Month-end expense pace (WM-DASH-9): fixed categories are added once as
+ * recorded, the rest is extrapolated linearly over the days elapsed.
+ */
+export interface ExpensePace {
+  daysElapsed: number;
+  daysInMonth: number;
+  /** Last day of the month, yyyy-MM-dd. */
+  monthEnd: string;
+  /** First day of the month with a projection. */
+  minDays: number;
+  /** Month-to-date expense: fixed plus variable. */
+  spent: number;
+  fixed: number;
+  variable: number;
+  /** Null before minDays. */
+  projected: number | null;
+  lastMonth: string;
+  lastMonthExpense: number;
+  /** projected against lastMonthExpense; null without either. */
+  changePercent: number | null;
 }
 
 /** One category's amount per month (January first) and its year total. */

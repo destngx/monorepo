@@ -37,7 +37,15 @@ func (s *analyticsService) DashboardSummary(forceFresh bool) (domain.DashboardSu
 	if err != nil {
 		return domain.DashboardSummary{}, err
 	}
-	return domain.ComputeDashboardSummary(accounts, loans, transactions, s.today(), dashboardHistoryMonths), nil
+	categories, err := s.db.ListCategories(forceFresh)
+	if err != nil {
+		return domain.DashboardSummary{}, err
+	}
+	today := s.today()
+	summary := domain.ComputeDashboardSummary(accounts, loans, transactions, today, dashboardHistoryMonths)
+	pace := domain.ComputeExpensePace(transactions, categories, today)
+	summary.ExpensePace = &pace
+	return summary, nil
 }
 
 func (s *analyticsService) BudgetReport(month string, forceFresh bool) (domain.BudgetReport, error) {

@@ -235,6 +235,27 @@ func TestBriefingAttachesFacts(t *testing.T) {
 	if briefing.Facts.NetWorth != 15_000_000 || len(briefing.Patterns) != 1 {
 		t.Fatalf("unexpected briefing %+v", briefing)
 	}
+	// Day 10: the September row on the 20th is outside the same days.
+	pace := briefing.Facts.ExpensePace
+	if briefing.Facts.ComparedDays != 10 || briefing.Facts.ExpenseChangePercent != nil {
+		t.Fatalf("same-days comparison = %+v", briefing.Facts)
+	}
+	if pace == nil || pace.Spent != 235_000 || pace.Projected == nil || *pace.Projected != 728_500 || pace.LastMonthExpense != 80_000 {
+		t.Fatalf("pace = %+v", pace)
+	}
+}
+
+func TestBriefingSendsTheSameDaysComparisonAndPaceAsFacts(t *testing.T) {
+	client := &scriptedClient{replies: []reply{{content: `{"briefing":"All good.","alerts":[],"patterns":[]}`}}}
+	if _, err := newTestService(t, fixtureDatabase(), client, nil).Briefing(context.Background(), false, ""); err != nil {
+		t.Fatal(err)
+	}
+	prompt := client.requests[0].Messages[1].Content
+	for _, fact := range []string{`"comparedDays":10`, `"expensePace":`, `"projected":728500`} {
+		if !strings.Contains(prompt, fact) {
+			t.Fatalf("prompt lacks %s", fact)
+		}
+	}
 }
 
 func TestChartInsightReturnsMarkdown(t *testing.T) {
