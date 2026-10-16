@@ -4,6 +4,7 @@ import (
 	"apps/wealth-management/domain"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -257,5 +258,34 @@ func TestGivenAccountsUnreadableWhenWritingTransactionThenNothingIsWritten(t *te
 	svc := newTestDBService(t, client, newFakeCache())
 	if _, err := svc.CreateTransaction(validTransactionInput()); err == nil || len(client.appends) != 0 {
 		t.Fatalf("err = %v, appends = %d", err, len(client.appends))
+	}
+}
+
+func TestListCategoriesReadsTheNatureTag(t *testing.T) {
+	client := newFakeSheetClient()
+	client.ranges[categoriesSheetRange] = [][]string{
+		{"Income Categories", "Nature"},
+		{"Salary"},
+		{"Expense Categories"},
+		{"Rent", "Fixed"},
+		{"Food", " essential"},
+		{"Eating out", "FLEXIBLE"},
+		{"Gifts", "sometimes"},
+	}
+	svc := newTestDBService(t, client, newFakeCache())
+
+	categories, err := svc.ListCategories(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []domain.Category{
+		{Name: "Eating out", Type: domain.CategoryTypeExpense, Nature: domain.NatureFlexible},
+		{Name: "Food", Type: domain.CategoryTypeExpense, Nature: domain.NatureEssential},
+		{Name: "Gifts", Type: domain.CategoryTypeExpense},
+		{Name: "Rent", Type: domain.CategoryTypeExpense, Nature: domain.NatureFixed},
+		{Name: "Salary", Type: domain.CategoryTypeIncome},
+	}
+	if !reflect.DeepEqual(categories, want) {
+		t.Fatalf("categories = %+v, want %+v", categories, want)
 	}
 }

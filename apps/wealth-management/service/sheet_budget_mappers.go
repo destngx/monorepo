@@ -40,7 +40,7 @@ func parseCategories(rows [][]string) []domain.Category {
 			continue
 		}
 		seen[key] = struct{}{}
-		categories = append(categories, domain.Category{Name: cell, Type: *currentGroup})
+		categories = append(categories, domain.Category{Name: cell, Type: *currentGroup, Nature: domain.ParseCategoryNature(cellAt(row, 1))})
 	}
 	sort.Slice(categories, func(i, j int) bool {
 		return categories[i].Name < categories[j].Name

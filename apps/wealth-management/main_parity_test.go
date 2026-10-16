@@ -45,6 +45,7 @@ var routeTools = map[string]string{
 	"GET /api/analytics/cards/compare":     "CompareCardPrograms",
 	"GET /api/analytics/health":            "GetFinancialHealth",
 	"GET /api/analytics/account-histories": "GetAccountHistories",
+	"GET /api/analytics/cash-flow/yearly":  "GetYearlyCashFlow",
 
 	"GET /api/external/market/providers/:provider/health": "GetMarketProviderHealth",
 	"GET /api/external/vnstock/health":                    "GetMarketProviderHealth",

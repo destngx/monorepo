@@ -12,6 +12,8 @@ const (
 	dashboardHistoryMonths = 12
 	maxHistoryDays         = 366
 	maxBudgetHistoryMonths = 24
+	minCashFlowYear        = 1900
+	maxCashFlowYear        = 9999
 )
 
 type analyticsService struct {
@@ -98,6 +100,25 @@ func (s *analyticsService) BudgetHistory(month string, months int, forceFresh bo
 		return domain.BudgetHistory{}, err
 	}
 	return domain.ComputeBudgetHistory(itemsByYear, transactions, window, today), nil
+}
+
+func (s *analyticsService) YearlyCashFlow(year int, forceFresh bool) (domain.YearlyCashFlow, error) {
+	today := s.today()
+	if year == 0 {
+		year = today.Year()
+	}
+	if year < minCashFlowYear || year > maxCashFlowYear {
+		return domain.YearlyCashFlow{}, fmt.Errorf("%w: year must be between %d and %d", domain.ErrValidation, minCashFlowYear, maxCashFlowYear)
+	}
+	transactions, err := s.db.ListTransactions(forceFresh)
+	if err != nil {
+		return domain.YearlyCashFlow{}, err
+	}
+	categories, err := s.db.ListCategories(forceFresh)
+	if err != nil {
+		return domain.YearlyCashFlow{}, err
+	}
+	return domain.ComputeYearlyCashFlow(transactions, categories, year, today), nil
 }
 
 func (s *analyticsService) CardReports(forceFresh bool) ([]domain.CardBankReport, error) {

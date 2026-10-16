@@ -12,6 +12,7 @@ export interface NavItem {
 // Navigation order from WM-UI-1. Paths are relative to the app base.
 export const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: 'dashboard' },
+  { href: '/cash-flow', label: 'Cash Flow', icon: 'calendar' },
   {
     href: '/transactions',
     label: 'Transactions',

@@ -78,6 +78,32 @@ func TestGivenAnyFailureWhenReadingBudgetHistoryThenItIsReturned(t *testing.T) {
 	}
 }
 
+func TestGivenNoYearWhenReadingYearlyCashFlowThenTheCurrentYear(t *testing.T) {
+	kind := domain.CategoryTypeExpense
+	payment := 400.0
+	db := &fakes.Database{Transactions: []domain.Transaction{{AccountName: "Bank", Date: time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC), Category: "Food", CategoryType: &kind, Payment: &payment}}}
+
+	report, err := newAnalytics(db).YearlyCashFlow(0, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Year != 2026 || report.MonthsElapsed != 10 || report.Months[1].Expense != 400 || report.Total.Expense != 400 {
+		t.Fatalf("report = %+v", report)
+	}
+}
+
+func TestGivenBadYearOrFailureWhenReadingYearlyCashFlowThenErrors(t *testing.T) {
+	for _, year := range []int{-1, 1899, 10000} {
+		if _, err := newAnalytics(&fakes.Database{}).YearlyCashFlow(year, false); !errors.Is(err, domain.ErrValidation) {
+			t.Fatalf("year %d: err = %v", year, err)
+		}
+	}
+	failure := errors.New("sheet down")
+	if _, err := newAnalytics(&fakes.Database{Err: failure}).YearlyCashFlow(2025, false); !errors.Is(err, failure) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func cardsDatabase() *fakes.Database {
 	payment := 1_000_000.0
 	return &fakes.Database{

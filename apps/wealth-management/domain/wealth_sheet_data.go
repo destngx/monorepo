@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type AccountType string
 
@@ -111,6 +114,31 @@ type AccountCreateInput struct {
 type Category struct {
 	Name string       `json:"name"`
 	Type CategoryType `json:"type"`
+	// Nature tags an expense category fixed, essential or flexible (Categories column B); empty when untagged.
+	Nature CategoryNature `json:"nature,omitempty"`
+}
+
+// CategoryNature sorts expense by how far it can move: fixed (rent,
+// insurance, loan payments: set by a contract), essential (groceries,
+// transport, utilities: needed, but the amount can be lowered) or flexible
+// (eating out, shopping: wants).
+type CategoryNature string
+
+const (
+	NatureFixed     CategoryNature = "fixed"
+	NatureEssential CategoryNature = "essential"
+	NatureFlexible  CategoryNature = "flexible"
+)
+
+// ParseCategoryNature reads a Categories column B cell, ignoring case and
+// spaces; anything else is untagged.
+func ParseCategoryNature(cell string) CategoryNature {
+	switch nature := CategoryNature(strings.ToLower(strings.TrimSpace(cell))); nature {
+	case NatureFixed, NatureEssential, NatureFlexible:
+		return nature
+	default:
+		return ""
+	}
 }
 
 type BudgetItem struct {

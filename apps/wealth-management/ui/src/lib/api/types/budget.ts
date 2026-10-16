@@ -3,7 +3,12 @@ import type { CategoryType } from './accounts';
 export interface Category {
   name: string;
   type: CategoryType;
+  /** Categories column B; absent when untagged. */
+  nature?: CategoryNature;
 }
+
+/** Fixed: set by a contract (rent). Essential: needed but can be lowered (groceries). Flexible: wants. */
+export type CategoryNature = 'fixed' | 'essential' | 'flexible';
 
 export interface BudgetItem {
   category: string;

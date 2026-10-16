@@ -30,6 +30,7 @@ const (
 	ReviewLoans        ReviewKind = "loan-review"
 	ReviewTransactions ReviewKind = "transaction-review"
 	ReviewCreditCard   ReviewKind = "credit-summary"
+	ReviewYear         ReviewKind = "year-review"
 )
 
 type ReviewRequest struct {
@@ -37,7 +38,9 @@ type ReviewRequest struct {
 	// Month "YYYY-MM" for budget and credit-card reviews; empty is the current month.
 	Month string `json:"month,omitempty"`
 	// Card limits a credit-card summary to one card account; empty is all cards.
-	Card  string `json:"card,omitempty"`
+	Card string `json:"card,omitempty"`
+	// Year for the yearly review; 0 is the current year.
+	Year  int    `json:"year,omitempty"`
 	Force bool   `json:"force,omitempty"`
 	Model string `json:"model,omitempty"`
 }

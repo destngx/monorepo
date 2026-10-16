@@ -43,6 +43,21 @@ func (s *Server) analyticsTools() []tool {
 				return analytics.BudgetHistory(args.Month, args.Months, args.Force)
 			},
 		},
+		{
+			definition: definition("GetYearlyCashFlow", "Income and expense of a calendar year per month and per category, with year total, monthly average, and change against the same months of the previous year.", object(map[string]any{
+				"year": map[string]any{"type": "integer", "description": "Calendar year; defaults to the current year."}, "force": forceSchema,
+			})),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var args struct {
+					Year  int  `json:"year"`
+					Force bool `json:"force"`
+				}
+				if err := decodeArguments(arguments, &args); err != nil {
+					return nil, err
+				}
+				return analytics.YearlyCashFlow(args.Year, args.Force)
+			},
+		},
 		readTool("GetCardReports", "Credit cards per bank: shared limit, usage and room; per card the current period's spend, confirmed and estimated cashback, caps left, next tier, pay-by date and reconciled history.", analytics.CardReports),
 		{
 			definition: definition("SuggestCardForPayment", "Ranks the held cards for a payment by the cashback it would add this period, cards whose bank has room first. Pass mcc when known; otherwise the payee's mapping is used, else only fallback rules apply.", object(map[string]any{

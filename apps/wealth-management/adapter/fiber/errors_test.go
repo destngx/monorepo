@@ -214,6 +214,34 @@ func TestGivenANonNumericMonthsWhenReadingHistoryThenValidationEnvelope(t *testi
 	}
 }
 
+func TestGivenAYearWhenReadingYearlyCashFlowThenTwelveMonths(t *testing.T) {
+	income := domain.CategoryTypeIncome
+	deposit := 500.0
+	db := &fakes.Database{Transactions: []domain.Transaction{{AccountName: "Bank", Date: time.Date(2025, 3, 3, 0, 0, 0, 0, time.UTC), Category: "Salary", CategoryType: &income, Deposit: &deposit}}}
+	app := newAnalyticsApp(t, db)
+
+	status, body := call(t, app, http.MethodGet, "/api/analytics/cash-flow/yearly?year=2025", "")
+
+	var report domain.YearlyCashFlow
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &report) != nil {
+		t.Fatalf("status = %d, body = %s", status, body)
+	}
+	if report.Year != 2025 || len(report.Months) != 12 || report.Months[2].Income != 500 || len(report.Income) != 1 || report.Years[0] != 2026 {
+		t.Fatalf("report = %+v", report)
+	}
+}
+
+func TestGivenANonNumericYearWhenReadingYearlyCashFlowThenValidationEnvelope(t *testing.T) {
+	app := newAnalyticsApp(t, &fakes.Database{})
+
+	for _, query := range []string{"year=last", "year=1800"} {
+		status, body := call(t, app, http.MethodGet, "/api/analytics/cash-flow/yearly?"+query, "")
+		if envelope := decodeEnvelope(t, body); status != http.StatusBadRequest || envelope.Code != CodeValidation {
+			t.Fatalf("%s: status = %d, body = %s", query, status, body)
+		}
+	}
+}
+
 func cardAdviceDatabase() *fakes.Database {
 	return &fakes.Database{
 		Cards: domain.CardConfig{

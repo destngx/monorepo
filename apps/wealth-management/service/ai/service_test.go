@@ -157,7 +157,7 @@ func TestReviewRendersPromptsMasksNamesAndCaches(t *testing.T) {
 }
 
 func TestEveryReviewKindRenders(t *testing.T) {
-	for _, reviewKind := range []port.ReviewKind{port.ReviewBudget, port.ReviewLoans, port.ReviewTransactions} {
+	for _, reviewKind := range []port.ReviewKind{port.ReviewBudget, port.ReviewLoans, port.ReviewTransactions, port.ReviewYear} {
 		client := &scriptedClient{replies: []reply{{content: validInsight}}}
 		if _, err := newTestService(t, fixtureDatabase(), client, nil).Review(context.Background(), port.ReviewRequest{Kind: reviewKind}); err != nil {
 			t.Fatalf("%s: %v", reviewKind, err)

@@ -108,6 +108,11 @@ export function parseHistory(raw: string | null): ChatEntry[] {
 const SUGGESTIONS: Record<string, string[]> = {
   '/': ['How did my net worth change this month?', 'What should I watch out for this month?'],
   '/transactions': ['What did I spend the most on this week?', 'Show my largest payments this month.'],
+  '/cash-flow': [
+    'How did this year compare with last year?',
+    'Which categories should I cut to save more?',
+    'Why was my most expensive month so high?',
+  ],
   '/budget': ['Which categories am I over budget on?', 'Where can I cut spending to save more?'],
   '/accounts': ['Summarise my account balances.', 'How much cash do I have available?'],
   '/accounts/credit-cards': ['Which card should I use for groceries?', 'How much credit am I using?'],

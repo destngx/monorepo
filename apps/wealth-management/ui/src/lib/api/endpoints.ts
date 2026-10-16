@@ -58,6 +58,7 @@ import type {
   Transaction,
   TransactionInput,
   TrendPoint,
+  YearlyCashFlow,
 } from './types';
 
 type Fetch = RequestOptions['fetch'];
@@ -149,6 +150,9 @@ export const api = {
   budgetReport: (month: string, options?: ReadOptions) => read<BudgetReport>('/analytics/budget', options, { month }),
   budgetHistory: (month: string, months: number, options?: ReadOptions) =>
     read<BudgetHistory>('/analytics/budget/history', options, { month, months }),
+  /** Without a year the engine uses the current one. */
+  yearlyCashFlow: (year: number | undefined, options?: ReadOptions) =>
+    read<YearlyCashFlow>('/analytics/cash-flow/yearly', options, { year }),
   cards: (options?: ReadOptions) => read<CardBankReport[]>('/analytics/cards', options),
   suggestCards: ({ payee, amount, mcc }: CardPaymentQuery, options?: ReadOptions) =>
     read<CardSuggestion[]>('/analytics/cards/suggest', options, { payee, amount, mcc }),
@@ -189,7 +193,7 @@ export const api = {
       body: { payee },
       signal,
     }).finally(aiRequestDone),
-  review: (kind: ReviewKind, input: { month?: string; card?: string } = {}, options?: AIOptions) =>
+  review: (kind: ReviewKind, input: { month?: string; card?: string; year?: number } = {}, options?: AIOptions) =>
     ai<Insight>('/ai/review', { kind, ...input }, options),
   healthCommentary: (options?: AIOptions) => ai<Insight>('/ai/health-commentary', {}, options),
   briefing: (options?: AIOptions) => ai<Briefing>('/ai/briefing', {}, options),

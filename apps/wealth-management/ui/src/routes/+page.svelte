@@ -139,6 +139,7 @@
   <!-- WM-DASH-5 -->
   <Card title="Income vs expense" class="lg:col-span-3">
     {#snippet actions()}
+      <a href="{base}/cash-flow" class="text-xs text-indigo-600 hover:underline dark:text-indigo-400">Yearly view</a>
       <ChartInsight
         chartType="bar"
         title="Income vs expense"

@@ -86,6 +86,18 @@ func (s *Service) chatTools() map[string]chatTool {
 			},
 		},
 		{
+			definition: domain.AITool{Name: "getYearlyCashFlow", Description: "Income and expense of a calendar year: per month, per category per month, year total, monthly average, change vs the same months of the previous year, savings verdict, year-end projection and unusual months.", Parameters: objectSchema(map[string]any{"year": map[string]any{"type": "integer", "description": "Calendar year; 0 or empty is the current year"}})},
+			run: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+				var input struct {
+					Year int `json:"year"`
+				}
+				if err := decodeArguments(arguments, &input); err != nil {
+					return nil, err
+				}
+				return s.analytics.YearlyCashFlow(input.Year, false)
+			},
+		},
+		{
 			definition: domain.AITool{Name: "getFinancialHealth", Description: "Deterministic financial health score, components and recommendations.", Parameters: objectSchema(map[string]any{})},
 			run: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				return s.analytics.FinancialHealth(false)

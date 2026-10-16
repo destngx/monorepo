@@ -24,6 +24,7 @@
     monitor: 'M2 3h20v14H2zM8 21h8M12 17v4',
     refresh: 'M23 4v6h-6M1 20v-6h6M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15',
     menu: 'M3 6h18M3 12h18M3 18h18',
+    calendar: 'M3 5h18v16H3zM3 10h18M8 3v4M16 3v4',
     chevronLeft: 'M15 18l-6-6 6-6',
     chevronRight: 'M9 18l6-6-6-6',
     chevronDown: 'M6 9l6 6 6-6',

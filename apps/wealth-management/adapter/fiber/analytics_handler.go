@@ -48,6 +48,18 @@ func (h *AnalyticsHandler) GetBudgetHistory(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.BudgetHistory(strings.TrimSpace(c.Query("month")), months, forceFresh(c)))
 }
 
+func (h *AnalyticsHandler) GetYearlyCashFlow(c *fiber.Ctx) error {
+	year := 0
+	if raw := strings.TrimSpace(c.Query("year")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return badRequest(c, "year must be a number")
+		}
+		year = parsed
+	}
+	return h.respond(c)(h.analytics.YearlyCashFlow(year, forceFresh(c)))
+}
+
 func (h *AnalyticsHandler) GetCards(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.CardReports(forceFresh(c)))
 }

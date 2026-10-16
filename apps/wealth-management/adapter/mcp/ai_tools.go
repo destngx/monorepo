@@ -16,7 +16,7 @@ func (s *Server) SetAIService(aiService port.AIService) {
 var (
 	modelSchema    = map[string]any{"type": "string", "description": "Model override for this call."}
 	aiForceSchema  = map[string]any{"type": "boolean", "description": "Bypass the 30-minute result cache."}
-	reviewKindEnum = []string{string(port.ReviewAccounts), string(port.ReviewBudget), string(port.ReviewLoans), string(port.ReviewTransactions), string(port.ReviewCreditCard)}
+	reviewKindEnum = []string{string(port.ReviewAccounts), string(port.ReviewBudget), string(port.ReviewLoans), string(port.ReviewTransactions), string(port.ReviewCreditCard), string(port.ReviewYear)}
 )
 
 type aiOptions struct {
@@ -72,10 +72,11 @@ func (s *Server) aiTools() []tool {
 			},
 		},
 		{
-			definition: definition("ReviewFinances", "Structured AI review of accounts, budget, loans, the last 7 days of transactions, or credit cards.", object(map[string]any{
+			definition: definition("ReviewFinances", "Structured AI review of accounts, budget, loans, the last 7 days of transactions, credit cards, or a calendar year of income and expense.", object(map[string]any{
 				"kind":  map[string]any{"type": "string", "enum": reviewKindEnum},
 				"month": map[string]any{"type": "string", "description": "YYYY-MM for budget and credit-card reviews."},
 				"card":  map[string]any{"type": "string", "description": "Credit-card account name; empty reviews every card."},
+				"year":  map[string]any{"type": "integer", "description": "Calendar year for year-review; defaults to the current year."},
 				"force": aiForceSchema,
 				"model": modelSchema,
 			}, "kind")),

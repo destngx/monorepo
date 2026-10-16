@@ -10,6 +10,9 @@ type AnalyticsService interface {
 	// BudgetHistory compares limit and spend for `months` months ending at
 	// month ("YYYY-MM", empty = current), oldest first (WM-BUD-7).
 	BudgetHistory(month string, months int, forceFresh bool) (domain.BudgetHistory, error)
+	// YearlyCashFlow gives income and expense per month and category for a
+	// calendar year (0 = the current year) (WM-DASH-8).
+	YearlyCashFlow(year int, forceFresh bool) (domain.YearlyCashFlow, error)
 	CardReports(forceFresh bool) ([]domain.CardBankReport, error)
 	// CardPeriod lays out one card's period starting in month ("YYYY-MM",
 	// empty = current) payment by payment (WM-CARD-17).

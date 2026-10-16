@@ -154,6 +154,13 @@ func (s *Service) Review(ctx context.Context, request port.ReviewRequest) (domai
 		}
 		structured.taskVars, structured.actionVars, structured.facts = vars, vars, facts
 
+	case port.ReviewYear:
+		vars, facts, err := s.yearReviewInputs(request.Year)
+		if err != nil {
+			return domain.Insight{}, err
+		}
+		structured.taskVars, structured.actionVars, structured.facts = vars, vars, facts
+
 	default:
 		return domain.Insight{}, fmt.Errorf("%w: unknown review %q", domain.ErrValidation, request.Kind)
 	}

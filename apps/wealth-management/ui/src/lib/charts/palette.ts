@@ -13,3 +13,8 @@ export const PALETTE = [
 
 export const INCOME = '#10b981';
 export const EXPENSE = '#f97316';
+// Needs vs wants (WM-DASH-8); validated as a set on both themes. Untagged is a neutral, always labelled.
+export const FIXED = '#6366f1';
+export const ESSENTIAL = '#0d9488';
+export const FLEXIBLE = '#d97706';
+export const UNTAGGED = '#94a3b8';
