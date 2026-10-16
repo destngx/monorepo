@@ -109,7 +109,7 @@ Fourteen PRs in seven waves. PRs inside a wave touch different files and can run
 
 ### Definition of done (every PR)
 
-- TDD + BDD: domain tests first, then service, handler and UI tests; `go vet ./...`, `go test ./...`, `svelte-check`, `eslint`, `vitest` green.
+- TDD + BDD: domain tests first, then service, handler and UI tests; `go vet ./...`, `go test ./...`, `svelte-check`, `vitest` green. ESLint runs on the changed files through lint-staged at commit (it blocks on errors); a full `eslint .` run is not needed.
 - Live check against the local test workbook only (§14.3), never the production sheet.
 - Requirement IDs and statuses added to REQUIREMENTS.md; this roadmap marks the item done.
 - API routes get OpenAPI metadata and an MCP tool (parity test).
