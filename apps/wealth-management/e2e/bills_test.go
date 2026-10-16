@@ -50,3 +50,23 @@ func TestE2EBillsRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestE2EIdleCash reads the idle cash check from the in-memory workbook
+// (WM-CASH-1..5). Assertions are structural: the copy holds real data.
+func TestE2EIdleCash(t *testing.T) {
+	h := engine(t)
+	var idle domain.IdleCash
+	h.request(t, http.MethodGet, "/api/bills/idle-cash?force=true", nil, http.StatusOK, &idle)
+	c := idle.Components
+	keep := c.BillsDue + c.CardPayments + c.GoalSetAside + c.SpendingBuffer + c.EmergencyFund
+	if math.Abs(c.KeepLiquid-keep) > 1 || math.Abs(idle.Idle-math.Max(0, c.SpendableCash-c.KeepLiquid)) > 1 {
+		t.Fatalf("idle cash parts do not add up: %+v", idle)
+	}
+	held := 0.0
+	for _, account := range idle.Accounts {
+		held += account.Idle
+	}
+	if math.Abs(held-idle.Idle) > 1 || idle.Verdict == "" || len(idle.Reasons) == 0 {
+		t.Fatalf("idle cash is not spread over the accounts or has no verdict: %+v", idle)
+	}
+}

@@ -21,6 +21,7 @@ type analyticsService struct {
 	db         port.DatabaseService
 	now        func() time.Time
 	allocation port.AllocationSource
+	rates      port.BankRateSource
 }
 
 // AnalyticsOption tunes the analytics service.
@@ -31,6 +32,12 @@ type AnalyticsOption func(*analyticsService)
 // transactions alone, with no fund holdings.
 func WithAllocation(source port.AllocationSource) AnalyticsOption {
 	return func(s *analyticsService) { s.allocation = source }
+}
+
+// WithBankRates gives the idle cash check its comparison rate. Without it
+// the check reports that no rate is available.
+func WithBankRates(source port.BankRateSource) AnalyticsOption {
+	return func(s *analyticsService) { s.rates = source }
 }
 
 func NewAnalyticsService(db port.DatabaseService, now func() time.Time, options ...AnalyticsOption) port.AnalyticsService {
@@ -286,6 +293,15 @@ func (s *analyticsService) GoalPlan(forceFresh bool) (domain.GoalPlan, error) {
 // plan and lays out the bills (WM-BILL-2..6). Before the tab exists it
 // still suggests items and shows the card payments and safe-to-spend.
 func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
+	plan, err := s.GoalPlan(forceFresh)
+	if err != nil {
+		return domain.Bills{}, fmt.Errorf("goal plan: %w", err)
+	}
+	return s.billsFor(plan, forceFresh)
+}
+
+// billsFor lays out the bills with an already computed goal plan.
+func (s *analyticsService) billsFor(plan domain.GoalPlan, forceFresh bool) (domain.Bills, error) {
 	sheet, err := s.db.ReadRecurring(forceFresh)
 	if err != nil {
 		return domain.Bills{}, err
@@ -298,11 +314,36 @@ func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
 	if err != nil {
 		return domain.Bills{}, err
 	}
-	plan, err := s.GoalPlan(forceFresh)
-	if err != nil {
-		return domain.Bills{}, fmt.Errorf("goal plan: %w", err)
-	}
 	return domain.ComputeBills(domain.BillsInput{
 		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Goals: &plan, Today: s.today(),
 	}), nil
+}
+
+// IdleCash combines the bills (unpaid in the next 30 days, goal set-aside),
+// the goal plan (spending buffer, emergency fund) and the published bank
+// rates (WM-CASH-1..5). Sheet read failures are errors; a missing or
+// failing rate source is reported in the result, so the idle amount still
+// shows.
+func (s *analyticsService) IdleCash(ctx context.Context, forceFresh bool) (domain.IdleCash, error) {
+	plan, err := s.GoalPlan(forceFresh)
+	if err != nil {
+		return domain.IdleCash{}, fmt.Errorf("goal plan: %w", err)
+	}
+	bills, err := s.billsFor(plan, forceFresh)
+	if err != nil {
+		return domain.IdleCash{}, fmt.Errorf("bills: %w", err)
+	}
+	accounts, _, err := s.position(forceFresh)
+	if err != nil {
+		return domain.IdleCash{}, err
+	}
+	input := domain.IdleCashInput{Accounts: accounts, Bills: bills, Plan: &plan, Today: s.today()}
+	if s.rates == nil {
+		input.RatesIssue = "bank rates unavailable: the market data server is not configured"
+	} else if rates, err := s.rates.GetBankInterestRate(ctx); err != nil {
+		input.RatesIssue = "bank rates unavailable: " + err.Error()
+	} else {
+		input.Rates = rates.Rates
+	}
+	return domain.ComputeIdleCash(input), nil
 }

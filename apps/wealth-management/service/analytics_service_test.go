@@ -286,3 +286,34 @@ func TestGivenRecurringItemsWhenComputingBillsThenTheSheetLedgerAndGoalPlanAreCo
 		t.Fatal("a read failure must surface")
 	}
 }
+
+func TestGivenIdleCashWhenCheckingThenBillsGoalPlanAndBankRatesAreCombined(t *testing.T) {
+	db := &fakes.Database{Accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 50_000_000}}}
+	market := &fakes.Market{}
+	idle, err := NewAnalyticsService(db, func() time.Time { return fixedNow }, WithBankRates(market)).IdleCash(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if idle.Components.SpendableCash != 50_000_000 || idle.Idle != 50_000_000 || idle.Best == nil || idle.Best.Rate != 6.5 {
+		t.Fatalf("idle = %+v", idle)
+	}
+	if idle.Verdict != domain.IdleCashWorthMoving || idle.ExtraPerYear != 3_250_000 {
+		t.Fatalf("verdict = %s, extra = %v", idle.Verdict, idle.ExtraPerYear)
+	}
+
+	market.Err = errors.New("rates offline")
+	idle, err = NewAnalyticsService(db, func() time.Time { return fixedNow }, WithBankRates(market)).IdleCash(context.Background(), false)
+	if err != nil || idle.Verdict != domain.IdleCashNoRate || idle.RatesIssue != "bank rates unavailable: rates offline" {
+		t.Fatalf("a rate failure is reported in the result: %v %+v", err, idle)
+	}
+
+	idle, err = newAnalytics(db).IdleCash(context.Background(), false)
+	if err != nil || idle.Verdict != domain.IdleCashNoRate || idle.RatesIssue == "" {
+		t.Fatalf("without a rate source: %v %+v", err, idle)
+	}
+
+	db.Err = errors.New("sheet down")
+	if _, err := newAnalytics(db).IdleCash(context.Background(), false); err == nil {
+		t.Fatal("a read failure must surface")
+	}
+}

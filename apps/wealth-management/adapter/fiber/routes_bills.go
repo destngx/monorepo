@@ -50,7 +50,18 @@ func registerBillsReadRoutes(api RouteRegistrar, h *AnalyticsHandler) {
 		Summary:     "Headline for the home page: safeToSpend (every component, as in GET /api/bills), facts (active items, unpaid bills and card payments in the next 30 days, overdue count and amount, suggestions waiting), overdue bills and unpaid bills due within 7 days.",
 		QueryParams: []RouteParameter{forceParam()},
 	})
+	bills.Get("/idle-cash", h.GetIdleCash, RouteMeta{Summary: idleCashSummary, QueryParams: []RouteParameter{forceParam()}})
 }
+
+const idleCashSummary = "Idle cash check (ROADMAP R6), for the bills and home pages: idle = max(0, spendableCash " +
+	"(active, rarely used, bank and cash accounts) - keepLiquid), keepLiquid = billsDue + cardPayments (unpaid in the " +
+	"next 30 days, overdue too) + goalSetAside (this month's) + spendingBuffer (buffer months x average monthly " +
+	"expense) + emergencyFund (the emergency goal's target, else emergency months x monthly needs). accounts: the " +
+	"spendable accounts lowest rate first, rate read from the account note (\"earn rate 4%\", \"lãi 4%\", \"rate 4.5%\"; " +
+	"else 0) and the idle part assumed in each (lowest yield first). currentRate: weighted over those parts. best: " +
+	"the best published savings rate (a proxy; null with ratesIssue when unavailable). extraPerYear = idle x (best - " +
+	"current) / 100, 0 when not positive. verdict: worth_moving (gap >= 0.5 points and extra >= 200.000 VND a year), " +
+	"not_worth_it, nothing_idle or no_rate, with reasons. Advice is about rate only: goal money stays pooled."
 
 func registerBillsWriteRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuard) {
 	bills := api.Group("/bills", "bills")
@@ -99,6 +110,10 @@ func (h *AnalyticsHandler) GetSafeToSpend(c *fiber.Ctx) error {
 		return h.respond(c)(nil, err)
 	}
 	return c.JSON(bills.Summary())
+}
+
+func (h *AnalyticsHandler) GetIdleCash(c *fiber.Ctx) error {
+	return h.respond(c)(h.analytics.IdleCash(c.UserContext(), forceFresh(c)))
 }
 
 func (h *DatabaseHandler) CreateRecurring(c *fiber.Ctx) error {

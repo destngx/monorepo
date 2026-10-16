@@ -1,6 +1,9 @@
 package port
 
-import "apps/wealth-management/domain"
+import (
+	"apps/wealth-management/domain"
+	"context"
+)
 
 // AnalyticsService derives reports from sheet data using the domain rules.
 type AnalyticsService interface {
@@ -31,6 +34,16 @@ type AnalyticsService interface {
 	// them with suggestions, the 30-day calendar (card payments included)
 	// and safe-to-spend until the next income (WM-BILL-2..6).
 	Bills(forceFresh bool) (domain.Bills, error)
+	// IdleCash compares spendable cash beyond what must stay liquid with
+	// the best published deposit rate (ROADMAP R6, WM-CASH-1..5). A missing
+	// or failing rate source is reported in the result, not as an error.
+	IdleCash(ctx context.Context, forceFresh bool) (domain.IdleCash, error)
 	// AccountHistories back-calculates daily balances per account (WM-ACC-3).
 	AccountHistories(days int, forceFresh bool) (map[string][]domain.TrendPoint, error)
+}
+
+// BankRateSource gives the published bank savings rates (the one
+// bank-rates list, ROADMAP C5).
+type BankRateSource interface {
+	GetBankInterestRate(ctx context.Context) (domain.BankRates, error)
 }

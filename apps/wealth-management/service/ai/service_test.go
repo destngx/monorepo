@@ -256,6 +256,12 @@ func TestBriefingAttachesFacts(t *testing.T) {
 	if bills := briefing.Facts.Bills; bills == nil || bills.Until == "" || bills.SafeToSpend < 0 {
 		t.Fatalf("bills facts = %+v", bills)
 	}
+	if idle := briefing.Facts.IdleCash; idle == nil || idle.Verdict == "" || idle.SpendableCash <= 0 {
+		t.Fatalf("idle cash facts = %+v", idle)
+	}
+	if prompt := client.requests[0].Messages[1].Content; !strings.Contains(prompt, `"idleCash"`) || !strings.Contains(prompt, `"accountsHoldingIdle"`) {
+		t.Fatal("idle cash facts missing from the prompt")
+	}
 	if !strings.Contains(client.requests[0].Messages[1].Content, `"upcoming30Days"`) {
 		t.Fatal("bills facts missing from the prompt")
 	}
@@ -278,13 +284,13 @@ func TestBriefingWithoutGoalsOrBillsStillRunsAndSaysWhatIsMissing(t *testing.T) 
 	if err != nil {
 		t.Fatalf("optional context must not fail the briefing: %v", err)
 	}
-	if briefing.Facts.Goals != nil || briefing.Facts.Bills != nil {
+	if briefing.Facts.Goals != nil || briefing.Facts.Bills != nil || briefing.Facts.IdleCash != nil {
 		t.Fatalf("no goal or bills facts expected: %+v", briefing.Facts)
 	}
-	if !reflect.DeepEqual(briefing.Facts.Unavailable, []string{"goals", "bills"}) {
+	if !reflect.DeepEqual(briefing.Facts.Unavailable, []string{"goals", "bills", "idleCash"}) {
 		t.Fatalf("unavailable = %v", briefing.Facts.Unavailable)
 	}
-	if !strings.Contains(client.requests[0].Messages[1].Content, `"unavailable":["goals","bills"]`) {
+	if !strings.Contains(client.requests[0].Messages[1].Content, `"unavailable":["goals","bills","idleCash"]`) {
 		t.Fatal("the model is not told which facts are missing")
 	}
 }

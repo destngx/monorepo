@@ -53,6 +53,7 @@ var routeTools = map[string]string{
 	"GET /api/lending":                     "GetMoneyLent",
 	"GET /api/bills":                       "GetBills",
 	"GET /api/bills/safe-to-spend":         "GetSafeToSpend",
+	"GET /api/bills/idle-cash":             "GetIdleCash",
 
 	"POST /api/bills/items":               "CreateRecurringItem",
 	"POST /api/bills/items/:id/status":    "SetRecurringItemStatus",

@@ -16,6 +16,7 @@
     splitCalendar,
     suggestionEvidence,
   } from '$lib/bills/bills';
+  import IdleCashCard from '$lib/bills/IdleCashCard.svelte';
   import RecurringFormModal from '$lib/bills/RecurringFormModal.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -212,6 +213,8 @@
     </details>
   {/if}
 </section>
+
+<IdleCashCard idle={data.idleCash} />
 
 {#if bills.issues.length}
   <Card title="Rows to fix in the Recurring tab" class="mt-4">

@@ -31,8 +31,12 @@ type BriefingFacts struct {
 	// Bills summarises bills and safe-to-spend (ROADMAP R4): unpaid in the
 	// next 30 days, overdue count and safe-to-spend until the next income.
 	Bills *BillsFacts `json:"bills,omitempty"`
+	// IdleCash summarises the idle cash check (ROADMAP R6): spendable cash
+	// beyond what must stay liquid against the best published rate.
+	IdleCash *IdleCashFacts `json:"idleCash,omitempty"`
 	// Unavailable names optional facts that could not be loaded ("goals",
-	// "bills", "exposure"), so the model does not read their absence as zero.
+	// "bills", "idleCash", "exposure"), so the model does not read their
+	// absence as zero.
 	Unavailable []string `json:"unavailable,omitempty"`
 	// Exposure is the market exposure (ROADMAP M1, M2); nil without holdings valuation.
 	Exposure *ExposureFacts `json:"exposure,omitempty"`
@@ -42,6 +46,13 @@ type BriefingFacts struct {
 func (f BriefingFacts) WithBills(bills Bills) BriefingFacts {
 	facts := bills.Facts()
 	f.Bills = &facts
+	return f
+}
+
+// WithIdleCash adds the nameless idle cash summary.
+func (f BriefingFacts) WithIdleCash(idle IdleCash) BriefingFacts {
+	facts := idle.Facts()
+	f.IdleCash = &facts
 	return f
 }
 

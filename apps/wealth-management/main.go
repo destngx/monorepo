@@ -273,7 +273,12 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 		portfolioOptions = append(portfolioOptions, service.WithFundNAVs(navs))
 	}
 	portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil, portfolioOptions...)
-	analyticsSvc := service.NewAnalyticsService(dbSvc, nil, service.WithAllocation(portfolioSvc))
+	analyticsOptions := []service.AnalyticsOption{service.WithAllocation(portfolioSvc)}
+	if marketSvc != nil {
+		// The idle cash check compares with the one bank-rates list (ROADMAP R6).
+		analyticsOptions = append(analyticsOptions, service.WithBankRates(marketSvc))
+	}
+	analyticsSvc := service.NewAnalyticsService(dbSvc, nil, analyticsOptions...)
 	health.Register(port.HealthCheck{Name: "sheets", Probe: func(context.Context) error { return dbSvc.Ping() }})
 	mcpServer.SetDatabaseService(dbSvc)
 	mcpServer.SetAnalyticsService(analyticsSvc)

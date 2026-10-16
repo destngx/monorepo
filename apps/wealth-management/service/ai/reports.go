@@ -32,6 +32,12 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 	} else {
 		facts = facts.WithBills(bills)
 	}
+	if idle, err := s.analytics.IdleCash(ctx, false); err != nil {
+		s.log.LogError(ctx, "briefing: idle cash unavailable", err)
+		facts.Unavailable = append(facts.Unavailable, "idleCash")
+	} else {
+		facts = facts.WithIdleCash(idle)
+	}
 	if s.portfolio != nil {
 		if exposure, err := s.portfolio.Exposure(ctx, false); err != nil {
 			s.log.LogError(ctx, "briefing: exposure unavailable", err)

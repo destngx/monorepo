@@ -34,6 +34,21 @@ func TestGivenRecurringItemsWhenGettingBillsThenItemsCalendarAndSafeToSpendAreRe
 	}
 }
 
+func TestGivenSpendableCashWhenGettingIdleCashThenTheIdleAmountAndVerdictAreReturned(t *testing.T) {
+	db := &fakes.Database{Accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 20_000_000}}}
+	app := newAnalyticsApp(t, db)
+
+	status, body := call(t, app, http.MethodGet, "/api/bills/idle-cash", "")
+	var idle domain.IdleCash
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &idle) != nil {
+		t.Fatalf("status = %d, body = %s", status, body)
+	}
+	// No rate source in this app: the idle amount still shows, with the issue.
+	if idle.Idle != 20_000_000 || idle.Verdict != domain.IdleCashNoRate || idle.RatesIssue == "" || idle.Best != nil {
+		t.Fatalf("idle = %+v", idle)
+	}
+}
+
 func TestGivenRecurringWritesWhenCallingTheAPIThenTheyAreGuardedValidatedAndPassedOn(t *testing.T) {
 	db := &fakes.Database{}
 	app := newSheetsApp(t, db)

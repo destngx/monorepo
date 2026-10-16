@@ -389,6 +389,9 @@ func TestBillsTools(t *testing.T) {
 	if result, err := call("GetSafeToSpend", `{}`); err != nil || !strings.Contains(result.Content, `"safeToSpend":12000000`) {
 		t.Fatalf("safe-to-spend: %v %s", err, result.Content)
 	}
+	if result, err := call("GetIdleCash", `{}`); err != nil || !strings.Contains(result.Content, `"idle":12000000`) || !strings.Contains(result.Content, `"verdict":"no_rate"`) {
+		t.Fatalf("idle cash: %v %s", err, result.Content)
+	}
 	if _, err := call("CreateRecurringItem", `{"name":"Water","kind":"bill","amount":200000,"day":5,"match":"Water Co"}`); err != nil || len(db.CreatedRecurring) != 1 {
 		t.Fatalf("create: %v", err)
 	}

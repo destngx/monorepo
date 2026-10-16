@@ -10,6 +10,7 @@ import type {
   BankRates,
   Bills,
   BillsSummary,
+  IdleCash,
   Briefing,
   BudgetAdvice,
   BudgetHistory,
@@ -168,6 +169,8 @@ export const api = {
   /** Bills, suggestions, the 30-day calendar and safe-to-spend (ROADMAP R4). */
   bills: (options?: ReadOptions) => read<Bills>('/bills', options),
   safeToSpend: (options?: ReadOptions) => read<BillsSummary>('/bills/safe-to-spend', options),
+  /** Idle cash against the best published deposit rate (ROADMAP R6). */
+  idleCash: (options?: ReadOptions) => read<IdleCash>('/bills/idle-cash', options),
   createRecurring: (input: RecurringInput) => request<RecurringItem>('/bills/items', { method: 'POST', body: input }),
   confirmSuggestion: (input: RecurringConfirmInput) =>
     request<RecurringItem>('/bills/suggestions/confirm', { method: 'POST', body: input }),

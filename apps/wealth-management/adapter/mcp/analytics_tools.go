@@ -18,6 +18,18 @@ func (s *Server) analyticsTools() []tool {
 			}
 			return bills.Summary(), nil
 		}),
+		{
+			definition: definition("GetIdleCash", "Idle cash check: spendable cash (active, rarely used, bank and cash accounts) minus what must stay liquid (unpaid bills and card payments in the next 30 days, this month's goal set-aside, the spending buffer and the emergency fund target), the idle part's weighted current rate (read from account notes such as 'earn rate 4%' or 'lãi 4%', else 0; lowest-yield accounts first), the best published savings rate (a proxy), the extra interest a year and a verdict (worth_moving when the gap is at least 0.5 points and 200.000 VND a year; not_worth_it, nothing_idle, no_rate) with reasons. About rate only: goal money stays pooled.", object(map[string]any{"force": forceSchema})),
+			handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+				var args struct {
+					Force bool `json:"force"`
+				}
+				if err := decodeArguments(arguments, &args); err != nil {
+					return nil, err
+				}
+				return analytics.IdleCash(ctx, args.Force)
+			},
+		},
 		readTool("GetMoneyLent", "Money lent per person from lending-category transactions: lent, repaid, outstanding (negative = the user owes that person), last activity, days outstanding and the transactions; totals owed to the user and owed by the user.", analytics.MoneyLent),
 		readTool("GetDashboard", "Balance sheet, net worth change this month, month-to-date income and expense against the same days of last month, month-end expense pace, 30-day net worth trend, cash flow history and top accounts.", analytics.DashboardSummary),
 		{

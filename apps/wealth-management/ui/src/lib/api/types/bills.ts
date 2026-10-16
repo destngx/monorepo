@@ -1,3 +1,5 @@
+import type { DepositRate } from './investments';
+
 /** Recurring tab Kind column (B). */
 export type RecurringKind = 'income' | 'bill' | 'subscription' | 'insurance' | 'card';
 export type RecurringFrequency = 'monthly' | 'quarterly' | 'yearly';
@@ -181,4 +183,54 @@ export interface RecurringConfirmInput {
   match?: string;
   status?: RecurringStatus;
   note?: string;
+}
+
+/** Idle cash verdict (ROADMAP R6). */
+export type IdleCashVerdict = 'worth_moving' | 'not_worth_it' | 'nothing_idle' | 'no_rate';
+
+/** idle = max(0, spendableCash - keepLiquid). */
+export interface IdleCashComponents {
+  spendableCash: number;
+  billsDue: number;
+  cardPayments: number;
+  goalSetAside: number;
+  spendingBuffer: number;
+  bufferMonths: number;
+  averageMonthlyExpense: number;
+  emergencyFund: number;
+  /** False when the target comes from emergency months x monthly needs. */
+  emergencyFromGoal: boolean;
+  keepLiquid: number;
+}
+
+/** A spendable cash account, its rate (from its note, else 0) and the idle part assumed in it. */
+export interface IdleCashAccount {
+  name: string;
+  balance: number;
+  rate: number;
+  rateFromNote: boolean;
+  idle: number;
+}
+
+/** GET /api/bills/idle-cash */
+export interface IdleCash {
+  asOf: string;
+  idle: number;
+  components: IdleCashComponents;
+  /** Lowest rate first. */
+  accounts: IdleCashAccount[];
+  /** Weighted rate of the idle cash, percent a year. */
+  currentRate: number;
+  /** The comparison rate, a proxy; null when unavailable. */
+  best: DepositRate | null;
+  ratesIssue?: string;
+  rateGapPoints: number;
+  extraPerYear: number;
+  verdict: IdleCashVerdict;
+  reasons: string[];
+  minRateGapPoints: number;
+  minExtraPerYear: number;
+  keepLiquidRule: string;
+  rateRule: string;
+  thresholdRule: string;
 }
