@@ -8,6 +8,8 @@ import type {
   Account,
   AccountType,
   BankRates,
+  Bills,
+  BillsSummary,
   Briefing,
   BudgetAdvice,
   BudgetHistory,
@@ -56,6 +58,10 @@ import type {
   ProgramComparisonReport,
   ReallocateInput,
   ReallocateResult,
+  RecurringConfirmInput,
+  RecurringInput,
+  RecurringItem,
+  RecurringStatus,
   SettingsChanges,
   SheetInfo,
   ReviewKind,
@@ -157,6 +163,21 @@ export const api = {
   setCategoryNature: (input: CategoryNatureInput) =>
     request<Category>('/categories/nature', { method: 'PATCH', body: input }),
   moneyLent: (options?: ReadOptions) => read<MoneyLent>('/lending', options),
+  /** Bills, suggestions, the 30-day calendar and safe-to-spend (ROADMAP R4). */
+  bills: (options?: ReadOptions) => read<Bills>('/bills', options),
+  safeToSpend: (options?: ReadOptions) => read<BillsSummary>('/bills/safe-to-spend', options),
+  createRecurring: (input: RecurringInput) => request<RecurringItem>('/bills/items', { method: 'POST', body: input }),
+  confirmSuggestion: (input: RecurringConfirmInput) =>
+    request<RecurringItem>('/bills/suggestions/confirm', { method: 'POST', body: input }),
+  updateRecurring: (id: string, etag: string, input: RecurringInput) =>
+    request<RecurringItem>(`/bills/items/${encodeURIComponent(id)}`, { method: 'PATCH', body: { ...input, etag } }),
+  setRecurringStatus: (id: string, etag: string, status: RecurringStatus) =>
+    request<RecurringItem>(`/bills/items/${encodeURIComponent(id)}/status`, { method: 'POST', body: { status, etag } }),
+  deleteRecurring: (id: string, etag: string) =>
+    request<{ success: boolean }>(`/bills/items/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'If-Match': etag },
+    }),
   investments: (options?: ReadOptions) => read<InvestmentAssets>('/investments/assets', options),
   valuation: (options?: ReadOptions) => read<PortfolioValuation>('/investments/valuation', options),
   /** The one allocation with targets and drift (ROADMAP C4). */

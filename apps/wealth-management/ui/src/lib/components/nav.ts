@@ -13,6 +13,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: 'dashboard' },
   { href: '/cash-flow', label: 'Cash Flow', icon: 'calendar' },
+  { href: '/bills', label: 'Bills', icon: 'clock' },
   {
     href: '/transactions',
     label: 'Transactions',

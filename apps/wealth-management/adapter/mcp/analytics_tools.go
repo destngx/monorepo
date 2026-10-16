@@ -10,6 +10,14 @@ func (s *Server) analyticsTools() []tool {
 	analytics := s.analyticsService
 	return []tool{
 		readTool("GetGoals", "The goal plan: goals are claims on one pooled savings balance (assets without crypto, archived accounts and money lent, minus card debt and a spending buffer) filled by priority, emergency fund first. Per goal target, funded, remaining, required per month, projected finish, years to reach and pace (done, paused, funded, on_track, behind, no_deadline); the plan check (required per month vs average monthly savings, gap, verdict, trade-offs). setupNeeded until the Goal Plan tab exists.", analytics.GoalPlan),
+		readTool("GetBills", "Bills and safe-to-spend: the Recurring tab items (income, bill, subscription, insurance, card) with this cycle's occurrence settled by matching transactions (payee contains the item's match text; category and account agree when set), suggestions found in history (confirm by key with ConfirmRecurringSuggestion), the calendar from the 1st of this month to 30 days ahead (paid, due, overdue; card payments due on the pay-by date for their statement) and safeToSpend = spendable cash - unpaid bills and card payments due before the next income (else 30 days) - the goal plan's monthly requirement, floored at 0 with shortBy.", analytics.Bills),
+		readTool("GetSafeToSpend", "Safe-to-spend until the next income with every component, the bills facts (unpaid in the next 30 days, overdue count and amount), overdue bills and unpaid bills due within 7 days.", func(force bool) (domain.BillsSummary, error) {
+			bills, err := analytics.Bills(force)
+			if err != nil {
+				return domain.BillsSummary{}, err
+			}
+			return bills.Summary(), nil
+		}),
 		readTool("GetMoneyLent", "Money lent per person from lending-category transactions: lent, repaid, outstanding (negative = the user owes that person), last activity, days outstanding and the transactions; totals owed to the user and owed by the user.", analytics.MoneyLent),
 		readTool("GetDashboard", "Balance sheet, net worth change this month, month-to-date income and expense against the same days of last month, month-end expense pace, 30-day net worth trend, cash flow history and top accounts.", analytics.DashboardSummary),
 		{

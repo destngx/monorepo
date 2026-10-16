@@ -368,3 +368,43 @@ func TestPreferenceTools(t *testing.T) {
 		t.Fatalf("targets not adding up must be a validation error: %v", err)
 	}
 }
+
+func TestBillsTools(t *testing.T) {
+	amount := 8_000_000.0
+	db := &fakes.Database{
+		Accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 20_000_000}},
+		Recurring: domain.RecurringSheet{Exists: true, Items: []domain.RecurringItem{
+			{ID: "recurring-2", Name: "Rent", Kind: domain.RecurringBill, Amount: &amount, Frequency: domain.FrequencyMonthly, Day: 20, Match: "Landlord", Status: domain.RecurringActive},
+		}},
+	}
+	server := newTestServer(t, db)
+	server.SetAnalyticsService(service.NewAnalyticsService(db, func() time.Time { return time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC) }))
+	call := func(name, arguments string) (domain.ToolResult, error) {
+		return server.CallTool(context.Background(), name, json.RawMessage(arguments))
+	}
+
+	if result, err := call("GetBills", `{}`); err != nil || !strings.Contains(result.Content, `"billsDue":8000000`) {
+		t.Fatalf("bills: %v %s", err, result.Content)
+	}
+	if result, err := call("GetSafeToSpend", `{}`); err != nil || !strings.Contains(result.Content, `"safeToSpend":12000000`) {
+		t.Fatalf("safe-to-spend: %v %s", err, result.Content)
+	}
+	if _, err := call("CreateRecurringItem", `{"name":"Water","kind":"bill","amount":200000,"day":5,"match":"Water Co"}`); err != nil || len(db.CreatedRecurring) != 1 {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := call("CreateRecurringItem", `{"name":"Water","kind":"bill","day":5,"match":"Water Co"}`); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("an item without an amount should be rejected, got %v", err)
+	}
+	if _, err := call("ConfirmRecurringSuggestion", `{"key":"out|water co|utilities","status":"paused"}`); err != nil || len(db.ConfirmedRecurring) != 1 {
+		t.Fatalf("confirm: %v", err)
+	}
+	if _, err := call("UpdateRecurringItem", `{"id":"recurring-2","etag":"abc","name":"Rent","kind":"bill","amount":9000000,"day":1,"match":"Landlord"}`); err != nil || db.UpdatedRecurring["recurring-2"].ETag != "abc" {
+		t.Fatalf("update: %v", err)
+	}
+	if _, err := call("SetRecurringItemStatus", `{"id":"recurring-2","etag":"abc","status":"paused"}`); err != nil || db.RecurringStatuses["recurring-2"].Status != domain.RecurringPaused {
+		t.Fatalf("status: %v", err)
+	}
+	if _, err := call("DeleteRecurringItem", `{"id":"recurring-2","etag":"abc"}`); err != nil || db.DeletedRecurring["recurring-2"] != "abc" {
+		t.Fatalf("delete: %v", err)
+	}
+}

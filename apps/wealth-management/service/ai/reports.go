@@ -23,6 +23,11 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 		return domain.Briefing{}, fmt.Errorf("load goal plan: %w", err)
 	}
 	facts = facts.WithGoalPlan(plan)
+	bills, err := s.analytics.Bills(false)
+	if err != nil {
+		return domain.Briefing{}, fmt.Errorf("load bills: %w", err)
+	}
+	facts = facts.WithBills(bills)
 	budget := []map[string]any{}
 	for _, line := range snap.budget.Lines {
 		if line.CountsAsExpense() && (line.Spent > 0 || line.Limit > 0) {

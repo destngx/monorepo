@@ -28,6 +28,16 @@ type BriefingFacts struct {
 	MoneyLent MoneyLentFacts `json:"moneyLent"`
 	// Goals summarises the goal plan (D31); nil before it is set up.
 	Goals *GoalPlanFacts `json:"goals,omitempty"`
+	// Bills summarises bills and safe-to-spend (ROADMAP R4): unpaid in the
+	// next 30 days, overdue count and safe-to-spend until the next income.
+	Bills *BillsFacts `json:"bills,omitempty"`
+}
+
+// WithBills adds the nameless bills summary.
+func (f BriefingFacts) WithBills(bills Bills) BriefingFacts {
+	facts := bills.Facts()
+	f.Bills = &facts
+	return f
 }
 
 // WithGoalPlan adds the goal plan summary.

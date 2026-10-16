@@ -7,6 +7,7 @@ import (
 	"apps/wealth-management/port"
 	"apps/wealth-management/service"
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -250,6 +251,12 @@ func TestBriefingAttachesFacts(t *testing.T) {
 	if briefing.Facts.MoneyLent.OwedToYou != 20_000_000 || briefing.Facts.MoneyLent.PeopleOwing != 1 {
 		t.Fatalf("money lent facts %+v", briefing.Facts.MoneyLent)
 	}
+	if bills := briefing.Facts.Bills; bills == nil || bills.Until == "" || bills.SafeToSpend < 0 {
+		t.Fatalf("bills facts = %+v", bills)
+	}
+	if !strings.Contains(client.requests[0].Messages[1].Content, `"upcoming30Days"`) {
+		t.Fatal("bills facts missing from the prompt")
+	}
 	system := client.requests[0].Messages[0].Content
 	if !strings.Contains(system, `"owedToYou":20000000`) || !strings.Contains(system, "owed to you 20.000.000 ₫ by 1 person (oldest open 30 days)") {
 		t.Fatalf("money lent not in the prompt: %s", system)
@@ -299,5 +306,25 @@ func TestProviderModelsNeedsOnlyTheEndpoint(t *testing.T) {
 	}
 	if client.modelCalls != 1 {
 		t.Fatalf("client called %d times, want 1", client.modelCalls)
+	}
+}
+
+func TestChatBillsToolReturnsSafeToSpendWithMaskedNames(t *testing.T) {
+	db := fixtureDatabase()
+	amount := 1_000_000.0
+	db.Recurring = domain.RecurringSheet{Exists: true, Items: []domain.RecurringItem{
+		{ID: "recurring-2", Name: "Person B rent", Kind: domain.RecurringBill, Amount: &amount, Frequency: domain.FrequencyMonthly, Day: 28, Match: "Landlord", Status: domain.RecurringActive},
+	}}
+	svc := newTestService(t, db, &scriptedClient{}, nil)
+	result, err := svc.chatTools()["getBills"].run(context.Background(), json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := toJSON(result)
+	if !strings.Contains(payload, `"billsDue":1000000`) || !strings.Contains(payload, `"rule":"safeToSpend = spendableCash`) {
+		t.Fatalf("bills context = %s", payload)
+	}
+	if strings.Contains(payload, "Person B") {
+		t.Fatalf("item names must be masked: %s", payload)
 	}
 }

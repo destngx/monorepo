@@ -38,7 +38,7 @@ func TestChatRunsToolsAndStreams(t *testing.T) {
 	if strings.Join(kinds, ",") != "tool:running,tool:ok,done:" || text.String() != "You spent 120.000 ₫ on Grab." {
 		t.Fatalf("unexpected events %v %q", kinds, text.String())
 	}
-	if len(client.requests[0].Tools) != 7 || !strings.Contains(client.requests[0].Messages[0].Content, "/transactions") {
+	if len(client.requests[0].Tools) != 8 || !strings.Contains(client.requests[0].Messages[0].Content, "/transactions") {
 		t.Fatalf("first turn missing tools or page context")
 	}
 	second := client.requests[1].Messages

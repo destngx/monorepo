@@ -27,6 +27,10 @@ type AnalyticsService interface {
 	GoalPlan(forceFresh bool) (domain.GoalPlan, error)
 	// MoneyLent is the per-person ledger of lending transactions (WM-LEND-1, D30).
 	MoneyLent(forceFresh bool) (domain.MoneyLent, error)
+	// Bills matches the Recurring items against the ledger and returns
+	// them with suggestions, the 30-day calendar (card payments included)
+	// and safe-to-spend until the next income (WM-BILL-2..6).
+	Bills(forceFresh bool) (domain.Bills, error)
 	// AccountHistories back-calculates daily balances per account (WM-ACC-3).
 	AccountHistories(days int, forceFresh bool) (map[string][]domain.TrendPoint, error)
 }

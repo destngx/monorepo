@@ -119,6 +119,16 @@ func (s *Service) chatTools() map[string]chatTool {
 				return s.goalPlanContext(plan), nil
 			},
 		},
+		{
+			definition: domain.AITool{Name: "getBills", Description: "Bills and safe-to-spend: money free to spend until the next income (spendable cash minus unpaid bills and card payments due by then minus this month's goal set-aside), the calendar of recurring bills, income and card payments for the next 30 days (paid, due, overdue), the confirmed recurring items and the suggestions found in history.", Parameters: objectSchema(map[string]any{})},
+			run: func(ctx context.Context, _ json.RawMessage) (any, error) {
+				bills, err := s.analytics.Bills(false)
+				if err != nil {
+					return nil, err
+				}
+				return s.billsContext(bills), nil
+			},
+		},
 	}
 	tools = append(tools, s.marketTools(str)...)
 	byName := make(map[string]chatTool, len(tools))

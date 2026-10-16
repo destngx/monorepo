@@ -1,0 +1,52 @@
+package e2e
+
+import (
+	"apps/wealth-management/domain"
+	"math"
+	"net/http"
+	"testing"
+)
+
+// TestE2EBillsRoundTrip reads the bills from the in-memory workbook, then
+// creates, edits, pauses and deletes a recurring item and reads each change
+// back (WM-BILL-1..7). Assertions are structural: the copy holds real data.
+func TestE2EBillsRoundTrip(t *testing.T) {
+	h := engine(t)
+	var bills domain.Bills
+	h.request(t, http.MethodGet, "/api/bills?force=true", nil, http.StatusOK, &bills)
+	safe := bills.SafeToSpend
+	parts := safe.SpendableCash - safe.BillsDue - safe.CardPayments - safe.GoalSetAside
+	if math.Abs(safe.Amount-parts) > 1 || safe.SafeToSpend < 0 || safe.Until == "" {
+		t.Fatalf("safe-to-spend parts do not add up: %+v", safe)
+	}
+	for _, suggestion := range bills.Suggestions {
+		if suggestion.Key == "" || suggestion.Amount <= 0 || suggestion.Seen < 2 {
+			t.Fatalf("suggestion without evidence: %+v", suggestion)
+		}
+	}
+
+	name := "wm-e2e " + h.runID + " bill"
+	var created domain.RecurringItem
+	h.request(t, http.MethodPost, "/api/bills/items", map[string]any{"name": name, "kind": "bill", "amount": 100_000, "day": 28, "match": name}, http.StatusCreated, &created)
+	if created.ETag == "" || created.Day != 28 || created.Amount == nil || *created.Amount != 100_000 {
+		t.Fatalf("the new item did not read back: %+v", created)
+	}
+	var edited domain.RecurringItem
+	h.request(t, http.MethodPatch, "/api/bills/items/"+created.ID, map[string]any{"name": name, "kind": "subscription", "amount": 120_000, "day": 3, "match": name, "etag": created.ETag}, http.StatusOK, &edited)
+	if edited.Kind != domain.RecurringSubscription || *edited.Amount != 120_000 {
+		t.Fatalf("the edit did not read back: %+v", edited)
+	}
+	h.request(t, http.MethodPatch, "/api/bills/items/"+created.ID, map[string]any{"name": name, "kind": "bill", "amount": 1, "day": 1, "match": name, "etag": created.ETag}, http.StatusConflict, nil)
+	var paused domain.RecurringItem
+	h.request(t, http.MethodPost, "/api/bills/items/"+created.ID+"/status", map[string]any{"status": "paused", "etag": edited.ETag}, http.StatusOK, &paused)
+	if paused.Status != domain.RecurringPaused {
+		t.Fatalf("the pause did not read back: %+v", paused)
+	}
+	h.request(t, http.MethodDelete, "/api/bills/items/"+created.ID, nil, http.StatusOK, nil, "If-Match", paused.ETag)
+	h.request(t, http.MethodGet, "/api/bills?force=true", nil, http.StatusOK, &bills)
+	for _, item := range bills.Items {
+		if item.ID == created.ID {
+			t.Fatalf("the deleted item is still listed: %+v", item)
+		}
+	}
+}

@@ -220,7 +220,7 @@ func TestChatOffersMarketToolsWhenWired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(client.requests[0].Tools) != 9 || len(search.queries) != 1 || search.queries[0] != "FPT news" {
+	if len(client.requests[0].Tools) != 10 || len(search.queries) != 1 || search.queries[0] != "FPT news" {
 		t.Fatalf("expected both market tools to run, got %d tools and %v", len(client.requests[0].Tools), search.queries)
 	}
 	results := client.requests[1].Messages

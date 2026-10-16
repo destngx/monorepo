@@ -265,3 +265,24 @@ func TestGivenGoalSettingsInPreferencesWhenComputingTheGoalPlanThenThePlanUsesTh
 		t.Fatalf("settings %+v, buffer months %v", plan.Settings, plan.Pool.BufferMonths)
 	}
 }
+
+func TestGivenRecurringItemsWhenComputingBillsThenTheSheetLedgerAndGoalPlanAreCombined(t *testing.T) {
+	amount := 8_000_000.0
+	db := &fakes.Database{
+		Accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 20_000_000}},
+		Recurring: domain.RecurringSheet{Exists: true, Items: []domain.RecurringItem{
+			{ID: "recurring-2", Name: "Rent", Kind: domain.RecurringBill, Amount: &amount, Frequency: domain.FrequencyMonthly, Day: 20, Match: "Landlord", Status: domain.RecurringActive},
+		}},
+	}
+	bills, err := newAnalytics(db).Bills(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bills.TabExists || len(bills.Items) != 1 || bills.SafeToSpend.BillsDue != 8_000_000 || bills.SafeToSpend.SafeToSpend != 12_000_000 || bills.SafeToSpend.GoalPlanUsed {
+		t.Fatalf("bills = %+v", bills.SafeToSpend)
+	}
+	db.Err = errors.New("sheet down")
+	if _, err := newAnalytics(db).Bills(false); err == nil {
+		t.Fatal("a read failure must surface")
+	}
+}

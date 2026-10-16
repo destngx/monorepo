@@ -11,5 +11,6 @@ describe('nav', () => {
   it('titles a page by its most specific entry', () => {
     expect(titleFor('/accounts/credit-cards/Visa')).toBe('Credit Cards');
     expect(titleFor('/')).toBe('Dashboard');
+    expect(titleFor('/bills')).toBe('Bills');
   });
 });

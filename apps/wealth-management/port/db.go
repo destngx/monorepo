@@ -49,6 +49,22 @@ type DatabaseService interface {
 	// ReorderGoals sets priorities 1..n in the order of the IDs; unlisted
 	// goals follow in their order. ErrConflict for an ID not in the tab.
 	ReorderGoals(input domain.GoalReorderInput) ([]domain.PlannedGoal, error)
+	// ReadRecurring reads the app-managed Recurring tab (WM-BILL-1); Exists
+	// is false until the first item is saved.
+	ReadRecurring(forceFresh bool) (domain.RecurringSheet, error)
+	// CreateRecurring appends an item, creating the tab on first use.
+	CreateRecurring(input domain.RecurringInput) (domain.RecurringItem, error)
+	// ConfirmRecurringSuggestion writes the current suggestion with the
+	// key, with the overrides applied (WM-BILL-2), creating the tab on first
+	// use. ErrNotFound when the key is no longer suggested.
+	ConfirmRecurringSuggestion(input domain.RecurringConfirmInput) (domain.RecurringItem, error)
+	// UpdateRecurring replaces an item row when it still matches the ETag
+	// (ErrConflict otherwise).
+	UpdateRecurring(id string, input domain.RecurringUpdateInput) (domain.RecurringItem, error)
+	// SetRecurringStatus pauses or resumes an item (column J only).
+	SetRecurringStatus(id string, input domain.RecurringStatusInput) (domain.RecurringItem, error)
+	// DeleteRecurring clears an item row when it still matches the ETag.
+	DeleteRecurring(id string, etag string) error
 	ListTags(forceFresh bool) ([]string, error)
 	GetInvestmentAssets(forceFresh bool) (domain.InvestmentAssets, error)
 	WarmAIContent(forceFresh bool) (domain.InitResult, error)

@@ -281,3 +281,28 @@ func (s *analyticsService) GoalPlan(forceFresh bool) (domain.GoalPlan, error) {
 	}
 	return domain.ComputeGoalPlan(sheet, accounts, transactions, categories, prefs.GoalPool, s.today()), nil
 }
+
+// Bills reads the Recurring tab, the ledger, the card settings and the goal
+// plan and lays out the bills (WM-BILL-2..6). Before the tab exists it
+// still suggests items and shows the card payments and safe-to-spend.
+func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
+	sheet, err := s.db.ReadRecurring(forceFresh)
+	if err != nil {
+		return domain.Bills{}, err
+	}
+	accounts, transactions, err := s.position(forceFresh)
+	if err != nil {
+		return domain.Bills{}, err
+	}
+	cards, err := s.db.ListCardConfig(forceFresh)
+	if err != nil {
+		return domain.Bills{}, err
+	}
+	plan, err := s.GoalPlan(forceFresh)
+	if err != nil {
+		return domain.Bills{}, fmt.Errorf("goal plan: %w", err)
+	}
+	return domain.ComputeBills(domain.BillsInput{
+		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Goals: &plan, Today: s.today(),
+	}), nil
+}

@@ -22,6 +22,7 @@ type Database struct {
 	Info         domain.SheetInfo
 	Categories   []domain.Category
 	GoalPlan     domain.GoalPlanSheet
+	Recurring    domain.RecurringSheet
 	Init         domain.InitResult
 	AIContent    domain.AIContent
 	CaptureRules []domain.CaptureRule
@@ -51,6 +52,11 @@ type Database struct {
 	UpdatedGoals        map[string]domain.GoalUpdateInput
 	DeletedGoals        map[string]string
 	GoalOrders          []domain.GoalReorderInput
+	CreatedRecurring    []domain.RecurringInput
+	ConfirmedRecurring  []domain.RecurringConfirmInput
+	UpdatedRecurring    map[string]domain.RecurringUpdateInput
+	RecurringStatuses   map[string]domain.RecurringStatusInput
+	DeletedRecurring    map[string]string
 }
 
 var _ port.DatabaseService = (*Database)(nil)
@@ -317,4 +323,64 @@ func (f *Database) StaleCursor() uint64 { return 0 }
 
 func (f *Database) StaleSince(uint64) (time.Time, bool) {
 	return f.StaleAt, !f.StaleAt.IsZero()
+}
+
+func (f *Database) ReadRecurring(bool) (domain.RecurringSheet, error) { return f.Recurring, f.Err }
+
+// CreateRecurring validates like the service and records the input.
+func (f *Database) CreateRecurring(input domain.RecurringInput) (domain.RecurringItem, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.RecurringItem{}, err
+	}
+	f.CreatedRecurring = append(f.CreatedRecurring, input)
+	item := input.Normalized()
+	return domain.RecurringItem{ID: fmt.Sprintf("recurring-%d", len(f.CreatedRecurring)+1), Name: item.Name, Kind: item.Kind, Amount: item.Amount, Status: item.Status}, f.Err
+}
+
+func (f *Database) ConfirmRecurringSuggestion(input domain.RecurringConfirmInput) (domain.RecurringItem, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.RecurringItem{}, err
+	}
+	f.ConfirmedRecurring = append(f.ConfirmedRecurring, input)
+	return domain.RecurringItem{ID: "recurring-2", Name: input.Name, Status: domain.RecurringActive}, f.Err
+}
+
+func (f *Database) UpdateRecurring(id string, input domain.RecurringUpdateInput) (domain.RecurringItem, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.RecurringItem{}, err
+	}
+	if f.UpdatedRecurring == nil {
+		f.UpdatedRecurring = map[string]domain.RecurringUpdateInput{}
+	}
+	f.UpdatedRecurring[id] = input
+	return domain.RecurringItem{ID: id, Name: input.Name, Kind: input.Kind, Status: input.Status}, f.Err
+}
+
+func (f *Database) SetRecurringStatus(id string, input domain.RecurringStatusInput) (domain.RecurringItem, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.RecurringItem{}, err
+	}
+	if f.RecurringStatuses == nil {
+		f.RecurringStatuses = map[string]domain.RecurringStatusInput{}
+	}
+	f.RecurringStatuses[id] = input
+	return domain.RecurringItem{ID: id, Status: input.Status}, f.Err
+}
+
+func (f *Database) DeleteRecurring(id string, etag string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.DeletedRecurring == nil {
+		f.DeletedRecurring = map[string]string{}
+	}
+	f.DeletedRecurring[id] = etag
+	return f.Err
 }

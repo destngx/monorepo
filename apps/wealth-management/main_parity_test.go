@@ -51,6 +51,12 @@ var routeTools = map[string]string{
 	"GET /api/analytics/account-histories": "GetAccountHistories",
 	"GET /api/analytics/cash-flow/yearly":  "GetYearlyCashFlow",
 	"GET /api/lending":                     "GetMoneyLent",
+	"GET /api/bills":                       "GetBills",
+	"GET /api/bills/safe-to-spend":         "GetSafeToSpend",
+
+	"POST /api/bills/items":               "CreateRecurringItem",
+	"POST /api/bills/items/:id/status":    "SetRecurringItemStatus",
+	"POST /api/bills/suggestions/confirm": "ConfirmRecurringSuggestion",
 
 	"GET /api/external/market/providers/:provider/health": "GetMarketProviderHealth",
 	"GET /api/external/vnstock/health":                    "GetMarketProviderHealth",
