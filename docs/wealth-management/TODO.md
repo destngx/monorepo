@@ -51,6 +51,11 @@ Ordered by impact.
 - [ ] **Spending anomaly alerts** (category > 2x usual, duplicate charge).
 - [x] **Monthly close checklist page**: moved to [ROADMAP](./ROADMAP.md) R8. Original note:: reconcile, review health, apply budget advice, check cards and loans, write the snapshot.
 
+## 2b. Follow-ups from the roadmap build
+
+- [ ] **Crypto 24h change from the market-data-server**: the exposure view (WM-INV-24) builds Yahoo-style `<COIN>-USD` candle symbols in the engine to get a 24h move. Add a `change24h` field to the server's crypto ticker so source symbols stay server-side, then drop the engine mapping.
+- [ ] **One valuation per Investments page load**: exposure, hedges and the portfolio each recompute the valuation (the market cache absorbs it); share one valuation per request.
+
 ## 3. Sources
 
 - [SePay pricing and bank list](https://sepay.vn/bang-gia.html)
