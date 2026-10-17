@@ -45,11 +45,14 @@ const (
 	// less than the best instant-access rate (D34).
 	NeedsYouEmergencyFundRate NeedsYouKind = "emergency-fund-rate"
 	NeedsYouMonthClose        NeedsYouKind = "month-close"
+	// NeedsYouMinimumBalance: an account with a minimum balance to keep is
+	// projected below its minimum average this month (D35).
+	NeedsYouMinimumBalance NeedsYouKind = "minimum-balance"
 )
 
 // needsYouKindOrder breaks ties after severity, weight and due date.
 var needsYouKindOrder = []NeedsYouKind{
-	NeedsYouBillOverdue, NeedsYouShortBeforePayday, NeedsYouCardDue, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
+	NeedsYouBillOverdue, NeedsYouShortBeforePayday, NeedsYouCardDue, NeedsYouMinimumBalance, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
 	NeedsYouGoalPlanShort, NeedsYouGoalBehind, NeedsYouRebalance, NeedsYouUncategorized, NeedsYouRecommendation,
 	NeedsYouIdleCash, NeedsYouEmergencyFundRate,
 }
@@ -219,6 +222,7 @@ func BuildNeedsYou(in NeedsYouInputs) NeedsYou {
 		add(billsOverdueItem(*in.Bills))
 		add(cardsDueItem(*in.Bills))
 		add(shortBeforePaydayItem(*in.Bills))
+		add(minimumBalanceItem(*in.Bills))
 	}
 	if in.Budget != nil {
 		add(budgetOverPaceItem(*in.Budget, in.Categories, today))
@@ -333,6 +337,46 @@ func shortBeforePaydayItem(bills Bills) (NeedsYouItem, bool) {
 		ID: string(NeedsYouShortBeforePayday), Kind: NeedsYouShortBeforePayday, Status: NeedsYouSerious,
 		Headline: headline, Detail: detail, AmountVND: vndAmount(safe.ShortBy), DueDate: safe.Until, Route: "/bills",
 	}, true
+}
+
+// minimumBalanceItem: accounts with a minimum balance to keep whose
+// average daily balance would end the month below the minimum if their
+// balance stays as it is today (D35). Warning, serious in the last week
+// (MinimumBalanceLastWeekDays). The amount is the extra balance they need
+// from today to the month end. Nameless, like every inbox headline.
+func minimumBalanceItem(bills Bills) (NeedsYouItem, bool) {
+	count, extra, daysLeft, monthEnd := 0, 0.0, math.MaxInt, ""
+	for _, track := range bills.SafeToSpend.MinimumBalances {
+		if track.Status != MinimumAtRisk {
+			continue
+		}
+		count++
+		extra += track.ExtraNeeded
+		daysLeft = min(daysLeft, track.DaysLeft)
+		monthEnd = track.MonthEnd
+	}
+	if count == 0 {
+		return NeedsYouItem{}, false
+	}
+	status := NeedsYouWarning
+	if daysLeft <= MinimumBalanceLastWeekDays {
+		status = NeedsYouSerious
+	}
+	headline := "An account is at risk of missing its minimum average balance"
+	if count > 1 {
+		headline = fmt.Sprintf("%d accounts are at risk of missing their minimum average balance", count)
+	}
+	item := NeedsYouItem{
+		ID: string(NeedsYouMinimumBalance), Kind: NeedsYouMinimumBalance, Status: status,
+		Headline: headline,
+		Detail: "At today's balance, this month's average daily balance ends below the minimum you keep for a bank " +
+			"reward. Hold this much more until the month end, or move money in early: every day counts.",
+		AmountVND: vndAmount(extra), DueDate: monthEnd, Route: "/bills",
+	}
+	if count > 1 {
+		item.Count = count
+	}
+	return item, true
 }
 
 // cardsDueItem: unpaid card payments due within a week; serious within two days.

@@ -332,3 +332,52 @@ func TestGivenAnEmergencyFundBelowTheBestInstantRateWhenBuildingThenItIsItsOwnIn
 		t.Fatalf("no account names in the inbox: %+v", emergency)
 	}
 }
+
+func TestGivenAnAccountProjectedBelowItsMinimumAverageWhenBuildingThenOneNamelessItemSaysHowMuchMore(t *testing.T) {
+	input := billsInput()
+	input.Accounts = append(input.Accounts, Account{Name: "Reward Bank", Type: AccountTypeBank, Balance: 4_000_000})
+	input.Minimums = AccountMinimumSettings{Accounts: []AccountMinimum{{Account: "Reward Bank", Minimum: 5_000_000}, {Account: "Main Bank", Minimum: 5_000_000}}}
+	bills := ComputeBills(input)
+
+	item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: &bills}), NeedsYouMinimumBalance)
+	track := bills.SafeToSpend.MinimumBalances
+	extra := 0.0
+	for _, account := range track {
+		extra += account.ExtraNeeded
+	}
+	if item.Status != NeedsYouWarning || item.Count != 0 || item.AmountVND == nil || *item.AmountVND != extra || extra <= 0 ||
+		item.DueDate != "2026-10-31" || item.Route != "/bills" {
+		t.Fatalf("item = %+v", item)
+	}
+	if item.Headline != "An account is at risk of missing its minimum average balance" || strings.Contains(item.Headline+item.Detail, "Reward") {
+		t.Fatalf("no account names in the inbox: %+v", item)
+	}
+
+	// The last week is serious.
+	input.Today = day(2026, 10, 26)
+	late := ComputeBills(input)
+	if item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: input.Today, Bills: &late}), NeedsYouMinimumBalance); item.Status != NeedsYouSerious {
+		t.Fatalf("last week = %+v", item)
+	}
+
+	// On track: no item.
+	input.Today = homeToday
+	input.Accounts[len(input.Accounts)-1].Balance = 9_000_000
+	covered := ComputeBills(input)
+	for _, item := range BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: &covered}).Items {
+		if item.Kind == NeedsYouMinimumBalance {
+			t.Fatalf("on track: %+v", item)
+		}
+	}
+}
+
+func TestGivenTwoAccountsAtRiskWhenBuildingThenTheItemCountsThem(t *testing.T) {
+	bills := &Bills{SafeToSpend: SafeToSpend{MinimumBalances: []AccountMinimumBalance{
+		{Account: "A", Status: MinimumAtRisk, ExtraNeeded: 1_000_000, DaysLeft: 10, MonthEnd: "2026-10-31"},
+		{Account: "B", Status: MinimumAtRisk, ExtraNeeded: 2_000_000, DaysLeft: 10, MonthEnd: "2026-10-31"},
+	}}}
+	item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}), NeedsYouMinimumBalance)
+	if item.Count != 2 || *item.AmountVND != 3_000_000 || item.Headline != "2 accounts are at risk of missing their minimum average balance" {
+		t.Fatalf("item = %+v", item)
+	}
+}

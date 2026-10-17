@@ -13,6 +13,7 @@ export const KIND_ICON: Record<NeedsYouKind, IconName> = {
   'bill-overdue': 'calendar',
   'card-due': 'card',
   'short-before-payday': 'wallet',
+  'minimum-balance': 'wallet',
   'budget-over-pace': 'budget',
   'lent-overdue': 'loan',
   'goal-plan-short': 'goal',

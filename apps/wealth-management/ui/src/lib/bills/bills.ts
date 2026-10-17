@@ -1,4 +1,5 @@
 import type {
+  AccountMinimumBalance,
   BillItem,
   ExclusionReason,
   BillOccurrence,
@@ -16,6 +17,41 @@ import type { StatusTone } from '$lib/status';
 export function safeToSpendTone(safe: Pick<SafeToSpend, 'shortBy' | 'safeToSpend'>): StatusTone {
   if (safe.shortBy > 0) return 'serious';
   return safe.safeToSpend > 0 ? 'good' : 'warning';
+}
+
+/** A minimum balance's status: always an icon and a label, never colour alone (D35). */
+export function minimumStatus(track: Pick<AccountMinimumBalance, 'status' | 'daysLeft'>): {
+  tone: StatusTone;
+  label: string;
+} {
+  if (track.status === 'on_track') return { tone: 'good', label: 'On track' };
+  return { tone: track.daysLeft <= 7 ? 'serious' : 'warning', label: 'At risk' };
+}
+
+/** A row of the minimum balance editor: an account that can keep a minimum, and its tracking if set. */
+export interface MinimumRow {
+  account: string;
+  track: AccountMinimumBalance | null;
+}
+
+/**
+ * The accounts that can keep a minimum (ready and not-ready ones; never crypto), with the
+ * tracking of those that have one. Accounts with a minimum come first, in the setting's order.
+ */
+export function minimumRows(safe: SafeToSpend): MinimumRow[] {
+  const rows: MinimumRow[] = safe.minimumBalances.map((track) => ({ account: track.account, track }));
+  const known = new Set(rows.map((row) => row.account.trim().toLowerCase()));
+  const candidates = [
+    ...safe.readyAccounts.map((account) => account.name),
+    ...safe.excludedAccounts.filter((account) => account.reason === 'not_ready').map((account) => account.name),
+  ];
+  for (const name of candidates) {
+    const key = name.trim().toLowerCase();
+    if (known.has(key)) continue;
+    known.add(key);
+    rows.push({ account: name, track: null });
+  }
+  return rows;
 }
 
 /** Why an account is left out of ready money, as shown next to it. */

@@ -4,6 +4,7 @@ import { ApiError, buildPath, request, requestStream, type RequestOptions } from
 import type {
   AccountReadinessInput,
   EmergencyAccountInput,
+  AccountMinimumInput,
   AIProviderUsage,
   Allocation,
   AIStatus,
@@ -191,6 +192,9 @@ export const api = {
   /** Marks an account as an emergency fund account or not for idle cash (D34); 409 when the setting changed. */
   setEmergencyAccount: (input: EmergencyAccountInput) =>
     request<Preferences>('/bills/idle-cash/emergency-accounts', { method: 'POST', body: input }),
+  /** Sets or removes (null or 0) an account's minimum balance to keep (D35); 409 when the setting changed. */
+  setAccountMinimum: (input: AccountMinimumInput) =>
+    request<Preferences>('/bills/safe-to-spend/minimum-balance', { method: 'POST', body: input }),
   createRecurring: (input: RecurringInput) => request<RecurringItem>('/bills/items', { method: 'POST', body: input }),
   confirmSuggestion: (input: RecurringConfirmInput) =>
     request<RecurringItem>('/bills/suggestions/confirm', { method: 'POST', body: input }),

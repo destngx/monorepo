@@ -97,6 +97,31 @@ func TestGivenAReadinessChangeWhenCallingTheAPIThenItIsGuardedETagCheckedAndSave
 	}
 }
 
+func TestGivenAMinimumBalanceChangeWhenCallingTheAPIThenItIsGuardedETagCheckedAndSaved(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+	etag := domain.ParsePreferences(nil, 2).AccountMinimums.ETag
+
+	status, body := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/minimum-balance", `{"account":"Reward Bank","minimum":5000000,"note":"points"}`, "If-Match", `"`+etag+`"`)
+	var prefs domain.Preferences
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &prefs) != nil || len(prefs.AccountMinimums.Accounts) != 1 ||
+		prefs.AccountMinimums.Accounts[0].Note != "points" || len(db.MinimumChanges) != 1 {
+		t.Fatalf("set: %d %s", status, body)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/minimum-balance", `{"account":"Reward Bank","minimum":null,"etag":"`+etag+`"}`); status != http.StatusConflict {
+		t.Fatalf("a stale etag must be a 409: %d %s", status, body)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/minimum-balance", `{"account":"Reward Bank","minimum":0,"etag":"`+prefs.AccountMinimums.ETag+`"}`); status != http.StatusOK || len(db.MinimumChanges) != 2 {
+		t.Fatalf("clear: %d %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/minimum-balance", `{"account":"Reward Bank","minimum":-5,"etag":"x"}`); status != http.StatusBadRequest {
+		t.Fatalf("a negative minimum must be a 400, got %d", status)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/minimum-balance", `{"account":"Reward Bank","minimum":1,"etag":"x"}`, "Authorization", ""); status != http.StatusUnauthorized {
+		t.Fatalf("minimum writes must be guarded, got %d", status)
+	}
+}
+
 func TestGivenAnEmergencyAccountChangeWhenCallingTheAPIThenItIsGuardedETagCheckedAndSaved(t *testing.T) {
 	db := &fakes.Database{}
 	app := newSheetsApp(t, db)

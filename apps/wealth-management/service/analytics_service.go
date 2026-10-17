@@ -306,13 +306,14 @@ func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
 	if err != nil {
 		return domain.Bills{}, err
 	}
-	// Accounts marked not ready to use (D33); a missing tab or key marks none.
+	// Accounts marked not ready to use (D33) and minimum balances to keep
+	// (D35); a missing tab or key sets none.
 	prefs, err := s.db.ListPreferences(forceFresh)
 	if err != nil {
 		return domain.Bills{}, err
 	}
 	return domain.ComputeBills(domain.BillsInput{
-		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Readiness: prefs.SafeToSpend, Today: s.today(),
+		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Readiness: prefs.SafeToSpend, Minimums: prefs.AccountMinimums, Today: s.today(),
 	}), nil
 }
 

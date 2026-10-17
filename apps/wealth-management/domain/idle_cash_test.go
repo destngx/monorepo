@@ -425,3 +425,28 @@ func TestGivenAGoalPlanNotSetUpWhenCheckingIdleCashThenNothingIsSetAsideForGoals
 		t.Fatalf("components = %+v", c)
 	}
 }
+
+func TestGivenAMinimumBalanceWhenCheckingIdleCashThenTheReserveIsNeverIdle(t *testing.T) {
+	input := idleInput()
+	input.Bills.SafeToSpend.MinimumBalance = AccountMinimumSettings{Accounts: []AccountMinimum{{Account: "Bank B", Minimum: 15_000_000}}}
+	idle := ComputeIdleCash(input)
+	// 150M - 15M kept in Bank B; idle 94M - 15M.
+	if idle.Components.ReadyMoney != 135_000_000 || idle.Components.MinimumReserved != 15_000_000 || idle.Idle != 79_000_000 {
+		t.Fatalf("components = %+v, idle = %v", idle.Components, idle.Idle)
+	}
+	for _, account := range idle.Accounts {
+		if account.Name == "Bank B" && (account.Reserved != 15_000_000 || account.Idle > 25_000_000) {
+			t.Fatalf("Bank B's reserve is never suggested to move: %+v", account)
+		}
+	}
+}
+
+func TestGivenAMinimumOnAnEmergencyAccountWhenCheckingIdleCashThenOnlyTheBalanceAboveItCovers(t *testing.T) {
+	input := idleInput()
+	input.Settings = IdleCashSettings{EmergencyAccounts: []string{"Bank B"}}
+	input.Bills.SafeToSpend.MinimumBalance = AccountMinimumSettings{Accounts: []AccountMinimum{{Account: "Bank B", Minimum: 15_000_000}}}
+	idle := ComputeIdleCash(input)
+	if idle.Emergency.Balance != 25_000_000 || idle.Components.EmergencyCovered != 25_000_000 || idle.Emergency.Accounts[0].Reserved != 15_000_000 {
+		t.Fatalf("emergency = %+v, components = %+v", idle.Emergency, idle.Components)
+	}
+}

@@ -54,6 +54,21 @@ func (s *Server) billsWriteTools() []tool {
 			},
 		},
 		{
+			definition: definition("SetAccountMinimumBalance", "Sets or removes an account's minimum balance to keep, e.g. the average monthly balance a bank asks for a reward: minimum (VND) and an optional note are saved in accounts.minimumBalance in the Preferences tab (created on first use). That money is never counted as ready to spend or idle, and GetBills tracks the month-to-date average against it (safeToSpend.minimumBalances). null or 0 removes the minimum, also for a name that is no longer an account. etag is safeToSpend.minimumBalance.etag from GetBills or GetSafeToSpend (or accountMinimums.etag from GetPreferences); fails with a conflict when the setting changed since.", object(map[string]any{
+				"account": stringSchema,
+				"minimum": map[string]any{"type": []string{"number", "null"}, "minimum": 0, "description": "VND to keep; null or 0 removes it."},
+				"note":    map[string]any{"type": "string", "maxLength": 200, "description": "Why it is kept, e.g. monthly points reward."},
+				"etag":    stringSchema,
+			}, "account", "etag")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var input domain.AccountMinimumInput
+				if err := decodeValidated(arguments, &input); err != nil {
+					return nil, err
+				}
+				return db.SetAccountMinimumBalance(input)
+			},
+		},
+		{
 			definition: definition("CreateRecurringItem", "Adds a recurring item (income, bill, subscription, insurance or card) to the Recurring tab, creating the tab on first use.", object(schema, "name", "kind")),
 			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
 				var input domain.RecurringInput

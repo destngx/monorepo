@@ -20,7 +20,9 @@ import (
 // that keep the money within reach (no-term or 1-month deposits). The
 // advice is about rate only; goal money stays pooled (D31), so it never
 // suggests dedicated goal accounts. Emergency accounts hold the emergency
-// fund: they cover its target first and are never idle.
+// fund: they cover its target first and are never idle. An account's
+// minimum balance to keep (D35) is never idle either: every account adds
+// only its balance above its minimum.
 
 // IdleCashVerdict answers "is money sitting idle worth moving?".
 type IdleCashVerdict string
@@ -62,7 +64,9 @@ const IdleCashKeepLiquidRule = "Ready money is safe to spend's (bank, cash, acti
 	"due in the next 30 days (overdue ones too), this month's goal set-aside (the full monthly amount the goal plan " +
 	"requires, not prorated) and the part of the emergency fund target the emergency accounts do not cover. The " +
 	"day-to-day float (idleCash.dayToDayFloat in the Preferences tab; unset = the spending buffer, spending buffer " +
-	"months x average monthly expense) stays ready too. Idle = ready money - kept liquid - float."
+	"months x average monthly expense) stays ready too. An account's minimum balance to keep (accounts.minimumBalance) " +
+	"is never idle nor moved: each ready or emergency account counts only its balance above its minimum. " +
+	"Idle = ready money - kept liquid - float."
 
 // IdleCashRateRule documents the current-rate reading.
 const IdleCashRateRule = "An account's current rate is read from its note: a keyword (earn rate, interest rate, " +
@@ -84,8 +88,11 @@ const idleCashRateBasis = "A proxy: the best no-term or 1-month savings rate pub
 // Idle = max(0, ReadyMoney - KeepLiquid - DayToDayFloat).
 type IdleCashComponents struct {
 	// ReadyMoney is safe-to-spend's ready money (WM-BILL-5, D33) without
-	// the emergency accounts.
+	// the emergency accounts, each account above its minimum (D35).
 	ReadyMoney float64 `json:"readyMoney"`
+	// MinimumReserved is the minimum balances kept in the everyday ready
+	// accounts, left out of ReadyMoney (D35).
+	MinimumReserved float64 `json:"minimumReserved"`
 	// BillsDue and CardPayments are unpaid in the 30-day bills calendar.
 	BillsDue     float64 `json:"billsDue"`
 	CardPayments float64 `json:"cardPayments"`
@@ -115,8 +122,10 @@ type IdleCashComponents struct {
 // IdleCashAccount is a ready (or emergency) account with its rate and the
 // part of the idle cash assumed to sit in it.
 type IdleCashAccount struct {
-	Name         string  `json:"name"`
-	Balance      float64 `json:"balance"`
+	Name    string  `json:"name"`
+	Balance float64 `json:"balance"`
+	// Reserved is the minimum balance kept (D35): never idle, never moved.
+	Reserved     float64 `json:"reserved"`
 	Rate         float64 `json:"rate"`
 	RateFromNote bool    `json:"rateFromNote"`
 	Idle         float64 `json:"idle"`
@@ -136,8 +145,10 @@ type IdleCashEmergency struct {
 	// Accounts are the emergency accounts (liquid, not crypto), listed
 	// whatever the balance so they can be unmarked.
 	Accounts []IdleCashAccount `json:"accounts"`
-	Balance  float64           `json:"balance"`
-	Target   float64           `json:"target"`
+	// Balance is the emergency accounts' positive balance above their
+	// minimums (D35).
+	Balance float64 `json:"balance"`
+	Target  float64 `json:"target"`
 	// CurrentRate is weighted over the emergency balances.
 	CurrentRate   float64 `json:"currentRate"`
 	RateGapPoints float64 `json:"rateGapPoints"`
@@ -222,7 +233,7 @@ func ComputeIdleCash(input IdleCashInput) IdleCash {
 
 	left, earning := idle.Idle, 0.0
 	for i := range idle.Accounts {
-		part := math.Min(idle.Accounts[i].Balance, left)
+		part := math.Max(0, math.Min(idle.Accounts[i].available(), left))
 		idle.Accounts[i].Idle = part
 		earning += part * idle.Accounts[i].Rate
 		left -= part
@@ -259,8 +270,9 @@ func (idle *IdleCash) sortAccounts(input IdleCashInput) {
 	}
 	// An emergency account is set aside whatever its not-ready mark.
 	notReady := slices.DeleteFunc(slices.Clone(input.Bills.SafeToSpend.Readiness.NotReadyAccounts), func(name string) bool { return marked(emergencyNames, name) })
+	minimums := input.Bills.SafeToSpend.MinimumBalance
 	var ready SafeToSpend
-	readyMoney(&ready, input.Accounts, notReady)
+	readyMoney(&ready, input.Accounts, notReady, minimums.Accounts)
 	idle.Excluded = append(idle.Excluded, ready.ExcludedAccounts...)
 	byName := map[string]Account{}
 	for _, account := range input.Accounts {
@@ -268,7 +280,7 @@ func (idle *IdleCash) sortAccounts(input IdleCashInput) {
 	}
 	for _, spendable := range ready.ReadyAccounts {
 		if !marked(emergencyNames, spendable.Name) {
-			idle.Accounts = append(idle.Accounts, accountWithRate(byName[strings.ToLower(strings.TrimSpace(spendable.Name))]))
+			idle.Accounts = append(idle.Accounts, accountWithRate(byName[strings.ToLower(strings.TrimSpace(spendable.Name))], minimums))
 		}
 	}
 	sortByRate(idle.Accounts)
@@ -284,17 +296,15 @@ func (idle *IdleCash) sortAccounts(input IdleCashInput) {
 		case !isReadyType(account):
 			idle.Issues = append(idle.Issues, fmt.Sprintf("%s is marked as an emergency account but is not a bank, cash, active or rarely used account; it is ignored.", account.Name))
 		default:
-			entry := accountWithRate(account)
+			entry := accountWithRate(account, minimums)
 			idle.Emergency.Accounts = append(idle.Emergency.Accounts, entry)
-			if entry.Balance > 0 {
-				idle.Emergency.Balance += entry.Balance
-			}
+			idle.Emergency.Balance += entry.available()
 		}
 	}
 	sortByRate(idle.Emergency.Accounts)
 	weighted := 0.0
 	for _, account := range idle.Emergency.Accounts {
-		weighted += math.Max(0, account.Balance) * account.Rate
+		weighted += account.available() * account.Rate
 	}
 	if idle.Emergency.Balance > 0 {
 		idle.Emergency.CurrentRate = round2(weighted / idle.Emergency.Balance)
@@ -310,23 +320,32 @@ func isReadyType(account Account) bool {
 	return false
 }
 
-func accountWithRate(account Account) IdleCashAccount {
+func accountWithRate(account Account, minimums AccountMinimumSettings) IdleCashAccount {
 	entry := IdleCashAccount{Name: account.Name, Balance: account.Balance}
 	if account.Note != nil {
 		entry.Rate, entry.RateFromNote = AccountRateFromNote(*account.Note)
 	}
+	if minimum, ok := minimums.For(account.Name); ok {
+		entry.Reserved = math.Min(math.Max(0, account.Balance), minimum.Minimum)
+	}
 	return entry
 }
 
+// available is the positive balance above the minimum: what the account
+// adds to ready money or the emergency fund (D35).
+func (a IdleCashAccount) available() float64 {
+	return math.Max(0, a.Balance-a.Reserved)
+}
+
 // sortByRate lists the accounts lowest rate first, then the larger
-// balance, then by name.
+// balance above the minimum, then by name.
 func sortByRate(accounts []IdleCashAccount) {
 	slices.SortStableFunc(accounts, func(a, b IdleCashAccount) int {
 		switch {
 		case a.Rate != b.Rate:
 			return cmpFloat(a.Rate, b.Rate)
-		case a.Balance != b.Balance:
-			return cmpFloat(b.Balance, a.Balance)
+		case a.available() != b.available():
+			return cmpFloat(b.available(), a.available())
 		}
 		return strings.Compare(a.Name, b.Name)
 	})
@@ -335,7 +354,8 @@ func sortByRate(accounts []IdleCashAccount) {
 func idleComponents(input IdleCashInput, ready []IdleCashAccount, emergencyBalance float64) IdleCashComponents {
 	c := IdleCashComponents{EmergencyInAccounts: emergencyBalance}
 	for _, account := range ready {
-		c.ReadyMoney += account.Balance
+		c.ReadyMoney += account.available()
+		c.MinimumReserved += account.Reserved
 	}
 	for _, o := range input.Bills.Calendar.Occurrences {
 		if o.IsIncome() || o.Status == BillPaid {
@@ -508,14 +528,16 @@ func groupThousands(value float64) string {
 
 // IdleCashFacts is the nameless summary for the AI briefing.
 type IdleCashFacts struct {
-	Idle          float64       `json:"idle"`
-	ReadyMoney    float64       `json:"readyMoney"`
-	KeepLiquid    float64       `json:"keepLiquid"`
-	DayToDayFloat float64       `json:"dayToDayFloat"`
-	CurrentRate   float64       `json:"currentRate"`
-	BestRate      float64       `json:"bestRate"`
-	BestBank      string        `json:"bestBank,omitempty"`
-	BestKind      DepositAccess `json:"bestKind,omitempty"`
+	Idle          float64 `json:"idle"`
+	ReadyMoney    float64 `json:"readyMoney"`
+	KeepLiquid    float64 `json:"keepLiquid"`
+	DayToDayFloat float64 `json:"dayToDayFloat"`
+	// MinimumReserved is the minimum balances kept out of ready money (D35).
+	MinimumReserved float64       `json:"minimumReserved"`
+	CurrentRate     float64       `json:"currentRate"`
+	BestRate        float64       `json:"bestRate"`
+	BestBank        string        `json:"bestBank,omitempty"`
+	BestKind        DepositAccess `json:"bestKind,omitempty"`
 	// LadderParts is how many rolling 1-month parts are suggested (0: none).
 	LadderParts         int             `json:"ladderParts,omitempty"`
 	ExtraPerYear        float64         `json:"extraPerYear"`
@@ -533,7 +555,7 @@ type IdleCashFacts struct {
 func (idle IdleCash) Facts() IdleCashFacts {
 	facts := IdleCashFacts{
 		Idle: idle.Idle, ReadyMoney: idle.Components.ReadyMoney, KeepLiquid: idle.Components.KeepLiquid,
-		DayToDayFloat: idle.Components.DayToDayFloat, CurrentRate: idle.CurrentRate, ExtraPerYear: idle.ExtraPerYear, Verdict: idle.Verdict,
+		DayToDayFloat: idle.Components.DayToDayFloat, MinimumReserved: idle.Components.MinimumReserved, CurrentRate: idle.CurrentRate, ExtraPerYear: idle.ExtraPerYear, Verdict: idle.Verdict,
 		EmergencyTarget: idle.Components.EmergencyFund, EmergencyAccounts: len(idle.Emergency.Accounts),
 		EmergencyInAccounts: idle.Emergency.Balance, EmergencyRate: idle.Emergency.CurrentRate, EmergencyBetterRate: idle.Emergency.BetterRate,
 	}

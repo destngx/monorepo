@@ -58,11 +58,12 @@ var routeTools = map[string]string{
 	"POST /api/close/snapshot":             "WriteMonthSnapshot",
 	"GET /api/net-worth/history":           "GetNetWorthHistory",
 
-	"POST /api/bills/items":                        "CreateRecurringItem",
-	"POST /api/bills/safe-to-spend/accounts":       "SetAccountReadyToUse",
-	"POST /api/bills/idle-cash/emergency-accounts": "SetEmergencyAccount",
-	"POST /api/bills/items/:id/status":             "SetRecurringItemStatus",
-	"POST /api/bills/suggestions/confirm":          "ConfirmRecurringSuggestion",
+	"POST /api/bills/items":                         "CreateRecurringItem",
+	"POST /api/bills/safe-to-spend/accounts":        "SetAccountReadyToUse",
+	"POST /api/bills/idle-cash/emergency-accounts":  "SetEmergencyAccount",
+	"POST /api/bills/safe-to-spend/minimum-balance": "SetAccountMinimumBalance",
+	"POST /api/bills/items/:id/status":              "SetRecurringItemStatus",
+	"POST /api/bills/suggestions/confirm":           "ConfirmRecurringSuggestion",
 
 	"GET /api/recommendations":             "GetRecommendations",
 	"POST /api/recommendations/refresh":    "RefreshRecommendations",

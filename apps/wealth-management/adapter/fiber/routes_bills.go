@@ -25,6 +25,14 @@ const billsSummary = "Bills and safe-to-spend. items: the Recurring tab rows (ki
 	"safeToSpend (D33): readyMoney - billsDue - cardPayments. readyMoney = positive balances of active use, rarely use, " +
 	"bank and cash accounts (readyAccounts), without crypto accounts or accounts marked not ready to use " +
 	"(excludedAccounts with reason crypto or not_ready; readiness holds the saved names and the etag to change them). " +
+	"An account with a minimum balance to keep (D35, accounts.minimumBalance) adds only max(0, balance - minimum): " +
+	"each ready account has balance, reserved and spendable, reserved is the total kept back (a hard reserve, since a " +
+	"bank reward on the average monthly balance cannot be made up late in the month). minimumBalance holds the saved " +
+	"minimums and the etag to change them; minimumBalances track every account with a minimum this month (minimumRule): " +
+	"sumSoFar and averageSoFar over the finished days (1st to yesterday, rebuilt backwards from today's balance with the " +
+	"account's transactions), projectedAverage = (sumSoFar + balance x daysLeft) / daysInMonth, requiredBalance = " +
+	"(minimum x daysInMonth - sumSoFar) / daysLeft (today included), extraNeeded and status on_track or at_risk; " +
+	"unknownMinimum names minimums for no account (ignored). " +
 	"billsDue and cardPayments: unpaid, from the 1st of this month (overdue ones too) to the day before until, the " +
 	"next unpaid income (a payment due on payday is paid by that wage); without an income, the next 30 days up to " +
 	"and including until. No goal money is subtracted. safeToSpend is floored at 0, shortBy shows the shortfall, " +
@@ -70,6 +78,14 @@ const emergencyAccountSummary = "Marks an account as an emergency fund account o
 	"first and are never called idle. Returns the preferences read back. 400 without account or etag, 404 when " +
 	"marking an unknown account, 409 when the setting changed since its etag was read."
 
+const accountMinimumSummary = "Sets or removes an account's minimum balance to keep (D35), e.g. the average monthly " +
+	"balance a bank asks for a reward: minimum (VND) and an optional note are saved in accounts.minimumBalance in the " +
+	"app-managed Preferences tab (a JSON object of account name to {minimum, note}; the tab is created on first use and " +
+	"no other tab is written). A blank (null) or 0 minimum removes the entry, also for a name that is no longer an " +
+	"account. The minimum is never ready to spend nor idle, and the month-to-date average is tracked against it. " +
+	"Returns the preferences read back. 400 without account or etag or for a negative minimum or a note over 200 " +
+	"characters, 404 when setting a minimum on an unknown account, 409 when the setting changed since its etag was read."
+
 const idleCashSummary = "Idle cash check (ROADMAP R6, D34), for the bills and home pages: idle = max(0, " +
 	"components.readyMoney - keepLiquid - dayToDayFloat). readyMoney: safe-to-spend's ready money (active, rarely used, " +
 	"bank and cash accounts; no crypto, no accounts marked not ready; excluded lists them with the reason) without the " +
@@ -98,6 +114,15 @@ func registerBillsWriteRoutes(api RouteRegistrar, h *DatabaseHandler, guard Writ
 			"emergency": map[string]any{"type": "boolean", "description": "true = holds the emergency fund (covers its target first, never idle)."},
 			"etag":      map[string]any{"type": "string", "description": "emergency.settings.etag from GET /api/bills/idle-cash (or idleCash.etag from GET /api/preferences); may be sent as If-Match instead."},
 		}, "account", "emergency"),
+	})
+	bills.Post("/safe-to-spend/minimum-balance", guard.Wrap(h.SetAccountMinimumBalance), RouteMeta{
+		Summary: accountMinimumSummary,
+		RequestBody: jsonBody(map[string]any{
+			"account": map[string]any{"type": "string", "description": "Account name as in the Accounts tab."},
+			"minimum": map[string]any{"type": "number", "nullable": true, "minimum": 0, "description": "VND to keep; null or 0 removes the minimum."},
+			"note":    map[string]any{"type": "string", "description": "Why it is kept, e.g. monthly points reward (at most 200 characters)."},
+			"etag":    map[string]any{"type": "string", "description": "safeToSpend.minimumBalance.etag from GET /api/bills (or accountMinimums.etag from GET /api/preferences); may be sent as If-Match instead."},
+		}, "account"),
 	})
 	bills.Post("/safe-to-spend/accounts", guard.Wrap(h.SetAccountReadiness), RouteMeta{
 		Summary: accountReadinessSummary,
@@ -165,6 +190,15 @@ func (h *DatabaseHandler) SetAccountReadiness(c *fiber.Ctx) error {
 	}
 	body.ETag = etagFrom(c, body.ETag)
 	return h.respond(c)(h.databaseService.SetAccountReadiness(body))
+}
+
+func (h *DatabaseHandler) SetAccountMinimumBalance(c *fiber.Ctx) error {
+	var body domain.AccountMinimumInput
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	body.ETag = etagFrom(c, body.ETag)
+	return h.respond(c)(h.databaseService.SetAccountMinimumBalance(body))
 }
 
 func (h *DatabaseHandler) SetEmergencyAccount(c *fiber.Ctx) error {

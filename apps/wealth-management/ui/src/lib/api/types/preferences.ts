@@ -9,10 +9,14 @@ export type PreferenceKey =
   | 'goal.spendingBufferMonths'
   | 'safeToSpend.notReadyAccounts'
   | 'idleCash.dayToDayFloat'
-  | 'idleCash.emergencyAccounts';
+  | 'idleCash.emergencyAccounts'
+  | 'accounts.minimumBalance';
 
 /** Keys saved with POST /api/preferences; the account lists are set per account. */
-export type NumberPreferenceKey = Exclude<PreferenceKey, 'safeToSpend.notReadyAccounts' | 'idleCash.emergencyAccounts'>;
+export type NumberPreferenceKey = Exclude<
+  PreferenceKey,
+  'safeToSpend.notReadyAccounts' | 'idleCash.emergencyAccounts' | 'accounts.minimumBalance'
+>;
 
 export interface GoalPoolSettings {
   emergencyMonths: number;
@@ -25,6 +29,8 @@ export interface PreferenceEntry {
   value: number | null;
   /** The account list of an account list key. */
   names?: string[];
+  /** The per-account minimums of accounts.minimumBalance. */
+  minimums?: AccountMinimum[];
   note: string;
   row: number;
   etag?: string;
@@ -35,6 +41,19 @@ export interface IdleCashSettings {
   /** VND; null = the spending buffer. */
   dayToDayFloat: number | null;
   emergencyAccounts: string[];
+  etag: string;
+}
+
+/** The balance to keep in one account (D35), e.g. for a bank reward on the average monthly balance. */
+export interface AccountMinimum {
+  account: string;
+  minimum: number;
+  note?: string;
+}
+
+/** The saved minimum balances, with the ETag a change must send. */
+export interface AccountMinimumSettings {
+  accounts: AccountMinimum[];
   etag: string;
 }
 
@@ -52,6 +71,7 @@ export interface Preferences {
   goalPool: GoalPoolSettings;
   safeToSpend: SafeToSpendSettings;
   idleCash: IdleCashSettings;
+  accountMinimums: AccountMinimumSettings;
   entries: PreferenceEntry[];
   /** Rows the engine ignored, e.g. a value out of range. */
   issues: string[];

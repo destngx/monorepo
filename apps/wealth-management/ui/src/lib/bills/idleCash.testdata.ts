@@ -6,6 +6,7 @@ export const idleCash = (overrides: Partial<IdleCash> = {}): IdleCash => ({
   idle: 90_000_000,
   components: {
     readyMoney: 150_000_000,
+    minimumReserved: 0,
     billsDue: 8_000_000,
     cardPayments: 2_000_000,
     goalSetAside: 5_000_000,
@@ -21,16 +22,16 @@ export const idleCash = (overrides: Partial<IdleCash> = {}): IdleCash => ({
     averageMonthlyExpense: 23_333_333,
   },
   accounts: [
-    { name: 'Account A', balance: 50_000_000, rate: 0, rateFromNote: false, idle: 50_000_000 },
-    { name: 'Account B', balance: 100_000_000, rate: 0.5, rateFromNote: true, idle: 40_000_000 },
-    { name: 'Account C', balance: 0, rate: 1, rateFromNote: true, idle: 0 },
+    { name: 'Account A', balance: 50_000_000, rate: 0, rateFromNote: false, idle: 50_000_000, reserved: 0 },
+    { name: 'Account B', balance: 100_000_000, rate: 0.5, rateFromNote: true, idle: 40_000_000, reserved: 0 },
+    { name: 'Account C', balance: 0, rate: 1, rateFromNote: true, idle: 0, reserved: 0 },
   ],
   excluded: [
     { name: 'Coin Account', balance: 10_000_000, reason: 'crypto' },
     { name: 'Slow Account', balance: 5_000_000, reason: 'not_ready' },
   ],
   emergency: {
-    accounts: [{ name: 'Rainy Day Account', balance: 20_000_000, rate: 4, rateFromNote: true, idle: 0 }],
+    accounts: [{ name: 'Rainy Day Account', balance: 20_000_000, rate: 4, rateFromNote: true, idle: 0, reserved: 0 }],
     balance: 20_000_000,
     target: 30_000_000,
     currentRate: 4,

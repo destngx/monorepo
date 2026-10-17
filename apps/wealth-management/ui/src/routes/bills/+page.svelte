@@ -18,6 +18,7 @@
     suggestionEvidence,
   } from '$lib/bills/bills';
   import IdleCashCard from '$lib/bills/IdleCashCard.svelte';
+  import MinimumBalances from '$lib/bills/MinimumBalances.svelte';
   import ReadyMoney from '$lib/bills/ReadyMoney.svelte';
   import RecurringFormModal from '$lib/bills/RecurringFormModal.svelte';
   import Badge from '$lib/components/Badge.svelte';
@@ -199,8 +200,14 @@
         </span>
       {/snippet}
       <dl class="mt-4 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
-        <dt>Ready money</dt>
+        <dt>
+          Ready money{#if safe.reserved > 0}, above minimum balances{/if}
+        </dt>
         <dd class="text-right"><Money value={safe.readyMoney} /></dd>
+        {#if safe.reserved > 0}
+          <dt class="muted text-xs">Kept as minimum balances (not counted)</dt>
+          <dd class="muted text-right text-xs" data-testid="safe-reserved"><Money value={safe.reserved} /></dd>
+        {/if}
         <dt>Bills due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
         <dd class="text-right">− <Money value={safe.billsDue} /></dd>
         <dt>Card payments due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
@@ -216,9 +223,11 @@
           wage, so it is not counted.{:else}No income item is set, so this covers the next 30 days: unpaid bills and
           card payments due up to and including {formatDate(safe.until)}, overdue ones too.{/if}
         Ready money is bank, cash, active and rarely used accounts you can spend today; crypto and accounts you mark not ready
-        to use (slow to withdraw) are left out.
+        to use (slow to withdraw) are left out. An account with a minimum balance to keep counts only what is above that minimum:
+        it is a hard reserve, since a reward on the month's average cannot be saved by topping up late.
       </p>
       <ReadyMoney {safe} />
+      <MinimumBalances {safe} />
     </PageHeadline>
   {/snippet}
   {#snippet skeleton()}<SkeletonHeadline question="Safe to spend" label="safe to spend" />{/snippet}

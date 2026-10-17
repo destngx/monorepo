@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { BillItem, BillOccurrence, RecurringSuggestion } from '$lib/api/types';
+import type { AccountMinimumBalance, BillItem, BillOccurrence, RecurringSuggestion, SafeToSpend } from '$lib/api/types';
 import {
   billStatus,
+  minimumRows,
+  minimumStatus,
   confidenceStatus,
   dueLabel,
   emptyRecurringForm,
@@ -153,5 +155,32 @@ describe('recurring form', () => {
     expect(recurringInputFrom({ ...blank, name: 'Gym', amount: 1, day: 4 }).error).toContain('match text');
     const card = recurringInputFrom({ ...blank, name: 'Card A', kind: 'card', amount: 5, account: 'Card Account' });
     expect(card.input).toMatchObject({ kind: 'card', amount: undefined, day: undefined, account: 'Card Account' });
+  });
+});
+
+describe('minimum balances (D35)', () => {
+  const track = (account: string, status: AccountMinimumBalance['status'], daysLeft = 15) =>
+    ({ account, status, daysLeft }) as AccountMinimumBalance;
+
+  it('Given a status When labelled Then at risk is a warning, serious in the last week, and on track is good', () => {
+    expect(minimumStatus(track('A', 'on_track'))).toEqual({ tone: 'good', label: 'On track' });
+    expect(minimumStatus(track('A', 'at_risk', 8))).toEqual({ tone: 'warning', label: 'At risk' });
+    expect(minimumStatus(track('A', 'at_risk', 7))).toEqual({ tone: 'serious', label: 'At risk' });
+  });
+
+  it('Given ready, not-ready and crypto accounts When listing rows Then minimums come first and crypto is never offered', () => {
+    const safe = {
+      minimumBalances: [track('Bank B', 'on_track')],
+      readyAccounts: [{ name: 'Bank A' }, { name: 'bank b' }],
+      excludedAccounts: [
+        { name: 'Broker C', reason: 'not_ready' },
+        { name: 'Coins D', reason: 'crypto' },
+      ],
+    } as unknown as SafeToSpend;
+    expect(minimumRows(safe).map((row) => [row.account, row.track !== null])).toEqual([
+      ['Bank B', true],
+      ['Bank A', false],
+      ['Broker C', false],
+    ]);
   });
 });

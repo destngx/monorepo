@@ -106,6 +106,12 @@ type DatabaseService interface {
 	// row. ErrValidation without an account or ETag, ErrNotFound when
 	// marking an unknown account, ErrConflict when the setting changed.
 	SetEmergencyAccount(input domain.EmergencyAccountInput) (domain.Preferences, error)
+	// SetAccountMinimumBalance sets an account's minimum balance to keep
+	// (D35) in the accounts.minimumBalance row; a nil or 0 minimum removes
+	// it. ErrValidation without an account or ETag or for a bad minimum,
+	// ErrNotFound when setting one on an unknown account, ErrConflict when
+	// the setting changed.
+	SetAccountMinimumBalance(input domain.AccountMinimumInput) (domain.Preferences, error)
 	// ListCardConfig returns the card programmes, banks, cards held and
 	// merchant MCCs from the Programs, ProgramRules, Banks, Cards and
 	// Merchants tabs (WM-CARD-3); a missing tab contributes no rows.

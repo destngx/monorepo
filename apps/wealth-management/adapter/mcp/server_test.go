@@ -415,6 +415,20 @@ func TestBillsTools(t *testing.T) {
 	if _, err := call("SetEmergencyAccount", `{"account":"Bank","emergency":false,"etag":"`+emergencyETag+`"}`); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("a stale etag must conflict, got %v", err)
 	}
+	minimumETag := domain.ParsePreferences(nil, 2).AccountMinimums.ETag
+	if result, err := call("SetAccountMinimumBalance", `{"account":"Bank","minimum":5000000,"note":"monthly reward","etag":"`+minimumETag+`"}`); err != nil ||
+		!strings.Contains(result.Content, `"accountMinimums":{"accounts":[{"account":"Bank","minimum":5000000,"note":"monthly reward"}]`) {
+		t.Fatalf("set minimum: %v %+v", err, result)
+	}
+	if result, err := call("GetSafeToSpend", `{}`); err != nil || !strings.Contains(result.Content, `"minimumBalances":[{"account":"Bank"`) {
+		t.Fatalf("safe-to-spend tracks the minimum: %v %s", err, result.Content)
+	}
+	if result, err := call("GetIdleCash", `{}`); err != nil || !strings.Contains(result.Content, `"emergencyInAccounts":15000000`) {
+		t.Fatalf("idle cash keeps the minimum out: %v %s", err, result.Content)
+	}
+	if _, err := call("SetAccountMinimumBalance", `{"account":"Bank","minimum":-1,"etag":"x"}`); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("a negative minimum is invalid, got %v", err)
+	}
 	if _, err := call("CreateRecurringItem", `{"name":"Water","kind":"bill","amount":200000,"day":5,"match":"Water Co"}`); err != nil || len(db.CreatedRecurring) != 1 {
 		t.Fatalf("create: %v", err)
 	}

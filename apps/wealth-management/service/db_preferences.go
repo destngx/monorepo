@@ -8,7 +8,8 @@ import (
 )
 
 // Preferences store (WM-SET-6..9): the app-managed Preferences tab, A Key,
-// B Value (a number, or a JSON list of account names), C Note. It is read
+// B Value (a number, a JSON list of account names, or a JSON object of
+// per-account minimum balances), C Note. It is read
 // like the other tabs and written one row per saved key; the tab is created with its header on the first save. No other
 // tab is ever written from here.
 
@@ -96,7 +97,20 @@ func (s *dbService) SetEmergencyAccount(input domain.EmergencyAccountInput) (dom
 	})
 }
 
-// markAccount writes one account list key: an account being added to the
+// SetAccountMinimumBalance sets or removes one account's minimum balance
+// to keep (D35) in the accounts.minimumBalance row, the same way: re-read
+// under the write lock, ErrConflict on a stale ETag, the account must exist
+// to get a minimum (not to have it removed).
+func (s *dbService) SetAccountMinimumBalance(input domain.AccountMinimumInput) (domain.Preferences, error) {
+	if err := input.Validate(); err != nil {
+		return domain.Preferences{}, err
+	}
+	return s.markAccount(domain.PrefAccountsMinimumBalance, input.Account, !input.Removes(), func(current domain.Preferences) (domain.Preferences, error) {
+		return domain.ApplyAccountMinimum(current, input)
+	})
+}
+
+// markAccount writes one per-account key: an account being added to the
 // list must exist; apply computes the next preferences from the tab
 // re-read under the write lock.
 func (s *dbService) markAccount(key domain.PreferenceKey, account string, adding bool, apply func(domain.Preferences) (domain.Preferences, error)) (domain.Preferences, error) {
@@ -174,11 +188,14 @@ func updated(update domain.PreferencesUpdate, key domain.PreferenceKey) bool {
 	return false
 }
 
-// preferenceCell is column B: the number, the account list as JSON, or ""
-// to clear the value.
+// preferenceCell is column B: the number, the account list or minimums as
+// JSON, or "" to clear the value.
 func preferenceCell(entry domain.PreferenceEntry) (any, error) {
-	if spec, _ := domain.PreferenceSpecFor(entry.Key); spec.Kind == domain.PreferenceAccountNames {
+	switch spec, _ := domain.PreferenceSpecFor(entry.Key); spec.Kind {
+	case domain.PreferenceAccountNames:
 		return domain.EncodeAccountNames(entry.Names)
+	case domain.PreferenceAccountMinimums:
+		return domain.EncodeAccountMinimums(entry.Minimums)
 	}
 	if entry.Value == nil {
 		return "", nil

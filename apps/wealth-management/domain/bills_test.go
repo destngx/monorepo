@@ -304,3 +304,69 @@ func TestGivenCardSettingsWhenComputingBillsThenTheStatementIsDueByThePayByDate(
 		}
 	}
 }
+
+func TestGivenAMinimumBalanceWhenComputingSafeToSpendThenOnlyTheBalanceAboveItIsReady(t *testing.T) {
+	input := billsInput()
+	input.Minimums = AccountMinimumSettings{Accounts: []AccountMinimum{{Account: "main bank", Minimum: 5_000_000, Note: "points"}}, ETag: "etag-m"}
+	safe := ComputeBills(input).SafeToSpend
+	// Main Bank 30M - 5M kept + Wallet 1M.
+	if safe.ReadyMoney != 26_000_000 || safe.Reserved != 5_000_000 || safe.Amount != 25_500_000 {
+		t.Fatalf("safe = %+v", safe)
+	}
+	main := safe.ReadyAccounts[0]
+	if main != (SpendableAccount{Name: "Main Bank", Balance: 30_000_000, Reserved: 5_000_000, Spendable: 25_000_000}) {
+		t.Fatalf("main = %+v", main)
+	}
+	if safe.ReadyAccounts[1] != (SpendableAccount{Name: "Wallet", Balance: 1_000_000, Spendable: 1_000_000}) {
+		t.Fatalf("wallet = %+v", safe.ReadyAccounts[1])
+	}
+	if safe.MinimumBalance.ETag != "etag-m" || len(safe.MinimumBalances) != 1 || safe.MinimumBalances[0].Account != "Main Bank" {
+		t.Fatalf("tracking = %+v", safe.MinimumBalances)
+	}
+	if !strings.Contains(safe.Explanation, "minimum balance") || !strings.Contains(safe.ReadyRule, "accounts.minimumBalance") {
+		t.Fatalf("explanation = %q", safe.Explanation)
+	}
+	facts := ComputeBills(input).Facts()
+	if facts.MinimumReserved != 5_000_000 || facts.MinimumBalanceAccounts != 1 || facts.MinimumBalanceAtRisk != 0 {
+		t.Fatalf("facts = %+v", facts)
+	}
+}
+
+func TestGivenABalanceBelowItsMinimumWhenComputingSafeToSpendThenTheAccountAddsNothing(t *testing.T) {
+	input := billsInput()
+	input.Minimums = AccountMinimumSettings{Accounts: []AccountMinimum{{Account: "Wallet", Minimum: 3_000_000}}}
+	safe := ComputeBills(input).SafeToSpend
+	if safe.ReadyMoney != 30_000_000 || safe.Reserved != 1_000_000 {
+		t.Fatalf("safe = %+v", safe)
+	}
+	if wallet := safe.ReadyAccounts[1]; wallet.Spendable != 0 || wallet.Reserved != 1_000_000 {
+		t.Fatalf("wallet = %+v", wallet)
+	}
+	if track := safe.MinimumBalances[0]; track.Status != MinimumAtRisk || track.ExtraNeeded <= 0 {
+		t.Fatalf("track = %+v", track)
+	}
+}
+
+func TestGivenAMinimumForANameThatIsNoAccountWhenComputingSafeToSpendThenItIsIgnoredAndReported(t *testing.T) {
+	input := billsInput()
+	input.Minimums = AccountMinimumSettings{Accounts: []AccountMinimum{{Account: "Old Bank", Minimum: 5_000_000}}}
+	safe := ComputeBills(input).SafeToSpend
+	if safe.ReadyMoney != 31_000_000 || safe.Reserved != 0 || len(safe.MinimumBalances) != 0 {
+		t.Fatalf("an unknown name changes nothing: %+v", safe)
+	}
+	if len(safe.UnknownMinimum) != 1 || safe.UnknownMinimum[0] != "Old Bank" || len(safe.Issues) != 1 ||
+		!strings.Contains(safe.Issues[0], `"Old Bank"`) || !strings.Contains(safe.Issues[0], string(PrefAccountsMinimumBalance)) {
+		t.Fatalf("issues = %v", safe.Issues)
+	}
+}
+
+func TestGivenAMinimumOnAnAccountNotReadyWhenComputingSafeToSpendThenItsAverageIsStillTracked(t *testing.T) {
+	input := billsInput()
+	input.Accounts = append(input.Accounts, Account{Name: "Slow Bank", Type: AccountTypeBank, Balance: 2_000_000})
+	input.Readiness = SafeToSpendSettings{NotReadyAccounts: []string{"Slow Bank"}}
+	input.Minimums = AccountMinimumSettings{Accounts: []AccountMinimum{{Account: "Slow Bank", Minimum: 5_000_000}}}
+	safe := ComputeBills(input).SafeToSpend
+	if safe.Reserved != 0 || safe.ReadyMoney != 31_000_000 || len(safe.MinimumBalances) != 1 || safe.MinimumBalances[0].Status != MinimumAtRisk {
+		t.Fatalf("safe = %+v", safe)
+	}
+}

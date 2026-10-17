@@ -31,6 +31,7 @@
     <Money value={safe.readyMoney} /> of ready money after <Money value={safe.billsDue + safe.cardPayments} /> of bills and
     card payments due {safe.untilIncome ? 'before' : 'by'}
     {formatDate(safe.until)}{#if safe.untilIncome}; what is due on payday is paid by that wage{/if}.
+    {#if safe.reserved > 0}<Money value={safe.reserved} /> is kept as minimum balances.{/if}
     {#if safe.excludedAccounts.length}Left out: {safe.excludedAccounts.length}
       {safe.excludedAccounts.length === 1 ? 'account' : 'accounts'} (crypto or not ready to use).{/if}
   </p>

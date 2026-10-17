@@ -371,3 +371,25 @@ func TestGivenIdleCashWhenCheckingThenBillsGoalPlanAndBankRatesAreCombined(t *te
 		t.Fatal("a read failure must surface")
 	}
 }
+
+func TestGivenAMinimumBalanceInPreferencesWhenComputingBillsAndIdleCashThenTheReserveIsKeptBack(t *testing.T) {
+	prefs := domain.ParsePreferences([][]string{{"accounts.minimumBalance", `{"Bank A":{"minimum":5000000,"note":"points"},"Old Bank":1}`}}, 2)
+	db := &fakes.Database{
+		Accounts:    []domain.Account{{Name: "Bank A", Type: domain.AccountTypeBank, Balance: 20_000_000}},
+		Preferences: &prefs,
+	}
+	analytics := newAnalytics(db)
+	bills, err := analytics.Bills(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	safe := bills.SafeToSpend
+	if safe.ReadyMoney != 15_000_000 || safe.Reserved != 5_000_000 || safe.MinimumBalance.ETag != prefs.AccountMinimums.ETag ||
+		len(safe.MinimumBalances) != 1 || len(safe.UnknownMinimum) != 1 {
+		t.Fatalf("safe = %+v", safe)
+	}
+	idle, err := analytics.IdleCash(context.Background(), false)
+	if err != nil || idle.Components.ReadyMoney != 15_000_000 || idle.Components.MinimumReserved != 5_000_000 {
+		t.Fatalf("idle = %+v err %v", idle.Components, err)
+	}
+}

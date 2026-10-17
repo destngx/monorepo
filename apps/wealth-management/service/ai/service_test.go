@@ -435,3 +435,22 @@ func TestChatBillsToolReturnsSafeToSpendWithMaskedNames(t *testing.T) {
 		t.Fatalf("item names must be masked: %s", payload)
 	}
 }
+
+func TestChatBillsToolGivenAMinimumBalanceThenTheReserveAndTrackingShowWithMaskedNames(t *testing.T) {
+	db := fixtureDatabase()
+	prefs := domain.ParsePreferences([][]string{{"accounts.minimumBalance", `{"Bank Nguyen Van A":{"minimum":5000000,"note":"Nguyen Van A reward"}}`}}, 2)
+	db.Preferences = &prefs
+	svc := newTestService(t, db, &scriptedClient{}, nil)
+	result, err := svc.chatTools()["getBills"].run(context.Background(), json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := toJSON(result)
+	if !strings.Contains(payload, `"reserved":5000000`) || !strings.Contains(payload, `"minimumBalances":[{"name":"Bank `) ||
+		!strings.Contains(payload, `"minimumReserved":5000000`) {
+		t.Fatalf("bills context = %s", payload)
+	}
+	if strings.Contains(payload, "Nguyen Van A") {
+		t.Fatalf("account names and notes must not leak: %s", payload)
+	}
+}

@@ -15,9 +15,14 @@ const summary = (safeToSpend: number, shortBy = 0): BillsSummary => ({
     incomeName: 'Salary',
     days: 8,
     readyMoney: 20_000_000,
-    readyAccounts: [{ name: 'Bank A', balance: 20_000_000 }],
+    readyAccounts: [{ name: 'Bank A', balance: 25_000_000, reserved: 5_000_000, spendable: 20_000_000 }],
     excludedAccounts: [{ name: 'Broker B', balance: 9_000_000, reason: 'not_ready' }],
     readiness: { notReadyAccounts: ['Broker B'], etag: 'etag-1' },
+    reserved: 5_000_000,
+    minimumBalance: { accounts: [{ account: 'Bank A', minimum: 5_000_000 }], etag: 'etag-m' },
+    minimumBalances: [],
+    minimumRule: '',
+    unknownMinimum: [],
     billsDue: 3_000_000,
     cardPayments: 5_000_000,
     amount: safeToSpend - shortBy,
@@ -41,6 +46,10 @@ const summary = (safeToSpend: number, shortBy = 0): BillsSummary => ({
     readyMoney: 20_000_000,
     dueBeforeUntil: 8_000_000,
     excludedAccounts: 1,
+    minimumReserved: 5_000_000,
+    minimumBalanceAccounts: 1,
+    minimumBalanceAtRisk: 0,
+    minimumBalanceExtraNeeded: 0,
     until: '2026-10-25',
     untilIncome: true,
     suggestions: 0,
@@ -70,6 +79,7 @@ describe('SafeToSpendCard', () => {
     expect(math).toContain('due before');
     expect(math).toContain('paid by that wage');
     expect(math).toContain('Left out: 1 account');
+    expect(math).toContain('5.000.000 ₫ is kept as minimum balances');
     expect(math.toLowerCase()).not.toContain('goal');
   });
 

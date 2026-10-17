@@ -142,8 +142,14 @@
   <details class="mt-3 text-sm">
     <summary class="cursor-pointer text-xs font-medium">Show the math</summary>
     <dl class="mt-2 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1">
-      <dt>Ready money (without emergency accounts)</dt>
+      <dt>
+        Ready money (without emergency accounts{#if c.minimumReserved > 0}, above minimum balances{/if})
+      </dt>
       <dd class="text-right"><Money value={c.readyMoney} /></dd>
+      {#if c.minimumReserved > 0}
+        <dt class="muted text-xs">Kept as minimum balances (never idle)</dt>
+        <dd class="muted text-right text-xs"><Money value={c.minimumReserved} /></dd>
+      {/if}
       {#each lines as line (line.label)}
         <dt>{line.label}</dt>
         <dd class="text-right">− <Money value={line.amount} /></dd>

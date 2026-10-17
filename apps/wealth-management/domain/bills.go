@@ -118,6 +118,11 @@ type BillCalendar struct {
 type SpendableAccount struct {
 	Name    string  `json:"name"`
 	Balance float64 `json:"balance"`
+	// Reserved is the part of the balance kept for the account's minimum
+	// balance (D35): min(balance, minimum); 0 without a minimum.
+	Reserved float64 `json:"reserved"`
+	// Spendable = Balance - Reserved, what the account adds to ready money.
+	Spendable float64 `json:"spendable"`
 }
 
 // ExclusionReason says why an account is not ready money.
@@ -142,7 +147,10 @@ type ExcludedAccount struct {
 // SafeToSpendReadyRule documents what counts as ready money.
 const SafeToSpendReadyRule = "Ready money is the positive balance of active use, rarely use, bank and cash accounts " +
 	"that can be spent today. Crypto accounts (type crypto, or held in USD or USDT) and accounts marked not ready to " +
-	"use (slow to withdraw, saved as safeToSpend.notReadyAccounts in the Preferences tab) are left out."
+	"use (slow to withdraw, saved as safeToSpend.notReadyAccounts in the Preferences tab) are left out. An account " +
+	"with a minimum balance to keep (accounts.minimumBalance, e.g. for a bank reward on the average monthly balance) " +
+	"adds only what is above it: max(0, balance - minimum). The minimum is a hard reserve: the reward depends on the " +
+	"month's average, so dipping below it late in the month cannot be made up, and keeping it errs safe."
 
 // SafeToSpend is the money free to spend until the next wage (D33):
 // ready money - unpaid bills and card payments due before the next
@@ -165,16 +173,28 @@ type SafeToSpend struct {
 	// not ready, with the reason.
 	ExcludedAccounts []ExcludedAccount `json:"excludedAccounts"`
 	// Readiness is the saved setting, with the ETag a change must send.
-	Readiness    SafeToSpendSettings `json:"readiness"`
-	BillsDue     float64             `json:"billsDue"`
-	CardPayments float64             `json:"cardPayments"`
-	Amount       float64             `json:"amount"`
-	SafeToSpend  float64             `json:"safeToSpend"`
-	ShortBy      float64             `json:"shortBy"`
-	PerDay       float64             `json:"perDay"`
-	Counted      []BillOccurrence    `json:"counted"`
-	Explanation  string              `json:"explanation"`
-	ReadyRule    string              `json:"readyRule"`
+	Readiness SafeToSpendSettings `json:"readiness"`
+	// Reserved is the minimum balances kept in ReadyAccounts (D35), left
+	// out of ReadyMoney.
+	Reserved float64 `json:"reserved"`
+	// MinimumBalance is the saved minimums, with the ETag a change must send.
+	MinimumBalance AccountMinimumSettings `json:"minimumBalance"`
+	// MinimumBalances track this month's average daily balance of every
+	// account with a minimum (ready or not), in the setting's order.
+	MinimumBalances []AccountMinimumBalance `json:"minimumBalances"`
+	MinimumRule     string                  `json:"minimumRule"`
+	// UnknownMinimum are names with a minimum that match no account; they
+	// are ignored, and Issues says so.
+	UnknownMinimum []string         `json:"unknownMinimum"`
+	BillsDue       float64          `json:"billsDue"`
+	CardPayments   float64          `json:"cardPayments"`
+	Amount         float64          `json:"amount"`
+	SafeToSpend    float64          `json:"safeToSpend"`
+	ShortBy        float64          `json:"shortBy"`
+	PerDay         float64          `json:"perDay"`
+	Counted        []BillOccurrence `json:"counted"`
+	Explanation    string           `json:"explanation"`
+	ReadyRule      string           `json:"readyRule"`
 	// UnknownNotReady are marked names that match no account (renamed or
 	// deleted); they are ignored, and Issues says so.
 	UnknownNotReady []string `json:"unknownNotReady"`
@@ -206,10 +226,18 @@ type BillsFacts struct {
 	// DueBeforeUntil is the unpaid bills and card payments counted.
 	DueBeforeUntil float64 `json:"dueBeforeUntil"`
 	// ExcludedAccounts counts the crypto and not-ready accounts left out.
-	ExcludedAccounts int    `json:"excludedAccounts"`
-	Until            string `json:"until"`
-	UntilIncome      bool   `json:"untilIncome"`
-	Suggestions      int    `json:"suggestions"`
+	ExcludedAccounts int `json:"excludedAccounts"`
+	// MinimumReserved is the minimum balances kept out of ready money (D35).
+	MinimumReserved float64 `json:"minimumReserved"`
+	// MinimumBalanceAccounts counts the accounts with a minimum, and
+	// MinimumBalanceAtRisk those projected below their minimum average this
+	// month; MinimumBalanceExtraNeeded is what they need on top.
+	MinimumBalanceAccounts    int     `json:"minimumBalanceAccounts"`
+	MinimumBalanceAtRisk      int     `json:"minimumBalanceAtRisk"`
+	MinimumBalanceExtraNeeded float64 `json:"minimumBalanceExtraNeeded"`
+	Until                     string  `json:"until"`
+	UntilIncome               bool    `json:"untilIncome"`
+	Suggestions               int     `json:"suggestions"`
 }
 
 // Facts summarises the bills without names.
@@ -220,7 +248,7 @@ func (b Bills) Facts() BillsFacts {
 			active++
 		}
 	}
-	return BillsFacts{
+	facts := BillsFacts{
 		Items:            active,
 		UpcomingOut:      b.Calendar.UpcomingOut,
 		UpcomingCount:    b.Calendar.UpcomingCount,
@@ -234,17 +262,28 @@ func (b Bills) Facts() BillsFacts {
 		Until:            b.SafeToSpend.Until,
 		UntilIncome:      b.SafeToSpend.UntilIncome,
 		Suggestions:      len(b.Suggestions),
+		MinimumReserved:  b.SafeToSpend.Reserved,
 	}
+	for _, track := range b.SafeToSpend.MinimumBalances {
+		facts.MinimumBalanceAccounts++
+		if track.Status == MinimumAtRisk {
+			facts.MinimumBalanceAtRisk++
+			facts.MinimumBalanceExtraNeeded += track.ExtraNeeded
+		}
+	}
+	return facts
 }
 
 // BillsInput is what ComputeBills needs. Readiness is the safe-to-spend
-// setting from the Preferences tab (zero value: no account marked).
+// setting from the Preferences tab (zero value: no account marked);
+// Minimums the minimum balances to keep (zero value: none).
 type BillsInput struct {
 	Sheet        RecurringSheet
 	Accounts     []Account
 	Transactions []Transaction
 	Cards        CardConfig
 	Readiness    SafeToSpendSettings
+	Minimums     AccountMinimumSettings
 	Today        time.Time
 }
 
@@ -542,7 +581,9 @@ func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOc
 	result := SafeToSpend{
 		AsOf: today.Format(time.DateOnly), ReadyAccounts: []SpendableAccount{}, ExcludedAccounts: []ExcludedAccount{},
 		Counted: []BillOccurrence{}, ReadyRule: SafeToSpendReadyRule, UnknownNotReady: []string{}, Issues: []string{},
-		Readiness: SafeToSpendSettings{NotReadyAccounts: append([]string{}, input.Readiness.NotReadyAccounts...), ETag: input.Readiness.ETag},
+		Readiness:       SafeToSpendSettings{NotReadyAccounts: append([]string{}, input.Readiness.NotReadyAccounts...), ETag: input.Readiness.ETag},
+		MinimumBalance:  AccountMinimumSettings{Accounts: append([]AccountMinimum{}, input.Minimums.Accounts...), ETag: input.Minimums.ETag},
+		MinimumBalances: []AccountMinimumBalance{}, MinimumRule: MinimumBalanceRule, UnknownMinimum: []string{},
 	}
 
 	horizon := today.AddDate(0, 0, safeToSpendDefaultDays)
@@ -568,7 +609,8 @@ func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOc
 		lastDay = horizon.AddDate(0, 0, -1)
 	}
 
-	readyMoney(&result, input.Accounts, input.Readiness.NotReadyAccounts)
+	readyMoney(&result, input.Accounts, input.Readiness.NotReadyAccounts, input.Minimums.Accounts)
+	trackMinimums(&result, input.Accounts, input.Minimums.Accounts, input.Transactions, today)
 
 	for _, item := range active {
 		if item.Kind.IsIncome() {
@@ -601,19 +643,50 @@ func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOc
 // safeToSpendExplanation states the formula for the horizon in use.
 func safeToSpendExplanation(safe SafeToSpend) string {
 	const ready = "Ready money (bank, cash, active and rarely used accounts; not crypto or accounts marked not ready to use)"
+	reserve := ""
+	if safe.Reserved > 0 {
+		reserve = fmt.Sprintf(" %s VND is kept back as the minimum balance of %s, so only the balance above each "+
+			"minimum counts as ready money.", groupThousands(safe.Reserved), plural(reservedAccounts(safe), "account", "accounts"))
+	}
 	if safe.UntilIncome {
 		return fmt.Sprintf("%s minus unpaid bills and card payments due before the next income (%s, %s), overdue ones included. "+
-			"Anything due on payday itself is not counted: that wage pays it.", ready, safe.IncomeName, safe.Until)
+			"Anything due on payday itself is not counted: that wage pays it.%s", ready, safe.IncomeName, safe.Until, reserve)
 	}
 	return fmt.Sprintf("%s minus unpaid bills and card payments due in the next 30 days, up to and including %s, overdue ones "+
-		"included (no income expected).", ready, safe.Until)
+		"included (no income expected).%s", ready, safe.Until, reserve)
+}
+
+func reservedAccounts(safe SafeToSpend) int {
+	count := 0
+	for _, account := range safe.ReadyAccounts {
+		if account.Reserved > 0 {
+			count++
+		}
+	}
+	return count
+}
+
+// trackMinimums tracks the average daily balance of every account with a
+// minimum (D35) and reports minimums naming no account.
+func trackMinimums(result *SafeToSpend, accounts []Account, minimums []AccountMinimum, transactions []Transaction, today time.Time) {
+	for _, minimum := range minimums {
+		index := slices.IndexFunc(accounts, func(a Account) bool { return sameAccountName(a.Name, minimum.Account) })
+		if index < 0 {
+			result.UnknownMinimum = append(result.UnknownMinimum, minimum.Account)
+			result.Issues = append(result.Issues, fmt.Sprintf("Preferences: %s names %q, which is not an account (renamed or deleted?); it is ignored. Clear its minimum to remove it.", PrefAccountsMinimumBalance, minimum.Account))
+			continue
+		}
+		result.MinimumBalances = append(result.MinimumBalances, TrackMinimumBalance(accounts[index], minimum, transactions, today))
+	}
 }
 
 // readyMoney sorts the accounts into ready money and excluded accounts and
 // reports marked names that match no account. Ready money takes the
 // liquid types (active use, rarely use, bank, cash) with a positive
-// balance, minus crypto (D32) and the accounts marked not ready (D33).
-func readyMoney(result *SafeToSpend, accounts []Account, notReady []string) {
+// balance, minus crypto (D32) and the accounts marked not ready (D33);
+// each adds only its balance above its minimum (D35).
+func readyMoney(result *SafeToSpend, accounts []Account, notReady []string, minimums []AccountMinimum) {
+	settings := AccountMinimumSettings{Accounts: minimums}
 	marked := func(name string) bool {
 		return slices.ContainsFunc(notReady, func(n string) bool { return strings.EqualFold(strings.TrimSpace(n), strings.TrimSpace(name)) })
 	}
@@ -632,8 +705,14 @@ func readyMoney(result *SafeToSpend, accounts []Account, notReady []string) {
 			// Listed whatever the balance, so the user can mark it ready again.
 			result.ExcludedAccounts = append(result.ExcludedAccounts, ExcludedAccount{Name: account.Name, Balance: account.Balance, Reason: ExcludedNotReady})
 		case liquid && account.Balance > 0:
-			result.ReadyAccounts = append(result.ReadyAccounts, SpendableAccount{Name: account.Name, Balance: account.Balance})
-			result.ReadyMoney += account.Balance
+			ready := SpendableAccount{Name: account.Name, Balance: account.Balance, Spendable: account.Balance}
+			if minimum, ok := settings.For(account.Name); ok {
+				ready.Reserved = math.Min(account.Balance, minimum.Minimum)
+				ready.Spendable = account.Balance - ready.Reserved
+			}
+			result.ReadyAccounts = append(result.ReadyAccounts, ready)
+			result.ReadyMoney += ready.Spendable
+			result.Reserved += ready.Reserved
 		}
 	}
 	for _, name := range notReady {

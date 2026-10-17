@@ -338,3 +338,53 @@ func TestGivenAnAccountWhenMarkingItAnEmergencyAccountThenOnlyItsSettingRowIsWri
 		t.Fatalf("row %v", row)
 	}
 }
+
+func TestGivenAnAccountWhenSettingItsMinimumBalanceThenOnlyItsSettingRowIsWrittenAndClearedBy0(t *testing.T) {
+	client := newFakeSheetClient()
+	seedAccounts(client)
+	client.titles = []string{preferencesSheet}
+	client.ranges[preferencesRange] = [][]string{{"idleCash.emergencyAccounts", `["Bank"]`, "note"}}
+	svc := newTestDBService(t, client, newFakeCache())
+	current, err := svc.ListPreferences(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetAccountMinimumBalance(domain.AccountMinimumInput{Account: "Reward Bank", Minimum: ptr(5_000_000.0), ETag: current.AccountMinimums.ETag}); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("an unknown account cannot get a minimum: %v", err)
+	}
+	if _, err := svc.SetAccountMinimumBalance(domain.AccountMinimumInput{Account: "bank", Minimum: ptr(5_000_000.0), ETag: current.IdleCash.ETag}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("the emergency etag is not the minimum etag: %v", err)
+	}
+	if _, err := svc.SetAccountMinimumBalance(domain.AccountMinimumInput{Account: "bank", Minimum: ptr(-1.0), ETag: current.AccountMinimums.ETag}); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("a negative minimum is invalid: %v", err)
+	}
+	if len(client.updates) != 0 || len(client.appends) != 0 {
+		t.Fatalf("nothing may be written: %+v %+v", client.updates, client.appends)
+	}
+	saved, err := svc.SetAccountMinimumBalance(domain.AccountMinimumInput{Account: "Bank", Minimum: ptr(5_000_000.0), Note: "monthly points reward", ETag: current.AccountMinimums.ETag})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(client.updates) != 0 || len(client.appends) != 1 {
+		t.Fatalf("updates %+v appends %+v", client.updates, client.appends)
+	}
+	if row := client.appends[0].rows[0]; row[0] != "accounts.minimumBalance" || row[1] != `{"Bank":{"minimum":5000000,"note":"monthly points reward"}}` || row[2] == "" {
+		t.Fatalf("row %v", row)
+	}
+	if !saved.TabExists {
+		t.Fatalf("saved = %+v", saved)
+	}
+	// Removing a name that is no longer an account needs no account; 0
+	// clears the entry, and with no minimum left the cell is cleared.
+	client.ranges[preferencesRange] = [][]string{{"accounts.minimumBalance", `{"Old Bank":{"minimum":5000000}}`, "note"}}
+	written, err := svc.ListPreferences(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetAccountMinimumBalance(domain.AccountMinimumInput{Account: "old bank", Minimum: ptr(0.0), ETag: written.AccountMinimums.ETag}); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.updates) != 1 || client.updates[0].rangeValue != "Preferences!A2:B2" || client.updates[0].values[1] != "" {
+		t.Fatalf("updates %+v", client.updates)
+	}
+}

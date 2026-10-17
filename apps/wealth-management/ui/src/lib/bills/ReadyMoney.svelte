@@ -12,7 +12,8 @@
 
   // What safe to spend counts (D33): ready money by account, each with a
   // ready-to-use switch, the accounts left out with the reason, and the
-  // bills and card payments due before payday. A switch saves to the
+  // bills and card payments due before payday. An account with a minimum
+  // balance to keep (D35) shows the part kept back. A switch saves to the
   // Preferences tab with the setting's ETag; one change runs at a time,
   // since each change moves the ETag.
   let { safe }: { safe: SafeToSpend } = $props();
@@ -40,7 +41,14 @@
     <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
       {#each safe.readyAccounts as account (account.name)}
         <li class="flex items-center justify-between gap-2 py-1.5">
-          <span class="min-w-0 truncate">{account.name}</span>
+          <span class="min-w-0">
+            <span class="block truncate">{account.name}</span>
+            {#if account.reserved > 0}
+              <span class="muted text-xs" data-testid="reserved"
+                ><Money value={account.reserved} /> kept as its minimum, <Money value={account.spendable} /> counts</span
+              >
+            {/if}
+          </span>
           <span class="flex items-center gap-2">
             <Money value={account.balance} />
             <Button

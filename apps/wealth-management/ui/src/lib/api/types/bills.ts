@@ -1,5 +1,5 @@
 import type { DepositRate } from './investments';
-import type { IdleCashSettings } from './preferences';
+import type { AccountMinimumSettings, IdleCashSettings } from './preferences';
 
 /** Recurring tab Kind column (B). */
 export type RecurringKind = 'income' | 'bill' | 'subscription' | 'insurance' | 'card';
@@ -107,6 +107,44 @@ export interface ExcludedAccount {
   reason: ExclusionReason;
 }
 
+/** An account counted in ready money: only the balance above its minimum (D35) is spendable. */
+export interface SpendableAccount {
+  name: string;
+  balance: number;
+  /** min(balance, minimum); 0 without a minimum. */
+  reserved: number;
+  /** balance - reserved: what the account adds to ready money. */
+  spendable: number;
+}
+
+/** Whether an account reaches its minimum average balance this month at today's balance. */
+export type MinimumBalanceStatus = 'on_track' | 'at_risk';
+
+/** One account's minimum balance and this month's average daily balance against it (D35). */
+export interface AccountMinimumBalance {
+  account: string;
+  minimum: number;
+  note?: string;
+  balance: number;
+  reserved: number;
+  /** yyyy-mm and its last day. */
+  month: string;
+  monthEnd: string;
+  daysInMonth: number;
+  /** Finished days (1st to yesterday). */
+  daysCounted: number;
+  /** Days left, today included. */
+  daysLeft: number;
+  sumSoFar: number;
+  averageSoFar: number;
+  /** The month's average if the balance stays as it is today. */
+  projectedAverage: number;
+  /** The balance to hold from today to the month end (0 when covered). */
+  requiredBalance: number;
+  extraNeeded: number;
+  status: MinimumBalanceStatus;
+}
+
 /** The safe-to-spend setting from the Preferences tab, with the ETag a change must send. */
 export interface SafeToSpendReadiness {
   notReadyAccounts: string[];
@@ -125,11 +163,20 @@ export interface SafeToSpend {
   untilIncome: boolean;
   incomeName?: string;
   days: number;
-  /** Positive balances of active, rarely used, bank and cash accounts, without crypto or not-ready accounts. */
+  /** Positive balances of active, rarely used, bank and cash accounts above their minimums, without crypto or not-ready accounts. */
   readyMoney: number;
-  readyAccounts: { name: string; balance: number }[];
+  readyAccounts: SpendableAccount[];
   excludedAccounts: ExcludedAccount[];
   readiness: SafeToSpendReadiness;
+  /** The minimum balances kept in the ready accounts (D35). */
+  reserved: number;
+  /** The saved minimums, with the ETag a change must send. */
+  minimumBalance: AccountMinimumSettings;
+  /** Every account with a minimum, ready or not. */
+  minimumBalances: AccountMinimumBalance[];
+  minimumRule: string;
+  /** Names with a minimum that are no longer accounts; ignored. */
+  unknownMinimum: string[];
   billsDue: number;
   cardPayments: number;
   /** Can be negative; safeToSpend floors it at 0 and shortBy is the shortfall. */
@@ -173,6 +220,10 @@ export interface BillsFacts {
   /** Unpaid bills and card payments counted before the horizon. */
   dueBeforeUntil: number;
   excludedAccounts: number;
+  minimumReserved: number;
+  minimumBalanceAccounts: number;
+  minimumBalanceAtRisk: number;
+  minimumBalanceExtraNeeded: number;
   until: string;
   untilIncome: boolean;
   suggestions: number;
@@ -182,6 +233,14 @@ export interface BillsFacts {
 export interface AccountReadinessInput {
   account: string;
   ready: boolean;
+  etag: string;
+}
+
+/** POST /api/bills/safe-to-spend/minimum-balance body: a null or 0 minimum removes it. */
+export interface AccountMinimumInput {
+  account: string;
+  minimum: number | null;
+  note?: string;
   etag: string;
 }
 
@@ -227,8 +286,10 @@ export type IdleCashVerdict = 'worth_moving' | 'not_worth_it' | 'nothing_idle' |
 
 /** idle = max(0, readyMoney - keepLiquid - dayToDayFloat) (D34). */
 export interface IdleCashComponents {
-  /** Safe to spend's ready money (D33) without the emergency accounts. */
+  /** Safe to spend's ready money (D33) without the emergency accounts, above each minimum (D35). */
   readyMoney: number;
+  /** Minimum balances kept in the everyday ready accounts (D35), never idle. */
+  minimumReserved: number;
   billsDue: number;
   cardPayments: number;
   goalSetAside: number;
@@ -255,6 +316,8 @@ export interface IdleCashComponents {
 export interface IdleCashAccount {
   name: string;
   balance: number;
+  /** The minimum balance kept (D35): never idle, never moved. */
+  reserved: number;
   rate: number;
   rateFromNote: boolean;
   idle: number;

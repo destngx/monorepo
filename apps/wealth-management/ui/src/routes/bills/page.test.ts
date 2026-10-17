@@ -72,14 +72,44 @@ const bills: Bills = {
     days: 8,
     readyMoney: 9_870_000,
     readyAccounts: [
-      { name: 'Bank A', balance: 7_870_000 },
-      { name: 'Wallet', balance: 2_000_000 },
+      { name: 'Bank A', balance: 12_870_000, reserved: 5_000_000, spendable: 7_870_000 },
+      { name: 'Wallet', balance: 2_000_000, reserved: 0, spendable: 2_000_000 },
     ],
     excludedAccounts: [
       { name: 'Broker B', balance: 15_000_000, reason: 'not_ready' },
       { name: 'Exchange C', balance: 4_000_000, reason: 'crypto' },
     ],
     readiness: { notReadyAccounts: ['Broker B', 'Old Broker'], etag: 'etag-1' },
+    reserved: 5_000_000,
+    minimumBalance: {
+      accounts: [
+        { account: 'Bank A', minimum: 5_000_000, note: 'monthly reward' },
+        { account: 'Old Bank', minimum: 1_000_000 },
+      ],
+      etag: 'etag-m',
+    },
+    minimumBalances: [
+      {
+        account: 'Bank A',
+        minimum: 5_000_000,
+        note: 'monthly reward',
+        balance: 12_870_000,
+        reserved: 5_000_000,
+        month: '2026-10',
+        monthEnd: '2026-10-31',
+        daysInMonth: 31,
+        daysCounted: 16,
+        daysLeft: 15,
+        sumSoFar: 96_000_000,
+        averageSoFar: 6_000_000,
+        projectedAverage: 9_324_194,
+        requiredBalance: 3_933_334,
+        extraNeeded: 0,
+        status: 'on_track',
+      },
+    ],
+    minimumRule: '',
+    unknownMinimum: ['Old Bank'],
     billsDue: 1_250_000,
     cardPayments: 0,
     amount: 8_620_000,
@@ -208,6 +238,60 @@ describe('Bills page', () => {
     expect(bank.getAttribute('aria-busy')).toBe('true');
     expect(bank.textContent).toContain('Saving…');
     expect(screen.getByRole('switch', { name: 'Broker B is not ready to use' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Given a minimum balance When the breakdown shows Then the reserve, the average and an on-track badge show, masked', async () => {
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    expect(document.body.textContent).not.toMatch(/5\.000\.000|6\.000\.000/);
+    mask.toggle();
+    await flush();
+    expect(screen.getByTestId('safe-reserved').textContent).toContain('5.000.000');
+    expect(screen.getByTestId('reserved').textContent).toContain('5.000.000 ₫ kept as its minimum, 7.870.000 ₫ counts');
+    const section = screen.getByTestId('minimum-balances');
+    const rows = screen.getAllByTestId('minimum-row');
+    expect(rows.map((row) => row.textContent?.split(/\s+/).filter(Boolean)[0])).toEqual(['Bank', 'Wallet', 'Broker']);
+    expect(rows[0].textContent).toContain('Keeps 5.000.000 ₫, monthly reward');
+    expect(rows[0].textContent).toContain('Average so far 6.000.000');
+    expect(rows[0].querySelector('[data-status="good"]')?.textContent).toContain('On track');
+    expect(section.textContent).not.toContain('Exchange C');
+    expect(section.textContent).toContain('“Old Bank” has a minimum but is not an account');
+    const explanation = (screen.getByTestId('safe-explanation').textContent ?? '').replace(/\s+/g, ' ');
+    expect(explanation).toContain('counts only what is above that minimum: it is a hard reserve');
+  });
+
+  it('Given an account without a minimum When one is set Then the input starts empty and the change is sent with the ETag', async () => {
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Set a minimum for Wallet' }));
+    await flush();
+    const amount = screen.getByLabelText<HTMLInputElement>('Minimum for Wallet in VND');
+    expect(amount.value).toBe('');
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.hasAttribute('disabled')).toBe(true);
+    await fireEvent.input(amount, { target: { value: '3.000.000' } });
+    await fireEvent.input(screen.getByLabelText('Note for Wallet'), { target: { value: ' points ' } });
+    await flush();
+    await fireEvent.click(save);
+    await flush();
+
+    const sent = calls.find((call) => call.name === 'setAccountMinimum');
+    expect(sent?.args).toEqual([{ account: 'Wallet', minimum: 3_000_000, note: 'points', etag: 'etag-m' }]);
+    expect(save.getAttribute('aria-busy')).toBe('true');
+    expect(save.textContent).toContain('Saving…');
+    expect(screen.getByRole('button', { name: 'Change the minimum of Bank A' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Given a minimum for a name that is no account When Remove is clicked Then its minimum is cleared', async () => {
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove the minimum of Old Bank' }));
+    await flush();
+    const sent = calls.find((call) => call.name === 'setAccountMinimum');
+    expect(sent?.args).toEqual([{ account: 'Old Bank', minimum: null, note: '', etag: 'etag-m' }]);
   });
 
   it('Given a marked name that is no account When Remove is clicked Then it is marked ready to clear it', async () => {

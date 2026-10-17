@@ -12,8 +12,9 @@ import (
 )
 
 // Preferences store (WM-SET-6..9, ROADMAP C6): an app-managed `Preferences`
-// tab with A Key, B Value (a number, or a JSON list of account names for
-// safeToSpend.notReadyAccounts and idleCash.emergencyAccounts), C Note. The engine reads it like any
+// tab with A Key, B Value (a number, a JSON list of account names for
+// safeToSpend.notReadyAccounts and idleCash.emergencyAccounts, or a JSON
+// object of per-account minimums for accounts.minimumBalance), C Note. The engine reads it like any
 // other tab and writes one row per key the user saves in the app; the tab is
 // created with its header on the first save. Hand edits are tolerated: blank
 // and header rows are skipped, and a bad row is reported as an issue and
@@ -39,6 +40,10 @@ const (
 	// emergency fund (D34): they cover the emergency target first and are
 	// never idle.
 	PrefIdleCashEmergencyAccounts PreferenceKey = "idleCash.emergencyAccounts"
+	// PrefAccountsMinimumBalance maps an account to the balance (VND) to
+	// keep in it, e.g. for a bank reward on the average monthly balance
+	// (D35): that money is never ready to spend nor idle.
+	PrefAccountsMinimumBalance PreferenceKey = "accounts.minimumBalance"
 )
 
 // PreferenceKind is the type of a key's value (column B).
@@ -50,6 +55,10 @@ const (
 	// PreferenceAccountNames is a JSON list of account names, e.g.
 	// ["Bank A","Broker B"]; blank is an empty list.
 	PreferenceAccountNames PreferenceKind = "accountNames"
+	// PreferenceAccountMinimums is a JSON object of account name to
+	// {"minimum": VND, "note": text}, e.g.
+	// {"Bank A":{"minimum":5000000,"note":"monthly reward"}}; blank is none.
+	PreferenceAccountMinimums PreferenceKind = "accountMinimums"
 )
 
 const (
@@ -91,10 +100,11 @@ var PreferenceSpecs = []PreferenceSpec{
 	{Key: PrefSafeToSpendNotReadyAccounts, Kind: PreferenceAccountNames, Note: "Accounts not ready to use (slow to withdraw), left out of safe to spend; a JSON list of account names"},
 	{Key: PrefIdleCashDayToDayFloat, Kind: PreferenceNumber, Min: 0, Max: maxDayToDayFloat, Note: "Day-to-day money (VND) kept ready in everyday accounts before any cash counts as idle; blank = the spending buffer (spending buffer months x average monthly expense)"},
 	{Key: PrefIdleCashEmergencyAccounts, Kind: PreferenceAccountNames, Note: "Emergency fund accounts: they cover the emergency fund target first and are never idle; a JSON list of account names"},
+	{Key: PrefAccountsMinimumBalance, Kind: PreferenceAccountMinimums, Max: maxAccountMinimum, Note: "Minimum balance (VND) to keep per account, e.g. for a bank reward on the average monthly balance; never ready to spend nor idle; a JSON object such as {\"Bank A\":{\"minimum\":5000000,\"note\":\"monthly reward\"}}"},
 }
 
 // PreferenceKeyNames lists the number keys, for the schemas of
-// POST /api/preferences; the account list is set per account instead.
+// POST /api/preferences; account lists and minimums are set per account.
 func PreferenceKeyNames() []string {
 	keys := make([]string, 0, len(PreferenceSpecs))
 	for _, spec := range PreferenceSpecs {
@@ -191,6 +201,38 @@ type IdleCashSettings struct {
 	ETag string `json:"etag"`
 }
 
+// AccountMinimum is the balance to keep in one account (D35).
+type AccountMinimum struct {
+	Account string  `json:"account"`
+	Minimum float64 `json:"minimum"`
+	// Note is free text, e.g. "monthly points reward".
+	Note string `json:"note,omitempty"`
+}
+
+// AccountMinimumSettings are the saved per-account minimums (D35).
+type AccountMinimumSettings struct {
+	// Accounts are sorted by name ignoring case; names that match no
+	// account are reported by safe to spend, never fatal.
+	Accounts []AccountMinimum `json:"accounts"`
+	// ETag fingerprints the saved value (also when unset).
+	ETag string `json:"etag"`
+}
+
+// For returns the minimum of an account, names compared ignoring case and
+// surrounding spaces.
+func (s AccountMinimumSettings) For(account string) (AccountMinimum, bool) {
+	for _, minimum := range s.Accounts {
+		if sameAccountName(minimum.Account, account) {
+			return minimum, true
+		}
+	}
+	return AccountMinimum{}, false
+}
+
+func sameAccountName(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
+
 // PreferenceEntry is one row of the tab. Row is the sheet row (1-based).
 type PreferenceEntry struct {
 	Key PreferenceKey `json:"key"`
@@ -198,8 +240,10 @@ type PreferenceEntry struct {
 	Value *float64 `json:"value"`
 	// Names is the account list of an account list key.
 	Names []string `json:"names,omitempty"`
-	Note  string   `json:"note"`
-	Row   int      `json:"row"`
+	// Minimums are the per-account minimums of accounts.minimumBalance.
+	Minimums []AccountMinimum `json:"minimums,omitempty"`
+	Note     string           `json:"note"`
+	Row      int              `json:"row"`
 	// ETag fingerprints column B as read; empty on a row not yet written.
 	ETag string `json:"etag,omitempty"`
 }
@@ -214,6 +258,8 @@ type Preferences struct {
 	GoalPool          GoalPoolSettings    `json:"goalPool"`
 	SafeToSpend       SafeToSpendSettings `json:"safeToSpend"`
 	IdleCash          IdleCashSettings    `json:"idleCash"`
+	// AccountMinimums are the minimum balances to keep (D35).
+	AccountMinimums AccountMinimumSettings `json:"accountMinimums"`
 	// Entries are the rows of known keys, in sheet order.
 	Entries []PreferenceEntry `json:"entries"`
 	// Issues name rows that were ignored, e.g. a value out of range.
@@ -256,7 +302,20 @@ func ParsePreferences(rows [][]string, firstRow int) Preferences {
 		}
 		seen[key] = true
 		entry := PreferenceEntry{Key: key, Note: strings.TrimSpace(cell(row, 2)), Row: sheetRow, ETag: preferenceETag(cell(row, 1))}
-		if spec, _ := PreferenceSpecFor(key); spec.Kind == PreferenceAccountNames {
+		spec, _ := PreferenceSpecFor(key)
+		if spec.Kind == PreferenceAccountMinimums {
+			minimums, problems, err := ParseAccountMinimums(cell(row, 1))
+			if err != nil {
+				prefs.Issues = append(prefs.Issues, fmt.Sprintf("Preferences row %d: %s %v; no minimum is set", sheetRow, key, err))
+			}
+			for _, problem := range problems {
+				prefs.Issues = append(prefs.Issues, fmt.Sprintf("Preferences row %d: %s %s; that account is ignored", sheetRow, key, problem))
+			}
+			entry.Minimums = minimums
+			prefs.Entries = append(prefs.Entries, entry)
+			continue
+		}
+		if spec.Kind == PreferenceAccountNames {
 			names, err := ParseAccountNames(cell(row, 1))
 			if err != nil {
 				prefs.Issues = append(prefs.Issues, fmt.Sprintf("Preferences row %d: %s %v; no account is marked", sheetRow, key, err))
@@ -292,6 +351,13 @@ func (p *Preferences) resolve() {
 	p.IdleCash = IdleCashSettings{EmergencyAccounts: emergency, ETag: emergencyETag}
 	if value, ok := p.Value(PrefIdleCashDayToDayFloat); ok {
 		p.IdleCash.DayToDayFloat = &value
+	}
+	p.AccountMinimums = AccountMinimumSettings{Accounts: []AccountMinimum{}, ETag: preferenceETag("")}
+	if entry, ok := p.entry(PrefAccountsMinimumBalance); ok {
+		p.AccountMinimums.Accounts = append(p.AccountMinimums.Accounts, entry.Minimums...)
+		if entry.ETag != "" {
+			p.AccountMinimums.ETag = entry.ETag
+		}
 	}
 	p.AllocationTargets = nil
 	cash, hasCash := p.Value(PrefAllocationTargetCash)
@@ -532,7 +598,7 @@ func (u PreferencesUpdate) Validate() error {
 			continue
 		}
 		if spec.Kind != PreferenceNumber {
-			problems = append(problems, fmt.Sprintf("%s is a list of accounts: set it per account with %s", item.Key, accountListRoute[item.Key]))
+			problems = append(problems, fmt.Sprintf("%s is set per account: use %s", item.Key, accountListRoute[item.Key]))
 			continue
 		}
 		if seen[item.Key] {
@@ -552,6 +618,7 @@ func (u PreferencesUpdate) Validate() error {
 var accountListRoute = map[PreferenceKey]string{
 	PrefSafeToSpendNotReadyAccounts: "POST /api/bills/safe-to-spend/accounts (MCP SetAccountReadyToUse)",
 	PrefIdleCashEmergencyAccounts:   "POST /api/bills/idle-cash/emergency-accounts (MCP SetEmergencyAccount)",
+	PrefAccountsMinimumBalance:      "POST /api/bills/safe-to-spend/minimum-balance (MCP SetAccountMinimumBalance)",
 }
 
 func (u PreferencesUpdate) touchesTargets() bool {
