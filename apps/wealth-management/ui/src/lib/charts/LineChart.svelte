@@ -28,8 +28,13 @@
       ? `${linePath(coords)} L${coords[coords.length - 1][0]},${height - pad.bottom} L${coords[0][0]},${height - pad.bottom} Z`
       : '',
   );
+  // First, middle and last point; with two points the middle is the first, so it is labelled once.
   const xLabels = $derived(
-    points.length > 1 ? [0, Math.floor((points.length - 1) / 2), points.length - 1] : points.length ? [0] : [],
+    points.length > 1
+      ? [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])]
+      : points.length
+        ? [0]
+        : [],
   );
 
   let hover = $state<number | null>(null);

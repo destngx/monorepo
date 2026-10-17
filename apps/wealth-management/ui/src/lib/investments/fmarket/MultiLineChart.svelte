@@ -57,8 +57,13 @@
       return { ...s, d: segments.map(linePath).join(' ') };
     }),
   );
+  // First, middle and last date; with two dates the middle is the first, so it is labelled once.
   const xLabels = $derived(
-    dates.length > 1 ? [0, Math.floor((dates.length - 1) / 2), dates.length - 1] : dates.length ? [0] : [],
+    dates.length > 1
+      ? [...new Set([0, Math.floor((dates.length - 1) / 2), dates.length - 1])]
+      : dates.length
+        ? [0]
+        : [],
   );
 
   let hover = $state<number | null>(null);

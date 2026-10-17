@@ -31,4 +31,16 @@ describe('MultiLineChart', () => {
     expect(screen.getByText('262K')).toBeTruthy();
     expect(screen.queryByRole('button')).toBeNull();
   });
+
+  it('Given exactly two dates When it renders Then each date labels the axis once', () => {
+    const { container } = render(MultiLineChart, {
+      ...props,
+      dates: ['2026-01-01', '2026-02-01'],
+      series: [{ name: 'Refund YTD', color: '#0f0', values: [100_000, 262_000] }],
+    });
+    const dates = [...container.querySelectorAll('svg text')]
+      .map((label) => label.textContent ?? '')
+      .filter((text) => /^\d{2}\/\d{2}\/\d{4}$/.test(text));
+    expect(dates).toEqual(['01/01/2026', '01/02/2026']);
+  });
 });
