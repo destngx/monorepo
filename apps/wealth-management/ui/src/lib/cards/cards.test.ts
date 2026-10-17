@@ -16,11 +16,13 @@ import {
   cumulative,
   formatMccs,
   historyYears,
+  findCard,
   parseCardPayment,
   portfolioTotals,
   visibleCards,
   RECONCILIATION,
 } from './cards';
+import { testBank, testCard } from './cards.testdata';
 
 const rule = (cap: number, extra: Partial<CashbackRule> = {}): CashbackRule => ({
   name: 'r',
@@ -219,12 +221,35 @@ describe('parseCardPayment', () => {
     });
   });
 
-  it('explains what is missing or malformed', () => {
-    expect(parseCardPayment({ payee: 'Coop', amount: '', mcc: '' })).toEqual({ error: 'Enter a positive amount.' });
-    expect(parseCardPayment({ payee: 'Coop', amount: '-5', mcc: '' })).toEqual({ error: 'Enter a positive amount.' });
+  it('explains what is missing or malformed, and in which field', () => {
+    expect(parseCardPayment({ payee: 'Coop', amount: '', mcc: '' })).toEqual({
+      error: 'Enter a positive amount.',
+      field: 'amount',
+    });
+    expect(parseCardPayment({ payee: 'Coop', amount: '-5', mcc: '' })).toEqual({
+      error: 'Enter a positive amount.',
+      field: 'amount',
+    });
     expect(parseCardPayment({ payee: 'Coop', amount: '5', mcc: '54x1' })).toEqual({
       error: 'An MCC is 4 digits, e.g. 5411.',
+      field: 'mcc',
     });
-    expect(parseCardPayment({ payee: ' ', amount: '5', mcc: '' })).toEqual({ error: 'Enter the payee or its MCC.' });
+    expect(parseCardPayment({ payee: ' ', amount: '5', mcc: '' })).toEqual({
+      error: 'Enter the payee or its MCC.',
+      field: 'payee',
+    });
+  });
+});
+
+describe('findCard', () => {
+  it('finds a card with its bank and every card keyword, or null for an unknown name', () => {
+    const other = testCard({ name: 'Green Miles', keyword: 'green' });
+    const banks = [testBank([testCard(), other])];
+
+    const found = findCard(banks, 'Green Miles');
+    expect(found?.card).toBe(other);
+    expect(found?.bank).toBe(banks[0]);
+    expect(found?.cardKeywords).toEqual(['blue', 'green']);
+    expect(findCard(banks, 'Nope')).toBeNull();
   });
 });

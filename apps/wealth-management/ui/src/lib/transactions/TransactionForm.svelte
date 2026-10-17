@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/api/endpoints';
   import type { Account, Category, CategorySuggestion, Transaction, TransactionInput } from '$lib/api/types';
-  import Icon from '$lib/components/Icon.svelte';
+  import Button from '$lib/components/Button.svelte';
   import { todayISO } from '$lib/format';
   import TagPicker from './TagPicker.svelte';
 
@@ -47,6 +47,20 @@
   });
   let form = $state(seed());
   let error = $state<string | null>(null);
+  // After a rejected submit the fields at fault are marked invalid until fixed.
+  let attempted = $state(false);
+  const missing = $derived({
+    accountName: attempted && !form.accountName,
+    date: attempted && !form.date,
+    payee: attempted && !form.payee.trim(),
+    category: attempted && !form.category,
+  });
+  const amountInvalid = $derived.by(() => {
+    if (!attempted) return false;
+    const payment = Number(form.payment) || 0;
+    const deposit = Number(form.deposit) || 0;
+    return payment < 0 || deposit < 0 || (payment > 0 && deposit > 0) || (payment === 0 && deposit === 0);
+  });
 
   const activeAccounts = $derived(accounts.filter((a) => a.type !== 'deprecated' || a.name === form.accountName));
   const grouped = $derived(
@@ -108,6 +122,7 @@
     const addAnother = (event.submitter as HTMLButtonElement | null)?.value === 'another';
     const payment = Number(form.payment) || 0;
     const deposit = Number(form.deposit) || 0;
+    attempted = true;
     if (!form.accountName || !form.date || !form.payee.trim() || !form.category) {
       error = 'Account, date, payee and category are required.';
       return;
@@ -125,6 +140,7 @@
       return;
     }
     error = null;
+    attempted = false;
     onsubmit(
       {
         ...form,
@@ -142,7 +158,13 @@
 <form id="transaction-form" class="grid gap-4 sm:grid-cols-2" onsubmit={submit} novalidate>
   <div>
     <label class="label" for="tx-account">Account *</label>
-    <select id="tx-account" class="field" bind:value={form.accountName} required>
+    <select
+      id="tx-account"
+      class="field"
+      bind:value={form.accountName}
+      required
+      aria-invalid={missing.accountName || undefined}
+    >
       <option value="" disabled>Choose an account</option>
       {#each activeAccounts as account (account.name)}
         <option value={account.name}>{account.name}</option>
@@ -151,27 +173,47 @@
   </div>
   <div>
     <label class="label" for="tx-date">Date *</label>
-    <input id="tx-date" type="date" class="field" bind:value={form.date} required />
+    <input
+      id="tx-date"
+      type="date"
+      class="field"
+      bind:value={form.date}
+      required
+      aria-invalid={missing.date || undefined}
+    />
   </div>
   <div class="sm:col-span-2">
     <label class="label" for="tx-payee">Payee *</label>
-    <input id="tx-payee" class="field" bind:value={form.payee} required autocomplete="off" />
+    <input
+      id="tx-payee"
+      class="field"
+      bind:value={form.payee}
+      required
+      autocomplete="off"
+      aria-invalid={missing.payee || undefined}
+    />
   </div>
   <div class="sm:col-span-2">
     <div class="flex items-center justify-between gap-2">
       <label class="label" for="tx-category">Category *</label>
-      <button
-        type="button"
-        class="btn-ghost -mt-1 px-2 py-0.5 text-xs"
-        disabled={suggesting || [...form.payee.trim()].length < SUGGEST_MIN_CHARS}
+      <Button
+        size="sm"
+        icon="sparkles"
+        class="-mt-1"
+        busy={suggesting}
+        busyText="Suggesting…"
+        disabled={[...form.payee.trim()].length < SUGGEST_MIN_CHARS}
         onclick={suggestNow}
-        title="Suggest a category from the payee"
+        title="Suggest a category from the payee">Suggest</Button
       >
-        <Icon name="sparkles" size={14} />
-        {suggesting ? 'Suggesting…' : 'Suggest'}
-      </button>
     </div>
-    <select id="tx-category" class="field" bind:value={form.category} required>
+    <select
+      id="tx-category"
+      class="field"
+      bind:value={form.category}
+      required
+      aria-invalid={missing.category || undefined}
+    >
       <option value="" disabled>Choose a category</option>
       {#each grouped as group (group.type)}
         {#if group.items.length}
@@ -196,11 +238,29 @@
   </div>
   <div>
     <label class="label" for="tx-payment">Payment (money out)</label>
-    <input id="tx-payment" type="number" min="0" step="1" inputmode="numeric" class="field" bind:value={form.payment} />
+    <input
+      id="tx-payment"
+      type="number"
+      min="0"
+      step="1"
+      inputmode="numeric"
+      class="field"
+      bind:value={form.payment}
+      aria-invalid={amountInvalid || undefined}
+    />
   </div>
   <div>
     <label class="label" for="tx-deposit">Deposit (money in)</label>
-    <input id="tx-deposit" type="number" min="0" step="1" inputmode="numeric" class="field" bind:value={form.deposit} />
+    <input
+      id="tx-deposit"
+      type="number"
+      min="0"
+      step="1"
+      inputmode="numeric"
+      class="field"
+      bind:value={form.deposit}
+      aria-invalid={amountInvalid || undefined}
+    />
   </div>
   <div class="sm:col-span-2">
     <span class="label">Tags</span>
@@ -219,12 +279,12 @@
   </label>
   {#if error}<p role="alert" class="text-sm text-orange-600 sm:col-span-2 dark:text-orange-400">{error}</p>{/if}
   <div class="flex justify-end gap-2 sm:col-span-2">
-    <button type="button" class="btn-ghost" onclick={oncancel}>Cancel</button>
+    <Button disabled={busy} onclick={oncancel}>Cancel</Button>
     {#if !initial}
-      <button type="submit" class="btn-ghost" value="another" disabled={busy}>Save & add another</button>
+      <Button type="submit" value="another" disabled={busy}>Save & add another</Button>
     {/if}
-    <button type="submit" class="btn-primary" disabled={busy}
-      >{busy ? 'Saving…' : initial ? 'Save changes' : 'Add transaction'}</button
+    <Button type="submit" variant="primary" {busy} busyText="Saving…"
+      >{initial ? 'Save changes' : 'Add transaction'}</Button
     >
   </div>
 </form>

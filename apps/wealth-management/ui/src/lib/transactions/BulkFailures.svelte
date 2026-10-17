@@ -13,7 +13,7 @@
 <div role="alert" class="mb-4 rounded-xl border border-orange-500/40 p-3 text-sm">
   <div class="flex items-start justify-between gap-2">
     <p class="font-medium text-orange-700 dark:text-orange-300">These were not recategorised and stay selected:</p>
-    <button type="button" class="opacity-60 hover:opacity-100" aria-label="Dismiss" onclick={ondismiss}
+    <button type="button" class="icon-btn" aria-label="Dismiss" title="Dismiss" onclick={ondismiss}
       ><Icon name="x" size={16} /></button
     >
   </div>

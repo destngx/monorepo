@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Transaction } from '$lib/api/types';
-  import Icon from '$lib/components/Icon.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
   import CategoryBadge from './CategoryBadge.svelte';
@@ -65,7 +65,12 @@
             class="px-5 py-2 font-medium {column.align ?? ''}"
             aria-sort={sortKey === column.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
           >
-            <button type="button" class="inline-flex items-center gap-1 uppercase" onclick={() => onsort(column.key)}>
+            <button
+              type="button"
+              class="-mx-1 inline-flex items-center gap-1 rounded-md px-1 uppercase hover:bg-slate-900/[0.06] hover:text-slate-900 active:bg-slate-900/10 dark:hover:bg-white/10 dark:hover:text-white"
+              title="Sort by {column.label.toLowerCase()}"
+              onclick={() => onsort(column.key)}
+            >
               {column.label}
               {#if sortKey === column.key}<span aria-hidden="true">{sortDir === 'asc' ? '▲' : '▼'}</span>{/if}
             </button>
@@ -76,7 +81,7 @@
     </thead>
     <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
       {#each items as tx (tx.id)}
-        <tr class="align-top hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.02]">
+        <tr class="align-top {selectedIds.includes(tx.id) ? 'bg-indigo-500/[0.06] dark:bg-indigo-400/10' : ''}">
           <td class="py-2.5 pl-5">
             <input
               type="checkbox"
@@ -110,12 +115,8 @@
             {#if tx.deposit}<Money value={tx.deposit} signed tone />{/if}
           </td>
           <td class="px-5 py-2 text-right whitespace-nowrap">
-            <button type="button" class="btn-ghost px-2" aria-label="Edit {tx.payee}" onclick={() => onedit(tx)}
-              ><Icon name="pencil" size={15} /></button
-            >
-            <button type="button" class="btn-ghost px-2" aria-label="Delete {tx.payee}" onclick={() => ondelete(tx)}
-              ><Icon name="trash" size={15} /></button
-            >
+            <Button size="icon" icon="pencil" label="Edit {tx.payee}" onclick={() => onedit(tx)} />
+            <Button size="icon" icon="trash" label="Delete {tx.payee}" onclick={() => ondelete(tx)} />
           </td>
         </tr>
       {/each}

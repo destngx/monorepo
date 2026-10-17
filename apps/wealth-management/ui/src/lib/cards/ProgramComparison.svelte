@@ -2,6 +2,7 @@
   import { api } from '$lib/api/endpoints';
   import type { ProgramComparisonReport } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
@@ -32,9 +33,7 @@
   class={className}
 >
   {#snippet actions()}
-    <button type="button" class="btn-ghost" disabled={busy} onclick={compare}
-      >{busy ? 'Comparing...' : report ? 'Recompare' : 'Compare'}</button
-    >
+    <Button icon="refresh" {busy} busyText="Comparing…" onclick={compare}>{report ? 'Recompare' : 'Compare'}</Button>
   {/snippet}
   {#if error}<p role="alert" class="text-sm text-orange-600 dark:text-orange-400">{error}</p>{/if}
   {#if report}

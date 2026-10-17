@@ -179,12 +179,25 @@ export function parseCardPayment(form: {
   payee: string;
   amount: string;
   mcc: string;
-}): { query: CardPaymentQuery } | { error: string } {
+}): { query: CardPaymentQuery } | { error: string; field: 'amount' | 'mcc' | 'payee' } {
   const amount = Number(form.amount.replaceAll(',', '').trim());
-  if (!form.amount.trim() || !Number.isFinite(amount) || amount <= 0) return { error: 'Enter a positive amount.' };
+  if (!form.amount.trim() || !Number.isFinite(amount) || amount <= 0)
+    return { error: 'Enter a positive amount.', field: 'amount' };
   const mccText = form.mcc.trim();
-  if (mccText && !/^\d{4}$/.test(mccText)) return { error: 'An MCC is 4 digits, e.g. 5411.' };
+  if (mccText && !/^\d{4}$/.test(mccText)) return { error: 'An MCC is 4 digits, e.g. 5411.', field: 'mcc' };
   const payee = form.payee.trim();
-  if (!payee && !mccText) return { error: 'Enter the payee or its MCC.' };
+  if (!payee && !mccText) return { error: 'Enter the payee or its MCC.', field: 'payee' };
   return { query: { payee, amount, ...(mccText ? { mcc: Number(mccText) } : {}) } };
+}
+
+/** One card with its bank and every card's keyword (to colour card tags), or null when no card has that name. */
+export function findCard(
+  banks: CardBankReport[],
+  name: string,
+): { bank: CardBankReport; card: CardReport; cardKeywords: string[] } | null {
+  for (const bank of banks) {
+    const card = bank.cards.find((candidate) => candidate.name === name);
+    if (card) return { bank, card, cardKeywords: allCards(banks).map((other) => other.keyword) };
+  }
+  return null;
 }

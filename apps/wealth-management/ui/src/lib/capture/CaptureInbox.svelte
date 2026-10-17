@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from '$lib/components/Button.svelte';
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import type { CaptureLimits } from '$lib/api/types';
   import Icon from '$lib/components/Icon.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
@@ -113,9 +115,7 @@
   <p class="muted mt-1 text-xs">
     Bank and wallet app screenshots, statements, notification or SMS text. PNG, JPEG, WebP, GIF and HEIC (Safari).
   </p>
-  <button type="button" class="btn-ghost mt-3" {disabled} onclick={() => picker.click()}>
-    <Icon name="plus" size={16} /> Choose images
-  </button>
+  <Button icon="plus" class="mt-3" {disabled} onclick={() => picker.click()}>Choose images</Button>
   <input
     bind:this={picker}
     type="file"
@@ -140,14 +140,14 @@
     {disabled}
   ></textarea>
   <div class="mt-2 flex justify-end">
-    <button
-      type="button"
-      class="btn-ghost"
+    <Button
+      icon="plus"
       disabled={disabled || !text.trim()}
+      title={text.trim() ? undefined : 'Paste some text first'}
       onclick={() => {
         addText(text);
         text = '';
-      }}><Icon name="plus" size={16} /> Add text</button
+      }}>Add text</Button
     >
   </div>
 </div>
@@ -160,14 +160,17 @@
           <img src={item.previewUrl} alt={item.name} class="h-28 w-full rounded-md object-cover object-top" />
         {:else}
           <pre
-            class="h-28 overflow-hidden rounded-md bg-slate-900/5 p-2 text-[10px] whitespace-pre-wrap dark:bg-white/5">{item.text}</pre>
+            class="h-28 overflow-hidden rounded-md bg-slate-900/5 p-2 text-[10px] whitespace-pre-wrap dark:bg-white/5"><MaskedText
+              text={item.text}
+            /></pre>
         {/if}
         <p class="mt-1 truncate text-xs font-medium" title={item.name}>{item.id} · {item.name}</p>
         <p class="muted text-xs">{formatBytes(item.size)}</p>
         <button
           type="button"
-          class="glass absolute top-1 right-1 grid size-7 place-items-center"
+          class="glass absolute top-1 right-1 grid size-7 place-items-center hover:bg-white hover:text-rose-600 active:scale-90 disabled:opacity-50 dark:hover:bg-slate-800"
           aria-label="Remove {item.name}"
+          title="Remove {item.name}"
           {disabled}
           onclick={() => remove(item)}><Icon name="x" size={14} /></button
         >

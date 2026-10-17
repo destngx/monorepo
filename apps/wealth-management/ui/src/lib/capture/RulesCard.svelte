@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '$lib/components/Button.svelte';
   import type { CaptureRule } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
   import { ruleKey } from './review';
@@ -39,8 +40,8 @@
     {/each}
   </ul>
   <div class="mt-3 flex justify-end">
-    <button type="button" class="btn-ghost" disabled={saving || !saveCount} onclick={onsave}>
-      {saving ? 'Saving…' : `Save ${saveCount} rule${saveCount === 1 ? '' : 's'}`}
-    </button>
+    <Button busy={saving} busyText="Saving…" disabled={!saveCount} onclick={onsave}>
+      Save {saveCount} rule{saveCount === 1 ? '' : 's'}
+    </Button>
   </div>
 </Card>

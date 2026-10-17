@@ -5,13 +5,18 @@
   import { base } from '$app/paths';
   import { page } from '$app/state';
   import { api } from '$lib/api/endpoints';
+  import { track } from '$lib/api/deferred.svelte';
   import type { Transaction, TransactionInput } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
+  import Deferred from '$lib/components/Deferred.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { pendingDrafts } from '$lib/state/drafts.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SkeletonTable from '$lib/components/skeleton/SkeletonTable.svelte';
+  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import { formatDate } from '$lib/format';
   import { lastUsedAccount } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
@@ -29,7 +34,15 @@
     type SortKey,
   } from '$lib/transactions/filter';
 
+  // The header, search and Add render at once; the ledger streams into the
+  // table and the form options (accounts, categories, tags) into the form.
   let { data } = $props();
+  const ledger = track(() => data.transactions);
+  const options = track(() => data.options);
+  const cardKeywords = track(() => data.cardKeywords);
+  const rows = $derived(ledger.value ?? []);
+  const accounts = $derived(options.value?.accounts ?? []);
+  const categories = $derived(options.value?.categories ?? []);
 
   const PAGE_SIZE = 50;
   let query = $state('');
@@ -39,7 +52,7 @@
 
   // `?uncategorized=1` (from the home inbox) lists the rows that still need a category.
   const onlyUncategorized = $derived(page.url.searchParams.get('uncategorized') === '1');
-  const scoped = $derived(onlyUncategorized ? data.transactions.filter(needsCategory) : data.transactions);
+  const scoped = $derived(onlyUncategorized ? rows.filter(needsCategory) : rows);
   const filtered = $derived(sortTransactions(searchTransactions(scoped, query), sortKey, sortDir));
 
   function showAllRows() {
@@ -74,11 +87,13 @@
   // Deep link `/transactions?new=1&account=&payee=&category=` opens a prefilled
   // form (WM-TX-9), e.g. a balance adjustment from the accounts page; the
   // parameters are then dropped so a reload does not reopen it.
+  // It waits for the form options, so unknown accounts and categories are dropped.
   $effect(() => {
+    if (!options.value) return;
     const seed = prefillFromURL(
       page.url.searchParams,
-      data.accounts.map((account) => account.name),
-      data.categories.map((category) => category.name),
+      options.value.accounts.map((account) => account.name),
+      options.value.categories.map((category) => category.name),
     );
     if (!seed) return;
     untrack(() => openNew(seed));
@@ -91,7 +106,7 @@
   let selectedIds = $state<string[]>([]);
   let bulkCategory = $state('');
   let bulkFailures = $state<BulkFailure[]>([]);
-  const selectedRows = $derived(data.transactions.filter((tx) => selectedIds.includes(tx.id)));
+  const selectedRows = $derived(rows.filter((tx) => selectedIds.includes(tx.id)));
   const pageIds = $derived(paged.items.map((tx) => tx.id));
   const pageSelected = $derived(pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id)));
 
@@ -105,9 +120,9 @@
       : selectedIds.filter((id) => !pageIds.includes(id));
   }
 
+  // Runs from the bulk bar's Button (busy until done; an unexpected error is toasted there).
   async function applyCategory() {
     if (!bulkCategory || !selectedRows.length) return;
-    busy = true;
     bulkFailures = [];
     try {
       const result = await recategorise(selectedRows, bulkCategory, api.updateTransaction);
@@ -118,15 +133,12 @@
       }
       if (result.failed.length) toasts.push('warning', `${result.failed.length} transaction(s) were not changed.`);
     } finally {
-      busy = false;
       // Fresh etags for the next attempt, whatever happened.
       await invalidateAll();
     }
   }
 
-  const defaultAccount = $derived(
-    data.accounts.some((a) => a.name === lastUsedAccount.value) ? lastUsedAccount.value : '',
-  );
+  const defaultAccount = $derived(accounts.some((a) => a.name === lastUsedAccount.value) ? lastUsedAccount.value : '');
 
   function sortBy(key: SortKey) {
     if (sortKey === key) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
@@ -160,9 +172,9 @@
     }
   }
 
+  // Runs from the dialog's Delete Button, which stays busy until the sheet answers.
   async function remove() {
     if (!deleting) return;
-    busy = true;
     try {
       await api.deleteTransaction(deleting.id, deleting.etag);
       toasts.push('success', 'Transaction deleted.');
@@ -171,20 +183,21 @@
     } catch (error) {
       toasts.error(error, 'Could not delete the transaction');
       await invalidateAll();
-    } finally {
-      busy = false;
     }
   }
 </script>
 
-<PageHeader title="Transactions" subtitle="{data.transactions.length.toLocaleString('vi-VN')} transactions">
+<PageHeader
+  title="Transactions"
+  subtitle={ledger.value ? `${ledger.value.length.toLocaleString('vi-VN')} transactions` : 'Counting transactions…'}
+>
   {#snippet actions()}
     <!-- WM-TX-6 -->
     <a class="btn-ghost" href="{base}/transactions/drafts"
       ><Icon name="inbox" size={16} /> Drafts{pendingDrafts.count ? ` (${pendingDrafts.count})` : ''}</a
     >
     <a class="btn-ghost" href="{base}/transactions/capture"><Icon name="camera" size={16} /> Add from materials</a>
-    <button type="button" class="btn-primary" onclick={() => openNew()}><Icon name="plus" size={16} /> Add</button>
+    <Button variant="primary" icon="plus" onclick={() => openNew()}>Add</Button>
   {/snippet}
 </PageHeader>
 
@@ -202,86 +215,85 @@
       />
     </label>
     {#if onlyUncategorized}
-      <button type="button" class="btn-ghost text-sm" onclick={showAllRows}
-        >Without a category ({scoped.length}) <Icon name="x" size={14} /><span class="sr-only">Show all</span></button
+      <Button class="text-sm" title="Show all transactions" onclick={showAllRows}
+        >Without a category{ledger.value ? ` (${scoped.length})` : ''}
+        <Icon name="x" size={14} /><span class="sr-only">Show all</span></Button
       >
     {/if}
-    {#if query}<p class="muted text-sm">{filtered.length} matches</p>{/if}
+    {#if query && ledger.value}<p class="muted text-sm" aria-live="polite">{filtered.length} matches</p>{/if}
   </div>
 
-  {#if selectedIds.length}
-    <BulkBar
-      count={selectedIds.length}
-      categories={data.categories}
-      {busy}
-      bind:category={bulkCategory}
-      onapply={applyCategory}
-      onclear={() => (selectedIds = [])}
-    />
-  {/if}
+  <Deferred data={data.transactions} label="transactions">
+    {#snippet children()}
+      <div>
+        {#if selectedIds.length}
+          <BulkBar
+            count={selectedIds.length}
+            {categories}
+            loading={options.loading}
+            bind:category={bulkCategory}
+            onapply={applyCategory}
+            onclear={() => (selectedIds = [])}
+          />
+        {/if}
 
-  {#if bulkFailures.length}
-    <BulkFailures failures={bulkFailures} ondismiss={() => (bulkFailures = [])} />
-  {/if}
+        {#if bulkFailures.length}
+          <BulkFailures failures={bulkFailures} ondismiss={() => (bulkFailures = [])} />
+        {/if}
 
-  {#if paged.items.length}
-    <TransactionTable
-      items={paged.items}
-      cardKeywords={data.cardKeywords}
-      {selectedIds}
-      {pageSelected}
-      {sortKey}
-      {sortDir}
-      onsort={sortBy}
-      ontoggle={toggleRow}
-      ontogglepage={togglePage}
-      onedit={(tx) => (editing = tx)}
-      ondelete={(tx) => (deleting = tx)}
-    />
+        {#if paged.items.length}
+          <TransactionTable
+            items={paged.items}
+            cardKeywords={cardKeywords.value ?? []}
+            {selectedIds}
+            {pageSelected}
+            {sortKey}
+            {sortDir}
+            onsort={sortBy}
+            ontoggle={toggleRow}
+            ontogglepage={togglePage}
+            onedit={(tx) => (editing = tx)}
+            ondelete={(tx) => (deleting = tx)}
+          />
 
-    {#if paged.pages > 1}
-      <nav class="mt-4 flex items-center justify-between text-sm" aria-label="Pagination">
-        <button
-          type="button"
-          class="btn-ghost"
-          disabled={paged.page === 1}
-          onclick={() => (pageNumber = paged.page - 1)}
-        >
-          <Icon name="chevronLeft" size={16} /> Previous
-        </button>
-        <span class="muted">Page {paged.page} of {paged.pages}</span>
-        <button
-          type="button"
-          class="btn-ghost"
-          disabled={paged.page === paged.pages}
-          onclick={() => (pageNumber = paged.page + 1)}
-        >
-          Next <Icon name="chevronRight" size={16} />
-        </button>
-      </nav>
-    {/if}
-  {:else}
-    <EmptyState
-      title={query
-        ? 'No matching transactions'
-        : onlyUncategorized
-          ? 'Every transaction has a category'
-          : 'No transactions yet'}
-      detail={query
-        ? 'Try another search.'
-        : onlyUncategorized
-          ? 'Nothing left to categorize.'
-          : 'Add the first one with the Add button.'}
-    />
-  {/if}
+          {#if paged.pages > 1}
+            <nav class="mt-4 flex items-center justify-between text-sm" aria-label="Pagination">
+              <Button icon="chevronLeft" disabled={paged.page === 1} onclick={() => (pageNumber = paged.page - 1)}
+                >Previous</Button
+              >
+              <span class="muted">Page {paged.page} of {paged.pages}</span>
+              <Button disabled={paged.page === paged.pages} onclick={() => (pageNumber = paged.page + 1)}
+                >Next <Icon name="chevronRight" size={16} /></Button
+              >
+            </nav>
+          {/if}
+        {:else}
+          <EmptyState
+            title={query
+              ? 'No matching transactions'
+              : onlyUncategorized
+                ? 'Every transaction has a category'
+                : 'No transactions yet'}
+            detail={query
+              ? 'Try another search.'
+              : onlyUncategorized
+                ? 'Nothing left to categorize.'
+                : 'Add the first one with the Add button.'}
+          />
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet skeleton()}<SkeletonTable rows={8} columns={7} label="transactions" />{/snippet}
+  </Deferred>
 </Card>
 
-<button
-  type="button"
-  class="glass fixed right-4 bottom-4 z-20 grid size-10 place-items-center"
-  aria-label="Scroll to top"
-  onclick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><Icon name="arrowUp" size={18} /></button
->
+<Button
+  size="icon"
+  icon="arrowUp"
+  label="Scroll to top"
+  class="glass fixed right-4 bottom-4 z-20 size-10"
+  onclick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+/>
 
 <!-- WM-TX-7 -->
 <RecommendationsPanel
@@ -298,19 +310,25 @@
   onclose={closeEditor}
   wide
 >
-  {#key editorKey}
-    <TransactionForm
-      accounts={data.accounts}
-      categories={data.categories}
-      tags={data.tags}
-      initial={editing === 'new' ? null : editing}
-      {defaultAccount}
-      {prefill}
-      {busy}
-      onsubmit={save}
-      oncancel={closeEditor}
-    />
-  {/key}
+  <!-- The form needs the accounts, categories and tags; it opens at once and they stream in. -->
+  <Deferred data={data.options} label="accounts, categories and tags">
+    {#snippet children(value)}
+      {#key editorKey}
+        <TransactionForm
+          accounts={value.accounts}
+          categories={value.categories}
+          tags={value.tags}
+          initial={editing === 'new' ? null : editing}
+          {defaultAccount}
+          {prefill}
+          {busy}
+          onsubmit={save}
+          oncancel={closeEditor}
+        />
+      {/key}
+    {/snippet}
+    {#snippet skeleton()}<SkeletonText lines={6} label="accounts, categories and tags" />{/snippet}
+  </Deferred>
 </Modal>
 
 <Modal open={deleting !== null} title="Delete transaction" onclose={() => (deleting = null)}>
@@ -321,7 +339,7 @@
     </p>
   {/if}
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={() => (deleting = null)}>Cancel</button>
-    <button type="button" class="btn-danger" disabled={busy} onclick={remove}>{busy ? 'Deleting…' : 'Delete'}</button>
+    <Button onclick={() => (deleting = null)}>Cancel</Button>
+    <Button variant="danger" busyText="Deleting…" onclick={remove}>Delete</Button>
   {/snippet}
 </Modal>

@@ -3,6 +3,7 @@
   import { ApiError } from '$lib/api/client';
   import { api } from '$lib/api/endpoints';
   import type { Account, CaptureResult, Category, TransactionBatchResult, TransactionInput } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import type { InboxItem } from './materials';
@@ -193,8 +194,8 @@
     : ''}. Highlighted fields need a closer look."
 >
   {#snippet actions()}
-    <button type="button" class="btn-ghost" disabled={busy} onclick={() => selectAll(true)}>Select all</button>
-    <button type="button" class="btn-ghost" disabled={busy} onclick={() => selectAll(false)}>None</button>
+    <Button size="sm" disabled={busy} onclick={() => selectAll(true)}>Select all</Button>
+    <Button size="sm" disabled={busy} onclick={() => selectAll(false)}>None</Button>
   {/snippet}
 
   {#if rows.length}
@@ -238,22 +239,26 @@
       </p>
     {/if}
     {#if reject}
-      <button
-        type="button"
-        class="btn-ghost"
-        disabled={busy || selectedCount === 0 || Boolean(pending)}
+      <Button
+        icon="x"
+        busy={rejecting}
+        busyText="Rejecting…"
+        disabled={committing || selectedCount === 0 || Boolean(pending)}
         onclick={rejectSelected}
       >
-        {rejecting ? 'Rejecting…' : `Reject ${selectedCount}`}
-      </button>
+        Reject {selectedCount}
+      </Button>
     {/if}
-    <button type="button" class="btn-primary" disabled={busy || (!pending && selectedCount === 0)} onclick={commit}>
-      {committing
-        ? 'Writing…'
-        : pending
-          ? `Retry ${verb.toLowerCase()}`
-          : `${verb} ${selectedCount} row${selectedCount === 1 ? '' : 's'}`}
-    </button>
+    <Button
+      variant="primary"
+      icon="check"
+      busy={committing}
+      busyText="Writing…"
+      disabled={rejecting || (!pending && selectedCount === 0)}
+      onclick={commit}
+    >
+      {pending ? `Retry ${verb.toLowerCase()}` : `${verb} ${selectedCount} row${selectedCount === 1 ? '' : 's'}`}
+    </Button>
   </div>
 </Card>
 

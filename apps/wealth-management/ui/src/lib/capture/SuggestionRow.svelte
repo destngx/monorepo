@@ -2,7 +2,10 @@
   import type { Account, CaptureField, Category } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import { maskText } from '$lib/ai/moneyMask';
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
+  import { mask } from '$lib/state/mask.svelte';
   import { formatDate } from '$lib/format';
   import TagPicker from '$lib/transactions/TagPicker.svelte';
   import type { InboxItem } from './materials';
@@ -161,12 +164,19 @@
           {@const item = itemById.get(evidence.materialId)}
           <span class="inline-flex max-w-md items-center gap-1.5 rounded-lg bg-slate-900/5 px-2 py-1 dark:bg-white/5">
             {#if item?.previewUrl}
-              <a href={item.previewUrl} target="_blank" rel="noreferrer" title="Open {item.name}">
+              <a
+                href={item.previewUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open {item.name}"
+                class="block rounded transition hover:ring-2 hover:ring-indigo-400/60 active:opacity-80"
+              >
                 <img src={item.previewUrl} alt={item.name} class="h-8 w-8 rounded object-cover object-top" />
               </a>
             {/if}
             <span class="font-medium">{item?.label ?? evidence.materialId}</span>
-            {#if evidence.quote}<span class="muted truncate font-mono" title={evidence.quote}>“{evidence.quote}”</span
+            {#if evidence.quote}<span class="muted truncate font-mono" title={maskText(evidence.quote, mask.revealed)}
+                >“<MaskedText text={evidence.quote} />”</span
               >{/if}
           </span>
         {/each}
@@ -178,7 +188,7 @@
           <Money value={suggestion.duplicate.amount} /> ({suggestion.duplicate.transactionId}). Unselected by default.
         </p>
       {/if}
-      {#each suggestion.notes ?? [] as note (note)}<p class="muted mt-1 text-xs">{note}</p>{/each}
+      {#each suggestion.notes ?? [] as note (note)}<p class="muted mt-1 text-xs"><MaskedText text={note} /></p>{/each}
       {#each problems as problem (problem)}
         <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">{problem}</p>
       {/each}

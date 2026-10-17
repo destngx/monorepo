@@ -1,15 +1,21 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
+  import { track } from '$lib/api/deferred.svelte';
   import { api } from '$lib/api/endpoints';
   import type { CaptureProgress, CaptureResult, ExchangeRate } from '$lib/api/types';
   import CaptureInbox from '$lib/capture/CaptureInbox.svelte';
   import CaptureReview from '$lib/capture/CaptureReview.svelte';
   import { batchUsage, releaseItem, toPayload, type InboxItem } from '$lib/capture/materials';
   import { toReviewRows, type ReviewRow } from '$lib/capture/review';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
+  import Deferred from '$lib/components/Deferred.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import LoadError from '$lib/components/LoadError.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { formatVND } from '$lib/format';
   import { rateDetail } from '$lib/rates';
@@ -17,18 +23,33 @@
   import { STATUS } from '$lib/status';
 
   // Smart Capture (§6.2): materials → streamed analysis → review → commit.
+  // The materials inbox renders at once; the AI status and the review options
+  // stream in. Analyze waits for the AI status, the review for the options.
   let { data } = $props();
+  const ai = track(() => data.aiStatus);
+  const options = track(() => data.options);
+  // Null once loaded means the engine has no AI routes.
+  const aiStatus = $derived(ai.latest ? ai.latest.value : undefined);
 
   const EXTRACT_PROMPT = 'tasks/capture-extract';
   const limits = $derived(
-    data.aiStatus?.capture ?? { maxItems: 20, maxItemBytes: 5 * 1024 * 1024, maxBatchBytes: 20 * 1024 * 1024 },
+    aiStatus?.capture ?? { maxItems: 20, maxItemBytes: 5 * 1024 * 1024, maxBatchBytes: 20 * 1024 * 1024 },
   );
   const unavailable = $derived.by(() => {
-    if (!data.aiStatus) return 'AI is not available on the engine.';
-    if (!data.aiStatus.configured) return 'AI is not configured: add the AI endpoint and model.';
-    if (data.aiStatus.missingPrompts.includes(EXTRACT_PROMPT))
-      return `The Prompts sheet has no "${EXTRACT_PROMPT}" prompt.`;
+    if (aiStatus === undefined) return null;
+    if (!aiStatus) return 'AI is not available on the engine.';
+    if (!aiStatus.configured) return 'AI is not configured: add the AI endpoint and model.';
+    if (aiStatus.missingPrompts.includes(EXTRACT_PROMPT)) return `The Prompts sheet has no "${EXTRACT_PROMPT}" prompt.`;
     return null;
+  });
+  const analyzeHint = $derived.by(() => {
+    if (ai.loading) return 'Checking that AI is available…';
+    if (aiStatus === undefined) return 'The AI status did not load; retry it above.';
+    if (unavailable) return unavailable;
+    if (!items.length) return 'Add a screenshot or text first.';
+    if (preparing) return 'Preparing images…';
+    if (usage.problems.length) return usage.problems[0];
+    return undefined;
   });
 
   let stage = $state<'inbox' | 'analyzing' | 'review'>('inbox');
@@ -44,8 +65,10 @@
   let controller: AbortController | null = null;
 
   const usage = $derived(batchUsage(items, limits));
-  const canAnalyze = $derived(!unavailable && items.length > 0 && usage.problems.length === 0 && preparing === 0);
-  const providerHost = $derived(data.aiStatus?.endpoint || 'the configured AI provider');
+  const canAnalyze = $derived(
+    aiStatus !== undefined && !unavailable && items.length > 0 && usage.problems.length === 0 && preparing === 0,
+  );
+  const providerHost = $derived(aiStatus?.endpoint || 'the configured AI provider');
 
   const stepLabels: Record<CaptureProgress['stage'], string> = {
     extract: 'Reading materials',
@@ -97,8 +120,8 @@
 
   // Preview Binance (USD/USDT) rows in VND; the sheet formula does the real conversion.
   $effect(() => {
-    if (usd !== null || !rows.length) return;
-    const foreign = new Set(data.accounts.filter((a) => a.currency !== 'VND').map((a) => a.name));
+    if (usd !== null || !rows.length || !options.value) return;
+    const foreign = new Set(options.value.accounts.filter((a) => a.currency !== 'VND').map((a) => a.name));
     if (!rows.some((row) => foreign.has(row.tx.accountName))) return;
     api
       .exchangeRate('USD', 'VND')
@@ -132,8 +155,8 @@
   {#snippet actions()}
     <a class="btn-ghost" href="{base}/transactions"><Icon name="chevronLeft" size={16} /> Transactions</a>
     {#if stage === 'review'}
-      <button type="button" class="btn-ghost" onclick={() => (stage = 'inbox')}>Back to materials</button>
-      <button type="button" class="btn-ghost" onclick={startOver}>Start over</button>
+      <Button onclick={() => (stage = 'inbox')}>Back to materials</Button>
+      <Button icon="refresh" onclick={startOver}>Start over</Button>
     {/if}
   {/snippet}
 </PageHeader>
@@ -154,9 +177,11 @@
   <Card class="mb-4">
     <p class="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
       <Icon name="alert" size={16} />
-      {unavailable} See <a class="underline" href="{base}/settings">Settings</a>.
+      {unavailable} See <a class="link underline" href="{base}/settings">Settings</a>.
     </p>
   </Card>
+{:else if ai.failure && !ai.latest}
+  <LoadError failure={ai.failure} label="the AI status" retry={() => invalidateAll()} compact class="mb-4" />
 {/if}
 
 {#if stage === 'review' && result}
@@ -170,15 +195,27 @@
       {/if}
     </p>
   {/if}
-  <CaptureReview
-    bind:rows
-    {result}
-    {items}
-    accounts={data.accounts}
-    categories={data.categories}
-    tags={data.tags}
-    usdRate={usdQuote?.rate ?? null}
-  />
+  <!-- The analysis needs no options; editing and committing its rows does. -->
+  <Deferred data={data.options} label="accounts, categories and tags">
+    {#snippet children(value)}
+      <div>
+        {#if result}
+          <CaptureReview
+            bind:rows
+            {result}
+            {items}
+            accounts={value.accounts}
+            categories={value.categories}
+            tags={value.tags}
+            usdRate={usdQuote?.rate ?? null}
+          />
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet skeleton()}
+      <SkeletonCard title="Suggested transactions" lines={1} rows={4} label="accounts, categories and tags" />
+    {/snippet}
+  </Deferred>
 {:else}
   <Card title="Materials" subtitle="Add everything about the same period at once: matching messages are merged.">
     <CaptureInbox bind:items bind:preparing {limits} disabled={stage === 'analyzing'} />
@@ -203,13 +240,16 @@
 
     <div class="mt-4 flex justify-end gap-2">
       {#if stage === 'analyzing'}
-        <button type="button" class="btn-ghost" onclick={() => controller?.abort()}>
-          <Icon name="stop" size={16} /> Cancel
-        </button>
+        <Button icon="stop" onclick={() => controller?.abort()}>Cancel</Button>
       {:else}
-        <button type="button" class="btn-primary" disabled={!canAnalyze} onclick={analyze}>
-          <Icon name="sparkles" size={16} /> Analyze {items.length || ''}
-        </button>
+        <Button
+          variant="primary"
+          icon="sparkles"
+          busy={ai.loading}
+          disabled={!canAnalyze}
+          title={analyzeHint}
+          onclick={analyze}>Analyze {items.length || ''}</Button
+        >
       {/if}
     </div>
   </Card>

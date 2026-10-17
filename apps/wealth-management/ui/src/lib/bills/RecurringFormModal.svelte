@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '$lib/components/Button.svelte';
   import type { SubmitHandler } from '$lib/accounts/handlers';
   import Modal from '$lib/components/Modal.svelte';
   import { KIND_LABELS, type RecurringForm } from './bills';
@@ -8,12 +9,14 @@
     title: string;
     form: RecurringForm;
     busy: boolean;
+    /** Why the last submit was refused, shown above the buttons. */
+    error?: string | null;
     submitLabel: string;
     onclose: () => void;
     onsubmit: SubmitHandler;
   }
 
-  let { open, title, form = $bindable(), busy, submitLabel, onclose, onsubmit }: Props = $props();
+  let { open, title, form = $bindable(), busy, error = null, submitLabel, onclose, onsubmit }: Props = $props();
 
   const isCard = $derived(form.kind === 'card');
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -115,11 +118,10 @@
       <label class="label" for="recurring-note">Note</label>
       <input id="recurring-note" class="field" bind:value={form.note} />
     </div>
+    {#if error}<p role="alert" class="text-sm text-orange-600 sm:col-span-2 dark:text-orange-400">{error}</p>{/if}
   </form>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={onclose}>Cancel</button>
-    <button type="submit" form="recurring-form" class="btn-primary" disabled={busy}
-      >{busy ? 'Saving…' : submitLabel}</button
-    >
+    <Button disabled={busy} onclick={onclose}>Cancel</Button>
+    <Button type="submit" form="recurring-form" variant="primary" {busy} busyText="Saving…">{submitLabel}</Button>
   {/snippet}
 </Modal>

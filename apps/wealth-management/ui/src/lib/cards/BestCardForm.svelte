@@ -2,6 +2,7 @@
   import { api } from '$lib/api/endpoints';
   import type { CardSuggestion } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Money from '$lib/components/Money.svelte';
   import { MCC_STATUS, parseCardPayment } from './cards';
@@ -10,6 +11,8 @@
   let form = $state({ payee: '', amount: '', mcc: '' });
   let busy = $state(false);
   let error = $state<string | null>(null);
+  // Which field the last refused submit was about, marked invalid until the next submit.
+  let invalid = $state<'amount' | 'mcc' | 'payee' | null>(null);
   let suggestions = $state<CardSuggestion[] | null>(null);
   let controller: AbortController | null = null;
 
@@ -18,8 +21,10 @@
     const parsed = parseCardPayment(form);
     if ('error' in parsed) {
       error = parsed.error;
+      invalid = parsed.field;
       return;
     }
+    invalid = null;
     controller?.abort();
     const current = new AbortController();
     controller = current;
@@ -46,17 +51,36 @@
   <form class="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end" onsubmit={submit} novalidate>
     <div>
       <label class="label" for="best-card-payee">Payee</label>
-      <input id="best-card-payee" class="field" bind:value={form.payee} autocomplete="off" />
+      <input
+        id="best-card-payee"
+        class="field"
+        bind:value={form.payee}
+        autocomplete="off"
+        aria-invalid={invalid === 'payee' || undefined}
+      />
     </div>
     <div>
       <label class="label" for="best-card-amount">Amount</label>
-      <input id="best-card-amount" class="field" inputmode="numeric" bind:value={form.amount} />
+      <input
+        id="best-card-amount"
+        class="field"
+        inputmode="numeric"
+        bind:value={form.amount}
+        aria-invalid={invalid === 'amount' || undefined}
+      />
     </div>
     <div>
       <label class="label" for="best-card-mcc">MCC (if known)</label>
-      <input id="best-card-mcc" class="field" inputmode="numeric" maxlength="4" bind:value={form.mcc} />
+      <input
+        id="best-card-mcc"
+        class="field"
+        inputmode="numeric"
+        maxlength="4"
+        bind:value={form.mcc}
+        aria-invalid={invalid === 'mcc' || undefined}
+      />
     </div>
-    <button type="submit" class="btn-primary" disabled={busy}>{busy ? 'Checking...' : 'Suggest'}</button>
+    <Button type="submit" variant="primary" {busy} busyText="Checking…">Suggest</Button>
   </form>
   {#if error}<p role="alert" class="mt-3 text-sm text-orange-600 dark:text-orange-400">{error}</p>{/if}
   {#if suggestions}

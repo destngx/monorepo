@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import type { IdleCash } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -43,7 +44,8 @@
     {#if idle.verdict !== 'worth_moving'}
       <ul class="mt-1 space-y-0.5 text-sm {STATUS[verdict.tone].ink}">
         {#each idle.reasons as reason (reason)}
-          <li>{reason}</li>
+          <!-- Reasons can quote amounts ("about 150.000 VND a year"): masked like any amount. -->
+          <li><MaskedText text={reason} /></li>
         {/each}
       </ul>
     {/if}

@@ -1,13 +1,12 @@
-import { error } from '@sveltejs/kit';
 import { api } from '$lib/api/endpoints';
-import { loadOrError } from '$lib/api/load';
-import { allCards } from '$lib/cards/cards';
+import { defer } from '$lib/api/load';
+import { findCard } from '$lib/cards/cards';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ fetch, params }) => {
-  const banks = await loadOrError(() => api.cards({ fetch }));
-  const bank = banks.find((candidate) => candidate.cards.some((card) => card.name === params.name));
-  const card = bank?.cards.find((candidate) => candidate.name === params.name);
-  if (!bank || !card) error(404, { message: `No credit card named ${params.name}.` });
-  return { bank, card, cardKeywords: allCards(banks).map((other) => other.keyword) };
-};
+// The card name comes from the URL, so the header, back link and AI summary
+// render at once; the card's report streams in. An unknown name resolves to
+// null and the page says so in place of the report.
+export const load: PageLoad = ({ fetch, params }) => ({
+  name: params.name,
+  detail: defer(async () => findCard(await api.cards({ fetch }), params.name)),
+});
