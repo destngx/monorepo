@@ -392,6 +392,19 @@ func TestBillsTools(t *testing.T) {
 	if result, err := call("GetIdleCash", `{}`); err != nil || !strings.Contains(result.Content, `"idle":12000000`) || !strings.Contains(result.Content, `"verdict":"no_rate"`) {
 		t.Fatalf("idle cash: %v %s", err, result.Content)
 	}
+	etag := domain.ParsePreferences(nil, 2).SafeToSpend.ETag
+	if result, err := call("SetAccountReadyToUse", `{"account":"Bank","ready":false,"etag":"`+etag+`"}`); err != nil || !strings.Contains(result.Content, `"notReadyAccounts":["Bank"]`) {
+		t.Fatalf("mark not ready: %v %+v", err, result)
+	}
+	if result, err := call("GetSafeToSpend", `{}`); err != nil || !strings.Contains(result.Content, `"reason":"not_ready"`) || !strings.Contains(result.Content, `"readyMoney":0`) {
+		t.Fatalf("safe-to-spend after marking: %v %s", err, result.Content)
+	}
+	if _, err := call("SetAccountReadyToUse", `{"account":"Bank","ready":true,"etag":"`+etag+`"}`); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("a stale etag must conflict, got %v", err)
+	}
+	if _, err := call("SetAccountReadyToUse", `{"account":"Bank","ready":true}`); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("the etag is required, got %v", err)
+	}
 	if _, err := call("CreateRecurringItem", `{"name":"Water","kind":"bill","amount":200000,"day":5,"match":"Water Co"}`); err != nil || len(db.CreatedRecurring) != 1 {
 		t.Fatalf("create: %v", err)
 	}

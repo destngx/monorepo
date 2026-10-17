@@ -129,3 +129,91 @@ func TestGivenABadTargetRowWhenSavingAnotherKeyThenTheSaveIsNotBlocked(t *testin
 		t.Fatalf("next %+v err %v", next, err)
 	}
 }
+
+func TestGivenNotReadyAccountsSavedAsAJSONListWhenParsingThenSafeToSpendSettingsCarryTheNamesAndAnETag(t *testing.T) {
+	rows := [][]string{
+		{"safeToSpend.notReadyAccounts", `["Broker B", " ", "bank a", "Bank A"]`, "slow to withdraw"},
+	}
+	prefs := ParsePreferences(rows, 2)
+	got := prefs.SafeToSpend.NotReadyAccounts
+	if strings.Join(got, "|") != "bank a|Broker B" || len(prefs.Issues) != 0 {
+		t.Fatalf("names %q issues %v", got, prefs.Issues)
+	}
+	if prefs.SafeToSpend.ETag == "" || prefs.SafeToSpend.ETag == ParsePreferences(nil, 2).SafeToSpend.ETag {
+		t.Fatalf("the etag fingerprints the saved value: %q", prefs.SafeToSpend.ETag)
+	}
+	if len(prefs.Entries) != 1 || prefs.Entries[0].Value != nil || len(prefs.Entries[0].Names) != 2 || prefs.Entries[0].Row != 2 {
+		t.Fatalf("entries %+v", prefs.Entries)
+	}
+}
+
+func TestGivenNotReadyAccountsThatAreNotAJSONListWhenParsingThenNoAccountIsMarkedAndTheRowIsReported(t *testing.T) {
+	prefs := ParsePreferences([][]string{{"safeToSpend.notReadyAccounts", "Broker B"}}, 2)
+	if len(prefs.SafeToSpend.NotReadyAccounts) != 0 || len(prefs.Issues) != 1 || !strings.Contains(prefs.Issues[0], "row 2") {
+		t.Fatalf("settings %+v issues %v", prefs.SafeToSpend, prefs.Issues)
+	}
+	if prefs.SafeToSpend.NotReadyAccounts == nil {
+		t.Fatal("an empty list, never null")
+	}
+}
+
+func TestGivenNoNotReadySettingWhenMarkingAnAccountNotReadyThenItIsAddedAsANewRow(t *testing.T) {
+	current := ParsePreferences(nil, 2)
+	next, err := ApplyAccountReadiness(current, AccountReadinessInput{Account: " Broker B ", Ready: false, ETag: current.SafeToSpend.ETag})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(next.SafeToSpend.NotReadyAccounts, "|") != "Broker B" {
+		t.Fatalf("names %q", next.SafeToSpend.NotReadyAccounts)
+	}
+	entry := next.Entries[len(next.Entries)-1]
+	if entry.Key != PrefSafeToSpendNotReadyAccounts || entry.Row != 0 || entry.Note == "" {
+		t.Fatalf("entry %+v", entry)
+	}
+	encoded, err := EncodeAccountNames(entry.Names)
+	if err != nil || encoded != `["Broker B"]` {
+		t.Fatalf("encoding %q err %v", encoded, err)
+	}
+	if empty, err := EncodeAccountNames(nil); err != nil || empty != "" {
+		t.Fatalf("no names clear the cell: %q err %v", empty, err)
+	}
+}
+
+func TestGivenAMarkedAccountWhenMarkingItReadyThenItIsRemovedIgnoringCase(t *testing.T) {
+	current := ParsePreferences([][]string{{"safeToSpend.notReadyAccounts", `["Broker B","Bank A"]`}}, 2)
+	next, err := ApplyAccountReadiness(current, AccountReadinessInput{Account: "broker b", Ready: true, ETag: current.SafeToSpend.ETag})
+	if err != nil || strings.Join(next.SafeToSpend.NotReadyAccounts, "|") != "Bank A" || next.Entries[0].Row != 2 {
+		t.Fatalf("next %+v err %v", next, err)
+	}
+	// marking an account already marked keeps one entry
+	again, err := ApplyAccountReadiness(current, AccountReadinessInput{Account: "BANK A", ETag: current.SafeToSpend.ETag})
+	if err != nil || len(again.SafeToSpend.NotReadyAccounts) != 2 {
+		t.Fatalf("again %+v err %v", again.SafeToSpend, err)
+	}
+}
+
+func TestGivenAStaleOrMissingETagWhenChangingReadinessThenItIsRejected(t *testing.T) {
+	current := ParsePreferences([][]string{{"safeToSpend.notReadyAccounts", `["Broker B"]`}}, 2)
+	stale := ParsePreferences(nil, 2).SafeToSpend.ETag
+	if _, err := ApplyAccountReadiness(current, AccountReadinessInput{Account: "Bank A", ETag: stale}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("stale etag: %v", err)
+	}
+	if _, err := ApplyAccountReadiness(current, AccountReadinessInput{Account: "Bank A"}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("missing etag: %v", err)
+	}
+	if _, err := ApplyAccountReadiness(current, AccountReadinessInput{Account: " ", ETag: current.SafeToSpend.ETag}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("missing account: %v", err)
+	}
+}
+
+func TestGivenTheNotReadyKeyWhenSavingItAsANumberPreferenceThenItIsRejected(t *testing.T) {
+	update := PreferencesUpdate{Values: []PreferenceValue{{Key: PrefSafeToSpendNotReadyAccounts, Value: number(1)}}}
+	if err := update.Validate(); !errors.Is(err, ErrValidation) || !strings.Contains(err.Error(), "per account") {
+		t.Fatalf("err %v", err)
+	}
+	for _, key := range PreferenceKeyNames() {
+		if key == string(PrefSafeToSpendNotReadyAccounts) {
+			t.Fatal("the number preference schema must not list the account list key")
+		}
+	}
+}

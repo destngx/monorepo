@@ -14,19 +14,21 @@ const summary = (safeToSpend: number, shortBy = 0): BillsSummary => ({
     untilIncome: true,
     incomeName: 'Salary',
     days: 8,
-    spendableCash: 20_000_000,
-    cashAccounts: [],
+    readyMoney: 20_000_000,
+    readyAccounts: [{ name: 'Bank A', balance: 20_000_000 }],
+    excludedAccounts: [{ name: 'Broker B', balance: 9_000_000, reason: 'not_ready' }],
+    readiness: { notReadyAccounts: ['Broker B'], etag: 'etag-1' },
     billsDue: 3_000_000,
     cardPayments: 5_000_000,
-    goalSetAside: 4_000_000,
-    goalPlanUsed: true,
     amount: safeToSpend - shortBy,
     safeToSpend,
     shortBy,
     perDay: safeToSpend / 8,
     counted: [],
     explanation: '',
-    goalSetAsideRule: '',
+    readyRule: '',
+    unknownNotReady: [],
+    issues: [],
   },
   facts: {
     items: 3,
@@ -36,6 +38,9 @@ const summary = (safeToSpend: number, shortBy = 0): BillsSummary => ({
     overdueAmount: 0,
     safeToSpend,
     shortBy,
+    readyMoney: 20_000_000,
+    dueBeforeUntil: 8_000_000,
+    excludedAccounts: 1,
     until: '2026-10-25',
     untilIncome: true,
     suggestions: 0,
@@ -53,6 +58,19 @@ describe('SafeToSpendCard', () => {
     expect(container.querySelector('[data-status="good"]')?.textContent).toContain('Covered');
     expect(container.textContent).toContain('a day for 8 days');
     expect(container.querySelector('a')?.getAttribute('href')).toBe('/ui/bills');
+  });
+
+  it('Given ready money and bills before payday When shown Then the math names ready money and no goal set-aside', () => {
+    mask.toggle();
+    render(SafeToSpendCard, { summary: summary(12_000_000) });
+    const math = (screen.getByTestId('safe-math').textContent ?? '').replace(/\s+/g, ' ');
+    expect(math).toContain('20.000.000');
+    expect(math).toContain('of ready money after');
+    expect(math).toContain('8.000.000');
+    expect(math).toContain('due before');
+    expect(math).toContain('paid by that wage');
+    expect(math).toContain('Left out: 1 account');
+    expect(math.toLowerCase()).not.toContain('goal');
   });
 
   it('says when the money is short', () => {

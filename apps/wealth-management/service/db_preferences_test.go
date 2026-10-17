@@ -9,6 +9,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -208,5 +209,102 @@ func TestGivenTheLocalWorkbookWhenSavingPreferencesThenTheyRoundTripAndOnlyThePr
 	accounts, err := client.ReadSheet("Accounts!A1:Z10")
 	if err != nil || len(accounts) != 1 || len(accounts[0]) != 1 {
 		t.Fatalf("the Accounts tab must be untouched: %v err %v", accounts, err)
+	}
+}
+
+func TestGivenAnAccountWhenMarkingItNotReadyThenTheSettingRowIsAppendedAsAJSONList(t *testing.T) {
+	client := newFakeSheetClient()
+	seedAccounts(client)
+	client.titles = []string{preferencesSheet}
+	client.ranges[preferencesRange] = [][]string{{"goal.emergencyMonths", "6", "note"}}
+	cache := newFakeCache()
+	svc := newTestDBService(t, client, cache)
+	current, err := svc.ListPreferences(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetAccountReadiness(domain.AccountReadinessInput{Account: "bank", Ready: false, ETag: current.SafeToSpend.ETag}); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.created) != 0 || len(client.updates) != 0 || len(client.appends) != 1 {
+		t.Fatalf("created %v updates %+v appends %+v", client.created, client.updates, client.appends)
+	}
+	row := client.appends[0].rows[0]
+	if row[0] != "safeToSpend.notReadyAccounts" || row[1] != `["bank"]` || row[2] == "" {
+		t.Fatalf("row %v", row)
+	}
+	if cache.invalidated[len(cache.invalidated)-1] != cacheKeyPreferences {
+		t.Fatalf("cache not invalidated: %v", cache.invalidated)
+	}
+}
+
+func TestGivenAMarkedAccountWhenMarkingItReadyThenOnlyItsRowIsRewritten(t *testing.T) {
+	client := newFakeSheetClient()
+	client.titles = []string{preferencesSheet}
+	client.ranges[preferencesRange] = [][]string{{"safeToSpend.notReadyAccounts", `["Broker B","Old Broker"]`, "my note"}}
+	svc := newTestDBService(t, client, newFakeCache())
+	current, err := svc.ListPreferences(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A name that is no longer an account can still be cleared.
+	if _, err := svc.SetAccountReadiness(domain.AccountReadinessInput{Account: "Old Broker", Ready: true, ETag: current.SafeToSpend.ETag}); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.updates) != 1 || client.updates[0].rangeValue != "Preferences!A2:B2" || client.updates[0].values[1] != `["Broker B"]` || len(client.appends) != 0 {
+		t.Fatalf("updates %+v appends %+v", client.updates, client.appends)
+	}
+}
+
+func TestGivenAStaleETagOrAnUnknownAccountWhenChangingReadinessThenNothingIsWritten(t *testing.T) {
+	client := newFakeSheetClient()
+	seedAccounts(client)
+	client.titles = []string{preferencesSheet}
+	client.ranges[preferencesRange] = [][]string{{"safeToSpend.notReadyAccounts", `["Bank"]`}}
+	svc := newTestDBService(t, client, newFakeCache())
+	stale := domain.ParsePreferences(nil, 2).SafeToSpend.ETag
+	if _, err := svc.SetAccountReadiness(domain.AccountReadinessInput{Account: "Bank", Ready: true, ETag: stale}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("stale etag: %v", err)
+	}
+	if _, err := svc.SetAccountReadiness(domain.AccountReadinessInput{Account: "Broker B", Ready: false, ETag: stale}); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown account: %v", err)
+	}
+	if len(client.updates) != 0 || len(client.appends) != 0 || len(client.created) != 0 {
+		t.Fatalf("nothing may be written: %+v %+v", client.updates, client.appends)
+	}
+}
+
+func TestGivenTheLocalWorkbookWhenChangingReadinessThenTheListRoundTripsAndOnlyThePreferencesTabChanges(t *testing.T) {
+	client, err := local_workbook.Open(emptyWorkbook(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.UpdateRow("Accounts!A2:G2", []any{"Broker B", "", "", "", 0.0, 1000.0, "active use"}); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewDatabaseService(client, nil, logger.NewTestLogger(t), DatabaseServiceOptions{Now: func() time.Time { return fixedNow }})
+
+	before, err := svc.ListPreferences(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marked, err := svc.SetAccountReadiness(domain.AccountReadinessInput{Account: "Broker B", ETag: before.SafeToSpend.ETag})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !marked.TabExists || strings.Join(marked.SafeToSpend.NotReadyAccounts, "|") != "Broker B" || marked.SafeToSpend.ETag == before.SafeToSpend.ETag {
+		t.Fatalf("marked %+v", marked)
+	}
+	cells, err := client.ReadSheet("Preferences!A2:C2")
+	if err != nil || len(cells) != 1 || cells[0][1] != `["Broker B"]` {
+		t.Fatalf("cells %v err %v", cells, err)
+	}
+	ready, err := svc.SetAccountReadiness(domain.AccountReadinessInput{Account: "broker b", Ready: true, ETag: marked.SafeToSpend.ETag})
+	if err != nil || len(ready.SafeToSpend.NotReadyAccounts) != 0 || len(ready.Issues) != 0 {
+		t.Fatalf("ready %+v err %v", ready, err)
+	}
+	titles, err := client.SheetTitles()
+	if err != nil || len(titles) != 2 {
+		t.Fatalf("titles %v err %v", titles, err)
 	}
 }

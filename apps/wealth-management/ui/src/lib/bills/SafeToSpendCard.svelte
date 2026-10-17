@@ -7,8 +7,8 @@
   import { formatDate } from '$lib/format';
   import { safeToSpendTone } from './bills';
 
-  // Home (ROADMAP R5): how much can be spent until the next income. The math
-  // and the calendar stay on the bills page.
+  // Home (ROADMAP R5): how much ready money can be spent until the next wage
+  // (D33). The math, the accounts and the calendar stay on the bills page.
   let { summary }: { summary: BillsSummary } = $props();
   const safe = $derived(summary.safeToSpend);
   const tone = $derived(safeToSpendTone(safe));
@@ -27,8 +27,11 @@
       <span>About <Money value={safe.perDay} /> a day for {safe.days} {safe.days === 1 ? 'day' : 'days'}</span>
     {/if}
   </p>
-  <p class="muted mt-3 text-xs">
-    After <Money value={safe.billsDue + safe.cardPayments} /> of bills and card payments due by {formatDate(safe.until)}
-    and <Money value={safe.goalSetAside} /> set aside for goals.
+  <p class="muted mt-3 text-xs" data-testid="safe-math">
+    <Money value={safe.readyMoney} /> of ready money after <Money value={safe.billsDue + safe.cardPayments} /> of bills and
+    card payments due {safe.untilIncome ? 'before' : 'by'}
+    {formatDate(safe.until)}{#if safe.untilIncome}; what is due on payday is paid by that wage{/if}.
+    {#if safe.excludedAccounts.length}Left out: {safe.excludedAccounts.length}
+      {safe.excludedAccounts.length === 1 ? 'account' : 'accounts'} (crypto or not ready to use).{/if}
   </p>
 </Card>

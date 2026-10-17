@@ -15,9 +15,27 @@ func TestE2EBillsRoundTrip(t *testing.T) {
 	var bills domain.Bills
 	h.request(t, http.MethodGet, "/api/bills?force=true", nil, http.StatusOK, &bills)
 	safe := bills.SafeToSpend
-	parts := safe.SpendableCash - safe.BillsDue - safe.CardPayments - safe.GoalSetAside
-	if math.Abs(safe.Amount-parts) > 1 || safe.SafeToSpend < 0 || safe.Until == "" {
+	parts := safe.ReadyMoney - safe.BillsDue - safe.CardPayments
+	if math.Abs(safe.Amount-parts) > 1 || safe.SafeToSpend < 0 || safe.Until == "" || safe.Readiness.ETag == "" {
 		t.Fatalf("safe-to-spend parts do not add up: %+v", safe)
+	}
+	for _, o := range safe.Counted {
+		if safe.UntilIncome && o.ExpectedDate >= safe.Until {
+			t.Fatalf("a payment due on or after payday is counted: %+v", o)
+		}
+	}
+	// Marking a ready account not ready moves it out of ready money, and back.
+	if len(safe.ReadyAccounts) > 0 {
+		account := safe.ReadyAccounts[0]
+		var prefs domain.Preferences
+		h.request(t, http.MethodPost, "/api/bills/safe-to-spend/accounts", map[string]any{"account": account.Name, "ready": false, "etag": safe.Readiness.ETag}, http.StatusOK, &prefs)
+		h.request(t, http.MethodPost, "/api/bills/safe-to-spend/accounts", map[string]any{"account": account.Name, "ready": true, "etag": safe.Readiness.ETag}, http.StatusConflict, nil)
+		var marked domain.Bills
+		h.request(t, http.MethodGet, "/api/bills?force=true", nil, http.StatusOK, &marked)
+		if math.Abs(marked.SafeToSpend.ReadyMoney-(safe.ReadyMoney-account.Balance)) > 1 {
+			t.Fatalf("the marked account still counts: %+v", marked.SafeToSpend)
+		}
+		h.request(t, http.MethodPost, "/api/bills/safe-to-spend/accounts", map[string]any{"account": account.Name, "ready": true, "etag": prefs.SafeToSpend.ETag}, http.StatusOK, nil)
 	}
 	for _, suggestion := range bills.Suggestions {
 		if suggestion.Key == "" || suggestion.Amount <= 0 || suggestion.Seen < 2 {

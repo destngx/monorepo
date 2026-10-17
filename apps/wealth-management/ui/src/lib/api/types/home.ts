@@ -4,6 +4,7 @@ export type NeedsYouKind =
   | 'drafts'
   | 'bill-overdue'
   | 'card-due'
+  | 'short-before-payday'
   | 'budget-over-pace'
   | 'lent-overdue'
   | 'goal-plan-short'

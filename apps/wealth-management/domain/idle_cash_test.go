@@ -20,8 +20,7 @@ func idleAccounts() []Account {
 }
 
 // idleBills owe 8M of bills (2M of them overdue) and a 3M card payment in
-// the next 30 days; a paid bill and an income are not counted. The goal
-// set-aside is 5M.
+// the next 30 days; a paid bill and an income are not counted.
 func idleBills() Bills {
 	return Bills{
 		Calendar: BillCalendar{Occurrences: []BillOccurrence{
@@ -31,13 +30,14 @@ func idleBills() Bills {
 			{Name: "Water", Kind: RecurringBill, Source: BillFromRecurring, Status: BillPaid, Remaining: 0, PaidAmount: 500_000},
 			{Name: "Salary", Kind: RecurringIncome, Source: BillFromRecurring, Status: BillDue, Remaining: 20_000_000},
 		}},
-		SafeToSpend: SafeToSpend{GoalSetAside: 5_000_000, GoalPlanUsed: true},
 	}
 }
 
-// idlePlan keeps a 10M spending buffer and a 30M emergency fund target.
+// idlePlan sets 5M aside for goals this month and keeps a 10M spending
+// buffer and a 30M emergency fund target.
 func idlePlan() *GoalPlan {
 	return &GoalPlan{
+		Check:    PlanCheck{RequiredPerMonth: 5_000_000},
 		Settings: GoalPoolSettings{EmergencyMonths: 6, SpendingBufferMonths: 1},
 		Pool:     GoalPool{SpendingBuffer: 10_000_000, BufferMonths: 1, AverageMonthlyExpense: 10_000_000},
 		Needs:    MonthlyNeeds{PerMonth: 4_000_000, Months: 6},
@@ -188,7 +188,7 @@ func TestGivenNoEmergencyGoalWhenCheckingIdleCashThenTheTargetComesFromTheSettin
 
 	input.Plan = nil
 	idle = ComputeIdleCash(input)
-	if idle.Components.EmergencyFund != 0 || idle.Components.SpendingBuffer != 0 || idle.Idle != 134_000_000 {
+	if idle.Components.EmergencyFund != 0 || idle.Components.SpendingBuffer != 0 || idle.Components.GoalSetAside != 0 || idle.Idle != 139_000_000 {
 		t.Fatalf("without a plan nothing is kept for it: %+v", idle.Components)
 	}
 }
@@ -237,5 +237,39 @@ func TestGroupThousandsUsesVietnameseSeparators(t *testing.T) {
 	}
 	if !strings.Contains(IdleCashThresholdRule, "200.000 VND") {
 		t.Fatal(IdleCashThresholdRule)
+	}
+}
+
+func TestGivenSafeToSpendLeavesOutCryptoAndSlowAccountsWhenCheckingIdleCashThenNothingChanges(t *testing.T) {
+	before := ComputeIdleCash(idleInput())
+
+	input := idleInput()
+	bills := ComputeBills(BillsInput{
+		Accounts:  input.Accounts,
+		Readiness: SafeToSpendSettings{NotReadyAccounts: []string{"Bank A"}},
+		Today:     billsToday,
+	})
+	if bills.SafeToSpend.ReadyMoney != 50_000_000 {
+		t.Fatalf("safe-to-spend leaves the slow account out: %+v", bills.SafeToSpend)
+	}
+	bills.Calendar = input.Bills.Calendar
+	input.Bills = bills
+	after := ComputeIdleCash(input)
+
+	// Idle cash keeps its own spendable cash (the liquid balance) and takes
+	// the goal set-aside from the goal plan, not from safe-to-spend.
+	if after.Components != before.Components || after.Idle != before.Idle || len(after.Accounts) != 3 {
+		t.Fatalf("idle cash changed: before %+v after %+v", before.Components, after.Components)
+	}
+	if after.Components.SpendableCash != 150_000_000 || after.Components.GoalSetAside != 5_000_000 {
+		t.Fatalf("components = %+v", after.Components)
+	}
+}
+
+func TestGivenAGoalPlanNotSetUpWhenCheckingIdleCashThenNothingIsSetAsideForGoals(t *testing.T) {
+	input := idleInput()
+	input.Plan.SetupNeeded = true
+	if c := ComputeIdleCash(input).Components; c.GoalSetAside != 0 {
+		t.Fatalf("components = %+v", c)
 	}
 }

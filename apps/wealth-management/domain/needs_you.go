@@ -26,23 +26,26 @@ import (
 type NeedsYouKind string
 
 const (
-	NeedsYouDrafts         NeedsYouKind = "drafts"
-	NeedsYouBillOverdue    NeedsYouKind = "bill-overdue"
-	NeedsYouCardDue        NeedsYouKind = "card-due"
-	NeedsYouBudgetOverPace NeedsYouKind = "budget-over-pace"
-	NeedsYouLentOverdue    NeedsYouKind = "lent-overdue"
-	NeedsYouGoalPlanShort  NeedsYouKind = "goal-plan-short"
-	NeedsYouGoalBehind     NeedsYouKind = "goal-behind"
-	NeedsYouRebalance      NeedsYouKind = "rebalance"
-	NeedsYouUncategorized  NeedsYouKind = "uncategorized"
-	NeedsYouRecommendation NeedsYouKind = "recommendation"
-	NeedsYouIdleCash       NeedsYouKind = "idle-cash"
-	NeedsYouMonthClose     NeedsYouKind = "month-close"
+	NeedsYouDrafts      NeedsYouKind = "drafts"
+	NeedsYouBillOverdue NeedsYouKind = "bill-overdue"
+	NeedsYouCardDue     NeedsYouKind = "card-due"
+	// NeedsYouShortBeforePayday: ready money does not cover the bills and
+	// card payments due before the next wage (safe-to-spend short, D33).
+	NeedsYouShortBeforePayday NeedsYouKind = "short-before-payday"
+	NeedsYouBudgetOverPace    NeedsYouKind = "budget-over-pace"
+	NeedsYouLentOverdue       NeedsYouKind = "lent-overdue"
+	NeedsYouGoalPlanShort     NeedsYouKind = "goal-plan-short"
+	NeedsYouGoalBehind        NeedsYouKind = "goal-behind"
+	NeedsYouRebalance         NeedsYouKind = "rebalance"
+	NeedsYouUncategorized     NeedsYouKind = "uncategorized"
+	NeedsYouRecommendation    NeedsYouKind = "recommendation"
+	NeedsYouIdleCash          NeedsYouKind = "idle-cash"
+	NeedsYouMonthClose        NeedsYouKind = "month-close"
 )
 
 // needsYouKindOrder breaks ties after severity, weight and due date.
 var needsYouKindOrder = []NeedsYouKind{
-	NeedsYouBillOverdue, NeedsYouCardDue, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
+	NeedsYouBillOverdue, NeedsYouShortBeforePayday, NeedsYouCardDue, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
 	NeedsYouGoalPlanShort, NeedsYouGoalBehind, NeedsYouRebalance, NeedsYouUncategorized, NeedsYouRecommendation,
 	NeedsYouIdleCash,
 }
@@ -211,6 +214,7 @@ func BuildNeedsYou(in NeedsYouInputs) NeedsYou {
 	if in.Bills != nil {
 		add(billsOverdueItem(*in.Bills))
 		add(cardsDueItem(*in.Bills))
+		add(shortBeforePaydayItem(*in.Bills))
 	}
 	if in.Budget != nil {
 		add(budgetOverPaceItem(*in.Budget, in.Categories, today))
@@ -302,6 +306,28 @@ func billsOverdueItem(bills Bills) (NeedsYouItem, bool) {
 		Headline:  plural(count, "bill is", "bills are") + " overdue",
 		Detail:    "Pay them, or record the payment if it was made, so safe-to-spend stays right.",
 		AmountVND: vndAmount(total), DueDate: earliest, Route: "/bills",
+	}, true
+}
+
+// shortBeforePaydayItem: safe-to-spend is short, i.e. ready money (no
+// crypto, no account marked not ready) does not cover the unpaid bills and
+// card payments due before the next wage. Serious: something goes unpaid
+// unless money is moved in time.
+func shortBeforePaydayItem(bills Bills) (NeedsYouItem, bool) {
+	safe := bills.SafeToSpend
+	if safe.ShortBy <= 0 {
+		return NeedsYouItem{}, false
+	}
+	headline, detail := "Ready money is short of the bills due before payday",
+		"Ready money does not cover the unpaid bills and card payments due before the next income. "+
+			"Move money from a slower account in time, or delay a payment."
+	if !safe.UntilIncome {
+		headline, detail = "Ready money is short of the bills due in the next 30 days",
+			"No income is expected, and ready money does not cover the unpaid bills and card payments due in the next 30 days."
+	}
+	return NeedsYouItem{
+		ID: string(NeedsYouShortBeforePayday), Kind: NeedsYouShortBeforePayday, Status: NeedsYouSerious,
+		Headline: headline, Detail: detail, AmountVND: vndAmount(safe.ShortBy), DueDate: safe.Until, Route: "/bills",
 	}, true
 }
 

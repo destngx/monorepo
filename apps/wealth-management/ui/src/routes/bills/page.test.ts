@@ -70,19 +70,39 @@ const bills: Bills = {
     untilIncome: true,
     incomeName: 'Salary',
     days: 8,
-    spendableCash: 9_870_000,
-    cashAccounts: [],
+    readyMoney: 9_870_000,
+    readyAccounts: [
+      { name: 'Bank A', balance: 7_870_000 },
+      { name: 'Wallet', balance: 2_000_000 },
+    ],
+    excludedAccounts: [
+      { name: 'Broker B', balance: 15_000_000, reason: 'not_ready' },
+      { name: 'Exchange C', balance: 4_000_000, reason: 'crypto' },
+    ],
+    readiness: { notReadyAccounts: ['Broker B', 'Old Broker'], etag: 'etag-1' },
     billsDue: 1_250_000,
     cardPayments: 0,
-    goalSetAside: 0,
-    goalPlanUsed: false,
     amount: 8_620_000,
     safeToSpend: 8_620_000,
     shortBy: 0,
     perDay: 1_077_500,
-    counted: [],
+    counted: [
+      {
+        name: 'Internet',
+        kind: 'bill',
+        source: 'recurring',
+        expectedDate: '2026-10-10',
+        expectedAmount: 250_000,
+        status: 'overdue',
+        daysUntil: -7,
+        paidAmount: 0,
+        remaining: 250_000,
+      },
+    ],
     explanation: '',
-    goalSetAsideRule: '',
+    readyRule: '',
+    unknownNotReady: ['Old Broker'],
+    issues: ['Preferences: safeToSpend.notReadyAccounts names "Old Broker", which is not an account'],
   },
 };
 
@@ -150,5 +170,53 @@ describe('Bills page', () => {
     mask.toggle();
     await flush();
     expect(document.body.textContent).toMatch(/8\.620\.000/);
+  });
+
+  it('Given ready money When the breakdown shows Then each account has a switch and left-out accounts give the reason', async () => {
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    const switches = screen.getAllByRole('switch');
+    expect(switches.map((s) => s.getAttribute('aria-label'))).toEqual([
+      'Bank A is ready to use',
+      'Wallet is ready to use',
+      'Broker B is not ready to use',
+    ]);
+    expect(switches.map((s) => s.getAttribute('aria-checked'))).toEqual(['true', 'true', 'false']);
+    const breakdown = screen.getByTestId('ready-money').textContent ?? '';
+    expect(breakdown).toContain('Left out: marked not ready to use (slow to withdraw)');
+    expect(breakdown).toContain('Left out: crypto');
+    expect(breakdown).toContain('Due before 25/10/2026');
+    expect(breakdown).toContain('Internet, 10/10/2026, overdue');
+    expect(breakdown).toContain('“Old Broker” is marked not ready but is not an account');
+    expect(document.body.textContent).not.toMatch(/15\.000\.000|7\.870\.000/);
+    const explanation = screen.getByTestId('safe-explanation').textContent ?? '';
+    expect(explanation).toContain('anything due on payday itself is paid by that');
+    expect(explanation.toLowerCase()).not.toContain('goal');
+  });
+
+  it('Given a ready account When its switch is clicked Then the change is sent with the ETag and only that switch is busy', async () => {
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    const bank = screen.getByRole('switch', { name: 'Bank A is ready to use' });
+    await fireEvent.click(bank);
+    await flush();
+
+    const sent = calls.find((call) => call.name === 'setAccountReady');
+    expect(sent?.args).toEqual([{ account: 'Bank A', ready: false, etag: 'etag-1' }]);
+    expect(bank.getAttribute('aria-busy')).toBe('true');
+    expect(bank.textContent).toContain('Saving…');
+    expect(screen.getByRole('switch', { name: 'Broker B is not ready to use' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Given a marked name that is no account When Remove is clicked Then it is marked ready to clear it', async () => {
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Remove Old Broker from the not-ready accounts' }));
+    await flush();
+    const sent = calls.find((call) => call.name === 'setAccountReady');
+    expect(sent?.args).toEqual([{ account: 'Old Broker', ready: true, etag: 'etag-1' }]);
   });
 });

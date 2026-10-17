@@ -294,3 +294,24 @@ func TestGivenLastMonthEndedWithoutASnapshotWhenBuildingThenOneCloseItemCountsTh
 		t.Fatalf("items = %+v", result.Items)
 	}
 }
+
+func TestGivenReadyMoneyShortOfTheBillsBeforePaydayWhenBuildingThenOneSeriousItemSaysByHowMuch(t *testing.T) {
+	bills := &Bills{SafeToSpend: SafeToSpend{Until: "2026-10-25", UntilIncome: true, IncomeName: "Salary", ShortBy: 2_500_000, Amount: -2_500_000}}
+	item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}), NeedsYouShortBeforePayday)
+	if item.Status != NeedsYouSerious || item.AmountVND == nil || *item.AmountVND != 2_500_000 || item.DueDate != "2026-10-25" || item.Route != "/bills" {
+		t.Fatalf("item = %+v", item)
+	}
+	if item.Headline != "Ready money is short of the bills due before payday" || strings.Contains(item.Headline+item.Detail, "Salary") {
+		t.Fatalf("headline = %q detail = %q", item.Headline, item.Detail)
+	}
+
+	bills.SafeToSpend.UntilIncome = false
+	if item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}), NeedsYouShortBeforePayday); item.Headline != "Ready money is short of the bills due in the next 30 days" {
+		t.Fatalf("headline without income = %q", item.Headline)
+	}
+
+	bills.SafeToSpend.ShortBy = 0
+	if result := BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}); len(result.Items) != 0 {
+		t.Fatalf("covered: %+v", result.Items)
+	}
+}

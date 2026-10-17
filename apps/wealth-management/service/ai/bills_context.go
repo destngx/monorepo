@@ -10,17 +10,24 @@ type billsContext struct {
 	ShortBy          float64              `json:"shortBy"`
 	Until            string               `json:"until"`
 	UntilIncome      bool                 `json:"untilIncome"`
-	SpendableCash    float64              `json:"spendableCash"`
+	ReadyMoney       float64              `json:"readyMoney"`
+	ExcludedAccounts []excludedContext    `json:"excludedAccounts"`
 	BillsDue         float64              `json:"billsDue"`
 	CardPayments     float64              `json:"cardPayments"`
-	GoalSetAside     float64              `json:"goalSetAside"`
 	PerDay           float64              `json:"perDay"`
 	Rule             string               `json:"rule"`
+	ReadyRule        string               `json:"readyRule"`
 	Facts            domain.BillsFacts    `json:"facts"`
 	Calendar         []billContext        `json:"calendar"`
 	Suggestions      []suggestionContext  `json:"suggestions,omitempty"`
 	Items            []recurringItemFacts `json:"items"`
-	GoalSetAsideRule string               `json:"goalSetAsideRule"`
+}
+
+// excludedContext is an account left out of ready money, name masked.
+type excludedContext struct {
+	Name    string                 `json:"name"`
+	Balance float64                `json:"balance"`
+	Reason  domain.ExclusionReason `json:"reason"`
 }
 
 type billContext struct {
@@ -52,13 +59,22 @@ type recurringItemFacts struct {
 	NextDate  string                    `json:"nextDate,omitempty"`
 }
 
+// safeToSpendRule states the formula for the model (WM-BILL-5, D33).
+const safeToSpendRule = "safeToSpend = readyMoney - billsDue - cardPayments, floored at 0 (shortBy is the shortfall). " +
+	"Bills and card payments count when unpaid and due before the next income (overdue ones too); one due on payday " +
+	"is paid by that wage and not counted. Without an expected income the window is the next 30 days, inclusive. " +
+	"Goal money is not subtracted."
+
 func (s *Service) billsContext(bills domain.Bills) billsContext {
 	safe := bills.SafeToSpend
 	out := billsContext{
 		SafeToSpend: safe.SafeToSpend, ShortBy: safe.ShortBy, Until: safe.Until, UntilIncome: safe.UntilIncome,
-		SpendableCash: safe.SpendableCash, BillsDue: safe.BillsDue, CardPayments: safe.CardPayments, GoalSetAside: safe.GoalSetAside,
-		PerDay: safe.PerDay, Rule: "safeToSpend = spendableCash - billsDue - cardPayments - goalSetAside, floored at 0 (shortBy is the shortfall)",
-		Facts: bills.Facts(), Calendar: []billContext{}, Items: []recurringItemFacts{}, GoalSetAsideRule: safe.GoalSetAsideRule,
+		ReadyMoney: safe.ReadyMoney, ExcludedAccounts: []excludedContext{}, BillsDue: safe.BillsDue, CardPayments: safe.CardPayments,
+		PerDay: safe.PerDay, Rule: safeToSpendRule, ReadyRule: safe.ReadyRule,
+		Facts: bills.Facts(), Calendar: []billContext{}, Items: []recurringItemFacts{},
+	}
+	for _, excluded := range safe.ExcludedAccounts {
+		out.ExcludedAccounts = append(out.ExcludedAccounts, excludedContext{Name: s.masker.Mask(excluded.Name), Balance: excluded.Balance, Reason: excluded.Reason})
 	}
 	for _, o := range bills.Calendar.Occurrences {
 		out.Calendar = append(out.Calendar, billContext{

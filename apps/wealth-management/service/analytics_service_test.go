@@ -266,7 +266,7 @@ func TestGivenGoalSettingsInPreferencesWhenComputingTheGoalPlanThenThePlanUsesTh
 	}
 }
 
-func TestGivenRecurringItemsWhenComputingBillsThenTheSheetLedgerAndGoalPlanAreCombined(t *testing.T) {
+func TestGivenRecurringItemsWhenComputingBillsThenTheSheetLedgerAndPreferencesAreCombined(t *testing.T) {
 	amount := 8_000_000.0
 	db := &fakes.Database{
 		Accounts: []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 20_000_000}},
@@ -278,12 +278,40 @@ func TestGivenRecurringItemsWhenComputingBillsThenTheSheetLedgerAndGoalPlanAreCo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bills.TabExists || len(bills.Items) != 1 || bills.SafeToSpend.BillsDue != 8_000_000 || bills.SafeToSpend.SafeToSpend != 12_000_000 || bills.SafeToSpend.GoalPlanUsed {
+	if !bills.TabExists || len(bills.Items) != 1 || bills.SafeToSpend.BillsDue != 8_000_000 || bills.SafeToSpend.SafeToSpend != 12_000_000 || bills.SafeToSpend.ReadyMoney != 20_000_000 {
 		t.Fatalf("bills = %+v", bills.SafeToSpend)
 	}
 	db.Err = errors.New("sheet down")
 	if _, err := newAnalytics(db).Bills(false); err == nil {
 		t.Fatal("a read failure must surface")
+	}
+}
+
+func TestGivenAccountsMarkedNotReadyInPreferencesWhenComputingBillsThenSafeToSpendLeavesThemOut(t *testing.T) {
+	prefs := domain.ParsePreferences([][]string{{"safeToSpend.notReadyAccounts", `["Broker B","Old Broker"]`}}, 2)
+	db := &fakes.Database{
+		Accounts: []domain.Account{
+			{Name: "Bank A", Type: domain.AccountTypeBank, Balance: 20_000_000},
+			{Name: "Broker B", Type: domain.AccountTypeActiveUse, Balance: 30_000_000},
+		},
+		Preferences: &prefs,
+	}
+	analytics := newAnalytics(db)
+	bills, err := analytics.Bills(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	safe := bills.SafeToSpend
+	if safe.ReadyMoney != 20_000_000 || len(safe.ExcludedAccounts) != 1 || safe.ExcludedAccounts[0].Reason != domain.ExcludedNotReady {
+		t.Fatalf("safe = %+v", safe)
+	}
+	if len(safe.Issues) != 1 || safe.Readiness.ETag != prefs.SafeToSpend.ETag {
+		t.Fatalf("the unknown name is reported and the etag returned: %+v", safe)
+	}
+	// Idle cash keeps its own spendable cash: the slow account still counts.
+	idle, err := analytics.IdleCash(context.Background(), false)
+	if err != nil || idle.Components.SpendableCash != 50_000_000 {
+		t.Fatalf("idle = %+v err %v", idle.Components, err)
 	}
 }
 

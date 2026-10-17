@@ -1,14 +1,19 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 )
 
 // Preferences store (WM-SET-6..9, ROADMAP C6): an app-managed `Preferences`
-// tab with A Key, B Value (a number), C Note. The engine reads it like any
+// tab with A Key, B Value (a number, or a JSON list of account names for
+// safeToSpend.notReadyAccounts), C Note. The engine reads it like any
 // other tab and writes one row per key the user saves in the app; the tab is
 // created with its header on the first save. Hand edits are tolerated: blank
 // and header rows are skipped, and a bad row is reported as an issue and
@@ -23,6 +28,20 @@ const (
 	PrefAllocationTargetCrypto   PreferenceKey = "allocation.target.crypto"
 	PrefGoalEmergencyMonths      PreferenceKey = "goal.emergencyMonths"
 	PrefGoalSpendingBufferMonths PreferenceKey = "goal.spendingBufferMonths"
+	// PrefSafeToSpendNotReadyAccounts lists the accounts left out of
+	// safe-to-spend's ready money because they are slow to withdraw (D33).
+	PrefSafeToSpendNotReadyAccounts PreferenceKey = "safeToSpend.notReadyAccounts"
+)
+
+// PreferenceKind is the type of a key's value (column B).
+type PreferenceKind string
+
+const (
+	// PreferenceNumber is a plain number within the key's range.
+	PreferenceNumber PreferenceKind = "number"
+	// PreferenceAccountNames is a JSON list of account names, e.g.
+	// ["Bank A","Broker B"]; blank is an empty list.
+	PreferenceAccountNames PreferenceKind = "accountNames"
 )
 
 const (
@@ -40,10 +59,12 @@ const (
 // PreferenceSpec describes a known key: its valid range and the note written
 // next to it when the engine adds its row.
 type PreferenceSpec struct {
-	Key  PreferenceKey `json:"key"`
-	Min  float64       `json:"min"`
-	Max  float64       `json:"max"`
-	Note string        `json:"note"`
+	Key  PreferenceKey  `json:"key"`
+	Kind PreferenceKind `json:"kind"`
+	// Min and Max bound a number key; 0 for an account list.
+	Min  float64 `json:"min"`
+	Max  float64 `json:"max"`
+	Note string  `json:"note"`
 	// Default is nil when an unset key means "not set" (allocation targets).
 	Default *float64 `json:"default"`
 }
@@ -52,18 +73,22 @@ func preferenceDefault(value float64) *float64 { return &value }
 
 // PreferenceSpecs lists every key the engine knows, in tab order.
 var PreferenceSpecs = []PreferenceSpec{
-	{Key: PrefAllocationTargetCash, Min: 0, Max: 100, Note: "Target share of cash and deposits, percent; the three targets add up to 100"},
-	{Key: PrefAllocationTargetFunds, Min: 0, Max: 100, Note: "Target share of fund certificates, percent"},
-	{Key: PrefAllocationTargetCrypto, Min: 0, Max: 100, Note: "Target share of crypto, percent"},
-	{Key: PrefGoalEmergencyMonths, Min: 1, Max: maxEmergencyMonths, Note: "Emergency fund target in months of needs", Default: preferenceDefault(DefaultEmergencyMonths)},
-	{Key: PrefGoalSpendingBufferMonths, Min: 0, Max: maxSpendingBufferMonths, Note: "Months of spending kept out of the goal pool", Default: preferenceDefault(DefaultSpendingBufferMonths)},
+	{Key: PrefAllocationTargetCash, Kind: PreferenceNumber, Min: 0, Max: 100, Note: "Target share of cash and deposits, percent; the three targets add up to 100"},
+	{Key: PrefAllocationTargetFunds, Kind: PreferenceNumber, Min: 0, Max: 100, Note: "Target share of fund certificates, percent"},
+	{Key: PrefAllocationTargetCrypto, Kind: PreferenceNumber, Min: 0, Max: 100, Note: "Target share of crypto, percent"},
+	{Key: PrefGoalEmergencyMonths, Kind: PreferenceNumber, Min: 1, Max: maxEmergencyMonths, Note: "Emergency fund target in months of needs", Default: preferenceDefault(DefaultEmergencyMonths)},
+	{Key: PrefGoalSpendingBufferMonths, Kind: PreferenceNumber, Min: 0, Max: maxSpendingBufferMonths, Note: "Months of spending kept out of the goal pool", Default: preferenceDefault(DefaultSpendingBufferMonths)},
+	{Key: PrefSafeToSpendNotReadyAccounts, Kind: PreferenceAccountNames, Note: "Accounts not ready to use (slow to withdraw), left out of safe to spend; a JSON list of account names"},
 }
 
-// PreferenceKeyNames lists the known keys, for API schemas.
+// PreferenceKeyNames lists the number keys, for the schemas of
+// POST /api/preferences; the account list is set per account instead.
 func PreferenceKeyNames() []string {
 	keys := make([]string, 0, len(PreferenceSpecs))
 	for _, spec := range PreferenceSpecs {
-		keys = append(keys, string(spec.Key))
+		if spec.Kind == PreferenceNumber {
+			keys = append(keys, string(spec.Key))
+		}
 	}
 	return keys
 }
@@ -131,12 +156,28 @@ func DefaultGoalPoolSettings() GoalPoolSettings {
 	return GoalPoolSettings{EmergencyMonths: DefaultEmergencyMonths, SpendingBufferMonths: DefaultSpendingBufferMonths}
 }
 
+// SafeToSpendSettings are the safe-to-spend preferences (WM-BILL-5, D33).
+type SafeToSpendSettings struct {
+	// NotReadyAccounts are the accounts marked not ready to use (slow to
+	// withdraw), as saved; names that match no account are reported by
+	// safe-to-spend, never fatal.
+	NotReadyAccounts []string `json:"notReadyAccounts"`
+	// ETag fingerprints the saved value (also when unset), so a change can
+	// be refused when the setting changed since it was read.
+	ETag string `json:"etag"`
+}
+
 // PreferenceEntry is one row of the tab. Row is the sheet row (1-based).
 type PreferenceEntry struct {
-	Key   PreferenceKey `json:"key"`
-	Value *float64      `json:"value"`
-	Note  string        `json:"note"`
-	Row   int           `json:"row"`
+	Key PreferenceKey `json:"key"`
+	// Value is the number of a number key; nil when unset, invalid or a list.
+	Value *float64 `json:"value"`
+	// Names is the account list of an account list key.
+	Names []string `json:"names,omitempty"`
+	Note  string   `json:"note"`
+	Row   int      `json:"row"`
+	// ETag fingerprints column B as read; empty on a row not yet written.
+	ETag string `json:"etag,omitempty"`
 }
 
 // Preferences is the parsed tab with typed, validated values. Values the tab
@@ -145,8 +186,9 @@ type Preferences struct {
 	// TabExists is false until the first save creates the tab.
 	TabExists bool `json:"tabExists"`
 	// AllocationTargets is nil until all three targets are set and add up to 100.
-	AllocationTargets *AllocationTargets `json:"allocationTargets"`
-	GoalPool          GoalPoolSettings   `json:"goalPool"`
+	AllocationTargets *AllocationTargets  `json:"allocationTargets"`
+	GoalPool          GoalPoolSettings    `json:"goalPool"`
+	SafeToSpend       SafeToSpendSettings `json:"safeToSpend"`
 	// Entries are the rows of known keys, in sheet order.
 	Entries []PreferenceEntry `json:"entries"`
 	// Issues name rows that were ignored, e.g. a value out of range.
@@ -188,7 +230,16 @@ func ParsePreferences(rows [][]string, firstRow int) Preferences {
 			continue
 		}
 		seen[key] = true
-		entry := PreferenceEntry{Key: key, Note: strings.TrimSpace(cell(row, 2)), Row: sheetRow}
+		entry := PreferenceEntry{Key: key, Note: strings.TrimSpace(cell(row, 2)), Row: sheetRow, ETag: preferenceETag(cell(row, 1))}
+		if spec, _ := PreferenceSpecFor(key); spec.Kind == PreferenceAccountNames {
+			names, err := ParseAccountNames(cell(row, 1))
+			if err != nil {
+				prefs.Issues = append(prefs.Issues, fmt.Sprintf("Preferences row %d: %s %v; no account is marked", sheetRow, key, err))
+			}
+			entry.Names = names
+			prefs.Entries = append(prefs.Entries, entry)
+			continue
+		}
 		value, err := parsePreferenceValue(key, cell(row, 1))
 		if err != nil {
 			prefs.Issues = append(prefs.Issues, fmt.Sprintf("Preferences row %d: %v; the default is used", sheetRow, err))
@@ -210,6 +261,13 @@ func (p *Preferences) resolve() {
 	if value, ok := p.Value(PrefGoalSpendingBufferMonths); ok {
 		p.GoalPool.SpendingBufferMonths = value
 	}
+	p.SafeToSpend = SafeToSpendSettings{NotReadyAccounts: []string{}, ETag: preferenceETag("")}
+	if entry, ok := p.entry(PrefSafeToSpendNotReadyAccounts); ok {
+		p.SafeToSpend.NotReadyAccounts = append(p.SafeToSpend.NotReadyAccounts, entry.Names...)
+		if entry.ETag != "" {
+			p.SafeToSpend.ETag = entry.ETag
+		}
+	}
 	p.AllocationTargets = nil
 	cash, hasCash := p.Value(PrefAllocationTargetCash)
 	funds, hasFunds := p.Value(PrefAllocationTargetFunds)
@@ -226,6 +284,115 @@ func (p *Preferences) resolve() {
 			p.AllocationTargets = &targets
 		}
 	}
+}
+
+// entry returns the row of a key, if any.
+func (p Preferences) entry(key PreferenceKey) (PreferenceEntry, bool) {
+	for _, entry := range p.Entries {
+		if entry.Key == key {
+			return entry, true
+		}
+	}
+	return PreferenceEntry{}, false
+}
+
+// preferenceETag fingerprints a column B value as read (trimmed).
+func preferenceETag(raw string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(raw)))
+	return hex.EncodeToString(sum[:])[:16]
+}
+
+// ParseAccountNames reads an account list value: blank is an empty list,
+// otherwise a JSON list of strings. Names are trimmed, blanks dropped and
+// repeats (ignoring case) kept once; the result is sorted ignoring case.
+func ParseAccountNames(raw string) ([]string, error) {
+	names := []string{}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return names, nil
+	}
+	var parsed []string
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return names, fmt.Errorf("value is not a JSON list of account names such as [\"Bank A\"]")
+	}
+	return normalizeAccountNames(parsed), nil
+}
+
+// EncodeAccountNames writes an account list for column B: a JSON list, or
+// "" for no names (the cell is cleared).
+func EncodeAccountNames(names []string) (string, error) {
+	names = normalizeAccountNames(names)
+	if len(names) == 0 {
+		return "", nil
+	}
+	encoded, err := json.Marshal(names)
+	if err != nil {
+		return "", fmt.Errorf("encode account names: %w", err)
+	}
+	return string(encoded), nil
+}
+
+func normalizeAccountNames(raw []string) []string {
+	names := []string{}
+	for _, name := range raw {
+		name = strings.TrimSpace(name)
+		if name == "" || slices.ContainsFunc(names, func(kept string) bool { return strings.EqualFold(kept, name) }) {
+			continue
+		}
+		names = append(names, name)
+	}
+	slices.SortStableFunc(names, func(a, b string) int { return strings.Compare(strings.ToLower(a), strings.ToLower(b)) })
+	return names
+}
+
+// AccountReadinessInput marks one account ready to use or not (D33). ETag
+// is the SafeToSpendSettings ETag read with the setting.
+type AccountReadinessInput struct {
+	Account string `json:"account"`
+	Ready   bool   `json:"ready"`
+	ETag    string `json:"etag"`
+}
+
+// Validate checks an account and an ETag are given.
+func (in AccountReadinessInput) Validate() error {
+	var problems []string
+	if strings.TrimSpace(in.Account) == "" {
+		problems = append(problems, "account is required")
+	}
+	if strings.TrimSpace(in.ETag) == "" {
+		problems = append(problems, "etag is required")
+	}
+	return validationError(problems)
+}
+
+// ApplyAccountReadiness returns the preferences after marking the account
+// ready (removed from the list, ignoring case) or not ready (added). It
+// fails with ErrConflict when the setting changed since the ETag was read.
+// A row the change adds has Row 0.
+func ApplyAccountReadiness(current Preferences, input AccountReadinessInput) (Preferences, error) {
+	if err := input.Validate(); err != nil {
+		return Preferences{}, err
+	}
+	if strings.TrimSpace(input.ETag) != current.SafeToSpend.ETag {
+		return Preferences{}, fmt.Errorf("%w: the not-ready accounts changed since they were read; reload and try again", ErrConflict)
+	}
+	account := strings.TrimSpace(input.Account)
+	names := slices.DeleteFunc(slices.Clone(current.SafeToSpend.NotReadyAccounts), func(name string) bool { return strings.EqualFold(name, account) })
+	if !input.Ready {
+		names = append(names, account)
+	}
+	names = normalizeAccountNames(names)
+
+	next := Preferences{TabExists: current.TabExists, Entries: slices.Clone(current.Entries), Issues: []string{}}
+	index := slices.IndexFunc(next.Entries, func(entry PreferenceEntry) bool { return entry.Key == PrefSafeToSpendNotReadyAccounts })
+	if index >= 0 {
+		next.Entries[index].Names = names
+	} else {
+		spec, _ := PreferenceSpecFor(PrefSafeToSpendNotReadyAccounts)
+		next.Entries = append(next.Entries, PreferenceEntry{Key: PrefSafeToSpendNotReadyAccounts, Names: names, Note: spec.Note})
+	}
+	next.resolve()
+	return next, nil
 }
 
 func knownPreferenceKey(raw string) (PreferenceKey, bool) {
@@ -289,8 +456,13 @@ func (u PreferencesUpdate) Validate() error {
 	var problems []string
 	seen := map[PreferenceKey]bool{}
 	for _, item := range u.Values {
-		if _, ok := PreferenceSpecFor(item.Key); !ok {
+		spec, ok := PreferenceSpecFor(item.Key)
+		if !ok {
 			problems = append(problems, fmt.Sprintf("unknown preference key %q", item.Key))
+			continue
+		}
+		if spec.Kind != PreferenceNumber {
+			problems = append(problems, fmt.Sprintf("%s is a list of accounts: set it per account with POST /api/bills/safe-to-spend/accounts (MCP SetAccountReadyToUse)", item.Key))
 			continue
 		}
 		if seen[item.Key] {

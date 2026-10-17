@@ -48,7 +48,7 @@ const (
 
 // IdleCashKeepLiquidRule documents what stays liquid.
 const IdleCashKeepLiquidRule = "Kept liquid: unpaid bills and card payments due in the next 30 days (overdue ones too), " +
-	"this month's goal set-aside (as safe-to-spend uses it), the spending buffer (spending buffer months x average " +
+	"this month's goal set-aside (the full monthly amount the goal plan requires, not prorated), the spending buffer (spending buffer months x average " +
 	"monthly expense, as the goal pool uses it) and the emergency fund target (kept liquid). The parts overlap a " +
 	"little on purpose, so the idle figure errs low."
 
@@ -68,11 +68,15 @@ const idleCashRateBasis = "A proxy: the best savings rate published today by the
 
 // IdleCashComponents is the math: Idle = max(0, SpendableCash - KeepLiquid).
 type IdleCashComponents struct {
-	// SpendableCash is the liquid balance of safe-to-spend (WM-BILL-5).
+	// SpendableCash is the liquid balance (WM-HEA-2): positive balances of
+	// active, rarely used, bank and cash accounts. Unlike safe-to-spend's
+	// ready money it keeps crypto and accounts marked not ready.
 	SpendableCash float64 `json:"spendableCash"`
 	// BillsDue and CardPayments are unpaid in the 30-day bills calendar.
 	BillsDue     float64 `json:"billsDue"`
 	CardPayments float64 `json:"cardPayments"`
+	// GoalSetAside is this month's goal money: the goal plan's full
+	// required per month (dated active goals); 0 before the plan is set up.
 	GoalSetAside float64 `json:"goalSetAside"`
 	// SpendingBuffer = BufferMonths x AverageMonthlyExpense (WM-GOAL-4).
 	SpendingBuffer        float64 `json:"spendingBuffer"`
@@ -120,7 +124,7 @@ type IdleCash struct {
 }
 
 // IdleCashInput is what ComputeIdleCash needs. Plan may be nil (no goal
-// plan: no buffer and no emergency fund kept). Rates are the published bank
+// plan: no goal set-aside, buffer or emergency fund kept). Rates are the published bank
 // rates; RatesIssue says why they are missing.
 type IdleCashInput struct {
 	Accounts   []Account
@@ -173,7 +177,7 @@ func ComputeIdleCash(input IdleCashInput) IdleCash {
 }
 
 func keepLiquid(input IdleCashInput) IdleCashComponents {
-	c := IdleCashComponents{SpendableCash: liquidBalance(input.Accounts), GoalSetAside: input.Bills.SafeToSpend.GoalSetAside}
+	c := IdleCashComponents{SpendableCash: liquidBalance(input.Accounts)}
 	for _, o := range input.Bills.Calendar.Occurrences {
 		if o.IsIncome() || o.Status == BillPaid {
 			continue
@@ -185,6 +189,9 @@ func keepLiquid(input IdleCashInput) IdleCashComponents {
 		}
 	}
 	if plan := input.Plan; plan != nil {
+		if !plan.SetupNeeded {
+			c.GoalSetAside = math.Round(plan.Check.RequiredPerMonth)
+		}
 		c.SpendingBuffer = plan.Pool.SpendingBuffer
 		c.BufferMonths = plan.Pool.BufferMonths
 		c.AverageMonthlyExpense = plan.Pool.AverageMonthlyExpense

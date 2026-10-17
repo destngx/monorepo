@@ -75,3 +75,24 @@ func TestGivenRecurringWritesWhenCallingTheAPIThenTheyAreGuardedValidatedAndPass
 		t.Fatalf("bill writes must be guarded, got %d", status)
 	}
 }
+
+func TestGivenAReadinessChangeWhenCallingTheAPIThenItIsGuardedETagCheckedAndSaved(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+	etag := domain.ParsePreferences(nil, 2).SafeToSpend.ETag
+
+	status, body := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/accounts", `{"account":"Broker B","ready":false}`, "If-Match", `"`+etag+`"`)
+	var prefs domain.Preferences
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &prefs) != nil || len(prefs.SafeToSpend.NotReadyAccounts) != 1 || len(db.ReadinessChanges) != 1 {
+		t.Fatalf("mark: %d %s", status, body)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/accounts", `{"account":"Broker B","ready":true,"etag":"`+etag+`"}`); status != http.StatusConflict {
+		t.Fatalf("a stale etag must be a 409: %d %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/accounts", `{"account":"","ready":true,"etag":"x"}`); status != http.StatusBadRequest {
+		t.Fatalf("a missing account must be a 400, got %d", status)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/bills/safe-to-spend/accounts", `{"account":"Broker B","ready":true,"etag":"x"}`, "Authorization", ""); status != http.StatusUnauthorized {
+		t.Fatalf("readiness writes must be guarded, got %d", status)
+	}
+}

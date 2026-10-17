@@ -22,9 +22,13 @@ const billsSummary = "Bills and safe-to-spend. items: the Recurring tab rows (ki
 	"consecutive years (yearly); confirm one by key. calendar: occurrences from the 1st of this month to 30 days " +
 	"ahead with status paid, due or overdue, plus one card payment per credit card account due on the pay-by date " +
 	"(29th, 28th in February) for its statement (WM-CARD-15), or the balance owed when the card has no settings. " +
-	"safeToSpend: spendableCash (active, rarely used, bank and cash accounts) - billsDue (unpaid bills from the 1st of " +
-	"this month to until) - cardPayments (due by until) - goalSetAside (the goal plan's full monthly requirement); " +
-	"until = the next unpaid income, else 30 days. safeToSpend is floored at 0 and shortBy shows the shortfall. " +
+	"safeToSpend (D33): readyMoney - billsDue - cardPayments. readyMoney = positive balances of active use, rarely use, " +
+	"bank and cash accounts (readyAccounts), without crypto accounts or accounts marked not ready to use " +
+	"(excludedAccounts with reason crypto or not_ready; readiness holds the saved names and the etag to change them). " +
+	"billsDue and cardPayments: unpaid, from the 1st of this month (overdue ones too) to the day before until, the " +
+	"next unpaid income (a payment due on payday is paid by that wage); without an income, the next 30 days up to " +
+	"and including until. No goal money is subtracted. safeToSpend is floored at 0, shortBy shows the shortfall, " +
+	"perDay = safeToSpend / days; safeToSpend.issues names marked accounts that no longer exist (ignored). " +
 	"issues lists rejected rows and card rows without a card account. tabExists is false until the first item."
 
 func recurringProperties() map[string]any {
@@ -53,9 +57,16 @@ func registerBillsReadRoutes(api RouteRegistrar, h *AnalyticsHandler) {
 	bills.Get("/idle-cash", h.GetIdleCash, RouteMeta{Summary: idleCashSummary, QueryParams: []RouteParameter{forceParam()}})
 }
 
+const accountReadinessSummary = "Marks an account ready to use or not for safe-to-spend (D33): ready false adds it to " +
+	"safeToSpend.notReadyAccounts in the app-managed Preferences tab (a JSON list of account names; the tab is " +
+	"created on first use and no other tab is written), ready true removes it (names compared ignoring case; a name " +
+	"that is no longer an account can be removed). Returns the preferences read back. 400 without account or etag, " +
+	"404 when marking an unknown account not ready, 409 when the setting changed since its etag was read."
+
 const idleCashSummary = "Idle cash check (ROADMAP R6), for the bills and home pages: idle = max(0, spendableCash " +
-	"(active, rarely used, bank and cash accounts) - keepLiquid), keepLiquid = billsDue + cardPayments (unpaid in the " +
-	"next 30 days, overdue too) + goalSetAside (this month's) + spendingBuffer (buffer months x average monthly " +
+	"(active, rarely used, bank and cash accounts, the liquid balance; unlike safe-to-spend it keeps crypto and " +
+	"accounts marked not ready) - keepLiquid), keepLiquid = billsDue + cardPayments (unpaid in the next 30 days, " +
+	"overdue too) + goalSetAside (the goal plan's full required per month) + spendingBuffer (buffer months x average monthly " +
 	"expense) + emergencyFund (the emergency goal's target, else emergency months x monthly needs). accounts: the " +
 	"spendable accounts lowest rate first, rate read from the account note (\"earn rate 4%\", \"lãi 4%\", \"rate 4.5%\"; " +
 	"else 0) and the idle part assumed in each (lowest yield first). currentRate: weighted over those parts. best: " +
@@ -65,6 +76,14 @@ const idleCashSummary = "Idle cash check (ROADMAP R6), for the bills and home pa
 
 func registerBillsWriteRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuard) {
 	bills := api.Group("/bills", "bills")
+	bills.Post("/safe-to-spend/accounts", guard.Wrap(h.SetAccountReadiness), RouteMeta{
+		Summary: accountReadinessSummary,
+		RequestBody: jsonBody(map[string]any{
+			"account": map[string]any{"type": "string", "description": "Account name as in the Accounts tab."},
+			"ready":   map[string]any{"type": "boolean", "description": "false = not ready to use (slow to withdraw), left out of ready money."},
+			"etag":    map[string]any{"type": "string", "description": "safeToSpend.readiness.etag from GET /api/bills (or safeToSpend.etag from GET /api/preferences); may be sent as If-Match instead."},
+		}, "account", "ready"),
+	})
 	bills.Post("/items", guard.Wrap(h.CreateRecurring), RouteMeta{
 		Summary:     "Adds a recurring item to the Recurring tab, creating the tab with its header on first use, and returns it with its id and etag.",
 		RequestBody: jsonBody(recurringProperties(), "name", "kind"),
@@ -114,6 +133,15 @@ func (h *AnalyticsHandler) GetSafeToSpend(c *fiber.Ctx) error {
 
 func (h *AnalyticsHandler) GetIdleCash(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.IdleCash(c.UserContext(), forceFresh(c)))
+}
+
+func (h *DatabaseHandler) SetAccountReadiness(c *fiber.Ctx) error {
+	var body domain.AccountReadinessInput
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	body.ETag = etagFrom(c, body.ETag)
+	return h.respond(c)(h.databaseService.SetAccountReadiness(body))
 }
 
 func (h *DatabaseHandler) CreateRecurring(c *fiber.Ctx) error {

@@ -3,11 +3,13 @@ package service
 import (
 	"apps/wealth-management/domain"
 	"fmt"
+	"slices"
+	"strings"
 )
 
 // Preferences store (WM-SET-6..9): the app-managed Preferences tab, A Key,
-// B Value, C Note. It is read like the other tabs and written one row per
-// saved key; the tab is created with its header on the first save. No other
+// B Value (a number, or a JSON list of account names), C Note. It is read
+// like the other tabs and written one row per saved key; the tab is created with its header on the first save. No other
 // tab is ever written from here.
 
 const (
@@ -61,35 +63,85 @@ func (s *dbService) SavePreferences(update domain.PreferencesUpdate) (domain.Pre
 	if err != nil {
 		return domain.Preferences{}, err
 	}
-	if !current.TabExists {
-		if err := s.client.CreateSheet(preferencesSheet, preferencesHeader); err != nil {
-			return domain.Preferences{}, fmt.Errorf("create %s tab: %w", preferencesSheet, err)
+	if err := s.writePreferences(current, next, func(key domain.PreferenceKey) bool { return updated(update, key) }); err != nil {
+		return domain.Preferences{}, err
+	}
+	return s.readPreferences()
+}
+
+// SetAccountReadiness marks one account ready to use or not (D33) in the
+// safeToSpend.notReadyAccounts row: re-read under the write lock, refused
+// with ErrConflict when the setting changed since its ETag was read. An
+// account marked not ready must exist; one marked ready need not, so a
+// renamed or deleted account can be cleared from the list.
+func (s *dbService) SetAccountReadiness(input domain.AccountReadinessInput) (domain.Preferences, error) {
+	if err := input.Validate(); err != nil {
+		return domain.Preferences{}, err
+	}
+	if !input.Ready {
+		accounts, err := s.ListAccounts(false)
+		if err != nil {
+			return domain.Preferences{}, err
+		}
+		if !slices.ContainsFunc(accounts, func(a domain.Account) bool {
+			return strings.EqualFold(strings.TrimSpace(a.Name), strings.TrimSpace(input.Account))
+		}) {
+			return domain.Preferences{}, fmt.Errorf("%w: account %q", domain.ErrNotFound, strings.TrimSpace(input.Account))
 		}
 	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 
+	current, err := s.readPreferences()
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	next, err := domain.ApplyAccountReadiness(current, input)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	isSetting := func(key domain.PreferenceKey) bool { return key == domain.PrefSafeToSpendNotReadyAccounts }
+	if err := s.writePreferences(current, next, isSetting); err != nil {
+		return domain.Preferences{}, err
+	}
+	return s.readPreferences()
+}
+
+// writePreferences writes the rows of the changed keys: an existing row
+// gets A-B rewritten (its note kept), a new key is appended with its note,
+// and the tab is created with its header first when missing. The cache is
+// invalidated whatever happens. Callers hold writeMu.
+func (s *dbService) writePreferences(current, next domain.Preferences, changed func(domain.PreferenceKey) bool) error {
+	defer s.invalidate(cacheKeyPreferences)
+	if !current.TabExists {
+		if err := s.client.CreateSheet(preferencesSheet, preferencesHeader); err != nil {
+			return fmt.Errorf("create %s tab: %w", preferencesSheet, err)
+		}
+	}
 	var appends [][]any
 	for _, entry := range next.Entries {
-		if !updated(update, entry.Key) {
+		if !changed(entry.Key) {
 			continue
 		}
+		value, err := preferenceCell(entry)
+		if err != nil {
+			return err
+		}
 		if entry.Row == 0 {
-			appends = append(appends, []any{string(entry.Key), preferenceCell(entry.Value), entry.Note})
+			appends = append(appends, []any{string(entry.Key), value, entry.Note})
 			continue
 		}
 		cellRange := fmt.Sprintf("%s!A%d:B%d", preferencesSheet, entry.Row, entry.Row)
-		if err := s.client.UpdateRow(cellRange, []any{string(entry.Key), preferenceCell(entry.Value)}); err != nil {
-			s.invalidate(cacheKeyPreferences)
-			return domain.Preferences{}, fmt.Errorf("update preference %s: %w", entry.Key, err)
+		if err := s.client.UpdateRow(cellRange, []any{string(entry.Key), value}); err != nil {
+			return fmt.Errorf("update preference %s: %w", entry.Key, err)
 		}
 	}
 	if len(appends) > 0 {
 		if _, err := s.client.WriteRowsAtFirstEmptyRow(preferencesSheet, preferencesAnchorRange, appends); err != nil {
-			s.invalidate(cacheKeyPreferences)
-			return domain.Preferences{}, fmt.Errorf("write preferences: %w", err)
+			return fmt.Errorf("write preferences: %w", err)
 		}
 	}
-	s.invalidate(cacheKeyPreferences)
-	return s.readPreferences()
+	return nil
 }
 
 func updated(update domain.PreferencesUpdate, key domain.PreferenceKey) bool {
@@ -101,10 +153,14 @@ func updated(update domain.PreferencesUpdate, key domain.PreferenceKey) bool {
 	return false
 }
 
-// preferenceCell writes a number, or "" to clear the value.
-func preferenceCell(value *float64) any {
-	if value == nil {
-		return ""
+// preferenceCell is column B: the number, the account list as JSON, or ""
+// to clear the value.
+func preferenceCell(entry domain.PreferenceEntry) (any, error) {
+	if spec, _ := domain.PreferenceSpecFor(entry.Key); spec.Kind == domain.PreferenceAccountNames {
+		return domain.EncodeAccountNames(entry.Names)
 	}
-	return *value
+	if entry.Value == nil {
+		return "", nil
+	}
+	return *entry.Value, nil
 }

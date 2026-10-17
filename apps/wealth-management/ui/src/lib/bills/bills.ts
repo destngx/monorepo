@@ -1,5 +1,6 @@
 import type {
   BillItem,
+  ExclusionReason,
   BillOccurrence,
   RecurringFrequency,
   RecurringInput,
@@ -16,6 +17,12 @@ export function safeToSpendTone(safe: Pick<SafeToSpend, 'shortBy' | 'safeToSpend
   if (safe.shortBy > 0) return 'serious';
   return safe.safeToSpend > 0 ? 'good' : 'warning';
 }
+
+/** Why an account is left out of ready money, as shown next to it. */
+export const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
+  crypto: 'crypto, not cash you can spend today',
+  not_ready: 'marked not ready to use (slow to withdraw)',
+};
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

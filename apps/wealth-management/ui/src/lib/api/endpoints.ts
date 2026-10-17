@@ -2,6 +2,7 @@ import { aiRequestDone } from '$lib/ai/activity';
 import { readNDJSON } from '$lib/ai/ndjson';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
+  AccountReadinessInput,
   AIProviderUsage,
   Allocation,
   AIStatus,
@@ -183,6 +184,9 @@ export const api = {
     read<MonthlyClose>('/close', options, { month: month || undefined }),
   writeSnapshot: (month: string) => request<SnapshotSaveResult>('/close/snapshot', { method: 'POST', body: { month } }),
   netWorthHistory: (options?: ReadOptions) => read<NetWorthHistory>('/net-worth/history', options),
+  /** Marks an account ready to use or not for safe to spend (D33); 409 when the setting changed. */
+  setAccountReady: (input: AccountReadinessInput) =>
+    request<Preferences>('/bills/safe-to-spend/accounts', { method: 'POST', body: input }),
   createRecurring: (input: RecurringInput) => request<RecurringItem>('/bills/items', { method: 'POST', body: input }),
   confirmSuggestion: (input: RecurringConfirmInput) =>
     request<RecurringItem>('/bills/suggestions/confirm', { method: 'POST', body: input }),

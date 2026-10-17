@@ -5,6 +5,7 @@ import (
 	"apps/wealth-management/domain"
 	"apps/wealth-management/port"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -55,6 +56,7 @@ type Database struct {
 	Syncs               int
 	SavedCaptureRules   [][]domain.CaptureRule
 	SavedPreferences    []domain.PreferencesUpdate
+	ReadinessChanges    []domain.AccountReadinessInput
 	NatureUpdates       []domain.CategoryNatureUpdate
 	GoalSetups          int
 	CreatedGoals        []domain.GoalInput
@@ -305,6 +307,37 @@ func (f *Database) SavePreferences(update domain.PreferencesUpdate) (domain.Pref
 	f.Preferences = &next
 	f.SavedPreferences = append(f.SavedPreferences, update)
 	return next, nil
+}
+
+// SetAccountReadiness applies the change with the domain rules (ETag
+// checked) and keeps the result as if written and read back.
+func (f *Database) SetAccountReadiness(input domain.AccountReadinessInput) (domain.Preferences, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Err != nil {
+		return domain.Preferences{}, f.Err
+	}
+	next, err := domain.ApplyAccountReadiness(f.preferences(), input)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	rows := [][]string{}
+	for _, entry := range next.Entries {
+		value := ""
+		switch {
+		case entry.Key == domain.PrefSafeToSpendNotReadyAccounts:
+			if value, err = domain.EncodeAccountNames(entry.Names); err != nil {
+				return domain.Preferences{}, err
+			}
+		case entry.Value != nil:
+			value = strconv.FormatFloat(*entry.Value, 'f', -1, 64)
+		}
+		rows = append(rows, []string{string(entry.Key), value, entry.Note})
+	}
+	readBack := domain.ParsePreferences(rows, 2)
+	f.Preferences = &readBack
+	f.ReadinessChanges = append(f.ReadinessChanges, input)
+	return readBack, nil
 }
 
 func (f *Database) SaveCaptureRules(rules []domain.CaptureRule) (domain.CaptureRulesSaveResult, error) {

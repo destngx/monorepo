@@ -3,13 +3,15 @@ package domain
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 )
 
 // Bills and safe-to-spend (ROADMAP R4, WM-BILL-3..6): the confirmed
 // recurring items matched against the ledger, a 30-day calendar with the
-// card payments, and how much can be spent until the next income.
+// card payments, and how much ready money can be spent until the next wage.
 
 const (
 	// BillsCalendarDays is how far ahead the calendar looks.
@@ -112,16 +114,42 @@ type BillCalendar struct {
 	PaidOut       float64 `json:"paidOut"`
 }
 
-// SpendableAccount is an account counted in spendable cash.
+// SpendableAccount is an account counted in ready money.
 type SpendableAccount struct {
 	Name    string  `json:"name"`
 	Balance float64 `json:"balance"`
 }
 
-// SafeToSpend is the money free to spend until the next income:
-// spendable cash - unpaid bills and card payments due by then - this
-// month's goal set-aside. Amount can be negative; SafeToSpend floors it at
-// 0 and ShortBy says by how much it fell below.
+// ExclusionReason says why an account is not ready money.
+type ExclusionReason string
+
+const (
+	// ExcludedCrypto: a crypto account (type crypto, or held in USD or
+	// USDT), the same rule as the goal pool (D32).
+	ExcludedCrypto ExclusionReason = "crypto"
+	// ExcludedNotReady: the user marked it not ready to use (slow to
+	// withdraw, D33).
+	ExcludedNotReady ExclusionReason = "not_ready"
+)
+
+// ExcludedAccount is an account left out of ready money, with the reason.
+type ExcludedAccount struct {
+	Name    string          `json:"name"`
+	Balance float64         `json:"balance"`
+	Reason  ExclusionReason `json:"reason"`
+}
+
+// SafeToSpendReadyRule documents what counts as ready money.
+const SafeToSpendReadyRule = "Ready money is the positive balance of active use, rarely use, bank and cash accounts " +
+	"that can be spent today. Crypto accounts (type crypto, or held in USD or USDT) and accounts marked not ready to " +
+	"use (slow to withdraw, saved as safeToSpend.notReadyAccounts in the Preferences tab) are left out."
+
+// SafeToSpend is the money free to spend until the next wage (D33):
+// ready money - unpaid bills and card payments due before the next
+// expected income (overdue ones too; one due on payday is paid by the
+// wage). Without an expected income the window is the next 30 days,
+// inclusive. Amount can be negative; SafeToSpend floors it at 0 and
+// ShortBy says by how much it fell below.
 type SafeToSpend struct {
 	AsOf string `json:"asOf"`
 	// Until is the horizon, yyyy-mm-dd: the next expected income, else
@@ -130,21 +158,27 @@ type SafeToSpend struct {
 	UntilIncome bool   `json:"untilIncome"`
 	IncomeName  string `json:"incomeName,omitempty"`
 	Days        int    `json:"days"`
-	// SpendableCash is the positive balances of active, rarely used, bank
-	// and cash accounts (the liquid balance, WM-HEA-2).
-	SpendableCash    float64            `json:"spendableCash"`
-	CashAccounts     []SpendableAccount `json:"cashAccounts"`
-	BillsDue         float64            `json:"billsDue"`
-	CardPayments     float64            `json:"cardPayments"`
-	GoalSetAside     float64            `json:"goalSetAside"`
-	GoalPlanUsed     bool               `json:"goalPlanUsed"`
-	Amount           float64            `json:"amount"`
-	SafeToSpend      float64            `json:"safeToSpend"`
-	ShortBy          float64            `json:"shortBy"`
-	PerDay           float64            `json:"perDay"`
-	Counted          []BillOccurrence   `json:"counted"`
-	Explanation      string             `json:"explanation"`
-	GoalSetAsideRule string             `json:"goalSetAsideRule"`
+	// ReadyMoney is the positive balances of ReadyAccounts (SafeToSpendReadyRule).
+	ReadyMoney    float64            `json:"readyMoney"`
+	ReadyAccounts []SpendableAccount `json:"readyAccounts"`
+	// ExcludedAccounts are the crypto accounts and the accounts marked
+	// not ready, with the reason.
+	ExcludedAccounts []ExcludedAccount `json:"excludedAccounts"`
+	// Readiness is the saved setting, with the ETag a change must send.
+	Readiness    SafeToSpendSettings `json:"readiness"`
+	BillsDue     float64             `json:"billsDue"`
+	CardPayments float64             `json:"cardPayments"`
+	Amount       float64             `json:"amount"`
+	SafeToSpend  float64             `json:"safeToSpend"`
+	ShortBy      float64             `json:"shortBy"`
+	PerDay       float64             `json:"perDay"`
+	Counted      []BillOccurrence    `json:"counted"`
+	Explanation  string              `json:"explanation"`
+	ReadyRule    string              `json:"readyRule"`
+	// UnknownNotReady are marked names that match no account (renamed or
+	// deleted); they are ignored, and Issues says so.
+	UnknownNotReady []string `json:"unknownNotReady"`
+	Issues          []string `json:"issues"`
 }
 
 // Bills is the bills page: items, suggestions, calendar and safe-to-spend.
@@ -165,11 +199,17 @@ type BillsFacts struct {
 	UpcomingCount int     `json:"upcomingCount"`
 	OverdueCount  int     `json:"overdueCount"`
 	OverdueAmount float64 `json:"overdueAmount"`
-	SafeToSpend   float64 `json:"safeToSpend"`
-	ShortBy       float64 `json:"shortBy"`
-	Until         string  `json:"until"`
-	UntilIncome   bool    `json:"untilIncome"`
-	Suggestions   int     `json:"suggestions"`
+	// SafeToSpend = ReadyMoney - DueBeforeUntil, floored at 0.
+	SafeToSpend float64 `json:"safeToSpend"`
+	ShortBy     float64 `json:"shortBy"`
+	ReadyMoney  float64 `json:"readyMoney"`
+	// DueBeforeUntil is the unpaid bills and card payments counted.
+	DueBeforeUntil float64 `json:"dueBeforeUntil"`
+	// ExcludedAccounts counts the crypto and not-ready accounts left out.
+	ExcludedAccounts int    `json:"excludedAccounts"`
+	Until            string `json:"until"`
+	UntilIncome      bool   `json:"untilIncome"`
+	Suggestions      int    `json:"suggestions"`
 }
 
 // Facts summarises the bills without names.
@@ -181,32 +221,32 @@ func (b Bills) Facts() BillsFacts {
 		}
 	}
 	return BillsFacts{
-		Items:         active,
-		UpcomingOut:   b.Calendar.UpcomingOut,
-		UpcomingCount: b.Calendar.UpcomingCount,
-		OverdueCount:  b.Calendar.OverdueCount,
-		OverdueAmount: b.Calendar.OverdueAmount,
-		SafeToSpend:   b.SafeToSpend.SafeToSpend,
-		ShortBy:       b.SafeToSpend.ShortBy,
-		Until:         b.SafeToSpend.Until,
-		UntilIncome:   b.SafeToSpend.UntilIncome,
-		Suggestions:   len(b.Suggestions),
+		Items:            active,
+		UpcomingOut:      b.Calendar.UpcomingOut,
+		UpcomingCount:    b.Calendar.UpcomingCount,
+		OverdueCount:     b.Calendar.OverdueCount,
+		OverdueAmount:    b.Calendar.OverdueAmount,
+		SafeToSpend:      b.SafeToSpend.SafeToSpend,
+		ShortBy:          b.SafeToSpend.ShortBy,
+		ReadyMoney:       b.SafeToSpend.ReadyMoney,
+		DueBeforeUntil:   b.SafeToSpend.BillsDue + b.SafeToSpend.CardPayments,
+		ExcludedAccounts: len(b.SafeToSpend.ExcludedAccounts),
+		Until:            b.SafeToSpend.Until,
+		UntilIncome:      b.SafeToSpend.UntilIncome,
+		Suggestions:      len(b.Suggestions),
 	}
 }
 
-// BillsInput is what ComputeBills needs. Goals may be nil (no goal plan).
+// BillsInput is what ComputeBills needs. Readiness is the safe-to-spend
+// setting from the Preferences tab (zero value: no account marked).
 type BillsInput struct {
 	Sheet        RecurringSheet
 	Accounts     []Account
 	Transactions []Transaction
 	Cards        CardConfig
-	Goals        *GoalPlan
+	Readiness    SafeToSpendSettings
 	Today        time.Time
 }
-
-// GoalSetAsideRule documents the goal part of safe-to-spend.
-const GoalSetAsideRule = "The full monthly amount the goal plan requires (dated active goals), " +
-	"not prorated: goal money is put aside once a month, whatever the day."
 
 // ComputeBills matches the items, builds the calendar and safe-to-spend
 // and suggests new items.
@@ -492,13 +532,18 @@ func summarizeCalendar(occurrences []BillOccurrence, from, to, today time.Time) 
 	return calendar
 }
 
-// computeSafeToSpend: horizon = the next unpaid income on or after today
-// (else 30 days); bills counted = unpaid outgoing occurrences from the
-// first of this month up to and including the horizon (overdue ones too)
-// and the card payments due by then.
+// computeSafeToSpend (WM-BILL-5, D33): horizon = the next unpaid income
+// on or after today, else 30 days. Counted = unpaid outgoing occurrences
+// from the first of this month (overdue ones too) and card payments due
+// strictly before the income (one due on payday is paid by the wage), or
+// up to and including the 30th day without an income.
 func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOccurrence, today time.Time) SafeToSpend {
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
-	result := SafeToSpend{AsOf: today.Format(time.DateOnly), CashAccounts: []SpendableAccount{}, Counted: []BillOccurrence{}, GoalSetAsideRule: GoalSetAsideRule}
+	result := SafeToSpend{
+		AsOf: today.Format(time.DateOnly), ReadyAccounts: []SpendableAccount{}, ExcludedAccounts: []ExcludedAccount{},
+		Counted: []BillOccurrence{}, ReadyRule: SafeToSpendReadyRule, UnknownNotReady: []string{}, Issues: []string{},
+		Readiness: SafeToSpendSettings{NotReadyAccounts: append([]string{}, input.Readiness.NotReadyAccounts...), ETag: input.Readiness.ETag},
+	}
 
 	horizon := today.AddDate(0, 0, safeToSpendDefaultDays)
 	for _, item := range active {
@@ -517,22 +562,19 @@ func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOc
 	}
 	result.Until = horizon.Format(time.DateOnly)
 	result.Days = max(1, daysBetween(today, horizon))
-
-	for _, account := range input.Accounts {
-		switch account.Type {
-		case AccountTypeActiveUse, AccountTypeRarelyUse, AccountTypeBank, AccountTypeCash:
-			if account.Balance > 0 {
-				result.CashAccounts = append(result.CashAccounts, SpendableAccount{Name: account.Name, Balance: account.Balance})
-			}
-		}
+	// The last day counted: the day before payday, else the horizon itself.
+	lastDay := horizon
+	if result.UntilIncome {
+		lastDay = horizon.AddDate(0, 0, -1)
 	}
-	result.SpendableCash = liquidBalance(input.Accounts)
+
+	readyMoney(&result, input.Accounts, input.Readiness.NotReadyAccounts)
 
 	for _, item := range active {
 		if item.Kind.IsIncome() {
 			continue
 		}
-		for _, date := range item.occurrencesBetween(monthStart, horizon) {
+		for _, date := range item.occurrencesBetween(monthStart, lastDay) {
 			occurrence := occurrenceOf(item, date, input.Transactions, today)
 			if occurrence.Status != BillPaid {
 				result.BillsDue += occurrence.Remaining
@@ -541,27 +583,65 @@ func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOc
 		}
 	}
 	for _, card := range cards {
-		if card.Status != BillPaid && !parseDay(card.ExpectedDate).After(horizon) {
+		if card.Status != BillPaid && !parseDay(card.ExpectedDate).After(lastDay) {
 			result.CardPayments += card.Remaining
 			result.Counted = append(result.Counted, card)
 		}
 	}
 	sortOccurrences(result.Counted)
 
-	if input.Goals != nil && !input.Goals.SetupNeeded {
-		result.GoalPlanUsed = true
-		result.GoalSetAside = math.Round(input.Goals.Check.RequiredPerMonth)
-	}
-	result.Amount = math.Round(result.SpendableCash - result.BillsDue - result.CardPayments - result.GoalSetAside)
+	result.Amount = math.Round(result.ReadyMoney - result.BillsDue - result.CardPayments)
 	result.SafeToSpend = math.Max(0, result.Amount)
 	result.ShortBy = math.Max(0, -result.Amount)
 	result.PerDay = math.Floor(result.SafeToSpend / float64(result.Days))
-	until := "in the next 30 days (no income expected)"
-	if result.UntilIncome {
-		until = "up to the next income (" + result.IncomeName + ", " + result.Until + ")"
-	}
-	result.Explanation = fmt.Sprintf("Spendable cash minus unpaid bills and card payments due %s, minus this month's goal set-aside.", until)
+	result.Explanation = safeToSpendExplanation(result)
 	return result
+}
+
+// safeToSpendExplanation states the formula for the horizon in use.
+func safeToSpendExplanation(safe SafeToSpend) string {
+	const ready = "Ready money (bank, cash, active and rarely used accounts; not crypto or accounts marked not ready to use)"
+	if safe.UntilIncome {
+		return fmt.Sprintf("%s minus unpaid bills and card payments due before the next income (%s, %s), overdue ones included. "+
+			"Anything due on payday itself is not counted: that wage pays it.", ready, safe.IncomeName, safe.Until)
+	}
+	return fmt.Sprintf("%s minus unpaid bills and card payments due in the next 30 days, up to and including %s, overdue ones "+
+		"included (no income expected).", ready, safe.Until)
+}
+
+// readyMoney sorts the accounts into ready money and excluded accounts and
+// reports marked names that match no account. Ready money takes the
+// liquid types (active use, rarely use, bank, cash) with a positive
+// balance, minus crypto (D32) and the accounts marked not ready (D33).
+func readyMoney(result *SafeToSpend, accounts []Account, notReady []string) {
+	marked := func(name string) bool {
+		return slices.ContainsFunc(notReady, func(n string) bool { return strings.EqualFold(strings.TrimSpace(n), strings.TrimSpace(name)) })
+	}
+	for _, account := range accounts {
+		liquid := false
+		switch account.Type {
+		case AccountTypeActiveUse, AccountTypeRarelyUse, AccountTypeBank, AccountTypeCash:
+			liquid = true
+		}
+		switch {
+		case isCryptoAccount(account) && (liquid || account.Type == AccountTypeCrypto):
+			if account.Balance > 0 {
+				result.ExcludedAccounts = append(result.ExcludedAccounts, ExcludedAccount{Name: account.Name, Balance: account.Balance, Reason: ExcludedCrypto})
+			}
+		case liquid && marked(account.Name):
+			// Listed whatever the balance, so the user can mark it ready again.
+			result.ExcludedAccounts = append(result.ExcludedAccounts, ExcludedAccount{Name: account.Name, Balance: account.Balance, Reason: ExcludedNotReady})
+		case liquid && account.Balance > 0:
+			result.ReadyAccounts = append(result.ReadyAccounts, SpendableAccount{Name: account.Name, Balance: account.Balance})
+			result.ReadyMoney += account.Balance
+		}
+	}
+	for _, name := range notReady {
+		if !slices.ContainsFunc(accounts, func(a Account) bool { return strings.EqualFold(strings.TrimSpace(a.Name), strings.TrimSpace(name)) }) {
+			result.UnknownNotReady = append(result.UnknownNotReady, name)
+			result.Issues = append(result.Issues, fmt.Sprintf("Preferences: %s names %q, which is not an account (renamed or deleted?); it is ignored. Mark it ready to remove it.", PrefSafeToSpendNotReadyAccounts, name))
+		}
+	}
 }
 
 // billsDueSoonDays is the window of BillsSummary.DueSoon.

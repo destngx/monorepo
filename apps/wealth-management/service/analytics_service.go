@@ -289,19 +289,11 @@ func (s *analyticsService) GoalPlan(forceFresh bool) (domain.GoalPlan, error) {
 	return domain.ComputeGoalPlan(sheet, accounts, transactions, categories, prefs.GoalPool, s.today()), nil
 }
 
-// Bills reads the Recurring tab, the ledger, the card settings and the goal
-// plan and lays out the bills (WM-BILL-2..6). Before the tab exists it
-// still suggests items and shows the card payments and safe-to-spend.
+// Bills reads the Recurring tab, the ledger, the card settings and the
+// safe-to-spend setting of the Preferences tab and lays out the bills
+// (WM-BILL-2..6). Before the tab exists it still suggests items and shows
+// the card payments and safe-to-spend.
 func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
-	plan, err := s.GoalPlan(forceFresh)
-	if err != nil {
-		return domain.Bills{}, fmt.Errorf("goal plan: %w", err)
-	}
-	return s.billsFor(plan, forceFresh)
-}
-
-// billsFor lays out the bills with an already computed goal plan.
-func (s *analyticsService) billsFor(plan domain.GoalPlan, forceFresh bool) (domain.Bills, error) {
 	sheet, err := s.db.ReadRecurring(forceFresh)
 	if err != nil {
 		return domain.Bills{}, err
@@ -314,14 +306,19 @@ func (s *analyticsService) billsFor(plan domain.GoalPlan, forceFresh bool) (doma
 	if err != nil {
 		return domain.Bills{}, err
 	}
+	// Accounts marked not ready to use (D33); a missing tab or key marks none.
+	prefs, err := s.db.ListPreferences(forceFresh)
+	if err != nil {
+		return domain.Bills{}, err
+	}
 	return domain.ComputeBills(domain.BillsInput{
-		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Goals: &plan, Today: s.today(),
+		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Readiness: prefs.SafeToSpend, Today: s.today(),
 	}), nil
 }
 
-// IdleCash combines the bills (unpaid in the next 30 days, goal set-aside),
-// the goal plan (spending buffer, emergency fund) and the published bank
-// rates (WM-CASH-1..5). Sheet read failures are errors; a missing or
+// IdleCash combines the bills (unpaid in the next 30 days), the goal plan
+// (this month's goal set-aside, spending buffer, emergency fund) and the
+// published bank rates (WM-CASH-1..5). Sheet read failures are errors; a missing or
 // failing rate source is reported in the result, so the idle amount still
 // shows.
 func (s *analyticsService) IdleCash(ctx context.Context, forceFresh bool) (domain.IdleCash, error) {
@@ -329,7 +326,7 @@ func (s *analyticsService) IdleCash(ctx context.Context, forceFresh bool) (domai
 	if err != nil {
 		return domain.IdleCash{}, fmt.Errorf("goal plan: %w", err)
 	}
-	bills, err := s.billsFor(plan, forceFresh)
+	bills, err := s.Bills(forceFresh)
 	if err != nil {
 		return domain.IdleCash{}, fmt.Errorf("bills: %w", err)
 	}

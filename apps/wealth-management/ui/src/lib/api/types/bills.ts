@@ -97,18 +97,40 @@ export interface BillCalendar {
   paidOut: number;
 }
 
+/** Why an account is left out of ready money. */
+export type ExclusionReason = 'crypto' | 'not_ready';
+
+export interface ExcludedAccount {
+  name: string;
+  balance: number;
+  reason: ExclusionReason;
+}
+
+/** The safe-to-spend setting from the Preferences tab, with the ETag a change must send. */
+export interface SafeToSpendReadiness {
+  notReadyAccounts: string[];
+  etag: string;
+}
+
+/**
+ * Safe to spend until the next wage (D33): readyMoney - billsDue - cardPayments.
+ * Bills and card payments count when unpaid and due before the next income
+ * (overdue ones too; one due on payday is paid by that wage), else in the
+ * next 30 days inclusive.
+ */
 export interface SafeToSpend {
   asOf: string;
   until: string;
   untilIncome: boolean;
   incomeName?: string;
   days: number;
-  spendableCash: number;
-  cashAccounts: { name: string; balance: number }[];
+  /** Positive balances of active, rarely used, bank and cash accounts, without crypto or not-ready accounts. */
+  readyMoney: number;
+  readyAccounts: { name: string; balance: number }[];
+  excludedAccounts: ExcludedAccount[];
+  readiness: SafeToSpendReadiness;
   billsDue: number;
   cardPayments: number;
-  goalSetAside: number;
-  goalPlanUsed: boolean;
   /** Can be negative; safeToSpend floors it at 0 and shortBy is the shortfall. */
   amount: number;
   safeToSpend: number;
@@ -116,7 +138,10 @@ export interface SafeToSpend {
   perDay: number;
   counted: BillOccurrence[];
   explanation: string;
-  goalSetAsideRule: string;
+  readyRule: string;
+  /** Marked names that are no longer accounts (renamed or deleted); ignored. */
+  unknownNotReady: string[];
+  issues: string[];
 }
 
 export interface RecurringIssue {
@@ -143,9 +168,20 @@ export interface BillsFacts {
   overdueAmount: number;
   safeToSpend: number;
   shortBy: number;
+  readyMoney: number;
+  /** Unpaid bills and card payments counted before the horizon. */
+  dueBeforeUntil: number;
+  excludedAccounts: number;
   until: string;
   untilIncome: boolean;
   suggestions: number;
+}
+
+/** POST /api/bills/safe-to-spend/accounts body. */
+export interface AccountReadinessInput {
+  account: string;
+  ready: boolean;
+  etag: string;
 }
 
 /** GET /api/bills/safe-to-spend: the home page headline (ROADMAP R5). */

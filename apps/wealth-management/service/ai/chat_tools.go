@@ -120,7 +120,7 @@ func (s *Service) chatTools() map[string]chatTool {
 			},
 		},
 		{
-			definition: domain.AITool{Name: "getBills", Description: "Bills and safe-to-spend: money free to spend until the next income (spendable cash minus unpaid bills and card payments due by then minus this month's goal set-aside), the calendar of recurring bills, income and card payments for the next 30 days (paid, due, overdue), the confirmed recurring items and the suggestions found in history.", Parameters: objectSchema(map[string]any{})},
+			definition: domain.AITool{Name: "getBills", Description: "Bills and safe-to-spend: money free to spend until the next wage (ready money, i.e. bank, cash, active and rarely used accounts without crypto or accounts marked not ready to use, minus unpaid bills and card payments due before the next income, overdue ones included; one due on payday is paid by that wage), the calendar of recurring bills, income and card payments for the next 30 days (paid, due, overdue), the confirmed recurring items and the suggestions found in history.", Parameters: objectSchema(map[string]any{})},
 			run: func(ctx context.Context, _ json.RawMessage) (any, error) {
 				bills, err := s.analytics.Bills(false)
 				if err != nil {

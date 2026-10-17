@@ -96,6 +96,11 @@ type DatabaseService interface {
 	// the first save; it writes no other tab. ErrValidation for an unknown
 	// key, a value out of range or allocation targets not adding up to 100.
 	SavePreferences(update domain.PreferencesUpdate) (domain.Preferences, error)
+	// SetAccountReadiness marks an account ready to use or not for
+	// safe-to-spend (D33) in the safeToSpend.notReadyAccounts row.
+	// ErrValidation without an account or ETag, ErrNotFound when marking an
+	// unknown account not ready, ErrConflict when the setting changed.
+	SetAccountReadiness(input domain.AccountReadinessInput) (domain.Preferences, error)
 	// ListCardConfig returns the card programmes, banks, cards held and
 	// merchant MCCs from the Programs, ProgramRules, Banks, Cards and
 	// Merchants tabs (WM-CARD-3); a missing tab contributes no rows.

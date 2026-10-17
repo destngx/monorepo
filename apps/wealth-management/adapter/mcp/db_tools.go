@@ -198,9 +198,9 @@ func (s *Server) sheetTools() []tool {
 				return db.SaveCaptureRules(args.Rules)
 			},
 		},
-		readTool("GetPreferences", "Reads the Preferences tab: allocation targets (percent, null until set), goal pool settings (emergencyMonths default 6, spendingBufferMonths default 1) and issues naming ignored rows.", db.ListPreferences),
+		readTool("GetPreferences", "Reads the Preferences tab: allocation targets (percent, null until set), goal pool settings (emergencyMonths default 6, spendingBufferMonths default 1), the accounts marked not ready to use for safe-to-spend (safeToSpend.notReadyAccounts) and issues naming ignored rows.", db.ListPreferences),
 		{
-			definition: definition("SavePreferences", "Saves preference keys to the Preferences tab (created on first save). Allocation targets are saved together and must add up to 100; a null value clears a key.", object(map[string]any{
+			definition: definition("SavePreferences", "Saves preference keys to the Preferences tab (created on first save). Allocation targets are saved together and must add up to 100; a null value clears a key. Not-ready accounts are set with SetAccountReadyToUse.", object(map[string]any{
 				"values": map[string]any{"type": "array", "minItems": 1, "items": object(map[string]any{
 					"key":   map[string]any{"type": "string", "enum": domain.PreferenceKeyNames()},
 					"value": map[string]any{"type": []string{"number", "null"}},

@@ -18,6 +18,7 @@
     suggestionEvidence,
   } from '$lib/bills/bills';
   import IdleCashCard from '$lib/bills/IdleCashCard.svelte';
+  import ReadyMoney from '$lib/bills/ReadyMoney.svelte';
   import RecurringFormModal from '$lib/bills/RecurringFormModal.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -198,49 +199,26 @@
         </span>
       {/snippet}
       <dl class="mt-4 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
-        <dt>Spendable cash</dt>
-        <dd class="text-right"><Money value={safe.spendableCash} /></dd>
-        <dt>Bills due by then</dt>
+        <dt>Ready money</dt>
+        <dd class="text-right"><Money value={safe.readyMoney} /></dd>
+        <dt>Bills due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
         <dd class="text-right">− <Money value={safe.billsDue} /></dd>
-        <dt>Card payments due by then</dt>
+        <dt>Card payments due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
         <dd class="text-right">− <Money value={safe.cardPayments} /></dd>
-        <dt>Goal set-aside this month</dt>
-        <dd class="text-right">− <Money value={safe.goalSetAside} /></dd>
         <dt class="border-t border-slate-900/10 pt-1 font-semibold dark:border-white/10">Left</dt>
         <dd class="border-t border-slate-900/10 pt-1 text-right font-semibold dark:border-white/10">
           <Money value={safe.amount} />
         </dd>
       </dl>
-      <p class="muted mt-3 text-xs">
-        {#if safe.untilIncome}Until the next income, {safe.incomeName}, expected {formatDate(safe.until)}.{:else}No
-          income item is set, so this covers the next 30 days.{/if}
-        Spendable cash is active, rarely used, bank and cash accounts.
-        {#if safe.goalPlanUsed}The goal set-aside is the full monthly amount your dated goals need.{:else}No goal plan
-          yet, so nothing is set aside for goals.{/if}
+      <p class="muted mt-3 text-xs" data-testid="safe-explanation">
+        {#if safe.untilIncome}Until the next income, {safe.incomeName}, expected {formatDate(safe.until)}. Unpaid bills
+          and card payments due before that day count, overdue ones too; anything due on payday itself is paid by that
+          wage, so it is not counted.{:else}No income item is set, so this covers the next 30 days: unpaid bills and
+          card payments due up to and including {formatDate(safe.until)}, overdue ones too.{/if}
+        Ready money is bank, cash, active and rarely used accounts you can spend today; crypto and accounts you mark not ready
+        to use (slow to withdraw) are left out.
       </p>
-      {#if safe.cashAccounts.length || safe.counted.length}
-        <details class="mt-3 text-sm">
-          <summary class="link w-fit text-xs font-medium">Show what is counted</summary>
-          <div class="mt-2 grid gap-4 sm:grid-cols-2">
-            <ul class="space-y-1">
-              {#each safe.cashAccounts as account (account.name)}
-                <li class="flex justify-between gap-2"><span>{account.name}</span><Money value={account.balance} /></li>
-              {/each}
-            </ul>
-            <ul class="space-y-1">
-              {#each safe.counted as occurrence (occurrence.name + occurrence.expectedDate)}
-                <li class="flex justify-between gap-2">
-                  <span>{occurrence.name}, {formatDate(occurrence.expectedDate)}</span><Money
-                    value={occurrence.remaining}
-                  />
-                </li>
-              {:else}
-                <li class="muted">No unpaid bills by then.</li>
-              {/each}
-            </ul>
-          </div>
-        </details>
-      {/if}
+      <ReadyMoney {safe} />
     </PageHeadline>
   {/snippet}
   {#snippet skeleton()}<SkeletonHeadline question="Safe to spend" label="safe to spend" />{/snippet}

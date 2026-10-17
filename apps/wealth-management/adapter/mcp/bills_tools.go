@@ -30,6 +30,18 @@ func (s *Server) billsWriteTools() []tool {
 	schema := recurringSchema()
 	return []tool{
 		{
+			definition: definition("SetAccountReadyToUse", "Marks an account ready to use or not for safe-to-spend: ready false leaves it out of ready money (slow to withdraw) by adding it to safeToSpend.notReadyAccounts in the Preferences tab (created on first use); ready true removes it, also for a name that is no longer an account. etag is safeToSpend.readiness.etag from GetBills or GetSafeToSpend; fails with a conflict when the setting changed since.", object(map[string]any{
+				"account": stringSchema, "ready": map[string]any{"type": "boolean"}, "etag": stringSchema,
+			}, "account", "ready", "etag")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var input domain.AccountReadinessInput
+				if err := decodeValidated(arguments, &input); err != nil {
+					return nil, err
+				}
+				return db.SetAccountReadiness(input)
+			},
+		},
+		{
 			definition: definition("CreateRecurringItem", "Adds a recurring item (income, bill, subscription, insurance or card) to the Recurring tab, creating the tab on first use.", object(schema, "name", "kind")),
 			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
 				var input domain.RecurringInput
