@@ -8,11 +8,13 @@ import pytest
 
 from src.market.candles import Timeframe
 from src.market.errors import NotFound, Unsupported
-from src.market.models import RateBasis, SeriesType, TickerType
+from src.market.models import RateBasis, RateChannel, SeriesType, TickerType
+from src.sources.cafef import CafefSource
 from src.sources.coingecko import CoinGeckoSource
 from src.sources.currencyapi import CurrencyApiSource
 from src.sources.fmarket import FmarketSource
 from src.sources.http import StatusError
+from src.sources.simplize import SimplizeSource
 from src.sources.vnstock import VnstockSource
 from src.sources.yahoo import YahooSource
 from src.sources.yahoo.provider import yahoo_symbol
@@ -353,6 +355,115 @@ class TestCurrencyApi:
         source, _ = self.source(lambda r: httpx.Response(404))
         with pytest.raises(StatusError, match="404"):
             await source.get_exchange_rate("USD", "VND")
+
+
+# Shaped like cafef's all_banks_interest_rates.json; banks and rates invented.
+CAFEF_TABLE = {
+    "Data": [
+        {"id": "a1", "name": "Alpha Bank", "symbol": "ALP", "icon": "https://img.test/a.png", "interestRates": [
+            {"time": "0T", "deposit": 0, "value": 0.2},
+            {"time": "1T", "deposit": 1, "value": 3.9},
+            {"time": "12T", "deposit": 12, "value": 6.1},
+            {"time": "24T", "deposit": 24, "value": None},
+        ]},
+        {"id": "b2", "name": "Beta Bank", "symbol": "BET", "icon": "", "interestRates": [
+            {"time": "0T", "deposit": 0, "value": None},
+            {"time": "1T", "deposit": 1, "value": 4.25},
+            {"time": "3T", "deposit": "3", "value": "4.5"},
+            {"time": "?", "deposit": "soon", "value": 5},
+            {"time": "6T", "deposit": 6, "value": 0},
+        ]},
+        {"id": "c3", "name": "", "symbol": "NON", "interestRates": [{"time": "1T", "deposit": 1, "value": 4}]},
+    ]
+}  # fmt: skip
+
+
+class TestCafef:
+    def source(self, handler):
+        upstream = Upstream(handler)
+        return CafefSource(base_url="https://cafef.test", transport=upstream.transport), upstream
+
+    async def test_counter_rates_by_tenor_including_no_term(self):
+        source, upstream = self.source(lambda r: CAFEF_TABLE)
+        rates = await source.get_bank_rates()
+        assert upstream.requests[0].url.path == "/Images/Uploaded/DuLieuDownload/Liveboard/all_banks_interest_rates.json"
+        assert [(r.bank, r.tenor, r.tenor_months, r.rate, r.instant_access) for r in rates] == [
+            ("Alpha Bank", "no-term", 0, 0.2, True),
+            ("Alpha Bank", "1m", 1, 3.9, False),
+            ("Alpha Bank", "12m", 12, 6.1, False),
+            ("Beta Bank", "1m", 1, 4.25, False),
+            ("Beta Bank", "3m", 3, 4.5, False),
+        ]
+        assert {(r.channel, r.currency, r.updated_at) for r in rates} == {(RateChannel.COUNTER, "VND", None)}
+
+    async def test_a_table_without_rates_fails(self):
+        source, _ = self.source(lambda r: {"Data": [{"name": "Alpha Bank", "interestRates": []}]})
+        with pytest.raises(ValueError, match="no savings rates"):
+            await source.get_bank_rates()
+
+    async def test_an_unexpected_payload_fails(self):
+        source, _ = self.source(lambda r: {"data": []})
+        with pytest.raises(ValueError, match="Data"):
+            await source.get_bank_rates()
+
+    async def test_upstream_status_is_reported(self):
+        source, _ = self.source(lambda r: httpx.Response(404))
+        with pytest.raises(StatusError, match="404"):
+            await source.get_bank_rates()
+
+
+def next_page(props: dict) -> httpx.Response:
+    """A Next.js page with its server-side props, as simplize serves it."""
+    data = json.dumps({"props": {"pageProps": props}, "page": "/lai-suat-ngan-hang", "buildId": "b1"})
+    html = f'<html><head></head><body><div id="__next"></div><script id="__NEXT_DATA__" type="application/json">{data}</script></body></html>'
+    return httpx.Response(200, headers={"content-type": "text/html; charset=utf-8"}, text=html)
+
+
+# 2026-10-17 00:00 in Vietnam.
+SIMPLIZE_DATE = 1792170000000
+
+# Shaped like simplize's pageProps.interestRate; banks and rates invented.
+SIMPLIZE_RATES = [
+    {"id": 1, "ticker": "ALPHA", "stockCode": "ALP", "name": "Alpha Bank", "instrumentType": "saving_rate", "date": SIMPLIZE_DATE,
+     "demand": 0.1, "maturity1m": 2.2, "maturity12m": 5.8, "maturity36m": 5.5, "modifiedDate": SIMPLIZE_DATE + 3600000},
+    {"id": 2, "ticker": "BETA", "name": "Beta Bank", "instrumentType": "saving_rate", "date": SIMPLIZE_DATE, "maturity1m": 4.6, "maturity6m": None},
+    {"id": 3, "ticker": "LOAN", "name": "Gamma Bank", "instrumentType": "loan_rate", "maturity1m": 9},
+]  # fmt: skip
+
+
+class TestSimplize:
+    def source(self, handler):
+        upstream = Upstream(handler)
+        return SimplizeSource(base_url="https://simplize.test", transport=upstream.transport), upstream
+
+    async def test_reads_the_page_props_with_demand_as_no_term(self):
+        source, upstream = self.source(lambda r: next_page({"interestRate": SIMPLIZE_RATES, "summary": {}}))
+        rates = await source.get_bank_rates()
+        assert upstream.requests[0].url.path == "/lai-suat-ngan-hang"
+        assert [(r.bank, r.tenor, r.tenor_months, r.rate, r.instant_access, r.updated_at) for r in rates] == [
+            ("Alpha Bank", "no-term", 0, 0.1, True, "2026-10-17"),
+            ("Alpha Bank", "1m", 1, 2.2, False, "2026-10-17"),
+            ("Alpha Bank", "12m", 12, 5.8, False, "2026-10-17"),
+            ("Alpha Bank", "36m", 36, 5.5, False, "2026-10-17"),
+            ("Beta Bank", "1m", 1, 4.6, False, "2026-10-17"),
+        ]
+        # simplize does not say whether a rate is online or at the counter.
+        assert {(r.channel, r.currency) for r in rates} == {(None, "VND")}
+
+    async def test_a_page_without_next_data_fails(self):
+        source, _ = self.source(lambda r: httpx.Response(200, text="<html><body>maintenance</body></html>"))
+        with pytest.raises(ValueError, match="__NEXT_DATA__"):
+            await source.get_bank_rates()
+
+    async def test_a_page_without_rates_fails(self):
+        source, _ = self.source(lambda r: next_page({"summary": {}}))
+        with pytest.raises(ValueError, match="no savings rates"):
+            await source.get_bank_rates()
+
+    async def test_upstream_status_is_reported(self):
+        source, _ = self.source(lambda r: httpx.Response(503))
+        with pytest.raises(StatusError, match="503"):
+            await source.get_bank_rates()
 
 
 class TestVnstock:

@@ -118,8 +118,15 @@ async def candles(
 
 
 @router.get("/bank-rates")
-async def bank_rates(response: Response, skip_cache: bool = SkipCache, market: MarketService = Depends(get_market_service)):
-    return envelope(await market.bank_rates(skip_cache), response)
+async def bank_rates(
+    response: Response,
+    tenor_months: Optional[int] = Query(None, description="Only this tenor in months; 0 is no-term (withdraw any time)"),
+    max_tenor_months: Optional[int] = Query(None, description="Only tenors up to this many months, no-term included"),
+    skip_cache: bool = SkipCache,
+    market: MarketService = Depends(get_market_service),
+):
+    """Savings rates by bank and tenor. A tenor filter skips sources without tenors (fmarket's headline rates)."""
+    return envelope(await market.bank_rates(skip_cache, tenor_months=tenor_months, max_tenor_months=max_tenor_months), response)
 
 
 @router.get("/funds")

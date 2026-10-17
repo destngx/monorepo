@@ -39,7 +39,9 @@ class Chains:
         }
     )
     candles: List[str] = field(default_factory=lambda: ["vnstock", "yahoo", "fmarket", "algolab"])
-    bank_rates: List[str] = field(default_factory=lambda: ["fmarket"])
+    # Rates by tenor first; fmarket's one headline rate per bank (no tenor)
+    # is the last fallback and is skipped by tenor filters.
+    bank_rates: List[str] = field(default_factory=lambda: ["cafef", "simplize", "fmarket"])
     # Fund NAVs, gold products and fmarket's rate histories.
     funds: List[str] = field(default_factory=lambda: ["fmarket"])
 
@@ -71,5 +73,6 @@ class MarketTTL:
     FX = 600
     SERIES = 300
     CANDLES = 300
-    BANK_RATES = 3600
+    # Banks change rates at most daily, at any time of day.
+    BANK_RATES = 6 * 3600
     FUNDS = 60

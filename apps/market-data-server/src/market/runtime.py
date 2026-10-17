@@ -5,9 +5,11 @@ from typing import Optional
 
 from ..modules.shared.deps import get_cache_manager
 from ..sources.algolab import AlgolabSource
+from ..sources.cafef import CafefSource
 from ..sources.coingecko import CoinGeckoSource
 from ..sources.currencyapi import CurrencyApiSource
 from ..sources.fmarket import FmarketSource
+from ..sources.simplize import SimplizeSource
 from ..sources.vnstock import VnstockSource
 from ..sources.yahoo import YahooSource
 from .chains import load_chains
@@ -20,7 +22,7 @@ _SERVICE: Optional[MarketService] = None
 
 
 def build_market_service() -> MarketService:
-    sources = [VnstockSource(), FmarketSource(), YahooSource(), CoinGeckoSource(), CurrencyApiSource(), AlgolabSource()]
+    sources = [VnstockSource(), FmarketSource(), YahooSource(), CoinGeckoSource(), CurrencyApiSource(), CafefSource(), SimplizeSource(), AlgolabSource()]
     store = LastGoodStore()
     logger.info("✓ Market sources: %s; last-good store at %s", ", ".join(s.name for s in sources), store.path)
     return MarketService({s.name: s for s in sources}, chains=load_chains(), cache=get_cache_manager(), last_good=store)

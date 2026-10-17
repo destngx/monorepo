@@ -13,8 +13,8 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 from ..cache import CacheConfig, CacheManager
 from .candles import ICT, MAX_LOOKBACK_DAYS, Timeframe, aggregate_candles, clean_candles
 from .chains import Chains, MarketTTL
-from .errors import UpstreamError, ValidationError
-from .models import CandleSeries, ExchangeRate, SeriesType, TickerType, to_json, utc_iso
+from .errors import NotFound, Unsupported, UpstreamError, ValidationError
+from .models import MAX_TENOR_MONTHS, NO_TERM, BankRate, CandleSeries, ExchangeRate, SeriesType, TickerType, to_json, utc_iso
 from .router import Router
 from .store import LastGoodStore
 from .symbols import normalise_symbol
@@ -52,6 +52,14 @@ def _symbol(raw: str) -> str:
     if not symbol:
         raise ValidationError("symbol is required")
     return symbol
+
+
+def _tenor_text(months: int) -> str:
+    return "no-term" if months == NO_TERM else f"{months}-month"
+
+
+def _tenor_range_text(max_months: int) -> str:
+    return _tenor_text(max_months) if max_months == NO_TERM else f"no-term to {_tenor_text(max_months)}"
 
 
 def parse_day(raw: Optional[str], label: str) -> Optional[date]:
@@ -189,10 +197,39 @@ class MarketService:
             skip_cache,
         )
 
-    async def bank_rates(self, skip_cache: bool = False) -> Answer:
-        return await self._routed(
-            "bank_rates", MarketTTL.BANK_RATES, "get bank interest rates", self.chains.bank_rates, "get_bank_rates", lambda source: source.get_bank_rates(), skip_cache
-        )
+    async def bank_rates(self, skip_cache: bool = False, tenor_months: Optional[int] = None, max_tenor_months: Optional[int] = None) -> Answer:
+        """
+        Savings rates, optionally of one tenor (`tenor_months`) or up to one
+        (`max_tenor_months`; 0 = no-term). A filter skips sources that
+        publish no tenors, and a source without a matching rate is a miss,
+        so the chain moves on.
+        """
+        for label, value in (("tenor_months", tenor_months), ("max_tenor_months", max_tenor_months)):
+            if value is not None and not 0 <= value <= MAX_TENOR_MONTHS:
+                raise ValidationError(f"{label} must be between 0 and {MAX_TENOR_MONTHS}")
+        if tenor_months is not None and max_tenor_months is not None:
+            raise ValidationError("use tenor_months or max_tenor_months, not both")
+
+        if tenor_months is not None:
+            key, wanted, low = f"bank_rates:tenor:{tenor_months}", _tenor_text(tenor_months), tenor_months
+        elif max_tenor_months is not None:
+            key, wanted, low = f"bank_rates:max_tenor:{max_tenor_months}", _tenor_range_text(max_tenor_months), 0
+        else:
+            key, wanted, low = "bank_rates", "", 0
+        high = tenor_months if tenor_months is not None else max_tenor_months
+
+        async def call(source) -> List[BankRate]:
+            rates = await source.get_bank_rates()
+            if high is None:
+                return rates
+            if all(rate.tenor_months is None for rate in rates):
+                raise Unsupported("publishes no rates by tenor")
+            chosen = [rate for rate in rates if rate.tenor_months is not None and low <= rate.tenor_months <= high]
+            if not chosen:
+                raise NotFound(f"publishes no {wanted} rates")
+            return chosen
+
+        return await self._routed(key, MarketTTL.BANK_RATES, "get bank interest rates", self.chains.bank_rates, "get_bank_rates", call, skip_cache)
 
     async def candles(
         self,

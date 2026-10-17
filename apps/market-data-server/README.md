@@ -1,6 +1,6 @@
 # Market Data Server API Walkthrough
 
-The single market-data API of the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api, Algolab), the fallback chains between them, caching and last-good copies. Consumers such as wealth-management call it and implement no market layer of their own. Design: [docs/market-data-server/MARKET_PLATFORM.md](../../docs/market-data-server/MARKET_PLATFORM.md).
+The single market-data API of the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api, CafeF, Simplize, Algolab), the fallback chains between them, caching and last-good copies. Consumers such as wealth-management call it and implement no market layer of their own. Design: [docs/market-data-server/MARKET_PLATFORM.md](../../docs/market-data-server/MARKET_PLATFORM.md).
 
 ## Base URL
 
@@ -46,53 +46,98 @@ Every answer is an envelope that says where the data came from:
 - Errors are `{"error": {"code", "message"}}`: 400 `validation`, 404 `not_found` (unknown fund code or provider), 502 `upstream` when every source failed and there is no copy. A vnstock quota hit is a source failure, so the chain falls back.
 - Every endpoint takes `skip_cache=true` to bypass the cache read.
 
-| Endpoint                                       | Purpose                                                                                                             |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `GET /ticker?symbol=&type=`                    | Current price. `type`: `equity`, `ifc` (fund code), `gold` (`SJC`, `XAU`), `crypto` (USD)                           |
-| `GET /fx?from=&to=`                            | Exchange rate, for example `USD`/`VND` or `USDT`/`VND`, with its `basis` (below)                                    |
-| `GET /fx/history?from=&to=`                    | fmarket's daily USD/VND rates (`pair=USD_VND` only)                                                                 |
-| `GET /series?symbol=&type=`                    | Price series. `type`: `equity`, `gold_usd`, `forex`                                                                 |
-| `GET /candles?symbol=&timeframe=&days=`        | OHLCV bars. `timeframe`: `1h`, `4h` (built from 1h), `1d`, `1w`; or `from`/`to` (YYYY-MM-DD, ICT) instead of `days` |
-| `GET /bank-rates`                              | Deposit rates by bank and tenor                                                                                     |
-| `GET /funds?asset_type=&mmf=&page=&page_size=` | fmarket fund list (raw fmarket payload, `page_size` at most 100)                                                    |
-| `GET /funds/issuers`                           | Fund issuers                                                                                                        |
-| `GET /funds/{code}`                            | Fund details                                                                                                        |
-| `GET /funds/{fund}/nav`                        | Full NAV history; `fund` is a product id or a fund code                                                             |
-| `GET /gold/products`                           | fmarket gold products                                                                                               |
-| `GET /gold/history?from=&to=`                  | `{rows, summary}`: daily gold prices and today's ring gold, USD rate and changes                                    |
-| `GET /providers`                               | Sources and their capabilities                                                                                      |
-| `GET /providers/{name}/health`                 | One source's health                                                                                                 |
+| Endpoint                                          | Purpose                                                                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `GET /ticker?symbol=&type=`                       | Current price. `type`: `equity`, `ifc` (fund code), `gold` (`SJC`, `XAU`), `crypto` (USD)                           |
+| `GET /fx?from=&to=`                               | Exchange rate, for example `USD`/`VND` or `USDT`/`VND`, with its `basis` (below)                                    |
+| `GET /fx/history?from=&to=`                       | fmarket's daily USD/VND rates (`pair=USD_VND` only)                                                                 |
+| `GET /series?symbol=&type=`                       | Price series. `type`: `equity`, `gold_usd`, `forex`                                                                 |
+| `GET /candles?symbol=&timeframe=&days=`           | OHLCV bars. `timeframe`: `1h`, `4h` (built from 1h), `1d`, `1w`; or `from`/`to` (YYYY-MM-DD, ICT) instead of `days` |
+| `GET /bank-rates?tenor_months=&max_tenor_months=` | Savings rates by bank and tenor (below)                                                                             |
+| `GET /funds?asset_type=&mmf=&page=&page_size=`    | fmarket fund list (raw fmarket payload, `page_size` at most 100)                                                    |
+| `GET /funds/issuers`                              | Fund issuers                                                                                                        |
+| `GET /funds/{code}`                               | Fund details                                                                                                        |
+| `GET /funds/{fund}/nav`                           | Full NAV history; `fund` is a product id or a fund code                                                             |
+| `GET /gold/products`                              | fmarket gold products                                                                                               |
+| `GET /gold/history?from=&to=`                     | `{rows, summary}`: daily gold prices and today's ring gold, USD rate and changes                                    |
+| `GET /providers`                                  | Sources and their capabilities                                                                                      |
+| `GET /providers/{name}/health`                    | One source's health                                                                                                 |
 
 The fund and gold endpoints return fmarket's own `data` payload because consumers parse fmarket fields.
+
+### Bank rates
+
+`/bank-rates` returns VND savings rates in percent a year, one row per bank, tenor and channel:
+
+| Field           | Meaning                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------- |
+| `bank`, `rate`  | Bank name as the source writes it, rate in percent a year                                                 |
+| `tenor`         | Text: `no-term`, `1m`, `12m`, ...; empty for fmarket's headline rates                                     |
+| `tenorMonths`   | Tenor in months, `0` for no-term (không kỳ hạn); absent when the source has no tenor (fmarket)            |
+| `instantAccess` | `true` only for no-term: withdrawable any time without losing interest; `false` for term deposits         |
+| `channel`       | `counter` or `online` when the source says which (CafeF: `counter`); absent otherwise (Simplize, fmarket) |
+| `currency`      | `VND`                                                                                                     |
+| `updatedAt`     | The source's table date (`YYYY-MM-DD`) when it publishes one (Simplize, fmarket); CafeF publishes none    |
+
+`tenor_months=1` keeps one tenor; `max_tenor_months=1` keeps no-term and 1-month rates (the money kept for quick use). Use one or the other, between 0 and 60. A filter skips sources without tenors and moves on from a source that publishes no matching tenor, so a filtered answer never comes from fmarket.
+
+```json
+{
+  "data": [
+    {
+      "bank": "Alpha Bank",
+      "tenor": "no-term",
+      "rate": 0.2,
+      "currency": "VND",
+      "tenorMonths": 0,
+      "channel": "counter",
+      "instantAccess": true
+    },
+    {
+      "bank": "Alpha Bank",
+      "tenor": "1m",
+      "rate": 3.9,
+      "currency": "VND",
+      "tenorMonths": 1,
+      "channel": "counter",
+      "instantAccess": false
+    }
+  ],
+  "meta": { "provider": "cafef", "fallback": [], "cached": false, "stale": false, "as_of": "2026-10-17T07:00:00Z" }
+}
+```
 
 ### Provider chains
 
 Each capability tries its sources in order; a source that does not cover the request is skipped.
 
-| Capability              | Default chain                                                                                           |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| Ticker                  | equity: vnstock, fmarket, algolab; ifc: fmarket, vnstock; gold: fmarket; crypto: coingecko, yahoo       |
-| FX                      | USD_VND: fmarket, yahoo, currencyapi; USDT_VND: coingecko, currencyapi; other pairs: yahoo, currencyapi |
-| Series                  | equity: vnstock, fmarket, algolab; gold_usd: fmarket; forex: yahoo, fmarket                             |
-| Candles                 | vnstock, yahoo, fmarket, algolab                                                                        |
-| Bank rates, funds, gold | fmarket                                                                                                 |
+| Capability  | Default chain                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| Ticker      | equity: vnstock, fmarket, algolab; ifc: fmarket, vnstock; gold: fmarket; crypto: coingecko, yahoo       |
+| FX          | USD_VND: fmarket, yahoo, currencyapi; USDT_VND: coingecko, currencyapi; other pairs: yahoo, currencyapi |
+| Series      | equity: vnstock, fmarket, algolab; gold_usd: fmarket; forex: yahoo, fmarket                             |
+| Candles     | vnstock, yahoo, fmarket, algolab                                                                        |
+| Bank rates  | cafef, simplize, fmarket (headline rates without a tenor, never used by a tenor filter)                 |
+| Funds, gold | fmarket                                                                                                 |
 
 `MARKET_CHAINS` (JSON) replaces any top-level entry, for example `MARKET_CHAINS='{"candles": ["yahoo", "vnstock"]}'`.
 
-Cache lifetimes: ticker and funds 1 minute, series and candles 5 minutes, FX 10 minutes, bank rates 1 hour, each capped at the next 5am GMT+7 reset.
+Cache lifetimes: ticker and funds 1 minute, series and candles 5 minutes, FX 10 minutes, bank rates 6 hours, each capped at the next 5am GMT+7 reset.
 
 ### Provider coverage and limits
 
 All sources run on free tiers. Every source answers VN stocks, ETFs and warrants in thousands of VND (Yahoo and Algolab publish VND and are scaled) and indices in points, so a fallback never changes units (`tests/test_market_units.py`).
 
-| Source                       | Serves in v2                                                                                                                                                                                                                            | Limits                                                                                                                                                                                                                                                                                                  |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| vnstock (Community key)      | VN stock and index tickers (the latest daily bar of the last two weeks), equity series (30 days), 1h/1d/1w candles; v1 also has listings, financials and company data                                                                   | 60 requests/min and 10,000/day, shared with v1. No foreign flows, macro, order depth or dividends (Sponsor packages only). Financials capped at 8 periods. Ticker is the latest bar, not a live quote.                                                                                                  |
-| fmarket                      | Fund (`ifc`) NAV tickers, SJC and XAU gold tickers, USD/VND bank sell rate and history, `gold_usd` and USD_VND `forex` series, SJC 1d/1w candles, bank rates, funds, NAV history, gold products and history                             | Unofficial public API with no published terms or limits. One quote per day, so SJC candles are close-only. The only source for funds, NAV, bank rates and SJC (SJC's own site is behind a Cloudflare challenge), so outages fall back to the stale copy. Skipped in the equity chains (no equity data). |
-| Yahoo Finance                | FX market rates for ISO pairs, `forex` series, crypto tickers (`<COIN>-USD`, fallback), 1h/1d/1w candles for VN stocks, VNINDEX, VIX, USDVND, XAUUSD (COMEX front-month future `GC=F`, the only XAUUSD history) and Yahoo-style symbols | Unofficial API, may throttle or change without notice. No VN30, HNXINDEX, UPCOMINDEX or SJC. Hourly history only for the last 729 days; VN index 1d/1w bars are rebuilt from 1h. VN stock prices are scaled from VND to thousands.                                                                      |
-| CoinGecko                    | Crypto tickers in USD, USDT/VND and coin/VND rates; 21 pinned coin ids, others resolved by search                                                                                                                                       | Free plan rate limits (higher with the optional `COINGECKO_API_KEY` demo key). An ambiguous symbol resolves to the best-ranked exact match.                                                                                                                                                             |
-| currency-api                 | Last-resort FX for any ISO pair                                                                                                                                                                                                         | One daily reference snapshot, not a market rate. Rates older than 4 days are rejected.                                                                                                                                                                                                                  |
-| Algolab (MCP, last fallback) | Live VN stock, ETF, warrant and index quotes, equity series (30 days), 1h/1d/1w candles                                                                                                                                                 | Without `ALGOLAB_API_KEY` it uses the keyless `/free` pool: 120 requests/min and 1,000/day shared with every anonymous user, so it can be exhausted by others. Each candle request costs 1-4 calls (1,000 bars per page). Personal, non-commercial use only.                                            |
+| Source                       | Serves in v2                                                                                                                                                                                                                            | Limits                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| vnstock (Community key)      | VN stock and index tickers (the latest daily bar of the last two weeks), equity series (30 days), 1h/1d/1w candles; v1 also has listings, financials and company data                                                                   | 60 requests/min and 10,000/day, shared with v1. No foreign flows, macro, order depth or dividends (Sponsor packages only). Financials capped at 8 periods. Ticker is the latest bar, not a live quote.                                                                                                                                                                                |
+| fmarket                      | Fund (`ifc`) NAV tickers, SJC and XAU gold tickers, USD/VND bank sell rate and history, `gold_usd` and USD_VND `forex` series, SJC 1d/1w candles, bank rates, funds, NAV history, gold products and history                             | Unofficial public API with no published terms or limits. One quote per day, so SJC candles are close-only. The only source for funds, NAV and SJC (SJC's own site is behind a Cloudflare challenge), so outages fall back to the stale copy. Its bank rates are one headline rate per bank with no tenor, the last bank-rate fallback. Skipped in the equity chains (no equity data). |
+| Yahoo Finance                | FX market rates for ISO pairs, `forex` series, crypto tickers (`<COIN>-USD`, fallback), 1h/1d/1w candles for VN stocks, VNINDEX, VIX, USDVND, XAUUSD (COMEX front-month future `GC=F`, the only XAUUSD history) and Yahoo-style symbols | Unofficial API, may throttle or change without notice. No VN30, HNXINDEX, UPCOMINDEX or SJC. Hourly history only for the last 729 days; VN index 1d/1w bars are rebuilt from 1h. VN stock prices are scaled from VND to thousands.                                                                                                                                                    |
+| CoinGecko                    | Crypto tickers in USD, USDT/VND and coin/VND rates; 21 pinned coin ids, others resolved by search                                                                                                                                       | Free plan rate limits (higher with the optional `COINGECKO_API_KEY` demo key). An ambiguous symbol resolves to the best-ranked exact match.                                                                                                                                                                                                                                           |
+| currency-api                 | Last-resort FX for any ISO pair                                                                                                                                                                                                         | One daily reference snapshot, not a market rate. Rates older than 4 days are rejected.                                                                                                                                                                                                                                                                                                |
+| CafeF                        | Bank rates by tenor (no-term, 1-24 months), counter rates paid at maturity, about 30 banks                                                                                                                                              | A static JSON file on CafeF's CDN behind cafef.vn's rate page (robots allow all; no published terms or limits). No update date. No-term rates for about a third of the banks.                                                                                                                                                                                                         |
+| Simplize                     | Bank rates by tenor (no-term, 1-36 months) with a daily table date, about 20 banks                                                                                                                                                      | No public API: the rates are the Next.js page props (`__NEXT_DATA__`) of simplize.vn/lai-suat-ngan-hang, so a site redesign can break it. Online or counter is not stated. Its terms allow citing data with the source; bulk datasets need written approval. Personal use only.                                                                                                       |
+| Algolab (MCP, last fallback) | Live VN stock, ETF, warrant and index quotes, equity series (30 days), 1h/1d/1w candles                                                                                                                                                 | Without `ALGOLAB_API_KEY` it uses the keyless `/free` pool: 120 requests/min and 1,000/day shared with every anonymous user, so it can be exhausted by others. Each candle request costs 1-4 calls (1,000 bars per page). Personal, non-commercial use only.                                                                                                                          |
 
 Exchange rates carry a `basis`, because sources in one chain quote different rates for the same pair: `bank_sell` (fmarket, a bank's sell rate), `market` (Yahoo, the FX market), `reference` (currency-api, a daily snapshot) and `crypto_market` (CoinGecko). Copies cached before the field existed have no `basis`.
 

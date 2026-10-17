@@ -86,16 +86,68 @@ class PriceSeries:
         return {"provider": self.provider, "seriesType": self.series_type.value, "currency": self.currency, "data": to_json(self.data)}
 
 
+class RateChannel(str, Enum):
+    """Where a deposit rate applies; banks often pay more online."""
+
+    ONLINE = "online"
+    COUNTER = "counter"
+
+
+# tenor_months of a no-term (không kỳ hạn) deposit: withdrawable any time.
+NO_TERM = 0
+# The longest tenor read from a source or accepted in a filter (five years).
+MAX_TENOR_MONTHS = 60
+
+
+def tenor_label(months: int) -> str:
+    """The `tenor` text of a rate by tenor: "no-term", "1m", "12m"."""
+    return "no-term" if months == NO_TERM else f"{months}m"
+
+
 @dataclass
 class BankRate:
+    """
+    A savings rate, percent a year. `tenor` is free text, empty when the
+    source publishes one headline rate per bank (fmarket). Sources by tenor
+    also set `tenor_months` (0 = no-term), `instant_access` (true only for
+    no-term: money can leave at any time without losing interest) and
+    `channel` when the source says whether the rate is online or at the
+    counter.
+    """
+
     bank: str
     rate: float
     tenor: str = ""
     currency: Optional[str] = None
     updated_at: Optional[str] = None
+    tenor_months: Optional[int] = None
+    channel: Optional[RateChannel] = None
+    instant_access: Optional[bool] = None
+
+    @classmethod
+    def by_tenor(cls, bank: str, months: int, rate: float, channel: Optional[RateChannel] = None, updated_at: Optional[str] = None) -> "BankRate":
+        return cls(
+            bank=bank,
+            rate=rate,
+            tenor=tenor_label(months),
+            currency="VND",
+            updated_at=updated_at,
+            tenor_months=months,
+            channel=channel,
+            instant_access=months == NO_TERM,
+        )
 
     def to_json(self) -> dict:
-        return {"bank": self.bank, "tenor": self.tenor, "rate": self.rate, "currency": self.currency, "updatedAt": self.updated_at}
+        return {
+            "bank": self.bank,
+            "tenor": self.tenor,
+            "rate": self.rate,
+            "currency": self.currency,
+            "updatedAt": self.updated_at,
+            "tenorMonths": self.tenor_months,
+            "channel": self.channel.value if self.channel else None,
+            "instantAccess": self.instant_access,
+        }
 
 
 @dataclass

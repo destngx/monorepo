@@ -8,7 +8,7 @@ from src.main import app
 from src.market.candles import Timeframe
 from src.market.chains import Chains, MarketTTL
 from src.market.errors import NotFound, Unsupported, UpstreamError, ValidationError
-from src.market.models import Candle, CandleSeries, ExchangeRate, Ticker, utc_iso
+from src.market.models import BankRate, Candle, CandleSeries, ExchangeRate, RateChannel, Ticker, utc_iso
 from src.market.router import Router
 from src.market.runtime import get_market_service
 from src.market.service import MarketService
@@ -53,6 +53,13 @@ def hourly_series(provider, *_):
     start = NOW - timedelta(hours=8)
     candles = [Candle(time=start + timedelta(hours=i), open=i, high=i + 1, low=i, close=i + 0.5, volume=1) for i in range(1, 7)]
     return CandleSeries(symbol="FPT", timeframe="1h", provider=provider, candles=candles, currency="VND")
+
+
+def tenor_rates(*tenors, bank="Alpha Bank"):
+    return [BankRate.by_tenor(bank, months, rate, channel=RateChannel.COUNTER) for months, rate in tenors]
+
+
+HEADLINE = [BankRate(bank="Alpha Bank", rate=6.2, currency="VND", updated_at="2026-10-05")]
 
 
 @pytest.fixture
@@ -242,12 +249,74 @@ class TestService:
         assert [c for c in source.calls if c[0] == "get_fund_nav"] == [("get_fund_nav", (28,)), ("get_fund_nav", (28,))]
 
 
+class TestBankRates:
+    async def test_falls_back_to_the_next_source_with_tenors(self, store):
+        cafef = FakeSource("cafef", get_bank_rates=RuntimeError("cdn down"))
+        simplize = FakeSource("simplize", get_bank_rates=tenor_rates((0, 0.1), (1, 2.2)))
+        fmarket = FakeSource("fmarket", get_bank_rates=HEADLINE)
+        answer = await service(cafef, simplize, fmarket, store=store).bank_rates()
+        assert (answer.provider, answer.fallback) == ("simplize", ["cafef: cdn down"])
+        assert [(r["tenor"], r["tenorMonths"], r["instantAccess"]) for r in answer.data] == [("no-term", 0, True), ("1m", 1, False)]
+        assert fmarket.calls == []
+
+    async def test_headline_rates_are_the_last_fallback_without_a_filter(self):
+        cafef = FakeSource("cafef", get_bank_rates=RuntimeError("cdn down"))
+        simplize = FakeSource("simplize", get_bank_rates=ValueError("page changed"))
+        fmarket = FakeSource("fmarket", get_bank_rates=HEADLINE)
+        answer = await service(cafef, simplize, fmarket).bank_rates()
+        assert answer.provider == "fmarket"
+        assert answer.data == [{"bank": "Alpha Bank", "tenor": "", "rate": 6.2, "currency": "VND", "updatedAt": "2026-10-05"}]
+
+    async def test_tenor_filter_keeps_one_tenor(self):
+        cafef = FakeSource("cafef", get_bank_rates=tenor_rates((0, 0.2), (1, 3.9), (12, 6.1)))
+        answer = await service(cafef).bank_rates(tenor_months=1)
+        assert [(r["bank"], r["tenorMonths"], r["rate"]) for r in answer.data] == [("Alpha Bank", 1, 3.9)]
+
+    async def test_max_tenor_filter_keeps_instant_access_and_short_terms(self):
+        cafef = FakeSource("cafef", get_bank_rates=tenor_rates((0, 0.2), (1, 3.9), (3, 4.1), (12, 6.1)))
+        answer = await service(cafef).bank_rates(max_tenor_months=1)
+        assert [r["tenorMonths"] for r in answer.data] == [0, 1]
+
+    async def test_filters_skip_sources_without_tenors(self):
+        fmarket = FakeSource("fmarket", get_bank_rates=HEADLINE)
+        cafef = FakeSource("cafef", get_bank_rates=tenor_rates((1, 3.9)))
+        answer = await service(fmarket, cafef, chains=Chains(bank_rates=["fmarket", "cafef"])).bank_rates(tenor_months=1)
+        assert (answer.provider, answer.fallback) == ("cafef", [])
+        with pytest.raises(ValidationError, match="no rates by tenor"):
+            await service(fmarket, chains=Chains(bank_rates=["fmarket"])).bank_rates(max_tenor_months=1)
+
+    async def test_a_tenor_one_source_lacks_moves_to_the_next(self):
+        cafef = FakeSource("cafef", get_bank_rates=tenor_rates((1, 3.9), (24, 6.5)))
+        simplize = FakeSource("simplize", get_bank_rates=tenor_rates((1, 2.2), (36, 5.5)))
+        chains = Chains(bank_rates=["cafef", "simplize"])
+        answer = await service(cafef, simplize, chains=chains).bank_rates(tenor_months=36)
+        assert (answer.provider, answer.fallback) == ("simplize", ["cafef: publishes no 36-month rates"])
+        with pytest.raises(NotFound):
+            await service(cafef, simplize, chains=chains).bank_rates(tenor_months=48)
+
+    async def test_filtered_and_full_answers_are_cached_apart(self):
+        cafef = FakeSource("cafef", get_bank_rates=lambda: tenor_rates((0, 0.2), (1, 3.9)))
+        market = service(cafef, cache=CacheManager(enabled=False))
+        assert len((await market.bank_rates()).data) == 2
+        assert len((await market.bank_rates(tenor_months=1)).data) == 1
+        assert (await market.bank_rates()).cached is True
+        assert len(cafef.calls) == 2
+
+    @pytest.mark.parametrize("kwargs", [{"tenor_months": -1}, {"max_tenor_months": 61}, {"tenor_months": 1, "max_tenor_months": 1}])
+    async def test_bad_filters_are_rejected_before_routing(self, kwargs):
+        cafef = FakeSource("cafef", get_bank_rates=tenor_rates((1, 3.9)))
+        with pytest.raises(ValidationError):
+            await service(cafef).bank_rates(**kwargs)
+        assert cafef.calls == []
+
+
 class TestApi:
     @pytest.fixture
     def client(self, store):
         sources = [
             FakeSource("vnstock", get_ticker=RuntimeError("quota"), get_candles=lambda *a: hourly_series("vnstock")),
             FakeSource("fmarket", get_ticker=lambda *a: ticker("fmarket"), get_issuers=[{"id": 1}]),
+            FakeSource("cafef", get_bank_rates=tenor_rates((0, 0.2), (1, 3.9), (12, 6.1))),
         ]
         market = service(*sources, store=store)
         app.dependency_overrides[get_market_service] = lambda: market
@@ -297,5 +366,19 @@ class TestApi:
         assert providers == [
             {"name": "vnstock", "capabilities": ["ticker", "candles"]},
             {"name": "fmarket", "capabilities": ["ticker"]},
+            {"name": "cafef", "capabilities": ["bank_rates"]},
         ]
         assert http.get("/api/v2/providers/vnstock/health").json() == {"data": {"provider": "vnstock", "status": "ok"}}
+
+    def test_bank_rates_filter_by_tenor(self, client):
+        http, _ = client
+        body = http.get("/api/v2/bank-rates", params={"max_tenor_months": 1}).json()
+        assert body["meta"]["provider"] == "cafef"
+        assert body["data"] == [
+            {"bank": "Alpha Bank", "tenor": "no-term", "rate": 0.2, "currency": "VND", "tenorMonths": 0, "channel": "counter", "instantAccess": True},
+            {"bank": "Alpha Bank", "tenor": "1m", "rate": 3.9, "currency": "VND", "tenorMonths": 1, "channel": "counter", "instantAccess": False},
+        ]
+        assert len(http.get("/api/v2/bank-rates").json()["data"]) == 3
+        for params in ({"tenor_months": "one"}, {"tenor_months": -1}, {"tenor_months": 1, "max_tenor_months": 3}):
+            bad = http.get("/api/v2/bank-rates", params=params)
+            assert bad.status_code == 400 and bad.json()["error"]["code"] == "validation"

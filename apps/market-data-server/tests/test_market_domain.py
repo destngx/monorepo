@@ -5,7 +5,7 @@ import pytest
 from src.market.candles import ICT, Timeframe, aggregate_candles, clean_candles
 from src.market.chains import Chains, load_chains
 from src.market.errors import ValidationError
-from src.market.models import Candle, ExchangeRate, PriceSeries, RateBasis, SeriesType, Ticker, TickerType, to_json
+from src.market.models import BankRate, Candle, ExchangeRate, PriceSeries, RateBasis, RateChannel, SeriesType, Ticker, TickerType, to_json
 from src.market.symbols import is_vn_listing, normalise_symbol
 
 
@@ -102,11 +102,12 @@ class TestChains:
         assert chains.fx_chain("EUR_VND") == ["yahoo", "currencyapi"]
         assert chains.candles == ["vnstock", "yahoo", "fmarket", "algolab"]
         assert chains.ticker["crypto"] == ["coingecko", "yahoo"]
+        assert chains.bank_rates == ["cafef", "simplize", "fmarket"]
 
     def test_env_override_replaces_one_entry(self):
         chains = load_chains('{"candles": ["yahoo"]}')
         assert chains.candles == ["yahoo"]
-        assert chains.bank_rates == ["fmarket"]
+        assert chains.bank_rates == ["cafef", "simplize", "fmarket"]
 
     @pytest.mark.parametrize("raw", ['{"nope": []}', '{"candles": {"a": 1}}'])
     def test_env_override_rejects_bad_entries(self, raw):
@@ -128,3 +129,16 @@ class TestJson:
         assert to_json(Candle(time=at(2026, 10, 12, 9, tz=ICT), close=1)) == {
             "time": "2026-10-12T02:00:00Z", "close": 1, "open": 0.0, "high": 0.0, "low": 0.0, "volume": 0.0,
         }  # fmt: skip
+
+    def test_bank_rates_without_a_tenor_keep_the_original_shape(self):
+        headline = BankRate(bank="Alpha Bank", rate=6.2, currency="VND", updated_at="2026-10-05")
+        assert to_json(headline) == {"bank": "Alpha Bank", "tenor": "", "rate": 6.2, "currency": "VND", "updatedAt": "2026-10-05"}
+
+    def test_bank_rates_by_tenor_carry_months_channel_and_instant_access(self):
+        no_term = BankRate.by_tenor("Alpha Bank", 0, 0.2, channel=RateChannel.COUNTER, updated_at="2026-10-17")
+        assert to_json(no_term) == {
+            "bank": "Alpha Bank", "tenor": "no-term", "rate": 0.2, "currency": "VND", "updatedAt": "2026-10-17",
+            "tenorMonths": 0, "channel": "counter", "instantAccess": True,
+        }  # fmt: skip
+        one_month = to_json(BankRate.by_tenor("Alpha Bank", 1, 3.9))
+        assert one_month == {"bank": "Alpha Bank", "tenor": "1m", "rate": 3.9, "currency": "VND", "tenorMonths": 1, "instantAccess": False}

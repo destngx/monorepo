@@ -48,6 +48,26 @@ def _error_code(response: httpx.Response) -> Any:
     return body.get("code") if isinstance(body, dict) else None
 
 
+async def _request(
+    client: httpx.AsyncClient,
+    source: str,
+    method: str,
+    path: str,
+    params: Optional[Mapping[str, Any]],
+    json: Any,
+    headers: Optional[Mapping[str, str]],
+) -> httpx.Response:
+    response = await client.request(method, path, params=params, json=json, headers=headers)
+    if not response.is_success:
+        raise StatusError(source, response.status_code, _error_code(response))
+    return response
+
+
+async def request_text(client: httpx.AsyncClient, source: str, path: str, *, headers: Optional[Mapping[str, str]] = None) -> str:
+    """GET a page (HTML) for sources that embed their data in one."""
+    return (await _request(client, source, "GET", path, None, None, headers)).text
+
+
 async def request_json(
     client: httpx.AsyncClient,
     source: str,
@@ -58,9 +78,7 @@ async def request_json(
     json: Any = None,
     headers: Optional[Mapping[str, str]] = None,
 ) -> Any:
-    response = await client.request(method, path, params=params, json=json, headers=headers)
-    if not response.is_success:
-        raise StatusError(source, response.status_code, _error_code(response))
+    response = await _request(client, source, method, path, params, json, headers)
     try:
         return response.json()
     except ValueError as e:

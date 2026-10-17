@@ -119,25 +119,25 @@ Errors use `{"error": {"code": "...", "message": "..."}}` and fixed statuses: 40
 
 Everything WM uses today, by capability. All GET endpoints accept `skip_cache`.
 
-| Endpoint                                                      | Replaces in WM                                | Notes                                                                                     |
-| ------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `GET /api/v2/ticker?symbol&type`                              | `GetTicker` (equity, ifc, gold, crypto)       | `Ticker` model unchanged: price or bid/ask, currency, timestamp.                          |
-| `GET /api/v2/fx?from&to`                                      | `GetExchangeRate`                             | Rejects rates older than 4 days and moves down the chain. Any ISO pair, not just two.     |
-| `GET /api/v2/series?symbol&type`                              | `GetPriceSeries` (equity, gold_usd, forex)    | Kept for compatibility; new callers use candles.                                          |
-| `GET /api/v2/candles?symbol&timeframe&days` or `&from&to`     | `GetCandles`                                  | 1h, 4h, 1d, 1w. 4h and VN-index daily/weekly aggregated from 1h in ICT. Cleaned bars.     |
-| `GET /api/v2/bank-rates`                                      | `GetBankInterestRate`                         | `tenor` empty, `updated_at` is the table date.                                            |
-| `GET /api/v2/funds?asset_type&mmf&page&page_size`             | fmarket `getProductsFilterNav`                | fmarket's `data` payload as is (see below). `page_size` at most 100.                      |
-| `GET /api/v2/funds/{code}`                                    | fmarket `getProductDetails`                   | Code URL-escaped.                                                                         |
-| `GET /api/v2/funds/{fund}/nav`                                | fmarket `getNavHistory`                       | `fund` is the product id or the code. Full history; NAV store in phase 4.                 |
-| `GET /api/v2/funds/issuers`                                   | fmarket `getIssuers`                          |                                                                                           |
-| `GET /api/v2/gold/products`                                   | fmarket `getGoldProducts`                     |                                                                                           |
-| `GET /api/v2/gold/history?from&to`                            | fmarket `getGoldPriceHistory`                 | `{rows, summary}`: daily rows and fmarket's `extra` block (ring gold, USD rate, changes). |
-| `GET /api/v2/fx/history?from&to&pair`                         | fmarket `getUsdRateHistory`                   | USD_VND only. Dates as `yyyy-MM-dd` or `yyyyMMdd` in ICT; default the last 30 days.       |
-| `GET /api/v2/providers` and `/api/v2/providers/{name}/health` | provider health routes                        | Capabilities per source; per-source quota usage later.                                    |
-| `GET /api/v2/equities/{symbol}/{company,financials,...}`      | `/api/v1/company/*`, `/api/v1/finance/*`      | Deferred: no consumer yet; `/api/v1` stays.                                               |
-| `GET /api/v2/listing?exchange&group&industry`                 | `/api/v1/listing/*`                           | Deferred, as above.                                                                       |
-| `GET /api/v2/indicators?symbol&timeframe&set`                 | WM market analysis technicals (WM-INV-12..16) | Phase 5.                                                                                  |
-| `GET /api/v2/screener?...`                                    | new                                           | Phase 5, store-backed.                                                                    |
+| Endpoint                                                      | Replaces in WM                                | Notes                                                                                        |
+| ------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `GET /api/v2/ticker?symbol&type`                              | `GetTicker` (equity, ifc, gold, crypto)       | `Ticker` model unchanged: price or bid/ask, currency, timestamp.                             |
+| `GET /api/v2/fx?from&to`                                      | `GetExchangeRate`                             | Rejects rates older than 4 days and moves down the chain. Any ISO pair, not just two.        |
+| `GET /api/v2/series?symbol&type`                              | `GetPriceSeries` (equity, gold_usd, forex)    | Kept for compatibility; new callers use candles.                                             |
+| `GET /api/v2/candles?symbol&timeframe&days` or `&from&to`     | `GetCandles`                                  | 1h, 4h, 1d, 1w. 4h and VN-index daily/weekly aggregated from 1h in ICT. Cleaned bars.        |
+| `GET /api/v2/bank-rates?tenor_months&max_tenor_months`        | `GetBankInterestRate`                         | Rates by tenor (`tenorMonths`, `instantAccess`, `channel`); fmarket rows keep `tenor` empty. |
+| `GET /api/v2/funds?asset_type&mmf&page&page_size`             | fmarket `getProductsFilterNav`                | fmarket's `data` payload as is (see below). `page_size` at most 100.                         |
+| `GET /api/v2/funds/{code}`                                    | fmarket `getProductDetails`                   | Code URL-escaped.                                                                            |
+| `GET /api/v2/funds/{fund}/nav`                                | fmarket `getNavHistory`                       | `fund` is the product id or the code. Full history; NAV store in phase 4.                    |
+| `GET /api/v2/funds/issuers`                                   | fmarket `getIssuers`                          |                                                                                              |
+| `GET /api/v2/gold/products`                                   | fmarket `getGoldProducts`                     |                                                                                              |
+| `GET /api/v2/gold/history?from&to`                            | fmarket `getGoldPriceHistory`                 | `{rows, summary}`: daily rows and fmarket's `extra` block (ring gold, USD rate, changes).    |
+| `GET /api/v2/fx/history?from&to&pair`                         | fmarket `getUsdRateHistory`                   | USD_VND only. Dates as `yyyy-MM-dd` or `yyyyMMdd` in ICT; default the last 30 days.          |
+| `GET /api/v2/providers` and `/api/v2/providers/{name}/health` | provider health routes                        | Capabilities per source; per-source quota usage later.                                       |
+| `GET /api/v2/equities/{symbol}/{company,financials,...}`      | `/api/v1/company/*`, `/api/v1/finance/*`      | Deferred: no consumer yet; `/api/v1` stays.                                                  |
+| `GET /api/v2/listing?exchange&group&industry`                 | `/api/v1/listing/*`                           | Deferred, as above.                                                                          |
+| `GET /api/v2/indicators?symbol&timeframe&set`                 | WM market analysis technicals (WM-INV-12..16) | Phase 5.                                                                                     |
+| `GET /api/v2/screener?...`                                    | new                                           | Phase 5, store-backed.                                                                       |
 
 The fund and gold endpoints return fmarket's `data` payload unchanged, because the WM UI parses fmarket's own fields. Typed fund models are a later step: they need the UI parsers (`ui/src/lib/investments/fmarket/`) to move with them.
 
@@ -153,7 +153,7 @@ Carried over from WM `domain/market_capability.go`:
 | FX                                      | USD_VND: fmarket → yahoo → currencyapi; USDT_VND: coingecko → currencyapi; others: yahoo → currencyapi | 600 s                                  |
 | Series                                  | equity: vnstock → fmarket → algolab; gold_usd: fmarket; forex: yahoo → fmarket                         | 300 s                                  |
 | Candles                                 | vnstock → yahoo → fmarket → algolab (fmarket: SJC only; XAUUSD is Yahoo's `GC=F` alone)                | 300 s (closed ranges: until 5am ICT)   |
-| Bank rates                              | fmarket                                                                                                | 3600 s                                 |
+| Bank rates                              | cafef → simplize → fmarket (no tenor; skipped by tenor filters)                                        | 21600 s                                |
 | Funds, gold                             | fmarket                                                                                                | 60 s (WM's current fmarket action TTL) |
 | Fundamentals                            | vnstock → algolab (TCBS once evaluated)                                                                | until 5am ICT                          |
 | Foreign flows, macro, research, signals | algolab                                                                                                | until 5am ICT (intraday: 60 s)         |
