@@ -308,10 +308,35 @@ func TestGivenAccountsMarkedNotReadyInPreferencesWhenComputingBillsThenSafeToSpe
 	if len(safe.Issues) != 1 || safe.Readiness.ETag != prefs.SafeToSpend.ETag {
 		t.Fatalf("the unknown name is reported and the etag returned: %+v", safe)
 	}
-	// Idle cash keeps its own spendable cash: the slow account still counts.
+	// Idle cash uses the same ready money: the slow account is never idle.
 	idle, err := analytics.IdleCash(context.Background(), false)
-	if err != nil || idle.Components.SpendableCash != 50_000_000 {
-		t.Fatalf("idle = %+v err %v", idle.Components, err)
+	if err != nil || idle.Components.ReadyMoney != 20_000_000 || len(idle.Excluded) != 1 || idle.Excluded[0].Name != "Broker B" {
+		t.Fatalf("idle = %+v err %v", idle, err)
+	}
+}
+
+func TestGivenIdleCashPreferencesWhenCheckingThenTheFloatAndEmergencyAccountsApply(t *testing.T) {
+	prefs := domain.ParsePreferences([][]string{
+		{"idleCash.dayToDayFloat", "5000000"},
+		{"idleCash.emergencyAccounts", `["Rainy Day Bank"]`},
+	}, 2)
+	db := &fakes.Database{
+		Accounts: []domain.Account{
+			{Name: "Bank A", Type: domain.AccountTypeBank, Balance: 50_000_000},
+			{Name: "Rainy Day Bank", Type: domain.AccountTypeBank, Balance: 30_000_000},
+		},
+		Preferences: &prefs,
+	}
+	idle, err := NewAnalyticsService(db, func() time.Time { return fixedNow }, WithBankRates(&fakes.Market{})).IdleCash(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := idle.Components
+	if c.ReadyMoney != 50_000_000 || c.DayToDayFloat != 5_000_000 || !c.FloatFromPreference || c.EmergencyInAccounts != 30_000_000 || idle.Idle != 45_000_000 {
+		t.Fatalf("components = %+v idle = %v", c, idle.Idle)
+	}
+	if len(idle.Emergency.Accounts) != 1 || idle.Emergency.Settings.ETag != prefs.IdleCash.ETag {
+		t.Fatalf("emergency = %+v", idle.Emergency)
 	}
 }
 
@@ -322,10 +347,11 @@ func TestGivenIdleCashWhenCheckingThenBillsGoalPlanAndBankRatesAreCombined(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if idle.Components.SpendableCash != 50_000_000 || idle.Idle != 50_000_000 || idle.Best == nil || idle.Best.Rate != 6.5 {
+	// The best instant-access rate is the 1-month 4.5%, never the 12-month 6.5%.
+	if idle.Components.ReadyMoney != 50_000_000 || idle.Idle != 50_000_000 || idle.Best == nil || idle.Best.Rate != 4.5 || idle.Best.Access != domain.DepositOneMonth {
 		t.Fatalf("idle = %+v", idle)
 	}
-	if idle.Verdict != domain.IdleCashWorthMoving || idle.ExtraPerYear != 3_250_000 {
+	if idle.Verdict != domain.IdleCashWorthMoving || idle.ExtraPerYear != 2_250_000 {
 		t.Fatalf("verdict = %s, extra = %v", idle.Verdict, idle.ExtraPerYear)
 	}
 

@@ -316,11 +316,12 @@ func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
 	}), nil
 }
 
-// IdleCash combines the bills (unpaid in the next 30 days), the goal plan
-// (this month's goal set-aside, spending buffer, emergency fund) and the
-// published bank rates (WM-CASH-1..5). Sheet read failures are errors; a missing or
-// failing rate source is reported in the result, so the idle amount still
-// shows.
+// IdleCash combines the bills (unpaid in the next 30 days and safe to
+// spend's ready money rule), the goal plan (this month's goal set-aside,
+// the spending buffer as the default float, the emergency fund), the idle
+// cash preferences (float, emergency accounts) and the published bank rates
+// (WM-CASH-1..5, D34). Sheet read failures are errors; a missing or failing
+// rate source is reported in the result, so the idle amount still shows.
 func (s *analyticsService) IdleCash(ctx context.Context, forceFresh bool) (domain.IdleCash, error) {
 	plan, err := s.GoalPlan(forceFresh)
 	if err != nil {
@@ -334,7 +335,12 @@ func (s *analyticsService) IdleCash(ctx context.Context, forceFresh bool) (domai
 	if err != nil {
 		return domain.IdleCash{}, err
 	}
-	input := domain.IdleCashInput{Accounts: accounts, Bills: bills, Plan: &plan, Today: s.today()}
+	// Bills read the preferences already (fresh when forced); this read is cached.
+	prefs, err := s.db.ListPreferences(false)
+	if err != nil {
+		return domain.IdleCash{}, fmt.Errorf("preferences: %w", err)
+	}
+	input := domain.IdleCashInput{Accounts: accounts, Bills: bills, Plan: &plan, Settings: prefs.IdleCash, Today: s.today()}
 	if s.rates == nil {
 		input.RatesIssue = "bank rates unavailable: the market data server is not configured"
 	} else if rates, err := s.rates.GetBankInterestRate(ctx); err != nil {

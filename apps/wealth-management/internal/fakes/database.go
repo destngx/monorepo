@@ -57,6 +57,7 @@ type Database struct {
 	SavedCaptureRules   [][]domain.CaptureRule
 	SavedPreferences    []domain.PreferencesUpdate
 	ReadinessChanges    []domain.AccountReadinessInput
+	EmergencyChanges    []domain.EmergencyAccountInput
 	NatureUpdates       []domain.CategoryNatureUpdate
 	GoalSetups          int
 	CreatedGoals        []domain.GoalInput
@@ -321,14 +322,48 @@ func (f *Database) SetAccountReadiness(input domain.AccountReadinessInput) (doma
 	if err != nil {
 		return domain.Preferences{}, err
 	}
+	readBack, err := f.keepReadBack(next)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	f.ReadinessChanges = append(f.ReadinessChanges, input)
+	return readBack, nil
+}
+
+// SetEmergencyAccount applies the change with the domain rules (ETag
+// checked) and keeps the result as if written and read back.
+func (f *Database) SetEmergencyAccount(input domain.EmergencyAccountInput) (domain.Preferences, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Err != nil {
+		return domain.Preferences{}, f.Err
+	}
+	next, err := domain.ApplyEmergencyAccount(f.preferences(), input)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	readBack, err := f.keepReadBack(next)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	f.EmergencyChanges = append(f.EmergencyChanges, input)
+	return readBack, nil
+}
+
+// keepReadBack writes the entries as tab rows and keeps them parsed back,
+// so rows and ETags look as the sheet would give them. Callers hold mu.
+func (f *Database) keepReadBack(next domain.Preferences) (domain.Preferences, error) {
 	rows := [][]string{}
 	for _, entry := range next.Entries {
 		value := ""
+		spec, _ := domain.PreferenceSpecFor(entry.Key)
 		switch {
-		case entry.Key == domain.PrefSafeToSpendNotReadyAccounts:
-			if value, err = domain.EncodeAccountNames(entry.Names); err != nil {
+		case spec.Kind == domain.PreferenceAccountNames:
+			encoded, err := domain.EncodeAccountNames(entry.Names)
+			if err != nil {
 				return domain.Preferences{}, err
 			}
+			value = encoded
 		case entry.Value != nil:
 			value = strconv.FormatFloat(*entry.Value, 'f', -1, 64)
 		}
@@ -336,7 +371,6 @@ func (f *Database) SetAccountReadiness(input domain.AccountReadinessInput) (doma
 	}
 	readBack := domain.ParsePreferences(rows, 2)
 	f.Preferences = &readBack
-	f.ReadinessChanges = append(f.ReadinessChanges, input)
 	return readBack, nil
 }
 

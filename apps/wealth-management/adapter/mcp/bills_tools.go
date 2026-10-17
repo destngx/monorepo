@@ -42,6 +42,18 @@ func (s *Server) billsWriteTools() []tool {
 			},
 		},
 		{
+			definition: definition("SetEmergencyAccount", "Marks an account as an emergency fund account or not for the idle cash check: emergency true adds it to idleCash.emergencyAccounts in the Preferences tab (created on first use), so its balance covers the emergency fund target first and it is never called idle; false removes it, also for a name that is no longer an account. etag is emergency.settings.etag from GetIdleCash (or idleCash.etag from GetPreferences); fails with a conflict when the setting changed since.", object(map[string]any{
+				"account": stringSchema, "emergency": map[string]any{"type": "boolean"}, "etag": stringSchema,
+			}, "account", "emergency", "etag")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var input domain.EmergencyAccountInput
+				if err := decodeValidated(arguments, &input); err != nil {
+					return nil, err
+				}
+				return db.SetEmergencyAccount(input)
+			},
+		},
+		{
 			definition: definition("CreateRecurringItem", "Adds a recurring item (income, bill, subscription, insurance or card) to the Recurring tab, creating the tab on first use.", object(schema, "name", "kind")),
 			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
 				var input domain.RecurringInput

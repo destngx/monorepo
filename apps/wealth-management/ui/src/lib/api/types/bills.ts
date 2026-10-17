@@ -1,4 +1,5 @@
 import type { DepositRate } from './investments';
+import type { IdleCashSettings } from './preferences';
 
 /** Recurring tab Kind column (B). */
 export type RecurringKind = 'income' | 'bill' | 'subscription' | 'insurance' | 'card';
@@ -224,22 +225,33 @@ export interface RecurringConfirmInput {
 /** Idle cash verdict (ROADMAP R6). */
 export type IdleCashVerdict = 'worth_moving' | 'not_worth_it' | 'nothing_idle' | 'no_rate';
 
-/** idle = max(0, spendableCash - keepLiquid). */
+/** idle = max(0, readyMoney - keepLiquid - dayToDayFloat) (D34). */
 export interface IdleCashComponents {
-  spendableCash: number;
+  /** Safe to spend's ready money (D33) without the emergency accounts. */
+  readyMoney: number;
   billsDue: number;
   cardPayments: number;
   goalSetAside: number;
-  spendingBuffer: number;
-  bufferMonths: number;
-  averageMonthlyExpense: number;
+  /** The emergency fund target. */
   emergencyFund: number;
   /** False when the target comes from emergency months x monthly needs. */
   emergencyFromGoal: boolean;
+  /** Held in the emergency accounts. */
+  emergencyInAccounts: number;
+  /** min(emergencyInAccounts, emergencyFund). */
+  emergencyCovered: number;
+  /** The rest of the target, kept liquid from ready money. */
+  emergencyFromReady: number;
+  /** billsDue + cardPayments + goalSetAside + emergencyFromReady. */
   keepLiquid: number;
+  /** Day-to-day money kept ready: the preference, else bufferMonths x averageMonthlyExpense. */
+  dayToDayFloat: number;
+  floatFromPreference: boolean;
+  bufferMonths: number;
+  averageMonthlyExpense: number;
 }
 
-/** A spendable cash account, its rate (from its note, else 0) and the idle part assumed in it. */
+/** A ready (or emergency) account, its rate (from its note, else 0) and the idle part assumed in it. */
 export interface IdleCashAccount {
   name: string;
   balance: number;
@@ -248,25 +260,61 @@ export interface IdleCashAccount {
   idle: number;
 }
 
+/** Rolling 1-month deposits opened spacingDays apart. */
+export interface IdleCashLadder {
+  parts: number;
+  partAmount: number;
+  spacingDays: number;
+}
+
+/** The emergency fund held in emergency accounts (D34). */
+export interface IdleCashEmergency {
+  /** Listed whatever the balance, so they can be unmarked. */
+  accounts: IdleCashAccount[];
+  balance: number;
+  target: number;
+  currentRate: number;
+  rateGapPoints: number;
+  extraPerYear: number;
+  /** The best instant-access rate beats them by the thresholds. */
+  betterRate: boolean;
+  settings: IdleCashSettings;
+  /** Marked names that are no longer accounts (ignored). */
+  unknown: string[];
+}
+
 /** GET /api/bills/idle-cash */
 export interface IdleCash {
   asOf: string;
   idle: number;
   components: IdleCashComponents;
-  /** Lowest rate first. */
+  /** Everyday ready accounts, lowest rate first. */
   accounts: IdleCashAccount[];
+  /** Crypto and not-ready accounts, never idle. */
+  excluded: ExcludedAccount[];
+  emergency: IdleCashEmergency;
   /** Weighted rate of the idle cash, percent a year. */
   currentRate: number;
-  /** The comparison rate, a proxy; null when unavailable. */
+  /** The best instant-access rate (no-term or 1-month), a proxy; null when none is published. */
   best: DepositRate | null;
   ratesIssue?: string;
+  /** Set when best is a 1-month deposit and the idle cash is big enough to split. */
+  ladder: IdleCashLadder | null;
   rateGapPoints: number;
   extraPerYear: number;
   verdict: IdleCashVerdict;
   reasons: string[];
+  issues: string[];
   minRateGapPoints: number;
   minExtraPerYear: number;
   keepLiquidRule: string;
   rateRule: string;
   thresholdRule: string;
+}
+
+/** POST /api/bills/idle-cash/emergency-accounts body. */
+export interface EmergencyAccountInput {
+  account: string;
+  emergency: boolean;
+  etag: string;
 }

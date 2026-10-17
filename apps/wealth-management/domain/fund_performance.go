@@ -3,7 +3,6 @@ package domain
 import (
 	"fmt"
 	"math"
-	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -48,11 +47,17 @@ type FundCashFlow struct {
 // DepositRate is the bank deposit rate used as the comparison. Historical
 // deposit rates are not published, so today's rate is a labelled proxy.
 type DepositRate struct {
-	Bank      string  `json:"bank"`
-	Tenor     string  `json:"tenor"`
-	Rate      float64 `json:"rate"` // percent a year
-	UpdatedAt string  `json:"updatedAt,omitempty"`
-	Basis     string  `json:"basis"`
+	Bank        string `json:"bank"`
+	Tenor       string `json:"tenor"`
+	TenorMonths *int   `json:"tenorMonths,omitempty"`
+	Channel     string `json:"channel,omitempty"`
+	// Access is set for an instant-access comparison (idle cash): no_term
+	// or one_month, with AccessLabel saying what it means.
+	Access      DepositAccess `json:"access,omitempty"`
+	AccessLabel string        `json:"accessLabel,omitempty"`
+	Rate        float64       `json:"rate"` // percent a year
+	UpdatedAt   string        `json:"updatedAt,omitempty"`
+	Basis       string        `json:"basis"`
 }
 
 // Comparison with the deposit.
@@ -217,53 +222,6 @@ func parseHistoryUnits(value string) (float64, bool) {
 		return 0, false
 	}
 	return parsed, true
-}
-
-var tenorMonths = regexp.MustCompile(`(\d+)`)
-
-// DepositRateFromBankRates picks the comparison rate: the best published
-// 12-month rate, else the best rate of the tenor nearest 12 months, else
-// (the source publishes no tenors) the best published rate.
-func DepositRateFromBankRates(rates []BankRate) (DepositRate, bool) {
-	var best *BankRate
-	bestDistance := math.MaxInt
-	for i := range rates {
-		rate := &rates[i]
-		if rate.Rate <= 0 {
-			continue
-		}
-		distance := math.MaxInt - 1
-		if match := tenorMonths.FindString(rate.Tenor); match != "" {
-			months, _ := strconv.Atoi(match)
-			distance = abs(months - 12)
-		}
-		if best == nil || distance < bestDistance || (distance == bestDistance && rate.Rate > best.Rate) {
-			best, bestDistance = rate, distance
-		}
-	}
-	if best == nil {
-		return DepositRate{}, false
-	}
-	basis := "best published 12-month rate today"
-	switch {
-	case bestDistance == math.MaxInt-1:
-		basis = "best published savings rate today (the source publishes no tenor)"
-	case bestDistance != 0:
-		basis = fmt.Sprintf("best published %s rate today (nearest tenor to 12 months)", best.Tenor)
-	}
-	basis += "; historical deposit rates are not available, so today's rate stands in for the whole period"
-	updated := best.UpdatedAt
-	if updated == "" {
-		updated = best.Timestamp
-	}
-	return DepositRate{Bank: best.Bank, Tenor: best.Tenor, Rate: best.Rate, UpdatedAt: updated, Basis: basis}, true
-}
-
-func abs(value int) int {
-	if value < 0 {
-		return -value
-	}
-	return value
 }
 
 // ComputeFundPerformance values each fund holding at its latest NAV and,

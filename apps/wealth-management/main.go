@@ -286,7 +286,8 @@ func setupSheets(ctx context.Context, log *loggerAdapter.Logger, health service.
 	portfolioSvc := service.NewPortfolioService(dbSvc, marketSvc, nil, portfolioOptions...)
 	analyticsOptions := []service.AnalyticsOption{service.WithAllocation(portfolioSvc)}
 	if marketSvc != nil {
-		// The idle cash check compares with the one bank-rates list (ROADMAP R6).
+		// The idle cash check compares with the instant-access rows (no-term,
+		// 1-month) of the one bank-rates list (ROADMAP R6, D34).
 		analyticsOptions = append(analyticsOptions, service.WithBankRates(marketSvc))
 	}
 	analyticsSvc := service.NewAnalyticsService(dbSvc, nil, analyticsOptions...)

@@ -15,7 +15,8 @@ import (
 // item says what it is, how urgent, how much money it is about and which
 // page to open. Headlines never carry the names of people or goals.
 //
-// Rule-backed kinds (rebalance, lent-overdue, goal-plan-short, idle-cash)
+// Rule-backed kinds (rebalance, lent-overdue, goal-plan-short, idle-cash,
+// emergency-fund-rate)
 // come from the live rule findings (EvaluateRecommendationRules), never from
 // the Recommendations tab, so the inbox is current without a refresh; the
 // tab holds the user's decision: a rule item snoozed, dismissed in the last
@@ -40,6 +41,9 @@ const (
 	NeedsYouUncategorized     NeedsYouKind = "uncategorized"
 	NeedsYouRecommendation    NeedsYouKind = "recommendation"
 	NeedsYouIdleCash          NeedsYouKind = "idle-cash"
+	// NeedsYouEmergencyFundRate: the emergency accounts earn materially
+	// less than the best instant-access rate (D34).
+	NeedsYouEmergencyFundRate NeedsYouKind = "emergency-fund-rate"
 	NeedsYouMonthClose        NeedsYouKind = "month-close"
 )
 
@@ -47,7 +51,7 @@ const (
 var needsYouKindOrder = []NeedsYouKind{
 	NeedsYouBillOverdue, NeedsYouShortBeforePayday, NeedsYouCardDue, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
 	NeedsYouGoalPlanShort, NeedsYouGoalBehind, NeedsYouRebalance, NeedsYouUncategorized, NeedsYouRecommendation,
-	NeedsYouIdleCash,
+	NeedsYouIdleCash, NeedsYouEmergencyFundRate,
 }
 
 // NeedsYouStatus is the shared status token of an item (UI status scale).
@@ -464,10 +468,11 @@ var ruleKinds = map[string]struct {
 	kind   NeedsYouKind
 	status NeedsYouStatus
 }{
-	RuleRebalance:     {NeedsYouRebalance, NeedsYouWarning},
-	RuleLentOverdue:   {NeedsYouLentOverdue, NeedsYouWarning},
-	RuleGoalPlanShort: {NeedsYouGoalPlanShort, NeedsYouWarning},
-	RuleIdleCash:      {NeedsYouIdleCash, NeedsYouInfo},
+	RuleRebalance:         {NeedsYouRebalance, NeedsYouWarning},
+	RuleLentOverdue:       {NeedsYouLentOverdue, NeedsYouWarning},
+	RuleGoalPlanShort:     {NeedsYouGoalPlanShort, NeedsYouWarning},
+	RuleIdleCash:          {NeedsYouIdleCash, NeedsYouInfo},
+	RuleEmergencyFundRate: {NeedsYouEmergencyFundRate, NeedsYouInfo},
 }
 
 func ruleItem(finding RuleFinding, recommendationID string) NeedsYouItem {

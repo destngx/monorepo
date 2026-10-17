@@ -78,15 +78,37 @@ func (s *dbService) SetAccountReadiness(input domain.AccountReadinessInput) (dom
 	if err := input.Validate(); err != nil {
 		return domain.Preferences{}, err
 	}
-	if !input.Ready {
+	return s.markAccount(domain.PrefSafeToSpendNotReadyAccounts, input.Account, !input.Ready, func(current domain.Preferences) (domain.Preferences, error) {
+		return domain.ApplyAccountReadiness(current, input)
+	})
+}
+
+// SetEmergencyAccount marks one account as an emergency fund account or
+// not (D34) in the idleCash.emergencyAccounts row, the same way: re-read
+// under the write lock, ErrConflict on a stale ETag, the account must exist
+// to be marked (not to be unmarked).
+func (s *dbService) SetEmergencyAccount(input domain.EmergencyAccountInput) (domain.Preferences, error) {
+	if err := input.Validate(); err != nil {
+		return domain.Preferences{}, err
+	}
+	return s.markAccount(domain.PrefIdleCashEmergencyAccounts, input.Account, input.Emergency, func(current domain.Preferences) (domain.Preferences, error) {
+		return domain.ApplyEmergencyAccount(current, input)
+	})
+}
+
+// markAccount writes one account list key: an account being added to the
+// list must exist; apply computes the next preferences from the tab
+// re-read under the write lock.
+func (s *dbService) markAccount(key domain.PreferenceKey, account string, adding bool, apply func(domain.Preferences) (domain.Preferences, error)) (domain.Preferences, error) {
+	if adding {
 		accounts, err := s.ListAccounts(false)
 		if err != nil {
 			return domain.Preferences{}, err
 		}
 		if !slices.ContainsFunc(accounts, func(a domain.Account) bool {
-			return strings.EqualFold(strings.TrimSpace(a.Name), strings.TrimSpace(input.Account))
+			return strings.EqualFold(strings.TrimSpace(a.Name), strings.TrimSpace(account))
 		}) {
-			return domain.Preferences{}, fmt.Errorf("%w: account %q", domain.ErrNotFound, strings.TrimSpace(input.Account))
+			return domain.Preferences{}, fmt.Errorf("%w: account %q", domain.ErrNotFound, strings.TrimSpace(account))
 		}
 	}
 	s.writeMu.Lock()
@@ -96,12 +118,11 @@ func (s *dbService) SetAccountReadiness(input domain.AccountReadinessInput) (dom
 	if err != nil {
 		return domain.Preferences{}, err
 	}
-	next, err := domain.ApplyAccountReadiness(current, input)
+	next, err := apply(current)
 	if err != nil {
 		return domain.Preferences{}, err
 	}
-	isSetting := func(key domain.PreferenceKey) bool { return key == domain.PrefSafeToSpendNotReadyAccounts }
-	if err := s.writePreferences(current, next, isSetting); err != nil {
+	if err := s.writePreferences(current, next, func(changed domain.PreferenceKey) bool { return changed == key }); err != nil {
 		return domain.Preferences{}, err
 	}
 	return s.readPreferences()

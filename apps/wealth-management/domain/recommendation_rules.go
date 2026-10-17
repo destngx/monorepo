@@ -16,6 +16,9 @@ const (
 	RuleGoalPlanShort = "goal-plan-short"
 	RuleLentOverdue   = "lent-overdue"
 	RuleIdleCash      = "idle-cash"
+	// RuleEmergencyFundRate: the emergency accounts earn materially less
+	// than the best instant-access rate (D34).
+	RuleEmergencyFundRate = "emergency-fund-rate"
 
 	// LentOverdueDays: money lent open longer than this is worth chasing.
 	LentOverdueDays = 90
@@ -74,33 +77,76 @@ func EvaluateRecommendationRules(in RuleInputs) ([]string, []RuleFinding) {
 			findings = append(findings, finding)
 		}
 	}
-	// Without a published rate the idle cash check cannot judge, so its
-	// items stay as they are.
-	if in.IdleCash != nil && in.IdleCash.Verdict != IdleCashNoRate {
-		evaluated = append(evaluated, RuleIdleCash)
+	// Without an instant-access rate the idle cash check cannot judge, so
+	// its items stay as they are; an untenored or long-term rate is never
+	// quoted for money kept within reach.
+	if in.IdleCash != nil && in.IdleCash.Verdict != IdleCashNoRate && in.IdleCash.Best != nil {
+		evaluated = append(evaluated, RuleIdleCash, RuleEmergencyFundRate)
 		if finding, ok := idleCashFinding(*in.IdleCash); ok {
+			findings = append(findings, finding)
+		}
+		if finding, ok := emergencyFundRateFinding(*in.IdleCash); ok {
 			findings = append(findings, finding)
 		}
 	}
 	return evaluated, findings
 }
 
-// idleCashFinding: idle cash would earn materially more at the best
-// published rate (ROADMAP R6, WM-CASH-1..5). About the rate only (D31).
+// idleCashFinding: the idle part above the day-to-day float would earn
+// materially more in an instant-access deposit (ROADMAP R6, WM-CASH-1..5,
+// D34). About the rate only (D31); the money stays within reach.
 func idleCashFinding(idle IdleCash) (RuleFinding, bool) {
 	if idle.Verdict != IdleCashWorthMoving || idle.Best == nil {
 		return RuleFinding{}, false
 	}
 	extra := math.Round(idle.ExtraPerYear)
+	keep := math.Max(0, idle.Components.ReadyMoney-idle.Idle)
+	action := fmt.Sprintf("Keep %s ready in your everyday accounts. The other %s could earn about %s a year more in %s at %s (%s%%, %s)",
+		FormatVND(keep), FormatVND(idle.Idle), FormatVND(extra), idle.Best.InstantAccessKind(), idle.Best.Bank, formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms())
+	if ladder := idle.Ladder; ladder != nil {
+		action += fmt.Sprintf(", for example split into %d parts of about %s opened %d days apart, so one matures every %d days",
+			ladder.Parts, FormatVND(ladder.PartAmount), ladder.SpacingDays, ladder.SpacingDays)
+	}
+	action += ". It stays reachable."
 	return RuleFinding{
-		Rule:  RuleIdleCash,
-		Title: "Move idle cash to a higher savings rate",
-		Action: fmt.Sprintf("Put about %s of idle cash in a savings deposit at %s (%.1f%%, %s); it would earn about %s more a year.",
-			FormatVND(idle.Idle), idle.Best.Bank, idle.Best.Rate, idle.Best.Tenor, FormatVND(extra)),
+		Rule:      RuleIdleCash,
+		Title:     "Earn more on idle cash and keep it within reach",
+		Action:    action,
 		ImpactVND: &extra,
 		AmountVND: vndAmount(idle.Idle),
-		Evidence: fmt.Sprintf("%s idle beyond what stays liquid; earning %.1f%% now vs %.1f%% best published",
-			FormatVND(idle.Idle), idle.CurrentRate, idle.Best.Rate),
+		Evidence: fmt.Sprintf("%s idle above the day-to-day float (%s) and what stays liquid; earning %s%% now vs %s%% best instant-access: %s",
+			FormatVND(idle.Idle), FormatVND(idle.Components.DayToDayFloat), formatRate(idle.CurrentRate), formatRate(idle.Best.Rate), strings.TrimPrefix(idle.Best.InstantAccessKind(), "a ")),
+		Page: "/bills",
+	}, true
+}
+
+// emergencyFundRateFinding: the emergency accounts earn materially less
+// than the best instant-access rate (D34). Its own wording: it is about
+// where the emergency fund sits, never about moving all cash.
+func emergencyFundRateFinding(idle IdleCash) (RuleFinding, bool) {
+	e := idle.Emergency
+	if !e.BetterRate || idle.Best == nil || e.Balance <= 0 {
+		return RuleFinding{}, false
+	}
+	extra := math.Round(e.ExtraPerYear)
+	kind := idle.Best.InstantAccessKind()
+	holding := 0
+	for _, account := range e.Accounts {
+		if account.Balance > 0 {
+			holding++
+		}
+	}
+	return RuleFinding{
+		Rule:  RuleEmergencyFundRate,
+		Title: "Your emergency fund could earn more and stay within reach",
+		Action: fmt.Sprintf("Your emergency fund (%s in %s) earns %s%%. %s at %s (%s%%, %s) would earn about %s a year more and keep it within reach. "+
+			"Move it only if the new place is as quick to reach in an emergency.",
+			FormatVND(e.Balance), plural(holding, "emergency account", "emergency accounts"), formatRate(e.CurrentRate),
+			strings.ToUpper(kind[:1])+kind[1:], idle.Best.Bank, formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms(), FormatVND(extra)),
+		ImpactVND: &extra,
+		AmountVND: vndAmount(e.Balance),
+		Evidence: fmt.Sprintf("emergency accounts earn %s%% vs %s%% best instant-access: %s", formatRate(e.CurrentRate), formatRate(idle.Best.Rate),
+			strings.TrimPrefix(kind, "a ")),
 		Page: "/bills",
 	}, true
 }

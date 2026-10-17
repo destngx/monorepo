@@ -76,8 +76,8 @@ func TestE2EIdleCash(t *testing.T) {
 	var idle domain.IdleCash
 	h.request(t, http.MethodGet, "/api/bills/idle-cash?force=true", nil, http.StatusOK, &idle)
 	c := idle.Components
-	keep := c.BillsDue + c.CardPayments + c.GoalSetAside + c.SpendingBuffer + c.EmergencyFund
-	if math.Abs(c.KeepLiquid-keep) > 1 || math.Abs(idle.Idle-math.Max(0, c.SpendableCash-c.KeepLiquid)) > 1 {
+	keep := c.BillsDue + c.CardPayments + c.GoalSetAside + c.EmergencyFromReady
+	if math.Abs(c.KeepLiquid-keep) > 1 || math.Abs(idle.Idle-math.Max(0, c.ReadyMoney-c.KeepLiquid-c.DayToDayFloat)) > 1 {
 		t.Fatalf("idle cash parts do not add up: %+v", idle)
 	}
 	held := 0.0

@@ -69,14 +69,22 @@ type PriceSeries struct {
 	Source     *DataSource `json:"source,omitempty"`
 }
 
+// BankRate is one published VND savings rate. TenorMonths is 0 for a
+// no-term deposit and nil when the source publishes no tenor (fmarket's
+// headline rates); InstantAccess is true only for no-term deposits
+// (withdrawable any time without losing interest). Channel is "counter" or
+// "online" when the source says which.
 type BankRate struct {
-	Bank       string  `json:"bank"`
-	Tenor      string  `json:"tenor"`
-	Rate       float64 `json:"rate"`
-	Currency   string  `json:"currency,omitempty"`
-	Timestamp  string  `json:"timestamp,omitempty"`
-	UpdatedAt  string  `json:"updatedAt,omitempty"`
-	RecordedAt string  `json:"recordedAt,omitempty"`
+	Bank          string  `json:"bank"`
+	Tenor         string  `json:"tenor"`
+	TenorMonths   *int    `json:"tenorMonths,omitempty"`
+	InstantAccess bool    `json:"instantAccess,omitempty"`
+	Channel       string  `json:"channel,omitempty"`
+	Rate          float64 `json:"rate"`
+	Currency      string  `json:"currency,omitempty"`
+	Timestamp     string  `json:"timestamp,omitempty"`
+	UpdatedAt     string  `json:"updatedAt,omitempty"`
+	RecordedAt    string  `json:"recordedAt,omitempty"`
 }
 
 // BankRates is the published savings rates with their data source.

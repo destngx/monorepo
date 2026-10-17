@@ -17,7 +17,7 @@ const recommendationsScope = "recommendations_handler"
 
 const recommendationsSummary = "The recommendations list. items: id (rec-<code>), created, source (a review: account-review, budget-review, " +
 	"transaction-review, credit-summary, year-review, financial-health, intelligence-briefing, think-tank; or an engine rule: rule:rebalance, " +
-	"rule:goal-plan-short, rule:lent-overdue, rule:idle-cash), title, action, impactVnd (estimated VND per year, null when not estimated), " +
+	"rule:goal-plan-short, rule:lent-overdue, rule:idle-cash, rule:emergency-fund-rate), title, action, impactVnd (estimated VND per year, null when not estimated), " +
 	"evidencePath (app route) and evidence (facts), status (open, snoozed, done, dismissed; a snooze that ended reads as open), " +
 	"snoozedUntil, statusChanged, outcome (written by a later review, or resolved when a rule's condition is gone), page (the " +
 	"app route it belongs to) and etag. Ordered open (largest impact first), snoozed, done, dismissed. summary counts each " +
@@ -49,8 +49,10 @@ func RegisterRecommendationRoutes(api RouteRegistrar, h *RecommendationHandler, 
 	recommendations.Post("/refresh", guard.Wrap(h.Refresh), RouteMeta{
 		Summary: "Runs the engine rules, then returns the list as GET /api/recommendations does. Rules: rebalance (an allocation " +
 			"class drifts beyond the threshold), goal-plan-short (dated goals need more a month than is saved; impact = the gap x 12), " +
-			"lent-overdue (money owed to the user open longer than 90 days), idle-cash (idle cash worth moving to the best published " +
-			"rate, GET /api/bills/idle-cash; impact = the extra interest a year; skipped without a rate). A rule adds one item while its condition holds, unless " +
+			"lent-overdue (money owed to the user open longer than 90 days), idle-cash (ready money above the day-to-day float and " +
+			"what stays liquid worth putting in the best instant-access deposit, no-term or 1-month, GET /api/bills/idle-cash; impact = the " +
+			"extra interest a year), emergency-fund-rate (the emergency accounts earn at least 0.5 points and 200.000 VND a year less " +
+			"than that rate); both skipped without an instant-access rate. A rule adds one item while its condition holds, unless " +
 			"one is pending, was dismissed in the last 90 days or marked done in the last 30, and closes its pending item (done, outcome resolved) when the " +
 			"condition is gone. A rule whose figures cannot be loaded is skipped. The tab is created on the first item.",
 		QueryParams: recommendationFilterParams(),

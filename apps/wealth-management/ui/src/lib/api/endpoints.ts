@@ -3,6 +3,7 @@ import { readNDJSON } from '$lib/ai/ndjson';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
   AccountReadinessInput,
+  EmergencyAccountInput,
   AIProviderUsage,
   Allocation,
   AIStatus,
@@ -178,7 +179,7 @@ export const api = {
   /** Bills, suggestions, the 30-day calendar and safe-to-spend (ROADMAP R4). */
   bills: (options?: ReadOptions) => read<Bills>('/bills', options),
   safeToSpend: (options?: ReadOptions) => read<BillsSummary>('/bills/safe-to-spend', options),
-  /** Idle cash against the best published deposit rate (ROADMAP R6). */
+  /** Idle cash against the best instant-access deposit rate (ROADMAP R6, D34). */
   idleCash: (options?: ReadOptions) => read<IdleCash>('/bills/idle-cash', options),
   monthlyClose: (month?: string, options?: ReadOptions) =>
     read<MonthlyClose>('/close', options, { month: month || undefined }),
@@ -187,6 +188,9 @@ export const api = {
   /** Marks an account ready to use or not for safe to spend (D33); 409 when the setting changed. */
   setAccountReady: (input: AccountReadinessInput) =>
     request<Preferences>('/bills/safe-to-spend/accounts', { method: 'POST', body: input }),
+  /** Marks an account as an emergency fund account or not for idle cash (D34); 409 when the setting changed. */
+  setEmergencyAccount: (input: EmergencyAccountInput) =>
+    request<Preferences>('/bills/idle-cash/emergency-accounts', { method: 'POST', body: input }),
   createRecurring: (input: RecurringInput) => request<RecurringItem>('/bills/items', { method: 'POST', body: input }),
   confirmSuggestion: (input: RecurringConfirmInput) =>
     request<RecurringItem>('/bills/suggestions/confirm', { method: 'POST', body: input }),

@@ -7,10 +7,12 @@ export type PreferenceKey =
   | 'allocation.target.crypto'
   | 'goal.emergencyMonths'
   | 'goal.spendingBufferMonths'
-  | 'safeToSpend.notReadyAccounts';
+  | 'safeToSpend.notReadyAccounts'
+  | 'idleCash.dayToDayFloat'
+  | 'idleCash.emergencyAccounts';
 
-/** Keys saved with POST /api/preferences; the account list is set per account. */
-export type NumberPreferenceKey = Exclude<PreferenceKey, 'safeToSpend.notReadyAccounts'>;
+/** Keys saved with POST /api/preferences; the account lists are set per account. */
+export type NumberPreferenceKey = Exclude<PreferenceKey, 'safeToSpend.notReadyAccounts' | 'idleCash.emergencyAccounts'>;
 
 export interface GoalPoolSettings {
   emergencyMonths: number;
@@ -21,11 +23,19 @@ export interface PreferenceEntry {
   key: PreferenceKey;
   /** The number of a number key; null when unset or a list. */
   value: number | null;
-  /** The account list of safeToSpend.notReadyAccounts. */
+  /** The account list of an account list key. */
   names?: string[];
   note: string;
   row: number;
   etag?: string;
+}
+
+/** Idle cash settings (D34): the day-to-day float and the emergency accounts. */
+export interface IdleCashSettings {
+  /** VND; null = the spending buffer. */
+  dayToDayFloat: number | null;
+  emergencyAccounts: string[];
+  etag: string;
 }
 
 /** Accounts left out of safe to spend's ready money (D33). */
@@ -41,6 +51,7 @@ export interface Preferences {
   allocationTargets: AllocationTargets | null;
   goalPool: GoalPoolSettings;
   safeToSpend: SafeToSpendSettings;
+  idleCash: IdleCashSettings;
   entries: PreferenceEntry[];
   /** Rows the engine ignored, e.g. a value out of range. */
   issues: string[];

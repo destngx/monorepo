@@ -13,6 +13,7 @@ export type NeedsYouKind =
   | 'uncategorized'
   | 'recommendation'
   | 'idle-cash'
+  | 'emergency-fund-rate'
   | 'month-close';
 
 /** Shared status token names (lib/status.ts). */

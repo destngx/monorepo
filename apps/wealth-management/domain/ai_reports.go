@@ -31,8 +31,10 @@ type BriefingFacts struct {
 	// Bills summarises bills and safe-to-spend (ROADMAP R4): unpaid in the
 	// next 30 days, overdue count and safe-to-spend until the next income.
 	Bills *BillsFacts `json:"bills,omitempty"`
-	// IdleCash summarises the idle cash check (ROADMAP R6): spendable cash
-	// beyond what must stay liquid against the best published rate.
+	// IdleCash summarises the idle cash check (ROADMAP R6, D34): ready
+	// money beyond the day-to-day float and what must stay liquid against
+	// the best instant-access rate (no-term or 1-month), and the emergency
+	// accounts against that rate.
 	IdleCash *IdleCashFacts `json:"idleCash,omitempty"`
 	// Unavailable names optional facts that could not be loaded ("goals",
 	// "bills", "idleCash", "exposure", "netWorthHistory"), so the model does not read their

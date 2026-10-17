@@ -256,7 +256,7 @@ func TestBriefingAttachesFacts(t *testing.T) {
 	if bills := briefing.Facts.Bills; bills == nil || bills.Until == "" || bills.SafeToSpend < 0 {
 		t.Fatalf("bills facts = %+v", bills)
 	}
-	if idle := briefing.Facts.IdleCash; idle == nil || idle.Verdict == "" || idle.SpendableCash <= 0 {
+	if idle := briefing.Facts.IdleCash; idle == nil || idle.Verdict == "" || idle.ReadyMoney <= 0 {
 		t.Fatalf("idle cash facts = %+v", idle)
 	}
 	if prompt := client.requests[0].Messages[1].Content; !strings.Contains(prompt, `"idleCash"`) || !strings.Contains(prompt, `"accountsHoldingIdle"`) {

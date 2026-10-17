@@ -246,17 +246,19 @@ func TestGivenEngineFiguresWhenEvaluatingRulesThenEachConditionMakesOneFinding(t
 		t.Fatalf("chase = %+v", chase)
 	}
 
-	idle := IdleCash{Idle: 50_000_000, CurrentRate: 0.5, ExtraPerYear: 2_250_000, Verdict: IdleCashWorthMoving, Best: &DepositRate{Bank: "Bank A", Tenor: "12M", Rate: 5}}
+	idle := IdleCash{Idle: 50_000_000, CurrentRate: 0.5, ExtraPerYear: 2_250_000, Verdict: IdleCashWorthMoving,
+		Components: IdleCashComponents{ReadyMoney: 80_000_000},
+		Best:       &DepositRate{Bank: "Bank A", Tenor: "no-term", TenorMonths: months(0), Access: DepositNoTerm, Rate: 5}}
 	evaluated, findings = EvaluateRecommendationRules(RuleInputs{IdleCash: &idle})
-	if len(evaluated) != 1 || len(findings) != 1 || *findings[0].ImpactVND != 2_250_000 || findings[0].Page != "/bills" || !strings.Contains(findings[0].Action, "Bank A (5.0%, 12M)") {
+	if len(evaluated) != 2 || len(findings) != 1 || *findings[0].ImpactVND != 2_250_000 || findings[0].Page != "/bills" || !strings.Contains(findings[0].Action, "no-term deposit at Bank A (5%, withdraw any time)") {
 		t.Fatalf("idle cash: %v %+v", evaluated, findings)
 	}
-	idle.Verdict = IdleCashNoRate
+	idle.Best, idle.Verdict = nil, IdleCashNoRate
 	if evaluated, _ = EvaluateRecommendationRules(RuleInputs{IdleCash: &idle}); len(evaluated) != 0 {
 		t.Fatal("without a rate the idle cash rule cannot judge")
 	}
-	idle.Verdict = IdleCashNotWorthIt
-	if evaluated, findings = EvaluateRecommendationRules(RuleInputs{IdleCash: &idle}); len(evaluated) != 1 || len(findings) != 0 {
+	idle.Best, idle.Verdict = &DepositRate{Bank: "Bank A", Access: DepositNoTerm, Rate: 5}, IdleCashNotWorthIt
+	if evaluated, findings = EvaluateRecommendationRules(RuleInputs{IdleCash: &idle}); len(evaluated) != 2 || len(findings) != 0 {
 		t.Fatalf("a gain too small is no finding: %v %+v", evaluated, findings)
 	}
 
@@ -322,5 +324,70 @@ func TestPreviousRecommendationsBlockMasksText(t *testing.T) {
 	}
 	if !strings.Contains(PreviousRecommendationsBlock(nil, nil), "none") {
 		t.Fatal("an empty list says none")
+	}
+}
+
+func TestGivenIdleCashWorthMovingToA1MonthDepositWhenEvaluatingRulesThenTheActionKeepsTheFloatAndSuggestsALadder(t *testing.T) {
+	idle := ComputeIdleCash(idleInput())
+	_, findings := EvaluateRecommendationRules(RuleInputs{IdleCash: &idle})
+	if len(findings) != 1 || findings[0].Rule != RuleIdleCash {
+		t.Fatalf("findings = %+v", findings)
+	}
+	finding := findings[0]
+	// Ready money 150M, idle 94M: 56M stays in the everyday accounts.
+	wantAction := "Keep 56.000.000 ₫ ready in your everyday accounts. The other 94.000.000 ₫ could earn about " +
+		FormatVND(idle.ExtraPerYear) + " a year more in a 1-month deposit at Bank X (5.5%, rolls monthly; withdraw early " +
+		"at the no-term rate), for example split into 3 parts of about 31.333.333 ₫ opened 10 days apart, so one " +
+		"matures every 10 days. It stays reachable."
+	if finding.Action != wantAction {
+		t.Fatalf("action =\n%s\nwant\n%s", finding.Action, wantAction)
+	}
+	if !strings.Contains(finding.Evidence, "best instant-access: 1-month deposit") || *finding.AmountVND != 94_000_000 {
+		t.Fatalf("evidence = %q", finding.Evidence)
+	}
+	for _, text := range []string{finding.Title, finding.Action, finding.Evidence} {
+		if strings.Contains(text, "()") || strings.Contains(text, ", )") || strings.Contains(text, "( ") || strings.Contains(strings.ToLower(text), "move all") {
+			t.Fatalf("bad wording: %q", text)
+		}
+	}
+}
+
+func TestGivenAnUntenoredBestRateWhenWordingTheIdleCashFindingThenNoEmptyParenthesesAppear(t *testing.T) {
+	idle := IdleCash{Idle: 20_000_000, ExtraPerYear: 900_000, Verdict: IdleCashWorthMoving, Components: IdleCashComponents{ReadyMoney: 30_000_000},
+		Best: &DepositRate{Bank: "Bank A", Access: DepositNoTerm, Rate: 4.5}}
+	finding, ok := idleCashFinding(idle)
+	if !ok || strings.Contains(finding.Action, "()") || strings.Contains(finding.Action, ", )") || !strings.Contains(finding.Action, "(4.5%, withdraw any time)") {
+		t.Fatalf("action = %q", finding.Action)
+	}
+}
+
+func TestGivenAnEmergencyAccountBelowTheBestInstantRateWhenEvaluatingRulesThenASeparateEmergencyFindingIsAdded(t *testing.T) {
+	input := idleInput()
+	input.Accounts = append(input.Accounts, Account{Name: "Rainy Day Bank", Type: AccountTypeBank, Balance: 20_000_000, Note: note("lãi 4%")})
+	input.Settings.EmergencyAccounts = []string{"Rainy Day Bank"}
+	idle := ComputeIdleCash(input)
+
+	evaluated, findings := EvaluateRecommendationRules(RuleInputs{IdleCash: &idle})
+	if strings.Join(evaluated, ",") != RuleIdleCash+","+RuleEmergencyFundRate || len(findings) != 2 {
+		t.Fatalf("evaluated = %v findings = %+v", evaluated, findings)
+	}
+	emergency := findings[1]
+	if emergency.Rule != RuleEmergencyFundRate || *emergency.ImpactVND != 300_000 || *emergency.AmountVND != 20_000_000 {
+		t.Fatalf("emergency = %+v", emergency)
+	}
+	wantAction := "Your emergency fund (20.000.000 ₫ in 1 emergency account) earns 4%. A 1-month deposit at Bank X " +
+		"(5.5%, rolls monthly; withdraw early at the no-term rate) would earn about 300.000 ₫ a year more and keep it " +
+		"within reach. Move it only if the new place is as quick to reach in an emergency."
+	if emergency.Action != wantAction {
+		t.Fatalf("action =\n%s\nwant\n%s", emergency.Action, wantAction)
+	}
+	if strings.Contains(strings.ToLower(emergency.Action), "idle") || strings.Contains(strings.ToLower(emergency.Action), "all your cash") {
+		t.Fatalf("emergency wording is its own: %q", emergency.Action)
+	}
+
+	input.Settings.EmergencyAccounts = nil
+	idle = ComputeIdleCash(input)
+	if evaluated, findings = EvaluateRecommendationRules(RuleInputs{IdleCash: &idle}); len(evaluated) != 2 || len(findings) != 1 {
+		t.Fatalf("without emergency accounts the emergency rule is evaluated (to resolve) but finds nothing: %v %+v", evaluated, findings)
 	}
 }

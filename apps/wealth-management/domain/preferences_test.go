@@ -217,3 +217,67 @@ func TestGivenTheNotReadyKeyWhenSavingItAsANumberPreferenceThenItIsRejected(t *t
 		}
 	}
 }
+
+func TestGivenNoIdleCashPreferencesWhenParsingThenTheFloatIsUnsetAndNoAccountIsAnEmergencyAccount(t *testing.T) {
+	prefs := ParsePreferences(nil, 2)
+	if prefs.IdleCash.DayToDayFloat != nil || prefs.IdleCash.EmergencyAccounts == nil || len(prefs.IdleCash.EmergencyAccounts) != 0 || prefs.IdleCash.ETag == "" {
+		t.Fatalf("idle cash settings %+v", prefs.IdleCash)
+	}
+}
+
+func TestGivenADayToDayFloatAndEmergencyAccountsWhenParsingThenIdleCashSettingsCarryThem(t *testing.T) {
+	prefs := ParsePreferences([][]string{
+		{"idleCash.dayToDayFloat", "15000000"},
+		{"idleCash.emergencyAccounts", `["Rainy Day Bank"]`},
+	}, 2)
+	if prefs.IdleCash.DayToDayFloat == nil || *prefs.IdleCash.DayToDayFloat != 15_000_000 || len(prefs.Issues) != 0 {
+		t.Fatalf("idle cash settings %+v issues %v", prefs.IdleCash, prefs.Issues)
+	}
+	if strings.Join(prefs.IdleCash.EmergencyAccounts, "|") != "Rainy Day Bank" || prefs.IdleCash.ETag == ParsePreferences(nil, 2).IdleCash.ETag {
+		t.Fatalf("emergency accounts %+v", prefs.IdleCash)
+	}
+	if bad := ParsePreferences([][]string{{"idleCash.dayToDayFloat", "-1"}}, 2); bad.IdleCash.DayToDayFloat != nil || len(bad.Issues) != 1 {
+		t.Fatalf("a negative float is rejected: %+v %v", bad.IdleCash, bad.Issues)
+	}
+}
+
+func TestGivenTheFloatKeyWhenSavingItThenItIsANumberPreferenceAndTheEmergencyListIsNot(t *testing.T) {
+	next, err := ApplyPreferencesUpdate(ParsePreferences(nil, 2), PreferencesUpdate{Values: []PreferenceValue{{Key: PrefIdleCashDayToDayFloat, Value: number(8_000_000)}}})
+	if err != nil || next.IdleCash.DayToDayFloat == nil || *next.IdleCash.DayToDayFloat != 8_000_000 {
+		t.Fatalf("next %+v err %v", next.IdleCash, err)
+	}
+	keys := strings.Join(PreferenceKeyNames(), "|")
+	if !strings.Contains(keys, string(PrefIdleCashDayToDayFloat)) || strings.Contains(keys, string(PrefIdleCashEmergencyAccounts)) {
+		t.Fatalf("number keys %s", keys)
+	}
+	update := PreferencesUpdate{Values: []PreferenceValue{{Key: PrefIdleCashEmergencyAccounts, Value: number(1)}}}
+	if err := update.Validate(); !errors.Is(err, ErrValidation) || !strings.Contains(err.Error(), "/api/bills/idle-cash/emergency-accounts") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestGivenAnAccountWhenMarkingItAnEmergencyAccountThenItIsAddedAndCanBeRemovedWithTheETag(t *testing.T) {
+	current := ParsePreferences([][]string{{"safeToSpend.notReadyAccounts", `["Broker B"]`}}, 2)
+	next, err := ApplyEmergencyAccount(current, EmergencyAccountInput{Account: " Rainy Day Bank ", Emergency: true, ETag: current.IdleCash.ETag})
+	if err != nil || strings.Join(next.IdleCash.EmergencyAccounts, "|") != "Rainy Day Bank" {
+		t.Fatalf("next %+v err %v", next.IdleCash, err)
+	}
+	if strings.Join(next.SafeToSpend.NotReadyAccounts, "|") != "Broker B" {
+		t.Fatalf("the not-ready list is untouched: %+v", next.SafeToSpend)
+	}
+	entry := next.Entries[len(next.Entries)-1]
+	if entry.Key != PrefIdleCashEmergencyAccounts || entry.Row != 0 || entry.Note == "" {
+		t.Fatalf("entry %+v", entry)
+	}
+	saved := ParsePreferences([][]string{{"idleCash.emergencyAccounts", `["Rainy Day Bank"]`}}, 2)
+	cleared, err := ApplyEmergencyAccount(saved, EmergencyAccountInput{Account: "rainy day bank", Emergency: false, ETag: saved.IdleCash.ETag})
+	if err != nil || len(cleared.IdleCash.EmergencyAccounts) != 0 {
+		t.Fatalf("cleared %+v err %v", cleared.IdleCash, err)
+	}
+	if _, err := ApplyEmergencyAccount(saved, EmergencyAccountInput{Account: "Rainy Day Bank", ETag: current.IdleCash.ETag}); !errors.Is(err, ErrConflict) {
+		t.Fatalf("stale etag: %v", err)
+	}
+	if _, err := ApplyEmergencyAccount(saved, EmergencyAccountInput{Account: "Rainy Day Bank"}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("missing etag: %v", err)
+	}
+}

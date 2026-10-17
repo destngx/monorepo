@@ -101,6 +101,11 @@ type DatabaseService interface {
 	// ErrValidation without an account or ETag, ErrNotFound when marking an
 	// unknown account not ready, ErrConflict when the setting changed.
 	SetAccountReadiness(input domain.AccountReadinessInput) (domain.Preferences, error)
+	// SetEmergencyAccount marks an account as an emergency fund account or
+	// not for the idle cash check (D34) in the idleCash.emergencyAccounts
+	// row. ErrValidation without an account or ETag, ErrNotFound when
+	// marking an unknown account, ErrConflict when the setting changed.
+	SetEmergencyAccount(input domain.EmergencyAccountInput) (domain.Preferences, error)
 	// ListCardConfig returns the card programmes, banks, cards held and
 	// merchant MCCs from the Programs, ProgramRules, Banks, Cards and
 	// Merchants tabs (WM-CARD-3); a missing tab contributes no rows.

@@ -96,3 +96,27 @@ func TestGivenAReadinessChangeWhenCallingTheAPIThenItIsGuardedETagCheckedAndSave
 		t.Fatalf("readiness writes must be guarded, got %d", status)
 	}
 }
+
+func TestGivenAnEmergencyAccountChangeWhenCallingTheAPIThenItIsGuardedETagCheckedAndSaved(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+	etag := domain.ParsePreferences(nil, 2).IdleCash.ETag
+
+	status, body := call(t, app, http.MethodPost, "/api/bills/idle-cash/emergency-accounts", `{"account":"Rainy Day Bank","emergency":true}`, "If-Match", `"`+etag+`"`)
+	var prefs domain.Preferences
+	if status != http.StatusOK || json.Unmarshal([]byte(body), &prefs) != nil || len(prefs.IdleCash.EmergencyAccounts) != 1 || len(db.EmergencyChanges) != 1 {
+		t.Fatalf("mark: %d %s", status, body)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/bills/idle-cash/emergency-accounts", `{"account":"Rainy Day Bank","emergency":false,"etag":"`+etag+`"}`); status != http.StatusConflict {
+		t.Fatalf("a stale etag must be a 409: %d %s", status, body)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/bills/idle-cash/emergency-accounts", `{"account":"Rainy Day Bank","emergency":false,"etag":"`+prefs.IdleCash.ETag+`"}`); status != http.StatusOK || len(db.EmergencyChanges) != 2 {
+		t.Fatalf("unmark: %d %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/bills/idle-cash/emergency-accounts", `{"account":"","emergency":true,"etag":"x"}`); status != http.StatusBadRequest {
+		t.Fatalf("a missing account must be a 400, got %d", status)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/bills/idle-cash/emergency-accounts", `{"account":"Rainy Day Bank","emergency":true,"etag":"x"}`, "Authorization", ""); status != http.StatusUnauthorized {
+		t.Fatalf("emergency account writes must be guarded, got %d", status)
+	}
+}

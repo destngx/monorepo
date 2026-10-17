@@ -308,3 +308,33 @@ func TestGivenTheLocalWorkbookWhenChangingReadinessThenTheListRoundTripsAndOnlyT
 		t.Fatalf("titles %v err %v", titles, err)
 	}
 }
+
+func TestGivenAnAccountWhenMarkingItAnEmergencyAccountThenOnlyItsSettingRowIsWritten(t *testing.T) {
+	client := newFakeSheetClient()
+	seedAccounts(client)
+	client.titles = []string{preferencesSheet}
+	client.ranges[preferencesRange] = [][]string{{"safeToSpend.notReadyAccounts", `["Bank"]`, "note"}}
+	svc := newTestDBService(t, client, newFakeCache())
+	current, err := svc.ListPreferences(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetEmergencyAccount(domain.EmergencyAccountInput{Account: "Broker B", Emergency: true, ETag: current.IdleCash.ETag}); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("an unknown account cannot be marked: %v", err)
+	}
+	if _, err := svc.SetEmergencyAccount(domain.EmergencyAccountInput{Account: "bank", Emergency: true, ETag: current.SafeToSpend.ETag}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("the not-ready etag is not the emergency etag: %v", err)
+	}
+	if len(client.updates) != 0 || len(client.appends) != 0 {
+		t.Fatalf("nothing may be written: %+v %+v", client.updates, client.appends)
+	}
+	if _, err := svc.SetEmergencyAccount(domain.EmergencyAccountInput{Account: "bank", Emergency: true, ETag: current.IdleCash.ETag}); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.updates) != 0 || len(client.appends) != 1 {
+		t.Fatalf("updates %+v appends %+v", client.updates, client.appends)
+	}
+	if row := client.appends[0].rows[0]; row[0] != "idleCash.emergencyAccounts" || row[1] != `["bank"]` || row[2] == "" {
+		t.Fatalf("row %v", row)
+	}
+}

@@ -113,9 +113,20 @@ export interface FundCashFlow {
 }
 
 /** Today's best published rate, a labelled proxy for the whole period. */
+/** How quickly an instant-access comparison can be reached (idle cash, D34). */
+export type DepositAccess = 'no_term' | 'one_month';
+
 export interface DepositRate {
   bank: string;
   tenor: string;
+  /** 0 for a no-term deposit; absent when the source gives no tenor. */
+  tenorMonths?: number;
+  /** counter or online, when the source says which. */
+  channel?: string;
+  /** Set on idle cash's instant-access comparison. */
+  access?: DepositAccess;
+  /** "no-term, withdraw any time" or "1-month term, rolls monthly; ...". */
+  accessLabel?: string;
   /** Percent a year. */
   rate: number;
   updatedAt?: string;

@@ -315,3 +315,20 @@ func TestGivenReadyMoneyShortOfTheBillsBeforePaydayWhenBuildingThenOneSeriousIte
 		t.Fatalf("covered: %+v", result.Items)
 	}
 }
+
+func TestGivenAnEmergencyFundBelowTheBestInstantRateWhenBuildingThenItIsItsOwnInfoItem(t *testing.T) {
+	input := idleInput()
+	input.Accounts = append(input.Accounts, Account{Name: "Rainy Day Bank", Type: AccountTypeBank, Balance: 20_000_000, Note: note("lãi 4%")})
+	input.Settings.EmergencyAccounts = []string{"Rainy Day Bank"}
+	idle := ComputeIdleCash(input)
+
+	result := BuildNeedsYou(NeedsYouInputs{Today: homeToday, IdleCash: &idle})
+	emergency := findItem(t, result, NeedsYouEmergencyFundRate)
+	idleItem := findItem(t, result, NeedsYouIdleCash)
+	if emergency.ID == idleItem.ID || emergency.Status != NeedsYouInfo || *emergency.ImpactVND != 300_000 || emergency.Route != "/bills" {
+		t.Fatalf("emergency = %+v idle = %+v", emergency, idleItem)
+	}
+	if strings.Contains(emergency.Headline, "Rainy") || strings.Contains(emergency.Detail, "Rainy") {
+		t.Fatalf("no account names in the inbox: %+v", emergency)
+	}
+}

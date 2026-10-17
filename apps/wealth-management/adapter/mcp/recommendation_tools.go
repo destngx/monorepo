@@ -40,7 +40,7 @@ func (s *Server) recommendationTools() []tool {
 			},
 		},
 		{
-			definition: definition("RefreshRecommendations", "Runs the engine rules (rebalance drift, goal plan short, money lent open over 90 days, idle cash worth moving): adds an item while a condition holds and closes it when the condition is gone, then lists like GetRecommendations.", object(recommendationFilterSchema())),
+			definition: definition("RefreshRecommendations", "Runs the engine rules (rebalance drift, goal plan short, money lent open over 90 days, idle cash worth putting in an instant-access deposit, emergency fund earning less than the best instant-access rate): adds an item while a condition holds and closes it when the condition is gone, then lists like GetRecommendations.", object(recommendationFilterSchema())),
 			handler: func(ctx context.Context, arguments json.RawMessage) (any, error) {
 				var filter domain.RecommendationFilter
 				if err := decodeArguments(arguments, &filter); err != nil {

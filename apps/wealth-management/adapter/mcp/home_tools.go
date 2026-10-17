@@ -18,7 +18,7 @@ func (s *Server) homeTools() []tool {
 	return []tool{{
 		definition: definition("GetNeedsYou", "Lists what needs the user now, ranked by severity (critical, serious, warning, info), "+
 			"then estimated yearly impact or amount, then due date: drafts to approve, overdue bills, card payments due within 7 days, "+
-			"budget categories over pace, money lent overdue, goal plan short or goals behind, rebalance drift, idle cash, "+
+			"budget categories over pace, money lent overdue, goal plan short or goals behind, rebalance drift, idle cash (instant-access deposits only), emergency fund earning less than the best instant-access rate, "+
 			"uncategorized transactions, last month's close while its snapshot is not written and the top open review recommendations. Each item has kind, status, headline, detail, "+
 			"amountVnd, impactVnd, dueDate, count and the app route to act on; unavailable names sources that failed to load. "+
 			"Reads only; headlines carry no names of people or goals.", object(map[string]any{"force": forceSchema})),

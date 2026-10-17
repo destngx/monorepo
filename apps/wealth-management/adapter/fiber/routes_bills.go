@@ -63,19 +63,42 @@ const accountReadinessSummary = "Marks an account ready to use or not for safe-t
 	"that is no longer an account can be removed). Returns the preferences read back. 400 without account or etag, " +
 	"404 when marking an unknown account not ready, 409 when the setting changed since its etag was read."
 
-const idleCashSummary = "Idle cash check (ROADMAP R6), for the bills and home pages: idle = max(0, spendableCash " +
-	"(active, rarely used, bank and cash accounts, the liquid balance; unlike safe-to-spend it keeps crypto and " +
-	"accounts marked not ready) - keepLiquid), keepLiquid = billsDue + cardPayments (unpaid in the next 30 days, " +
-	"overdue too) + goalSetAside (the goal plan's full required per month) + spendingBuffer (buffer months x average monthly " +
-	"expense) + emergencyFund (the emergency goal's target, else emergency months x monthly needs). accounts: the " +
-	"spendable accounts lowest rate first, rate read from the account note (\"earn rate 4%\", \"lãi 4%\", \"rate 4.5%\"; " +
-	"else 0) and the idle part assumed in each (lowest yield first). currentRate: weighted over those parts. best: " +
-	"the best published savings rate (a proxy; null with ratesIssue when unavailable). extraPerYear = idle x (best - " +
-	"current) / 100, 0 when not positive. verdict: worth_moving (gap >= 0.5 points and extra >= 200.000 VND a year), " +
-	"not_worth_it, nothing_idle or no_rate, with reasons. Advice is about rate only: goal money stays pooled."
+const emergencyAccountSummary = "Marks an account as an emergency fund account or not for the idle cash check (D34): " +
+	"emergency true adds it to idleCash.emergencyAccounts in the app-managed Preferences tab (a JSON list of account " +
+	"names; the tab is created on first use and no other tab is written), false removes it (names compared ignoring " +
+	"case; a name that is no longer an account can be removed). Emergency accounts cover the emergency fund target " +
+	"first and are never called idle. Returns the preferences read back. 400 without account or etag, 404 when " +
+	"marking an unknown account, 409 when the setting changed since its etag was read."
+
+const idleCashSummary = "Idle cash check (ROADMAP R6, D34), for the bills and home pages: idle = max(0, " +
+	"components.readyMoney - keepLiquid - dayToDayFloat). readyMoney: safe-to-spend's ready money (active, rarely used, " +
+	"bank and cash accounts; no crypto, no accounts marked not ready; excluded lists them with the reason) without the " +
+	"emergency accounts. keepLiquid = billsDue + cardPayments (unpaid in the next 30 days, overdue too) + goalSetAside " +
+	"(the goal plan's full required per month) + emergencyFromReady (the emergency fund target, the emergency goal's " +
+	"target else emergency months x monthly needs, minus emergencyCovered = what the emergency accounts hold, up to the " +
+	"target). dayToDayFloat: the idleCash.dayToDayFloat preference (floatFromPreference true), else the spending buffer " +
+	"(bufferMonths x averageMonthlyExpense). accounts: the everyday ready accounts lowest rate first, rate read from the " +
+	"account note (\"earn rate 4%\", \"lãi 4%\", \"rate 4.5%\"; else 0) and the idle part assumed in each. currentRate: " +
+	"weighted over those parts. best: the best instant-access rate only, a no-term deposit (access no_term, withdraw " +
+	"any time) or a 1-month deposit (access one_month, rolls monthly; early withdrawal pays the no-term rate), with " +
+	"accessLabel; longer terms and rates without a tenor are never used (null with ratesIssue). ladder (1-month best " +
+	"only): parts (2-3, each at least 10.000.000 VND), partAmount, spacingDays. extraPerYear = idle x (best - current) " +
+	"/ 100, 0 when not positive. verdict: worth_moving (gap >= 0.5 points and extra >= 200.000 VND a year), " +
+	"not_worth_it, nothing_idle or no_rate, with reasons. emergency: the emergency accounts (never idle), balance, " +
+	"target, currentRate, extraPerYear and betterRate (the best instant-access rate beats them by the same thresholds), " +
+	"settings (names and the etag to change them) and unknown names; issues names marked accounts that are ignored. " +
+	"Advice is about rate only: goal money stays pooled."
 
 func registerBillsWriteRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuard) {
 	bills := api.Group("/bills", "bills")
+	bills.Post("/idle-cash/emergency-accounts", guard.Wrap(h.SetEmergencyAccount), RouteMeta{
+		Summary: emergencyAccountSummary,
+		RequestBody: jsonBody(map[string]any{
+			"account":   map[string]any{"type": "string", "description": "Account name as in the Accounts tab."},
+			"emergency": map[string]any{"type": "boolean", "description": "true = holds the emergency fund (covers its target first, never idle)."},
+			"etag":      map[string]any{"type": "string", "description": "emergency.settings.etag from GET /api/bills/idle-cash (or idleCash.etag from GET /api/preferences); may be sent as If-Match instead."},
+		}, "account", "emergency"),
+	})
 	bills.Post("/safe-to-spend/accounts", guard.Wrap(h.SetAccountReadiness), RouteMeta{
 		Summary: accountReadinessSummary,
 		RequestBody: jsonBody(map[string]any{
@@ -142,6 +165,15 @@ func (h *DatabaseHandler) SetAccountReadiness(c *fiber.Ctx) error {
 	}
 	body.ETag = etagFrom(c, body.ETag)
 	return h.respond(c)(h.databaseService.SetAccountReadiness(body))
+}
+
+func (h *DatabaseHandler) SetEmergencyAccount(c *fiber.Ctx) error {
+	var body domain.EmergencyAccountInput
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	body.ETag = etagFrom(c, body.ETag)
+	return h.respond(c)(h.databaseService.SetEmergencyAccount(body))
 }
 
 func (h *DatabaseHandler) CreateRecurring(c *fiber.Ctx) error {

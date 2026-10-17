@@ -40,6 +40,7 @@ const SOURCE_LABELS: Record<string, string> = {
   'rule:goal-plan-short': 'Goal plan check',
   'rule:lent-overdue': 'Money lent check',
   'rule:idle-cash': 'Idle cash check',
+  'rule:emergency-fund-rate': 'Emergency fund check',
 };
 
 /** Who made the item: a review or an engine check. */

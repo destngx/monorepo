@@ -15,7 +15,7 @@ const homeScope = "home_handler"
 const NeedsYouSummary = "The home inbox: what needs the user now, ranked. items: id, kind (drafts: quick capture drafts to " +
 	"approve; bill-overdue: unpaid bills and card payments past their date, critical; card-due: unpaid card payments due " +
 	"within 7 days, serious within 2; budget-over-pace: expense categories over their limit or on pace to pass it by the " +
-	"month end, pace from day 7, fixed categories counted as spent; lent-overdue, goal-plan-short, rebalance, idle-cash: " +
+	"month end, pace from day 7, fixed categories counted as spent; lent-overdue, goal-plan-short, rebalance, idle-cash, emergency-fund-rate: " +
 	"the live engine rule findings (as POST /api/recommendations/refresh evaluates them), quiet while the user has the " +
 	"rule's recommendation snoozed, dismissed in the last 90 days or done in the last 30; goal-behind: active goals " +
 	"behind pace when the plan as a whole is not short; uncategorized: rows of the last 60 days without a known " +

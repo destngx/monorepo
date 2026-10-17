@@ -61,7 +61,18 @@ func (f *Market) GetPriceSeries(ctx context.Context, symbol string, seriesType d
 
 func (f *Market) GetBankInterestRate(ctx context.Context) (domain.BankRates, error) {
 	f.record(ctx, MarketCall{Kind: "bank-rates"})
-	return domain.BankRates{Rates: []domain.BankRate{{Bank: "Test Bank", Rate: 6.5}}, Source: &domain.DataSource{Provider: "fake"}}, f.Err
+	return domain.BankRates{Rates: fakeBankRates(), Source: &domain.DataSource{Provider: "fake"}}, f.Err
+}
+
+// fakeBankRates is the market server's tenored shape: a no-term, a
+// 1-month and a 12-month rate of one invented bank.
+func fakeBankRates() []domain.BankRate {
+	noTerm, oneMonth, twelve := 0, 1, 12
+	return []domain.BankRate{
+		{Bank: "Test Bank", Tenor: "no-term", TenorMonths: &noTerm, InstantAccess: true, Channel: "counter", Rate: 0.5, Currency: "VND"},
+		{Bank: "Test Bank", Tenor: "1m", TenorMonths: &oneMonth, Channel: "counter", Rate: 4.5, Currency: "VND"},
+		{Bank: "Test Bank", Tenor: "12m", TenorMonths: &twelve, Channel: "counter", Rate: 6.5, Currency: "VND"},
+	}
 }
 
 func (f *Market) GetCandles(ctx context.Context, symbol string, timeframe domain.Timeframe, lookbackDays int) (domain.CandleSeries, error) {

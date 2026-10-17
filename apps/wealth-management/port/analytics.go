@@ -34,8 +34,9 @@ type AnalyticsService interface {
 	// them with suggestions, the 30-day calendar (card payments included)
 	// and safe-to-spend until the next income (WM-BILL-2..6).
 	Bills(forceFresh bool) (domain.Bills, error)
-	// IdleCash compares spendable cash beyond what must stay liquid with
-	// the best published deposit rate (ROADMAP R6, WM-CASH-1..5). A missing
+	// IdleCash compares ready money beyond the day-to-day float and what
+	// must stay liquid with the best instant-access deposit rate, no-term
+	// or 1-month (ROADMAP R6, WM-CASH-1..5, D34). A missing
 	// or failing rate source is reported in the result, not as an error.
 	IdleCash(ctx context.Context, forceFresh bool) (domain.IdleCash, error)
 	// AccountHistories back-calculates daily balances per account (WM-ACC-3).

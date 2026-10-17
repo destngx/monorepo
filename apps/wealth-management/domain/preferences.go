@@ -13,7 +13,7 @@ import (
 
 // Preferences store (WM-SET-6..9, ROADMAP C6): an app-managed `Preferences`
 // tab with A Key, B Value (a number, or a JSON list of account names for
-// safeToSpend.notReadyAccounts), C Note. The engine reads it like any
+// safeToSpend.notReadyAccounts and idleCash.emergencyAccounts), C Note. The engine reads it like any
 // other tab and writes one row per key the user saves in the app; the tab is
 // created with its header on the first save. Hand edits are tolerated: blank
 // and header rows are skipped, and a bad row is reported as an issue and
@@ -31,6 +31,14 @@ const (
 	// PrefSafeToSpendNotReadyAccounts lists the accounts left out of
 	// safe-to-spend's ready money because they are slow to withdraw (D33).
 	PrefSafeToSpendNotReadyAccounts PreferenceKey = "safeToSpend.notReadyAccounts"
+	// PrefIdleCashDayToDayFloat is the day-to-day money (VND) kept ready in
+	// everyday accounts before any cash counts as idle (D34); unset means
+	// the spending buffer.
+	PrefIdleCashDayToDayFloat PreferenceKey = "idleCash.dayToDayFloat"
+	// PrefIdleCashEmergencyAccounts lists the accounts that hold the
+	// emergency fund (D34): they cover the emergency target first and are
+	// never idle.
+	PrefIdleCashEmergencyAccounts PreferenceKey = "idleCash.emergencyAccounts"
 )
 
 // PreferenceKind is the type of a key's value (column B).
@@ -52,6 +60,8 @@ const (
 
 	maxEmergencyMonths      = 24.0
 	maxSpendingBufferMonths = 12.0
+	// maxDayToDayFloat bounds the day-to-day float (VND).
+	maxDayToDayFloat = 100_000_000_000.0
 	// targetSumTolerance absorbs decimal targets such as 33.33 + 33.33 + 33.34.
 	targetSumTolerance = 0.01
 )
@@ -79,6 +89,8 @@ var PreferenceSpecs = []PreferenceSpec{
 	{Key: PrefGoalEmergencyMonths, Kind: PreferenceNumber, Min: 1, Max: maxEmergencyMonths, Note: "Emergency fund target in months of needs", Default: preferenceDefault(DefaultEmergencyMonths)},
 	{Key: PrefGoalSpendingBufferMonths, Kind: PreferenceNumber, Min: 0, Max: maxSpendingBufferMonths, Note: "Months of spending kept out of the goal pool", Default: preferenceDefault(DefaultSpendingBufferMonths)},
 	{Key: PrefSafeToSpendNotReadyAccounts, Kind: PreferenceAccountNames, Note: "Accounts not ready to use (slow to withdraw), left out of safe to spend; a JSON list of account names"},
+	{Key: PrefIdleCashDayToDayFloat, Kind: PreferenceNumber, Min: 0, Max: maxDayToDayFloat, Note: "Day-to-day money (VND) kept ready in everyday accounts before any cash counts as idle; blank = the spending buffer (spending buffer months x average monthly expense)"},
+	{Key: PrefIdleCashEmergencyAccounts, Kind: PreferenceAccountNames, Note: "Emergency fund accounts: they cover the emergency fund target first and are never idle; a JSON list of account names"},
 }
 
 // PreferenceKeyNames lists the number keys, for the schemas of
@@ -167,6 +179,18 @@ type SafeToSpendSettings struct {
 	ETag string `json:"etag"`
 }
 
+// IdleCashSettings are the idle cash preferences (WM-CASH-1, D34).
+type IdleCashSettings struct {
+	// DayToDayFloat is the money kept ready for everyday spending; nil
+	// when unset (the spending buffer is used).
+	DayToDayFloat *float64 `json:"dayToDayFloat"`
+	// EmergencyAccounts hold the emergency fund, as saved; names that
+	// match no account are reported by the idle cash check.
+	EmergencyAccounts []string `json:"emergencyAccounts"`
+	// ETag fingerprints the saved emergency accounts (also when unset).
+	ETag string `json:"etag"`
+}
+
 // PreferenceEntry is one row of the tab. Row is the sheet row (1-based).
 type PreferenceEntry struct {
 	Key PreferenceKey `json:"key"`
@@ -189,6 +213,7 @@ type Preferences struct {
 	AllocationTargets *AllocationTargets  `json:"allocationTargets"`
 	GoalPool          GoalPoolSettings    `json:"goalPool"`
 	SafeToSpend       SafeToSpendSettings `json:"safeToSpend"`
+	IdleCash          IdleCashSettings    `json:"idleCash"`
 	// Entries are the rows of known keys, in sheet order.
 	Entries []PreferenceEntry `json:"entries"`
 	// Issues name rows that were ignored, e.g. a value out of range.
@@ -261,12 +286,12 @@ func (p *Preferences) resolve() {
 	if value, ok := p.Value(PrefGoalSpendingBufferMonths); ok {
 		p.GoalPool.SpendingBufferMonths = value
 	}
-	p.SafeToSpend = SafeToSpendSettings{NotReadyAccounts: []string{}, ETag: preferenceETag("")}
-	if entry, ok := p.entry(PrefSafeToSpendNotReadyAccounts); ok {
-		p.SafeToSpend.NotReadyAccounts = append(p.SafeToSpend.NotReadyAccounts, entry.Names...)
-		if entry.ETag != "" {
-			p.SafeToSpend.ETag = entry.ETag
-		}
+	notReady, notReadyETag := p.accountList(PrefSafeToSpendNotReadyAccounts)
+	p.SafeToSpend = SafeToSpendSettings{NotReadyAccounts: notReady, ETag: notReadyETag}
+	emergency, emergencyETag := p.accountList(PrefIdleCashEmergencyAccounts)
+	p.IdleCash = IdleCashSettings{EmergencyAccounts: emergency, ETag: emergencyETag}
+	if value, ok := p.Value(PrefIdleCashDayToDayFloat); ok {
+		p.IdleCash.DayToDayFloat = &value
 	}
 	p.AllocationTargets = nil
 	cash, hasCash := p.Value(PrefAllocationTargetCash)
@@ -284,6 +309,19 @@ func (p *Preferences) resolve() {
 			p.AllocationTargets = &targets
 		}
 	}
+}
+
+// accountList returns an account list key's names (never nil) and the ETag
+// a change must send: the row's, else the fingerprint of an empty value.
+func (p Preferences) accountList(key PreferenceKey) ([]string, string) {
+	names, etag := []string{}, preferenceETag("")
+	if entry, ok := p.entry(key); ok {
+		names = append(names, entry.Names...)
+		if entry.ETag != "" {
+			etag = entry.ETag
+		}
+	}
+	return names, etag
 }
 
 // entry returns the row of a key, if any.
@@ -373,23 +411,55 @@ func ApplyAccountReadiness(current Preferences, input AccountReadinessInput) (Pr
 	if err := input.Validate(); err != nil {
 		return Preferences{}, err
 	}
-	if strings.TrimSpace(input.ETag) != current.SafeToSpend.ETag {
-		return Preferences{}, fmt.Errorf("%w: the not-ready accounts changed since they were read; reload and try again", ErrConflict)
+	return applyAccountMark(current, PrefSafeToSpendNotReadyAccounts, input.ETag, input.Account, !input.Ready,
+		"the not-ready accounts changed since they were read; reload and try again")
+}
+
+// EmergencyAccountInput marks one account as an emergency fund account or
+// not (D34). ETag is the IdleCashSettings ETag read with the setting.
+type EmergencyAccountInput struct {
+	Account   string `json:"account"`
+	Emergency bool   `json:"emergency"`
+	ETag      string `json:"etag"`
+}
+
+// Validate checks an account and an ETag are given.
+func (in EmergencyAccountInput) Validate() error {
+	return AccountReadinessInput{Account: in.Account, ETag: in.ETag}.Validate()
+}
+
+// ApplyEmergencyAccount returns the preferences after marking the account
+// as an emergency account (added) or not (removed, ignoring case). It fails
+// with ErrConflict when the setting changed since the ETag was read.
+func ApplyEmergencyAccount(current Preferences, input EmergencyAccountInput) (Preferences, error) {
+	if err := input.Validate(); err != nil {
+		return Preferences{}, err
 	}
-	account := strings.TrimSpace(input.Account)
-	names := slices.DeleteFunc(slices.Clone(current.SafeToSpend.NotReadyAccounts), func(name string) bool { return strings.EqualFold(name, account) })
-	if !input.Ready {
+	return applyAccountMark(current, PrefIdleCashEmergencyAccounts, input.ETag, input.Account, input.Emergency,
+		"the emergency accounts changed since they were read; reload and try again")
+}
+
+// applyAccountMark adds (marked) or removes the account in an account list
+// key, refusing a stale ETag. A row the change adds has Row 0.
+func applyAccountMark(current Preferences, key PreferenceKey, etag, account string, marked bool, conflict string) (Preferences, error) {
+	names, currentETag := current.accountList(key)
+	if strings.TrimSpace(etag) != currentETag {
+		return Preferences{}, fmt.Errorf("%w: %s", ErrConflict, conflict)
+	}
+	account = strings.TrimSpace(account)
+	names = slices.DeleteFunc(names, func(name string) bool { return strings.EqualFold(name, account) })
+	if marked {
 		names = append(names, account)
 	}
 	names = normalizeAccountNames(names)
 
 	next := Preferences{TabExists: current.TabExists, Entries: slices.Clone(current.Entries), Issues: []string{}}
-	index := slices.IndexFunc(next.Entries, func(entry PreferenceEntry) bool { return entry.Key == PrefSafeToSpendNotReadyAccounts })
+	index := slices.IndexFunc(next.Entries, func(entry PreferenceEntry) bool { return entry.Key == key })
 	if index >= 0 {
 		next.Entries[index].Names = names
 	} else {
-		spec, _ := PreferenceSpecFor(PrefSafeToSpendNotReadyAccounts)
-		next.Entries = append(next.Entries, PreferenceEntry{Key: PrefSafeToSpendNotReadyAccounts, Names: names, Note: spec.Note})
+		spec, _ := PreferenceSpecFor(key)
+		next.Entries = append(next.Entries, PreferenceEntry{Key: key, Names: names, Note: spec.Note})
 	}
 	next.resolve()
 	return next, nil
@@ -462,7 +532,7 @@ func (u PreferencesUpdate) Validate() error {
 			continue
 		}
 		if spec.Kind != PreferenceNumber {
-			problems = append(problems, fmt.Sprintf("%s is a list of accounts: set it per account with POST /api/bills/safe-to-spend/accounts (MCP SetAccountReadyToUse)", item.Key))
+			problems = append(problems, fmt.Sprintf("%s is a list of accounts: set it per account with %s", item.Key, accountListRoute[item.Key]))
 			continue
 		}
 		if seen[item.Key] {
@@ -476,6 +546,12 @@ func (u PreferencesUpdate) Validate() error {
 		}
 	}
 	return validationError(problems)
+}
+
+// accountListRoute names where each account list key is changed.
+var accountListRoute = map[PreferenceKey]string{
+	PrefSafeToSpendNotReadyAccounts: "POST /api/bills/safe-to-spend/accounts (MCP SetAccountReadyToUse)",
+	PrefIdleCashEmergencyAccounts:   "POST /api/bills/idle-cash/emergency-accounts (MCP SetEmergencyAccount)",
 }
 
 func (u PreferencesUpdate) touchesTargets() bool {

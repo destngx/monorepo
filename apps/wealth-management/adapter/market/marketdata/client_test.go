@@ -327,3 +327,32 @@ func TestGetFundNAVHistoryReadsFmarketRowsByFundCode(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestGivenTenoredBankRatesWhenReadingThemThenTenorMonthsInstantAccessAndChannelAreParsed(t *testing.T) {
+	client, requests := fakeServer(t, func(*http.Request) (int, any) {
+		return 200, answer([]any{
+			map[string]any{"bank": "Alpha Bank", "tenor": "no-term", "rate": 0.2, "currency": "VND", "tenorMonths": 0, "channel": "counter", "instantAccess": true},
+			map[string]any{"bank": "Alpha Bank", "tenor": "1m", "rate": 3.9, "currency": "VND", "tenorMonths": 1, "channel": "counter", "instantAccess": false},
+			map[string]any{"bank": "Beta Bank", "tenor": "", "rate": 5.1, "currency": "VND", "updatedAt": "2026-10-10"},
+		}, map[string]any{"provider": "cafef"})
+	})
+	rates, err := client.GetBankInterestRate(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if (*requests)[0].URL.Path != "/api/v2/bank-rates" {
+		t.Fatalf("request = %s", (*requests)[0].URL)
+	}
+	zero, one := 0, 1
+	want := []domain.BankRate{
+		{Bank: "Alpha Bank", Tenor: "no-term", TenorMonths: &zero, InstantAccess: true, Channel: "counter", Rate: 0.2, Currency: "VND"},
+		{Bank: "Alpha Bank", Tenor: "1m", TenorMonths: &one, Channel: "counter", Rate: 3.9, Currency: "VND"},
+		{Bank: "Beta Bank", Rate: 5.1, Currency: "VND", UpdatedAt: "2026-10-10"},
+	}
+	if !reflect.DeepEqual(rates.Rates, want) {
+		t.Fatalf("rates = %#v", rates.Rates)
+	}
+	if rates.Rates[2].TenorMonths != nil {
+		t.Fatal("an untenored row must keep TenorMonths absent, not 0 (no-term)")
+	}
+}
