@@ -60,11 +60,19 @@
           bind:value={tokenDraft}
           onkeydown={(event) => event.key === 'Enter' && saveToken()}
         />
-        <button type="button" class="btn-ghost px-2" onclick={() => (showToken = !showToken)}
-          >{showToken ? 'Hide' : 'Show'}</button
+        <button
+          type="button"
+          class="btn-ghost px-2"
+          aria-pressed={showToken}
+          title={showToken ? 'Hide the token' : 'Show the token'}
+          onclick={() => (showToken = !showToken)}>{showToken ? 'Hide' : 'Show'}</button
         >
-        <button type="button" class="btn-ghost px-2" disabled={tokenDraft.trim() === apiToken.value} onclick={saveToken}
-          >Save</button
+        <button
+          type="button"
+          class="btn-primary px-3"
+          disabled={tokenDraft.trim() === apiToken.value}
+          title={tokenDraft.trim() === apiToken.value ? 'No changes to save' : 'Save the token in this browser'}
+          onclick={saveToken}>Save</button
         >
       </div>
     </div>

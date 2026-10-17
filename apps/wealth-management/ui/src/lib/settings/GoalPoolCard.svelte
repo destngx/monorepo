@@ -1,8 +1,12 @@
 <script lang="ts">
   import { api } from '$lib/api/endpoints';
+  import { classifyFailure, type LoadFailure } from '$lib/api/load';
   import type { Preferences } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import LoadError from '$lib/components/LoadError.svelte';
+  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import { STATUS } from '$lib/status';
   import { toasts } from '$lib/state/toasts.svelte';
   import { GOAL_POOL_FIELDS, goalPoolChanges, goalPoolError, type GoalPoolDraft } from './goalPool';
@@ -10,7 +14,7 @@
   // Goal pool settings (WM-SET-8) live in the Preferences tab of the sheet,
   // not in the engine settings store, so they save on their own.
   let prefs = $state<Preferences | null>(null);
-  let loadError = $state<string | null>(null);
+  let loadError = $state<LoadFailure | null>(null);
   let draft = $state<GoalPoolDraft>({ emergencyMonths: '', spendingBufferMonths: '' });
   let saving = $state(false);
 
@@ -23,7 +27,7 @@
         spendingBufferMonths: String(prefs.goalPool.spendingBufferMonths),
       };
     } catch (error) {
-      loadError = error instanceof Error ? error.message : String(error);
+      loadError = classifyFailure(error);
     }
   }
 
@@ -50,11 +54,10 @@
 </script>
 
 <Card title="Goal pool" subtitle="Saved in the Preferences tab of your sheet; used by the goal plan">
-  {#if loadError}
-    <p class="text-sm {STATUS.critical.ink}">Preferences unavailable: {loadError}</p>
-    <button type="button" class="btn-ghost mt-3" onclick={load}>Try again</button>
+  {#if loadError && !prefs}
+    <LoadError failure={loadError} label="the goal settings" retry={load} />
   {:else if !prefs}
-    <p class="muted text-sm">Loading preferences…</p>
+    <SkeletonText lines={4} label="the goal settings" />
   {:else}
     {#if prefs.issues.length}
       <div class="mb-3 rounded-xl border p-3 text-xs {STATUS.warning.box}" role="status">
@@ -81,6 +84,8 @@
               min={field.min}
               max={field.max}
               step="0.5"
+              aria-invalid={problem ? true : undefined}
+              aria-describedby={problem ? 'goal-pool-problem' : undefined}
               bind:value={draft[field.key]}
             />
             <span class="muted text-xs">months (default {field.fallback})</span>
@@ -88,9 +93,10 @@
         </div>
       {/each}
       <div class="flex items-center justify-end gap-3 py-3">
-        {#if problem}<span class="text-xs {STATUS.warning.ink}">{problem}</span>{/if}
-        <button type="submit" class="btn-primary" disabled={saving || !!problem || !changes.length}
-          >{saving ? 'Saving...' : 'Save'}</button
+        {#if problem}<span id="goal-pool-problem" class="text-xs {STATUS.warning.ink}" role="alert">{problem}</span
+          >{/if}
+        <Button type="submit" variant="primary" busy={saving} busyText="Saving…" disabled={!!problem || !changes.length}
+          >Save</Button
         >
       </div>
     </form>

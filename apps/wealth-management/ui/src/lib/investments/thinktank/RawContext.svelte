@@ -105,11 +105,8 @@
               <ul class="mt-1 list-disc space-y-0.5 pl-5 text-xs">
                 {#each search.results as result, j (j)}
                   <li>
-                    <a
-                      class="text-indigo-600 hover:underline dark:text-indigo-400"
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer">{result.title || result.url}</a
+                    <a class="link" href={result.url} target="_blank" rel="noopener noreferrer"
+                      >{result.title || result.url}</a
                     >
                     <span class="muted">{sourceHost(result)}</span>
                   </li>

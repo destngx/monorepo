@@ -1,13 +1,18 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { base } from '$app/paths';
+  import { invalidateAll } from '$app/navigation';
+  import { track } from '$lib/api/deferred.svelte';
   import { api } from '$lib/api/endpoints';
   import { ApiError } from '$lib/api/client';
   import { DEFAULT_NEWS_TOPICS, type NewsReport } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import AIRequirement from '$lib/investments/ai/AIRequirement.svelte';
+  import { aiUnavailable } from '$lib/ai/aiStatus';
   import NewsReportCard from '$lib/investments/news/NewsReportCard.svelte';
   import { normalizeTopic, topicKey } from '$lib/investments/news';
   import { newsStore } from '$lib/investments/newsStore.svelte';
@@ -17,13 +22,10 @@
   // the bias. Reports stay in this tab so the Think Tank can include them.
   let { data } = $props();
 
-  const NEWS_PROMPT = 'market/news-sentiment';
-  const unavailable = $derived.by(() => {
-    if (!data.aiStatus) return 'AI is not available on the engine.';
-    if (!data.aiStatus.configured) return 'AI is not configured: add the AI endpoint and model.';
-    if (data.aiStatus.missingPrompts.includes(NEWS_PROMPT)) return `The Prompts sheet has no "${NEWS_PROMPT}" prompt.`;
-    return null;
-  });
+  const NEWS_PROMPTS = ['market/news-sentiment'];
+  // The AI status streams in; until it answers the scan controls stay usable.
+  const aiStatus = track(() => data.aiStatus);
+  const unavailable = $derived(aiUnavailable(aiStatus.value, NEWS_PROMPTS));
 
   interface Scan {
     topic: string;
@@ -96,39 +98,39 @@
   {#snippet actions()}
     {#if newsStore.reports.length}
       <a class="btn-ghost" href="{base}/investments/think-tank"><Icon name="sparkles" size={16} /> Use in Think Tank</a>
-      <button type="button" class="btn-ghost" disabled={anyLoading} onclick={() => newsStore.clear()}>
-        <Icon name="trash" size={16} /> Clear
-      </button>
+      <Button icon="trash" disabled={anyLoading} onclick={() => newsStore.clear()}>Clear</Button>
     {/if}
   {/snippet}
 </PageHeader>
 
-{#if unavailable}
-  <Card class="mb-4">
-    <p class="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
-      <Icon name="alert" size={16} />
-      {unavailable} See <a class="underline" href="{base}/settings">Settings</a>.
-    </p>
-  </Card>
-{/if}
+<AIRequirement status={aiStatus} {unavailable} retry={() => invalidateAll()} />
 
 <Card title="Topics" subtitle="Results are cached for 30 minutes; Regenerate searches again.">
   <div class="flex flex-wrap items-center gap-2">
     {#each DEFAULT_NEWS_TOPICS as topic (topic)}
-      <button
-        type="button"
-        class="btn-ghost border border-slate-900/10 dark:border-white/10"
-        disabled={!!unavailable || isLoading(topic)}
-        onclick={() => scan(topic)}
+      <Button
+        icon="newspaper"
+        class="border border-slate-900/10 dark:border-white/10"
+        busy={isLoading(topic)}
+        disabled={!!unavailable}
+        title={isLoading(topic) ? `Scanning ${topic}…` : `Scan ${topic}`}
+        onclick={() => void scan(topic)}>{topic}</Button
       >
-        <Icon name="newspaper" size={16} class={isLoading(topic) ? 'animate-pulse' : ''} />
-        {topic}
-      </button>
     {/each}
-    <button type="button" class="btn-primary" disabled={!!unavailable || anyLoading} onclick={scanAll}>
-      <Icon name="search" size={16} /> Scan all defaults
-    </button>
+    <Button
+      variant="primary"
+      icon="search"
+      busy={anyLoading}
+      busyText="Scanning…"
+      disabled={!!unavailable}
+      onclick={() => void scanAll()}>Scan all defaults</Button
+    >
   </div>
+  {#if anyLoading}
+    <p class="muted mt-3 text-xs" role="status">
+      Searching the web and classifying each article; a topic can take a minute.
+    </p>
+  {/if}
 
   <form class="mt-4 flex flex-col gap-2 sm:flex-row" onsubmit={scanCustom}>
     <label class="sr-only" for="news-topic">Custom topic</label>
@@ -140,9 +142,9 @@
       bind:value={custom}
       disabled={!!unavailable}
     />
-    <button type="submit" class="btn-primary" disabled={!!unavailable || !normalizeTopic(custom)}>
-      <Icon name="search" size={16} /> Scan
-    </button>
+    <Button type="submit" variant="primary" icon="search" disabled={!!unavailable || !normalizeTopic(custom)}
+      >Scan</Button
+    >
   </form>
 </Card>
 

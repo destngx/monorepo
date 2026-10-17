@@ -5,9 +5,11 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import AIStatusCard from '$lib/ai/AIStatusCard.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import LoadError from '$lib/components/LoadError.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
   import BrowserPreferences from '$lib/settings/BrowserPreferences.svelte';
   import ConnectionsSection from '$lib/settings/ConnectionsSection.svelte';
   import { EngineSettingsForm } from '$lib/settings/engine.svelte';
@@ -20,6 +22,9 @@
   import { sync } from '$lib/state/sync.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
 
+  // The tabs and browser preferences show at once; the engine settings, the
+  // AI status, the sheet and the goal pool each load on their own with a
+  // skeleton, then their values or an error with a Retry (WM-UI-16).
   const form = new EngineSettingsForm();
   const active = $derived(sectionFromUrl(page.url));
   const current = $derived(sections.find((section) => section.id === active) ?? sections[0]);
@@ -70,7 +75,7 @@
       <a
         href="{base}/settings?tab={section.id}"
         aria-current={section.id === active ? 'page' : undefined}
-        class="flex shrink-0 items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap transition {section.id ===
+        class="flex shrink-0 items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap transition active:scale-[0.98] motion-reduce:active:scale-100 {section.id ===
         active
           ? 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300'
           : 'text-slate-600 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/5'}"
@@ -96,13 +101,12 @@
     {/if}
 
     {#if current.groups.length}
-      {#if form.loadError}
-        <Card>
-          <p class="text-sm text-rose-600 dark:text-rose-400">Engine settings unavailable: {form.loadError}</p>
-          <button type="button" class="btn-ghost mt-3" onclick={form.load}>Try again</button>
-        </Card>
+      {#if form.loadFailure && !form.view}
+        <LoadError failure={form.loadFailure} label="the engine settings" retry={form.load} />
       {:else if !form.view}
-        <p class="muted text-sm">Loading engine settings…</p>
+        {#each current.groups as id (id)}
+          <SkeletonCard lines={3} label="the engine settings" />
+        {/each}
       {:else}
         {#each groups as grouped (grouped.group.id)}
           {@const connect = connects[grouped.group.id]}
@@ -116,19 +120,18 @@
                   onchange={form.load}
                 />
               {:else if grouped.group.id === 'general'}
-                <button
-                  type="button"
-                  class="btn-ghost text-xs"
-                  disabled={form.restarting || form.saving || form.changeCount > 0}
+                <Button
+                  size="sm"
+                  icon="refresh"
+                  busy={form.restarting}
+                  busyText="Restarting…"
+                  disabled={form.saving || form.changeCount > 0}
                   title={form.changeCount > 0 ? 'Save or discard your changes first' : undefined}
-                  onclick={form.restart}>{form.restarting ? 'Restarting...' : 'Restart engine'}</button
+                  onclick={form.restart}>Restart engine</Button
                 >
               {:else if grouped.group.id === 'cache'}
-                <button
-                  type="button"
-                  class="btn-ghost text-xs"
-                  disabled={sync.syncing}
-                  onclick={() => (confirmFlush = true)}>Flush caches</button
+                <Button size="sm" busy={sync.syncing} busyText="Flushing…" onclick={() => (confirmFlush = true)}
+                  >Flush caches</Button
                 >
               {/if}
             {/snippet}
@@ -136,11 +139,7 @@
               {#if grouped.group.id === 'ai' && form.modelsError}
                 <p class="mb-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
                   Could not list the endpoint's models ({form.modelsError}); type model ids instead.
-                  <button
-                    type="button"
-                    class="text-indigo-600 hover:underline dark:text-indigo-400"
-                    onclick={form.loadModels}>Retry</button
-                  >
+                  <button type="button" class="link" onclick={form.loadModels}>Retry</button>
                 </p>
               {/if}
             {/snippet}
@@ -161,7 +160,7 @@
     Every page reloads its data from Google Sheets. This is safe but slower for the next few requests.
   </p>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={() => (confirmFlush = false)}>Cancel</button>
-    <button type="button" class="btn-danger" onclick={flush}>Flush</button>
+    <Button onclick={() => (confirmFlush = false)}>Cancel</Button>
+    <Button variant="danger" busy={sync.syncing} busyText="Flushing…" onclick={flush}>Flush</Button>
   {/snippet}
 </Modal>

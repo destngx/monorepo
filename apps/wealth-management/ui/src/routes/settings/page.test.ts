@@ -9,6 +9,7 @@ const endpoints = vi.hoisted(() => ({
   restartEngine: vi.fn(),
   aiModels: vi.fn(),
   aiStatus: vi.fn(),
+  preferences: vi.fn(),
   aiUsage: vi.fn(),
   sheetInfo: vi.fn(),
   startGoogleAuth: vi.fn(),
@@ -21,7 +22,7 @@ const navigation = vi.hoisted(() => ({
 const appState = vi.hoisted(() => ({
   page: { url: new URL('http://127.0.0.1:5173/ui/settings'), data: { health: null } },
 }));
-const toastMock = vi.hoisted(() => ({ push: vi.fn(), error: vi.fn(), info: vi.fn() }));
+const toastMock = vi.hoisted(() => ({ push: vi.fn(), error: vi.fn(), info: vi.fn(), success: vi.fn() }));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('$app/state', () => appState);
 vi.mock('$app/paths', () => ({ base: '/ui' }));
@@ -246,5 +247,54 @@ describe('Settings page', () => {
     await open('market');
 
     expect(navigation.goto).not.toHaveBeenCalled();
+  });
+
+  it('Given the engine settings are still loading When the page opens Then the tabs show at once with a skeleton', async () => {
+    endpoints.settings.mockReturnValue(new Promise(() => undefined));
+    await open('market');
+
+    expect(screen.getByRole('navigation', { name: 'Settings sections' })).toBeTruthy();
+    expect(screen.getByText('Loading the engine settings…')).toBeTruthy();
+  });
+
+  it('Given the engine settings fail When the page opens Then the browser preferences stay usable and Retry loads again', async () => {
+    endpoints.settings.mockRejectedValueOnce(new TypeError('fetch failed'));
+    await open();
+
+    expect(screen.getByText('This browser')).toBeTruthy();
+    expect(screen.getByText('Could not load the engine settings')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await settle();
+
+    expect(endpoints.settings).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText('Log level')).toBeTruthy();
+  });
+
+  it('Given unsaved changes When saving Then Save is busy until the engine answers', async () => {
+    endpoints.updateSettings.mockReturnValue(new Promise(() => undefined));
+    await open('market');
+
+    await fireEvent.input(screen.getByLabelText('Market data server URL'), { target: { value: 'http://md:8000' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await settle();
+
+    expect(screen.getByRole('button', { name: 'Saving…' }).getAttribute('aria-busy')).toBe('true');
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Discard' }).disabled).toBe(true);
+  });
+
+  it('Given the AI tab When the status is still loading Then it shows a skeleton, not a blank card', async () => {
+    endpoints.aiStatus.mockReturnValue(new Promise(() => undefined));
+    await open('ai');
+
+    expect(screen.getByText('Loading the AI status…')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeTruthy();
+  });
+
+  it('Given the goal pool fails to load When the Goals tab opens Then it shows the error with a Retry', async () => {
+    endpoints.preferences.mockRejectedValueOnce(new Error('Preferences tab missing'));
+    await open('goals');
+
+    expect(screen.getByText('Could not load the goal settings')).toBeTruthy();
+    expect(screen.getByText('Preferences tab missing')).toBeTruthy();
   });
 });

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Button from '$lib/components/Button.svelte';
+  import Icon from '$lib/components/Icon.svelte';
+  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatCompact, formatDate, formatDateTime, formatPercent } from '$lib/format';
   import { resetsIn, usageColor, windowLabel } from './usage';
@@ -21,7 +24,7 @@
     <h3 class="label">
       Provider usage{#if usage?.provider}&nbsp;({usage.provider}){/if}
     </h3>
-    <button type="button" class="btn-ghost text-xs" onclick={load} disabled={loading}>Refresh usage</button>
+    <Button size="sm" icon="refresh" busy={loading} busyText="Refreshing…" onclick={load}>Refresh usage</Button>
   </div>
   {#if usage}
     {#if usage.windows.length}
@@ -63,9 +66,11 @@
     {:else}
       <p class="muted mt-2 text-sm">The provider reported no usage limits.</p>
     {/if}
-  {:else if error}
-    <p class="mt-2 text-sm text-rose-600 dark:text-rose-400">Usage unavailable: {error}</p>
+  {:else if error && !loading}
+    <p class="mt-2 flex items-start gap-2 text-sm text-rose-600 dark:text-rose-400">
+      <Icon name="alert" size={16} class="mt-0.5 shrink-0" />Usage unavailable: {error}
+    </p>
   {:else}
-    <p class="muted mt-2 text-sm">Loading…</p>
+    <SkeletonText lines={2} label="the provider usage" class="mt-2" />
   {/if}
 </section>

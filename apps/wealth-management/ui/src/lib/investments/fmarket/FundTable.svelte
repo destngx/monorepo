@@ -34,7 +34,7 @@
             <th class="px-5 py-2 {column.align}" aria-sort={sortKey === column.key ? 'descending' : 'none'}>
               <button
                 type="button"
-                class="uppercase hover:text-slate-900 dark:hover:text-white {sortKey === column.key
+                class="rounded uppercase hover:text-slate-900 dark:hover:text-white {sortKey === column.key
                   ? 'text-indigo-600 dark:text-indigo-300'
                   : ''}"
                 onclick={() => (sortKey = column.key)}>{column.label}</button
@@ -46,9 +46,13 @@
       </thead>
       <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
         {#each rows as fund (fund.id)}
-          <tr class="hover:bg-slate-900/[0.03] dark:hover:bg-white/[0.03]">
+          <!-- The whole row opens the fund: the link covers it (WM-UI-18). -->
+          <tr class="row-link relative">
             <td class="px-5 py-2">
-              <a href="{base}/investments/funds/{encodeURIComponent(fund.code)}" class="flex items-center gap-3">
+              <a
+                href="{base}/investments/funds/{encodeURIComponent(fund.code)}"
+                class="group flex items-center gap-3 after:absolute after:inset-0 after:content-['']"
+              >
                 {#if fund.issuerLogo}
                   <img
                     src={fund.issuerLogo}
@@ -60,7 +64,10 @@
                   <span class="size-8 shrink-0 rounded-lg bg-slate-900/5 dark:bg-white/10"></span>
                 {/if}
                 <span class="min-w-0">
-                  <span class="block font-medium text-indigo-600 dark:text-indigo-300">{fund.code}</span>
+                  <span
+                    class="block font-medium text-indigo-600 underline-offset-2 group-hover:underline dark:text-indigo-300"
+                    >{fund.code}</span
+                  >
                   <span class="muted block max-w-[9rem] truncate sm:max-w-[22rem] text-xs" title={fund.name}
                     >{fund.issuer ? `${fund.issuer} · ` : ''}{fund.name}</span
                   >

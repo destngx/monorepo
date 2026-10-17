@@ -4,8 +4,10 @@
   import { ApiError } from '$lib/api/client';
   import { api } from '$lib/api/endpoints';
   import type { DependencyStatus, SheetInfo } from '$lib/api/types';
+  import { classifyFailure, type LoadFailure } from '$lib/api/load';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
+  import LoadError from '$lib/components/LoadError.svelte';
   import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import Card from '$lib/components/Card.svelte';
   import { engineHealth } from '$lib/state/health.svelte';
@@ -25,18 +27,23 @@
   // The connected spreadsheet (WM-SET-2). Engines before /sheets/info answer
   // 404; the session's own last sync is shown then.
   let sheet = $state<SheetInfo | null>(null);
-  let sheetError = $state('');
+  let sheetError = $state<LoadFailure | null>(null);
   let sheetUnsupported = $state(false);
+  let sheetLoading = $state(true);
 
+  // A retry keeps the shown sheet until the new answer arrives.
   async function loadSheet() {
-    sheetError = '';
+    sheetLoading = true;
     try {
       sheet = await api.sheetInfo();
+      sheetError = null;
       sheetUnsupported = false;
     } catch (failure) {
       sheet = null;
       if (failure instanceof ApiError && failure.status === 404 && !failure.code) sheetUnsupported = true;
-      else sheetError = failure instanceof Error ? failure.message : String(failure);
+      else sheetError = classifyFailure(failure);
+    } finally {
+      sheetLoading = false;
     }
   }
 
@@ -73,18 +80,18 @@
         {sheet.title || 'Untitled'} <span class="muted">(local workbook)</span>
       {:else if sheet}
         <a
-          class="text-indigo-600 hover:underline dark:text-indigo-400"
+          class="link"
           href="https://docs.google.com/spreadsheets/d/{encodeURIComponent(sheet.spreadsheetId)}"
           target="_blank"
           rel="noopener noreferrer"
           title={sheet.spreadsheetId}>{sheet.title || 'Untitled'}</a
         >
-      {:else if sheetError}
-        <span class="text-rose-600 dark:text-rose-400">{sheetError}</span>
+      {:else if sheetError && !sheetLoading}
+        <LoadError failure={sheetError} label="the sheet details" retry={loadSheet} compact />
       {:else if sheetUnsupported}
         <span class="muted">This engine does not report sheet details.</span>
       {:else}
-        <span class="muted">Loading…</span>
+        <SkeletonText lines={1} label="the sheet details" class="max-w-48 pt-1" />
       {/if}
     </dd>
     <dt class="muted">Last sync</dt>

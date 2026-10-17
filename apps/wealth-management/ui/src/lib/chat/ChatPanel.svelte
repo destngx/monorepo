@@ -1,8 +1,11 @@
 <script lang="ts">
   import Markdown from '$lib/ai/Markdown.svelte';
   import type { ChatPageContext } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import Modal from '$lib/components/Modal.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { tick } from 'svelte';
   import { chat } from './chat.svelte';
@@ -39,6 +42,8 @@
   let pending = $state<{ index: number; text?: string } | null>(null);
   const pendingRemoved = $derived(pending ? removedByRetry(chat.entries, pending.index) : 0);
   const suggestions = $derived(suggestionsFor(page.path));
+  // The reply being streamed, if any: it shows a typing indicator, then a caret.
+  const streamingIndex = $derived(chat.streaming ? chat.entries.length - 1 : -1);
 
   // Keep the newest message in view while streaming.
   $effect(() => {
@@ -133,7 +138,8 @@
           ><Icon name={copied === index ? 'check' : 'copy'} size={14} /></button
         >
       {/if}
-      {#if entry.role === 'assistant' && retryFrom(chat.entries, index)}
+      <!-- A failed reply has its Retry next to the error instead. -->
+      {#if entry.role === 'assistant' && !entry.error && retryFrom(chat.entries, index)}
         <button
           type="button"
           class="group/retry icon-btn"
@@ -176,12 +182,13 @@
         {@attach focusEnd}
       ></textarea>
       <div class="flex justify-end gap-2">
-        <button type="button" class="btn-ghost text-xs" onclick={() => (editing = null)}>Cancel</button>
-        <button
+        <Button size="sm" onclick={() => (editing = null)}>Cancel</Button>
+        <Button
           type="submit"
-          class="btn-primary text-xs"
+          variant="primary"
+          size="sm"
           title="Answer again; removes later messages"
-          disabled={!editing.text.trim()}>Save &amp; send</button
+          disabled={!editing.text.trim()}>Save &amp; send</Button
         >
       </div>
     </form>
@@ -202,10 +209,8 @@
     {/if}
   </p>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={() => (pending = null)}>Cancel</button>
-    <button type="button" class="btn-primary" onclick={confirmPending}
-      >{pending?.text === undefined ? 'Retry' : 'Send'}</button
-    >
+    <Button onclick={() => (pending = null)}>Cancel</Button>
+    <Button variant="primary" onclick={confirmPending}>{pending?.text === undefined ? 'Retry' : 'Send'}</Button>
   {/snippet}
 </Modal>
 
@@ -223,10 +228,10 @@
         <p class="muted max-w-xs text-sm">Ask about your balances, spending, budget, money lent or goals.</p>
         <div class="flex flex-wrap justify-center gap-2">
           {#each suggestions as suggestion (suggestion)}
-            <button
-              type="button"
-              class="btn-ghost border border-slate-900/10 text-xs dark:border-white/10"
-              onclick={() => send(suggestion)}>{suggestion}</button
+            <Button
+              size="sm"
+              class="border border-slate-900/10 hover:border-indigo-400/50 dark:border-white/10"
+              onclick={() => send(suggestion)}>{suggestion}</Button
             >
           {/each}
         </div>
@@ -238,10 +243,11 @@
             {#if editing?.index === index}
               {@render editor()}
             {:else}
+              <!-- Amounts the user typed hide with the privacy mask too (WM-UI-2). -->
               <p
                 class="max-w-[85%] rounded-2xl rounded-br-md bg-indigo-600 px-3 py-2 text-sm whitespace-pre-wrap text-white"
               >
-                {entry.content}
+                <MaskedText text={entry.content} />
               </p>
             {/if}
             {@render actions(entry, index)}
@@ -257,28 +263,50 @@
                       ? 'text-rose-600 dark:text-rose-400'
                       : 'muted'}"
                   >
-                    <Icon
-                      name={tool.status === 'running' ? 'clock' : tool.status === 'ok' ? 'check' : 'alert'}
-                      size={12}
-                    />
+                    {#if tool.status === 'running'}
+                      <Spinner size={12} />
+                    {:else}
+                      <Icon name={tool.status === 'ok' ? 'check' : 'alert'} size={12} />
+                    {/if}
                     {toolLabels[tool.name] ?? tool.name}
                   </span>
                 {/each}
               </div>
             {/if}
             {#if entry.content}
+              <!-- Markdown turns amounts into mask tokens while masked (WM-UI-15). -->
               <div class="rounded-2xl rounded-bl-md bg-slate-900/5 px-3 py-2 dark:bg-white/5">
                 <Markdown text={entry.content} />
+                {#if index === streamingIndex}
+                  <span
+                    class="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
+                    role="status"
+                    ><span class="inline-block h-3 w-1.5 rounded-sm bg-indigo-500 motion-safe:animate-pulse"
+                    ></span>Answering…</span
+                  >
+                {/if}
               </div>
-            {:else if chat.streaming && index === chat.entries.length - 1 && !entry.error}
-              <div class="flex gap-1 px-3 py-3" role="status" aria-label="Assistant is typing">
-                <span class="size-1.5 animate-bounce rounded-full bg-slate-400"></span>
-                <span class="size-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:150ms]"></span>
-                <span class="size-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]"></span>
+            {:else if index === streamingIndex && !entry.error}
+              <div class="flex items-center gap-1 px-3 py-3" role="status" aria-label="Assistant is typing">
+                <span class="size-1.5 rounded-full bg-slate-400 motion-safe:animate-bounce"></span>
+                <span class="size-1.5 rounded-full bg-slate-400 [animation-delay:150ms] motion-safe:animate-bounce"
+                ></span>
+                <span class="size-1.5 rounded-full bg-slate-400 [animation-delay:300ms] motion-safe:animate-bounce"
+                ></span>
+                <span class="muted ml-1.5 text-xs" aria-hidden="true">Thinking…</span>
               </div>
             {/if}
             {#if entry.error}
-              <p class="text-xs text-rose-600 dark:text-rose-400" role="alert">{entry.error}</p>
+              <div
+                class="flex flex-wrap items-center gap-2 rounded-xl bg-rose-500/10 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300"
+                role="alert"
+              >
+                <Icon name="alert" size={14} />
+                <span class="min-w-0 flex-1 break-words">{entry.error}</span>
+                {#if !chat.streaming && retryFrom(chat.entries, index)}
+                  <Button size="sm" icon="refresh" onclick={() => (pending = { index })}>Retry</Button>
+                {/if}
+              </div>
             {/if}
             {@render actions(entry, index)}
           </div>
@@ -295,16 +323,15 @@
     }}
   >
     {#if chat.entries.length && !chat.streaming}
-      <button
-        type="button"
-        class="btn-ghost px-2"
-        aria-label="Clear conversation"
-        title="Clear conversation"
+      <Button
+        size="icon"
+        icon="trash"
+        label="Clear conversation"
         onclick={() => {
           editing = null;
           chat.clear();
-        }}><Icon name="trash" size={16} /></button
-      >
+        }}
+      />
     {/if}
     <label class="sr-only" for="chat-input-{compact ? 'widget' : 'page'}">Message</label>
     <textarea
@@ -315,14 +342,20 @@
       bind:value={draft}
       {onkeydown}
     ></textarea>
+    <!-- While a reply streams, Send stays busy and Stop ends the reply. -->
     {#if chat.streaming}
-      <button type="button" class="btn-ghost px-2" aria-label="Stop" onclick={() => chat.stop()}
-        ><Icon name="stop" size={16} /></button
-      >
-    {:else}
-      <button type="submit" class="btn-primary px-3" aria-label="Send" disabled={!draft.trim()}
-        ><Icon name="send" size={16} /></button
-      >
+      <Button size="icon" icon="stop" label="Stop" title="Stop the answer" onclick={() => chat.stop()} />
     {/if}
+    <Button
+      type="submit"
+      variant="primary"
+      size="icon"
+      icon="send"
+      class="px-3"
+      label="Send"
+      title={chat.streaming ? 'Answering…' : 'Send'}
+      busy={chat.streaming}
+      disabled={!chat.streaming && !draft.trim()}
+    />
   </form>
 </div>

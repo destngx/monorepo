@@ -15,9 +15,9 @@
   {#each ranges as range (range)}
     <button
       type="button"
-      class="rounded-lg px-2 py-1 text-xs font-medium transition {range === value
+      class="rounded-lg px-2 py-1 text-xs font-medium transition active:scale-95 disabled:opacity-50 {range === value
         ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-800 dark:text-indigo-300'
-        : 'muted hover:text-slate-900 dark:hover:text-white'}"
+        : 'muted hover:bg-white/60 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white'}"
       aria-pressed={range === value}
       {disabled}
       onclick={() => onchange(range)}>{range}</button

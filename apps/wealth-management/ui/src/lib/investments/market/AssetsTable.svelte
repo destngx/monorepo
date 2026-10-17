@@ -87,9 +87,7 @@
           {#each assets as quote (quote.symbol)}
             <tr class={quote.error ? 'opacity-60' : ''}>
               <td class="px-5 py-2">
-                <a href={href(quote.symbol)} class="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                  >{quote.symbol}</a
-                >
+                <a href={href(quote.symbol)} class="link font-medium">{quote.symbol}</a>
                 <span class="muted block text-xs">{quote.name}</span>
               </td>
               {#if quote.error}

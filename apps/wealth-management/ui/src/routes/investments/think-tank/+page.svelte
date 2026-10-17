@@ -1,19 +1,26 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { invalidateAll } from '$app/navigation';
   import Markdown from '$lib/ai/Markdown.svelte';
+  import { track } from '$lib/api/deferred.svelte';
   import type { ChatPageContext } from '$lib/api/types';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
+  import AIRequirement from '$lib/investments/ai/AIRequirement.svelte';
+  import { aiUnavailable } from '$lib/ai/aiStatus';
   import CommandCards from '$lib/investments/thinktank/CommandCards.svelte';
   import PhaseStepper from '$lib/investments/thinktank/PhaseStepper.svelte';
   import RawContext from '$lib/investments/thinktank/RawContext.svelte';
   import { biasTone } from '$lib/investments/news';
   import { newsStore } from '$lib/investments/newsStore.svelte';
-  import { chatSummary, focusLabel, parseSymbols } from '$lib/investments/thinktank';
+  import { chatSummary, focusLabel, parseSymbols, PHASES } from '$lib/investments/thinktank';
   import { recordNote } from '$lib/recommendations/recommendations';
   import { thinkTank } from '$lib/investments/thinktank.svelte';
 
@@ -24,13 +31,9 @@
   let { data } = $props();
 
   const REQUIRED_PROMPTS = ['market/think-tank', 'market/synthesis', 'market/action'];
-  const unavailable = $derived.by(() => {
-    if (!data.aiStatus) return 'AI is not available on the engine.';
-    if (!data.aiStatus.configured) return 'AI is not configured: add the AI endpoint and model.';
-    const missing = REQUIRED_PROMPTS.filter((key) => data.aiStatus?.missingPrompts.includes(key));
-    if (missing.length) return `The Prompts sheet is missing: ${missing.join(', ')}.`;
-    return null;
-  });
+  // The AI status streams in; until it answers the Run button stays usable.
+  const aiStatus = track(() => data.aiStatus);
+  const unavailable = $derived(aiUnavailable(aiStatus.value, REQUIRED_PROMPTS));
 
   let includeNews = $state(true);
   let symbolsText = $state('');
@@ -38,6 +41,15 @@
   const run = $derived(thinkTank.state);
   const started = $derived(run.status !== 'idle');
   const finished = $derived(run.status === 'done');
+  // The phase running now, for the progress line under the controls.
+  const runningPhase = $derived(PHASES.find(({ key }) => run.phases[key].status === 'running') ?? null);
+  const phaseActivity: Record<string, string> = {
+    context: 'Gathering your portfolio, the market pulse and web searches',
+    'think-tank': 'The experts are debating',
+    synthesis: 'Weighing the debate',
+    actions: 'Drafting commands',
+  };
+  const donePhases = $derived(PHASES.filter(({ key }) => run.phases[key].status === 'ok').length);
 
   function start() {
     void thinkTank.start(includeNews ? newsStore.reports : [], symbols);
@@ -56,14 +68,7 @@
   {/snippet}
 </PageHeader>
 
-{#if unavailable}
-  <Card class="mb-4">
-    <p class="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
-      <Icon name="alert" size={16} />
-      {unavailable} See <a class="underline" href="{base}/settings">Settings</a>.
-    </p>
-  </Card>
-{/if}
+<AIRequirement status={aiStatus} {unavailable} retry={() => invalidateAll()} />
 
 <Card
   title="Analysis"
@@ -104,23 +109,33 @@
       </label>
     {:else}
       <p class="muted text-sm">
-        Tip: <a class="underline" href="{base}/investments/news">scan news topics</a> first to include their sentiment.
+        Tip: <a class="link" href="{base}/investments/news">scan news topics</a> first to include their sentiment.
       </p>
     {/if}
     <div class="flex gap-2">
       {#if thinkTank.running}
-        <button type="button" class="btn-ghost" onclick={() => thinkTank.stop()}>
-          <Icon name="stop" size={16} /> Stop
-        </button>
-      {:else}
-        <button type="button" class="btn-primary" disabled={!!unavailable} onclick={start}>
-          <Icon name={started ? 'refresh' : 'sparkles'} size={16} />
-          {started ? 'Run again' : 'Run analysis'}
-        </button>
+        <Button icon="stop" title="Stop the analysis; finished phases are kept" onclick={() => thinkTank.stop()}
+          >Stop</Button
+        >
       {/if}
+      <Button
+        variant="primary"
+        icon={started ? 'refresh' : 'sparkles'}
+        busy={thinkTank.running}
+        busyText="Analysing…"
+        disabled={!!unavailable}
+        onclick={start}>{started ? 'Run again' : 'Run analysis'}</Button
+      >
     </div>
   </div>
 
+  {#if thinkTank.running}
+    <p class="muted mt-4 flex items-center gap-2 text-sm" role="status" aria-live="polite">
+      <Spinner size={14} />
+      {runningPhase ? `${phaseActivity[runningPhase.key] ?? runningPhase.label}…` : 'Starting…'}
+      <span class="text-xs">({donePhases} of {PHASES.length} phases done; a run can take a few minutes)</span>
+    </p>
+  {/if}
   {#if started}
     <div class="mt-4" aria-live="polite">
       <PhaseStepper phases={run.phases} />
@@ -136,9 +151,7 @@
         <Icon name="alert" size={16} class="mt-0.5" />
         {run.error}
       </p>
-      <button type="button" class="btn-ghost text-sm" disabled={!!unavailable} onclick={start}>
-        <Icon name="refresh" size={16} /> Retry
-      </button>
+      <Button size="sm" icon="refresh" disabled={!!unavailable} onclick={start}>Retry</Button>
     </div>
   {:else if run.status === 'stopped'}
     <p class="muted mt-4 text-sm" role="status">Stopped. Finished phases are kept below.</p>
@@ -164,11 +177,7 @@
   </Card>
 {:else if run.phases['think-tank'].status === 'running'}
   <Card title="Think tank" subtitle="The experts are debating…" class="mt-4">
-    <div class="space-y-2" role="status" aria-label="Generating">
-      <div class="h-3 w-3/4 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-      <div class="h-3 w-full animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-      <div class="h-3 w-2/3 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-    </div>
+    <SkeletonText lines={4} label="the think tank debate" />
   </Card>
 {/if}
 
@@ -182,11 +191,13 @@
   </Card>
 {:else if run.phases.synthesis.status === 'running'}
   <Card title="Synthesis" subtitle="Weighing the debate…" class="mt-4">
-    <div
-      class="h-3 w-2/3 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"
-      role="status"
-      aria-label="Generating"
-    ></div>
+    <SkeletonText lines={3} label="the synthesis" />
+  </Card>
+{/if}
+
+{#if !run.actions && run.phases.actions.status === 'running'}
+  <Card title="Actions" subtitle="Turning the synthesis into commands…" class="mt-4">
+    <SkeletonText lines={2} label="the commands" />
   </Card>
 {/if}
 
@@ -200,7 +211,7 @@
     {#if run.actions.recorded}
       <p class="mt-3 text-sm {run.actions.recorded.error ? 'text-rose-700 dark:text-rose-300' : 'muted'}" role="status">
         {recordNote(run.actions.recorded)}
-        <a class="underline" href="{base}/recommendations?page={encodeURIComponent('/investments/think-tank')}"
+        <a class="link" href="{base}/recommendations?page={encodeURIComponent('/investments/think-tank')}"
           >See the recommendations</a
         >
       </p>

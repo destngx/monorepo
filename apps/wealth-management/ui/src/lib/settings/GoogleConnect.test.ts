@@ -58,7 +58,8 @@ describe('GoogleConnect', () => {
 
     expect(endpoints.startGoogleAuth).toHaveBeenCalledWith('sheets');
     expect(signIn.signInHere).toHaveBeenCalledWith(start, window.location);
-    expect(screen.getByRole('button', { name: 'Opening Google...' })).toBeTruthy();
+    const busy = screen.getByRole('button', { name: 'Opening Google…' });
+    expect(busy.getAttribute('aria-busy')).toBe('true');
     expect(screen.queryByText(start.redirectUrl)).toBeNull();
   });
 

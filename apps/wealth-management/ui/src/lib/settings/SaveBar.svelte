@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Button from '$lib/components/Button.svelte';
+  import Icon from '$lib/components/Icon.svelte';
   import type { EngineSettingsForm } from './engine.svelte';
 
   // Shown while there is something to save or apply; changes can span tabs.
@@ -14,22 +16,25 @@
     aria-label="Pending settings"
   >
     {#if form.saveError}
-      <p class="mr-auto text-sm text-rose-600 dark:text-rose-400" role="alert">{form.saveError}</p>
+      <p class="mr-auto flex items-start gap-2 text-sm text-rose-600 dark:text-rose-400" role="alert">
+        <Icon name="alert" size={16} class="mt-0.5 shrink-0" />{form.saveError}
+      </p>
     {:else if form.changeCount > 0}
       <p class="mr-auto text-sm">
         {form.changeCount} unsaved change{form.changeCount === 1 ? '' : 's'}
       </p>
     {:else}
-      <p class="mr-auto text-sm">Saved. Restart the engine to apply.</p>
+      <p class="mr-auto flex items-center gap-2 text-sm" role="status">
+        <Icon name="check" size={16} class="text-emerald-600 dark:text-emerald-400" />Saved. Restart the engine to
+        apply.
+      </p>
     {/if}
     {#if form.changeCount > 0}
-      <button type="button" class="btn-ghost" disabled={form.saving} onclick={form.discard}>Discard</button>
-      <button type="button" class="btn-primary" disabled={form.saving} onclick={form.save}
-        >{form.saving ? 'Saving...' : 'Save settings'}</button
-      >
+      <Button disabled={form.saving} onclick={form.discard}>Discard</Button>
+      <Button variant="primary" busy={form.saving} busyText="Saving…" onclick={form.save}>Save settings</Button>
     {:else if restartRequired}
-      <button type="button" class="btn-primary" disabled={form.restarting} onclick={form.restart}
-        >{form.restarting ? 'Restarting...' : 'Restart engine'}</button
+      <Button variant="primary" icon="refresh" busy={form.restarting} busyText="Restarting…" onclick={form.restart}
+        >Restart engine</Button
       >
     {/if}
   </div>

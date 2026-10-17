@@ -26,8 +26,12 @@
             title="Open full page"
             onclick={() => (open = false)}><Icon name="chat" size={16} /></a
           >
-          <button type="button" class="btn-ghost px-2" aria-label="Close assistant" onclick={() => (open = false)}
-            ><Icon name="x" size={16} /></button
+          <button
+            type="button"
+            class="btn-ghost px-2"
+            aria-label="Close assistant"
+            title="Close assistant"
+            onclick={() => (open = false)}><Icon name="x" size={16} /></button
           >
         </div>
       </div>
@@ -36,7 +40,8 @@
   {/if}
   <button
     type="button"
-    class="grid size-12 place-items-center rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-500"
+    class="grid size-12 place-items-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-500 hover:shadow-xl active:scale-95 motion-reduce:active:scale-100"
+    title={open ? 'Hide assistant' : 'Ask the assistant'}
     aria-label={open ? 'Hide assistant' : 'Ask the assistant'}
     aria-expanded={open}
     onclick={() => (open = !open)}

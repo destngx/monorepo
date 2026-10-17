@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { NewsReport } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
   import { biasTone, countShares, formatTimestamp, sentimentTone, sourceHost } from '../news';
   import ScoreBar from './ScoreBar.svelte';
 
@@ -41,22 +44,32 @@
       {/if}
     </div>
     <div class="flex items-center gap-1">
-      <button type="button" class="btn-ghost text-xs" disabled={loading} onclick={onregenerate}>
-        <Icon name="refresh" size={14} class={loading ? 'animate-spin' : ''} />
-        {report ? 'Regenerate' : 'Retry'}
-      </button>
+      <Button
+        size="sm"
+        icon="refresh"
+        busy={loading}
+        busyText={report ? 'Regenerating…' : 'Scanning…'}
+        title={report ? 'Search again and reclassify' : `Scan ${topic} again`}
+        onclick={onregenerate}>{report ? 'Regenerate' : 'Retry'}</Button
+      >
       {#if onremove && !loading}
-        <button type="button" class="btn-ghost px-2" aria-label="Remove {topic}" title="Remove" onclick={onremove}>
-          <Icon name="x" size={14} />
-        </button>
+        <Button size="icon" icon="x" label="Remove {topic}" onclick={onremove} />
       {/if}
     </div>
   </header>
 
   {#if error}
-    <p class="mb-3 flex items-start gap-2 text-sm text-rose-700 dark:text-rose-300" role="alert">
-      <Icon name="alert" size={16} class="mt-0.5" />
-      {error}
+    <p
+      class="mb-3 flex items-start gap-2 rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-300"
+      role="alert"
+    >
+      <Icon name="alert" size={16} class="mt-0.5 shrink-0" />
+      <span class="min-w-0 break-words">Could not scan {topic}: {error}</span>
+    </p>
+  {/if}
+  {#if loading && report}
+    <p class="muted mb-3 flex items-center gap-2 text-xs" role="status">
+      <Spinner size={12} /> Searching again; the last report stays until the new one arrives.
     </p>
   {/if}
 
@@ -87,7 +100,7 @@
           <li class="py-3 first:pt-0 last:pb-0">
             <div class="flex flex-wrap items-start justify-between gap-2">
               <a
-                class="min-w-0 flex-1 text-sm font-medium hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
+                class="link min-w-0 flex-1 text-sm font-medium"
                 href={article.url}
                 target="_blank"
                 rel="noopener noreferrer">{article.title || article.url}</a
@@ -113,10 +126,9 @@
       <p class="muted text-sm">The search found no articles for this topic. Try another wording or regenerate later.</p>
     {/if}
   {:else if loading}
-    <div class="space-y-2" role="status" aria-label="Scanning {topic}">
-      <div class="h-2 w-full animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-      <div class="h-3 w-3/4 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-      <div class="h-3 w-2/3 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-    </div>
+    <p class="muted mb-3 flex items-center gap-2 text-xs">
+      <Spinner size={12} /> Searching the web and classifying each article…
+    </p>
+    <SkeletonText lines={4} label="the {topic} news scan" />
   {/if}
 </section>

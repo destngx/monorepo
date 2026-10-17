@@ -1,9 +1,13 @@
 <script lang="ts">
+  import { track } from '$lib/api/deferred.svelte';
   import { api } from '$lib/api/endpoints';
+  import { defer } from '$lib/api/load';
   import { PALETTE } from '$lib/charts/palette';
-  import type { DataSource } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
+  import Deferred from '$lib/components/Deferred.svelte';
+  import SkeletonChart from '$lib/components/skeleton/SkeletonChart.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { sourceOf } from '$lib/source';
   import { formatDate, formatSignedPercent, formatVND, todayISO } from '$lib/format';
@@ -15,61 +19,53 @@
     parseGoldHistory,
     parseGoldSnapshot,
     parseUsdHistory,
-    settle,
     sourced,
     worldGoldMillionVND,
-    type GoldRow,
-    type GoldSnapshot,
-    type Point,
     type Range,
-    type Section,
-    type Sourced,
   } from '../fmarket';
   import MultiLineChart from './MultiLineChart.svelte';
   import RangeButtons from './RangeButtons.svelte';
-  import SectionError from './SectionError.svelte';
 
-  // Gold and USD share one range so world gold converts at the same day's rate.
+  // Gold and USD share one range so world gold converts at the same day's
+  // rate. Both stream in (WM-UI-16); another range keeps the shown charts with
+  // a Refreshing badge until the new ones arrive.
   let range = $state<Range>('1Y');
-  let gold = $state<Section<{ rows: GoldRow[]; snapshot: GoldSnapshot; source?: DataSource }> | null>(null);
-  let usd = $state<Section<Sourced<Point[]>> | null>(null);
-  let loading = $state(false);
-  // fmarket's change percents cover the requested range, so label them with it.
-  let loadedRange = $state<Range>('1Y');
-
-  async function load(selected: Range, signal: AbortSignal) {
-    loading = true;
+  let reloads = $state(0);
+  const requests = $derived.by(() => {
+    const selected = range;
+    void reloads;
     const params = historyParams(selected, todayISO());
-    const [goldResult, usdResult] = await Promise.all([
-      settle(async () => {
-        const payload = await api.fmarket<unknown>('getGoldPriceHistory', params, { signal });
+    return {
+      range: selected,
+      gold: defer(async () => {
+        const payload = await api.fmarket<unknown>('getGoldPriceHistory', params);
         return { rows: parseGoldHistory(payload), snapshot: parseGoldSnapshot(payload), source: sourceOf(payload) };
       }),
-      settle(async () => sourced(await api.fmarket<unknown>('getUsdRateHistory', params, { signal }), parseUsdHistory)),
-    ]);
-    // A newer range (or leaving the page) aborted this request.
-    if (signal.aborted) return;
-    gold = goldResult;
-    loadedRange = selected;
-    usd = usdResult;
-    loading = false;
-  }
-
-  $effect(() => {
-    const controller = new AbortController();
-    void load(range, controller.signal);
-    return () => controller.abort();
+      usd: defer(async () => sourced(await api.fmarket<unknown>('getUsdRateHistory', params), parseUsdHistory)),
+    };
   });
+  const goldTrack = track(() => requests.gold);
+  const usdTrack = track(() => requests.usd);
+  const gold = $derived(goldTrack.value);
+  const usd = $derived(usdTrack.value);
+  const loading = $derived(goldTrack.pending || usdTrack.pending);
+  // fmarket's change percents cover the requested range, so label them with it.
+  let loadedRange = $state<Range>('1Y');
+  $effect(() => {
+    const { range: selected, gold: request } = requests;
+    void request.then((result) => {
+      if (result.ok && request === requests.gold) loadedRange = selected;
+    });
+  });
+  const retry = () => reloads++;
 
-  const usdPoints = $derived(usd?.ok ? usd.value.data : []);
-  const goldSource = $derived(gold?.ok ? gold.value.source : undefined);
-  const usdSource = $derived(usd?.ok ? usd.value.source : undefined);
-  const snapshot = $derived(gold?.ok ? gold.value.snapshot : null);
+  const usdPoints = $derived(usd?.data ?? []);
+  const goldSource = $derived(gold?.source);
+  const usdSource = $derived(usd?.source);
+  const snapshot = $derived(gold?.snapshot ?? null);
   const usdRate = $derived(latest(usdPoints, 'value') ?? snapshot?.usdRate ?? null);
-  const chartRows = $derived(
-    gold?.ok ? downsample(goldChartRows(gold.value.rows, usdPoints, snapshot?.usdRate ?? usdRate)) : [],
-  );
-  const goldRows = $derived(gold?.ok ? gold.value.rows : []);
+  const chartRows = $derived(gold ? downsample(goldChartRows(gold.rows, usdPoints, snapshot?.usdRate ?? usdRate)) : []);
+  const goldRows = $derived(gold?.rows ?? []);
   const sjcBid = $derived(latest(goldRows, 'sjcBid'));
   const sjcAsk = $derived(latest(goldRows, 'sjcAsk'));
   const worldUsd = $derived(latest(goldRows, 'world'));
@@ -77,7 +73,6 @@
     snapshot?.worldVnd ?? (worldUsd !== null && usdRate ? worldGoldMillionVND(worldUsd, usdRate) * 1e6 : null),
   );
   const lastDate = $derived(goldRows.at(-1)?.date ?? null);
-  const usdChartPoints = $derived(downsample(usdPoints));
 
   const million = (value: number) => value.toLocaleString('vi-VN', { maximumFractionDigits: 1 });
   const rate = (value: number) => value.toLocaleString('vi-VN', { maximumFractionDigits: 0 });
@@ -86,10 +81,13 @@
 
 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
   <p class="muted flex flex-wrap items-center gap-2 text-sm">
-    {#if lastDate}Prices as of {formatDate(lastDate)}{:else if loading}Loading prices…{/if}
+    {#if lastDate}Prices as of {formatDate(lastDate)}{/if}
+    {#if loading}<span class="inline-flex items-center gap-1" role="status"
+        ><Spinner size={12} />{lastDate ? 'Updating…' : 'Loading prices…'}</span
+      >{/if}
     {#if goldSource}<SourceBadge source={goldSource} />{/if}
   </p>
-  <RangeButtons value={range} onchange={(next) => (range = next)} disabled={loading} />
+  <RangeButtons value={range} onchange={(next) => (range = next)} />
 </div>
 
 <!-- WM-INV-10: SJC and 9999 buy/sell, world gold converted, USD/VND -->
@@ -138,50 +136,49 @@
   subtitle="Million ₫ per lượng; world = USD/oz × 1.2056 × USD rate of the day"
   class="mt-4"
 >
-  {#if gold && !gold.ok}
-    <SectionError title="Gold prices are unavailable" message={gold.error} />
-  {:else if !gold}
-    <div class="h-56 animate-pulse rounded-xl bg-slate-900/5 dark:bg-white/5"></div>
-  {:else}
-    <div class:opacity-50={loading} class="transition-opacity">
-      <MultiLineChart
-        label="Gold price history"
-        dates={chartRows.map((row) => row.date)}
-        series={[
-          { name: 'SJC sell', color: colors.sjcAsk, values: chartRows.map((row) => row.sjcAsk) },
-          { name: 'SJC buy', color: colors.sjcBid, values: chartRows.map((row) => row.sjcBid) },
-          { name: 'World', color: colors.world, values: chartRows.map((row) => row.world) },
-        ]}
-        format={million}
-      />
-    </div>
-    <p class="muted mt-2 text-xs">
-      fmarket publishes no 9999 ring history; its current price is shown above.
-      {#if snapshot?.usdRate}Days before the USD history use today's rate.{/if}
-    </p>
-  {/if}
+  <Deferred data={requests.gold} label="gold prices" {retry}>
+    {#snippet children(value)}
+      <div>
+        <MultiLineChart
+          label="Gold price history"
+          dates={chartRows.map((row) => row.date)}
+          series={[
+            { name: 'SJC sell', color: colors.sjcAsk, values: chartRows.map((row) => row.sjcAsk) },
+            { name: 'SJC buy', color: colors.sjcBid, values: chartRows.map((row) => row.sjcBid) },
+            { name: 'World', color: colors.world, values: chartRows.map((row) => row.world) },
+          ]}
+          format={million}
+        />
+        <p class="muted mt-2 text-xs">
+          fmarket publishes no 9999 ring history; its current price is shown above.
+          {#if value.snapshot?.usdRate}Days before the USD history use today's rate.{/if}
+        </p>
+      </div>
+    {/snippet}
+    {#snippet skeleton()}<SkeletonChart height={224} label="gold prices" />{/snippet}
+  </Deferred>
 </Card>
 
 <Card title="USD/VND" subtitle="Selling rate" class="mt-4">
   {#snippet actions()}
     {#if usdSource}<SourceBadge source={usdSource} />{/if}
   {/snippet}
-  {#if usd && !usd.ok}
-    <SectionError title="USD rates are unavailable" message={usd.error} />
-  {:else if !usd}
-    <div class="h-56 animate-pulse rounded-xl bg-slate-900/5 dark:bg-white/5"></div>
-  {:else}
-    <div class:opacity-50={loading} class="transition-opacity">
-      <MultiLineChart
-        label="USD/VND history"
-        dates={usdChartPoints.map((point) => point.date)}
-        series={[{ name: 'USD/VND', color: colors.usd, values: usdChartPoints.map((point) => point.value) }]}
-        format={rate}
-      />
-    </div>
-    {#if usdPoints.length > 1}
-      {@const change = (usdPoints[usdPoints.length - 1].value / usdPoints[0].value - 1) * 100}
-      <p class="muted mt-2 text-xs">Change over range: {formatSignedPercent(change, 2)}</p>
-    {/if}
-  {/if}
+  <Deferred data={requests.usd} label="USD rates" {retry}>
+    {#snippet children(value)}
+      {@const points = downsample(value.data)}
+      <div>
+        <MultiLineChart
+          label="USD/VND history"
+          dates={points.map((point) => point.date)}
+          series={[{ name: 'USD/VND', color: colors.usd, values: points.map((point) => point.value) }]}
+          format={rate}
+        />
+        {#if value.data.length > 1}
+          {@const change = (value.data[value.data.length - 1].value / value.data[0].value - 1) * 100}
+          <p class="muted mt-2 text-xs">Change over range: {formatSignedPercent(change, 2)}</p>
+        {/if}
+      </div>
+    {/snippet}
+    {#snippet skeleton()}<SkeletonChart height={224} label="USD rates" />{/snippet}
+  </Deferred>
 </Card>

@@ -1,5 +1,6 @@
 import { invalidateAll } from '$app/navigation';
 import { api } from '$lib/api/endpoints';
+import { classifyFailure, type LoadFailure } from '$lib/api/load';
 import type { EngineSettings } from '$lib/api/types';
 import { toasts } from '$lib/state/toasts.svelte';
 import { groupSettings, initialDrafts, pendingChanges, waitForRestart, type Drafts } from './form';
@@ -15,6 +16,8 @@ export class EngineSettingsForm {
   view = $state<EngineSettings | null>(null);
   drafts = $state<Drafts>({});
   loadError = $state('');
+  /** Why the settings did not load, for the section error with its Retry. */
+  loadFailure = $state<LoadFailure | null>(null);
   saveError = $state('');
   saving = $state(false);
   restarting = $state(false);
@@ -36,10 +39,12 @@ export class EngineSettingsForm {
 
   load = async () => {
     this.loadError = '';
+    this.loadFailure = null;
     try {
       this._show(await api.settings());
     } catch (failure) {
       this.loadError = message(failure);
+      this.loadFailure = classifyFailure(failure);
     }
   };
 

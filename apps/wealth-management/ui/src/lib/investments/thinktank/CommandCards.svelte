@@ -1,9 +1,11 @@
 <script lang="ts">
   import type { InvestmentAction, InvestmentCommand } from '$lib/api/types';
   import Icon, { type IconName } from '$lib/components/Icon.svelte';
+  import MaskedText from '$lib/components/MaskedText.svelte';
 
   // Executable commands of the actions phase (WM-INV-18). They are advice
-  // only: nothing is written to the sheet.
+  // only: nothing is written to the sheet. Model text may quote amounts, so
+  // it goes through MaskedText (WM-UI-2, WM-UI-15).
   let { commands }: { commands: InvestmentCommand[] } = $props();
 
   const styles: Record<InvestmentAction, { icon: IconName; card: string; tag: string }> = {
@@ -34,9 +36,9 @@
           <Icon name={style.icon} size={12} />
           {command.action}
         </span>
-        <span class="font-medium break-words">{command.target}</span>
+        <span class="font-medium break-words"><MaskedText text={command.target} /></span>
       </div>
-      <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{command.rationale}</p>
+      <p class="mt-2 text-sm text-slate-700 dark:text-slate-300"><MaskedText text={command.rationale} /></p>
     </li>
   {/each}
 </ul>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/api/endpoints';
   import type { GoogleAuthPurpose, GoogleAuthStart } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { signInHere } from './googleAuth';
@@ -71,20 +72,20 @@
 
 <svelte:window onfocus={refresh} />
 
-<button
-  type="button"
-  class="btn-ghost"
-  disabled={disabled || starting}
+<Button
+  busy={starting}
+  busyText="Opening Google…"
+  {disabled}
   title={disabled ? disabledReason : undefined}
-  onclick={connect}>{starting ? 'Opening Google...' : label}</button
+  onclick={() => void connect()}>{label}</Button
 >
 
 <Modal open={started !== null} title={label} onclose={finish}>
   {#if started}
     <div class="space-y-3 text-sm">
       <p>
-        <a class="underline" href={started.authUrl} target="_blank" rel="noopener noreferrer">Open Google sign-in</a> in
-        a new tab and allow access. Google then returns to
+        <a class="link" href={started.authUrl} target="_blank" rel="noopener noreferrer">Open Google sign-in</a> in a
+        new tab and allow access. Google then returns to
         <code class="font-mono break-all">{started.redirectUrl}</code>, which the OAuth client must allow and this
         browser may not reach.
       </p>
@@ -104,6 +105,8 @@
             autocomplete="off"
             spellcheck="false"
             placeholder={`${started.redirectUrl}?state=...&code=...`}
+            aria-invalid={pasteError ? true : undefined}
+            aria-describedby={pasteError ? `google-redirect-${purpose}-error` : undefined}
             bind:value={pasted}
             onkeydown={(event) => {
               if (event.key !== 'Enter') return;
@@ -111,15 +114,21 @@
               void complete();
             }}
           />
-          <button type="button" class="btn-ghost" disabled={!pasted.trim() || completing} onclick={complete}
-            >{completing ? 'Saving...' : 'Complete'}</button
+          <Button busy={completing} busyText="Saving…" disabled={!pasted.trim()} onclick={() => void complete()}
+            >Complete</Button
           >
         </div>
-        {#if pasteError}<p class="text-sm text-rose-600 dark:text-rose-400" role="alert">{pasteError}</p>{/if}
+        {#if pasteError}<p
+            id="google-redirect-{purpose}-error"
+            class="text-sm text-rose-600 dark:text-rose-400"
+            role="alert"
+          >
+            {pasteError}
+          </p>{/if}
       </div>
     </div>
   {/if}
   {#snippet footer()}
-    <button type="button" class="btn-primary" onclick={finish}>Done</button>
+    <Button variant="primary" onclick={finish}>Done</Button>
   {/snippet}
 </Modal>

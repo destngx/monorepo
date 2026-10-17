@@ -21,4 +21,11 @@ describe('Research area landing', () => {
     expect(screen.getByRole('link', { name: /Think Tank.*your holdings/ })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Research' })).toBeTruthy();
   });
+
+  it('Given the tool cards When hovered or pressed Then they use the shared clickable-card feedback', () => {
+    render(ResearchPage);
+
+    const links = screen.getByRole('list', { name: 'Research tools' }).querySelectorAll('a');
+    expect([...links].every((link) => link.classList.contains('interactive'))).toBe(true);
+  });
 });

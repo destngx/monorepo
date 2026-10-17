@@ -1,14 +1,18 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
+  import { track, type Tracked } from '$lib/api/deferred.svelte';
   import Card from '$lib/components/Card.svelte';
+  import Deferred from '$lib/components/Deferred.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SkeletonChart from '$lib/components/skeleton/SkeletonChart.svelte';
+  import SkeletonTable from '$lib/components/skeleton/SkeletonTable.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
-  import { FUND_TYPES, type FundType } from '$lib/investments/fmarket';
+  import Spinner from '$lib/components/Spinner.svelte';
+  import { FUND_TYPES, type FundSummary, type FundType, type Sourced } from '$lib/investments/fmarket';
   import BankRatesChart from '$lib/investments/fmarket/BankRatesChart.svelte';
   import FundTable from '$lib/investments/fmarket/FundTable.svelte';
   import GoldPanel from '$lib/investments/fmarket/GoldPanel.svelte';
-  import SectionError from '$lib/investments/fmarket/SectionError.svelte';
 
   let { data } = $props();
 
@@ -25,7 +29,11 @@
     FUND_TYPES.find((t) => t.key === page.url.searchParams.get('type'))?.key ?? 'STOCK',
   );
   const fundLabel = $derived(FUND_TYPES.find((t) => t.key === fundType)?.label ?? '');
-  const funds = $derived(data.funds[fundType]);
+  // Each list streams in on its own (WM-UI-16); the filters show their counts as they arrive.
+  const lists = {} as Record<FundType, Tracked<Sourced<FundSummary[]>>>;
+  for (const { key } of FUND_TYPES) lists[key] = track(() => data.funds[key]);
+  const funds = $derived(lists[fundType]);
+  const bankRates = track(() => data.bankRates);
 
   function select(key: 'tab' | 'type', value: string, fallback: string) {
     const url = new URL(page.url);
@@ -37,7 +45,7 @@
   const pill = (active: boolean) =>
     active
       ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-800 dark:text-indigo-300'
-      : 'muted hover:text-slate-900 dark:hover:text-white';
+      : 'muted hover:bg-white/60 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white';
 </script>
 
 <PageHeader title="Fmarket" subtitle="Open-ended funds, bank savings rates, gold and USD from fmarket.vn" />
@@ -52,7 +60,9 @@
       type="button"
       role="tab"
       aria-selected={tab === t.key}
-      class="rounded-xl px-4 py-1.5 text-sm font-medium whitespace-nowrap transition {pill(tab === t.key)}"
+      class="rounded-xl px-4 py-1.5 text-sm font-medium whitespace-nowrap transition active:scale-[0.97] {pill(
+        tab === t.key,
+      )}"
       onclick={() => select('tab', t.key, 'funds')}>{t.label}</button
     >
   {/each}
@@ -61,40 +71,42 @@
 {#if tab === 'funds'}
   <Card title="{fundLabel} funds" subtitle="Ranked by 12-month return; select a fund for details">
     {#snippet actions()}
-      {#if funds.ok && funds.value.source}<SourceBadge source={funds.value.source} />{/if}
+      {#if funds.value?.source}<SourceBadge source={funds.value.source} />{/if}
       <div
         class="flex flex-wrap gap-0.5 rounded-xl bg-slate-900/5 p-0.5 dark:bg-white/5"
         role="group"
         aria-label="Fund type"
       >
         {#each FUND_TYPES as t (t.key)}
-          {@const list = data.funds[t.key]}
+          {@const list = lists[t.key]}
           <button
             type="button"
             aria-pressed={fundType === t.key}
-            class="rounded-lg px-2.5 py-1 text-xs font-medium transition {pill(fundType === t.key)}"
+            aria-busy={list.pending || undefined}
+            class="inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium transition active:scale-95 {pill(
+              fundType === t.key,
+            )}"
             onclick={() => select('type', t.key, 'STOCK')}
-            >{t.label}{#if list.ok}<span class="ml-1 opacity-60">{list.value.data.length}</span>{/if}</button
+            >{t.label}{#if list.value}<span class="ml-1 opacity-60">{list.value.data.length}</span
+              >{:else if list.loading}<Spinner size={10} class="ml-1 opacity-60" />{/if}</button
           >
         {/each}
       </div>
     {/snippet}
-    {#if funds.ok}
-      <FundTable funds={funds.value.data} label={fundLabel} />
-    {:else}
-      <SectionError title="{fundLabel} funds are unavailable" message={funds.error} />
-    {/if}
+    <Deferred data={data.funds[fundType]} scope={fundType} label="{fundLabel.toLowerCase()} funds">
+      {#snippet children(list)}<FundTable funds={list.data} label={fundLabel} />{/snippet}
+      {#snippet skeleton()}<SkeletonTable rows={8} columns={5} label="{fundLabel.toLowerCase()} funds" />{/snippet}
+    </Deferred>
   </Card>
 {:else if tab === 'bank'}
   <Card title="Bank savings rates" subtitle="Highest published deposit rate per bank, % per year">
     {#snippet actions()}
-      {#if data.bankRates.ok && data.bankRates.value.source}<SourceBadge source={data.bankRates.value.source} />{/if}
+      {#if bankRates.value?.source}<SourceBadge source={bankRates.value.source} />{/if}
     {/snippet}
-    {#if data.bankRates.ok}
-      <BankRatesChart rates={data.bankRates.value.rates} />
-    {:else}
-      <SectionError title="Bank rates are unavailable" message={data.bankRates.error} />
-    {/if}
+    <Deferred data={data.bankRates} label="bank rates">
+      {#snippet children(rates)}<BankRatesChart rates={rates.rates} />{/snippet}
+      {#snippet skeleton()}<SkeletonChart height={260} label="bank rates" />{/snippet}
+    </Deferred>
   </Card>
 {:else}
   <GoldPanel />

@@ -1,5 +1,6 @@
-import { api } from '$lib/api/endpoints';
+import { loadAIStatus } from '$lib/ai/aiStatus';
 import type { PageLoad } from './$types';
 
-// AI routes are absent when AI is off; the page explains instead of failing.
-export const load: PageLoad = async ({ fetch }) => ({ aiStatus: await api.aiStatus(fetch).catch(() => null) });
+// The AI status streams in: the page and its controls show at once, and the
+// reason AI cannot run (or the status error) appears above them when known.
+export const load: PageLoad = ({ fetch }) => ({ aiStatus: loadAIStatus(fetch) });
