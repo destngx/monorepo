@@ -23,8 +23,8 @@
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import MultiLineChart from '$lib/investments/fmarket/MultiLineChart.svelte';
-  import { formatCompact, formatDate, formatPercent, MASK } from '$lib/format';
-  import { mask } from '$lib/state/mask.svelte';
+  import { formatCompact, formatDate, formatPercent } from '$lib/format';
+  import Masked from '$lib/components/Masked.svelte';
   import { STATUS } from '$lib/status';
 
   let { data } = $props();
@@ -57,8 +57,7 @@
     ),
   );
   const colorOf = (name: string) => PALETTE[cards.findIndex((card) => card.name === name) % PALETTE.length];
-  const formatMetric = (value: number) =>
-    metric === 'efficiency' ? formatPercent(value, 0) : mask.revealed ? formatCompact(value) : MASK;
+  const formatMetric = (value: number) => (metric === 'efficiency' ? formatPercent(value, 0) : formatCompact(value));
 </script>
 
 <PageHeader title="Credit Cards" subtitle="Cashback, bank limits and pay-by dates">
@@ -75,11 +74,9 @@
 <div class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
   <Stat label="Total limit" value={totals.limit} />
   <Stat label="Used" value={totals.usage} hint=" {formatPercent(utilization, 0)} utilisation" />
-  <Stat
-    label="Cashback this period"
-    value={totals.cashback.total}
-    hint={mask.revealed ? `${formatCompact(totals.cashback.confirmed)} confirmed` : undefined}
-  />
+  <Stat label="Cashback this period" value={totals.cashback.total}>
+    {#snippet hint()}<Masked text={formatCompact(totals.cashback.confirmed)} /> confirmed{/snippet}
+  </Stat>
   <Stat label="Refunds YTD" value={totals.refundYtd} />
   <!-- Every card, closed ones included: fees count once paid (memo "bankfee"). -->
   <Stat label="Fees paid YTD">
@@ -237,6 +234,7 @@
       dates={comparison.months}
       series={comparison.series.map((s) => ({ ...s, color: colorOf(s.name) }))}
       format={formatMetric}
+      masked={metric !== 'efficiency'}
       label="Card comparison"
     />
   </Card>

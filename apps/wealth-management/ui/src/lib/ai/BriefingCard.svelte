@@ -1,12 +1,11 @@
 <script lang="ts">
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
-  import { mask } from '$lib/state/mask.svelte';
   import Markdown from './Markdown.svelte';
-  import { maskText } from './moneyMask';
   import { severityStatus } from './severity';
   import { AITask } from './task.svelte';
   import { recordNote } from '$lib/recommendations/recommendations';
@@ -44,10 +43,10 @@
           <li class="rounded-xl border p-3 text-sm {status.box}">
             <p class="flex items-start gap-1.5 font-semibold">
               <Icon name={status.icon} size={16} class="mt-0.5" /><span class="sr-only">{status.label}:</span><span
-                >{maskText(alert.title, mask.revealed)}</span
+                ><MaskedText text={alert.title} /></span
               >
             </p>
-            <p class="text-slate-700 dark:text-slate-300">{maskText(alert.message, mask.revealed)}</p>
+            <p class="text-slate-700 dark:text-slate-300"><MaskedText text={alert.message} /></p>
           </li>
         {/each}
       </ul>
@@ -69,7 +68,7 @@
               <p class="muted text-xs font-medium tracking-wide uppercase">
                 {patternLabels[pattern.kind] ?? pattern.kind}
               </p>
-              <p class="mt-1 text-sm font-semibold">{maskText(pattern.title, mask.revealed)}</p>
+              <p class="mt-1 text-sm font-semibold"><MaskedText text={pattern.title} /></p>
               <Markdown text={pattern.content} class="mt-1" />
             </div>
           {/each}

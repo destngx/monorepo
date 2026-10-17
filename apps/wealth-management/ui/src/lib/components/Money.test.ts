@@ -12,7 +12,7 @@ describe('Money', () => {
     render(Money, { value: 1_250_000 });
     render(Masked, { text: 'Lender A' });
 
-    const amount = screen.getByRole('button');
+    const [amount] = screen.getAllByRole('button');
     expect(amount.textContent).toBe(MASK);
     expect(screen.queryByText('Lender A')).toBeNull();
 

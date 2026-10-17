@@ -28,6 +28,30 @@ export function maskMoney(text: string): string {
   return text.replace(money, MASK);
 }
 
+export interface MaskSegment {
+  text: string;
+  /** True for a money figure that renders as a clickable mask token. */
+  masked: boolean;
+}
+
+/**
+ * Splits text into plain runs and the money figures maskMoney would hide, so
+ * each hidden figure can render as a clickable token (MaskedText). Joining the
+ * segments' text gives the input back unchanged.
+ */
+export function maskSegments(text: string): MaskSegment[] {
+  const segments: MaskSegment[] = [];
+  let last = 0;
+  for (const match of text.matchAll(money)) {
+    const start = match.index;
+    if (start > last) segments.push({ text: text.slice(last, start), masked: false });
+    segments.push({ text: match[0], masked: true });
+    last = start + match[0].length;
+  }
+  if (last < text.length) segments.push({ text: text.slice(last), masked: false });
+  return segments;
+}
+
 /** The text as shown under the privacy mask: unchanged when revealed. */
 export function maskText(text: string, revealed: boolean): string {
   return revealed ? text : maskMoney(text);

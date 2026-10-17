@@ -1,4 +1,5 @@
 <script lang="ts">
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { SuggestedLimit } from '$lib/api/types';
@@ -8,11 +9,9 @@
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatMonth } from '$lib/format';
-  import { mask } from '$lib/state/mask.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
-  import { maskText } from './moneyMask';
   import { severityStatus } from './severity';
   import { AITask } from './task.svelte';
 
@@ -66,9 +65,9 @@
           <li class="rounded-xl border p-3 text-sm {status.box}">
             <p class="flex items-start gap-1.5 font-semibold">
               <Icon name={status.icon} size={16} class="mt-0.5" /><span class="sr-only">{status.label}:</span>
-              <span>{maskText(alert.title, mask.revealed)}{alert.category ? ` · ${alert.category}` : ''}</span>
+              <span><MaskedText text={alert.title} />{alert.category ? ` · ${alert.category}` : ''}</span>
             </p>
-            <p class="text-slate-700 dark:text-slate-300">{maskText(alert.message, mask.revealed)}</p>
+            <p class="text-slate-700 dark:text-slate-300"><MaskedText text={alert.message} /></p>
           </li>
         {/each}
       </ul>
@@ -92,7 +91,7 @@
                 <td class="pr-3 text-right"><Money value={limit.currentLimit} /></td>
                 <td class="pr-3 text-right"><Money value={limit.averageSpend} /></td>
                 <td class="pr-3 text-right font-semibold"><Money value={limit.suggestedLimit} /></td>
-                <td class="muted pr-3 text-xs">{maskText(limit.rationale, mask.revealed)}</td>
+                <td class="muted pr-3 text-xs"><MaskedText text={limit.rationale} /></td>
                 <td class="text-right">
                   {#if applied.includes(limit.category)}
                     <span class="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300"
@@ -141,7 +140,7 @@
             <p class="muted text-xs">Goal impact</p>
             <ul class="space-y-1">
               {#each advice.goalImpact as goal (goal.goal)}
-                <li><span class="font-medium">{goal.goal}:</span> {maskText(goal.impact, mask.revealed)}</li>
+                <li><span class="font-medium">{goal.goal}:</span> <MaskedText text={goal.impact} /></li>
               {/each}
             </ul>
           </div>

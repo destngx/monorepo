@@ -1,13 +1,12 @@
 <script lang="ts">
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import { base } from '$app/paths';
-  import { maskText } from '$lib/ai/moneyMask';
   import type { NeedsYou } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
   import { formatDate } from '$lib/format';
-  import { mask } from '$lib/state/mask.svelte';
   import { STATUS } from '$lib/status';
   import { inboxHeadline, itemAmount, KIND_ICON, NEEDS_YOU_VISIBLE } from './needsYou';
 
@@ -33,9 +32,9 @@
           >
           <div class="min-w-0 flex-1">
             <a href="{base}{item.route}" class="font-medium text-indigo-700 hover:underline dark:text-indigo-300"
-              >{maskText(item.headline, mask.revealed)}</a
+              ><MaskedText text={item.headline} inLink /></a
             >
-            {#if item.detail}<p class="muted text-xs">{maskText(item.detail, mask.revealed)}</p>{/if}
+            {#if item.detail}<p class="muted text-xs"><MaskedText text={item.detail} /></p>{/if}
           </div>
           <div class="flex shrink-0 flex-col items-end gap-1 text-right">
             <Badge status={item.status} />

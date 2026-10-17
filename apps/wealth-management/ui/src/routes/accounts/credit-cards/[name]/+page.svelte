@@ -22,8 +22,8 @@
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import MultiLineChart from '$lib/investments/fmarket/MultiLineChart.svelte';
-  import { currentMonth, formatCompact, formatDate, formatMonth, formatPercent, MASK } from '$lib/format';
-  import { mask } from '$lib/state/mask.svelte';
+  import { currentMonth, formatCompact, formatDate, formatMonth, formatPercent } from '$lib/format';
+  import Masked from '$lib/components/Masked.svelte';
   import { STATUS } from '$lib/status';
   import CategoryBadge from '$lib/transactions/CategoryBadge.svelte';
   import TagChip from '$lib/transactions/TagChip.svelte';
@@ -77,7 +77,6 @@
     { name: 'Estimated YTD', color: '#6366f1', values: cumulative(yearHistory.map((m) => m.cashback.total)) },
     ...(cap === null ? [] : [{ name: 'Cap YTD', color: '#94a3b8', values: cumulative(yearHistory.map(() => cap)) }]),
   ]);
-  const formatMasked = (value: number) => (mask.revealed ? formatCompact(value) : MASK);
 
   const ytd = $derived(
     yearHistory.reduce(
@@ -249,7 +248,9 @@
 
 <div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
   <Stat label="Refunds YTD" value={card.refundYtd} />
-  <Stat label="Fees paid YTD" value={card.feesPaidYtd} hint="annual fee {formatMasked(card.annualFee)}" />
+  <Stat label="Fees paid YTD" value={card.feesPaidYtd}>
+    {#snippet hint()}annual fee <Masked text={formatCompact(card.annualFee)} />{/snippet}
+  </Stat>
   <Stat label="Net earn YTD"><Money value={card.netEarnYtd} tone signed /></Stat>
   <Stat label="Lifetime fees" value={card.lifetimeFees} />
 </div>
@@ -366,7 +367,8 @@
     <MultiLineChart
       dates={yearHistory.map((m) => m.month)}
       series={cumulativeSeries}
-      format={formatMasked}
+      format={formatCompact}
+      masked
       height={200}
       label="Cumulative cashback year to date"
     />

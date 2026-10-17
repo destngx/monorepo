@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Recommendation, RecommendationSummary } from '$lib/api/types';
+import { maskMoney } from '$lib/ai/moneyMask';
 import { addDays, groupByStatus, headline, recordNote, sourceLabel, STATUS_TONE } from './recommendations';
 
 const item = (id: string, status: Recommendation['status']): Recommendation => ({
@@ -35,11 +36,11 @@ describe('recommendations', () => {
     expect(groups.dismissed).toHaveLength(0);
   });
 
-  it('writes the headline with the yearly worth, masked on request', () => {
+  it('writes the headline with the yearly worth, for MaskedText to mask', () => {
     expect(headline(summary(0, 0))).toBe('No open recommendations');
     expect(headline(summary(1, 0))).toBe('1 open recommendation');
     expect(headline(summary(3, 1_200_000))).toMatch(/^3 open recommendations, worth about 1\.200\.000.* a year$/);
-    expect(headline(summary(3, 1_200_000), true)).toBe('3 open recommendations, worth about •••••• a year');
+    expect(maskMoney(headline(summary(3, 1_200_000)))).toBe('3 open recommendations, worth about •••••• a year');
   });
 
   it('labels reviews and engine checks', () => {

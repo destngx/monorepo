@@ -1,15 +1,14 @@
 <script lang="ts">
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
   import type { Insight, Recommendation, RecommendationList, RecommendationStatusInput } from '$lib/api/types';
   import AIStatusLine from '$lib/ai/AIStatusLine.svelte';
   import Markdown from '$lib/ai/Markdown.svelte';
-  import { maskText } from '$lib/ai/moneyMask';
   import { insightIcon, severityStatus } from '$lib/ai/severity';
   import { AITask } from '$lib/ai/task.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import { mask } from '$lib/state/mask.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import RecommendationItem from './RecommendationItem.svelte';
   import { headline, recordNote } from './recommendations';
@@ -88,7 +87,7 @@
   {:else if task.status === 'done' && task.value}
     {@const insight = task.value}
     <div class="mb-4">
-      <p class="font-medium">{maskText(insight.summary, mask.revealed)}</p>
+      <p class="font-medium"><MaskedText text={insight.summary} /></p>
       {#if insight.recorded}
         <p class="muted mt-1 text-xs" role="status">{recordNote(insight.recorded)}</p>
       {/if}
@@ -102,7 +101,7 @@
                 <Icon name={insightIcon[section.icon]} size={18} class="mt-0.5" />
                 <div class="min-w-0 text-slate-800 dark:text-slate-200">
                   <p class="text-sm font-semibold">
-                    <span class="sr-only">{status.label}:</span>{maskText(section.title, mask.revealed)}
+                    <span class="sr-only">{status.label}:</span><MaskedText text={section.title} />
                   </p>
                   <Markdown text={section.content} class="mt-1" />
                 </div>
@@ -125,7 +124,7 @@
   {:else if list.items.length === 0}
     <p class="muted text-sm">{task.status === 'idle' ? hint : 'No open recommendations for this page.'}</p>
   {:else}
-    <p class="mb-2 text-sm font-medium">{headline(list.summary, !mask.revealed)}</p>
+    <p class="mb-2 text-sm font-medium"><MaskedText text={headline(list.summary)} /></p>
     <ul class="space-y-2">
       {#each list.items as item (item.id)}
         <RecommendationItem {item} {busy} onstatus={setStatus} />

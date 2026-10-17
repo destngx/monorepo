@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ThinkTankContext } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import MaskToken from '$lib/components/MaskToken.svelte';
   import Money from '$lib/components/Money.svelte';
   import { biasTone, formatTimestamp, sourceHost } from '../news';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
@@ -158,7 +159,8 @@
       <pre class="mt-1 max-h-96 overflow-auto rounded-lg bg-slate-900/5 p-3 text-xs dark:bg-white/5">{json}</pre>
     {:else}
       <p class="muted mt-1 text-xs">
-        Hidden while amounts are masked: it holds balances and transactions. Reveal amounts to view it.
+        Hidden while amounts are masked: it holds balances and transactions.
+        <MaskToken label="Hidden context, click to reveal amounts" />
       </p>
     {/if}
   </details>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatMoney, MASK } from '$lib/format';
   import { mask } from '$lib/state/mask.svelte';
+  import { MASK_TOKEN_CLASS, maskToggle } from './maskTokens';
 
   interface Props {
     value: number | null | undefined;
@@ -30,11 +31,8 @@
 <!-- Any amount toggles the global privacy mask (WM-UI-2). -->
 <button
   type="button"
-  class="tabular cursor-pointer whitespace-nowrap {toneClass} {className}"
+  class="{MASK_TOKEN_CLASS} {toneClass} {className}"
   title={mask.revealed ? 'Hide amounts' : 'Show amounts'}
   aria-label={mask.revealed ? text : 'Hidden amount, click to reveal'}
-  onclick={(event) => {
-    event.stopPropagation();
-    mask.toggle();
-  }}>{mask.revealed ? text : MASK}</button
+  {@attach maskToggle}>{mask.revealed ? text : MASK}</button
 >

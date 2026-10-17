@@ -10,7 +10,7 @@
   import PageHeadline from '$lib/components/PageHeadline.svelte';
   import RecommendationItem from '$lib/recommendations/RecommendationItem.svelte';
   import { GROUPS, groupByStatus, headline, STATUS_TONE } from '$lib/recommendations/recommendations';
-  import { mask } from '$lib/state/mask.svelte';
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import type { StatusTone } from '$lib/status';
   import { toasts } from '$lib/state/toasts.svelte';
 
@@ -38,13 +38,8 @@
   subtitle="What the reviews and the engine checks suggest, until you act on it. Mark items done, dismiss or snooze them."
 />
 
-<PageHeadline
-  question="What should I do next?"
-  {tone}
-  title={headline(list.summary, !mask.revealed)}
-  id="recommendations-headline"
-  class="mb-4"
->
+<PageHeadline question="What should I do next?" {tone} id="recommendations-headline" class="mb-4">
+  {#snippet answer()}<span><MaskedText text={headline(list.summary)} /></span>{/snippet}
   <p class="muted">
     {list.summary.snoozed} snoozed, {list.summary.done} done, {list.summary.dismissed} dismissed.
     {#if list.summary.openWithoutImpact}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CategoryMonths } from '$lib/api/types';
-  import { formatCompact, formatMonth, formatVND, MASK } from '$lib/format';
+  import Masked from '$lib/components/Masked.svelte';
+  import { formatCompact, formatMonth, formatVND } from '$lib/format';
   import { mask } from '$lib/state/mask.svelte';
   import { columnTotals } from './yearly';
 
@@ -20,7 +21,8 @@
   const grandTotal = $derived(rows.reduce((sum, row) => sum + row.total, 0));
 
   // Compact figures keep twelve columns readable; the full amount is in the title.
-  const cell = (value: number) => (mask.revealed ? (value ? formatCompact(value) : '-') : MASK);
+  // Masked, each cell is a clickable token (WM-UI-15).
+  const cell = (value: number) => (value ? formatCompact(value) : '-');
   const full = (value: number) => (mask.revealed ? formatVND(value) : undefined);
 </script>
 
@@ -42,9 +44,13 @@
           <tr>
             <td class="max-w-48 truncate px-5 py-2" title={row.category}>{row.category}</td>
             {#each row.values as value, i (i)}
-              <td class="tabular px-2 py-2 text-right {value ? '' : 'muted'}" title={full(value)}>{cell(value)}</td>
+              <td class="tabular px-2 py-2 text-right {value ? '' : 'muted'}" title={full(value)}
+                ><Masked text={cell(value)} /></td
+              >
             {/each}
-            <td class="tabular px-5 py-2 text-right font-medium" title={full(row.total)}>{cell(row.total)}</td>
+            <td class="tabular px-5 py-2 text-right font-medium" title={full(row.total)}
+              ><Masked text={cell(row.total)} /></td
+            >
             <td class="tabular muted px-5 py-2 text-right">
               {grandTotal ? `${((row.total / grandTotal) * 100).toFixed(1)}%` : '-'}
             </td>
@@ -55,9 +61,9 @@
         <tr class="border-t border-slate-900/10 font-medium dark:border-white/10">
           <td class="px-5 py-2">Total</td>
           {#each totals as value, i (i)}
-            <td class="tabular px-2 py-2 text-right" title={full(value)}>{cell(value)}</td>
+            <td class="tabular px-2 py-2 text-right" title={full(value)}><Masked text={cell(value)} /></td>
           {/each}
-          <td class="tabular px-5 py-2 text-right" title={full(grandTotal)}>{cell(grandTotal)}</td>
+          <td class="tabular px-5 py-2 text-right" title={full(grandTotal)}><Masked text={cell(grandTotal)} /></td>
           <td class="px-5 py-2"></td>
         </tr>
       </tfoot>

@@ -9,7 +9,8 @@
     /** Percent change; colours up as good unless invert is set (e.g. expenses). */
     change?: number | null;
     invert?: boolean;
-    hint?: string;
+    /** Muted note under the value; a snippet when it holds an amount (Money or Masked). */
+    hint?: string | Snippet;
     /** Custom value rendering instead of money. */
     children?: Snippet;
   }
@@ -31,7 +32,11 @@
           >{formatSignedPercent(change)}</span
         >
       {/if}
-      {#if hint}<span class="muted">{hint}</span>{/if}
+      {#if typeof hint === 'function'}
+        <span class="muted">{@render hint()}</span>
+      {:else if hint}
+        <span class="muted">{hint}</span>
+      {/if}
     </p>
   {/if}
 </div>

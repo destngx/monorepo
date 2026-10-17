@@ -1,12 +1,11 @@
 <script lang="ts">
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import { base } from '$app/paths';
   import type { Recommendation, RecommendationStatusInput } from '$lib/api/types';
-  import { maskText } from '$lib/ai/moneyMask';
   import Badge from '$lib/components/Badge.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
-  import { mask } from '$lib/state/mask.svelte';
   import { SNOOZE_DAYS, sourceLabel, STATUS_LABEL, STATUS_TONE } from './recommendations';
 
   // One recommendation with its actions (ROADMAP R7). The status is a Badge
@@ -26,8 +25,8 @@
 <li class="rounded-xl border border-slate-900/10 p-3 dark:border-white/10">
   <div class="flex flex-wrap items-start justify-between gap-2">
     <div class="min-w-0">
-      <p class="text-sm font-semibold">{maskText(item.title, mask.revealed)}</p>
-      <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{maskText(item.action, mask.revealed)}</p>
+      <p class="text-sm font-semibold"><MaskedText text={item.title} /></p>
+      <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300"><MaskedText text={item.action} /></p>
     </div>
     <div class="flex shrink-0 flex-wrap items-center gap-2 text-sm">
       {#if showStatus}<Badge status={STATUS_TONE[item.status]}>{STATUS_LABEL[item.status]}</Badge>{/if}
@@ -45,7 +44,7 @@
       {#if item.evidencePath}<a
           class="text-indigo-600 hover:underline dark:text-indigo-400"
           href="{base}{item.evidencePath}">Evidence</a
-        >{item.evidence ? ': ' : ''}{/if}{maskText(item.evidence, mask.revealed)}
+        >{item.evidence ? ': ' : ''}{/if}<MaskedText text={item.evidence} />
     </p>
   {/if}
 
@@ -57,7 +56,7 @@
     {/if}
   </div>
   {#if item.outcome}
-    <p class="mt-1 text-xs"><span class="font-medium">Outcome:</span> {maskText(item.outcome, mask.revealed)}</p>
+    <p class="mt-1 text-xs"><span class="font-medium">Outcome:</span> <MaskedText text={item.outcome} /></p>
   {/if}
 
   <div class="mt-2 flex flex-wrap gap-1">

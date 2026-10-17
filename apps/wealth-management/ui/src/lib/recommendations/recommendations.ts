@@ -1,5 +1,5 @@
 import type { Recommendation, RecommendationRecord, RecommendationStatus, RecommendationSummary } from '$lib/api/types';
-import { formatVND, MASK } from '$lib/format';
+import { formatVND } from '$lib/format';
 import type { StatusTone } from '$lib/status';
 
 // The recommendations list (ROADMAP R7): grouping, labels and the headline.
@@ -55,13 +55,12 @@ export function groupByStatus(items: Recommendation[]): Record<RecommendationSta
   return groups;
 }
 
-/** "3 open recommendations, worth about 1.200.000 ₫ a year". */
-export function headline(summary: RecommendationSummary, masked = false): string {
+/** "3 open recommendations, worth about 1.200.000 ₫ a year"; render it with MaskedText. */
+export function headline(summary: RecommendationSummary): string {
   if (summary.open === 0) return 'No open recommendations';
   const noun = summary.open === 1 ? 'recommendation' : 'recommendations';
   if (summary.openImpactVnd <= 0) return `${summary.open} open ${noun}`;
-  const worth = masked ? MASK : formatVND(summary.openImpactVnd);
-  return `${summary.open} open ${noun}, worth about ${worth} a year`;
+  return `${summary.open} open ${noun}, worth about ${formatVND(summary.openImpactVnd)} a year`;
 }
 
 /** yyyy-mm-dd `days` after `from` (local calendar day). */

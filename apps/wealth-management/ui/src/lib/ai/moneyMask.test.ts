@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MASK } from '$lib/format';
-import { maskMoney, maskText } from './moneyMask';
+import { maskMoney, maskSegments, maskText } from './moneyMask';
 
 describe('maskMoney', () => {
   it.each([
@@ -44,5 +44,21 @@ describe('maskText', () => {
   it('passes text through when amounts are revealed', () => {
     expect(maskText('Spent 300k', true)).toBe('Spent 300k');
     expect(maskText('Spent 300k', false)).toBe(`Spent ${MASK}`);
+  });
+});
+
+describe('maskSegments', () => {
+  it('Given text with amounts When split Then the amounts are the masked segments and the parts rejoin to the input', () => {
+    const text = 'Spent 1.500.000 ₫ on food, 12% more, and 300k on coffee';
+    const segments = maskSegments(text);
+
+    expect(segments.filter((s) => s.masked).map((s) => s.text)).toEqual(['1.500.000 ₫', '300k']);
+    expect(segments.map((s) => s.text).join('')).toBe(text);
+    expect(segments.map((s) => (s.masked ? MASK : s.text)).join('')).toBe(maskMoney(text));
+  });
+
+  it('Given text without amounts When split Then it is one plain segment', () => {
+    expect(maskSegments('40% of budget')).toEqual([{ text: '40% of budget', masked: false }]);
+    expect(maskSegments('')).toEqual([]);
   });
 });
