@@ -3,12 +3,23 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 
+// The engine listens on HOST (default 127.0.0.1, IPv4 only). Proxy to that
+// address, not `localhost`: Node resolves `localhost` to ::1 first, so another
+// process on [::1] with the same port (a kubectl port-forward, say) would
+// answer every /api call instead of the engine.
+const engineHost = (() => {
+  const host = process.env.HOST?.trim();
+  if (!host || host === '0.0.0.0' || host === 'localhost') return '127.0.0.1';
+  if (host === '::') return '[::1]';
+  return host.includes(':') ? `[${host}]` : host;
+})();
+
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit(), svelteTesting()],
   server: {
     proxy: {
       '/api': {
-        target: `http://localhost:${process.env.PORT?.trim() || 9090}`,
+        target: `http://${engineHost}:${process.env.PORT?.trim() || 9090}`,
         changeOrigin: true,
       },
     },
