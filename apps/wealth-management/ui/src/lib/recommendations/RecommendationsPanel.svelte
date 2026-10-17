@@ -7,9 +7,9 @@
   import Markdown from '$lib/ai/Markdown.svelte';
   import { insightIcon, severityStatus } from '$lib/ai/severity';
   import { AITask } from '$lib/ai/task.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
-  import { toasts } from '$lib/state/toasts.svelte';
   import RecommendationItem from './RecommendationItem.svelte';
   import { headline, recordNote } from './recommendations';
 
@@ -60,15 +60,14 @@
     if (task.status === 'done') await loadList(true);
   }
 
+  // The item's button shows the busy state and toasts the result; the list is
+  // re-read either way, so a failed change shows the stored state.
   async function setStatus(item: Recommendation, input: RecommendationStatusInput) {
     busy = true;
     try {
       await api.setRecommendationStatus(item.id, item.etag, input);
-      await loadList(true);
-    } catch (error) {
-      toasts.error(error, 'Could not update the recommendation');
-      await loadList(true);
     } finally {
+      await loadList(true);
       busy = false;
     }
   }
@@ -76,9 +75,18 @@
 
 <Card {title} {subtitle} class={className}>
   {#snippet actions()}
-    <a class="btn-ghost px-2 text-xs" href="{base}/recommendations?page={encodeURIComponent(page)}">All</a>
-    <button type="button" class="btn-ghost px-2 text-xs" disabled={task.status === 'loading'} onclick={runReview}
-      ><Icon name="sparkles" size={16} /> {task.status === 'idle' ? 'Review' : 'Review again'}</button
+    <a
+      class="btn-ghost px-2 text-xs"
+      href="{base}/recommendations?page={encodeURIComponent(page)}"
+      title="All recommendations for this page">All</a
+    >
+    <!-- The review reports its own progress and errors below (AIStatusLine). -->
+    <Button
+      size="sm"
+      icon="sparkles"
+      busy={task.status === 'loading'}
+      busyText="Reviewing…"
+      onclick={() => void runReview()}>{task.status === 'idle' ? 'Review' : 'Review again'}</Button
     >
   {/snippet}
 

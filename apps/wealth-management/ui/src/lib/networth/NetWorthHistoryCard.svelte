@@ -36,9 +36,10 @@
       {#each NET_WORTH_RANGES as option (option)}
         <button
           type="button"
-          class="rounded-md px-2 py-0.5 text-xs {range === option
-            ? 'bg-indigo-500/15 font-semibold text-indigo-700 dark:text-indigo-300'
+          class="btn-ghost rounded-md px-2 py-0.5 text-xs {range === option
+            ? 'bg-indigo-500/15 font-semibold text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300'
             : 'muted'}"
+          title="Show {option === '1Y' ? 'the last year' : 'all time'}"
           aria-pressed={range === option}
           onclick={() => (range = option)}>{option}</button
         >
@@ -55,7 +56,7 @@
       <p class="muted mt-1 text-xs" data-testid="networth-estimated">
         {estimated} of {points.length} months are estimated from transactions (dashed line, hollow markers): they miss price
         moves. Write a snapshot at each
-        <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/close">monthly close</a> to measure them.
+        <a class="link" href="{base}/close">monthly close</a> to measure them.
       </p>
     {/if}
   </div>

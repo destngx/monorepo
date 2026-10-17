@@ -1,18 +1,16 @@
 import { api } from '$lib/api/endpoints';
-import { ApiError } from '$lib/api/client';
-import { loadOrError } from '$lib/api/load';
+import { defer } from '$lib/api/load';
 import type { PageLoad } from './$types';
 
-// Reading the list runs the engine rules first (ROADMAP R7). The refresh
-// writes, so without write access the stored list is shown and the page says
-// the checks did not run.
-export const load: PageLoad = ({ fetch, url }) =>
-  loadOrError(async () => {
-    const page = url.searchParams.get('page') ?? '';
-    try {
-      return { list: await api.refreshRecommendations({ page }, fetch), page, refreshed: true };
-    } catch (error) {
-      if (!(error instanceof ApiError) || (error.status !== 401 && error.status !== 403)) throw error;
-      return { list: await api.recommendations({ page }, { fetch }), page, refreshed: false };
-    }
-  });
+// The stored list shows as soon as it is read, while the engine rules run
+// (ROADMAP R7) and replace it with what they find. The refresh writes, so
+// without write access the stored list stays and the page says the checks did
+// not run. Neither request holds the page.
+export const load: PageLoad = ({ fetch, url }) => {
+  const page = url.searchParams.get('page') ?? '';
+  return {
+    page,
+    list: defer(() => api.recommendations({ page }, { fetch })),
+    refresh: defer(() => api.refreshRecommendations({ page }, fetch)),
+  };
+};

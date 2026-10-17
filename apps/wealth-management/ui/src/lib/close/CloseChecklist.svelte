@@ -2,6 +2,8 @@
   import { base } from '$app/paths';
   import type { MonthlyClose } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
   import { STATUS } from '$lib/status';
@@ -9,13 +11,15 @@
 
   interface Props {
     close: MonthlyClose;
-    /** Writes the month's snapshot; the page reloads the checklist afterwards. */
-    onWriteSnapshot: () => void;
-    writing?: boolean;
+    /**
+     * Writes the month's snapshot; the page reloads the checklist afterwards.
+     * A returned promise keeps the button busy and toasts its error.
+     */
+    onWriteSnapshot: () => unknown;
   }
 
   // ROADMAP R8: every item's state comes from the engine; each links to where the user acts.
-  let { close, onWriteSnapshot, writing = false }: Props = $props();
+  let { close, onWriteSnapshot }: Props = $props();
   const headline = $derived(closeHeadline(close));
 </script>
 
@@ -32,13 +36,16 @@
   {#each close.items as item (item.key)}
     {@const state = CLOSE_STATE[item.state]}
     {@const link = closeLink(item.key, close.month)}
-    <li class="flex flex-wrap items-start justify-between gap-3 p-4" data-item={item.key}>
+    <li
+      class="flex flex-wrap items-start justify-between gap-3 p-4 transition-colors hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.03]"
+      data-item={item.key}
+    >
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
           <Badge status={state.tone}>{state.label}</Badge>
           <h3 class="font-medium">{item.title}</h3>
         </div>
-        <p class="muted mt-1 text-sm">{item.detail}</p>
+        <p class="muted mt-1 text-sm"><MaskedText text={item.detail} /></p>
         {#if closeFigures(item).length}
           <dl class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {#each closeFigures(item) as figure (figure.label)}
@@ -72,14 +79,16 @@
       </div>
       <div class="flex items-center gap-2">
         {#if item.key === 'snapshot' && close.canWriteSnapshot}
-          <button type="button" class="btn-primary px-3 py-1.5 text-sm" disabled={writing} onclick={onWriteSnapshot}
-            >{writing ? 'Writing…' : close.snapshot ? 'Update the snapshot' : 'Write the snapshot'}</button
+          <Button
+            variant="primary"
+            size="sm"
+            busyText="Writing…"
+            errorContext="Could not write the snapshot"
+            onclick={onWriteSnapshot}>{close.snapshot ? 'Update the snapshot' : 'Write the snapshot'}</Button
           >
         {/if}
         {#if link}
-          <a class="text-sm text-indigo-600 hover:underline dark:text-indigo-400" href="{base}{link.href}"
-            >{link.label}</a
-          >
+          <a class="link text-sm" href="{base}{link.href}">{link.label}</a>
         {/if}
       </div>
     </li>

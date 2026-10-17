@@ -3,18 +3,20 @@
   import type { MoneyLentPerson } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
+  import Deferred from '$lib/components/Deferred.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Masked from '$lib/components/Masked.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
+  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate } from '$lib/format';
   import { ageTone, balanceStatus, formatAge, splitPeople } from '$lib/lending/lending';
 
+  // The header renders at once; the ledger streams in (one request).
   let { data } = $props();
-  const lent = $derived(data.lent);
-  const groups = $derived(splitPeople(lent.people));
 
   // One person's history open at a time; keyed by the person's position in the full list.
   let expanded = $state<string | null>(null);
@@ -23,59 +25,81 @@
 
 <PageHeader title="Money lent" subtitle="From transactions in lending categories; names hide with the privacy mask" />
 
-{#if lent.people.length === 0}
-  <Card>
-    <EmptyState
-      title="No money lent yet"
-      detail="Tag the category you record lending in as Lending on the Budget page. Its payments are money lent, its deposits money repaid, and the payee is the person."
-    />
-    <p class="text-center text-sm">
-      <a class="btn-ghost" href="{base}/budget"><Icon name="budget" size={16} /> Category natures</a>
-    </p>
-  </Card>
-{:else}
-  <!-- WM-LEND-2 headline -->
-  <Card>
-    <p class="muted text-xs font-medium tracking-wide uppercase">Owed to you</p>
-    <div class="mt-1 text-3xl font-semibold tracking-tight"><Money value={lent.owedToYou} /></div>
-    <p class="muted mt-2 text-sm">
-      {#if lent.peopleOwing === 0}
-        Nobody owes you money right now.
+<Deferred data={data.lent} label="money lent">
+  {#snippet children(lent)}
+    {@const groups = splitPeople(lent.people)}
+    <div>
+      {#if lent.people.length === 0}
+        <Card>
+          <EmptyState
+            title="No money lent yet"
+            detail="Tag the category you record lending in as Lending on the Budget page. Its payments are money lent, its deposits money repaid, and the payee is the person."
+          />
+          <p class="text-center text-sm">
+            <a class="btn-ghost" href="{base}/budget"><Icon name="budget" size={16} /> Category natures</a>
+          </p>
+        </Card>
       {:else}
-        {lent.peopleOwing === 1 ? '1 person owes' : `${lent.peopleOwing} people owe`} you; the oldest open balance is
-        {formatAge(lent.oldestDaysOutstanding)} old.
+        <!-- WM-LEND-2 headline -->
+        <Card>
+          <p class="muted text-xs font-medium tracking-wide uppercase">Owed to you</p>
+          <div class="mt-1 text-3xl font-semibold tracking-tight"><Money value={lent.owedToYou} /></div>
+          <p class="muted mt-2 text-sm">
+            {#if lent.peopleOwing === 0}
+              Nobody owes you money right now.
+            {:else}
+              {lent.peopleOwing === 1 ? '1 person owes' : `${lent.peopleOwing} people owe`} you; the oldest open balance is
+              {formatAge(lent.oldestDaysOutstanding)} old.
+            {/if}
+            {#if lent.peopleYouOwe > 0}
+              You owe <Money value={lent.youOwe} /> to {lent.peopleYouOwe === 1
+                ? '1 person'
+                : `${lent.peopleYouOwe} people`}.
+            {/if}
+          </p>
+        </Card>
+
+        <div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Stat label="Owed to you" value={lent.owedToYou} hint="Counted as an asset in net worth" />
+          <Stat label="People owing you"><span class="tabular">{lent.peopleOwing}</span></Stat>
+          <Stat label="Oldest open balance"><span>{formatAge(lent.oldestDaysOutstanding)}</span></Stat>
+          <Stat label="You owe" value={lent.youOwe} hint="Counted as a liability" />
+        </div>
+
+        <!-- WM-LEND-3 per person -->
+        <Card title="Open balances" subtitle="People who owe you first, then people you owe" class="mt-4">
+          {#if groups.open.length}
+            {@render ledger(groups.open, 'open')}
+          {:else}
+            <EmptyState title="Everything is settled" />
+          {/if}
+        </Card>
+
+        {#if groups.settled.length}
+          <details class="glass mt-4 p-5">
+            <summary
+              class="cursor-pointer rounded-md text-sm font-semibold tracking-wide text-slate-700 transition-colors hover:text-indigo-600 dark:text-slate-200 dark:hover:text-indigo-300"
+            >
+              Settled ({groups.settled.length})
+            </summary>
+            <div class="mt-4">{@render ledger(groups.settled, 'settled')}</div>
+          </details>
+        {/if}
       {/if}
-      {#if lent.peopleYouOwe > 0}
-        You owe <Money value={lent.youOwe} /> to {lent.peopleYouOwe === 1 ? '1 person' : `${lent.peopleYouOwe} people`}.
-      {/if}
-    </p>
-  </Card>
-
-  <div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-    <Stat label="Owed to you" value={lent.owedToYou} hint="Counted as an asset in net worth" />
-    <Stat label="People owing you"><span class="tabular">{lent.peopleOwing}</span></Stat>
-    <Stat label="Oldest open balance"><span>{formatAge(lent.oldestDaysOutstanding)}</span></Stat>
-    <Stat label="You owe" value={lent.youOwe} hint="Counted as a liability" />
-  </div>
-
-  <!-- WM-LEND-3 per person -->
-  <Card title="Open balances" subtitle="People who owe you first, then people you owe" class="mt-4">
-    {#if groups.open.length}
-      {@render ledger(groups.open, 'open')}
-    {:else}
-      <EmptyState title="Everything is settled" />
-    {/if}
-  </Card>
-
-  {#if groups.settled.length}
-    <details class="glass mt-4 p-5">
-      <summary class="cursor-pointer text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">
-        Settled ({groups.settled.length})
-      </summary>
-      <div class="mt-4">{@render ledger(groups.settled, 'settled')}</div>
-    </details>
-  {/if}
-{/if}
+    </div>
+  {/snippet}
+  {#snippet skeleton()}
+    <div>
+      <SkeletonCard lines={2} label="what is owed to you" />
+      <div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {#each ['owed to you', 'people owing you', 'oldest open balance', 'you owe'] as label (label)}
+          <SkeletonStat {label} />
+        {/each}
+      </div>
+      <SkeletonCard title="Open balances" rows={5} lines={0} class="mt-4" />
+    </div>
+  {/snippet}
+</Deferred>
 
 {#snippet ledger(people: MoneyLentPerson[], group: string)}
   <div class="-mx-5 overflow-x-auto">
@@ -120,6 +144,7 @@
                 class="btn-ghost px-2"
                 aria-expanded={expanded === key}
                 aria-label="{expanded === key ? 'Hide' : 'Show'} transactions"
+                title="{expanded === key ? 'Hide' : 'Show'} transactions"
                 onclick={() => toggle(key)}
                 ><span class="inline-block transition-transform {expanded === key ? 'rotate-180' : ''}"
                   ><Icon name="chevronDown" size={16} /></span

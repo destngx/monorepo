@@ -2,6 +2,7 @@
   import { base } from '$app/paths';
   import { adjustmentHref } from '$lib/accounts';
   import { ACCOUNT_TYPES, type Account } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import type { AccountForm } from './form';
   import type { SubmitHandler } from './handlers';
@@ -18,14 +19,38 @@
   }
 
   let { open, editing, form = $bindable(), busy, onclose, onsubmit }: Props = $props();
+
+  // The name shows as invalid once the field was left or a submit was tried while it is blank.
+  let touched = $state(false);
+  const nameInvalid = $derived(!editing && touched && !form.name.trim());
+  $effect(() => {
+    if (!open) touched = false;
+  });
+
+  function submit(event: SubmitEvent) {
+    touched = true;
+    onsubmit(event);
+  }
 </script>
 
 <Modal {open} title={editing ? `Edit ${editing.name}` : 'New account'} {onclose}>
-  <form id="account-form" class="grid gap-4 sm:grid-cols-2" {onsubmit}>
+  <form id="account-form" class="grid gap-4 sm:grid-cols-2" onsubmit={submit}>
     {#if !editing}
       <div class="sm:col-span-2">
         <label class="label" for="acc-name">Name *</label>
-        <input id="acc-name" class="field" bind:value={form.name} required />
+        <input
+          id="acc-name"
+          class="field"
+          bind:value={form.name}
+          required
+          aria-invalid={nameInvalid}
+          aria-describedby={nameInvalid ? 'acc-name-error' : undefined}
+          onblur={() => (touched = true)}
+          oninvalid={() => (touched = true)}
+        />
+        {#if nameInvalid}
+          <p id="acc-name-error" class="mt-1 text-xs text-rose-600 dark:text-rose-400">Enter a name for the account.</p>
+        {/if}
       </div>
     {/if}
     <div>
@@ -58,18 +83,14 @@
       <p class="muted text-xs sm:col-span-2">
         Balances come from transactions in the sheet, so they are not edited here. To correct a balance, add an
         adjustment transaction.
-        <a
-          class="text-indigo-600 hover:underline dark:text-indigo-400"
-          href="{base}{adjustmentHref(editing.name)}"
-          onclick={onclose}>Add adjustment transaction</a
-        >
+        <a class="link" href="{base}{adjustmentHref(editing.name)}" onclick={onclose}>Add adjustment transaction</a>
       </p>
     {/if}
   </form>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={onclose}>Cancel</button>
-    <button type="submit" form="account-form" class="btn-primary" disabled={busy}
-      >{busy ? 'Saving…' : editing ? 'Save' : 'Create'}</button
+    <Button disabled={busy} onclick={onclose}>Cancel</Button>
+    <Button type="submit" form="account-form" variant="primary" {busy} busyText="Saving…"
+      >{editing ? 'Save' : 'Create'}</Button
     >
   {/snippet}
 </Modal>

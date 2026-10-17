@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const endpoints = vi.hoisted(() => ({ recommendations: vi.fn(), setRecommendationStatus: vi.fn() }));
-const toastMock = vi.hoisted(() => ({ push: vi.fn(), error: vi.fn(), info: vi.fn() }));
+const toastMock = vi.hoisted(() => ({ push: vi.fn(), error: vi.fn(), info: vi.fn(), success: vi.fn() }));
 vi.mock('$lib/api/endpoints', () => ({ api: endpoints }));
 vi.mock('$lib/state/toasts.svelte', () => ({ toasts: toastMock }));
 
@@ -68,5 +68,19 @@ describe('RecommendationsPanel', () => {
     await fireEvent.click(await screen.findByRole('button', { name: /Done/ }));
     expect(endpoints.setRecommendationStatus).toHaveBeenCalledWith('rec-0a1b2c3d', 'etag-1', { status: 'done' });
     expect(await screen.findByText(/reads the figures on this page/)).toBeTruthy();
+  });
+
+  it('Given a review is running When the button is looked at Then it is busy and ignores repeat clicks', async () => {
+    endpoints.recommendations.mockResolvedValue(list([]));
+    const review = vi.fn(() => new Promise<Insight>(() => undefined));
+    render(RecommendationsPanel, { title: 'Recommendations', page: '/budget', review });
+
+    const button = await screen.findByRole('button', { name: /Review/ });
+    await fireEvent.click(button);
+    await fireEvent.click(button);
+
+    expect(button.getAttribute('aria-busy')).toBe('true');
+    expect(button.textContent).toContain('Reviewing…');
+    expect(review).toHaveBeenCalledOnce();
   });
 });

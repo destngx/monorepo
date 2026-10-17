@@ -48,7 +48,10 @@
 
   {#if listed.length}
     <details class="mt-4">
-      <summary class="cursor-pointer text-xs font-medium">Accounts ({listed.length})</summary>
+      <summary
+        class="cursor-pointer text-xs font-medium transition-colors hover:text-indigo-600 dark:hover:text-indigo-300"
+        >Accounts ({listed.length})</summary
+      >
       <ul class="mt-2 divide-y divide-slate-900/5 text-sm dark:divide-white/5">
         {#each listed as account (account.name)}
           <li class="flex items-center justify-between gap-3 py-1.5">

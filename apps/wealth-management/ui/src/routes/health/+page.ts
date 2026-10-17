@@ -1,12 +1,10 @@
 import { api } from '$lib/api/endpoints';
-import { loadOrError } from '$lib/api/load';
+import { defer } from '$lib/api/load';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = ({ fetch }) =>
-  loadOrError(async () => {
-    const [health, netWorthHistory] = await Promise.all([
-      api.financialHealth({ fetch }),
-      api.netWorthHistory({ fetch }),
-    ]);
-    return { health, netWorthHistory };
-  });
+// The score and the net worth history stream in on their own: the history
+// reads every snapshot, so it never holds the score (or the other way round).
+export const load: PageLoad = ({ fetch }) => ({
+  health: defer(() => api.financialHealth({ fetch })),
+  netWorthHistory: defer(() => api.netWorthHistory({ fetch })),
+});

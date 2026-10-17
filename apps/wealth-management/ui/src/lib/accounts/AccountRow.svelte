@@ -2,7 +2,9 @@
   import { accountIcon, creditRemaining, creditUtilization, isCreditAccount } from '$lib/accounts';
   import type { Account, TrendPoint } from '$lib/api/types';
   import Sparkline from '$lib/charts/Sparkline.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatDate, formatPercent } from '$lib/format';
@@ -22,7 +24,9 @@
   const recent = $derived(history.slice(-60));
 </script>
 
-<li class="grid items-center gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_8rem_12rem_auto]">
+<li
+  class="grid items-center transition-colors hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.03] gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_8rem_12rem_auto]"
+>
   <div class="flex min-w-0 items-center gap-3">
     <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900/5 dark:bg-white/5"
       ><Icon name={accountIcon(account.type)} size={16} /></span
@@ -32,7 +36,8 @@
       <p class="muted truncate text-xs">
         {account.type}{account.currency !== 'VND' ? ` · entered in ${account.currency}` : ''}{account.dueDate
           ? ` · target ${formatDate(account.dueDate)}`
-          : ''}{account.note && !isCreditAccount(account) ? ` · ${account.note}` : ''}
+          : ''}{#if account.note && !isCreditAccount(account)}
+          · <MaskedText text={account.note} />{/if}
       </p>
     </div>
   </div>
@@ -61,11 +66,7 @@
     {/if}
   </div>
   <div class="flex justify-end">
-    <button type="button" class="btn-ghost px-2" aria-label="Edit {account.name}" onclick={() => onedit(account)}
-      ><Icon name="pencil" size={15} /></button
-    >
-    <button type="button" class="btn-ghost px-2" aria-label="Delete {account.name}" onclick={() => ondelete(account)}
-      ><Icon name="trash" size={15} /></button
-    >
+    <Button size="icon" icon="pencil" label="Edit {account.name}" onclick={() => onedit(account)} />
+    <Button size="icon" icon="trash" label="Delete {account.name}" onclick={() => ondelete(account)} />
   </div>
 </li>

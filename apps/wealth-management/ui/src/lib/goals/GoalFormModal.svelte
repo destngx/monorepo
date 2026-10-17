@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SubmitHandler } from '$lib/accounts/handlers';
   import type { GoalProgress } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import { looksLikeEmergencyFund, type GoalForm } from './goals';
 
@@ -18,13 +19,42 @@
   let { open, editing, form = $bindable(), busy, emergencyMonths, onclose, onsubmit }: Props = $props();
 
   const emergency = $derived(editing?.emergencyFund || looksLikeEmergencyFund(form.name, form.note));
+
+  // Fields show as invalid once a submit was tried (or the name was left blank).
+  let tried = $state(false);
+  let nameTouched = $state(false);
+  const nameInvalid = $derived((tried || nameTouched) && !form.name.trim());
+  const targetInvalid = $derived(tried && (form.target === null ? !emergency : form.target <= 0));
+  $effect(() => {
+    if (!open) {
+      tried = false;
+      nameTouched = false;
+    }
+  });
+
+  function submit(event: SubmitEvent) {
+    tried = true;
+    onsubmit(event);
+  }
 </script>
 
 <Modal {open} title={editing ? `Edit ${editing.name}` : 'New goal'} {onclose}>
-  <form id="goal-form" class="grid gap-4 sm:grid-cols-2" {onsubmit}>
+  <form id="goal-form" class="grid gap-4 sm:grid-cols-2" onsubmit={submit}>
     <div class="sm:col-span-2">
       <label class="label" for="goal-name">Name *</label>
-      <input id="goal-name" class="field" bind:value={form.name} required />
+      <input
+        id="goal-name"
+        class="field"
+        bind:value={form.name}
+        required
+        aria-invalid={nameInvalid}
+        aria-describedby={nameInvalid ? 'goal-name-error' : undefined}
+        onblur={() => (nameTouched = true)}
+        oninvalid={() => (tried = true)}
+      />
+      {#if nameInvalid}
+        <p id="goal-name-error" class="mt-1 text-xs text-rose-600 dark:text-rose-400">Enter a name for the goal.</p>
+      {/if}
     </div>
     <div>
       <label class="label" for="goal-target">Target (VND){emergency ? '' : ' *'}</label>
@@ -35,10 +65,14 @@
         step="1"
         class="field"
         bind:value={form.target}
+        aria-invalid={targetInvalid}
         aria-describedby="goal-target-hint"
+        oninvalid={() => (tried = true)}
       />
-      <p id="goal-target-hint" class="muted mt-1 text-xs">
-        {#if emergency}
+      <p id="goal-target-hint" class="mt-1 text-xs {targetInvalid ? 'text-rose-600 dark:text-rose-400' : 'muted'}">
+        {#if targetInvalid}
+          {form.target === null ? 'Enter the amount the goal needs.' : 'The target must be more than 0.'}
+        {:else if emergency}
           Leave blank to use {emergencyMonths} months of your needs.
         {:else}
           The amount the goal needs in total.
@@ -90,9 +124,9 @@
     </div>
   </form>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={onclose}>Cancel</button>
-    <button type="submit" form="goal-form" class="btn-primary" disabled={busy}
-      >{busy ? 'Saving…' : editing ? 'Save' : 'Create'}</button
+    <Button disabled={busy} onclick={onclose}>Cancel</Button>
+    <Button type="submit" form="goal-form" variant="primary" {busy} busyText="Saving…"
+      >{editing ? 'Save' : 'Create'}</Button
     >
   {/snippet}
 </Modal>

@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Recommendation, RecommendationSummary } from '$lib/api/types';
 import { maskMoney } from '$lib/ai/moneyMask';
-import { addDays, groupByStatus, headline, recordNote, sourceLabel, STATUS_TONE } from './recommendations';
+import { settled, type Settled } from '$lib/api/load';
+import {
+  addDays,
+  checksSkipped,
+  groupByStatus,
+  headline,
+  recordNote,
+  sourceLabel,
+  STATUS_TONE,
+  storedOrChecked,
+} from './recommendations';
 
 const item = (id: string, status: Recommendation['status']): Recommendation => ({
   id,
@@ -68,5 +78,48 @@ describe('recommendations', () => {
     expect(recordNote({ created: [], duplicates: 0, checked: [], ignoredOutcomes: 0, error: 'Could not save' })).toBe(
       'Could not save',
     );
+  });
+});
+
+describe('storedOrChecked', () => {
+  const failed = (error: string): Promise<Settled<string>> => Promise.resolve({ ok: false, error });
+
+  it('Given the stored read loads When the refresh never answers Then the stored list shows without waiting', async () => {
+    expect(await storedOrChecked(settled('stored'), new Promise(() => undefined))).toEqual({
+      ok: true,
+      value: 'stored',
+    });
+  });
+
+  it('Given the stored read fails When the refresh answers Then its list shows', async () => {
+    expect(await storedOrChecked(failed('read down'), settled('checked'))).toEqual({ ok: true, value: 'checked' });
+  });
+
+  it('Given both fail When settled Then the read failure is kept', async () => {
+    expect(await storedOrChecked(failed('read down'), failed('no write access'))).toEqual({
+      ok: false,
+      error: 'read down',
+    });
+  });
+});
+
+describe('checksSkipped', () => {
+  const failure = (status: number, sheetsAuth: 'expired' | null = null) => ({
+    kind: 'auth' as const,
+    message: 'forbidden',
+    sheetsAuth,
+    hint: null,
+    status,
+  });
+
+  it('Given a 403 without a Sheets credential problem Then the checks were skipped for write access', () => {
+    expect(checksSkipped(failure(403))).toBe(true);
+    expect(checksSkipped(failure(401))).toBe(true);
+  });
+
+  it('Given an expired Sheets token, another error or no failure Then it is not the write-access case', () => {
+    expect(checksSkipped(failure(401, 'expired'))).toBe(false);
+    expect(checksSkipped({ ...failure(500), kind: 'other' })).toBe(false);
+    expect(checksSkipped(null)).toBe(false);
   });
 });

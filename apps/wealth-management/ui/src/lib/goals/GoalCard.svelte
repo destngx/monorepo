@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { GoalProgress } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatMonth, formatPercent } from '$lib/format';
@@ -10,7 +11,10 @@
 
   interface Props {
     goal: GoalProgress;
+    /** Another change to the plan is running: reorders wait for it. */
     busy: boolean;
+    /** This goal is being moved: that arrow shows the spinner. */
+    moving?: 'up' | 'down' | null;
     /** Reorder handlers; absent hides the arrows (paused and done goals). */
     onup?: () => void;
     ondown?: () => void;
@@ -18,12 +22,12 @@
     ondelete: () => void;
   }
 
-  let { goal, busy, onup, ondown, onedit, ondelete }: Props = $props();
+  let { goal, busy, moving = null, onup, ondown, onedit, ondelete }: Props = $props();
 
   const status = $derived(paceStatus(goal.pace));
 </script>
 
-<li class="glass p-4">
+<li class="glass p-4 transition-shadow duration-150 hover:shadow-md hover:shadow-slate-900/10">
   <div class="flex items-start justify-between gap-3">
     <div class="min-w-0">
       <p class="truncate font-semibold">
@@ -36,21 +40,28 @@
     </div>
     <div class="flex shrink-0">
       {#if onup}
-        <button type="button" class="btn-ghost px-2" aria-label="Move {goal.name} up" disabled={busy} onclick={onup}
-          ><span class="inline-block rotate-180"><Icon name="chevronDown" size={15} /></span></button
-        >
+        <Button
+          size="icon"
+          icon="chevronDown"
+          class="[&>svg]:rotate-180"
+          label="Move {goal.name} up"
+          busy={moving === 'up'}
+          disabled={busy && moving !== 'up'}
+          onclick={onup}
+        />
       {/if}
       {#if ondown}
-        <button type="button" class="btn-ghost px-2" aria-label="Move {goal.name} down" disabled={busy} onclick={ondown}
-          ><Icon name="chevronDown" size={15} /></button
-        >
+        <Button
+          size="icon"
+          icon="chevronDown"
+          label="Move {goal.name} down"
+          busy={moving === 'down'}
+          disabled={busy && moving !== 'down'}
+          onclick={ondown}
+        />
       {/if}
-      <button type="button" class="btn-ghost px-2" aria-label="Edit {goal.name}" onclick={onedit}
-        ><Icon name="pencil" size={15} /></button
-      >
-      <button type="button" class="btn-ghost px-2" aria-label="Delete {goal.name}" onclick={ondelete}
-        ><Icon name="trash" size={15} /></button
-      >
+      <Button size="icon" icon="pencil" label="Edit {goal.name}" onclick={onedit} />
+      <Button size="icon" icon="trash" label="Delete {goal.name}" onclick={ondelete} />
     </div>
   </div>
 
@@ -85,5 +96,5 @@
       <dd class="text-right"><Money value={goal.startingAmount} /></dd>
     {/if}
   </dl>
-  {#if goal.note}<p class="muted mt-2 truncate text-xs">{goal.note}</p>{/if}
+  {#if goal.note}<p class="muted mt-2 truncate text-xs"><MaskedText text={goal.note} /></p>{/if}
 </li>

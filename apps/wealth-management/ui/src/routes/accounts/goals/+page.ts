@@ -1,5 +1,6 @@
 import { api } from '$lib/api/endpoints';
-import { loadOrError } from '$lib/api/load';
+import { defer } from '$lib/api/load';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = ({ fetch }) => loadOrError(async () => ({ plan: await api.goalPlan({ fetch }) }));
+// The header renders at once; the plan (one request) streams in with its own skeleton and error.
+export const load: PageLoad = ({ fetch }) => ({ plan: defer(() => api.goalPlan({ fetch })) });

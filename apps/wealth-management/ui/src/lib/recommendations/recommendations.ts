@@ -1,3 +1,4 @@
+import type { LoadFailure, Streamed } from '$lib/api/load';
 import type { Recommendation, RecommendationRecord, RecommendationStatus, RecommendationSummary } from '$lib/api/types';
 import { formatVND } from '$lib/format';
 import type { StatusTone } from '$lib/status';
@@ -83,4 +84,25 @@ export function recordNote(record: RecommendationRecord | undefined): string {
   if (record.checked.length)
     parts.push(`${record.checked.length} earlier ${record.checked.length === 1 ? 'item' : 'items'} checked`);
   return parts.length ? `Recommendations: ${parts.join(', ')}.` : 'No new recommendations from this review.';
+}
+
+/**
+ * The list to show first: the stored read, or (when the read fails) the list
+ * the rule refresh returns, so either source fills the page. Never rejects.
+ */
+export async function storedOrChecked<T>(stored: Streamed<T>, checked: Streamed<T>): Streamed<T> {
+  const first = await stored;
+  if (first.ok) return first;
+  const second = await checked;
+  return second.ok ? second : first;
+}
+
+/**
+ * The rule refresh writes the Recommendations tab, so a connection without
+ * write access is refused (401/403): the checks did not run and the stored
+ * list stands. Google Sheets credential problems are not this case; the
+ * layout's re-auth alert explains those.
+ */
+export function checksSkipped(failure: LoadFailure | null): boolean {
+  return !!failure && !failure.sheetsAuth && (failure.status === 401 || failure.status === 403);
 }
