@@ -27,10 +27,13 @@
     return `${base}${target === '/' ? '/' : target}`;
   }
 
+  // Hover tints, a press sinks the item, the current page keeps a solid tint and an edge mark.
   const linkBase =
-    'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none';
-  const activeClass = 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300';
-  const idleClass = 'text-slate-600 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/5';
+    'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition duration-150 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none active:scale-[0.98] motion-reduce:active:scale-100';
+  const activeClass =
+    'bg-indigo-600/10 text-indigo-700 shadow-[inset_3px_0_0_var(--color-indigo-500)] hover:bg-indigo-600/15 dark:bg-indigo-400/15 dark:text-indigo-300 dark:hover:bg-indigo-400/20';
+  const idleClass =
+    'text-slate-600 hover:bg-slate-900/[0.06] hover:text-slate-900 active:bg-slate-900/10 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white dark:active:bg-white/15';
 </script>
 
 {#snippet badge(count: number)}
@@ -93,9 +96,9 @@
                     href={href(child.href)}
                     onclick={onnavigate}
                     aria-current={childCurrent ? 'page' : undefined}
-                    class="flex items-center rounded-lg px-2 py-1.5 text-sm transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none {childCurrent
+                    class="flex items-center rounded-lg px-2 py-1.5 text-sm transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none active:bg-slate-900/10 dark:active:bg-white/15 {childCurrent
                       ? 'font-medium text-indigo-700 dark:text-indigo-300'
-                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'}"
+                      : 'text-slate-500 hover:bg-slate-900/[0.04] hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200'}"
                   >
                     {child.label}
                     {#if badgeCount(child.badge)}{@render badge(badgeCount(child.badge))}{/if}

@@ -24,7 +24,11 @@
     <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
       {#each lines as line (line.category)}
         <li class="flex items-center gap-3 py-3">
-          <button type="button" class="min-w-0 flex-1 text-left" onclick={() => onselect(line)}>
+          <button
+            type="button"
+            class="row-link -m-1.5 min-w-0 flex-1 rounded-lg p-1.5 text-left"
+            onclick={() => onselect(line)}
+          >
             <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-sm">
               <span class="flex items-center gap-2 font-medium">
                 {line.category}
@@ -52,6 +56,7 @@
             type="button"
             class="btn-ghost px-2"
             aria-label="Edit limit for {line.category}"
+            title="Edit limit"
             onclick={() => onedit(line)}><Icon name="pencil" size={15} /></button
           >
         </li>

@@ -46,6 +46,11 @@ class Toasts {
   info(message: string): void {
     this.push('info', message);
   }
+
+  /** Confirms an action that finished (saved, synced, refreshed). */
+  success(message: string): void {
+    this.push('success', message);
+  }
 }
 
 export const toasts = new Toasts();

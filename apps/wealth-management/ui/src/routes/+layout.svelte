@@ -6,6 +6,7 @@
   import { base } from '$app/paths';
   import { navigating, page } from '$app/state';
   import AIUsageGauge from '$lib/ai/AIUsageGauge.svelte';
+  import { track } from '$lib/api/deferred.svelte';
   import { endBootScreen } from '$lib/boot';
   import ChatWidget from '$lib/chat/ChatWidget.svelte';
   import DependencyBanner from '$lib/components/DependencyBanner.svelte';
@@ -21,6 +22,7 @@
   import Toasts from '$lib/components/Toasts.svelte';
   import { titleFor } from '$lib/components/nav';
   import { pendingDrafts } from '$lib/state/drafts.svelte';
+  import { engineHealth } from '$lib/state/health.svelte';
   import { mask } from '$lib/state/mask.svelte';
   import { network } from '$lib/state/network.svelte';
   import { applyTheme, sidebarCollapsed, theme } from '$lib/state/settings.svelte';
@@ -34,8 +36,13 @@
   const collapsed = $derived(sidebarCollapsed.value === 'true');
   const path = $derived(page.url.pathname.slice(base.length) || '/');
   const title = $derived(titleFor(path));
-  const aiReady = $derived(data.health?.checks.some((c) => c.name === 'ai' && c.status === 'ok') ?? false);
-  const sheetsReady = $derived(data.health?.checks.some((c) => c.name === 'sheets' && c.status === 'ok') ?? false);
+  // Health arrives in the background; the last answer stays while a sync re-checks it.
+  const engine = track(() => data.engine);
+  $effect(() => {
+    engineHealth.settled = engine.settled;
+  });
+  const aiReady = $derived(engineHealth.ready('ai'));
+  const sheetsReady = $derived(engineHealth.ready('sheets'));
 
   // Stealth mode re-masks on every navigation (WM-UI-2).
   afterNavigate(() => {
@@ -118,7 +125,10 @@
       ? 'w-[4.25rem]'
       : 'w-60'}"
   >
-    <a href="{base}/" class="mb-4 flex items-center gap-2 px-2 py-1 font-semibold tracking-tight">
+    <a
+      href="{base}/"
+      class="mb-4 flex items-center gap-2 rounded-xl px-2 py-1 font-semibold tracking-tight transition hover:bg-slate-900/[0.04] dark:hover:bg-white/5"
+    >
       <span class="grid size-8 place-items-center rounded-xl bg-indigo-600 text-sm text-white">₫</span>
       {#if !collapsed}<span>Wealth</span>{/if}
     </a>
@@ -127,6 +137,7 @@
       type="button"
       class="btn-ghost mt-2 {collapsed ? 'px-2' : 'justify-start'}"
       aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       onclick={() => (sidebarCollapsed.value = collapsed ? 'false' : 'true')}
     >
       <Icon name={collapsed ? 'chevronRight' : 'chevronLeft'} />
@@ -147,7 +158,13 @@
       <aside class="glass absolute inset-y-3 left-3 w-64 overflow-y-auto p-3">
         <div class="mb-2 flex items-center justify-between px-2 py-1">
           <p class="font-semibold tracking-tight">Wealth</p>
-          <button type="button" class="btn-ghost px-2" aria-label="Close menu" onclick={() => (mobileNavOpen = false)}>
+          <button
+            type="button"
+            class="btn-ghost px-2"
+            aria-label="Close menu"
+            title="Close menu"
+            onclick={() => (mobileNavOpen = false)}
+          >
             <Icon name="x" />
           </button>
         </div>
@@ -162,6 +179,7 @@
         type="button"
         class="btn-ghost px-2 lg:hidden"
         aria-label="Open menu"
+        title="Open menu"
         aria-expanded={mobileNavOpen}
         onclick={() => (mobileNavOpen = true)}
       >
@@ -176,7 +194,7 @@
 
     <main class="mx-auto w-full max-w-7xl flex-1 px-3 pt-3 pb-28 sm:px-6 lg:pb-12">
       <AreaTabs />
-      <DependencyBanner health={data.health} />
+      {#if engineHealth.checked}<DependencyBanner health={engineHealth.health} />{/if}
       <SheetsAuthAlert />
       <EntryReminder ready={sheetsReady} />
       {@render children()}

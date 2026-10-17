@@ -17,7 +17,7 @@
   const totals = $derived(performance.totals);
 </script>
 
-<Card title="Funds vs a bank deposit" subtitle="Fund certificates since purchase, from the History column" class="mt-4">
+<Card title="Funds vs a bank deposit" subtitle="Fund certificates since purchase, from the History column">
   {#snippet actions()}
     {#if headline.kind === 'compare'}
       <Badge status={VS_DEPOSIT[headline.vs].tone}>{VS_DEPOSIT[headline.vs].label}</Badge>

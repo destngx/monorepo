@@ -2,10 +2,13 @@
   import { ApiError } from '$lib/api/client';
   import { api } from '$lib/api/endpoints';
   import type { BudgetHistory } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
+  import SkeletonTable from '$lib/components/skeleton/SkeletonTable.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
   import { formatMonth, formatPercent } from '$lib/format';
   import { STATUS } from '$lib/status';
   import { wallRows, type WallCell } from './history';
@@ -57,13 +60,15 @@
 <Card title="The Wall" subtitle="Spent against limit, last {MONTHS} months" class="mt-4">
   {#snippet actions()}
     {#if error}
-      <button type="button" class="btn-ghost text-xs" onclick={() => load(month)}>Retry</button>
+      <Button size="sm" icon="refresh" busy={loading} onclick={() => load(month)}>Retry</Button>
+    {:else if loading && history}
+      <span class="muted inline-flex items-center gap-1 text-xs" role="status"><Spinner size={12} />Refreshing</span>
     {/if}
   {/snippet}
   {#if error}
     <p class="text-sm text-rose-600 dark:text-rose-400">{error}</p>
   {:else if loading && !history}
-    <p class="muted text-sm">Loading…</p>
+    <SkeletonTable rows={5} columns={7} label="the budget history" />
   {:else if history && rows.length}
     <div class="-mx-5 overflow-x-auto px-5">
       <table class="w-full min-w-[40rem] text-sm">

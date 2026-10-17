@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import Icon from './Icon.svelte';
 
   interface Props {
     open: boolean;
@@ -37,7 +38,9 @@
       <header class="flex items-center justify-between border-b border-slate-900/10 px-5 py-4 dark:border-white/10">
         <h2 class="font-semibold">{title}</h2>
         {#if dismissible}
-          <button type="button" class="btn-ghost px-2 py-1" aria-label="Close" onclick={onclose}>✕</button>
+          <button type="button" class="icon-btn size-8" aria-label="Close" title="Close" onclick={onclose}>
+            <Icon name="x" size={16} />
+          </button>
         {/if}
       </header>
       <div class="overflow-y-auto px-5 py-4">{@render children()}</div>

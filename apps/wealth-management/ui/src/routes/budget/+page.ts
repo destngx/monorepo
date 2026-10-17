@@ -1,17 +1,17 @@
 import { api } from '$lib/api/endpoints';
-import { loadOrError } from '$lib/api/load';
+import { defer } from '$lib/api/load';
 import { currentMonth } from '$lib/format';
 import type { PageLoad } from './$types';
 
+// The month comes from the URL, so the header and month switcher render at
+// once; the report, transactions and categories stream in on their own.
 export const load: PageLoad = ({ fetch, url }) => {
   const requested = url.searchParams.get('month') ?? '';
   const month = /^\d{4}-\d{2}$/.test(requested) ? requested : currentMonth();
-  return loadOrError(async () => {
-    const [report, transactions, categories] = await Promise.all([
-      api.budgetReport(month, { fetch }),
-      api.transactions({ fetch }),
-      api.categories({ fetch }),
-    ]);
-    return { month, report, transactions, categories };
-  });
+  return {
+    month,
+    report: defer(() => api.budgetReport(month, { fetch })),
+    transactions: defer(() => api.transactions({ fetch })),
+    categories: defer(() => api.categories({ fetch })),
+  };
 };

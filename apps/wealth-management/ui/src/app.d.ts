@@ -9,9 +9,9 @@ declare global {
       // Which credential problem: setup missing or token expired.
       sheetsAuth?: import('$lib/api/client').SheetsAuthKind;
     }
-    // Loaded by the root layout for every page.
+    // Loaded in the background by the root layout for every page (engineHealth state).
     interface PageData {
-      health: import('$lib/api/types').EngineHealth | null;
+      engine: import('$lib/api/load').Streamed<import('$lib/api/types').EngineHealth>;
     }
   }
 }

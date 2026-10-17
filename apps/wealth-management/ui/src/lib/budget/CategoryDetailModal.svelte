@@ -5,6 +5,8 @@
   import { EXPENSE, INCOME } from '$lib/charts/palette';
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
+  import SkeletonChart from '$lib/components/skeleton/SkeletonChart.svelte';
+  import SkeletonTable from '$lib/components/skeleton/SkeletonTable.svelte';
   import { formatDate, formatMonth, formatPercent, todayISO } from '$lib/format';
   import { STATUS } from '$lib/status';
   import { categoryTransactions, dailySpend, detailEnd } from './detail';
@@ -14,7 +16,8 @@
   interface Props {
     line: BudgetLine | null;
     month: string;
-    transactions: Transaction[];
+    /** Null while the transactions are still loading. */
+    transactions: Transaction[] | null;
     onclose: () => void;
     /** Starts moving limit away from this category. */
     onmove: CategoryHandler;
@@ -22,8 +25,10 @@
 
   let { line, month, transactions, onclose, onmove }: Props = $props();
 
-  const detailRows = $derived(line ? categoryTransactions(transactions, line.category, month) : []);
-  const detailDays = $derived(line ? dailySpend(transactions, line.category, detailEnd(month, todayISO())) : []);
+  const detailRows = $derived(line && transactions ? categoryTransactions(transactions, line.category, month) : []);
+  const detailDays = $derived(
+    line && transactions ? dailySpend(transactions, line.category, detailEnd(month, todayISO())) : [],
+  );
 </script>
 
 <Modal open={line !== null} title={line?.category ?? ''} {onclose} wide>
@@ -70,14 +75,18 @@
       </dl>
     </div>
     <h3 class="mt-6 mb-2 text-sm font-semibold">Daily spend, last 30 days</h3>
-    <BarChart
-      labels={detailDays.map((d, i) => (i % 5 === 0 ? d.date.slice(8, 10) : ''))}
-      series={[{ name: 'Spend', color: EXPENSE, values: detailDays.map((d) => d.value) }]}
-      height={160}
-      label="Daily spend"
-    />
+    {#if transactions === null}
+      <SkeletonChart height={160} label="daily spend" />
+    {:else}<BarChart
+        labels={detailDays.map((d, i) => (i % 5 === 0 ? d.date.slice(8, 10) : ''))}
+        series={[{ name: 'Spend', color: EXPENSE, values: detailDays.map((d) => d.value) }]}
+        height={160}
+        label="Daily spend"
+      />{/if}
     <h3 class="mt-6 mb-2 text-sm font-semibold">Transactions in {formatMonth(month)}</h3>
-    {#if detailRows.length}
+    {#if transactions === null}
+      <SkeletonTable rows={4} columns={2} label="transactions" />
+    {:else if detailRows.length}
       <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
         {#each detailRows as tx (tx.id)}
           <li class="flex justify-between gap-3 py-2">

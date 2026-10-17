@@ -37,7 +37,6 @@
 <Card
   title="Category natures"
   subtitle="Fixed and essential are needs, flexible is wants. Lending categories hold money lent and repaid: they leave income and expense and feed Money lent."
-  class="mt-4"
 >
   {#if groups.length}
     <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">

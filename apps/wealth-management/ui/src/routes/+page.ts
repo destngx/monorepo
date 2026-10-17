@@ -1,17 +1,14 @@
 import { api } from '$lib/api/endpoints';
-import { loadOrError, settle } from '$lib/api/load';
+import { defer } from '$lib/api/load';
 import { loadVndRates } from '$lib/rates';
 import type { PageLoad } from './$types';
 
-// The inbox and safe-to-spend fail on their own: the rest of the home page
-// still shows, with the error in their place.
-export const load: PageLoad = ({ fetch }) =>
-  loadOrError(async () => {
-    const [summary, usd, needsYou, safeToSpend] = await Promise.all([
-      api.dashboard({ fetch }),
-      loadVndRates(['USD'], fetch),
-      settle(api.needsYou({ fetch })),
-      settle(api.safeToSpend({ fetch })),
-    ]);
-    return { summary, usd, needsYou, safeToSpend };
-  });
+// Every part of home streams in (docs/wealth-management/AGENTS.md "Loading and
+// feedback"): the header and quick actions show at once, and each card shows
+// its skeleton, then its data or its own error with a Retry.
+export const load: PageLoad = ({ fetch }) => ({
+  summary: defer(() => api.dashboard({ fetch })),
+  usd: defer(() => loadVndRates(['USD'], fetch)),
+  needsYou: defer(() => api.needsYou({ fetch })),
+  safeToSpend: defer(() => api.safeToSpend({ fetch })),
+});

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { toasts, type ToastKind } from '$lib/state/toasts.svelte';
-  import Icon from './Icon.svelte';
+  import Icon, { type IconName } from './Icon.svelte';
 
+  const icons: Record<ToastKind, IconName> = { error: 'alertCircle', warning: 'alert', info: 'info', success: 'check' };
   const tones: Record<ToastKind, string> = {
     error: 'border-rose-500/40 text-rose-800 dark:text-rose-200',
     warning: 'border-amber-500/40 text-amber-800 dark:text-amber-200',
@@ -17,17 +18,31 @@
   {#each toasts.items as toast (toast.id)}
     <div
       role={toast.kind === 'error' ? 'alert' : 'status'}
-      class="glass pointer-events-auto flex items-start gap-3 border px-4 py-3 text-sm {tones[toast.kind]}"
+      class="glass pointer-events-auto flex items-start gap-3 border px-4 py-3 text-sm shadow-lg motion-safe:animate-[toast-in_160ms_ease-out] {tones[
+        toast.kind
+      ]}"
+      data-kind={toast.kind}
     >
+      <Icon name={icons[toast.kind]} size={16} class="mt-0.5" />
       <p class="flex-1 break-words">{toast.message}</p>
       <button
         type="button"
-        class="opacity-60 hover:opacity-100"
+        class="icon-btn -my-1 -mr-2 size-6 text-current"
         aria-label="Dismiss"
+        title="Dismiss"
         onclick={() => toasts.dismiss(toast.id)}
       >
-        <Icon name="x" size={16} />
+        <Icon name="x" size={14} />
       </button>
     </div>
   {/each}
 </div>
+
+<style>
+  @keyframes -global-toast-in {
+    from {
+      opacity: 0;
+      translate: 0 0.5rem;
+    }
+  }
+</style>

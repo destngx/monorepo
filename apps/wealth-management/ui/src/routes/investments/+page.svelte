@@ -1,6 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
+  import { track } from '$lib/api/deferred.svelte';
   import { api } from '$lib/api/endpoints';
+  import { defer, settled, type Streamed } from '$lib/api/load';
   import type {
     Allocation,
     Exposure,
@@ -9,88 +11,92 @@
     PortfolioSection,
     PortfolioValuation,
   } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import Deferred from '$lib/components/Deferred.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
+  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
+  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
+  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate, formatPercent } from '$lib/format';
   import AllocationCard from '$lib/investments/AllocationCard.svelte';
   import { BANK_RATES_HREF, bestBankRate } from '$lib/investments/bankRates';
-  import { settle } from '$lib/investments/fmarket';
   import CryptoCard from '$lib/investments/CryptoCard.svelte';
   import ExposureCard from '$lib/investments/ExposureCard.svelte';
   import FundPerformanceCard from '$lib/investments/FundPerformanceCard.svelte';
   import HedgesCard from '$lib/investments/HedgesCard.svelte';
-  import SectionError from '$lib/investments/fmarket/SectionError.svelte';
   import HoldingsCard from '$lib/investments/HoldingsCard.svelte';
   import { nf } from '$lib/investments/holdings';
-  import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { rateDetail } from '$lib/rates';
   import { STATUS } from '$lib/status';
   import { toasts } from '$lib/state/toasts.svelte';
 
   let { data } = $props();
 
-  // A forced refresh or a target change replaces the loaded figures until the next navigation.
-  let refreshed = $state<PortfolioValuation | null>(null);
-  let updatedAllocation = $state<Allocation | null>(null);
-  let refreshedFunds = $state<FundPerformance | null>(null);
-  let refreshedExposure = $state<Exposure | null>(null);
-  let refreshedHedges = $state<Hedges | null>(null);
-  let isRefreshing = $state(false);
-  const valuation = $derived(refreshed ?? data.valuation);
-  const totals = $derived(valuation.totals);
-  const allocation = $derived(updatedAllocation ?? (data.allocation.ok ? data.allocation.value : null));
-  const fundPerformance = $derived(refreshedFunds ?? (data.fundPerformance.ok ? data.fundPerformance.value : null));
-  const exposure = $derived(refreshedExposure ?? (data.exposure.ok ? data.exposure.value : null));
-  const hedges = $derived(refreshedHedges ?? (data.hedges.ok ? data.hedges.value : null));
+  // Each section streams in from the page data. A forced refresh or a saved
+  // target swaps in new promises until the next load: the sections keep their
+  // figures with a Refreshing badge meanwhile, and show their own error if
+  // the refresh fails.
+  type Parts = {
+    valuation: Streamed<PortfolioValuation>;
+    allocation: Streamed<Allocation>;
+    fundPerformance: Streamed<FundPerformance>;
+    exposure: Streamed<Exposure>;
+    hedges: Streamed<Hedges>;
+  };
+  let forced = $state.raw<{ from: typeof data; parts: Partial<Parts> } | null>(null);
+  const parts = $derived<Parts>({ ...data, ...(forced?.from === data ? forced.parts : {}) });
+  function replace(next: Partial<Parts>) {
+    forced = { from: data, parts: { ...(forced?.from === data ? forced.parts : {}), ...next } };
+  }
+
+  const valuation = track(() => parts.valuation);
+  const allocation = track(() => parts.allocation);
+  const exposure = track(() => parts.exposure);
+  const bankRates = track(() => data.bankRates);
   // Valuation issues, ignored Preferences rows and missing price moves, each once.
   const issues = $derived([
-    ...new Set([...valuation.issues, ...(allocation?.issues ?? []), ...(exposure?.issues ?? [])]),
+    ...new Set([
+      ...(valuation.value?.issues ?? []),
+      ...(allocation.value?.issues ?? []),
+      ...(exposure.value?.issues ?? []),
+    ]),
   ]);
 
   async function refresh() {
-    isRefreshing = true;
-    try {
-      // Fund performance, exposure and the hedges settle on their own so a market outage does not block the prices.
-      const [nextValuation, nextAllocation, nextFunds, nextExposure, nextHedges] = await Promise.all([
-        api.valuation({ force: true }),
-        api.allocation({ force: true }),
-        settle(() => api.fundPerformance({ force: true })),
-        settle(() => api.exposure({ force: true })),
-        settle(() => api.hedges({ force: true })),
-      ]);
-      [refreshed, updatedAllocation] = [nextValuation, nextAllocation];
-      if (nextFunds.ok) refreshedFunds = nextFunds.value;
-      else toasts.error(new Error(nextFunds.error), 'Could not refresh fund performance');
-      if (nextExposure.ok) refreshedExposure = nextExposure.value;
-      else toasts.error(new Error(nextExposure.error), 'Could not refresh your exposure');
-      if (nextHedges.ok) refreshedHedges = nextHedges.value;
-      else toasts.error(new Error(nextHedges.error), 'Could not refresh gold and USD');
-    } catch (error) {
-      toasts.error(error, 'Could not refresh prices');
-    } finally {
-      isRefreshing = false;
-    }
+    const next: Parts = {
+      valuation: defer(() => api.valuation({ force: true })),
+      allocation: defer(() => api.allocation({ force: true })),
+      fundPerformance: defer(() => api.fundPerformance({ force: true })),
+      exposure: defer(() => api.exposure({ force: true })),
+      hedges: defer(() => api.hedges({ force: true })),
+    };
+    replace(next);
+    const results = await Promise.all(Object.values(next));
+    const failed = results.filter((result) => !result.ok).length;
+    if (failed) toasts.push('warning', `${failed} of ${results.length} sections could not refresh; each one says why.`);
+    else toasts.success('Prices refreshed.');
   }
 
   const sectionTitles: Record<PortfolioSection, string> = { crypto: 'Crypto', funds: 'Fund certificates' };
-  const sections = $derived(
-    (['crypto', 'funds'] as const).map((key) => {
-      const rows = valuation.holdings.filter((h) => h.section === key);
+  function sectionsOf(value: PortfolioValuation) {
+    return (['crypto', 'funds'] as const).map((key) => {
+      const rows = value.holdings.filter((h) => h.section === key);
       return { key, title: sectionTitles[key], rows, total: rows.reduce((sum, h) => sum + (h.valueVND ?? 0), 0) };
-    }),
-  );
+    });
+  }
 
   // One bank-rates list (ROADMAP C5): the full list is on the Fmarket page.
-  const bestRate = $derived(data.bankRates.ok ? bestBankRate(data.bankRates.value.rates) : null);
+  const bestRate = $derived(bankRates.value ? bestBankRate(bankRates.value.rates) : null);
 </script>
 
 <PageHeader title="Investments" subtitle="What you hold and how it moves with markets">
   {#snippet actions()}
-    <button type="button" class="btn-ghost" disabled={isRefreshing} onclick={refresh}>
-      <Icon name="refresh" size={16} class={isRefreshing ? 'animate-spin' : ''} /> Refresh prices
-    </button>
+    <Button icon="refresh" busyText="Refreshing…" errorContext="Could not refresh prices" onclick={refresh}
+      >Refresh prices</Button
+    >
   {/snippet}
 </PageHeader>
 
@@ -106,96 +112,124 @@
 {/if}
 
 <!-- ROADMAP M1: the headline answer first, from the one allocation -->
-{#if exposure}
-  <ExposureCard {exposure} />
-{:else if !data.exposure.ok}
-  <Card title="My exposure">
-    <SectionError title="Your exposure is unavailable" message={data.exposure.error} />
-  </Card>
-{/if}
+<Deferred data={parts.exposure} label="your exposure">
+  {#snippet children(value)}<ExposureCard exposure={value} />{/snippet}
+  {#snippet skeleton()}<SkeletonCard title="My exposure" lines={3} chart={120} />{/snippet}
+</Deferred>
 
 <!-- ROADMAP M2 and M4: the crypto view, then gold and USD as protection -->
 <div class="mt-4 grid gap-4 xl:grid-cols-2">
-  {#if exposure}
-    <CryptoCard crypto={exposure.crypto} netWorth={exposure.netWorth} />
+  <!-- Crypto comes from the exposure: when that fails, its error shows once, in the exposure card above. -->
+  {#if exposure.value || !exposure.failure}
+    <Deferred data={parts.exposure} label="crypto">
+      {#snippet children(value)}<CryptoCard crypto={value.crypto} netWorth={value.netWorth} />{/snippet}
+      {#snippet skeleton()}<SkeletonCard title="Crypto" lines={4} />{/snippet}
+    </Deferred>
   {/if}
-  {#if hedges}
-    <HedgesCard {hedges} />
-  {:else if !data.hedges.ok}
-    <Card title="Gold and USD as protection">
-      <SectionError title="Gold and USD trends are unavailable" message={data.hedges.error} />
-    </Card>
-  {/if}
+  <Deferred data={parts.hedges} label="gold and USD trends">
+    {#snippet children(value)}<HedgesCard hedges={value} />{/snippet}
+    {#snippet skeleton()}<SkeletonCard title="Gold and USD as protection" lines={2} chart={120} />{/snippet}
+  </Deferred>
 </div>
 
 <!-- WM-INV-4, WM-RULE-8 -->
-<div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-  <Stat
-    label="Portfolio (VND)"
-    value={totals.total}
-    hint={totals.unvalued ? `${totals.unvalued} items not valued` : undefined}
-  />
-  <Stat label="VND assets" value={totals.vnd} hint="Accounts {nf.format(totals.vndAccounts)} + funds" />
-  <Stat
-    label="Crypto"
-    value={totals.crypto}
-    hint="Max of accounts {nf.format(totals.cryptoAccounts)} and holdings {nf.format(totals.cryptoHoldings)}"
-  />
-  <Stat label="Exchange rates">
-    {#if valuation.rates.length}
-      {#each valuation.rates as rate (rate.from)}
-        <span class="block text-base">
-          <span class="muted text-xs font-normal">{rate.from}</span>
-          <span class="tabular">{nf.format(rate.rate)}</span>
-        </span>
-        <span class="block text-xs font-normal"
-          ><SourceBadge source={rate.source ?? { provider: rate.provider }} detail={rateDetail(rate)} /></span
+<Deferred data={parts.valuation} label="portfolio totals" class="mt-4">
+  {#snippet children(value)}
+    {@const totals = value.totals}
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <Stat
+        label="Portfolio (VND)"
+        value={totals.total}
+        hint={totals.unvalued ? `${totals.unvalued} items not valued` : undefined}
+      />
+      <!-- The hints hold amounts, so they go through Money and hide with the privacy mask (WM-UI-2). -->
+      <Stat label="VND assets">
+        <Money value={totals.vnd} />
+        <span class="muted mt-1 block text-xs font-normal" data-testid="vnd-hint"
+          >Accounts <Money value={totals.vndAccounts} /> + funds</span
         >
+      </Stat>
+      <Stat label="Crypto">
+        <Money value={totals.crypto} />
+        <span class="muted mt-1 block text-xs font-normal" data-testid="crypto-hint"
+          >Max of accounts <Money value={totals.cryptoAccounts} /> and holdings <Money
+            value={totals.cryptoHoldings}
+          /></span
+        >
+      </Stat>
+      <Stat label="Exchange rates">
+        {#if value.rates.length}
+          {#each value.rates as rate (rate.from)}
+            <span class="block text-base">
+              <span class="muted text-xs font-normal">{rate.from}</span>
+              <span class="tabular">{nf.format(rate.rate)}</span>
+            </span>
+            <span class="block text-xs font-normal"
+              ><SourceBadge source={rate.source ?? { provider: rate.provider }} detail={rateDetail(rate)} /></span
+            >
+          {/each}
+        {:else}<span class="muted">-</span>{/if}
+      </Stat>
+    </div>
+  {/snippet}
+  {#snippet skeleton()}
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {#each ['portfolio total', 'VND assets', 'crypto total', 'exchange rates'] as label (label)}
+        <SkeletonStat {label} />
       {/each}
-    {:else}<span class="muted">-</span>{/if}
-  </Stat>
-</div>
+    </div>
+  {/snippet}
+</Deferred>
 
 <!-- WM-INV-20, ROADMAP C4: the one engine allocation with targets and drift -->
-{#if allocation}
-  <AllocationCard {allocation} onchange={(next) => (updatedAllocation = next)} />
-{:else if !data.allocation.ok}
-  <Card title="Allocation" class="mt-4">
-    <SectionError title="The allocation is unavailable" message={data.allocation.error} />
-  </Card>
+<Deferred data={parts.allocation} label="the allocation" class="mt-4">
+  {#snippet children(value)}
+    <AllocationCard allocation={value} onchange={(next) => replace({ allocation: settled(next) })} />
+  {/snippet}
+  {#snippet skeleton()}<SkeletonCard title="Allocation" lines={2} rows={4} />{/snippet}
+</Deferred>
+
+<Deferred data={parts.valuation} label="holdings" class="mt-4">
+  {#snippet children(value)}
+    <div class="space-y-4">
+      {#each sectionsOf(value) as { key, title, rows, total } (key)}
+        <HoldingsCard {title} {rows} {total} />
+      {/each}
+    </div>
+  {/snippet}
+  {#snippet skeleton()}
+    <div class="space-y-4">
+      <SkeletonCard title="Crypto" lines={1} rows={4} />
+      <SkeletonCard title="Fund certificates" lines={1} rows={4} />
+    </div>
+  {/snippet}
+</Deferred>
+
+<!-- ROADMAP M3, WM-INV-21/22: fund holdings vs a bank deposit -->
+<Deferred data={parts.fundPerformance} label="fund performance" class="mt-4">
+  {#snippet children(value)}<FundPerformanceCard performance={value} />{/snippet}
+  {#snippet skeleton()}<SkeletonCard title="Funds vs a bank deposit" lines={3} chart={160} />{/snippet}
+</Deferred>
+
+{#if valuation.value}
+  <p class="muted mt-2 text-right text-xs">Valued {formatDate(valuation.value.generatedAt)}</p>
 {/if}
 
-{#each sections as { key, title, rows, total } (key)}
-  <HoldingsCard {title} {rows} {total} />
-  {#if key === 'funds'}
-    <!-- ROADMAP M3, WM-INV-21/22: fund holdings vs a bank deposit -->
-    {#if fundPerformance}
-      <FundPerformanceCard performance={fundPerformance} />
-    {:else if !data.fundPerformance.ok}
-      <Card title="Funds vs a bank deposit" class="mt-4">
-        <SectionError title="Fund performance is unavailable" message={data.fundPerformance.error} />
-      </Card>
-    {/if}
-  {/if}
-{/each}
-
-<p class="muted mt-2 text-right text-xs">Valued {formatDate(valuation.generatedAt)}</p>
-
 <!-- ROADMAP C5: one bank-rates list, on the Fmarket page -->
-<p class="glass mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm">
+<p class="glass mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm" aria-busy={bankRates.pending}>
   <span class="font-medium">Best savings rate</span>
-  {#if !data.bankRates.ok}
-    <span class="muted">unavailable right now: {data.bankRates.error}</span>
+  {#if bankRates.loading}
+    <span class="skeleton inline-block h-3.5 w-48" role="status"><span class="sr-only">Loading bank rates…</span></span>
+  {:else if bankRates.failure && !bankRates.value}
+    <span class="muted">unavailable right now: {bankRates.failure.message}</span>
   {:else if bestRate}
     <span
       >{bestRate.bank}{bestRate.tenor ? ` · ${bestRate.tenor}` : ''}
       <span class="tabular font-semibold">{formatPercent(bestRate.rate, 2)}</span> per year</span
     >
-    {#if data.bankRates.value.source}<SourceBadge source={data.bankRates.value.source} />{/if}
+    {#if bankRates.value?.source}<SourceBadge source={bankRates.value.source} />{/if}
   {:else}
     <span class="muted">no bank published a rate</span>
   {/if}
-  <a href="{base}{BANK_RATES_HREF}" class="ml-auto text-indigo-600 hover:underline dark:text-indigo-400"
-    >All bank rates</a
-  >
+  <a href="{base}{BANK_RATES_HREF}" class="link ml-auto">All bank rates</a>
 </p>

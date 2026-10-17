@@ -5,12 +5,15 @@
   import { api } from '$lib/api/endpoints';
   import type { DependencyStatus, SheetInfo } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
+  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import Card from '$lib/components/Card.svelte';
+  import { engineHealth } from '$lib/state/health.svelte';
   import { sync } from '$lib/state/sync.svelte';
   import type { StatusTone } from '$lib/status';
 
-  // Engine health comes from the root layout load.
-  const health = $derived(page.data.health);
+  // Engine health comes from the root layout load, in the background.
+  const health = $derived(engineHealth.health);
 
   const tone: Record<DependencyStatus, StatusTone> = {
     ok: 'good',
@@ -57,7 +60,8 @@
   });
 
   async function testConnection() {
-    await Promise.all([invalidateAll(), loadSheet()]);
+    // Busy until the re-run health check (it streams in after the load) has answered.
+    await Promise.all([invalidateAll().then(() => page.data.engine), loadSheet()]);
   }
 </script>
 
@@ -90,7 +94,9 @@
 
 <Card title="Services" subtitle="Live status reported by the engine">
   {#snippet actions()}
-    <button type="button" class="btn-ghost text-xs" onclick={testConnection}>Test again</button>
+    <Button size="sm" icon="refresh" busyText="Testing…" errorContext="Connection test failed" onclick={testConnection}
+      >Test again</Button
+    >
   {/snippet}
   {#if health}
     <ul class="-my-2 divide-y divide-slate-900/5 text-sm dark:divide-white/5">
@@ -107,6 +113,8 @@
         </li>
       {/each}
     </ul>
+  {:else if !engineHealth.checked}
+    <SkeletonText lines={3} label="service status" />
   {:else}
     <p class="text-sm text-rose-600 dark:text-rose-400">The engine is not reachable.</p>
   {/if}

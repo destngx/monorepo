@@ -19,9 +19,9 @@
           <a
             href="{base}{item.href}"
             aria-current={current?.href === item.href ? 'page' : active ? 'true' : undefined}
-            class="block rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none {active
+            class="block rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none active:scale-95 motion-reduce:active:scale-100 {active
               ? 'bg-indigo-600 text-white dark:bg-indigo-400 dark:text-slate-900'
-              : 'bg-slate-900/5 text-slate-700 hover:bg-slate-900/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10'}"
+              : 'bg-slate-900/5 text-slate-700 hover:bg-slate-900/10 active:bg-slate-900/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 dark:active:bg-white/15'}"
             >{item.label}</a
           >
         </li>

@@ -78,7 +78,6 @@
 <Card
   title="Allocation"
   subtitle="Rebalance when a class drifts more than {allocation.driftThreshold} points from its target; money lent has no target"
-  class="mt-4"
 >
   {#snippet actions()}
     <Badge status={status.tone}>{status.label}</Badge>

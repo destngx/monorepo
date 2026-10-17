@@ -8,17 +8,22 @@
   import { formatSignedPercent } from '$lib/format';
   import { rateDetail, type LoadedRates } from '$lib/rates';
 
-  // WM-DASH-1/7: net worth with its 30-day trend, in VND and USD.
-  let { summary, usd }: { summary: DashboardSummary; usd: LoadedRates } = $props();
+  // WM-DASH-1/7: net worth with its 30-day trend, in VND and USD. The USD
+  // rate loads on its own: null while it is on its way.
+  let { summary, usd }: { summary: DashboardSummary; usd: LoadedRates | null } = $props();
 
-  const netWorthUsd = $derived(vndToUsd(summary.balanceSheet.netWorth, usd.rates.USD));
+  const netWorthUsd = $derived(usd ? vndToUsd(summary.balanceSheet.netWorth, usd.rates.USD) : null);
   const delta30 = $derived(trendDelta(summary.netWorthTrend));
 </script>
 
 <Card title="Net worth">
   <div class="text-3xl font-semibold tracking-tight"><Money value={summary.balanceSheet.netWorth} /></div>
   <p class="muted mt-0.5 flex flex-wrap items-center gap-x-2 text-sm">
-    {#if netWorthUsd !== null}
+    {#if !usd}
+      <span class="skeleton inline-block h-3.5 w-28" role="status"
+        ><span class="sr-only">Loading the USD value…</span></span
+      >
+    {:else if netWorthUsd !== null}
       {@const quote = usd.quotes.USD}
       <span>≈ <Money value={netWorthUsd} currency="USD" /></span>
       {#if quote}<SourceBadge source={quote.source ?? { provider: quote.provider }} detail={rateDetail(quote)} />{/if}

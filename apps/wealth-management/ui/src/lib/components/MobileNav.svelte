@@ -25,14 +25,14 @@
         <a
           href="{base}{area.href === '/' ? '/' : area.href}"
           aria-current={active ? (current?.href === area.href ? 'page' : 'true') : undefined}
-          class="flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[0.68rem] font-medium transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none {active
+          class="group flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[0.68rem] font-medium transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none {active
             ? 'text-indigo-700 dark:text-indigo-300'
-            : 'text-slate-600 dark:text-slate-300'}"
+            : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}"
         >
           <span
-            class="relative grid h-7 w-11 place-items-center rounded-full {active
+            class="relative grid h-7 w-11 place-items-center rounded-full transition duration-150 group-active:scale-90 motion-reduce:group-active:scale-100 {active
               ? 'bg-indigo-600/10 dark:bg-indigo-400/15'
-              : ''}"
+              : 'group-hover:bg-slate-900/[0.06] group-active:bg-slate-900/10 dark:group-hover:bg-white/10 dark:group-active:bg-white/15'}"
           >
             <Icon name={area.icon} size={20} />
             {#if count}

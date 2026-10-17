@@ -1,6 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
+  import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import SheetsAuthSteps from '$lib/components/SheetsAuthSteps.svelte';
 
@@ -18,6 +19,8 @@
     <SheetsAuthSteps kind={sheetsAuth} class="mx-auto mt-3 max-w-md" />
   {/if}
   {#if page.status !== 404}
-    <button type="button" class="btn-primary mt-5" onclick={() => invalidateAll()}>Try again</button>
+    <Button variant="primary" icon="refresh" busyText="Trying again…" class="mt-5" onclick={() => invalidateAll()}
+      >Try again</Button
+    >
   {/if}
 </div>

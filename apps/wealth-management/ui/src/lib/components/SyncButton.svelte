@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { sync } from '$lib/state/sync.svelte';
-  import Icon from './Icon.svelte';
+  import Button from './Button.svelte';
 
   // Ticks once a second so the countdown stays live.
   let now = $state(Date.now());
@@ -29,14 +29,13 @@
     {/if}
     {#if countdown}<p class="muted">Next in {countdown}</p>{/if}
   </div>
-  <button
-    type="button"
-    class="btn-ghost"
-    disabled={sync.syncing}
+  <!-- sync.run toasts its own outcome; busy also covers auto-sync -->
+  <Button
+    icon="refresh"
+    busy={sync.syncing}
+    label="Sync with Google Sheets"
     onclick={() => sync.run(invalidateAll, { notify: true })}
-    aria-label="Sync with Google Sheets"
   >
-    <Icon name="refresh" class={sync.syncing ? 'animate-spin' : ''} />
     <span class="hidden md:inline">{sync.syncing ? 'Syncing…' : 'Sync'}</span>
-  </button>
+  </Button>
 </div>

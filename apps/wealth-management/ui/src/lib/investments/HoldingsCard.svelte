@@ -18,7 +18,7 @@
   let { title, rows, total }: Props = $props();
 </script>
 
-<Card {title} subtitle="{rows.length} holdings" class="mt-4">
+<Card {title} subtitle="{rows.length} holdings">
   {#if rows.length}
     <div class="-mx-5 overflow-x-auto">
       <table class="w-full min-w-[52rem] text-sm">

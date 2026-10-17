@@ -19,8 +19,9 @@
       </div>
       <button
         type="button"
-        class="opacity-60 hover:opacity-100"
+        class="icon-btn"
         aria-label="Dismiss"
+        title="Dismiss"
         onclick={() => (toasts.sheetsAuthProblem = null)}
       >
         <Icon name="x" size={16} />
