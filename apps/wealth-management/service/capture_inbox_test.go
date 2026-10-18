@@ -336,6 +336,34 @@ func TestQuickCaptureDraftsRerunLedgerDedup(t *testing.T) {
 	}
 }
 
+func TestGivenTheSheetFilledInPastADraftWhenListingDraftsThenItIsPossiblyRecorded(t *testing.T) {
+	f := newInboxFixture(t)
+	capture := f.submit(t, inboxPNG, "")
+	f.reader.results = []domain.CaptureResult{{Suggestions: []domain.CaptureSuggestion{
+		row("Sacombank", 50000, "2026-10-14 08:15", capture.ID+"-image"),
+		row("Sacombank", 70000, "2026-10-16 08:15", capture.ID+"-image"),
+	}}}
+	f.process(t)
+
+	// Other rows entered by hand after the capture, up to the 15th.
+	f.ledger.transactions = []domain.Transaction{{ID: "tx9", AccountName: "Sacombank", Date: time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC), Payment: floatPointer(12000)}}
+	drafts, err := f.inbox.Drafts(context.Background())
+
+	if err != nil || len(drafts.Drafts) != 2 {
+		t.Fatalf("drafts = %+v err=%v", drafts.Drafts, err)
+	}
+	byDate := map[string]domain.CaptureSuggestion{}
+	for _, draft := range drafts.Drafts {
+		byDate[draft.Suggestion.Transaction.Date] = draft.Suggestion
+	}
+	if older := byDate["14/10/2026"]; older.RecordedThrough != "15/10/2026" || older.Selected {
+		t.Fatalf("older draft = %+v, want possibly recorded and unselected", older)
+	}
+	if newer := byDate["16/10/2026"]; newer.RecordedThrough != "" || !newer.Selected {
+		t.Fatalf("newer draft = %+v, want new and selected", newer)
+	}
+}
+
 func TestQuickCaptureDiscardRefusesCapturesWithDrafts(t *testing.T) {
 	f := newInboxFixture(t)
 	capture := f.submit(t, inboxPNG, "")

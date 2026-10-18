@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Smart Capture output: suggested transactions for the review screen
@@ -44,12 +45,17 @@ type CaptureSuggestion struct {
 	AccountCandidates []string               `json:"accountCandidates,omitempty"`
 	CategorySource    string                 `json:"categorySource,omitempty"`
 	// TagOptions are the cashback rule tags of the row's card (WM-CAP-5).
-	TagOptions    []string          `json:"tagOptions,omitempty"`
-	SourceApp     string            `json:"sourceApp,omitempty"`
-	Evidence      []CaptureEvidence `json:"evidence"`
-	Duplicate     *CaptureDuplicate `json:"duplicate,omitempty"`
-	TransferGroup string            `json:"transferGroup,omitempty"`
-	Notes         []string          `json:"notes,omitempty"`
+	TagOptions []string          `json:"tagOptions,omitempty"`
+	SourceApp  string            `json:"sourceApp,omitempty"`
+	Evidence   []CaptureEvidence `json:"evidence"`
+	Duplicate  *CaptureDuplicate `json:"duplicate,omitempty"`
+	// RecordedThrough is the account's last recorded date in the sheet
+	// (dd/mm/yyyy) when the row is dated on or before it without an exact
+	// match: the sheet is already filled in up to then, so the row is
+	// possibly recorded already.
+	RecordedThrough string   `json:"recordedThrough,omitempty"`
+	TransferGroup   string   `json:"transferGroup,omitempty"`
+	Notes           []string `json:"notes,omitempty"`
 }
 
 // CaptureBalance is the latest balance a material showed for an account,
@@ -215,8 +221,9 @@ func captureMemo(item CaptureItem, materials map[string]CaptureMaterial) *string
 }
 
 // ApplyCaptureDuplicates marks suggestions likely already in the ledger
-// and unselects them (WM-CAP-6).
-func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transaction) {
+// (WM-CAP-6), then the rest dated on or before their account's last
+// recorded date (WM-CAP-21), and unselects both.
+func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transaction, today time.Time) {
 	candidates := make([]CaptureCandidate, len(suggestions))
 	for index, suggestion := range suggestions {
 		date, _ := ParseSheetDate(suggestion.Transaction.Date)
@@ -233,6 +240,18 @@ func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transactio
 		}
 		suggestions[index].Duplicate = &CaptureDuplicate{TransactionID: row.ID, Date: row.Date.Format(SheetDateLayout), Payee: row.Payee, Amount: amount, Reference: referenceOf(row)}
 		suggestions[index].Selected = false
+	}
+	lastRecorded := LastRecordedDates(ledger, today)
+	for index := range suggestions {
+		suggestion := &suggestions[index]
+		last, found := lastRecorded[suggestion.Transaction.AccountName]
+		if suggestion.Duplicate != nil || !found {
+			continue
+		}
+		if date, err := ParseSheetDate(suggestion.Transaction.Date); err == nil && !date.After(last) {
+			suggestion.RecordedThrough = last.Format(SheetDateLayout)
+			suggestion.Selected = false
+		}
 	}
 }
 

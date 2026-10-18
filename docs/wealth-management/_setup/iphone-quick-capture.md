@@ -66,7 +66,7 @@ Open the bank app or notification you want, long-press the AssistiveTouch button
 The **Drafts** entry under Transactions shows the number of drafts waiting. On the page:
 
 - Edit drafts like Smart Capture rows, then **Approve** writes the selected ones to the sheet; **Reject** discards them. A rejected transaction is not offered again by later screenshots.
-- Drafts already in the sheet are flagged and unselected.
+- Drafts already in the sheet are flagged and unselected. So are drafts dated on or before the last date already recorded for their account ("possibly already recorded"): tick them if they are new.
 - **Captures** lists what was sent: queued, reading, retrying (1 min, 5 min, 15 min, 1 h, 6 h), done or failed. Failed captures can be retried or discarded.
 - **Upload** sends screenshots from the browser the same way, for photos already in the library.
 

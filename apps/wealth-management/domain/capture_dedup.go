@@ -68,6 +68,22 @@ func FindCaptureDuplicates(candidates []CaptureCandidate, ledger []Transaction) 
 	return result
 }
 
+// LastRecordedDates maps each account to its newest usable ledger date on or
+// before today. Rows dated later (entered ahead, like a planned bill) are
+// ignored so they do not hide new rows.
+func LastRecordedDates(ledger []Transaction, today time.Time) map[string]time.Time {
+	last := map[string]time.Time{}
+	for _, row := range ledger {
+		if !row.Usable() || row.AccountName == "" || row.Date.After(today) {
+			continue
+		}
+		if current, seen := last[row.AccountName]; !seen || row.Date.After(current) {
+			last[row.AccountName] = row.Date
+		}
+	}
+	return last
+}
+
 func referenceOf(t Transaction) string {
 	if t.ReferenceNumber == nil {
 		return ""

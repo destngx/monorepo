@@ -187,6 +187,12 @@
           Likely already recorded: {suggestion.duplicate.payee} on {formatDate(suggestion.duplicate.date)},
           <Money value={suggestion.duplicate.amount} /> ({suggestion.duplicate.transactionId}). Unselected by default.
         </p>
+      {:else if suggestion.recordedThrough}
+        <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+          Possibly already recorded: {suggestion.transaction.accountName} is recorded up to
+          {formatDate(suggestion.recordedThrough)} in the sheet, and this row is not after that. Unselected by default; tick
+          it if it is new.
+        </p>
       {/if}
       {#each suggestion.notes ?? [] as note (note)}<p class="muted mt-1 text-xs"><MaskedText text={note} /></p>{/each}
       {#each problems as problem (problem)}

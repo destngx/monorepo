@@ -268,7 +268,7 @@ func TestBuildCaptureSuggestions(t *testing.T) {
 		}
 	}
 
-	ApplyCaptureDuplicates(suggestions, []Transaction{{ID: "r9", AccountName: "Ví MoMo", Payee: "VCB", Date: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC), Deposit: amountPointer(2000000)}})
+	ApplyCaptureDuplicates(suggestions, []Transaction{{ID: "r9", AccountName: "Ví MoMo", Payee: "VCB", Date: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC), Deposit: amountPointer(2000000)}}, time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC))
 	if suggestions[2].Selected || suggestions[2].Duplicate == nil || suggestions[2].Duplicate.TransactionID != "r9" || suggestions[2].Duplicate.Date != "04/10/2026" || !suggestions[0].Selected {
 		t.Fatalf("duplicate marking: %+v", suggestions[2])
 	}
@@ -311,5 +311,47 @@ func TestCaptureRuleValidateAndKey(t *testing.T) {
 	}
 	if (CaptureRule{Kind: CaptureRuleAlias, Pattern: "Ví MoMo"}).Key() != (CaptureRule{Kind: CaptureRuleAlias, Pattern: "vi  momo"}).Key() {
 		t.Fatal("keys must fold the pattern")
+	}
+}
+
+func TestGivenRowsOnOrBeforeTheLastRecordedDateWhenCheckingDuplicatesThenTheyAreFlaggedAndUnselected(t *testing.T) {
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
+	today := day(12)
+	ledger := []Transaction{
+		{ID: "r1", AccountName: "Vietcombank", Payee: "Grab", Date: day(5), Payment: amountPointer(50000)},
+		{ID: "r2", AccountName: "Vietcombank", Payee: "Rent", Date: day(8), Payment: amountPointer(9000000)},
+		// Entered ahead: must not move the last recorded date.
+		{ID: "r3", AccountName: "Vietcombank", Payee: "Planned bill", Date: day(20), Payment: amountPointer(300000)},
+		// Unusable rows do not count either.
+		{ID: "r4", AccountName: "Vietcombank", Date: day(11), Payment: amountPointer(1), Issues: []string{"bad amount"}},
+		{ID: "r5", AccountName: "Ví MoMo", Payee: "Coffee", Date: day(3), Payment: amountPointer(45000)},
+	}
+	suggestion := func(account, date string, amount float64) CaptureSuggestion {
+		return CaptureSuggestion{Selected: true, Direction: CaptureOut, Amount: amount, Transaction: TransactionCreateInput{AccountName: account, Date: date}}
+	}
+	suggestions := []CaptureSuggestion{
+		suggestion("Vietcombank", "05/10/2026", 50000),  // exact duplicate of r1
+		suggestion("Vietcombank", "07/10/2026", 120000), // before the last recorded date
+		suggestion("Vietcombank", "08/10/2026", 75000),  // on it
+		suggestion("Vietcombank", "09/10/2026", 75000),  // after it: new
+		suggestion("Ví MoMo", "04/10/2026", 10000),      // after MoMo's own last date
+		suggestion("Techcombank", "01/10/2026", 10000),  // no rows in the sheet yet
+		suggestion("", "01/10/2026", 10000),             // unmatched account
+	}
+
+	ApplyCaptureDuplicates(suggestions, ledger, today)
+
+	if suggestions[0].Duplicate == nil || suggestions[0].RecordedThrough != "" || suggestions[0].Selected {
+		t.Fatalf("an exact match keeps its own flag: %+v", suggestions[0])
+	}
+	for _, index := range []int{1, 2} {
+		if suggestions[index].RecordedThrough != "08/10/2026" || suggestions[index].Duplicate != nil || suggestions[index].Selected {
+			t.Fatalf("row %d is on or before the last recorded date: %+v", index, suggestions[index])
+		}
+	}
+	for _, index := range []int{3, 4, 5, 6} {
+		if suggestions[index].RecordedThrough != "" || !suggestions[index].Selected {
+			t.Fatalf("row %d is new: %+v", index, suggestions[index])
+		}
 	}
 }

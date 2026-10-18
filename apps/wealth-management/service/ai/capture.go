@@ -82,7 +82,7 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 	result.Suggestions = domain.BuildCaptureSuggestions(domain.CaptureBuildInput{Items: items, Materials: request.Materials, Accounts: data.accounts, TransferCategory: data.transfer})
 	report(port.CaptureProgress{Stage: "categorize", Status: "running"})
 	s.categorizeCapture(ctx, p, result.Suggestions, data)
-	domain.ApplyCaptureDuplicates(result.Suggestions, data.transactions)
+	domain.ApplyCaptureDuplicates(result.Suggestions, data.transactions, s.today())
 	result.Balances = domain.CaptureBalances(items, data.accounts)
 	return result, nil
 }

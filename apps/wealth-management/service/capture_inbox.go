@@ -149,7 +149,9 @@ func (s *CaptureInbox) Discard(ctx context.Context, captureID string) error {
 }
 
 // Drafts returns the pending drafts with ledger dedup run again, so rows
-// entered by hand since the capture show as likely recorded (WM-CAP-18).
+// entered by hand since the capture show as likely recorded (WM-CAP-18),
+// and rows the sheet has since been filled in past as possibly recorded
+// (WM-CAP-21).
 func (s *CaptureInbox) Drafts(ctx context.Context) (domain.CaptureDrafts, error) {
 	drafts, err := s.store.ListDrafts(ctx, domain.CaptureDraftPending, time.Time{})
 	if err != nil {
@@ -166,9 +168,9 @@ func (s *CaptureInbox) Drafts(ctx context.Context) (domain.CaptureDrafts, error)
 	suggestions := make([]domain.CaptureSuggestion, len(drafts))
 	for index, draft := range drafts {
 		suggestions[index] = draft.Suggestion
-		suggestions[index].Selected, suggestions[index].Duplicate = true, nil
+		suggestions[index].Selected, suggestions[index].Duplicate, suggestions[index].RecordedThrough = true, nil, ""
 	}
-	domain.ApplyCaptureDuplicates(suggestions, transactions)
+	domain.ApplyCaptureDuplicates(suggestions, transactions, domain.Today(s.now()))
 	var captureIDs []string
 	for index := range drafts {
 		drafts[index].Suggestion = suggestions[index]

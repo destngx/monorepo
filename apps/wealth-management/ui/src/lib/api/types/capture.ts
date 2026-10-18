@@ -54,6 +54,11 @@ export interface CaptureSuggestion {
   sourceApp?: string;
   evidence: CaptureEvidence[];
   duplicate?: CaptureDuplicate;
+  /**
+   * The account's last recorded date in the sheet (dd/mm/yyyy) when this row is
+   * dated on or before it without an exact match: possibly recorded already (WM-CAP-21).
+   */
+  recordedThrough?: string;
   transferGroup?: string;
   notes?: string[];
 }
