@@ -23,6 +23,7 @@ import type {
   BudgetHistory,
   BudgetItem,
   BudgetReport,
+  CaptureDraftEdit,
   CaptureDrafts,
   CaptureEvent,
   CaptureMaterialPayload,
@@ -344,6 +345,8 @@ export const api = {
   /** Writes the edited drafts through the batch path; replaying batchId does not write twice. */
   approveDrafts: (batchId: string, drafts: { id: string; transaction: TransactionInput }[]) =>
     request<TransactionBatchResult>('/capture/drafts/approve', { method: 'POST', body: { batchId, drafts } }),
+  editDraft: (id: string, edit: CaptureDraftEdit) =>
+    request<void>(`/capture/drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: edit }),
   rejectDrafts: (ids: string[]) => request<void>('/capture/drafts/reject', { method: 'POST', body: { ids } }),
   captureMaterialUrl: (id: string) => buildPath(`/capture/materials/${encodeURIComponent(id)}`),
 };

@@ -8,7 +8,7 @@
   import CaptureReview from '$lib/capture/CaptureReview.svelte';
   import { captureStatus, draftItems, draftResult, mergeDraftRows, toDraftRows } from '$lib/capture/drafts';
   import { isImageFile, prepareImage } from '$lib/capture/materials';
-  import type { ReviewRow } from '$lib/capture/review';
+  import { cleanInput, type ReviewRow } from '$lib/capture/review';
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Deferred from '$lib/components/Deferred.svelte';
@@ -91,6 +91,11 @@
       batchId,
       chosen.map((row, index) => ({ id: row.suggestion.id, transaction: inputs[index] })),
     );
+  }
+
+  // Saved edits come back on reload and on other devices; nothing is written.
+  async function save(row: ReviewRow) {
+    await api.editDraft(row.suggestion.id, { transaction: cleanInput(row.tx), categorySource: row.categorySource });
   }
 
   async function reject(chosen: ReviewRow[]) {
@@ -188,8 +193,10 @@
         accounts={value.accounts}
         categories={value.categories}
         tags={value.tags}
+        cardTags={value.cardTags}
         write={approve}
         {reject}
+        {save}
         verb="Approve"
         emptyText="No drafts waiting. Send a screenshot from your phone, or upload one below."
       />

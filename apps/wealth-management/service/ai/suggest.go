@@ -14,8 +14,9 @@ const (
 	minSuggestPayeeLength = 3
 )
 
-// SuggestCategory proposes a category for a payee (WM-AI-8, WM-TX-5): the
-// payee's own history first, then the model, constrained to known categories.
+// SuggestCategory proposes a category for a payee (WM-AI-8, WM-TX-5): a
+// confirmed payee rule (WM-CAP-11) first, then the payee's own history, then
+// the model, constrained to known categories.
 func (s *Service) SuggestCategory(ctx context.Context, payee string, model string) (port.CategorySuggestion, error) {
 	payee = strings.TrimSpace(payee)
 	if len([]rune(payee)) < minSuggestPayeeLength {
@@ -33,8 +34,15 @@ func (s *Service) SuggestCategory(ctx context.Context, payee string, model strin
 	if err != nil {
 		return port.CategorySuggestion{}, fmt.Errorf("load transactions: %w", err)
 	}
+	rules, err := s.db.ListCaptureRules(false)
+	if err != nil {
+		return port.CategorySuggestion{}, fmt.Errorf("load capture rules: %w", err)
+	}
+	if category, ok := payeeRuleCategories(rules, names)[domain.FoldText(payee)]; ok {
+		return port.CategorySuggestion{Category: category, Source: domain.CategorySourceRule}, nil
+	}
 	if category, ok := historyCategory(payee, transactions, names); ok {
-		return port.CategorySuggestion{Category: category, Source: "history"}, nil
+		return port.CategorySuggestion{Category: category, Source: domain.CategorySourceHistory}, nil
 	}
 
 	if err := s.requireConfigured(); err != nil {
@@ -79,13 +87,13 @@ func (s *Service) SuggestCategory(ctx context.Context, payee string, model strin
 	})
 	if errors.Is(err, domain.ErrAIOutput) {
 		if fallback, ok := domain.ResolveCategory(uncategorized, names); ok {
-			return port.CategorySuggestion{Category: fallback, Source: "default"}, nil
+			return port.CategorySuggestion{Category: fallback, Source: domain.CategorySourceDefault}, nil
 		}
 	}
 	if err != nil {
 		return port.CategorySuggestion{}, err
 	}
-	return port.CategorySuggestion{Category: category, Source: "ai"}, nil
+	return port.CategorySuggestion{Category: category, Source: domain.CategorySourceAI}, nil
 }
 
 // historyCategory is the most frequent known category used with the same payee.

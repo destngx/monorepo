@@ -13,15 +13,7 @@ import (
 // constrained to known categories and the card's rule tags (WM-CAP-5).
 // Whatever is left is Uncategorized and flagged for review.
 func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, data captureData) {
-	payeeRules := map[string]string{}
-	for _, rule := range data.rules {
-		if rule.Kind != domain.CaptureRulePayee {
-			continue
-		}
-		if category, ok := domain.ResolveCategory(rule.Value, data.categories); ok {
-			payeeRules[domain.FoldText(rule.Pattern)] = category
-		}
-	}
+	payeeRules := payeeRuleCategories(data.rules, data.categories)
 	var pending []int
 	for index := range suggestions {
 		suggestion := &suggestions[index]
@@ -34,9 +26,12 @@ func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions
 				suggestion.Transaction.Category, suggestion.CategorySource = category, domain.CategorySourceHistory
 			}
 		}
-		// The card's own digits on the material outrank the payee's history.
+		// The card's own digits on the material outrank the payee's history;
+		// an account with one open card can only have been paid with it.
 		if card, ok := domain.MatchCaptureCard(suggestion.AccountHint, data.cards); ok && strings.EqualFold(card.Account, suggestion.Transaction.AccountName) {
 			suggestion.Transaction.Tags = []string{card.Keyword}
+		} else if len(suggestion.TagOptions) == 1 {
+			suggestion.Transaction.Tags = []string{suggestion.TagOptions[0]}
 		} else if tag, ok := historyTag(payee, suggestion.Transaction.AccountName, suggestion.TagOptions, data.transactions); ok {
 			suggestion.Transaction.Tags = []string{tag}
 		}
@@ -64,6 +59,21 @@ func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions
 			suggestion.LowConfidence = appendUnique(suggestion.LowConfidence, "category")
 		}
 	}
+}
+
+// payeeRuleCategories maps each confirmed payee rule, folded, to its known
+// category; rules naming a category that no longer exists are ignored.
+func payeeRuleCategories(rules []domain.CaptureRule, categories []string) map[string]string {
+	payeeRules := map[string]string{}
+	for _, rule := range rules {
+		if rule.Kind != domain.CaptureRulePayee {
+			continue
+		}
+		if category, ok := domain.ResolveCategory(rule.Value, categories); ok {
+			payeeRules[domain.FoldText(rule.Pattern)] = category
+		}
+	}
+	return payeeRules
 }
 
 // historyTag is the card rule tag most used with this payee on the account.

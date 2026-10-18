@@ -207,6 +207,7 @@
             accounts={value.accounts}
             categories={value.categories}
             tags={value.tags}
+            cardTags={value.cardTags}
             usdRate={usdQuote?.rate ?? null}
           />
         {/if}

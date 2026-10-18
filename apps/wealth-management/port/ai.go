@@ -67,8 +67,9 @@ type CashbackExplainRequest struct {
 
 type CategorySuggestion struct {
 	Category string `json:"category"`
-	// Source is "history" (same payee before), "ai", or "default" when the
-	// model named no known category.
+	// Source is "rule" (a confirmed CaptureRules payee rule), "history"
+	// (same payee before), "ai", or "default" when the model named no known
+	// category.
 	Source string `json:"source"`
 }
 

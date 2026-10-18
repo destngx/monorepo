@@ -16,6 +16,8 @@ const (
 	CategorySourceAI       = "ai"
 	CategorySourceTransfer = "transfer"
 	CategorySourceDefault  = "default"
+	// CategorySourceManual is a category the user picked on a draft.
+	CategorySourceManual = "manual"
 )
 
 // CaptureMemoPrefix marks rows created by Smart Capture (WM-CAP-9).

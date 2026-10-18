@@ -251,3 +251,21 @@ func TestCaptureValidatesAndNeedsTheExtractPrompt(t *testing.T) {
 		t.Fatalf("expected missing prompt, got %v", err)
 	}
 }
+
+func TestCaptureTagsTheOnlyOpenCardOfAnAccount(t *testing.T) {
+	db := captureDatabase()
+	db.Cards.Cards = []domain.Card{db.Cards.Cards[0], db.Cards.Cards[2]}
+	db.Cards.Cards[0].Last4 = ""
+	client := &scriptedClient{}
+	client.route = captureRoute(t, `{"items":[{"id":"s1","category":"shopping","tag":""}]}`)
+
+	result, err := newCaptureService(t, db, client).Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, func(port.CaptureProgress) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card := result.Suggestions[0]
+	if card.Transaction.AccountName != "Credit Card Acme" || len(card.Transaction.Tags) != 1 || card.Transaction.Tags[0] != "gold" {
+		t.Fatalf("a card account with one open card should take its tag: %+v", card.Transaction)
+	}
+}

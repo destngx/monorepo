@@ -36,6 +36,9 @@ export interface CaptureDuplicate {
 
 export type CaptureField = 'amount' | 'date' | 'account' | 'category';
 
+/** Where a row's category came from; "manual" is picked by the user on a draft. */
+export type CaptureCategorySource = 'rule' | 'history' | 'ai' | 'transfer' | 'default' | 'manual';
+
 export interface CaptureSuggestion {
   id: string;
   selected: boolean;
@@ -49,7 +52,7 @@ export interface CaptureSuggestion {
   accountHint?: string;
   accountSource?: 'alias' | 'digits' | 'name';
   accountCandidates?: string[];
-  categorySource?: 'rule' | 'history' | 'ai' | 'transfer' | 'default';
+  categorySource?: CaptureCategorySource;
   tagOptions?: string[];
   sourceApp?: string;
   evidence: CaptureEvidence[];
@@ -138,7 +141,15 @@ export interface CaptureDraft {
   decidedAt?: string;
   captureIds: string[];
   suggestion: CaptureSuggestion;
+  /** The row as the user last saved it; the suggestion keeps what the engine read. */
+  edit?: CaptureDraftEdit;
   transactionId?: string;
+}
+
+/** A pending draft's row saved without approving it (WM-CAP-19). */
+export interface CaptureDraftEdit {
+  transaction: TransactionInput;
+  categorySource?: CaptureCategorySource;
 }
 
 export interface CaptureMaterialEntry {

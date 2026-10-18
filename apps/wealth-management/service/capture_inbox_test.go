@@ -405,3 +405,34 @@ func TestQuickCaptureRunProcessesSubmissionsUntilStopped(t *testing.T) {
 }
 
 func floatPointer(value float64) *float64 { return &value }
+
+func TestQuickCaptureEditSavesTheRowWithoutWritingIt(t *testing.T) {
+	f := newInboxFixture(t)
+	capture := f.submit(t, inboxPNG, "")
+	f.reader.results = []domain.CaptureResult{{Suggestions: []domain.CaptureSuggestion{row("Sacombank", 50000, "2026-10-16 08:15", capture.ID+"-image")}}}
+	f.process(t)
+	drafts, _ := f.inbox.Drafts(context.Background())
+	id := drafts.Drafts[0].ID
+	edited := drafts.Drafts[0].Suggestion.Transaction
+	edited.Payee, edited.Category = "Pho 24", "Food"
+
+	if err := f.inbox.Edit(context.Background(), id, domain.CaptureDraftEdit{Transaction: edited, CategorySource: domain.CategorySourceAI}); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	reloaded, _ := f.inbox.Drafts(context.Background())
+	if got := reloaded.Drafts[0].Edit; got == nil || got.Transaction.Payee != "Pho 24" || got.CategorySource != domain.CategorySourceAI {
+		t.Fatalf("edit = %+v, want the saved row", got)
+	}
+	if len(f.ledger.batches) != 0 {
+		t.Fatalf("batches = %d, want nothing written", len(f.ledger.batches))
+	}
+	if err := f.inbox.Edit(context.Background(), id, domain.CaptureDraftEdit{Transaction: edited, CategorySource: "guess"}); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("unknown source: err = %v, want validation", err)
+	}
+	if err := f.inbox.Reject(context.Background(), []string{id}); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	if err := f.inbox.Edit(context.Background(), id, domain.CaptureDraftEdit{Transaction: edited}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("edit rejected draft: err = %v, want conflict", err)
+	}
+}

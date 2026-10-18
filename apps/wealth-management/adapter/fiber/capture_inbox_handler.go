@@ -90,6 +90,17 @@ func (h *CaptureInboxHandler) Approve(c *fiber.Ctx) error {
 	return respondWith(c, h.log, captureInboxScope)(h.inbox.Approve(c.UserContext(), body))
 }
 
+func (h *CaptureInboxHandler) Edit(c *fiber.Ctx) error {
+	var body domain.CaptureDraftEdit
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	if err := h.inbox.Edit(c.UserContext(), c.Params("id"), body); err != nil {
+		return respondError(c, h.log, captureInboxScope, err)
+	}
+	return c.SendStatus(http.StatusNoContent)
+}
+
 func (h *CaptureInboxHandler) Reject(c *fiber.Ctx) error {
 	var body struct {
 		IDs []string `json:"ids"`
@@ -132,6 +143,7 @@ var (
 		"newDrafts":     map[string]any{"type": "integer"},
 	}}
 	captureIDParam  = []RouteParameter{{Name: "id", In: "path", Type: "string", Required: true, Description: "Capture id."}}
+	draftIDParam    = []RouteParameter{{Name: "id", In: "path", Type: "string", Required: true, Description: "Draft id."}}
 	materialIDParam = []RouteParameter{{Name: "id", In: "path", Type: "string", Required: true, Description: "Material id: <captureId>-image or <captureId>-note."}}
 )
 
@@ -165,6 +177,14 @@ func RegisterCaptureInboxRoutes(api RouteRegistrar, h *CaptureInboxHandler, guar
 	capture.Post("/drafts/reject", guard.Wrap(h.Reject), RouteMeta{
 		Summary:     "Rejects pending drafts; a rejected row is not offered again by later captures. 409 when one was already approved.",
 		RequestBody: jsonBody(map[string]any{"ids": map[string]any{"type": "array", "items": schemaString}}, "ids"),
+	})
+	capture.Patch("/drafts/:id", guard.Wrap(h.Edit), RouteMeta{
+		Summary: "Saves a pending draft's row as edited without writing it to the sheet; GET /api/capture/drafts returns it as edit, next to the suggestion the engine read. The row is checked only when approved. 409 once the draft was approved or rejected.",
+		RequestBody: jsonBody(map[string]any{
+			"transaction":    map[string]any{"type": "object", "description": "The row as edited, as for POST /api/transactions/batch."},
+			"categorySource": map[string]any{"type": "string", "enum": []string{"rule", "history", "ai", "transfer", "default", "manual"}},
+		}, "transaction"),
+		PathParams: draftIDParam,
 	})
 	capture.Get("/materials/:id", h.Material, RouteMeta{Summary: "A stored screenshot (its image type) or note (text/plain) while a pending draft or an unfinished capture needs it; 404 once deleted.", PathParams: materialIDParam})
 }

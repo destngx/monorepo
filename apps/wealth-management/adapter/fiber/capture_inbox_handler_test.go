@@ -23,6 +23,8 @@ type fakeCaptureInbox struct {
 	submitted []domain.QuickCaptureInput
 	rejected  []string
 	approval  domain.CaptureDraftApproval
+	editedID  string
+	edit      domain.CaptureDraftEdit
 	materials map[string]domain.CaptureMaterial
 }
 
@@ -53,6 +55,10 @@ func (f *fakeCaptureInbox) Material(_ context.Context, id string) (domain.Captur
 func (f *fakeCaptureInbox) Approve(_ context.Context, approval domain.CaptureDraftApproval) (domain.TransactionBatchResult, error) {
 	f.approval = approval
 	return domain.TransactionBatchResult{BatchID: approval.BatchID, Created: len(approval.Drafts)}, nil
+}
+func (f *fakeCaptureInbox) Edit(_ context.Context, id string, edit domain.CaptureDraftEdit) error {
+	f.editedID, f.edit = id, edit
+	return nil
 }
 func (f *fakeCaptureInbox) Reject(_ context.Context, ids []string) error {
 	f.rejected = ids
@@ -169,6 +175,9 @@ func TestGivenDraftsWhenApprovingAndRejectingThenTheBodiesReachTheInbox(t *testi
 	}
 	if status, _ := call(t, app, http.MethodPost, "/api/capture/drafts/reject", `{"ids":["drf_2"]}`); status != http.StatusNoContent || inbox.rejected[0] != "drf_2" {
 		t.Fatalf("reject status %d rejected %v", status, inbox.rejected)
+	}
+	if status, body := call(t, app, http.MethodPatch, "/api/capture/drafts/drf_3", `{"transaction":{"accountName":"Sacombank","payee":"Pho 24","category":"Food"},"categorySource":"ai"}`); status != http.StatusNoContent || inbox.editedID != "drf_3" || inbox.edit.Transaction.Payee != "Pho 24" || inbox.edit.CategorySource != "ai" {
+		t.Fatalf("edit status %d body %s edit %s %+v", status, body, inbox.editedID, inbox.edit)
 	}
 	if status, _ := call(t, app, http.MethodPost, "/api/capture/inbox/cap_1/retry", ""); status != http.StatusConflict {
 		t.Fatalf("retry status %d, want the inbox conflict as 409", status)

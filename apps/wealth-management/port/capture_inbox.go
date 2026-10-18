@@ -20,6 +20,8 @@ type CaptureInboxService interface {
 	Discard(ctx context.Context, captureID string) error
 	Drafts(ctx context.Context) (domain.CaptureDrafts, error)
 	Material(ctx context.Context, materialID string) (domain.CaptureMaterial, error)
+	// Edit saves a pending draft's row without writing it to the sheet.
+	Edit(ctx context.Context, draftID string, edit domain.CaptureDraftEdit) error
 	Approve(ctx context.Context, approval domain.CaptureDraftApproval) (domain.TransactionBatchResult, error)
 	Reject(ctx context.Context, draftIDs []string) error
 }
@@ -50,6 +52,9 @@ type CaptureDraftStore interface {
 	// oldest first; a zero since returns every draft.
 	ListDrafts(ctx context.Context, status domain.CaptureDraftStatus, since time.Time) ([]domain.CaptureDraft, error)
 	GetDrafts(ctx context.Context, ids []string) ([]domain.CaptureDraft, error)
+	// EditDraft saves the user's edit of a pending draft; ErrConflict once
+	// the draft is decided, ErrNotFound when it does not exist.
+	EditDraft(ctx context.Context, id string, edit domain.CaptureDraftEdit) error
 	// DecideDrafts applies decisions to pending drafts only, then drops
 	// materials no pending draft needs.
 	DecideDrafts(ctx context.Context, decisions []domain.CaptureDraftDecision, now time.Time) error

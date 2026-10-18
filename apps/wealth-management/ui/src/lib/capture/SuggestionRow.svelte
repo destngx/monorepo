@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { api } from '$lib/api/endpoints';
   import type { Account, CaptureField, Category } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import { maskText } from '$lib/ai/moneyMask';
   import MaskedText from '$lib/components/MaskedText.svelte';
@@ -9,20 +12,36 @@
   import { formatDate } from '$lib/format';
   import TagPicker from '$lib/transactions/TagPicker.svelte';
   import type { InboxItem } from './materials';
-  import { confidenceLevel, type ReviewRow } from './review';
+  import { applyCategorySuggestion, confidenceLevel, fillCardTag, type ReviewRow } from './review';
 
-  // One suggested transaction: editable fields, evidence and write status.
+  // One suggested transaction: editable fields, evidence, write status and
+  // its own approve, reject and save actions.
   interface Props {
     row: ReviewRow;
     disabled: boolean;
     problems: string[];
     /** VND equivalent of a USD or USDT row, or null when not applicable. */
     usdPreview: number | null;
+    /** The account balance once this row and the selected rows above it are written; null when not projected. */
+    balanceAfter: number | null;
+    balanceCurrency: string;
     itemById: Map<string, InboxItem>;
     activeAccounts: Account[];
     categoryNames: string[];
     grouped: { type: Category['type']; items: Category[] }[];
     tags: string[];
+    /** Open card keywords per account: the tags saying which card paid. */
+    cardTags: Map<string, string[]>;
+    /** Verb of the write button: "Commit" or "Approve". */
+    verb: string;
+    /** True while an unanswered batch waits for its retry. */
+    actionsDisabled: boolean;
+    /** The row has edits not saved yet (drafts only). */
+    dirty: boolean;
+    saving: boolean;
+    onapprove: () => Promise<void>;
+    onreject?: () => Promise<void>;
+    onsave?: () => Promise<void>;
   }
 
   let {
@@ -30,11 +49,21 @@
     disabled,
     problems,
     usdPreview,
+    balanceAfter,
+    balanceCurrency,
     itemById,
     activeAccounts,
     categoryNames,
     grouped,
     tags,
+    cardTags,
+    verb,
+    actionsDisabled,
+    dirty,
+    saving,
+    onapprove,
+    onreject,
+    onsave,
   }: Props = $props();
 
   const suggestion = $derived(row.suggestion);
@@ -42,6 +71,58 @@
 
   const low = (field: CaptureField) => (suggestion.lowConfidence.includes(field) ? 'ring-2 ring-amber-400/70' : '');
   const confidenceTone = { high: 'good', medium: 'info', low: 'warning' } as const;
+
+  // A new payee gets a new category suggestion (WM-TX-5 rules: 3 chars,
+  // 1 s debounce): automatic unless the user picked the category by hand.
+  const SUGGEST_MIN_CHARS = 3;
+  const SUGGEST_DEBOUNCE_MS = 1000;
+  let suggestedFor = untrack(() => row.tx.payee.trim());
+  let suggesting = $state(false);
+  let suggestError = $state('');
+  let suggestController: AbortController | null = null;
+
+  async function suggest(payee: string, force: boolean) {
+    suggestController?.abort();
+    const controller = new AbortController();
+    suggestController = controller;
+    suggesting = true;
+    suggestError = '';
+    try {
+      const result = await api.suggestCategory(payee, controller.signal);
+      if (controller.signal.aborted || row.tx.payee.trim() !== payee) return;
+      suggestedFor = payee;
+      applyCategorySuggestion(row, result, categoryNames, { force });
+    } catch (failure) {
+      if (!controller.signal.aborted) {
+        suggestError = failure instanceof Error ? failure.message : 'unknown error';
+      }
+    } finally {
+      if (suggestController === controller) suggesting = false;
+    }
+  }
+
+  // The account's open cards; the engine's options are for the account it matched.
+  const accountCardTags = $derived(
+    cardTags.get(row.tx.accountName) ??
+      (row.tx.accountName === suggestion.transaction.accountName ? (suggestion.tagOptions ?? []) : []),
+  );
+
+  const canSuggest = $derived(!disabled && !suggestion.transferGroup);
+
+  function suggestNow() {
+    const payee = row.tx.payee.trim();
+    if ([...payee].length >= SUGGEST_MIN_CHARS) void suggest(payee, true);
+  }
+
+  $effect(() => {
+    const payee = row.tx.payee.trim();
+    if (!canSuggest || row.categorySource === 'manual' || payee === suggestedFor) return;
+    if ([...payee].length < SUGGEST_MIN_CHARS) return;
+    const timer = setTimeout(() => void suggest(payee, false), SUGGEST_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  });
+
+  $effect(() => () => suggestController?.abort());
 
   function setAmount(side: 'payment' | 'deposit', value: string) {
     const parsed = Number(value);
@@ -65,7 +146,13 @@
         </p>{/if}
     </td>
     <td class="px-2 pt-2">
-      <select class="field w-48 {low('account')}" bind:value={row.tx.accountName} {disabled}>
+      <select
+        class="field w-48 {low('account')}"
+        aria-label="Account"
+        bind:value={row.tx.accountName}
+        onchange={() => fillCardTag(row.tx, cardTags.get(row.tx.accountName) ?? [])}
+        {disabled}
+      >
         <option value="">Pick an account…</option>
         {#if suggestion.accountCandidates?.length}
           <optgroup label="Likely">
@@ -81,10 +168,16 @@
         </p>{/if}
     </td>
     <td class="px-2 pt-2">
-      <input class="field w-48" bind:value={row.tx.payee} {disabled} />
+      <input class="field w-48" aria-label="Payee" bind:value={row.tx.payee} {disabled} />
     </td>
     <td class="px-2 pt-2">
-      <select class="field w-44 {low('category')}" bind:value={row.tx.category} {disabled}>
+      <select
+        class="field w-44 {low('category')}"
+        aria-label="Category"
+        bind:value={row.tx.category}
+        onchange={() => (row.categorySource = 'manual')}
+        {disabled}
+      >
         {#if !categoryNames.includes(row.tx.category)}<option value={row.tx.category}
             >{row.tx.category || 'Pick…'}</option
           >{/if}
@@ -94,7 +187,24 @@
           </optgroup>
         {/each}
       </select>
-      {#if suggestion.categorySource}<p class="muted mt-0.5 text-xs">from {suggestion.categorySource}</p>{/if}
+      <p class="muted mt-0.5 flex items-center gap-1.5 text-xs" aria-live="polite">
+        {#if suggesting}
+          Suggesting…
+        {:else if row.categorySource}
+          {row.categorySource === 'manual' ? 'picked by you' : `from ${row.categorySource}`}
+        {/if}
+        {#if canSuggest && !suggesting}
+          <button
+            type="button"
+            class="link inline-flex items-center gap-0.5"
+            title="Suggest a category for this payee"
+            onclick={suggestNow}><Icon name="sparkles" size={12} /> Suggest</button
+          >
+        {/if}
+      </p>
+      {#if suggestError}<p class="mt-0.5 text-xs text-rose-600 dark:text-rose-400">
+          Suggestion failed: {suggestError}
+        </p>{/if}
     </td>
     <td class="px-2 pt-2 text-right">
       <input
@@ -125,6 +235,9 @@
       {#if suggestion.currency !== 'VND'}<p class="muted mt-0.5 text-xs">
           read as {suggestion.currency}
         </p>{/if}
+      {#if balanceAfter !== null}<p class="muted mt-0.5 text-xs" title="{row.tx.accountName} balance after this row">
+          Balance after: <Money value={balanceAfter} currency={balanceCurrency} />
+        </p>{/if}
     </td>
     <td class="px-3 pt-3">
       <Badge status={confidenceTone[level]}>{Math.round(suggestion.confidence * 100)}%</Badge>
@@ -139,12 +252,12 @@
             <p class="text-xs">{row.tx.tags.join(', ') || 'No tags'}</p>
           {:else}
             <TagPicker
-              options={[...new Set([...(suggestion.tagOptions ?? []), ...tags])]}
+              options={[...new Set([...accountCardTags, ...(suggestion.tagOptions ?? []), ...tags])]}
               bind:selected={row.tx.tags}
             />
           {/if}
-          {#if suggestion.tagOptions?.length}<p class="muted mt-0.5 text-xs">
-              Card tags: {suggestion.tagOptions.join(', ')}
+          {#if accountCardTags.length}<p class="muted mt-0.5 text-xs">
+              Card tags: {accountCardTags.join(', ')}
             </p>{/if}
         </div>
         <input class="field" placeholder="Memo" aria-label="Memo" bind:value={row.tx.memo} {disabled} />
@@ -202,8 +315,34 @@
         <p class="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
           <Icon name="check" size={14} /> Written as {row.createdId}
         </p>
-      {:else if row.error}
-        <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">Not written: {row.error}</p>
+      {:else}
+        {#if row.error}
+          <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">Not written: {row.error}</p>
+        {/if}
+        <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
+          {#if dirty}<span class="muted text-xs">Unsaved changes</span>{/if}
+          {#if onsave}
+            <Button
+              size="sm"
+              busy={saving}
+              busyText="Saving…"
+              disabled={(disabled && !saving) || actionsDisabled || !dirty}
+              title={dirty ? 'Keep these edits without approving' : 'No changes to save'}
+              onclick={onsave}>Save</Button
+            >
+          {/if}
+          {#if onreject}
+            <Button size="sm" icon="x" disabled={disabled || actionsDisabled} onclick={onreject}>Reject</Button>
+          {/if}
+          <Button
+            size="sm"
+            variant="primary"
+            icon="check"
+            busyText="Writing…"
+            disabled={disabled || actionsDisabled}
+            onclick={onapprove}>{verb}</Button
+          >
+        </div>
       {/if}
     </td>
   </tr>

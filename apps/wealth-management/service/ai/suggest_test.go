@@ -18,6 +18,13 @@ func TestSuggestCategory(t *testing.T) {
 		t.Fatalf("history should win without a model call: %+v %v %d", suggestion, err, len(client.requests))
 	}
 
+	db := fixtureDatabase()
+	db.CaptureRules = []domain.CaptureRule{{Kind: domain.CaptureRulePayee, Pattern: "Highlands  Coffee", Value: "food"}}
+	suggestion, err = newTestService(t, db, client, nil).SuggestCategory(ctx, "highlands coffee", "")
+	if err != nil || suggestion != (port.CategorySuggestion{Category: "Food", Source: "rule"}) || len(client.requests) != 0 {
+		t.Fatalf("a confirmed payee rule should outrank history: %+v %v", suggestion, err)
+	}
+
 	client = &scriptedClient{replies: []reply{{content: "transport."}}}
 	suggestion, err = newTestService(t, fixtureDatabase(), client, nil).SuggestCategory(ctx, "Be Taxi", "")
 	if err != nil || suggestion != (port.CategorySuggestion{Category: "Transport", Source: "ai"}) {

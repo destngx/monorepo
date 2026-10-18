@@ -3,11 +3,12 @@ import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defer, settled, type Settled, type Streamed } from '$lib/api/load';
 import type { Account, AIStatus, CaptureDraft, Category, QuickCaptureOverview } from '$lib/api/types';
-import { MASK } from '$lib/format';
+import { formatMoney, MASK } from '$lib/format';
 import { mask } from '$lib/state/mask.svelte';
 
-// Every engine call stays pending unless a test settles it.
+// Every engine call stays pending unless a test gives it an answer.
 const calls = vi.hoisted(() => [] as { name: string; args: unknown[] }[]);
+const answers = vi.hoisted((): Record<string, (...args: unknown[]) => unknown> => ({}));
 vi.mock('$lib/api/endpoints', () => ({
   api: new Proxy(
     {},
@@ -16,7 +17,8 @@ vi.mock('$lib/api/endpoints', () => ({
         (_, name) =>
         (...args: unknown[]) => {
           calls.push({ name: String(name), args });
-          return new Promise(() => undefined);
+          const answer = answers[String(name)];
+          return answer ? Promise.resolve(answer(...args)) : new Promise(() => undefined);
         },
     },
   ),
@@ -64,9 +66,20 @@ const draft: CaptureDraft = {
 };
 const review = {
   drafts: { drafts: [draft], materials: [], balances: [] },
-  accounts: [{ name: 'Everyday', type: 'bank', currency: 'VND' } as Account],
-  categories: [{ name: 'Food', type: 'expense' }] as Category[],
+  accounts: [
+    { name: 'Everyday', type: 'bank', currency: 'VND', balance: 1_000_000 },
+    { name: 'Card Acme', type: 'negative-active', currency: 'VND', balance: -2_000_000 },
+    { name: 'Card Duo', type: 'negative-active', currency: 'VND', balance: 0 },
+  ] as Account[],
+  categories: [
+    { name: 'Food', type: 'expense' },
+    { name: 'Transport', type: 'expense' },
+  ] as Category[],
   tags: [],
+  cardTags: new Map([
+    ['Card Acme', ['Platinum Online']],
+    ['Card Duo', ['Gold', 'Silver']],
+  ]),
 };
 const overview: QuickCaptureOverview = {
   pendingDrafts: 1,
@@ -87,6 +100,8 @@ describe('Drafts page', () => {
   afterEach(() => {
     mask.hide();
     calls.length = 0;
+    for (const name of Object.keys(answers)) delete answers[name];
+    vi.useRealTimers();
   });
 
   it('Given nothing has answered When the page renders Then the header and upload show with a skeleton per section', () => {
@@ -145,5 +160,129 @@ describe('Drafts page', () => {
     mask.toggle();
     await flush();
     expect(document.body.textContent).toContain('240.000đ');
+  });
+
+  it('Given a draft When its payee changes Then the category is suggested again for the new payee', async () => {
+    vi.useFakeTimers();
+    answers.suggestCategory = () => ({ category: 'Transport', source: 'ai' });
+    render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
+    await flush();
+
+    await fireEvent.input(screen.getByLabelText('Payee'), { target: { value: 'Grab Bike' } });
+    await vi.advanceTimersByTimeAsync(1000);
+    await flush();
+
+    expect(calls.filter((call) => call.name === 'suggestCategory').map((call) => call.args[0])).toEqual(['Grab Bike']);
+    expect(screen.getByLabelText<HTMLSelectElement>('Category').value).toBe('Transport');
+    expect(screen.getByText('from ai')).toBeTruthy();
+  });
+
+  it('Given a category picked by hand When the payee changes Then it is kept', async () => {
+    vi.useFakeTimers();
+    answers.suggestCategory = () => ({ category: 'Food', source: 'ai' });
+    render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
+    await flush();
+
+    await fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Transport' } });
+    await fireEvent.input(screen.getByLabelText('Payee'), { target: { value: 'Grab Bike' } });
+    await vi.advanceTimersByTimeAsync(1000);
+    await flush();
+
+    expect(calls.some((call) => call.name === 'suggestCategory')).toBe(false);
+    expect(screen.getByLabelText<HTMLSelectElement>('Category').value).toBe('Transport');
+    expect(screen.getByText('picked by you')).toBeTruthy();
+  });
+
+  it('Given an edited draft When Save is clicked Then the edit is stored without approving', async () => {
+    answers.editDraft = () => undefined;
+    render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
+    await flush();
+
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.hasAttribute('disabled')).toBe(true);
+    await fireEvent.input(screen.getByLabelText('Payee'), { target: { value: 'Noodle House' } });
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+    await fireEvent.click(save);
+    await flush();
+
+    const edit = calls.find((call) => call.name === 'editDraft');
+    expect(edit?.args[0]).toBe('drf_1');
+    expect(edit?.args[1]).toMatchObject({ transaction: { payee: 'Noodle House', category: 'Food' } });
+    expect(calls.some((call) => call.name === 'approveDrafts')).toBe(false);
+    expect(screen.queryByText('Unsaved changes')).toBeNull();
+    expect(save.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Given two drafts When the later one is approved alone Then only that draft is sent', async () => {
+    const second: CaptureDraft = {
+      ...draft,
+      id: 'drf_2',
+      createdAt: '2026-10-15T09:00:00Z',
+      suggestion: {
+        ...draft.suggestion,
+        occurredAt: '2026-10-16 19:30',
+        transaction: { ...draft.suggestion.transaction, payee: 'Tea Shop' },
+      },
+    };
+    render(DraftsPage, {
+      data: {
+        ...pending(),
+        review: settled({ ...review, drafts: { ...review.drafts, drafts: [draft, second] } }),
+      } as never,
+    });
+    await flush();
+
+    const [, approveSecond] = screen.getAllByRole('button', { name: 'Approve' });
+    await fireEvent.click(approveSecond);
+    await flush();
+    const approval = calls.find((call) => call.name === 'approveDrafts');
+    expect((approval?.args[1] as { id: string }[]).map((row) => row.id)).toEqual(['drf_2']);
+  });
+
+  it('Given a draft When its own Reject is clicked Then only it is rejected', async () => {
+    answers.rejectDrafts = () => undefined;
+    render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    await flush();
+
+    expect(calls.find((call) => call.name === 'rejectDrafts')?.args[0]).toEqual(['drf_1']);
+    expect(screen.queryByLabelText('Payee')).toBeNull();
+  });
+
+  it('Given selected drafts When the page renders Then each account shows its balance after approve', async () => {
+    mask.toggle();
+    render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
+    await flush();
+
+    expect(screen.getByText('Balances after approve')).toBeTruthy();
+    const after = formatMoney(915_000, 'VND');
+    expect(screen.getAllByText(after).length).toBe(2);
+    expect(screen.getByText(/Balance after:/).textContent).toContain(after);
+
+    await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Noodle Bar' }));
+    expect(screen.queryByText('Balances after approve')).toBeNull();
+  });
+
+  it('Given card spending When no card tag is picked Then approve is refused, and an account with one card fills it', async () => {
+    render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
+    await flush();
+
+    await fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'Card Duo' } });
+    await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await flush();
+    expect(screen.getByText('Pick the card tag: Gold or Silver.')).toBeTruthy();
+    expect(calls.some((call) => call.name === 'approveDrafts')).toBe(false);
+
+    await fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'Card Acme' } });
+    await flush();
+    expect(screen.queryByText(/Pick the card tag/)).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await flush();
+    const approval = calls.find((call) => call.name === 'approveDrafts');
+    expect((approval?.args[1] as { transaction: { tags: string[] } }[])[0].transaction.tags).toEqual([
+      'Platinum Online',
+    ]);
   });
 });

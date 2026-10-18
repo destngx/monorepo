@@ -1,4 +1,14 @@
-import type { CaptureBalance, CaptureResult, CaptureRule, CaptureSuggestion, TransactionInput } from '$lib/api/types';
+import type {
+  Account,
+  CardBankReport,
+  CaptureBalance,
+  CaptureCategorySource,
+  CaptureResult,
+  CaptureRule,
+  CaptureSuggestion,
+  CategorySuggestion,
+  TransactionInput,
+} from '$lib/api/types';
 
 // Review screen state (WM-CAP-8): suggestions become editable rows; rows are
 // committed through the batch create path and corrections become rules.
@@ -7,6 +17,10 @@ export interface ReviewRow {
   suggestion: CaptureSuggestion;
   selected: boolean;
   tx: TransactionInput;
+  /** Where the category now comes from: the engine, a re-suggestion after a payee edit, or the user. */
+  categorySource?: CaptureCategorySource;
+  /** rowKey of the row as last saved; drafts only, to tell unsaved edits apart. */
+  savedKey?: string;
   /** Set once the row is in the sheet; committed rows are locked. */
   createdId?: string;
   error?: string;
@@ -22,14 +36,45 @@ export function toReviewRows(result: CaptureResult): ReviewRow[] {
   return result.suggestions.map((suggestion) => ({
     suggestion,
     selected: suggestion.selected,
-    tx: {
-      ...suggestion.transaction,
-      date: sheetDateToISO(suggestion.transaction.date),
-      tags: [...(suggestion.transaction.tags ?? [])],
-      memo: suggestion.transaction.memo ?? '',
-      referenceNumber: suggestion.transaction.referenceNumber ?? '',
-    },
+    tx: editableInput(suggestion.transaction),
+    categorySource: suggestion.categorySource,
   }));
+}
+
+/** A row as the form edits it: ISO date, own tags, empty strings for missing text. */
+export function editableInput(tx: TransactionInput): TransactionInput {
+  return {
+    ...tx,
+    date: sheetDateToISO(tx.date),
+    tags: [...(tx.tags ?? [])],
+    memo: tx.memo ?? '',
+    referenceNumber: tx.referenceNumber ?? '',
+  };
+}
+
+/** Identity of a row's content as saved, so stray spaces are not an edit. */
+export const rowKey = (row: ReviewRow) =>
+  JSON.stringify({ tx: cleanInput(row.tx), categorySource: row.categorySource ?? '' });
+
+/** True when a saved draft row has edits not saved yet. */
+export const isRowDirty = (row: ReviewRow) => row.savedKey !== undefined && rowKey(row) !== row.savedKey;
+
+/**
+ * Applies a category suggested for the row's payee. A category the user
+ * picked by hand is kept unless forced; transfers keep theirs; only known
+ * categories apply.
+ */
+export function applyCategorySuggestion(
+  row: ReviewRow,
+  suggestion: CategorySuggestion,
+  categories: string[],
+  { force = false } = {},
+): boolean {
+  if (row.suggestion.transferGroup || (row.categorySource === 'manual' && !force)) return false;
+  if (!categories.includes(suggestion.category)) return false;
+  row.tx.category = suggestion.category;
+  row.categorySource = suggestion.source;
+  return true;
 }
 
 /** Signed effect of a row on its account balance. */
@@ -55,12 +100,96 @@ export function reconcile(balances: CaptureBalance[], rows: ReviewRow[]): Reconc
   });
 }
 
+export interface BalanceProjection {
+  account: string;
+  currency: string;
+  /** Selected rows not yet written on the account. */
+  rows: number;
+  /** The account's sheet balance now. */
+  current: number;
+  change: number;
+  /** The sheet balance once those rows are written. */
+  after: number;
+}
+
+/**
+ * Each account's sheet balance before and after the selected rows not yet
+ * written, in the account's currency. Written rows are already in the
+ * reloaded balance; rows on unknown accounts cannot be projected.
+ */
+export function projectBalances(accounts: Account[], rows: ReviewRow[]): BalanceProjection[] {
+  return accounts.flatMap((account) => {
+    const pending = rows.filter((row) => row.selected && !row.createdId && row.tx.accountName === account.name);
+    if (!pending.length) return [];
+    const change = round(pending.reduce((sum, row) => sum + rowDelta(row.tx), 0));
+    return [
+      {
+        account: account.name,
+        currency: account.currency,
+        rows: pending.length,
+        current: account.balance,
+        change,
+        after: round(account.balance + change),
+      },
+    ];
+  });
+}
+
+/**
+ * The balance each selected row leaves on its account, in list order (a
+ * draft list is oldest first, so it reads like a statement); null for rows
+ * not selected, already written or on an unknown account.
+ */
+export function runningBalances(accounts: Account[], rows: ReviewRow[]): (number | null)[] {
+  const balances = new Map(accounts.map((account) => [account.name, account.balance]));
+  return rows.map((row) => {
+    const balance = balances.get(row.tx.accountName);
+    if (!row.selected || row.createdId || balance === undefined) return null;
+    const after = round(balance + rowDelta(row.tx));
+    balances.set(row.tx.accountName, after);
+    return after;
+  });
+}
+
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** Problems that would make the engine reject the row, shown before commit. */
-export function rowProblems(tx: TransactionInput, accounts: string[], categories: string[]): string[] {
+/** Each account's open card keywords: the tags that say which card paid (WM-CAP-5). */
+export function cardTagOptions(reports: CardBankReport[]): Map<string, string[]> {
+  const options = new Map<string, string[]>();
+  for (const card of reports.flatMap((bank) => bank.cards)) {
+    if (card.closedFrom || !card.keyword) continue;
+    const list = options.get(card.accountName) ?? [];
+    if (!list.includes(card.keyword)) options.set(card.accountName, [...list, card.keyword]);
+  }
+  return options;
+}
+
+const hasCardTag = (tx: TransactionInput, cardTags: string[]) =>
+  tx.tags.some((tag) => cardTags.some((option) => option.toLowerCase() === tag.trim().toLowerCase()));
+
+/** The card tags a row must pick from: spending on a card account, not transfers or repayments. */
+export function requiredCardTags(row: ReviewRow, cardTags: Map<string, string[]>): string[] {
+  if (row.suggestion.transferGroup || !((row.tx.payment ?? 0) > 0)) return [];
+  return cardTags.get(row.tx.accountName) ?? [];
+}
+
+/** Adds the card tag when the account has one open card and the row names none. */
+export function fillCardTag(tx: TransactionInput, cardTags: string[]): void {
+  if (cardTags.length === 1 && !hasCardTag(tx, cardTags)) tx.tags = [...tx.tags, cardTags[0]];
+}
+
+/**
+ * Problems that would make the engine reject the row, shown before commit;
+ * a row on a card account must also say which card paid.
+ */
+export function rowProblems(
+  tx: TransactionInput,
+  accounts: string[],
+  categories: string[],
+  cardTags: string[] = [],
+): string[] {
   const problems: string[] = [];
   if (!tx.accountName) problems.push('Pick an account.');
   else if (!accounts.includes(tx.accountName)) problems.push(`Unknown account "${tx.accountName}".`);
@@ -71,6 +200,7 @@ export function rowProblems(tx: TransactionInput, accounts: string[], categories
   const deposit = tx.deposit ?? 0;
   if (payment > 0 === deposit > 0) problems.push('Enter either a payment or a deposit.');
   if (payment < 0 || deposit < 0) problems.push('Amounts must be positive.');
+  if (cardTags.length && !hasCardTag(tx, cardTags)) problems.push(`Pick the card tag: ${cardTags.join(' or ')}.`);
   return problems;
 }
 
@@ -92,9 +222,10 @@ export function cleanInput(tx: TransactionInput): TransactionInput {
   };
 }
 
-/** Rows to send now: selected and not yet committed, with their indices. */
-export function commitBatch(rows: ReviewRow[]): { indices: number[]; inputs: TransactionInput[] } {
-  const indices = rows.flatMap((row, index) => (row.selected && !row.createdId ? [index] : []));
+/** Rows to send now, with their indices: the selected ones, or only those given; never rows already committed. */
+export function commitBatch(rows: ReviewRow[], only?: number[]): { indices: number[]; inputs: TransactionInput[] } {
+  const chosen = (row: ReviewRow, index: number) => (only ? only.includes(index) : row.selected);
+  const indices = rows.flatMap((row, index) => (chosen(row, index) && !row.createdId ? [index] : []));
   return { indices, inputs: indices.map((index) => cleanInput(rows[index].tx)) };
 }
 
@@ -110,7 +241,7 @@ const fold = (value: string) =>
 /**
  * Rules learned from committed rows (WM-CAP-11): an account hint the engine
  * did not resolve through an alias, and a payee whose category the user
- * chose or the model guessed. Transfers and uncategorised rows teach nothing.
+ * chose or the model guessed, also after a payee edit. Transfers and uncategorised rows teach nothing.
  */
 export function learnedRules(rows: ReviewRow[]): CaptureRule[] {
   const rules = new Map<string, CaptureRule>();
@@ -118,7 +249,7 @@ export function learnedRules(rows: ReviewRow[]): CaptureRule[] {
     const pattern = rule.pattern.trim();
     if (pattern && rule.value) rules.set(`${rule.kind}:${fold(pattern)}`, { ...rule, pattern });
   };
-  for (const { suggestion, tx, createdId } of rows) {
+  for (const { suggestion, tx, createdId, categorySource } of rows) {
     if (!createdId) continue;
     const hint = suggestion.accountHint?.trim() ?? '';
     if (hint && suggestion.accountSource !== 'alias' && fold(hint) !== fold(tx.accountName)) {
@@ -126,7 +257,7 @@ export function learnedRules(rows: ReviewRow[]): CaptureRule[] {
     }
     if (suggestion.transferGroup || tx.category === 'Uncategorized') continue;
     const isCorrected = tx.category !== suggestion.transaction.category;
-    const isGuessed = suggestion.categorySource === 'ai' || suggestion.categorySource === 'default';
+    const isGuessed = categorySource === 'ai' || categorySource === 'default';
     if (isCorrected || isGuessed) add({ kind: 'payee', pattern: tx.payee, value: tx.category });
   }
   return [...rules.values()];

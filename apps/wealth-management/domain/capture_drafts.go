@@ -128,6 +128,9 @@ type CaptureDraft struct {
 	DecidedAt  *time.Time         `json:"decidedAt,omitempty"`
 	CaptureIDs []string           `json:"captureIds"`
 	Suggestion CaptureSuggestion  `json:"suggestion"`
+	// Edit is the row as the user last saved it, nil until then. It is kept
+	// apart from the suggestion so corrections still teach rules (WM-CAP-11).
+	Edit *CaptureDraftEdit `json:"edit,omitempty"`
 	// TransactionID is the sheet row of an approved draft.
 	TransactionID string `json:"transactionId,omitempty"`
 	// BatchID is the approval batch that wrote it, so a retry of that batch
@@ -360,6 +363,22 @@ func (approval CaptureDraftApproval) Validate() error {
 		seen[id] = true
 	}
 	return validationError(problems)
+}
+
+// CaptureDraftEdit is a pending draft's row saved without approving it
+// (WM-CAP-19), with where its category came from. The row may be
+// incomplete: it is checked only when approved.
+type CaptureDraftEdit struct {
+	Transaction    TransactionCreateInput `json:"transaction"`
+	CategorySource string                 `json:"categorySource,omitempty"`
+}
+
+func (edit CaptureDraftEdit) Validate() error {
+	switch edit.CategorySource {
+	case "", CategorySourceRule, CategorySourceHistory, CategorySourceAI, CategorySourceTransfer, CategorySourceDefault, CategorySourceManual:
+		return nil
+	}
+	return validationError([]string{fmt.Sprintf("categorySource %q is not a known source", edit.CategorySource)})
 }
 
 // CaptureDraftDecision moves a pending draft to approved or rejected.

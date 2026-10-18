@@ -37,6 +37,14 @@ const renderRow = (value: CaptureSuggestion) =>
     categoryNames: [],
     grouped: [],
     tags: [],
+    balanceAfter: null,
+    balanceCurrency: 'VND',
+    cardTags: new Map(),
+    verb: 'Approve',
+    actionsDisabled: false,
+    dirty: false,
+    saving: false,
+    onapprove: () => Promise.resolve(),
   });
 
 describe('SuggestionRow', () => {

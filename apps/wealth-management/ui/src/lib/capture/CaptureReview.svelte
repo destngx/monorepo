@@ -7,12 +7,26 @@
   import Card from '$lib/components/Card.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import type { InboxItem } from './materials';
-  import { commitBatch, learnedRules, reconcile, rowProblems, ruleKey, type ReviewRow } from './review';
+  import {
+    commitBatch,
+    isRowDirty,
+    learnedRules,
+    projectBalances,
+    requiredCardTags,
+    reconcile,
+    rowKey,
+    rowProblems,
+    ruleKey,
+    runningBalances,
+    type ReviewRow,
+  } from './review';
+  import BalancePreview from './BalancePreview.svelte';
   import ReconciliationCard from './ReconciliationCard.svelte';
   import RulesCard from './RulesCard.svelte';
   import SuggestionRow from './SuggestionRow.svelte';
 
-  // Review and commit (WM-CAP-7/8/9/11). Nothing is written until Commit.
+  // Review and commit (WM-CAP-7/8/9/11). Nothing is written until Commit,
+  // for the selection or one row at a time.
   interface Props {
     rows: ReviewRow[];
     result: CaptureResult;
@@ -20,12 +34,16 @@
     accounts: Account[];
     categories: Category[];
     tags: string[];
+    /** Open card keywords per account (cardTagOptions): spending on a card account must pick one. */
+    cardTags: Map<string, string[]>;
     /** VND per USD for previewing USD and USDT rows; the sheet does the real conversion. */
     usdRate?: number | null;
     /** Writes the rows; the batch create path by default. Quick capture approves drafts instead. */
     write?: (batchId: string, rows: ReviewRow[], inputs: TransactionInput[]) => Promise<TransactionBatchResult>;
     /** Discards the selected rows; offered only when set (quick capture drafts). */
     reject?: (rows: ReviewRow[]) => Promise<void>;
+    /** Saves one row's edits without writing it; offered only when set (quick capture drafts). */
+    save?: (row: ReviewRow) => Promise<void>;
     /** Button verb: "Commit" or "Approve". */
     verb?: string;
     emptyText?: string;
@@ -38,9 +56,11 @@
     accounts,
     categories,
     tags,
+    cardTags,
     usdRate = null,
     write = (batchId, _rows, inputs) => api.createTransactions(batchId, inputs),
     reject,
+    save,
     verb = 'Commit',
     emptyText = 'No transactions were found in these materials.',
   }: Props = $props();
@@ -58,47 +78,71 @@
   );
 
   const reconciliation = $derived(reconcile(result.balances, rows));
+  const projections = $derived(projectBalances(accounts, rows));
+  const balancesAfter = $derived(runningBalances(accounts, rows));
+  // Rows the user tried to write alone show their problems even when not selected.
+  let attempted = $state<string[]>([]);
   const problems = $derived(
-    rows.map((row) => (row.selected && !row.createdId ? rowProblems(row.tx, accountNames, categoryNames) : [])),
+    rows.map((row) =>
+      (row.selected || attempted.includes(row.suggestion.id)) && !row.createdId
+        ? rowProblems(row.tx, accountNames, categoryNames, requiredCardTags(row, cardTags))
+        : [],
+    ),
   );
   const selectable = $derived(rows.filter((row) => !row.createdId));
   const selectedCount = $derived(selectable.filter((row) => row.selected).length);
   const committedCount = $derived(rows.filter((row) => row.createdId).length);
 
   // A commit whose response never arrived is retried with the same batch id,
-  // so the engine replays instead of writing twice (WM-TX-10).
-  let pending = $state<{ batchId: string; indices: number[]; inputs: TransactionInput[] } | null>(null);
+  // so the engine replays instead of writing twice (WM-TX-10). It names its
+  // rows by id, so a reload may reorder the list meanwhile.
+  let pending = $state<{ batchId: string; ids: string[]; rows: ReviewRow[]; inputs: TransactionInput[] } | null>(null);
   let committing = $state(false);
+  // A one-row write shows busy on that row's button, not on the bulk one.
+  let committingRow = $state(false);
   let rejecting = $state(false);
+  let saving = $state<string[]>([]);
   const busy = $derived(committing || rejecting);
-  const pendingIndices = $derived(new Set(pending?.indices ?? []));
-  const locked = (index: number) => Boolean(rows[index].createdId) || pendingIndices.has(index) || busy;
+  const pendingIds = $derived(new Set(pending?.ids ?? []));
+  const locked = (row: ReviewRow) =>
+    Boolean(row.createdId) || pendingIds.has(row.suggestion.id) || busy || saving.includes(row.suggestion.id);
 
   function selectAll(selected: boolean) {
     for (const row of rows) if (!row.createdId) row.selected = selected;
   }
 
-  async function commit() {
+  /** Writes the selection, or only the rows given; an unanswered batch is retried first. */
+  async function commit(only?: number[]) {
     let batch = pending;
     if (!batch) {
-      if (problems.some((list) => list.length)) {
+      if (only) attempted = [...new Set([...attempted, ...only.map((index) => rows[index].suggestion.id)])];
+      const checked = only ?? rows.flatMap((row, index) => (row.selected ? [index] : []));
+      if (
+        checked.some(
+          (index) =>
+            !rows[index].createdId &&
+            rowProblems(rows[index].tx, accountNames, categoryNames, requiredCardTags(rows[index], cardTags)).length,
+        )
+      ) {
         toasts.push('warning', `Fix the highlighted rows before you ${verb.toLowerCase()}.`);
         return;
       }
-      batch = { batchId: crypto.randomUUID(), ...commitBatch(rows) };
-      if (!batch.inputs.length) return;
+      const { indices, inputs } = commitBatch(rows, only);
+      if (!inputs.length) return;
+      const chosen = indices.map((index) => $state.snapshot(rows[index]));
+      batch = { batchId: crypto.randomUUID(), ids: chosen.map((row) => row.suggestion.id), rows: chosen, inputs };
     }
     pending = batch;
     committing = true;
+    committingRow = Boolean(only);
     try {
-      const outcome = await write(
-        batch.batchId,
-        batch.indices.map((index) => rows[index]),
-        batch.inputs,
-      );
+      const outcome = await write(batch.batchId, batch.rows, batch.inputs);
       pending = null;
       for (const line of outcome.rows) {
-        const row = rows[batch.indices[line.index]];
+        // A reload may have dropped the row meanwhile: then the sheet already shows it.
+        const id = batch.ids[line.index];
+        const row = rows.find((other) => other.suggestion.id === id);
+        if (!row) continue;
         if (line.id) {
           row.createdId = line.id;
           row.error = undefined;
@@ -124,10 +168,8 @@
     }
   }
 
-  async function rejectSelected() {
-    if (!reject) return;
-    const chosen = rows.filter((row, index) => row.selected && !row.createdId && !pendingIndices.has(index));
-    if (!chosen.length) return;
+  async function rejectRows(chosen: ReviewRow[]) {
+    if (!reject || !chosen.length) return;
     rejecting = true;
     try {
       await reject(chosen);
@@ -138,6 +180,25 @@
       toasts.error(error, 'Reject failed');
     } finally {
       rejecting = false;
+    }
+  }
+
+  const rejectSelected = () =>
+    rejectRows(rows.filter((row) => row.selected && !row.createdId && !pendingIds.has(row.suggestion.id)));
+
+  async function saveRow(row: ReviewRow) {
+    if (!save) return;
+    const id = row.suggestion.id;
+    const key = rowKey(row);
+    saving = [...saving, id];
+    try {
+      await save(row);
+      row.savedKey = key;
+      toasts.push('success', 'Draft saved.');
+    } catch (error) {
+      toasts.error(error, 'Could not save the draft');
+    } finally {
+      saving = saving.filter((other) => other !== id);
     }
   }
 
@@ -187,6 +248,10 @@
   <ReconciliationCard {reconciliation} />
 {/if}
 
+{#if projections.length}
+  <BalancePreview {projections} {verb} />
+{/if}
+
 <Card
   title="Suggested transactions"
   subtitle="{rows.length} found · {selectedCount} selected{committedCount
@@ -216,14 +281,24 @@
         {#each rows as row, index (row.suggestion.id)}
           <SuggestionRow
             bind:row={rows[index]}
-            disabled={locked(index)}
+            disabled={locked(row)}
             problems={problems[index]}
             usdPreview={usdPreview(row)}
+            balanceAfter={balancesAfter[index]}
+            balanceCurrency={accountByName.get(row.tx.accountName)?.currency ?? 'VND'}
             {itemById}
             {activeAccounts}
             {categoryNames}
             {grouped}
             {tags}
+            {cardTags}
+            {verb}
+            actionsDisabled={Boolean(pending)}
+            dirty={isRowDirty(row)}
+            saving={saving.includes(row.suggestion.id)}
+            onapprove={() => commit([index])}
+            onreject={reject ? () => rejectRows([row]) : undefined}
+            onsave={save ? () => saveRow(row) : undefined}
           />
         {/each}
       </table>
@@ -252,10 +327,10 @@
     <Button
       variant="primary"
       icon="check"
-      busy={committing}
+      busy={committing && !committingRow}
       busyText="Writing…"
       disabled={rejecting || (!pending && selectedCount === 0)}
-      onclick={commit}
+      onclick={() => commit()}
     >
       {pending ? `Retry ${verb.toLowerCase()}` : `${verb} ${selectedCount} row${selectedCount === 1 ? '' : 's'}`}
     </Button>

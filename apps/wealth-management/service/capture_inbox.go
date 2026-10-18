@@ -203,6 +203,18 @@ func (s *CaptureInbox) Material(ctx context.Context, materialID string) (domain.
 	return s.store.Material(ctx, materialID)
 }
 
+// Edit saves a pending draft's row as the user left it (WM-CAP-19);
+// nothing reaches the sheet until the draft is approved.
+func (s *CaptureInbox) Edit(ctx context.Context, draftID string, edit domain.CaptureDraftEdit) error {
+	if strings.TrimSpace(draftID) == "" {
+		return fmt.Errorf("%w: draft id is required", domain.ErrValidation)
+	}
+	if err := edit.Validate(); err != nil {
+		return err
+	}
+	return s.store.EditDraft(ctx, draftID, edit)
+}
+
 // Approve writes the drafts through the batch create path (WM-TX-10) and
 // marks the written ones approved. Drafts already decided are refused, so
 // a draft is never written twice.

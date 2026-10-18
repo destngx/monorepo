@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS capture_drafts (
 	suggestion     TEXT NOT NULL,
 	transaction_id TEXT NOT NULL DEFAULT '',
 	batch_id       TEXT NOT NULL DEFAULT '',
-	approved       TEXT NOT NULL DEFAULT ''
+	approved       TEXT NOT NULL DEFAULT '',
+	edited         TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS capture_drafts_status ON capture_drafts (status, created_at);
 CREATE TABLE IF NOT EXISTS capture_draft_sources (
@@ -92,7 +93,23 @@ func Open(path string) (*Store, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, errors.Join(fmt.Errorf("create capture schema: %w", err), db.Close())
 	}
+	if err := addColumn(db, "capture_drafts", "edited", `TEXT NOT NULL DEFAULT ''`); err != nil {
+		return nil, errors.Join(fmt.Errorf("migrate capture schema: %w", err), db.Close())
+	}
 	return &Store{db: db, path: path}, nil
+}
+
+// addColumn adds a column a store created by an older version lacks.
+func addColumn(db *sql.DB, table, column, definition string) error {
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`, table, column).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	_, err := db.Exec(`ALTER TABLE ` + table + ` ADD COLUMN ` + column + ` ` + definition)
+	return err
 }
 
 func (s *Store) Path() string { return s.path }
@@ -314,7 +331,7 @@ func (s *Store) DeleteCapture(ctx context.Context, id string) error {
 	})
 }
 
-const draftColumns = `id, status, created_at, decided_at, suggestion, transaction_id, batch_id`
+const draftColumns = `id, status, created_at, decided_at, suggestion, transaction_id, batch_id, edited`
 
 func (s *Store) ListDrafts(ctx context.Context, status domain.CaptureDraftStatus, since time.Time) ([]domain.CaptureDraft, error) {
 	query := `SELECT ` + draftColumns + ` FROM capture_drafts WHERE created_at >= ?`
@@ -357,8 +374,8 @@ func queryDrafts(ctx context.Context, tx *sql.Tx, query string, args ...any) ([]
 	for rows.Next() {
 		var draft domain.CaptureDraft
 		var created, decided int64
-		var suggestion string
-		if err := rows.Scan(&draft.ID, &draft.Status, &created, &decided, &suggestion, &draft.TransactionID, &draft.BatchID); err != nil {
+		var suggestion, edited string
+		if err := rows.Scan(&draft.ID, &draft.Status, &created, &decided, &suggestion, &draft.TransactionID, &draft.BatchID, &edited); err != nil {
 			_ = rows.Close()
 			return nil, err
 		}
@@ -370,6 +387,13 @@ func queryDrafts(ctx context.Context, tx *sql.Tx, query string, args ...any) ([]
 		if err := json.Unmarshal([]byte(suggestion), &draft.Suggestion); err != nil {
 			_ = rows.Close()
 			return nil, fmt.Errorf("read draft %s: %w", draft.ID, err)
+		}
+		if edited != "" {
+			draft.Edit = &domain.CaptureDraftEdit{}
+			if err := json.Unmarshal([]byte(edited), draft.Edit); err != nil {
+				_ = rows.Close()
+				return nil, fmt.Errorf("read draft %s edit: %w", draft.ID, err)
+			}
 		}
 		drafts = append(drafts, draft)
 	}
@@ -396,6 +420,26 @@ func queryDrafts(ctx context.Context, tx *sql.Tx, query string, args ...any) ([]
 		}
 	}
 	return drafts, nil
+}
+
+func (s *Store) EditDraft(ctx context.Context, id string, edit domain.CaptureDraftEdit) error {
+	encoded, err := json.Marshal(edit)
+	if err != nil {
+		return err
+	}
+	return s.inTx(ctx, "edit draft", func(tx *sql.Tx) error {
+		var status domain.CaptureDraftStatus
+		switch err := tx.QueryRowContext(ctx, `SELECT status FROM capture_drafts WHERE id = ?`, id).Scan(&status); {
+		case errors.Is(err, sql.ErrNoRows):
+			return fmt.Errorf("%w: draft %s", domain.ErrNotFound, id)
+		case err != nil:
+			return err
+		case status != domain.CaptureDraftPending:
+			return fmt.Errorf("%w: draft %s was already %s", domain.ErrConflict, id, status)
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE capture_drafts SET edited = ? WHERE id = ?`, string(encoded), id)
+		return err
+	})
 }
 
 func (s *Store) DecideDrafts(ctx context.Context, decisions []domain.CaptureDraftDecision, now time.Time) error {

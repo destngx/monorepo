@@ -133,7 +133,7 @@ export interface BudgetAdvice {
 
 export interface CategorySuggestion {
   category: string;
-  source: 'history' | 'ai' | 'default';
+  source: 'rule' | 'history' | 'ai' | 'default';
 }
 
 export interface ChatMessage {

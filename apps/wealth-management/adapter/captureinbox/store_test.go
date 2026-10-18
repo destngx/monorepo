@@ -2,6 +2,7 @@ package captureinbox
 
 import (
 	"apps/wealth-management/domain"
+	"apps/wealth-management/internal/sqlitefile"
 	"context"
 	"errors"
 	"os"
@@ -256,5 +257,65 @@ func mustAdd(t *testing.T, store *Store, capture domain.QuickCapture, hash strin
 	t.Helper()
 	if _, _, err := store.AddCapture(context.Background(), capture, hash, image); err != nil {
 		t.Fatalf("add %s: %v", capture.ID, err)
+	}
+}
+
+func TestEditDraftKeepsTheSuggestionAndOnlyChangesPendingDrafts(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
+	mustAdd(t, store, queued("c1", now, ""), "h1", png)
+	if err := store.CompleteCapture(ctx, domain.QuickCapture{ID: "c1", Status: domain.QuickCaptureDone}, []domain.CaptureDraft{pendingDraft("d1", "c1", now), pendingDraft("d2", "c1", now)}, nil); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	edit := domain.CaptureDraftEdit{Transaction: domain.TransactionCreateInput{AccountName: "Sacombank", Payee: "Pho 24", Category: "Food"}, CategorySource: domain.CategorySourceManual}
+
+	if err := store.EditDraft(ctx, "d1", edit); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	drafts, err := store.GetDrafts(ctx, []string{"d1"})
+	if err != nil || drafts[0].Edit == nil || drafts[0].Edit.Transaction.Payee != "Pho 24" || drafts[0].Edit.CategorySource != domain.CategorySourceManual {
+		t.Fatalf("draft = %+v err=%v, want the edit saved", drafts, err)
+	}
+	if drafts[0].Suggestion.Transaction.Payee != "" {
+		t.Fatalf("suggestion = %+v, want what the engine read kept", drafts[0].Suggestion.Transaction)
+	}
+
+	if err := store.DecideDrafts(ctx, []domain.CaptureDraftDecision{{ID: "d2", Status: domain.CaptureDraftRejected}}, now); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	if err := store.EditDraft(ctx, "d2", edit); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("edit decided draft: err = %v, want conflict", err)
+	}
+	if err := store.EditDraft(ctx, "missing", edit); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("edit missing draft: err = %v, want not found", err)
+	}
+}
+
+func TestOpenAddsTheEditColumnToAnOlderStore(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "capture.db")
+	old, err := sqlitefile.Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if _, err := old.Exec(`CREATE TABLE capture_drafts (id TEXT PRIMARY KEY, status TEXT NOT NULL, created_at INTEGER NOT NULL, decided_at INTEGER NOT NULL DEFAULT 0, suggestion TEXT NOT NULL, transaction_id TEXT NOT NULL DEFAULT '', batch_id TEXT NOT NULL DEFAULT '', approved TEXT NOT NULL DEFAULT '');
+		INSERT INTO capture_drafts (id, status, created_at, suggestion) VALUES ('d1', 'pending', 1, '{"id":"d1"}')`); err != nil {
+		t.Fatalf("old schema: %v", err)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer store.Close()
+	if err := store.EditDraft(context.Background(), "d1", domain.CaptureDraftEdit{Transaction: domain.TransactionCreateInput{Payee: "Grab"}}); err != nil {
+		t.Fatalf("edit after migration: %v", err)
+	}
+	drafts, err := store.GetDrafts(context.Background(), []string{"d1"})
+	if err != nil || drafts[0].Edit == nil || drafts[0].Edit.Transaction.Payee != "Grab" {
+		t.Fatalf("draft = %+v err=%v, want the edit read back", drafts, err)
 	}
 }

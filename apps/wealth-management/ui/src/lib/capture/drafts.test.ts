@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CaptureDraft, CaptureDrafts, CaptureSuggestion, QuickCapture } from '$lib/api/types';
 import { captureStatus, draftItems, draftResult, mergeDraftRows, toDraftRows } from './drafts';
+import { isRowDirty } from './review';
 
 function suggestion(overrides: Partial<CaptureSuggestion> = {}): CaptureSuggestion {
   return {
@@ -33,18 +34,70 @@ function draft(id: string, createdAt: string, overrides: Partial<CaptureSuggesti
 const drafts = (list: CaptureDraft[]): CaptureDrafts => ({ drafts: list, materials: [], balances: [] });
 
 describe('draftResult', () => {
-  it('lists the newest drafts first, keyed by draft id', () => {
-    const result = draftResult(
-      drafts([draft('drf_old', '2026-10-15T09:00:00Z'), draft('drf_new', '2026-10-16T09:00:00Z')]),
-    );
+  it('keys each suggestion by its draft id', () => {
+    const result = draftResult(drafts([draft('drf_1', '2026-10-15T09:00:00Z')]));
 
-    expect(result.suggestions.map((s) => s.id)).toEqual(['drf_new', 'drf_old']);
+    expect(result.suggestions.map((s) => s.id)).toEqual(['drf_1']);
     expect(result.unreadable).toEqual([]);
   });
 });
 
+describe('toDraftRows order', () => {
+  const on = (date: string, occurredAt: string) => ({
+    occurredAt,
+    transaction: { ...suggestion().transaction, date },
+  });
+
+  it('lists the oldest transaction first, by date then time, whenever it was captured', () => {
+    const rows = toDraftRows(
+      drafts([
+        draft('drf_late', '2026-10-16T07:00:00Z', on('16/10/2026', '2026-10-16 18:00')),
+        draft('drf_old', '2026-10-17T07:00:00Z', on('14/10/2026', '2026-10-14')),
+        draft('drf_morning', '2026-10-15T07:00:00Z', on('16/10/2026', '2026-10-16 08:15')),
+      ]),
+    );
+
+    expect(rows.map((row) => row.suggestion.id)).toEqual(['drf_old', 'drf_morning', 'drf_late']);
+  });
+
+  it('orders by the date as saved', () => {
+    const moved: CaptureDraft = {
+      ...draft('drf_1', '2026-10-16T07:00:00Z', on('16/10/2026', '2026-10-16 08:15')),
+      edit: { transaction: { ...suggestion().transaction, date: '2026-10-01' } },
+    };
+    const rows = toDraftRows(drafts([draft('drf_2', '2026-10-16T07:00:00Z', on('10/10/2026', '2026-10-10')), moved]));
+
+    expect(rows.map((row) => row.suggestion.id)).toEqual(['drf_1', 'drf_2']);
+  });
+});
+
+describe('toDraftRows', () => {
+  it('shows a saved edit in place of what the engine read, as saved', () => {
+    const edited: CaptureDraft = {
+      ...draft('drf_1', '2026-10-16T09:00:00Z', { categorySource: 'history' }),
+      edit: {
+        transaction: { ...suggestion().transaction, date: '2026-10-17', payee: 'Grab', category: 'Transport' },
+        categorySource: 'ai',
+      },
+    };
+
+    const [row] = toDraftRows(drafts([edited]));
+
+    expect([row.tx.payee, row.tx.category, row.tx.date, row.categorySource]).toEqual([
+      'Grab',
+      'Transport',
+      '2026-10-17',
+      'ai',
+    ]);
+    expect(row.suggestion.transaction.payee).toBe('Pho 24');
+    expect(isRowDirty(row)).toBe(false);
+    row.tx.payee = 'Be';
+    expect(isRowDirty(row)).toBe(true);
+  });
+});
+
 describe('mergeDraftRows', () => {
-  it('keeps edits and positions of drafts still pending and appends new drafts', () => {
+  it('keeps edits of drafts still pending and places new drafts in date order', () => {
     const current = toDraftRows(drafts([draft('drf_1', '2026-10-16T09:00:00Z')]));
     current[0].tx.payee = 'Edited';
 
@@ -63,11 +116,26 @@ describe('mergeDraftRows', () => {
     const current = toDraftRows(
       drafts([draft('drf_1', '2026-10-16T09:00:00Z'), draft('drf_2', '2026-10-16T08:00:00Z')]),
     );
-    current[0].createdId = 'tx1';
+    current.find((row) => row.suggestion.id === 'drf_1')!.createdId = 'tx1';
 
     const merged = mergeDraftRows(current, []);
 
     expect(merged.map((row) => row.suggestion.id)).toEqual(['drf_1']);
+  });
+
+  it('keeps an approved row in its place among the reloaded rows', () => {
+    const at = (occurredAt: string) => ({ occurredAt });
+    const list = [
+      draft('drf_a', '2026-10-16T09:00:00Z', at('2026-10-16 08:00')),
+      draft('drf_b', '2026-10-16T09:00:00Z', at('2026-10-16 09:00')),
+      draft('drf_c', '2026-10-16T09:00:00Z', at('2026-10-16 10:00')),
+    ];
+    const current = toDraftRows(drafts(list));
+    current[1].createdId = 'tx1';
+
+    const merged = mergeDraftRows(current, toDraftRows(drafts([list[2], list[0]])));
+
+    expect(merged.map((row) => row.suggestion.id)).toEqual(['drf_a', 'drf_b', 'drf_c']);
   });
 });
 
