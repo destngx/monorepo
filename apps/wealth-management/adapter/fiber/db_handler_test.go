@@ -23,7 +23,7 @@ func newSheetsApp(t *testing.T, db *fakes.Database) *fiber.App {
 	t.Helper()
 	app := fiber.New()
 	api := NewRouteRegistrar(app, "/api", "")
-	RegisterSheetRoutes(api, NewDatabaseHandler(db, logger.NewTestLogger(t)), NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterSheetRoutes(api, NewDatabaseHandler(db, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 

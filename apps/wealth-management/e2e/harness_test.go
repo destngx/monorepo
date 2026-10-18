@@ -134,8 +134,8 @@ func loadSettings(ctx context.Context) (map[string]string, error) {
 
 // seedSettings writes the engine's settings for the run: the user's known
 // settings minus every Google one, so nothing can reach the real sheet, with
-// a cache namespace of its own (WM-TEST-4).
-func seedSettings(ctx context.Context, path string, settings map[string]string, runID string) error {
+// a cache namespace and a write token of its own (WM-TEST-4).
+func seedSettings(ctx context.Context, path string, settings map[string]string, runID string, apiToken string) error {
 	values := map[string]string{}
 	for key, value := range settings {
 		if _, known := domain.LookupSetting(key); known && !strings.HasPrefix(key, "GOOGLE_") {
@@ -144,6 +144,7 @@ func seedSettings(ctx context.Context, path string, settings map[string]string, 
 	}
 	values["CACHE_KEY_PREFIX"] = "wm-test:" + runID + ":"
 	values["LOG_LEVEL"] = "info"
+	values[domain.APITokenSettingKey] = apiToken
 
 	store, err := settingsAdapter.Open(path)
 	if err != nil {
@@ -168,11 +169,11 @@ func startEngine(ctx context.Context, settings map[string]string, runID string, 
 	h := &harness{
 		runID:    runID,
 		baseURL:  "http://127.0.0.1:" + strconv.Itoa(port),
-		apiToken: randomHex(16),
+		apiToken: randomHex(32),
 		client:   &http.Client{Timeout: requestTimeout},
 	}
 	settingsPath := filepath.Join(workDir, "settings.db")
-	if err := seedSettings(ctx, settingsPath, settings, runID); err != nil {
+	if err := seedSettings(ctx, settingsPath, settings, runID, h.apiToken); err != nil {
 		return nil, nil, fmt.Errorf("seed the run settings: %w", err)
 	}
 	// Only bootstrap values: integration settings come from the run's store.
@@ -185,7 +186,6 @@ func startEngine(ctx context.Context, settings map[string]string, runID string, 
 		"WM_TEST_WORKBOOK=" + workbook,
 		"HOST=127.0.0.1",
 		"PORT=" + strconv.Itoa(port),
-		"API_TOKEN=" + h.apiToken,
 		"LOG_COLOR=false",
 	}
 

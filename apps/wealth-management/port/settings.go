@@ -23,3 +23,12 @@ type SettingsService interface {
 	// Restart asks the engine to restart with the saved settings.
 	Restart(ctx context.Context) error
 }
+
+// APITokenService holds the write token (WM-SEC-1), stored with the settings.
+// Token is read on every write, so it must be cheap.
+type APITokenService interface {
+	Token() string
+	Status() domain.APITokenStatus
+	// Set validates and saves the token, which applies at once.
+	Set(ctx context.Context, update domain.APITokenUpdate) (domain.APITokenStatus, error)
+}

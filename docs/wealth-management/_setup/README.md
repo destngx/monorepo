@@ -25,7 +25,8 @@ There is no env file. The engine reads its settings from a SQLite file, edited o
 - **Location**: `settings.db` in the user config directory (macOS `~/Library/Application Support/wealth-management/`, Linux `$XDG_CONFIG_HOME/wealth-management/`), or `WM_SETTINGS_PATH`. The directory is `0700` and the file `0600`: secrets are stored as plain text, protected by the file mode.
 - **Secrets are write-only**: `GET /api/settings` reports whether a secret is set, never its value. The page can replace or clear a secret but never shows it.
 - **Applying changes**: saved settings take effect after a restart. The page's **Restart engine** button (`POST /api/settings/restart`) shuts the server down gracefully and re-executes the same binary with the same arguments, pid and port. The page waits until the engine is back.
-- **Validation**: `PATCH /api/settings` rejects unknown keys, multi-line values, non-positive integers, non-http(s) URLs, unknown choices, only one of the two Upstash settings, and `CAPTURE_MAX_ITEM_MB` above `CAPTURE_MAX_BATCH_MB`. Writes need the API token like every other write (or loopback when `API_TOKEN` is unset).
+- **Validation**: `PATCH /api/settings` rejects unknown keys, multi-line values, non-positive integers, non-http(s) URLs, unknown choices, only one of the two Upstash settings, and `CAPTURE_MAX_ITEM_MB` above `CAPTURE_MAX_BATCH_MB`. Writes need the API token like every other write (or a loopback `HOST` when no token is set).
+- **API token (WM-SEC-1)**: set on the Settings page, General tab, **API token** card, and stored in `settings.db` as `API_TOKEN`. It is not an engine setting of the generic save: `POST /api/settings/api-token` replaces it, needs the current token when one is set, and applies at once without a restart. **Set on engine** also saves it in that browser; **Save in this browser** only stores a token you already have (another device). `GET /api/settings/api-token` says whether one is set, never its value. It cannot be cleared from the UI. While no token is set, writes work only when `HOST` is a loopback address, so set the first token at `http://localhost:9090/ui` before binding to the tailnet. An `API_TOKEN` environment variable is ignored, with a startup log line.
 - **Bad stored values never stop the engine**: an invalid card programs file or capture limit falls back to the defaults with an error log, so the Settings page stays reachable to fix it.
 - **Process environment is ignored for settings**: setting `GOOGLE_SHEETS_ID` and friends in the shell has no effect. Only the bootstrap variables in section 3.1 are read from the environment.
 - **Migrating an old `.env.local`**: `pnpx nx run wealth-management:import-settings` copies the known keys from `../../.env.local` and `apps/wealth-management/.env.local` (the app file wins) into the store, or from the files passed after `--`. It prints key names only, never values. Delete the env files afterwards.
@@ -38,16 +39,15 @@ Every setting, by the group it appears under on the Settings page. Keys keep the
 
 The only values read from the environment: the engine needs them before it can open the settings store, or they belong to the process rather than the engine.
 
-| Variable            | Default                                    | Meaning                                                                                                                                     |
-| ------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HOST`              | `127.0.0.1`                                | Bind address.                                                                                                                               |
-| `PORT`              | `9090`                                     | Listen port (1-65535; anything else aborts startup). The UI dev proxy targets `localhost:9090`.                                             |
-| `API_TOKEN`         | empty                                      | Bearer token required on write endpoints. When empty, writes are allowed only if `HOST` is a loopback address, and refused (403) otherwise. |
-| `WM_SETTINGS_PATH`  | user config directory                      | Settings store file (section 2).                                                                                                            |
-| `WM_CAPTURE_PATH`   | `capture.db` next to `settings.db`         | Quick capture store: captures, screenshots and drafts ([iPhone Quick Capture](./iphone-quick-capture.md)).                                  |
-| `CACHE_SQLITE_PATH` | `<system temp>/wealth-management/cache.db` | SQLite cache file, used when Upstash is not configured. Several engines (dev server, e2e runs) can share the file.                          |
-| `LOG_COLOR`         | enabled                                    | Set to `false` to disable coloured logs.                                                                                                    |
-| `WM_TEST_WORKBOOK`  | -                                          | Path to a local `.xlsx` export served in memory instead of Google Sheets (section 6). Set by the e2e harness; never written to disk.        |
+| Variable            | Default                                    | Meaning                                                                                                                              |
+| ------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `HOST`              | `127.0.0.1`                                | Bind address.                                                                                                                        |
+| `PORT`              | `9090`                                     | Listen port (1-65535; anything else aborts startup). The UI dev proxy targets `localhost:9090`.                                      |
+| `WM_SETTINGS_PATH`  | user config directory                      | Settings store file (section 2).                                                                                                     |
+| `WM_CAPTURE_PATH`   | `capture.db` next to `settings.db`         | Quick capture store: captures, screenshots and drafts ([iPhone Quick Capture](./iphone-quick-capture.md)).                           |
+| `CACHE_SQLITE_PATH` | `<system temp>/wealth-management/cache.db` | SQLite cache file, used when Upstash is not configured. Several engines (dev server, e2e runs) can share the file.                   |
+| `LOG_COLOR`         | enabled                                    | Set to `false` to disable coloured logs.                                                                                             |
+| `WM_TEST_WORKBOOK`  | -                                          | Path to a local `.xlsx` export served in memory instead of Google Sheets (section 6). Set by the e2e harness; never written to disk. |
 
 ### 3.2 General
 
@@ -196,7 +196,7 @@ Without `RUN_LIVE_API_TESTS=true` the suite is skipped, so `go test ./...` stays
 
 What a run does (`apps/wealth-management/e2e/harness_test.go`):
 
-1. **Engine**: builds and starts the engine with a settings store of its own in the run's work directory, seeded from the user's settings without any `GOOGLE_*` value, and with `CACHE_KEY_PREFIX=wm-test:<runId>:`. The environment holds only bootstrap variables: `WM_SETTINGS_PATH`, `CACHE_SQLITE_PATH` in the work directory, `WM_TEST_WORKBOOK=<the export>`, a random `API_TOKEN` and a free port on 127.0.0.1. With `WM_TEST_WORKBOOK` set the engine builds no Google client at all, and it stops at startup when the file cannot be read.
+1. **Engine**: builds and starts the engine with a settings store of its own in the run's work directory, seeded from the user's settings without any `GOOGLE_*` value, and with `CACHE_KEY_PREFIX=wm-test:<runId>:`. The environment holds only bootstrap variables: `WM_SETTINGS_PATH`, `CACHE_SQLITE_PATH` in the work directory, `WM_TEST_WORKBOOK=<the export>` and a free port on 127.0.0.1; the run's store also gets a random API token. With `WM_TEST_WORKBOOK` set the engine builds no Google client at all, and it stops at startup when the file cannot be read.
 2. **Tests**, run serially on the one in-memory workbook:
    - Every sheet read route in the OpenAPI spec parses.
    - Structural checks.

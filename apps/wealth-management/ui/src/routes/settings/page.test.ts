@@ -13,6 +13,7 @@ const endpoints = vi.hoisted(() => ({
   aiUsage: vi.fn(),
   sheetInfo: vi.fn(),
   startGoogleAuth: vi.fn(),
+  apiTokenStatus: vi.fn(),
 }));
 vi.mock('$lib/api/endpoints', () => ({ api: endpoints }));
 const navigation = vi.hoisted(() => ({
@@ -86,6 +87,7 @@ describe('Settings page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     endpoints.settings.mockResolvedValue(view());
+    endpoints.apiTokenStatus.mockResolvedValue({ set: true, loopback: false });
     endpoints.aiModels.mockResolvedValue({ models: ['claude-opus-5-5', 'gpt-5'] });
     endpoints.aiStatus.mockResolvedValue({
       configured: true,
@@ -262,6 +264,7 @@ describe('Settings page', () => {
     await open();
 
     expect(screen.getByText('This browser')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'API token' })).toBeTruthy();
     expect(screen.getByText('Could not load the engine settings')).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await settle();

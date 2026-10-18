@@ -83,7 +83,7 @@ func TestGivenNoGoogleCredentialsWhenStartingThenSheetRoutesAnswer503NamingTheMi
 	app := fiber.New()
 	api := fiberAdapter.NewRouteRegistrar(app, "/api", "")
 
-	sheets := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard("", "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, nil, configAdapter.Values{})
+	sheets := setupSheets(context.Background(), log, health, api, fiberAdapter.NewWriteGuard(nil, "127.0.0.1"), mcpAdapter.NewServer(health, log), nil, nil, configAdapter.Values{})
 
 	if sheets.db != nil || sheets.analytics != nil || sheets.portfolio != nil {
 		t.Fatal("services must be nil without credentials")

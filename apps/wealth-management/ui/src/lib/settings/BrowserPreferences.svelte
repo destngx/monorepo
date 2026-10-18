@@ -1,11 +1,8 @@
 <script lang="ts">
   import Card from '$lib/components/Card.svelte';
-  import { apiToken, entryReminder, theme, type Theme } from '$lib/state/settings.svelte';
+  import { entryReminder, theme, type Theme } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { parseReminderHour } from '$lib/transactions/reminder';
-
-  let tokenDraft = $state(apiToken.value);
-  let showToken = $state(false);
 
   const themes: [Theme, string][] = [
     ['system', 'Follow the system'],
@@ -13,11 +10,6 @@
     ['dark', 'Dark'],
   ];
   const hours = Array.from({ length: 24 }, (_, hour) => String(hour));
-
-  function saveToken() {
-    apiToken.value = tokenDraft.trim();
-    toasts.push('success', apiToken.value ? 'API token saved in this browser.' : 'API token cleared.');
-  }
 
   function setReminder(enabled: boolean) {
     entryReminder.enabled.value = enabled ? 'true' : 'false';
@@ -42,39 +34,6 @@
       >
         {#each themes as [value, label] (value)}<option {value}>{label}</option>{/each}
       </select>
-    </div>
-
-    <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
-      <div>
-        <label class="text-sm font-medium" for="api-token">API token</label>
-        <p class="muted text-xs">Needed for changes when the engine sets API_TOKEN.</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <input
-          id="api-token"
-          class="field font-mono"
-          type={showToken ? 'text' : 'password'}
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="Not set"
-          bind:value={tokenDraft}
-          onkeydown={(event) => event.key === 'Enter' && saveToken()}
-        />
-        <button
-          type="button"
-          class="btn-ghost px-2"
-          aria-pressed={showToken}
-          title={showToken ? 'Hide the token' : 'Show the token'}
-          onclick={() => (showToken = !showToken)}>{showToken ? 'Hide' : 'Show'}</button
-        >
-        <button
-          type="button"
-          class="btn-primary px-3"
-          disabled={tokenDraft.trim() === apiToken.value}
-          title={tokenDraft.trim() === apiToken.value ? 'No changes to save' : 'Save the token in this browser'}
-          onclick={saveToken}>Save</button
-        >
-      </div>
     </div>
 
     <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">

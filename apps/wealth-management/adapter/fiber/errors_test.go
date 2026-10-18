@@ -83,7 +83,7 @@ func TestGivenNoTokenWhenWritingThenUnauthorizedEnvelope(t *testing.T) {
 
 func TestGivenNoTokenOnPublicHostWhenWritingThenForbiddenEnvelope(t *testing.T) {
 	app := fiber.New()
-	RegisterSheetRoutes(NewRouteRegistrar(app, "/api", ""), NewDatabaseHandler(&fakes.Database{}, logger.NewTestLogger(t)), NewWriteGuard("", "0.0.0.0"))
+	RegisterSheetRoutes(NewRouteRegistrar(app, "/api", ""), NewDatabaseHandler(&fakes.Database{}, logger.NewTestLogger(t)), NewWriteGuard(staticToken(""), "0.0.0.0"))
 
 	status, body := call(t, app, http.MethodPost, "/api/sync", "")
 

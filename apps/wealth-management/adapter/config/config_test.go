@@ -10,13 +10,13 @@ import (
 
 func TestLoadServerConfig(t *testing.T) {
 	cases := []struct {
-		name, host, port, token string
-		wantHost                string
-		wantPort                int
-		wantErr                 bool
+		name, host, port string
+		wantHost         string
+		wantPort         int
+		wantErr          bool
 	}{
 		{name: "defaults", wantHost: "127.0.0.1", wantPort: 9090},
-		{name: "overrides", host: "0.0.0.0", port: "9191", token: "t", wantHost: "0.0.0.0", wantPort: 9191},
+		{name: "overrides", host: "0.0.0.0", port: "9191", wantHost: "0.0.0.0", wantPort: 9191},
 		{name: "bad port", port: "http", wantErr: true},
 		{name: "port out of range", port: "70000", wantErr: true},
 	}
@@ -24,7 +24,6 @@ func TestLoadServerConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("HOST", tc.host)
 			t.Setenv("PORT", tc.port)
-			t.Setenv("API_TOKEN", tc.token)
 			config, err := LoadServerConfig()
 			if tc.wantErr {
 				if !errors.Is(err, ErrInvalidServerConfig) {
@@ -32,10 +31,21 @@ func TestLoadServerConfig(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || config.Host != tc.wantHost || config.Port != tc.wantPort || config.APIToken != tc.token {
+			if err != nil || config.Host != tc.wantHost || config.Port != tc.wantPort {
 				t.Fatalf("config = %+v, err = %v", config, err)
 			}
 		})
+	}
+}
+
+func TestGivenAnAPITokenInTheEnvironmentWhenStartingThenItIsReportedAsIgnored(t *testing.T) {
+	t.Setenv("API_TOKEN", " ")
+	if LegacyAPITokenSet() {
+		t.Fatal("a blank API_TOKEN is not a token")
+	}
+	t.Setenv("API_TOKEN", "left-over")
+	if !LegacyAPITokenSet() {
+		t.Fatal("a left-over API_TOKEN must be reported")
 	}
 }
 

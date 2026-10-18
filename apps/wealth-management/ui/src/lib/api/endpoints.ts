@@ -3,6 +3,7 @@ import { readNDJSON } from '$lib/ai/ndjson';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
   AccountReadinessInput,
+  ApiTokenStatus,
   EmergencyAccountInput,
   AccountMinimumInput,
   AIProviderUsage,
@@ -132,6 +133,9 @@ export const api = {
   updateSettings: (values: SettingsChanges) =>
     request<EngineSettings>('/settings', { method: 'PATCH', body: { values } }),
   restartEngine: () => request<{ status: string }>('/settings/restart', { method: 'POST' }),
+  apiTokenStatus: () => request<ApiTokenStatus>('/settings/api-token'),
+  /** Applies at once: later writes need the new token. */
+  setApiToken: (token: string) => request<ApiTokenStatus>('/settings/api-token', { method: 'POST', body: { token } }),
   startGoogleAuth: (purpose: GoogleAuthPurpose) =>
     request<GoogleAuthStart>('/auth/google/start', { method: 'POST', body: { purpose } }),
   completeGoogleAuth: (redirectedUrl: string) =>

@@ -35,7 +35,7 @@ func TestGivenTheRegistryWhenListingThenKeysAreUniqueAndGroupsKnown(t *testing.T
 	}
 	for _, bootstrap := range []string{"HOST", "PORT", "API_TOKEN", "WM_SETTINGS_PATH", "CACHE_SQLITE_PATH", "WM_TEST_WORKBOOK"} {
 		if seen[bootstrap] {
-			t.Fatalf("%s is bootstrap and must not be editable", bootstrap)
+			t.Fatalf("%s must not be editable through the generic settings save", bootstrap)
 		}
 	}
 }

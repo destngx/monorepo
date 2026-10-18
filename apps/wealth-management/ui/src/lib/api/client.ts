@@ -127,7 +127,10 @@ async function errorDetails(response: Response): Promise<{ message: string; code
     return { message: 'API token missing or wrong. Set it in Settings to make changes.', code };
   }
   if (response.status === 403) {
-    return { message: 'Writes are disabled: the server has no API_TOKEN and is not bound to localhost.', code };
+    return {
+      message: 'Writes are disabled: no API token is set. Open the engine on localhost and set one in Settings.',
+      code,
+    };
   }
   return { message: text.trim() || `${response.status} ${response.statusText}`, code };
 }

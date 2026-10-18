@@ -38,7 +38,7 @@ func (f *fakeSettings) Restart(context.Context) error {
 func newSettingsApp(t *testing.T, settings *fakeSettings) *fiber.App {
 	t.Helper()
 	app := fiber.New()
-	RegisterSettingsRoutes(NewRouteRegistrar(app, "/api", ""), NewSettingsHandler(settings, logger.NewTestLogger(t)), NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterSettingsRoutes(NewRouteRegistrar(app, "/api", ""), NewSettingsHandler(settings, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 

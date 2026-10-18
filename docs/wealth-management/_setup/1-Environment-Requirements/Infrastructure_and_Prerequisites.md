@@ -21,7 +21,7 @@ Toolchain and external services for `apps/wealth-management`. Settings and boots
 
 ## 3. Security
 
-- Secrets live only in the engine settings store (a `0600` file in the user config directory; see the [setup README §2](../README.md#2-settings-no-env-file)) and, for `API_TOKEN`, the process environment. Never commit, print or log them.
+- Secrets live only in the engine settings store (a `0600` file in the user config directory; see the [setup README §2](../README.md#2-settings-no-env-file)), the API token included. Never commit, print or log them.
 - For long-lived refresh tokens, set the Google Cloud OAuth consent screen to "Production"; in "Testing" mode tokens expire after 7 days.
 - Prefer a **Desktop** OAuth client: it accepts the loopback callback on any port (dev UI or engine). A Web client must list each exact redirect URI ([setup README §3.8](../README.md#38-first-run)).
-- Keep `HOST` on a loopback address, or set `API_TOKEN` before binding to another interface (WM-SEC-1).
+- Keep `HOST` on a loopback address, or set an API token on the Settings page (on localhost) before binding to another interface (WM-SEC-1).

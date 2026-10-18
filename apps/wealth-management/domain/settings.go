@@ -10,9 +10,10 @@ import (
 
 // Engine settings are edited in the UI and stored by the engine; there is
 // no env file. Only bootstrap values the engine needs before it can open the
-// store (HOST, PORT, API_TOKEN, WM_SETTINGS_PATH, CACHE_SQLITE_PATH,
-// WM_TEST_WORKBOOK, LOG_COLOR) stay process environment. Keys keep the former
-// variable names so docs, errors and the import tool line up.
+// store (HOST, PORT, WM_SETTINGS_PATH, CACHE_SQLITE_PATH, WM_TEST_WORKBOOK,
+// LOG_COLOR) stay process environment. Keys keep the former variable names so
+// docs, errors and the import tool line up. The API token is stored here too
+// but is not in the registry (see APITokenSettingKey).
 
 // SettingKind decides how a value is validated and edited.
 type SettingKind string

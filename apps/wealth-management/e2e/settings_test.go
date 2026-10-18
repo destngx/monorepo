@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestGivenUserSettingsWhenSeedingTheRunThenGoogleSettingsAreDropped(t *testing.T) {
+func TestGivenUserSettingsWhenSeedingTheRunThenGoogleSettingsAndTheUserTokenAreDropped(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "settings.db")
 	user := map[string]string{
@@ -18,9 +18,10 @@ func TestGivenUserSettingsWhenSeedingTheRunThenGoogleSettingsAreDropped(t *testi
 		"LOG_LEVEL":            "debug",
 		"AI_MODEL":             "gpt",
 		"NOT_A_SETTING":        "x",
+		"API_TOKEN":            "the-user-token",
 	}
 
-	if err := seedSettings(ctx, path, user, "abcd"); err != nil {
+	if err := seedSettings(ctx, path, user, "abcd", "run-token"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -37,6 +38,7 @@ func TestGivenUserSettingsWhenSeedingTheRunThenGoogleSettingsAreDropped(t *testi
 		"CACHE_KEY_PREFIX": "wm-test:abcd:",
 		"LOG_LEVEL":        "info",
 		"AI_MODEL":         "gpt",
+		"API_TOKEN":        "run-token",
 	}
 	if !maps.Equal(values, want) {
 		t.Fatalf("values = %v", values)

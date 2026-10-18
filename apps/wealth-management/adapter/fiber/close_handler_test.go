@@ -20,7 +20,7 @@ func newCloseApp(t *testing.T, db *fakes.Database) *fiber.App {
 	now := func() time.Time { return time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC) }
 	log := logger.NewTestLogger(t)
 	closeSvc := service.NewMonthlyCloseService(db, service.NewAnalyticsService(db, now), nil, nil, log, now)
-	RegisterMonthlyCloseRoutes(NewRouteRegistrar(app, "/api", ""), NewCloseHandler(closeSvc, log), NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterMonthlyCloseRoutes(NewRouteRegistrar(app, "/api", ""), NewCloseHandler(closeSvc, log), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 

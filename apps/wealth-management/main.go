@@ -88,9 +88,13 @@ func run() int {
 	staleData := fiberAdapter.NewStaleDataMiddleware()
 	app.Use(staleData.Handler())
 
-	guard := fiberAdapter.NewWriteGuard(serverConfig.APIToken, serverConfig.Host)
-	if serverConfig.APIToken == "" {
-		log.LogApplicationEvent(ctx, "API_TOKEN is not set: write endpoints only work when HOST is a loopback address")
+	apiTokens := service.NewAPITokenService(store, values, serverConfig.Host)
+	guard := fiberAdapter.NewWriteGuard(apiTokens, serverConfig.Host)
+	if configAdapter.LegacyAPITokenSet() {
+		log.LogApplicationEvent(ctx, "API_TOKEN in the environment is ignored: set the API token on the Settings page")
+	}
+	if !apiTokens.Status().Set {
+		log.LogApplicationEvent(ctx, "no API token is set: write endpoints only work when HOST is a loopback address")
 	}
 	openAPIHandler := fiberAdapter.NewOpenAPIHandler(app)
 	api := fiberAdapter.NewRouteRegistrar(app, "/api", "")
@@ -106,6 +110,7 @@ func run() int {
 		}
 	})
 	fiberAdapter.RegisterSettingsRoutes(api, fiberAdapter.NewSettingsHandler(settingsSvc, log), guard)
+	fiberAdapter.RegisterAPITokenRoutes(api, fiberAdapter.NewAPITokenHandler(apiTokens, log), guard)
 	googleAuthSvc := service.NewGoogleAuthService(store, settingsSvc, googleauthAdapter.New(), defaultGoogleRedirect(serverConfig.Port))
 	fiberAdapter.RegisterGoogleAuthRoutes(api, fiberAdapter.NewGoogleAuthHandler(googleAuthSvc, log), guard)
 

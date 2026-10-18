@@ -21,7 +21,7 @@ func writeFile(t *testing.T, dir, name, content string) string {
 
 func TestGivenEnvFilesWhenPlanningThenLaterFilesWinAndKeysAreSorted(t *testing.T) {
 	dir := t.TempDir()
-	root := writeFile(t, dir, "root.env", "AI_MODEL=old\nGOOGLE_SHEETS_ID=sheet\nPORT=9000\nGITHUB_TOKEN=x\nTAVILY_API_KEY=\n")
+	root := writeFile(t, dir, "root.env", "AI_MODEL=old\nGOOGLE_SHEETS_ID=sheet\nPORT=9000\nGITHUB_TOKEN=x\nAPI_TOKEN=secret\nTAVILY_API_KEY=\n")
 	app := writeFile(t, dir, "app.env", "AI_MODEL=new\n")
 
 	plan, err := planImport([]string{root, filepath.Join(dir, "missing.env"), app}, false)
@@ -35,8 +35,8 @@ func TestGivenEnvFilesWhenPlanningThenLaterFilesWinAndKeysAreSorted(t *testing.T
 	if *plan.update.Values["AI_MODEL"] != "new" {
 		t.Fatalf("AI_MODEL = %s, want the later file to win", *plan.update.Values["AI_MODEL"])
 	}
-	if !slices.Equal(plan.bootstrap, []string{"PORT"}) || !slices.Equal(plan.unknown, []string{"GITHUB_TOKEN"}) {
-		t.Fatalf("bootstrap %v unknown %v", plan.bootstrap, plan.unknown)
+	if !slices.Equal(plan.bootstrap, []string{"PORT"}) || !slices.Equal(plan.settingsPage, []string{"API_TOKEN"}) || !slices.Equal(plan.unknown, []string{"GITHUB_TOKEN"}) {
+		t.Fatalf("bootstrap %v settings page %v unknown %v", plan.bootstrap, plan.settingsPage, plan.unknown)
 	}
 }
 

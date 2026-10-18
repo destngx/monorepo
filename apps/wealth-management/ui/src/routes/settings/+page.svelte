@@ -10,6 +10,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
+  import ApiTokenCard from '$lib/settings/ApiTokenCard.svelte';
   import BrowserPreferences from '$lib/settings/BrowserPreferences.svelte';
   import ConnectionsSection from '$lib/settings/ConnectionsSection.svelte';
   import { EngineSettingsForm } from '$lib/settings/engine.svelte';
@@ -92,6 +93,7 @@
   <div class="min-w-0 max-w-3xl space-y-4">
     {#if active === 'general'}
       <BrowserPreferences />
+      <ApiTokenCard />
     {:else if active === 'connections'}
       <ConnectionsSection />
     {:else if active === 'ai'}

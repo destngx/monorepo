@@ -18,7 +18,7 @@ import (
 func newAIApp(t *testing.T, ai *fakes.AI) *fiber.App {
 	t.Helper()
 	app := fiber.New()
-	RegisterAIRoutes(NewRouteRegistrar(app, "/api", ""), NewAIHandler(ai, logger.NewTestLogger(t)), NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterAIRoutes(NewRouteRegistrar(app, "/api", ""), NewAIHandler(ai, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 
@@ -132,7 +132,7 @@ func TestAICaptureStreamsProgressThenResult(t *testing.T) {
 func TestAICaptureRespectsConfiguredLimits(t *testing.T) {
 	app := fiber.New()
 	handler := NewAIHandler(&fakes.AI{}, logger.NewTestLogger(t)).WithCaptureLimits(domain.CaptureLimits{MaxItems: 1, MaxItemBytes: 100, MaxBatchBytes: 100})
-	RegisterAIRoutes(NewRouteRegistrar(app, "/api", ""), handler, NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterAIRoutes(NewRouteRegistrar(app, "/api", ""), handler, NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	status, body := call(t, app, http.MethodPost, "/api/ai/capture", `{"materials":[{"id":"a","kind":"text","text":"x"},{"id":"b","kind":"text","text":"y"}]}`)
 	if status != http.StatusBadRequest || !strings.Contains(body, "at most 1") {
 		t.Fatalf("expected limit error, got %d %s", status, body)

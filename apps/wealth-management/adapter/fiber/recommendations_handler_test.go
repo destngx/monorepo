@@ -19,7 +19,7 @@ func newRecommendationsApp(t *testing.T, db *fakes.Database) *fiber.App {
 	app := fiber.New()
 	now := func() time.Time { return time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC) }
 	recommendations := service.NewRecommendationService(db, service.NewAnalyticsService(db, now), nil, logger.NewTestLogger(t), now)
-	RegisterRecommendationRoutes(NewRouteRegistrar(app, "/api", ""), NewRecommendationHandler(recommendations, logger.NewTestLogger(t)), NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterRecommendationRoutes(NewRouteRegistrar(app, "/api", ""), NewRecommendationHandler(recommendations, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 

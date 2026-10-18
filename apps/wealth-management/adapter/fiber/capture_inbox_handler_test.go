@@ -62,7 +62,7 @@ func (f *fakeCaptureInbox) Reject(_ context.Context, ids []string) error {
 func newCaptureInboxApp(t *testing.T, inbox *fakeCaptureInbox) *fiber.App {
 	t.Helper()
 	app := fiber.New()
-	RegisterCaptureInboxRoutes(NewRouteRegistrar(app, "/api", ""), NewCaptureInboxHandler(inbox, logger.NewTestLogger(t)), NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterCaptureInboxRoutes(NewRouteRegistrar(app, "/api", ""), NewCaptureInboxHandler(inbox, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 

@@ -39,7 +39,7 @@ func (f *fakeGoogleAuth) Complete(_ context.Context, state, code string) (domain
 func newGoogleAuthApp(t *testing.T, auth *fakeGoogleAuth) *fiber.App {
 	t.Helper()
 	app := fiber.New()
-	RegisterGoogleAuthRoutes(NewRouteRegistrar(app, "/api", ""), NewGoogleAuthHandler(auth, logger.NewTestLogger(t)), NewWriteGuard(testToken, "0.0.0.0"))
+	RegisterGoogleAuthRoutes(NewRouteRegistrar(app, "/api", ""), NewGoogleAuthHandler(auth, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 

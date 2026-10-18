@@ -36,6 +36,13 @@ export interface EngineSettings {
   restartRequired: boolean;
 }
 
+/** Whether writes need the API token (WM-SEC-1); the token is never returned. */
+export interface ApiTokenStatus {
+  set: boolean;
+  /** The engine listens on localhost: the only case where writes work without a token. */
+  loopback: boolean;
+}
+
 /** Keys to new values; null clears a setting. */
 export type SettingsChanges = Record<string, string | null>;
 

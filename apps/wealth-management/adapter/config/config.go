@@ -14,8 +14,8 @@ import (
 // There is no env file. Integration settings come from the settings store
 // (edited in the UI) as Values; only bootstrap values the engine needs
 // before it can open the store are read from the process environment:
-// HOST, PORT, API_TOKEN, WM_SETTINGS_PATH, CACHE_SQLITE_PATH,
-// WM_TEST_WORKBOOK and LOG_COLOR.
+// HOST, PORT, WM_SETTINGS_PATH, CACHE_SQLITE_PATH, WM_TEST_WORKBOOK and
+// LOG_COLOR. The API token is stored with the settings too.
 
 // Values are the stored settings, keyed by the names in
 // domain.SettingDefinitions.
@@ -171,18 +171,23 @@ func LoadMarketDataServerURL(values Values) string {
 	return values.getOrDefault("MARKET_DATA_SERVER_URL", "http://localhost:8000")
 }
 
-// LoadServerConfig reads HOST (default 127.0.0.1), PORT (default 9090) and
-// API_TOKEN, which guards write endpoints when set, from the environment.
+// LoadServerConfig reads HOST (default 127.0.0.1) and PORT (default 9090)
+// from the environment.
 func LoadServerConfig() (domain.ServerConfig, error) {
 	port, err := strconv.Atoi(envOrDefault("PORT", "9090"))
 	if err != nil || port < 1 || port > 65535 {
 		return domain.ServerConfig{}, fmt.Errorf("%w: PORT must be 1-65535", ErrInvalidServerConfig)
 	}
 	return domain.ServerConfig{
-		Host:     envOrDefault("HOST", "127.0.0.1"),
-		Port:     port,
-		APIToken: strings.TrimSpace(os.Getenv("API_TOKEN")),
+		Host: envOrDefault("HOST", "127.0.0.1"),
+		Port: port,
 	}, nil
+}
+
+// LegacyAPITokenSet reports an API_TOKEN left in the environment. It is
+// ignored: the token is set on the Settings page.
+func LegacyAPITokenSet() bool {
+	return strings.TrimSpace(os.Getenv("API_TOKEN")) != ""
 }
 
 var ErrInvalidServerConfig = errors.New("invalid server configuration")

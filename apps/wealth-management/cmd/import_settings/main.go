@@ -24,7 +24,7 @@ var defaultFiles = []string{"../../.env.local", ".env.local"}
 
 // bootstrapKeys stay in the process environment: the engine needs them
 // before it can open the settings store.
-var bootstrapKeys = []string{"HOST", "PORT", "API_TOKEN", "WM_SETTINGS_PATH", "CACHE_SQLITE_PATH", "WM_TEST_WORKBOOK", "LOG_COLOR"}
+var bootstrapKeys = []string{"HOST", "PORT", "WM_SETTINGS_PATH", "CACHE_SQLITE_PATH", "WM_TEST_WORKBOOK", "LOG_COLOR"}
 
 func main() {
 	if err := run(context.Background(), os.Args[1:]); err != nil {
@@ -72,6 +72,9 @@ func run(ctx context.Context, args []string) error {
 	if len(plan.bootstrap) > 0 {
 		fmt.Printf("Not imported, set them in the shell instead: %s\n", strings.Join(plan.bootstrap, ", "))
 	}
+	if len(plan.settingsPage) > 0 {
+		fmt.Printf("Not imported, set them on the Settings page instead: %s\n", strings.Join(plan.settingsPage, ", "))
+	}
 	if len(plan.unknown) > 0 {
 		fmt.Printf("Not imported, the engine does not use them: %s\n", strings.Join(plan.unknown, ", "))
 	}
@@ -82,7 +85,9 @@ func run(ctx context.Context, args []string) error {
 type importPlan struct {
 	update    domain.SettingsUpdate
 	bootstrap []string
-	unknown   []string
+	// settingsPage are stored settings with their own place in the UI.
+	settingsPage []string
+	unknown      []string
 }
 
 // planImport reads the files in order (later files win) and sorts their keys
@@ -110,6 +115,8 @@ func planImport(files []string, explicit bool) (importPlan, error) {
 		switch _, known := domain.LookupSetting(key); {
 		case slices.Contains(bootstrapKeys, key):
 			plan.bootstrap = append(plan.bootstrap, key)
+		case key == domain.APITokenSettingKey:
+			plan.settingsPage = append(plan.settingsPage, key)
 		case !known:
 			plan.unknown = append(plan.unknown, key)
 		case value != "":

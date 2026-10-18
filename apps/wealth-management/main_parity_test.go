@@ -112,6 +112,8 @@ var unexposedRoutes = map[string]string{
 	"GET /api/cache/health":          "cache backend ping; EngineHealth already reports the cache check",
 	"GET /api/settings":              "engine configuration and credentials are edited by the user in the UI, not by agents",
 	"POST /api/settings/restart":     "restarts the engine, and with it the MCP session an agent would call it from",
+	"GET /api/settings/api-token":    "says whether writes need a token; part of the user's engine access setup, not data an agent works with",
+	"POST /api/settings/api-token":   "replaces the write token; an agent must never change who can write to the engine",
 	"POST /api/auth/google/start":    "connecting a Google account needs the user's consent in a browser",
 	"GET /api/auth/google/callback":  "Google redirects the user's browser here after consent",
 	"POST /api/auth/google/exchange": "completes the user's browser consent; an agent has no consent to complete",
@@ -159,7 +161,7 @@ func registeredRoutes(t *testing.T) []string {
 	t.Helper()
 	log := loggerAdapter.NewTestLogger(t)
 	app := fiber.New()
-	guard := fiberAdapter.NewWriteGuard("", "127.0.0.1")
+	guard := fiberAdapter.NewWriteGuard(nil, "127.0.0.1")
 	api := fiberAdapter.NewRouteRegistrar(app, "/api", "")
 	openAPI := fiberAdapter.NewOpenAPIHandler(app)
 
@@ -169,6 +171,7 @@ func registeredRoutes(t *testing.T) []string {
 	api.Group("/cache", "cache").Get("/health", fiberAdapter.NewCacheHandler(nil, log).Ping, fiberAdapter.RouteMeta{Summary: "cache"})
 	fiberAdapter.RegisterSheetRoutes(api, fiberAdapter.NewDatabaseHandler(nil, log), guard)
 	fiberAdapter.RegisterSettingsRoutes(api, fiberAdapter.NewSettingsHandler(nil, log), guard)
+	fiberAdapter.RegisterAPITokenRoutes(api, fiberAdapter.NewAPITokenHandler(nil, log), guard)
 	fiberAdapter.RegisterGoogleAuthRoutes(api, fiberAdapter.NewGoogleAuthHandler(nil, log), guard)
 	fiberAdapter.RegisterAnalyticsRoutes(api, fiberAdapter.NewAnalyticsHandler(nil, log))
 	fiberAdapter.RegisterMarketRoutes(api, fiberAdapter.NewMarketHandler(nil, log), fiberAdapter.NewMarketProviderHandler(nil, log))
