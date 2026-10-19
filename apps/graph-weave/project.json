@@ -16,7 +16,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "commands": ["pnpx nx run graph-weave:serve-api", "pnpx nx run graph-weave:serve-ui"],
+        "commands": ["pnpm exec nx run graph-weave:serve-api", "pnpm exec nx run graph-weave:serve-ui"],
         "parallel": true
       }
     },
@@ -30,7 +30,7 @@
     "serve-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx vite dev --host --port 8082",
+        "command": "pnpm exec vite dev --host --port 8082",
         "cwd": "apps/graph-weave/ui"
       }
     },
@@ -50,12 +50,12 @@
     "build-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx vite build",
+        "command": "pnpm exec vite build",
         "cwd": "apps/graph-weave/ui"
       },
       "configurations": {
         "production": {
-          "command": "pnpx vite build --mode production",
+          "command": "pnpm exec vite build --mode production",
           "cwd": "apps/graph-weave/ui"
         }
       }
@@ -63,14 +63,14 @@
     "check-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx svelte-check --tsconfig ./tsconfig.json",
+        "command": "pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json",
         "cwd": "apps/graph-weave/ui"
       }
     },
     "lint-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx eslint .",
+        "command": "pnpm exec svelte-kit sync && pnpm exec eslint .",
         "cwd": "apps/graph-weave/ui"
       }
     },
@@ -85,7 +85,7 @@
     "test-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx vitest",
+        "command": "pnpm exec vitest",
         "cwd": "apps/graph-weave/ui"
       }
     },

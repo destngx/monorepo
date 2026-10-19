@@ -19,6 +19,7 @@ Multiple agent sessions work in this repo concurrently. Never do feature work in
 ### Runtime and Tooling
 
 - **Node**: Use `pnpm run` and `pnpx nx` for package management and task execution.
+- **Workspace binaries**: Nx targets and scripts call tools installed in the workspace with `pnpm exec <tool>` (eslint, vite, vitest, svelte-check), never `pnpx <tool>`: `pnpx` is `pnpm dlx`, which downloads the latest release and ignores the pinned version and its peers (it once ran ESLint 10 against a 9 config for 20+ minutes, and vitest without jsdom).
 - **Workflow**: Default to **TDD + BDD**. Always verify changes with unit or integration tests.
 - **Toolchain caches stay global**: never redirect `GOCACHE`, `GOMODCACHE`, `GOPATH`, the pnpm store, or other toolchain caches into the repo or a worktree. The global caches are shared across worktrees and safe for concurrent agents. If a cache write fails, stop and report it instead of working around it.
 

@@ -17,7 +17,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "commands": ["pnpx nx run wealth-management:serve-api", "pnpx nx run wealth-management:serve-ui"],
+        "commands": ["pnpm exec nx run wealth-management:serve-api", "pnpm exec nx run wealth-management:serve-ui"],
         "parallel": true
       }
     },
@@ -32,7 +32,7 @@
     "serve-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx vite dev --host",
+        "command": "pnpm exec vite dev --host",
         "cwd": "apps/wealth-management/ui"
       }
     },
@@ -53,12 +53,12 @@
     "build-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx vite build",
+        "command": "pnpm exec vite build",
         "cwd": "apps/wealth-management/ui"
       },
       "configurations": {
         "production": {
-          "command": "pnpx vite build --mode production",
+          "command": "pnpm exec vite build --mode production",
           "cwd": "apps/wealth-management/ui"
         }
       }
@@ -73,7 +73,7 @@
     "lint-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx eslint .",
+        "command": "pnpm exec svelte-kit sync && pnpm exec eslint .",
         "cwd": "apps/wealth-management/ui"
       }
     },
@@ -88,7 +88,7 @@
     "test-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpx vitest run --passWithNoTests",
+        "command": "pnpm exec vitest run --passWithNoTests",
         "cwd": "apps/wealth-management/ui"
       }
     },

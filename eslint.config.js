@@ -46,8 +46,20 @@ export default [
   },
   // Svelte
   ...sveltePlugin.configs['flat/prettier'],
+  // Components run no type-aware rule, so they are parsed without the TypeScript project service:
+  // opening a component there changes the program, and the next type-checked file rebuilds its
+  // checker (seconds each), which made linting a whole UI take minutes instead of seconds.
   {
-    files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
+    files: ['**/*.svelte'],
+    languageOptions: {
+      parserOptions: {
+        parser: ts.parser,
+        extraFileExtensions: ['.svelte'],
+      },
+    },
+  },
+  {
+    files: ['**/*.svelte.ts', '**/*.svelte.js'],
     languageOptions: {
       parserOptions: {
         parser: ts.parser,
