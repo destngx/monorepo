@@ -484,6 +484,11 @@ type BudgetAdvice struct {
 	GoalImpact        []GoalImpact      `json:"goalImpact"`
 	ForecastedSavings float64           `json:"forecastedSavings"`
 	UnusualVelocity   []VelocityFlag    `json:"unusualVelocity"`
+	// Recommendations, Outcomes and Recorded feed the recommendations list
+	// for the Budget page (WM-BUD-11, WM-REC-2).
+	Recommendations []RecommendationProposal `json:"recommendations,omitempty"`
+	Outcomes        []RecommendationOutcome  `json:"outcomes,omitempty"`
+	Recorded        *RecommendationRecord    `json:"recorded,omitempty"`
 }
 
 const (
@@ -544,6 +549,9 @@ func (a *BudgetAdvice) ApplyFacts(facts AdvisorFacts) error {
 		}
 	}
 	a.GoalImpact = goals
+	a.Recommendations = NormalizeProposals(a.Recommendations)
+	a.Outcomes = NormalizeOutcomes(a.Outcomes)
+	a.Recorded = nil
 	a.Month = facts.Month
 	a.SavingsCheck = facts.SavingsCheck
 	a.Projection = facts.Projection
@@ -567,6 +575,7 @@ Rules:
 - Quality of life is a principle: never suggest a fixed or essential limit below what it usually costs; let wants (flexible) keep their usual level while FACTS.savingsCheck.onTrack is true; trim wants only when savings are short, starting with rising or swinging ones; lower limits that sit well above usual spend so the slack goes to goals.
 - Start each suggested limit from recommendedLimit. Move away from it only for a reason in the data (spentSoFar, recent transactions, goals) and say why in the rationale. Include categories whose direction is increase or lower.
 - Name the trend, pattern or nature in the rationale when it drives the limit. For occasional spend, plan a monthly set-aside rather than a cut.
+- Recommendations are for actions worth tracking over the coming weeks that a limit alone does not do (cook at home more while a want is rising and savings are short, renegotiate or switch a fixed cost, cancel a subscription behind an unused limit); never repeat a suggested limit as a recommendation.
 - Round suggested limits to thousands of VND.
 - Mention every category in FACTS.unusualVelocity in an alert of type "spike".
 - Use FACTS.projection and FACTS.forecastedSavings as given; never recompute them.`

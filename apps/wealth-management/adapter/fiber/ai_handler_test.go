@@ -32,7 +32,7 @@ func TestAIRoutes(t *testing.T) {
 	if status, body := call(t, app, http.MethodGet, "/api/ai/usage", ""); status != http.StatusOK || !strings.Contains(body, `"windows":[{"name":"5h","usedPercent":12}]`) {
 		t.Fatalf("usage: %d %s", status, body)
 	}
-	if status, body := call(t, app, http.MethodPost, "/api/ai/review", `{"kind":"budget-review","month":"2026-09","force":true}`); status != http.StatusOK || len(ai.Reviews) != 1 || ai.Reviews[0].Month != "2026-09" || !ai.Reviews[0].Force {
+	if status, body := call(t, app, http.MethodPost, "/api/ai/review", `{"kind":"account-review","month":"2026-09","force":true}`); status != http.StatusOK || len(ai.Reviews) != 1 || ai.Reviews[0].Month != "2026-09" || !ai.Reviews[0].Force {
 		t.Fatalf("review: %d %s %+v", status, body, ai.Reviews)
 	}
 	if status, body := call(t, app, http.MethodPost, "/api/ai/chart-insight", `{"chartType":"line","data":[1]}`); status != http.StatusOK || body != `{"insight":"**flat**"}` {

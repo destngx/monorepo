@@ -16,7 +16,7 @@ func (s *Server) SetAIService(aiService port.AIService) {
 var (
 	modelSchema    = map[string]any{"type": "string", "description": "Model override for this call."}
 	aiForceSchema  = map[string]any{"type": "boolean", "description": "Bypass the 30-minute result cache."}
-	reviewKindEnum = []string{string(port.ReviewAccounts), string(port.ReviewBudget), string(port.ReviewTransactions), string(port.ReviewCreditCard), string(port.ReviewYear)}
+	reviewKindEnum = []string{string(port.ReviewAccounts), string(port.ReviewTransactions), string(port.ReviewCreditCard), string(port.ReviewYear)}
 )
 
 type aiOptions struct {

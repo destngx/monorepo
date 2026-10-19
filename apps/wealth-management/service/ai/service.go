@@ -33,7 +33,6 @@ const (
 var RequiredPrompts = []string{
 	keyIdentity,
 	"tasks/account-review", "actions/account-review",
-	"tasks/budget-review", "actions/budget-review",
 	"tasks/credit-summary", "actions/credit-summary",
 	"tasks/transaction-review", "actions/transaction-review",
 	"tasks/year-review", "actions/year-review",

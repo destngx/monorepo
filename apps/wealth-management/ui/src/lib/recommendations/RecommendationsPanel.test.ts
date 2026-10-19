@@ -44,6 +44,32 @@ describe('RecommendationsPanel', () => {
     endpoints.setRecommendationStatus.mockReset();
   });
 
+  it('without a review it only lists the items, with no AI button (WM-BUD-11)', async () => {
+    endpoints.recommendations.mockResolvedValue(list([item]));
+    render(RecommendationsPanel, { title: 'Recommendations', page: '/budget' });
+
+    expect(await screen.findByText('Cook twice a week')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Review/ })).toBeNull();
+  });
+
+  it('shows its hint when a list-only panel is empty', async () => {
+    endpoints.recommendations.mockResolvedValue(list([]));
+    render(RecommendationsPanel, { title: 'Recommendations', page: '/budget', hint: 'The advisor adds items here.' });
+
+    expect(await screen.findByText('The advisor adds items here.')).toBeTruthy();
+  });
+
+  it('re-reads the list when its refresh signal changes', async () => {
+    endpoints.recommendations.mockResolvedValueOnce(list([])).mockResolvedValue(list([item]));
+    const { rerender } = render(RecommendationsPanel, { title: 'Recommendations', page: '/budget', refresh: 0 });
+    await vi.waitFor(() => expect(endpoints.recommendations).toHaveBeenCalledTimes(1));
+
+    await rerender({ title: 'Recommendations', page: '/budget', refresh: 1 });
+
+    expect(await screen.findByText('Cook twice a week')).toBeTruthy();
+    expect(endpoints.recommendations).toHaveBeenLastCalledWith({ page: '/budget', status: 'open' }, { force: true });
+  });
+
   it("lists the page's open items and reloads them after a review", async () => {
     endpoints.recommendations.mockResolvedValueOnce(list([])).mockResolvedValue(list([item]));
     const review = vi.fn().mockResolvedValue(insight);

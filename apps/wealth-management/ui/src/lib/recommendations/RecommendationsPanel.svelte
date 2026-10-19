@@ -15,15 +15,18 @@
 
   // A page's open recommendations with the button that runs the page's
   // review (ROADMAP R7). The review's summary shows above the list; the
-  // recommendations are what persists.
+  // recommendations are what persists. Without a review the panel only lists
+  // the items another feature files (the Budget page's advisor, WM-BUD-11).
   interface Props {
     title: string;
     subtitle?: string;
     /** App route whose open recommendations are listed. */
     page: string;
-    review: (force: boolean, signal: AbortSignal) => Promise<Insight>;
-    /** Idle hint: what the review reads. */
+    review?: (force: boolean, signal: AbortSignal) => Promise<Insight>;
+    /** Idle hint: what the review reads, or where a list-only panel's items come from. */
     hint?: string;
+    /** Bump to re-read the list after something else filed items. */
+    refresh?: number;
     class?: string;
   }
 
@@ -33,11 +36,12 @@
     page,
     review,
     hint = 'The review reads the figures on this page and adds what is worth doing to your recommendations.',
+    refresh = 0,
     class: className = '',
   }: Props = $props();
 
   // Rebuilt when the loader changes (e.g. another month), dropping old results.
-  const task = $derived(new AITask(review));
+  const task = $derived(review ? new AITask(review) : null);
   let list = $state<RecommendationList | null>(null);
   let listError = $state('');
   let busy = $state(false);
@@ -51,11 +55,13 @@
     }
   }
 
+  // Runs again when `refresh` changes; a bump bypasses the cache.
   $effect(() => {
-    void loadList();
+    void loadList(refresh > 0);
   });
 
   async function runReview() {
+    if (!task) return;
     await task.run(true);
     if (task.status === 'done') await loadList(true);
   }
@@ -80,19 +86,21 @@
       href="{base}/recommendations?page={encodeURIComponent(page)}"
       title="All recommendations for this page">All</a
     >
-    <!-- The review reports its own progress and errors below (AIStatusLine). -->
-    <Button
-      size="sm"
-      icon="sparkles"
-      busy={task.status === 'loading'}
-      busyText="Reviewing…"
-      onclick={() => void runReview()}>{task.status === 'idle' ? 'Review' : 'Review again'}</Button
-    >
+    {#if task}
+      <!-- The review reports its own progress and errors below (AIStatusLine). -->
+      <Button
+        size="sm"
+        icon="sparkles"
+        busy={task.status === 'loading'}
+        busyText="Reviewing…"
+        onclick={() => void runReview()}>{task.status === 'idle' ? 'Review' : 'Review again'}</Button
+      >
+    {/if}
   {/snippet}
 
-  {#if task.status === 'loading' || task.status === 'error'}
+  {#if task && (task.status === 'loading' || task.status === 'error')}
     <div class="mb-3"><AIStatusLine {task} /></div>
-  {:else if task.status === 'done' && task.value}
+  {:else if task && task.status === 'done' && task.value}
     {@const insight = task.value}
     <div class="mb-4">
       <p class="font-medium"><MaskedText text={insight.summary} /></p>
@@ -130,7 +138,7 @@
       aria-label="Loading"
     ></div>
   {:else if list.items.length === 0}
-    <p class="muted text-sm">{task.status === 'idle' ? hint : 'No open recommendations for this page.'}</p>
+    <p class="muted text-sm">{!task || task.status === 'idle' ? hint : 'No open recommendations for this page.'}</p>
   {:else}
     <p class="mb-2 text-sm font-medium"><MaskedText text={headline(list.summary)} /></p>
     <ul class="space-y-2">

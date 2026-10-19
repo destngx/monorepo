@@ -74,7 +74,7 @@ export interface Insight {
   recorded?: RecommendationRecord;
 }
 
-export type ReviewKind = 'account-review' | 'budget-review' | 'transaction-review' | 'credit-summary' | 'year-review';
+export type ReviewKind = 'account-review' | 'transaction-review' | 'credit-summary' | 'year-review';
 
 export interface BriefingAlert {
   severity: InsightSeverity;
@@ -161,6 +161,8 @@ export interface BudgetAdvice {
   goalImpact: { goal: string; impact: string }[];
   forecastedSavings: number;
   unusualVelocity: { category: string; dailyNow: number; dailyAverage: number; ratio: number }[];
+  /** What the advisor filed to the Budget page's recommendations (WM-BUD-11). */
+  recorded?: RecommendationRecord;
 }
 
 export interface CategorySuggestion {

@@ -26,7 +26,6 @@ type ReviewKind string
 
 const (
 	ReviewAccounts     ReviewKind = "account-review"
-	ReviewBudget       ReviewKind = "budget-review"
 	ReviewTransactions ReviewKind = "transaction-review"
 	ReviewCreditCard   ReviewKind = "credit-summary"
 	ReviewYear         ReviewKind = "year-review"
@@ -34,7 +33,7 @@ const (
 
 type ReviewRequest struct {
 	Kind ReviewKind `json:"kind"`
-	// Month "YYYY-MM" for budget and credit-card reviews; empty is the current month.
+	// Month "YYYY-MM" for credit-card reviews; empty is the current month.
 	Month string `json:"month,omitempty"`
 	// Card limits a credit-card summary to one card account; empty is all cards.
 	Card string `json:"card,omitempty"`

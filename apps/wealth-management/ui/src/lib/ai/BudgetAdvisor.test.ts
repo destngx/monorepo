@@ -53,9 +53,9 @@ const advice = (overrides: Partial<BudgetAdvice> = {}): BudgetAdvice => ({
   ...overrides,
 });
 
-async function showAdvice(value: BudgetAdvice) {
+async function showAdvice(value: BudgetAdvice, onrecorded?: () => void) {
   endpoints.budgetAdvice.mockResolvedValue(value);
-  render(BudgetAdvisor);
+  render(BudgetAdvisor, { onrecorded });
   await fireEvent.click(screen.getByRole('button', { name: /Get advice/ }));
   await screen.findByText('Spending is on plan.');
 }
@@ -84,5 +84,36 @@ describe('BudgetAdvisor', () => {
     await showAdvice(short);
 
     expect(screen.getByTestId('savings-check').textContent).toMatch(/Savings short.*needs are\s+never cut/s);
+  });
+
+  it('says what it filed to the recommendations list and lets the page re-read it (WM-BUD-11)', async () => {
+    const onrecorded = vi.fn();
+    const recorded = advice({
+      recorded: {
+        created: [
+          {
+            id: 'rec-0a1b2c3d',
+            row: 2,
+            created: '2026-10-19',
+            source: 'budget-review',
+            title: 'Cook at home',
+            action: 'Cook twice a week',
+            impactVnd: null,
+            evidencePath: '/budget',
+            evidence: 'Dining rising',
+            status: 'open',
+            page: '/budget',
+            etag: 'etag-1',
+          },
+        ],
+        duplicates: 0,
+        checked: [],
+        ignoredOutcomes: 0,
+      },
+    });
+    await showAdvice(recorded, onrecorded);
+
+    expect(screen.getByText('Recommendations: 1 added.')).toBeTruthy();
+    expect(onrecorded).toHaveBeenCalledTimes(1);
   });
 });

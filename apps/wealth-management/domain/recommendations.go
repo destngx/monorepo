@@ -66,9 +66,10 @@ type Recommendation struct {
 	// Row is the sheet row, for diagnostics; the id is the stable key.
 	Row     int    `json:"row"`
 	Created string `json:"created"`
-	// Source is the review that made it (account-review, budget-review,
-	// transaction-review, credit-summary, year-review, financial-health,
-	// intelligence-briefing, think-tank) or an engine rule (rule:<id>).
+	// Source is the review that made it (account-review, budget-review from
+	// the budget advisor, transaction-review, credit-summary, year-review,
+	// financial-health, intelligence-briefing, think-tank) or an engine rule
+	// (rule:<id>).
 	Source string `json:"source"`
 	Title  string `json:"title"`
 	Action string `json:"action"`

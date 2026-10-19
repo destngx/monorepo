@@ -163,15 +163,18 @@ func TestReviewRendersPromptsMasksNamesAndCaches(t *testing.T) {
 }
 
 func TestEveryReviewKindRenders(t *testing.T) {
-	for _, reviewKind := range []port.ReviewKind{port.ReviewBudget, port.ReviewTransactions, port.ReviewYear} {
+	for _, reviewKind := range []port.ReviewKind{port.ReviewTransactions, port.ReviewYear} {
 		client := &scriptedClient{replies: []reply{{content: validInsight}}}
 		if _, err := newTestService(t, fixtureDatabase(), client, nil).Review(context.Background(), port.ReviewRequest{Kind: reviewKind}); err != nil {
 			t.Fatalf("%s: %v", reviewKind, err)
 		}
 	}
-	_, err := newTestService(t, fixtureDatabase(), &scriptedClient{}, nil).Review(context.Background(), port.ReviewRequest{Kind: "nope"})
-	if !errors.Is(err, domain.ErrValidation) {
-		t.Fatalf("unknown review kind should be a validation error, got %v", err)
+	// The budget review merged into the budget advisor (WM-BUD-11).
+	for _, kind := range []port.ReviewKind{"nope", "budget-review"} {
+		_, err := newTestService(t, fixtureDatabase(), &scriptedClient{}, nil).Review(context.Background(), port.ReviewRequest{Kind: kind})
+		if !errors.Is(err, domain.ErrValidation) {
+			t.Fatalf("%s should be a validation error, got %v", kind, err)
+		}
 	}
 }
 

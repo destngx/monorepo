@@ -27,13 +27,13 @@ const recommendingInsight = `{"summary":"Spending is up.","sections":[{"icon":"w
 	"recommendations":[{"title":"Cook at home","action":"Cook twice a week","impactVnd":1200000,"evidence":"Food over its limit"},{"title":"","action":"dropped"}],
 	"outcomes":[]}`
 
-func TestGivenABudgetReviewWhenItRecommendsThenTheItemsAreAddedAndTheNextReviewChecksThem(t *testing.T) {
+func TestGivenATransactionReviewWhenItRecommendsThenTheItemsAreAddedAndTheNextReviewChecksThem(t *testing.T) {
 	db := fixtureDatabase()
 	client := &scriptedClient{replies: []reply{{content: recommendingInsight}}}
 	svc := newRecommendingService(t, db, client, nil)
 	ctx := context.Background()
 
-	insight, err := svc.Review(ctx, port.ReviewRequest{Kind: port.ReviewBudget})
+	insight, err := svc.Review(ctx, port.ReviewRequest{Kind: port.ReviewTransactions})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,12 +45,12 @@ func TestGivenABudgetReviewWhenItRecommendsThenTheItemsAreAddedAndTheNextReviewC
 		t.Fatalf("recorded = %+v", insight.Recorded)
 	}
 	created := insight.Recorded.Created[0]
-	if created.Source != "budget-review" || created.Page != "/budget" || *created.ImpactVND != 1_200_000 || created.Status != domain.RecommendationOpen {
+	if created.Source != "transaction-review" || created.Page != "/transactions" || *created.ImpactVND != 1_200_000 || created.Status != domain.RecommendationOpen {
 		t.Fatalf("created = %+v", created)
 	}
 
 	client.replies = []reply{{content: strings.Replace(recommendingInsight, `"outcomes":[]`, `"outcomes":[{"id":"`+created.ID+`","verdict":"met","note":"Food is under the limit"},{"id":"rec-other","verdict":"met"}]`, 1)}}
-	again, err := svc.Review(ctx, port.ReviewRequest{Kind: port.ReviewBudget, Force: true})
+	again, err := svc.Review(ctx, port.ReviewRequest{Kind: port.ReviewTransactions, Force: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,6 +64,48 @@ func TestGivenABudgetReviewWhenItRecommendsThenTheItemsAreAddedAndTheNextReviewC
 	}
 	if checked := record.Checked[0]; checked.Status != domain.RecommendationDone || checked.Outcome != "Met: Food is under the limit" {
 		t.Fatalf("checked = %+v", checked)
+	}
+}
+
+const recommendingAdvice = `{"briefing":"Dining is rising.","suggestedLimits":[],"alerts":[],"goalImpact":[],
+	"recommendations":[{"title":"Cook at home","action":"Cook twice a week","impactVnd":1200000,"evidence":"Dining rising"}],
+	"outcomes":[]}`
+
+func TestGivenTheBudgetAdvisorWhenItRecommendsThenTheBudgetPageItemsAreAddedAndCheckedNextTime(t *testing.T) {
+	db := fixtureDatabase()
+	client := &scriptedClient{replies: []reply{{content: recommendingAdvice}}}
+	svc := newRecommendingService(t, db, client, nil)
+	ctx := context.Background()
+
+	// When the advisor runs, it is asked for trackable actions next to its limits
+	advice, err := svc.BudgetAdvice(ctx, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	user := client.requests[0].Messages[1].Content
+	if !strings.Contains(user, `"recommendations": [{"title"`) || !strings.Contains(user, "PREVIOUS RECOMMENDATIONS: none.") {
+		t.Fatalf("the advisor must ask for recommendations: %s", user)
+	}
+	// Then they are filed for the Budget page under the budget source the earlier review used
+	if advice.Recorded == nil || len(advice.Recorded.Created) != 1 || advice.Recorded.Error != "" {
+		t.Fatalf("recorded = %+v", advice.Recorded)
+	}
+	created := advice.Recorded.Created[0]
+	if created.Source != "budget-review" || created.Page != "/budget" || created.Status != domain.RecommendationOpen {
+		t.Fatalf("created = %+v", created)
+	}
+
+	// And the next run sees the item and can mark it met
+	client.replies = []reply{{content: strings.Replace(recommendingAdvice, `"outcomes":[]`, `"outcomes":[{"id":"`+created.ID+`","verdict":"met","note":"Dining back to usual"}]`, 1)}}
+	again, err := svc.BudgetAdvice(ctx, true, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user := client.requests[1].Messages[1].Content; !strings.Contains(user, `"id":"`+created.ID+`"`) {
+		t.Fatalf("the next run must see the earlier item: %s", user)
+	}
+	if record := again.Recorded; len(record.Created) != 0 || record.Duplicates != 1 || len(record.Checked) != 1 || record.Checked[0].Status != domain.RecommendationDone {
+		t.Fatalf("second record = %+v", record)
 	}
 }
 

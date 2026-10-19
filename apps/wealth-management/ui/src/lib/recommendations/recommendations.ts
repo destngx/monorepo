@@ -29,7 +29,7 @@ export const GROUPS: { status: RecommendationStatus; title: string }[] = [
 
 const SOURCE_LABELS: Record<string, string> = {
   'account-review': 'Account review',
-  'budget-review': 'Budget review',
+  'budget-review': 'Budget advisor',
   'transaction-review': 'Weekly review',
   'credit-summary': 'Credit card summary',
   'year-review': 'Year review',

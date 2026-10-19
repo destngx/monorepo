@@ -12,12 +12,11 @@ import (
 )
 
 const (
-	budgetReviewTransactions = 30
-	cardSummaryTransactions  = 100
-	weeklyReviewDays         = 7
-	briefingTransactions     = 10
-	advisorTransactions      = 50
-	maxChartDataBytes        = 12_000
+	cardSummaryTransactions = 100
+	weeklyReviewDays        = 7
+	briefingTransactions    = 10
+	advisorTransactions     = 50
+	maxChartDataBytes       = 12_000
 )
 
 // structuredRequest is a prompt pair answered with a structured insight.
@@ -41,13 +40,17 @@ type structuredRequest struct {
 // reviewPages are the app routes each review's recommendations belong to.
 var reviewPages = map[port.ReviewKind]string{
 	port.ReviewAccounts:     "/accounts",
-	port.ReviewBudget:       "/budget",
 	port.ReviewTransactions: "/transactions",
 	port.ReviewCreditCard:   "/accounts/credit-cards",
 	port.ReviewYear:         "/cash-flow",
 }
 
 const (
+	// sourceBudget is the budget advisor's source; the id is the budget
+	// review's, which the advisor replaced (WM-BUD-11), so its earlier
+	// items keep being checked.
+	sourceBudget   = "budget-review"
+	pageBudget     = "/budget"
 	sourceHealth   = "financial-health"
 	pageHealth     = "/health"
 	sourceBriefing = "intelligence-briefing"
@@ -182,32 +185,6 @@ func (s *Service) Review(ctx context.Context, request port.ReviewRequest) (domai
 			"accountsJson":     toJSON(s.accountContexts(snap.accounts)),
 		}
 		structured.facts = snap.sheet
-
-	case port.ReviewBudget:
-		report, err := s.analytics.BudgetReport(request.Month, false)
-		if err != nil {
-			return domain.Insight{}, fmt.Errorf("load budget report: %w", err)
-		}
-		month, _ := domain.ParseMonthKey(report.Month)
-		monthEnd := month.AddDate(0, 1, -1)
-		active := []map[string]any{}
-		for _, line := range report.Lines {
-			if line.CountsAsExpense() && (line.Spent > 0 || line.Limit > 0) {
-				active = append(active, map[string]any{"category": line.Category, "spent": line.Spent, "limit": line.Limit, "remaining": line.Remaining, "percentUsed": line.PercentUsed, "status": line.Status})
-			}
-		}
-		date := month.Format("01/2006")
-		structured.taskVars = map[string]string{
-			"view":                   "month",
-			"date":                   date,
-			"totalSpent":             amount(report.TotalSpent),
-			"totalLimit":             amount(report.TotalLimit),
-			"usagePercentage":        fmt.Sprintf("%.0f", report.PercentUsed),
-			"activeBudgetsJson":      toJSON(active),
-			"recentTransactionsJson": toJSON(s.txContexts(recent(snap.transactions, month, monthEnd, budgetReviewTransactions))),
-		}
-		structured.actionVars = map[string]string{"view": "month", "date": date}
-		structured.facts = map[string]any{"month": report.Month, "daysElapsed": report.DaysElapsed, "daysInMonth": report.DaysInMonth, "dailyBurn": report.DailyBurn, "projectedSpend": report.ProjectedSpend, "status": report.Status}
 
 	case port.ReviewTransactions:
 		from := snap.today.AddDate(0, 0, -(weeklyReviewDays - 1))

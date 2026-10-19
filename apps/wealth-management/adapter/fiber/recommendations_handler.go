@@ -15,7 +15,7 @@ import (
 
 const recommendationsScope = "recommendations_handler"
 
-const recommendationsSummary = "The recommendations list. items: id (rec-<code>), created, source (a review: account-review, budget-review, " +
+const recommendationsSummary = "The recommendations list. items: id (rec-<code>), created, source (a review: account-review, budget-review (the budget advisor), " +
 	"transaction-review, credit-summary, year-review, financial-health, intelligence-briefing, think-tank; or an engine rule: rule:rebalance, " +
 	"rule:goal-plan-short, rule:lent-overdue, rule:idle-cash, rule:emergency-fund-rate), title, action, impactVnd (estimated VND per year, null when not estimated), " +
 	"evidencePath (app route) and evidence (facts), status (open, snoozed, done, dismissed; a snooze that ended reads as open), " +

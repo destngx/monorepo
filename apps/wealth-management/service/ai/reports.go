@@ -104,7 +104,8 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 // BudgetAdvice is the budget advisor (WM-BUD-5): the model suggests limits
 // and alerts; projections, averages, velocity and the quality-of-life
 // recommendations (WM-BUD-10, checked against what dated goals need a
-// month) are engine facts.
+// month) are engine facts. It is the Budget page's one AI request and files
+// trackable actions to the recommendations list (WM-BUD-11).
 func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (domain.BudgetAdvice, error) {
 	snap, err := s.loadSnapshot()
 	if err != nil {
@@ -126,7 +127,7 @@ func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (d
 		"goals":      toJSON(s.goalPlanContext(goals)),
 		"recentTxns": toJSON(s.txContexts(recent(snap.transactions, monthStart, snap.today, advisorTransactions))),
 	}
-	return structured(ctx, s, snap, structuredRequest{
+	request, err := s.withPrevious(ctx, structuredRequest{
 		feature:   "budget-advisor",
 		taskKey:   keyAdvisorTask,
 		taskVars:  vars,
@@ -134,11 +135,22 @@ func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (d
 		facts:     facts,
 		model:     model,
 		force:     force,
-	}, domain.AdvisorFormatInstruction, func(content string) (domain.BudgetAdvice, error) {
+		source:    sourceBudget,
+		page:      pageBudget,
+	})
+	if err != nil {
+		return domain.BudgetAdvice{}, err
+	}
+	advice, err := structured(ctx, s, snap, request, domain.AdvisorFormatInstruction, func(content string) (domain.BudgetAdvice, error) {
 		var advice domain.BudgetAdvice
 		if err := domain.ParseAIJSON(content, &advice); err != nil {
 			return advice, err
 		}
 		return advice, advice.ApplyFacts(facts)
 	})
+	if err != nil {
+		return domain.BudgetAdvice{}, err
+	}
+	advice.Recorded = s.record(ctx, request, advice.Recommendations, advice.Outcomes)
+	return advice, nil
 }

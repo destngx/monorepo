@@ -11,6 +11,7 @@
   import { DIRECTIONS, natureLabel, spendShape } from '$lib/budget/trend';
   import Badge from '$lib/components/Badge.svelte';
   import { formatMonth } from '$lib/format';
+  import { recordNote } from '$lib/recommendations/recommendations';
   import { toasts } from '$lib/state/toasts.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
@@ -19,6 +20,13 @@
 
   // Budget advisor (WM-BUD-5): model advice over engine-computed facts.
   const task = new AITask((force, signal) => api.budgetAdvice({ force, signal }));
+
+  // The advisor files trackable actions to the Budget page's recommendations
+  // (WM-BUD-11); the page re-reads its list when a run recorded something.
+  let { onrecorded }: { onrecorded?: () => void } = $props();
+  $effect(() => {
+    if (task.value?.recorded) onrecorded?.();
+  });
 
   // "Apply" writes a suggested limit to the Budget sheet for the advice's month (WM-BUD-6).
   let confirming = $state<SuggestedLimit | null>(null);
@@ -63,6 +71,9 @@
   {#if task.status === 'done' && task.value}
     {@const advice = task.value}
     <Markdown text={advice.briefing} />
+    {#if advice.recorded}
+      <p class="muted mt-1 text-xs" role="status">{recordNote(advice.recorded)}</p>
+    {/if}
     {#if advice.alerts.length}
       <ul class="mt-4 grid gap-2 md:grid-cols-2">
         {#each advice.alerts as alert, index (index)}
