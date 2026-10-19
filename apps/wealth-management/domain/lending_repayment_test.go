@@ -24,6 +24,18 @@ func TestGivenAMemoWhenReadingTheRepaymentDateThenTheEarliestLaterDateIsUsed(t *
 		{"2026-12-20", "trả 05/01", "2027-01-05"},
 		{"2026-10-01", "trả 1 nửa 20/10, còn lại 30/12", "2026-10-20"},
 		{"2026-10-12", "mượn 12/10, trả 2026-01-12 hoặc 2026-11-02", "2026-11-02"},
+		{"2026-03-01", "trả 31/10", "2026-10-31"},
+		{"2026-10-01", "trả 29/02", "2028-02-29"},
+		{"2026-03-01", "investment vào vườn chanh dây trên lâm đồng dự kiến cuối tháng 11 hoàn trả", "2026-11-30"},
+		{"2026-10-01", "cuối tháng 2", "2027-02-28"},
+		{"2026-10-01", "Giữa Tháng 11", "2026-11-15"},
+		{"2026-10-01", "đầu tháng 12", "2026-12-01"},
+		{"2026-10-01", "hẹn tháng 11 trả", "2026-11-30"},
+		{"2026-10-01", "cuoi thang 1", "2027-01-31"},
+		{"2026-10-01", "trả cuối tháng 3/2027", "2027-03-31"},
+		{"2026-10-01", "trả cuối tháng 3/27", "2027-03-31"},
+		{"2026-10-01", "trả đầu tháng 1 năm 2027", "2027-01-01"},
+		{"2026-10-01", "(cuối tháng 11), lãi 1.5%", "2026-11-30"},
 	}
 	for _, c := range cases {
 		got, ok := RepaymentDate(memoTxn("row-2", c.date, "Person A", 1_000_000, 0, c.memo))
@@ -34,7 +46,8 @@ func TestGivenAMemoWhenReadingTheRepaymentDateThenTheEarliestLaterDateIsUsed(t *
 }
 
 func TestGivenAMemoWithoutARepaymentDateWhenReadingThenThereIsNone(t *testing.T) {
-	for _, memo := range []string{"", "lãi 1.5%", "trả 2-3 triệu", "trả 31/02", "lent on 12/10", "lent on 05/10", "trả 15-11/2026"} {
+	for _, memo := range []string{"", "lãi 1.5%", "trả 2-3 triệu", "trả 31/02", "lent on 12/10", "lent on 05/10", "trả 15-11/2026",
+		"đầu tháng 10", "cuối tháng", "trả trong 3 tháng", "tháng 13", "tháng 0", "cuối tháng 9/2026"} {
 		if got, ok := RepaymentDate(memoTxn("row-2", "2026-10-12", "Person A", 1_000_000, 0, memo)); ok {
 			t.Fatalf("RepaymentDate(%q) = %v, want none", memo, got)
 		}
