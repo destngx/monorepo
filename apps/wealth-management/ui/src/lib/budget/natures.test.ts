@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Category } from '$lib/api/types';
-import { groupCategories, NATURE_OPTIONS, natureChoice } from './natures';
+import { groupCategories, NATURE_OPTIONS, natureChoice, parseSplitTags, withSplitTag } from './natures';
 
 describe('category natures', () => {
   it('offers every nature the engine accepts, lending included', () => {
@@ -24,5 +24,17 @@ describe('category natures', () => {
   it('shows an untagged category as none', () => {
     expect(natureChoice({})).toBe('none');
     expect(natureChoice({ nature: 'lending' })).toBe('lending');
+  });
+
+  it('reads split tags typed as a comma list the way the engine stores them', () => {
+    expect(parseSplitTags(' Eating-Out, ,takeaway,eating-out ')).toEqual(['eating-out', 'takeaway']);
+    expect(parseSplitTags('')).toEqual([]);
+  });
+
+  it('adds a suggested split tag once and keeps the card tag', () => {
+    expect(withSplitTag(['silver'], 'eating-out')).toEqual(['silver', 'eating-out']);
+    expect(withSplitTag(['silver', 'Eating-Out'], 'eating-out')).toEqual(['silver', 'Eating-Out']);
+    const tags = ['silver'];
+    expect(withSplitTag(tags, undefined)).toBe(tags);
   });
 });

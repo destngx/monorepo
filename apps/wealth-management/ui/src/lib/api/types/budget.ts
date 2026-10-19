@@ -5,6 +5,24 @@ export interface Category {
   type: CategoryType;
   /** Categories column B; absent when untagged. */
   nature?: CategoryNature;
+  /** Categories column D: what belongs here; the AI files transactions by it (WM-CAT-1). */
+  definition?: string;
+  /** Categories column E: tags that divide the category's spend (WM-CAT-2). */
+  splitTags?: string[];
+}
+
+/** Body of PATCH /categories/definition; empty values clear them. */
+export interface CategoryDefinitionInput {
+  category: string;
+  definition: string;
+  splitTags: string[];
+}
+
+/** The month's spend on one of the category's split tags (WM-CAT-3). */
+export interface SplitSpend {
+  tag: string;
+  spent: number;
+  percentOfSpent: number;
 }
 
 /**
@@ -47,6 +65,8 @@ export interface BudgetLine {
   lending?: boolean;
   /** Day the remaining limit runs out at the current daily burn; null when it will not this month. */
   burnOutDate?: string | null;
+  /** Spend on the category's split tags; absent without split tags (WM-CAT-3). */
+  splits?: SplitSpend[];
 }
 
 /** Six-month budget comparison, "The Wall" (WM-BUD-7). */

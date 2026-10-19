@@ -103,6 +103,13 @@ type Category struct {
 	Type CategoryType `json:"type"`
 	// Nature tags a category fixed, essential, flexible or lending (Categories column B); empty when untagged.
 	Nature CategoryNature `json:"nature,omitempty"`
+	// Definition says what belongs in the category (Categories column D); the
+	// AI files transactions by it (WM-CAT-1).
+	Definition string `json:"definition,omitempty"`
+	// SplitTags are transaction tags that divide the category's spend
+	// (Categories column E, comma list), such as one for meals out inside a
+	// food category (WM-CAT-2).
+	SplitTags []string `json:"splitTags,omitempty"`
 }
 
 // CategoryNature sorts expense by how far it can move: fixed (rent,

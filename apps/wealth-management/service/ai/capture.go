@@ -36,6 +36,9 @@ type captureData struct {
 	rules        []domain.CaptureRule
 	tagOptions   map[string][]string
 	cards        []domain.CaptureCard
+	// splits and guide are the categories' split tags and definitions (WM-CAT-5).
+	splits domain.SplitTagIndex
+	guide  string
 }
 
 func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, progress func(port.CaptureProgress)) (domain.CaptureResult, error) {
@@ -135,6 +138,7 @@ func (s *Service) loadCaptureData() (captureData, error) {
 		}
 	}
 	data.transfer, _ = domain.TransferCategory(categories)
+	data.splits, data.guide = domain.NewSplitTagIndex(categories), domain.CategoryGuide(categories)
 	if s.analytics != nil {
 		reports, err := s.analytics.CardReports(false)
 		if err != nil {

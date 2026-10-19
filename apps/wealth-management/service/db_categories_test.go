@@ -135,3 +135,74 @@ func TestGivenLendingTransactionsWhenReadingMoneyLentThenTheLedgerIsGroupedPerPe
 		t.Fatal("a read failure must be returned")
 	}
 }
+
+func TestGivenDefinitionAndSplitTagColumnsWhenReadingCategoriesThenTheyAreParsedAndTheNoteColumnIsIgnored(t *testing.T) {
+	client := newFakeSheetClient()
+	client.ranges[categoriesSheetRange] = [][]string{
+		{"Categories"},
+		{"Expense Categories", "Type", "Note", "Definition", "Split tags"},
+		{"Groceries", "essential", "a private note", " Food for home, and everyday meals out. ", "Eating-Out, ,takeaway"},
+		{"Rent", "fixed"},
+	}
+	svc := newTestDBService(t, client, newFakeCache())
+
+	categories, err := svc.ListCategories(false)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	groceries := categories[0]
+	if groceries.Name != "Groceries" || groceries.Definition != "Food for home, and everyday meals out." || !slices.Equal(groceries.SplitTags, []string{"eating-out", "takeaway"}) {
+		t.Fatalf("groceries = %+v", groceries)
+	}
+	if rent := categories[1]; rent.Definition != "" || len(rent.SplitTags) != 0 {
+		t.Fatalf("rent = %+v", rent)
+	}
+}
+
+func TestGivenACategoryWhenSettingItsDefinitionThenColumnsDAndEOfItsRowAreWritten(t *testing.T) {
+	client := newFakeSheetClient()
+	client.ranges[categoriesSheetRange] = categoryTabRows()
+	cache := newFakeCache()
+	svc := newTestDBService(t, client, cache)
+
+	category, err := svc.UpdateCategoryDefinition(domain.CategoryDefinitionUpdate{Category: "Food", Definition: " Food for home. ", SplitTags: []string{"Eating-Out", "eating-out", "takeaway"}})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(client.updates) != 1 || client.updates[0].rangeValue != "Categories!D5" || !slices.Equal(client.updates[0].values, []any{"Food for home.", "eating-out,takeaway"}) {
+		t.Fatalf("updates = %+v", client.updates)
+	}
+	if category.Definition != "Food for home." || !slices.Equal(category.SplitTags, []string{"eating-out", "takeaway"}) || category.Nature != domain.NatureEssential {
+		t.Fatalf("category = %+v", category)
+	}
+	if !slices.Contains(cache.invalidated, cacheKeyCats) {
+		t.Fatalf("invalidated = %v", cache.invalidated)
+	}
+}
+
+func TestGivenAMissingCategoryOrBadInputWhenSettingADefinitionThenNothingIsWritten(t *testing.T) {
+	cases := []struct {
+		name  string
+		input domain.CategoryDefinitionUpdate
+		err   error
+	}{
+		{"missing", domain.CategoryDefinitionUpdate{Category: "Travel", Definition: "x"}, domain.ErrNotFound},
+		{"tag with a comma", domain.CategoryDefinitionUpdate{Category: "Food", SplitTags: []string{"a,b"}}, domain.ErrValidation},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := newFakeSheetClient()
+			client.ranges[categoriesSheetRange] = categoryTabRows()
+			svc := newTestDBService(t, client, newFakeCache())
+
+			if _, err := svc.UpdateCategoryDefinition(tc.input); !errors.Is(err, tc.err) {
+				t.Fatalf("err = %v, want %v", err, tc.err)
+			}
+			if len(client.updates) != 0 {
+				t.Fatalf("updates = %+v", client.updates)
+			}
+		})
+	}
+}

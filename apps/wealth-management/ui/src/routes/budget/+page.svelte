@@ -118,9 +118,9 @@
 
 <BudgetWall month={data.month} />
 
-<Deferred data={data.categories} label="category natures" class="mt-4">
+<Deferred data={data.categories} label="categories" class="mt-4">
   {#snippet children(categories)}<CategoryNatureCard {categories} />{/snippet}
-  {#snippet skeleton()}<SkeletonCard title="Category natures" lines={5} />{/snippet}
+  {#snippet skeleton()}<SkeletonCard title="Categories" lines={5} />{/snippet}
 </Deferred>
 
 <CategoryDetailModal

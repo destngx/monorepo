@@ -162,7 +162,7 @@ func (s *Server) sheetTools() []tool {
 				return db.ReallocateBudget(input)
 			},
 		},
-		readTool("GetCategories", "Lists income, expense and non-budget categories with their nature (fixed, essential, flexible, lending).", db.ListCategories),
+		readTool("GetCategories", "Lists income, expense and non-budget categories with their nature (fixed, essential, flexible, lending), definition and split tags.", db.ListCategories),
 		{
 			definition: definition("SetCategoryNature", "Sets a category's nature in the Categories tab: fixed, essential, flexible, lending (money lent and repaid, left out of income and expense) or none to clear it. The category is matched by exact name.", object(map[string]any{
 				"category": stringSchema,
@@ -174,6 +174,20 @@ func (s *Server) sheetTools() []tool {
 					return nil, err
 				}
 				return db.UpdateCategoryNature(input)
+			},
+		},
+		{
+			definition: definition("SetCategoryDefinition", "Sets a category's definition (what belongs in it; the AI files transactions by it) and split tags (transaction tags that divide its spend, such as meals out inside a food category) in the Categories tab. Empty values clear them. The category is matched by exact name.", object(map[string]any{
+				"category":   stringSchema,
+				"definition": stringSchema,
+				"splitTags":  map[string]any{"type": "array", "items": stringSchema},
+			}, "category")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var input domain.CategoryDefinitionUpdate
+				if err := decodeValidated(arguments, &input); err != nil {
+					return nil, err
+				}
+				return db.UpdateCategoryDefinition(input)
 			},
 		},
 		readTool("GetTags", "Lists normalised transaction tags.", db.ListTags),

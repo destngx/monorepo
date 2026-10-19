@@ -395,3 +395,111 @@ func TestCaptureShowsANoteWithoutATransactionToTheCategoriser(t *testing.T) {
 		t.Fatalf("the categoriser must see the note: %q", categorizeRequest)
 	}
 }
+
+// splitCaptureDatabase gives Food an eating-out split tag and a definition.
+func splitCaptureDatabase() *fakes.Database {
+	db := captureDatabase()
+	for i := range db.Categories {
+		if db.Categories[i].Name == "Food" {
+			db.Categories[i].Definition = "Food bought for home, and everyday meals out."
+			db.Categories[i].SplitTags = []string{"eating-out"}
+		}
+	}
+	return db
+}
+
+func TestGivenSplitTagsWhenTheModelFilesACaptureThenItAddsTheSplitTagNextToTheCardTag(t *testing.T) {
+	var categorizeRequest string
+	client := &scriptedClient{route: func(request domain.AIRequest) reply {
+		user := request.Messages[len(request.Messages)-1].Content
+		if strings.Contains(user, "Items:") {
+			categorizeRequest = user
+			return reply{content: `{"items":[{"id":"s1","category":"Food","tag":"silver","splitTag":"Eating-Out"}]}`}
+		}
+		return reply{content: cardReply}
+	}}
+
+	result, err := newCaptureService(t, splitCaptureDatabase(), client).Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := result.Suggestions[0]
+	if row.Transaction.Category != "Food" || strings.Join(row.Transaction.Tags, ",") != "silver,eating-out" {
+		t.Fatalf("row = %+v", row.Transaction)
+	}
+	if !strings.Contains(categorizeRequest, "Category guide:\n- Food: Food bought for home, and everyday meals out. Split tags: eating-out.") {
+		t.Fatalf("the categoriser must see the guide: %s", categorizeRequest)
+	}
+}
+
+func TestGivenAPayeeHistoryInASplitCategoryWhenCapturingThenHistoryDecidesTheSplitTagWithoutTheModel(t *testing.T) {
+	db := splitCaptureDatabase()
+	db.Transactions = append(db.Transactions,
+		domain.Transaction{AccountName: "Credit Card Acme", Date: testToday.AddDate(0, 0, -6), Payee: "Shopee", Category: "Food", Tags: []string{"silver", "eating-out"}, Payment: money(100_000)},
+		domain.Transaction{AccountName: "Credit Card Acme", Date: testToday.AddDate(0, 0, -5), Payee: "Shopee", Category: "Food", Tags: []string{"silver", "eating-out"}, Payment: money(100_000)},
+	)
+	client := &scriptedClient{}
+	client.route = captureRoute(t, `{"items":[{"id":"s1","category":"Shopping","tag":"gold","splitTag":""}]}`)
+
+	result, err := newCaptureService(t, db, client).Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := result.Suggestions[0]
+	if row.Transaction.Category != "Food" || row.CategorySource != domain.CategorySourceHistory || strings.Join(row.Transaction.Tags, ",") != "silver,eating-out" {
+		t.Fatalf("row = %+v (%s)", row.Transaction, row.CategorySource)
+	}
+	for _, request := range client.requests {
+		if strings.Contains(request.Messages[len(request.Messages)-1].Content, "Items:") {
+			t.Fatal("history decided everything; the categoriser must not be called")
+		}
+	}
+}
+
+func TestGivenARuleCategoryWithSplitTagsAndNoHistoryWhenCapturingThenTheModelPicksOnlyTheSplitTag(t *testing.T) {
+	db := splitCaptureDatabase()
+	db.CaptureRules = append(db.CaptureRules, domain.CaptureRule{Kind: domain.CaptureRulePayee, Pattern: "shopee", Value: "Food"})
+	var categorizeRequest string
+	client := &scriptedClient{route: func(request domain.AIRequest) reply {
+		user := request.Messages[len(request.Messages)-1].Content
+		if strings.Contains(user, "Items:") {
+			categorizeRequest = user
+			return reply{content: `{"items":[{"id":"s1","category":"Shopping","tag":"gold","splitTag":"eating-out"}]}`}
+		}
+		return reply{content: cardReply}
+	}}
+
+	result, err := newCaptureService(t, db, client).Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := result.Suggestions[0]
+	if row.Transaction.Category != "Food" || row.CategorySource != domain.CategorySourceRule || strings.Join(row.Transaction.Tags, ",") != "gold,eating-out" {
+		t.Fatalf("row = %+v (%s)", row.Transaction, row.CategorySource)
+	}
+	if !strings.Contains(categorizeRequest, `"category":"Food"`) {
+		t.Fatalf("the categoriser must see the decided category: %s", categorizeRequest)
+	}
+}
+
+func TestGivenAPayeeHistoryFromBeforeSplitTagsWhenCapturingThenTheModelPicksTheSplitTag(t *testing.T) {
+	db := splitCaptureDatabase()
+	db.Transactions = append(db.Transactions,
+		domain.Transaction{AccountName: "Credit Card Acme", Date: testToday.AddDate(0, 0, -6), Payee: "Shopee", Category: "Food", Tags: []string{"silver"}, Payment: money(100_000)},
+		domain.Transaction{AccountName: "Credit Card Acme", Date: testToday.AddDate(0, 0, -5), Payee: "Shopee", Category: "Food", Tags: []string{"silver"}, Payment: money(100_000)},
+	)
+	client := &scriptedClient{}
+	client.route = captureRoute(t, `{"items":[{"id":"s1","category":"Food","tag":"silver","splitTag":"eating-out"}]}`)
+
+	result, err := newCaptureService(t, db, client).Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row := result.Suggestions[0]; row.Transaction.Category != "Food" || row.CategorySource != domain.CategorySourceHistory || strings.Join(row.Transaction.Tags, ",") != "silver,eating-out" {
+		t.Fatalf("row = %+v (%s)", row.Transaction, row.CategorySource)
+	}
+}

@@ -59,7 +59,11 @@ func scanCategoryRows(rows [][]string) []categoryRow {
 		if currentGroup == nil {
 			continue
 		}
-		category := domain.Category{Name: cell, Type: *currentGroup, Nature: domain.ParseCategoryNature(cellAt(row, 1))}
+		// Column C is the user's own note and is not read.
+		category := domain.Category{
+			Name: cell, Type: *currentGroup, Nature: domain.ParseCategoryNature(cellAt(row, 1)),
+			Definition: strings.TrimSpace(cellAt(row, 3)), SplitTags: domain.ParseSplitTags(cellAt(row, 4)),
+		}
 		found = append(found, categoryRow{category: category, sheetRow: i + 1})
 	}
 	return found

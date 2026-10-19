@@ -17,23 +17,66 @@ func (s *dbService) ListCategories(forceFresh bool) ([]domain.Category, error) {
 	})
 }
 
-// categoryNatureColumn is Categories column B.
-const categoryNatureColumn = "B"
+const (
+	// categoryNatureColumn is Categories column B.
+	categoryNatureColumn = "B"
+	// categoryDefinitionColumn is Categories column D; the split tags are E.
+	categoryDefinitionColumn = "D"
+)
 
-// UpdateCategoryNature finds the category's row by exact name (spaces
-// around it ignored) in a fresh read and writes column B (WM-LEND-5). The
+// UpdateCategoryNature writes the category's column B (WM-LEND-5). The
 // transactions cache goes too: transactions carry their category's nature.
 func (s *dbService) UpdateCategoryNature(input domain.CategoryNatureUpdate) (domain.Category, error) {
 	if err := input.Validate(); err != nil {
 		return domain.Category{}, err
 	}
 	nature, _ := input.ParsedNature()
-	name := strings.TrimSpace(input.Category)
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
+	row, err := s.findCategoryRow(input.Category)
+	if err != nil {
+		return domain.Category{}, err
+	}
+	cell := fmt.Sprintf("Categories!%s%d", categoryNatureColumn, row.sheetRow)
+	if err := s.client.UpdateRow(cell, []any{string(nature)}); err != nil {
+		return domain.Category{}, fmt.Errorf("update category nature: %w", err)
+	}
+	s.invalidate(cacheKeyCats, "transactions:*")
+	category := row.category
+	category.Nature = nature
+	return category, nil
+}
+
+// UpdateCategoryDefinition writes the category's definition and split tags
+// to columns D and E (WM-CAT-1, WM-CAT-2).
+func (s *dbService) UpdateCategoryDefinition(input domain.CategoryDefinitionUpdate) (domain.Category, error) {
+	if err := input.Validate(); err != nil {
+		return domain.Category{}, err
+	}
+	definition, tags := strings.TrimSpace(input.Definition), input.NormalizedSplitTags()
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	row, err := s.findCategoryRow(input.Category)
+	if err != nil {
+		return domain.Category{}, err
+	}
+	cell := fmt.Sprintf("Categories!%s%d", categoryDefinitionColumn, row.sheetRow)
+	if err := s.client.UpdateRow(cell, []any{definition, strings.Join(tags, ",")}); err != nil {
+		return domain.Category{}, fmt.Errorf("update category definition: %w", err)
+	}
+	s.invalidate(cacheKeyCats)
+	category := row.category
+	category.Definition, category.SplitTags = definition, tags
+	return category, nil
+}
+
+// findCategoryRow finds the category's row by exact name (spaces around it
+// ignored) in a fresh read; a missing or repeated name is an error.
+func (s *dbService) findCategoryRow(name string) (categoryRow, error) {
+	name = strings.TrimSpace(name)
 	rows, err := s.client.ReadSheet(categoriesSheetRange)
 	if err != nil {
-		return domain.Category{}, fmt.Errorf("read categories: %w", err)
+		return categoryRow{}, fmt.Errorf("read categories: %w", err)
 	}
 	var matches []categoryRow
 	for _, row := range scanCategoryRows(rows) {
@@ -43,19 +86,12 @@ func (s *dbService) UpdateCategoryNature(input domain.CategoryNatureUpdate) (dom
 	}
 	switch len(matches) {
 	case 0:
-		return domain.Category{}, fmt.Errorf("%w: category %q is not in the Categories tab", domain.ErrNotFound, name)
+		return categoryRow{}, fmt.Errorf("%w: category %q is not in the Categories tab", domain.ErrNotFound, name)
 	case 1:
+		return matches[0], nil
 	default:
-		return domain.Category{}, fmt.Errorf("%w: category %q appears %d times in the Categories tab; remove the duplicates first", domain.ErrConflict, name, len(matches))
+		return categoryRow{}, fmt.Errorf("%w: category %q appears %d times in the Categories tab; remove the duplicates first", domain.ErrConflict, name, len(matches))
 	}
-	cell := fmt.Sprintf("Categories!%s%d", categoryNatureColumn, matches[0].sheetRow)
-	if err := s.client.UpdateRow(cell, []any{string(nature)}); err != nil {
-		return domain.Category{}, fmt.Errorf("update category nature: %w", err)
-	}
-	s.invalidate(cacheKeyCats, "transactions:*")
-	category := matches[0].category
-	category.Nature = nature
-	return category, nil
 }
 
 func (s *dbService) ListTags(forceFresh bool) ([]string, error) {

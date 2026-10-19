@@ -186,6 +186,15 @@ func (h *DatabaseHandler) UpdateCategoryNature(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.UpdateCategoryNature(body))
 }
 
+// UpdateCategoryDefinition sets a category's definition and split tags (WM-CAT-1, WM-CAT-2).
+func (h *DatabaseHandler) UpdateCategoryDefinition(c *fiber.Ctx) error {
+	var body domain.CategoryDefinitionUpdate
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return h.respond(c)(h.databaseService.UpdateCategoryDefinition(body))
+}
+
 func (h *DatabaseHandler) GetTags(c *fiber.Ctx) error {
 	return h.respond(c)(h.databaseService.ListTags(forceFresh(c)))
 }

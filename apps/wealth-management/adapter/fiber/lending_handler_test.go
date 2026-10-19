@@ -48,3 +48,19 @@ func TestGivenACategoryWhenPatchingItsNatureThenTheUpdateIsGuardedAndValidated(t
 		t.Fatalf("setting a nature must be guarded, got %d", status)
 	}
 }
+
+func TestGivenACategoryWhenPatchingItsDefinitionThenTheUpdateIsGuardedAndValidated(t *testing.T) {
+	db := &fakes.Database{}
+	app := newSheetsApp(t, db)
+
+	status, body := call(t, app, http.MethodPatch, "/api/categories/definition", `{"category":"Food","definition":"Food for home.","splitTags":["eating-out"]}`)
+	if status != http.StatusOK || !strings.Contains(body, `"definition":"Food for home."`) || len(db.DefinitionUpdates) != 1 {
+		t.Fatalf("patch: %d %s", status, body)
+	}
+	if status, _ := call(t, app, http.MethodPatch, "/api/categories/definition", `{"category":"Food","splitTags":["a,b"]}`); status != http.StatusBadRequest {
+		t.Fatalf("a split tag with a comma must be a 400, got %d", status)
+	}
+	if status, _ := call(t, app, http.MethodPatch, "/api/categories/definition", `{"category":"Food"}`, "Authorization", ""); status != http.StatusUnauthorized {
+		t.Fatalf("setting a definition must be guarded, got %d", status)
+	}
+}

@@ -70,6 +70,9 @@ type CategorySuggestion struct {
 	// (same payee before), "ai", or "default" when the model named no known
 	// category.
 	Source string `json:"source"`
+	// SplitTag is one of the category's split tags when it fits the payee
+	// (WM-CAT-5): from the payee's history or the model; empty otherwise.
+	SplitTag string `json:"splitTag,omitempty"`
 }
 
 // ChatMessage is the transport shape of a chat turn; the UI keeps history.

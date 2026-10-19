@@ -55,9 +55,23 @@ type BudgetCategoryStats struct {
 	RecommendedLimit float64        `json:"recommendedLimit"`
 	Direction        LimitDirection `json:"direction"`
 	Reason           string         `json:"reason"`
+	// Splits are the category's split tags with their own spend and trend
+	// (WM-CAT-4); empty for a category without split tags.
+	Splits []SplitStats `json:"splits,omitempty"`
 	// history is the full-month spend behind the averages, oldest first.
 	history          []float64
 	yearToDateMonths int
+}
+
+// SplitStats are one split tag's spend inside a category (WM-CAT-4): the
+// month so far, the last advisorLookbackMonths full months, the year to date
+// and the trend, as for the category itself.
+type SplitStats struct {
+	Tag               string     `json:"tag"`
+	SpentSoFar        float64    `json:"spentSoFar"`
+	AverageSpend      float64    `json:"averageSpend"`
+	YearToDateAverage float64    `json:"yearToDateAverage"`
+	Trend             SpendTrend `json:"trend"`
 }
 
 // LimitDirection says which way a recommendation moves a limit (WM-BUD-10).
@@ -142,8 +156,9 @@ const (
 // quality-of-life limit recommendation, the savings check behind it,
 // categories burning faster than usual, and a 30-day liquid balance
 // projection that extends the average monthly cash flow from today's cash
-// balance. goalNeed is what dated goals need saved a month.
-func ComputeAdvisorFacts(items []BudgetItem, accounts []Account, transactions []Transaction, today time.Time, goalNeed float64) AdvisorFacts {
+// balance. goalNeed is what dated goals need saved a month; categories give
+// the split tags whose spend is reported inside each category.
+func ComputeAdvisorFacts(items []BudgetItem, accounts []Account, transactions []Transaction, today time.Time, goalNeed float64, categories []Category) AdvisorFacts {
 	month := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
 	report := ComputeBudgetReport(items, transactions, month, today)
 
@@ -208,6 +223,13 @@ func ComputeAdvisorFacts(items []BudgetItem, accounts []Account, transactions []
 	}
 	for i := range facts.Categories {
 		facts.Categories[i].Nature = natures[normalizeCategory(facts.Categories[i].Category)]
+	}
+	splits := NewSplitTagIndex(categories)
+	for i := range facts.Categories {
+		stat := &facts.Categories[i]
+		if tags := splits.For(stat.Category); len(tags) > 0 {
+			stat.Splits = splitStats(transactions, stat.Category, tags, month, historyMonths, yearToDateMonths)
+		}
 	}
 	facts.SavingsCheck = recommendLimits(facts.Categories, income, goalNeed)
 	facts.AverageIncome = income
@@ -359,6 +381,28 @@ func recommendationReason(stat BudgetCategoryStats, savingsOnTrack bool) string 
 		reason += " Tag it fixed, essential or flexible for needs-and-wants advice."
 	}
 	return reason
+}
+
+// splitStats reads each split tag's net spend over the history months and
+// the month so far, with the same windows and trend as the category.
+func splitStats(transactions []Transaction, category string, tags []string, month time.Time, historyMonths, yearToDateMonths int) []SplitStats {
+	spent := splitSpendByMonth(transactions, category, tags, month.AddDate(0, -historyMonths, 0), month)
+	splits := make([]SplitStats, 0, len(tags))
+	for _, tag := range tags {
+		series := make([]float64, len(spent[tag]))
+		for i, value := range spent[tag] {
+			series[i] = clampZero(value)
+		}
+		history, soFar := series[:historyMonths], series[historyMonths]
+		recent := history[historyMonths-advisorLookbackMonths:]
+		yearToDate := history[historyMonths-yearToDateMonths:]
+		split := SplitStats{Tag: tag, SpentSoFar: math.Round(soFar), AverageSpend: math.Round(mean(recent)), YearToDateAverage: math.Round(mean(yearToDate)), Trend: SpendTrendUnknown}
+		if earlier := yearToDateMonths - advisorLookbackMonths; earlier > 0 {
+			split.Trend = spendTrend(mean(recent), mean(yearToDate[:earlier]))
+		}
+		splits = append(splits, split)
+	}
+	return splits
 }
 
 func spendTrend(recent, earlier float64) SpendTrend {
@@ -575,6 +619,7 @@ Rules:
 - Quality of life is a principle: never suggest a fixed or essential limit below what it usually costs; let wants (flexible) keep their usual level while FACTS.savingsCheck.onTrack is true; trim wants only when savings are short, starting with rising or swinging ones; lower limits that sit well above usual spend so the slack goes to goals.
 - Start each suggested limit from recommendedLimit. Move away from it only for a reason in the data (spentSoFar, recent transactions, goals) and say why in the rationale. Include categories whose direction is increase or lower.
 - Name the trend, pattern or nature in the rationale when it drives the limit. For occasional spend, plan a monthly set-aside rather than a cut.
+- A category's splits are the spend on its split tags (for example meals out inside a food category), with their own averages and trend. When a split of a need is rising while the rest holds, say so and aim the advice at that split (a recommendation to change the habit), not at the need's limit.
 - Recommendations are for actions worth tracking over the coming weeks that a limit alone does not do (cook at home more while a want is rising and savings are short, renegotiate or switch a fixed cost, cancel a subscription behind an unused limit); never repeat a suggested limit as a recommendation.
 - Round suggested limits to thousands of VND.
 - Mention every category in FACTS.unusualVelocity in an alert of type "spike".

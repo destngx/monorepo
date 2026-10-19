@@ -349,6 +349,13 @@ func TestMoneyLentTools(t *testing.T) {
 	if _, err := server.CallTool(context.Background(), "SetCategoryNature", json.RawMessage(`{"category":"Food","nature":"loan"}`)); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("an unknown nature should be rejected, got %v", err)
 	}
+	result, err = server.CallTool(context.Background(), "SetCategoryDefinition", json.RawMessage(`{"category":"Food","definition":"Food for home.","splitTags":["Eating-Out"]}`))
+	if err != nil || len(db.DefinitionUpdates) != 1 || !strings.Contains(result.Content, `"splitTags":["eating-out"]`) {
+		t.Fatalf("set definition: %v %s", err, result.Content)
+	}
+	if _, err := server.CallTool(context.Background(), "SetCategoryDefinition", json.RawMessage(`{"category":"Food","splitTags":["a,b"]}`)); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("a split tag with a comma should be rejected, got %v", err)
+	}
 }
 
 func TestPreferenceTools(t *testing.T) {

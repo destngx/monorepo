@@ -34,6 +34,7 @@ import type {
   CardPaymentQuery,
   CardSuggestion,
   Category,
+  CategoryDefinitionInput,
   CategoryNatureInput,
   CategorySuggestion,
   ChatEvent,
@@ -181,6 +182,9 @@ export const api = {
   reorderGoals: (ids: string[]) => request<PlannedGoal[]>('/goals/reorder', { method: 'POST', body: { ids } }),
   setCategoryNature: (input: CategoryNatureInput) =>
     request<Category>('/categories/nature', { method: 'PATCH', body: input }),
+  /** Definition and split tags, Categories columns D and E (WM-CAT-1, WM-CAT-2). */
+  setCategoryDefinition: (input: CategoryDefinitionInput) =>
+    request<Category>('/categories/definition', { method: 'PATCH', body: input }),
   moneyLent: (options?: ReadOptions) => read<MoneyLent>('/lending', options),
   /** Bills, suggestions, the 30-day calendar and safe-to-spend (ROADMAP R4). */
   bills: (options?: ReadOptions) => read<Bills>('/bills', options),

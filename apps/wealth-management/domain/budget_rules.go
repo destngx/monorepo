@@ -55,6 +55,9 @@ type BudgetLine struct {
 	// month's daily burn so far (WM-BUD-7); null when it will not run out
 	// this month, the month is not the current one, or there is no limit.
 	BurnOutDate *string `json:"burnOutDate"`
+	// Splits are the month's spend on the category's split tags (WM-CAT-3);
+	// empty for a category without split tags.
+	Splits []SplitSpend `json:"splits,omitempty"`
 }
 
 // CountsAsExpense reports whether the line is expense for totals, burn and

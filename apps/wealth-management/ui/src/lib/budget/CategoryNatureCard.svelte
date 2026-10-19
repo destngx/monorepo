@@ -4,16 +4,20 @@
   import type { Category } from '$lib/api/types';
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import Icon from '$lib/components/Icon.svelte';
+  import CategoryDefinitionModal from './CategoryDefinitionModal.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { groupCategories, NATURE_OPTIONS, natureChoice, type NatureChoice } from './natures';
 
-  // Category nature editor (WM-LEND-5): writes Categories column B.
+  // Category nature editor (WM-LEND-5): writes Categories column B. Each row
+  // also opens the definition and split tags editor (WM-CAT-1, WM-CAT-2).
   let { categories }: { categories: Category[] } = $props();
 
   const groups = $derived(groupCategories(categories));
   // Choices saved or being saved, shown until the reloaded categories catch up.
   let pending = $state<Record<string, NatureChoice>>({});
   let saving = $state<string | null>(null);
+  let defining = $state<Category | null>(null);
 
   async function save(category: Category, nature: NatureChoice) {
     const previous = natureChoice(category);
@@ -35,8 +39,8 @@
 </script>
 
 <Card
-  title="Category natures"
-  subtitle="Fixed and essential are needs, flexible is wants. Lending categories hold money lent and repaid: they leave income and expense and feed Money lent."
+  title="Categories"
+  subtitle="Fixed and essential are needs, flexible is wants. Lending categories hold money lent and repaid: they leave income and expense and feed Money lent. Define a category to say what belongs in it; split tags show a share of its spend."
 >
   {#if groups.length}
     <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -47,7 +51,22 @@
             {#each group.categories as category (category.name)}
               {@const id = `nature-${group.label}-${category.name}`}
               <li class="flex items-center justify-between gap-3 py-1.5">
-                <label for={id} class="min-w-0 truncate">{category.name}</label>
+                <div class="min-w-0">
+                  <label for={id} class="block truncate">{category.name}</label>
+                  {#if category.definition || category.splitTags?.length}
+                    <p class="muted truncate text-xs" title={category.definition}>
+                      {#each category.splitTags ?? [] as tag (tag)}<span class="mr-1 font-medium">#{tag}</span
+                        >{/each}{category.definition ?? ''}
+                    </p>
+                  {/if}
+                </div>
+                <button
+                  type="button"
+                  class="btn-ghost shrink-0 px-1.5"
+                  aria-label="Define {category.name}"
+                  title="Definition and split tags"
+                  onclick={() => (defining = category)}><Icon name="pencil" size={14} /></button
+                >
                 <select
                   {id}
                   class="field w-36 py-1 text-xs"
@@ -69,3 +88,5 @@
     <EmptyState title="No categories" detail="Categories come from the Categories tab." />
   {/if}
 </Card>
+
+<CategoryDefinitionModal category={defining} onclose={() => (defining = null)} />

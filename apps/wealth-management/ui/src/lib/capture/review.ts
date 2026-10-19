@@ -1,3 +1,4 @@
+import { withSplitTag } from '$lib/budget/natures';
 import type {
   Account,
   CardBankReport,
@@ -60,9 +61,9 @@ export const rowKey = (row: ReviewRow) =>
 export const isRowDirty = (row: ReviewRow) => row.savedKey !== undefined && rowKey(row) !== row.savedKey;
 
 /**
- * Applies a category suggested for the row's payee. A category the user
- * picked by hand is kept unless forced; transfers keep theirs; only known
- * categories apply.
+ * Applies a category suggested for the row's payee, with its split tag
+ * (WM-CAT-5). A category the user picked by hand is kept unless forced;
+ * transfers keep theirs; only known categories apply.
  */
 export function applyCategorySuggestion(
   row: ReviewRow,
@@ -74,6 +75,7 @@ export function applyCategorySuggestion(
   if (!categories.includes(suggestion.category)) return false;
   row.tx.category = suggestion.category;
   row.categorySource = suggestion.source;
+  row.tx.tags = withSplitTag(row.tx.tags ?? [], suggestion.splitTag);
   return true;
 }
 

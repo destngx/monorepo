@@ -27,6 +27,9 @@ type DatabaseService interface {
 	// (WM-LEND-5); ErrNotFound when the name is missing, ErrConflict when it
 	// appears more than once.
 	UpdateCategoryNature(input domain.CategoryNatureUpdate) (domain.Category, error)
+	// UpdateCategoryDefinition writes a category's definition and split tags
+	// to Categories columns D and E (WM-CAT-1, WM-CAT-2).
+	UpdateCategoryDefinition(input domain.CategoryDefinitionUpdate) (domain.Category, error)
 	// ListBudget reads the budget tab of a year; 0 means the current year.
 	ListBudget(year int, forceFresh bool) ([]domain.BudgetItem, error)
 	UpdateBudgetLimit(input domain.BudgetLimitUpdate) error

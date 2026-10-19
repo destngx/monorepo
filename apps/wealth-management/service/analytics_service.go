@@ -89,7 +89,13 @@ func (s *analyticsService) BudgetReport(month string, forceFresh bool) (domain.B
 	if err != nil {
 		return domain.BudgetReport{}, err
 	}
-	return domain.ComputeBudgetReport(items, transactions, target, today), nil
+	categories, err := s.db.ListCategories(forceFresh)
+	if err != nil {
+		return domain.BudgetReport{}, err
+	}
+	report := domain.ComputeBudgetReport(items, transactions, target, today)
+	domain.ApplySplits(&report, categories, transactions)
+	return report, nil
 }
 
 // BudgetHistory returns limit and spending per expense category for the

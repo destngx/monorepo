@@ -61,7 +61,7 @@ describe('Budget page', () => {
     expect(screen.getByRole('button', { name: 'Next month' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Move money' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByText(/Loading the budget…/)).toBeTruthy();
-    expect(screen.getByText('Loading category natures…')).toBeTruthy();
+    expect(screen.getByText('Loading categories…')).toBeTruthy();
   });
 
   it('Given the report arrives before the transactions When it settles Then the overview and categories show', async () => {
@@ -79,6 +79,6 @@ describe('Budget page', () => {
     expect(screen.getByText('Am I within budget?')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Edit limit for Groceries' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Move money' }).hasAttribute('disabled')).toBe(false);
-    expect(screen.getByText('Loading category natures…')).toBeTruthy();
+    expect(screen.getByText('Loading categories…')).toBeTruthy();
   });
 });

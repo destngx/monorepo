@@ -51,6 +51,17 @@
               color={statusBar[line.status]}
               label={line.category}
             />
+            {#if line.splits?.length}
+              <!-- WM-CAT-3: the share of the month on the category's split tags. -->
+              <p class="muted mt-1 flex flex-wrap gap-x-3 text-xs" data-testid="splits">
+                {#each line.splits as split (split.tag)}
+                  <span
+                    >of which <span class="font-medium">#{split.tag}</span>
+                    <Money value={split.spent} /> ({Math.round(split.percentOfSpent)}%)</span
+                  >
+                {/each}
+              </p>
+            {/if}
           </button>
           <button
             type="button"

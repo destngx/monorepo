@@ -102,13 +102,21 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 	})
 
 	categories := api.Group("/categories", "categories")
-	categories.Get("/", h.GetCategories, RouteMeta{Summary: "Lists income, expense and non-budget categories with their nature (fixed, essential, flexible, lending; omitted when untagged).", QueryParams: []RouteParameter{forceParam()}})
+	categories.Get("/", h.GetCategories, RouteMeta{Summary: "Lists income, expense and non-budget categories with their nature (fixed, essential, flexible, lending; omitted when untagged), definition and split tags (omitted when empty).", QueryParams: []RouteParameter{forceParam()}})
 	categories.Patch("/nature", guard.Wrap(h.UpdateCategoryNature), RouteMeta{
 		Summary: "Sets a category's nature in Categories column B and returns the category. The category is matched by exact name; 404 when it is missing, 409 when it appears more than once, 400 for an unknown nature. Lending categories hold money lent and repaid: they leave income and expense.",
 		RequestBody: jsonBody(map[string]any{
 			"category": schemaString,
 			"nature":   map[string]any{"type": "string", "enum": []string{"fixed", "essential", "flexible", "lending", "none"}, "description": "none clears the nature."},
 		}, "category", "nature"),
+	})
+	categories.Patch("/definition", guard.Wrap(h.UpdateCategoryDefinition), RouteMeta{
+		Summary: "Sets a category's definition (Categories column D: what belongs in it, used when the AI files transactions) and split tags (column E: tags that divide its spend) and returns the category. Empty values clear them. The category is matched by exact name; 404 when it is missing, 409 when it appears more than once, 400 for a definition over 500 characters, a split tag over 30 characters or with a comma, or more than 5 split tags.",
+		RequestBody: jsonBody(map[string]any{
+			"category":   schemaString,
+			"definition": schemaString,
+			"splitTags":  map[string]any{"type": "array", "items": schemaString, "description": "Stored trimmed and lower case."},
+		}, "category"),
 	})
 	registerGoalWriteRoutes(api.Group("/goals", "goals"), h, guard)
 	registerBillsWriteRoutes(api, h, guard)

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '$lib/api/endpoints';
+  import { withSplitTag } from '$lib/budget/natures';
   import type { Account, Category, CategorySuggestion, Transaction, TransactionInput } from '$lib/api/types';
   import Button from '$lib/components/Button.svelte';
   import { todayISO } from '$lib/format';
@@ -91,6 +92,7 @@
       const canApply = !auto || !form.category;
       if (canApply && result.source !== 'default' && categories.some((c) => c.name === result.category)) {
         form.category = result.category;
+        form.tags = withSplitTag(form.tags, result.splitTag);
       }
     } catch (failure) {
       if (!controller.signal.aborted) {

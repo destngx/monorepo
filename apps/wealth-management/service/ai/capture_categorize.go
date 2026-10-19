@@ -8,14 +8,20 @@ import (
 	"strings"
 )
 
-// categorizeCapture fills category and card tag per suggestion: confirmed
-// payee rules, then the payee's history, then one batched model call
-// constrained to known categories and the card's rule tags (WM-CAP-5).
-// Whatever is left is Uncategorized and flagged for review. Notes are the
-// user's typed notes that read as no transaction, shown to the model.
+// categorizeCapture fills category, card tag and split tag per suggestion:
+// confirmed payee rules, then the payee's history, then one batched model
+// call constrained to known categories, the card's rule tags and the
+// category's split tags, guided by the category definitions (WM-CAP-5,
+// WM-CAT-5). A category's split tag comes from the payee's history in it
+// when there is any; otherwise the model picks it. Whatever is left is
+// Uncategorized and flagged for review. Notes are the user's typed notes
+// that read as no transaction, shown to the model.
 func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, data captureData, notes []string) {
 	payeeRules := payeeRuleCategories(data.rules, data.categories)
 	var pending []int
+	// splitOpen marks rows whose category has split tags but no tagged
+	// history to decide one; the model picks it.
+	splitOpen := map[int]bool{}
 	for index := range suggestions {
 		suggestion := &suggestions[index]
 		payee := suggestion.Transaction.Payee
@@ -42,12 +48,19 @@ func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions
 		} else if tag, ok := historyTag(payee, suggestion.Transaction.AccountName, suggestion.TagOptions, data.transactions); ok {
 			suggestion.Transaction.Tags = []string{tag}
 		}
-		if suggestion.Transaction.Category == "" || (len(suggestion.TagOptions) > 0 && len(suggestion.Transaction.Tags) == 0) {
+		if category := suggestion.Transaction.Category; category != "" {
+			if tags := data.splits.For(category); len(tags) > 0 {
+				tag, decided := domain.HistorySplitTag(payee, category, tags, data.transactions)
+				addTag(&suggestion.Transaction, tag)
+				splitOpen[index] = !decided
+			}
+		}
+		if suggestion.Transaction.Category == "" || !hasCardTag(*suggestion) || splitOpen[index] {
 			pending = append(pending, index)
 		}
 	}
 	if len(pending) > 0 {
-		if err := s.categorizeWithModel(ctx, p, suggestions, pending, data.categories, notes); err != nil {
+		if err := s.categorizeWithModel(ctx, p, suggestions, pending, data, splitOpen, notes); err != nil {
 			s.log.LogError(ctx, "capture categorisation failed; rows left for review", err)
 			for _, index := range pending {
 				if suggestions[index].Transaction.Category == "" {
@@ -66,6 +79,34 @@ func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions
 			suggestion.LowConfidence = appendUnique(suggestion.LowConfidence, "category")
 		}
 	}
+}
+
+// hasCardTag reports whether the row has its card's rule tag, or needs none.
+func hasCardTag(suggestion domain.CaptureSuggestion) bool {
+	if len(suggestion.TagOptions) == 0 {
+		return true
+	}
+	for _, tag := range suggestion.Transaction.Tags {
+		for _, option := range suggestion.TagOptions {
+			if strings.EqualFold(strings.TrimSpace(tag), option) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// addTag appends tag unless it is empty or already there.
+func addTag(transaction *domain.TransactionCreateInput, tag string) {
+	if tag == "" {
+		return
+	}
+	for _, existing := range transaction.Tags {
+		if strings.EqualFold(strings.TrimSpace(existing), tag) {
+			return
+		}
+	}
+	transaction.Tags = append(transaction.Tags, tag)
 }
 
 // payeeRuleCategories maps each confirmed payee rule, folded, to its known
@@ -118,6 +159,8 @@ type categorizeItem struct {
 	Currency    string   `json:"currency"`
 	Account     string   `json:"account,omitempty"`
 	TagOptions  []string `json:"tagOptions,omitempty"`
+	// Category is set when it is already decided and only the tags are open.
+	Category string `json:"category,omitempty"`
 }
 
 type categorizeReply struct {
@@ -125,20 +168,24 @@ type categorizeReply struct {
 		ID       string `json:"id"`
 		Category string `json:"category"`
 		Tag      string `json:"tag"`
+		SplitTag string `json:"splitTag"`
 	} `json:"items"`
 }
 
 const captureCategorizeFormat = `IMPORTANT: Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation) in this exact format:
-{"items": [{"id": "s1", "category": "<exact name from the category list>", "tag": "<one of the item's tagOptions, or empty>"}]}
+{"items": [{"id": "s1", "category": "<exact name from the category list>", "tag": "<one of the item's tagOptions, or empty>", "splitTag": "<one of the chosen category's split tags, or empty>"}]}
 
 Rules:
 - One entry per input item, same id.
 - category must be copied exactly from the category list; use "" when none fits.
 - An item's hint is the category the user asked for in their own words: pick the category it names or means ("transit" = a transport category), whatever the payee suggests.
 - The user's note, when given, was sent with the materials: let what it says the money was for guide the category of the items it fits.
-- tag must be copied exactly from that item's tagOptions (the card the payment was made with, when the item shows which); use "" when it does not or the item has no tagOptions.`
+- tag must be copied exactly from that item's tagOptions (the card the payment was made with, when the item shows which); use "" when it does not or the item has no tagOptions.
+- An item that already has a category keeps it: copy it back and only choose tag and splitTag.
+- When a category guide is given, choose between categories by their definitions, and set splitTag to one of the chosen category's split tags when its definition says that tag applies to the item; otherwise "".`
 
-func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, pending []int, categories []string, notes []string) error {
+func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, pending []int, data captureData, splitOpen map[int]bool, notes []string) error {
+	categories := data.categories
 	task, ok := p.lookup(keyCaptureCategorize, map[string]string{"categories": strings.Join(categories, ", ")})
 	if !ok {
 		return fmt.Errorf("%w: %s", domain.ErrPromptMissing, keyCaptureCategorize)
@@ -154,12 +201,16 @@ func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestio
 		items = append(items, categorizeItem{
 			ID: suggestion.ID, Payee: s.masker.Mask(suggestion.Transaction.Payee), Description: s.masker.Mask(description), Hint: s.masker.Mask(suggestion.CategoryHint),
 			Direction: string(suggestion.Direction), Amount: suggestion.Amount, Currency: suggestion.Currency,
-			Account: suggestion.Transaction.AccountName, TagOptions: suggestion.TagOptions,
+			Account: suggestion.Transaction.AccountName, TagOptions: suggestion.TagOptions, Category: suggestion.Transaction.Category,
 		})
 		byID[suggestion.ID] = index
 	}
 	sort.Slice(items, func(a, b int) bool { return byID[items[a].ID] < byID[items[b].ID] })
-	user := "Categories: " + strings.Join(categories, ", ") + "\n\nItems:\n" + toJSON(items) + "\n\n"
+	user := "Categories: " + strings.Join(categories, ", ") + "\n\n"
+	if data.guide != "" {
+		user += "Category guide:\n" + s.masker.Mask(data.guide) + "\n\n"
+	}
+	user += "Items:\n" + toJSON(items) + "\n\n"
 	if note := strings.TrimSpace(strings.Join(notes, "\n")); note != "" {
 		user += "The user's note:\n" + s.masker.Mask(note) + "\n\n"
 	}
@@ -185,16 +236,22 @@ func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestio
 			continue
 		}
 		suggestion := &suggestions[index]
+		splitDecided := suggestion.Transaction.Category != "" && !splitOpen[index]
 		if suggestion.Transaction.Category == "" {
 			if category, ok := domain.ResolveCategory(answer.Category, categories); ok {
 				suggestion.Transaction.Category, suggestion.CategorySource = category, domain.CategorySourceAI
 			}
 		}
-		if len(suggestion.Transaction.Tags) == 0 {
+		if !hasCardTag(*suggestion) {
 			for _, option := range suggestion.TagOptions {
 				if strings.EqualFold(strings.TrimSpace(answer.Tag), option) {
-					suggestion.Transaction.Tags = []string{option}
+					suggestion.Transaction.Tags = append([]string{option}, suggestion.Transaction.Tags...)
 				}
+			}
+		}
+		if !splitDecided {
+			if tag, ok := data.splits.Resolve(suggestion.Transaction.Category, answer.SplitTag); ok {
+				addTag(&suggestion.Transaction, tag)
 			}
 		}
 	}

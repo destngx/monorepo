@@ -201,6 +201,13 @@ describe('applyCategorySuggestion', () => {
     expect(applyCategorySuggestion(row, { category: 'Yachts', source: 'ai' }, categories, { force: true })).toBe(false);
   });
 
+  it('adds the suggested split tag next to the card tag (WM-CAT-5)', () => {
+    const [row] = toReviewRows(result([suggestion({ categorySource: 'history' })]));
+    row.tx.tags = ['silver'];
+    applyCategorySuggestion(row, { category: 'Transport', source: 'ai', splitTag: 'eating-out' }, categories);
+    expect(row.tx.tags).toEqual(['silver', 'eating-out']);
+  });
+
   it('leaves transfer rows alone', () => {
     const [row] = toReviewRows(result([suggestion({ transferGroup: 't1', categorySource: 'transfer' })]));
     expect(applyCategorySuggestion(row, { category: 'Transport', source: 'ai' }, categories, { force: true })).toBe(

@@ -20,7 +20,7 @@ const (
 	transactionsSheetRange  = "Transactions!A2:J"
 	transactionsAnchorRange = "Transactions!A2:A"
 	transactionsFirstRow    = 2
-	categoriesSheetRange    = "Categories!A1:B200"
+	categoriesSheetRange    = "Categories!A1:E200"
 	cryptoSheetRange        = "Crypto!A1:Z100"
 	fundsSheetRange         = "InvestmentFundCertificate!A1:Z100"
 	promptsSheetRange       = "Prompts!A2:C"

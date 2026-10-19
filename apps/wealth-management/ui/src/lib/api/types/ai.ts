@@ -168,6 +168,8 @@ export interface BudgetAdvice {
 export interface CategorySuggestion {
   category: string;
   source: 'rule' | 'history' | 'ai' | 'default';
+  /** One of the category's split tags when it fits the payee (WM-CAT-5). */
+  splitTag?: string;
 }
 
 export interface ChatMessage {

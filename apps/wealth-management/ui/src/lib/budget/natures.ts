@@ -29,3 +29,20 @@ export function groupCategories(categories: Category[]): { label: string; catego
 export function natureChoice(category: Pick<Category, 'nature'>): NatureChoice {
   return category.nature ?? 'none';
 }
+
+/** Split tags typed as a comma list: trimmed, lower case, blanks and repeats dropped (as the engine stores them). */
+export function parseSplitTags(text: string): string[] {
+  const tags: string[] = [];
+  for (const part of text.split(',')) {
+    const tag = part.trim().toLowerCase();
+    if (tag && !tags.includes(tag)) tags.push(tag);
+  }
+  return tags;
+}
+
+/** Tags with a suggested split tag added once (case ignored); the same list when there is none (WM-CAT-5). */
+export function withSplitTag(tags: string[], splitTag: string | undefined): string[] {
+  const tag = splitTag?.trim().toLowerCase();
+  if (!tag || tags.some((existing) => existing.trim().toLowerCase() === tag)) return tags;
+  return [...tags, tag];
+}

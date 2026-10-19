@@ -119,7 +119,11 @@ func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (d
 	if err != nil {
 		return domain.BudgetAdvice{}, fmt.Errorf("load goals: %w", err)
 	}
-	facts := domain.ComputeAdvisorFacts(items, snap.accounts, snap.transactions, snap.today, goals.Check.RequiredPerMonth)
+	categories, err := s.db.ListCategories(false)
+	if err != nil {
+		return domain.BudgetAdvice{}, fmt.Errorf("load categories: %w", err)
+	}
+	facts := domain.ComputeAdvisorFacts(items, snap.accounts, snap.transactions, snap.today, goals.Check.RequiredPerMonth, categories)
 	monthStart := snap.today.AddDate(0, 0, 1-snap.today.Day())
 	vars := map[string]string{
 		"date":       snap.today.Format("02/01/2006"),

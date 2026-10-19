@@ -6,6 +6,7 @@ import (
 	"apps/wealth-management/port"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -60,6 +61,7 @@ type Database struct {
 	EmergencyChanges    []domain.EmergencyAccountInput
 	MinimumChanges      []domain.AccountMinimumInput
 	NatureUpdates       []domain.CategoryNatureUpdate
+	DefinitionUpdates   []domain.CategoryDefinitionUpdate
 	GoalSetups          int
 	CreatedGoals        []domain.GoalInput
 	UpdatedGoals        map[string]domain.GoalUpdateInput
@@ -256,6 +258,17 @@ func (f *Database) UpdateCategoryNature(input domain.CategoryNatureUpdate) (doma
 	f.NatureUpdates = append(f.NatureUpdates, input)
 	nature, _ := input.ParsedNature()
 	return domain.Category{Name: input.Category, Type: domain.CategoryTypeExpense, Nature: nature}, f.Err
+}
+
+// UpdateCategoryDefinition validates like the service and records the update.
+func (f *Database) UpdateCategoryDefinition(input domain.CategoryDefinitionUpdate) (domain.Category, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := input.Validate(); err != nil {
+		return domain.Category{}, err
+	}
+	f.DefinitionUpdates = append(f.DefinitionUpdates, input)
+	return domain.Category{Name: input.Category, Type: domain.CategoryTypeExpense, Definition: strings.TrimSpace(input.Definition), SplitTags: input.NormalizedSplitTags()}, f.Err
 }
 
 func nonNil[T any](values []T) []T {
