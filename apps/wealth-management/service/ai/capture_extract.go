@@ -95,7 +95,8 @@ func (s *Service) extract(ctx context.Context, material domain.CaptureMaterial, 
 	} else {
 		user += "Read every money movement in this text:\n```\n" + s.masker.Mask(material.Text) + "\n```"
 	}
-	message.Content = user + "\n\n" + domain.CaptureFormatInstruction
+	today := s.today()
+	message.Content = user + "\n\n" + domain.CaptureFormatInstruction(today)
 	var extraction domain.CaptureExtraction
 	_, err := s.complete(ctx, call{
 		feature:  "capture-extract",
@@ -106,7 +107,7 @@ func (s *Service) extract(ctx context.Context, material domain.CaptureMaterial, 
 		json:     true,
 		validate: func(content string) error {
 			var err error
-			extraction, err = domain.ParseCaptureExtraction(content, material.ID)
+			extraction, err = domain.ParseCaptureExtraction(content, material, today)
 			return err
 		},
 	})

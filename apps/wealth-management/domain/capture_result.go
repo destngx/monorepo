@@ -46,6 +46,9 @@ type CaptureSuggestion struct {
 	AccountSource     string                 `json:"accountSource,omitempty"`
 	AccountCandidates []string               `json:"accountCandidates,omitempty"`
 	CategorySource    string                 `json:"categorySource,omitempty"`
+	// CategoryHint is the category the user's typed note asked for, as
+	// written; the categoriser resolves it before rules and history.
+	CategoryHint string `json:"-"`
 	// TagOptions are the cashback rule tags of the row's card (WM-CAP-5).
 	TagOptions []string          `json:"tagOptions,omitempty"`
 	SourceApp  string            `json:"sourceApp,omitempty"`
@@ -124,6 +127,7 @@ func BuildCaptureSuggestions(input CaptureBuildInput) []CaptureSuggestion {
 		event := item.Event
 		suggestion := baseSuggestion(item, materials, accounts, event.Amount)
 		suggestion.Transaction.Payee = capturePayee(event)
+		suggestion.CategoryHint = event.Category
 		if group, ok := transferOf[index]; ok {
 			suggestion.TransferGroup = group
 			suggestion.Transaction.Payee = input.Items[counterpartOf[index]].Account.Name
@@ -187,7 +191,10 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 	if event.Confidence < CaptureLowConfidence {
 		suggestion.LowConfidence = append(suggestion.LowConfidence, "amount", "date")
 	}
-	if !event.HasTime {
+	if event.DateAssumed {
+		suggestion.LowConfidence = append(suggestion.LowConfidence, "date")
+		suggestion.Notes = append(suggestion.Notes, "No date in the text; dated today.")
+	} else if !event.HasTime {
 		suggestion.Notes = append(suggestion.Notes, "No time on the material; matched by date only.")
 	}
 	if item.Account.Name == "" || item.Account.Source == MatchSourceName {

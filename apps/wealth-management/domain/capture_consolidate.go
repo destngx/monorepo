@@ -115,6 +115,7 @@ func mergeItems(a, b CaptureItem) CaptureItem {
 	fill(&event.Reference, other.Event.Reference)
 	fill(&event.SourceApp, other.Event.SourceApp)
 	fill(&event.AccountHint, other.Event.AccountHint)
+	fill(&event.Category, other.Event.Category)
 	if event.BalanceAfter == nil {
 		event.BalanceAfter = other.Event.BalanceAfter
 	}
@@ -124,6 +125,7 @@ func mergeItems(a, b CaptureItem) CaptureItem {
 	if !event.HasTime && other.Event.HasTime {
 		event.At, event.HasTime = other.Event.At, true
 	}
+	event.DateAssumed = event.DateAssumed && other.Event.DateAssumed
 	account := base.Account
 	if account.Name == "" && other.Account.Name != "" {
 		account = other.Account

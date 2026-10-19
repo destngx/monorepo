@@ -8,6 +8,7 @@ import (
 	"apps/wealth-management/service"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -267,5 +268,53 @@ func TestCaptureTagsTheOnlyOpenCardOfAnAccount(t *testing.T) {
 	card := result.Suggestions[0]
 	if card.Transaction.AccountName != "Credit Card Acme" || len(card.Transaction.Tags) != 1 || card.Transaction.Tags[0] != "gold" {
 		t.Fatalf("a card account with one open card should take its tag: %+v", card.Transaction)
+	}
+}
+
+func TestCaptureRecordsATypedNoteDatedTodayInTheCategoryItAsksFor(t *testing.T) {
+	// The model leaves out what a typed note does not say: no date, no sign.
+	noteReply := `{"events":[{"occurredAt":"","amount":400000,"currency":"VND","direction":"","description":"tien gui xe","confidence":0.8,"quote":"400k tien gui xe","category":"%s"}]}`
+	for name, test := range map[string]struct {
+		hint, categorize, wantSource string
+	}{
+		"hint names a category": {hint: "transport", categorize: `{"items":[]}`, wantSource: domain.CategorySourceManual},
+		"hint means a category": {hint: "transit", categorize: `{"items":[{"id":"s1","category":"Transport"}]}`, wantSource: domain.CategorySourceAI},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var categorizeRequest string
+			client := &scriptedClient{route: func(request domain.AIRequest) reply {
+				user := request.Messages[len(request.Messages)-1].Content
+				if strings.Contains(user, "Items:") {
+					categorizeRequest = user
+					return reply{content: test.categorize}
+				}
+				if !strings.Contains(user, "Today is 2026-10-10.") {
+					t.Errorf("extraction must state today's date: %q", user)
+				}
+				return reply{content: fmt.Sprintf(noteReply, test.hint)}
+			}}
+			materials := []domain.CaptureMaterial{{ID: "m1", Kind: domain.CaptureText, Text: "400k tien gui xe count as " + test.hint}}
+			result, err := newCaptureService(t, captureDatabase(), client).Capture(context.Background(), port.CaptureRequest{Materials: materials}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Unreadable) != 0 || len(result.Suggestions) != 1 {
+				t.Fatalf("expected one suggestion, got %+v", result)
+			}
+			row := result.Suggestions[0]
+			tx := row.Transaction
+			if tx.Date != "10/10/2026" || tx.Payment == nil || *tx.Payment != 400_000 || tx.Deposit != nil || tx.Payee != "tien gui xe" {
+				t.Fatalf("expected a 400,000 payment to tien gui xe today: %+v", tx)
+			}
+			if tx.Category != "Transport" || row.CategorySource != test.wantSource {
+				t.Fatalf("expected Transport from %s, got %q from %q", test.wantSource, tx.Category, row.CategorySource)
+			}
+			if !strings.Contains(strings.Join(row.LowConfidence, ","), "date") || !strings.Contains(strings.Join(row.Notes, " "), "dated today") {
+				t.Fatalf("an assumed date must be flagged: %+v", row)
+			}
+			if test.wantSource == domain.CategorySourceAI && !strings.Contains(categorizeRequest, `"hint":"transit"`) {
+				t.Fatalf("the categoriser must get the hint: %q", categorizeRequest)
+			}
+		})
 	}
 }

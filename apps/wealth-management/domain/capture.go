@@ -135,11 +135,16 @@ type CaptureEvent struct {
 	Fee          *float64         `json:"fee"`
 	Confidence   float64          `json:"confidence"`
 	Quote        string           `json:"quote"`
+	// Category is the category a typed note asks for, as written, e.g.
+	// "transit" from "400k parking count as transit".
+	Category string `json:"category"`
 
 	// Set by the engine after parsing.
 	MaterialID string    `json:"materialId"`
 	At         time.Time `json:"-"`
 	HasTime    bool      `json:"-"`
+	// DateAssumed marks a typed note without a date, dated today.
+	DateAssumed bool `json:"-"`
 }
 
 // CaptureExtraction is the model's reply for one material.
@@ -159,8 +164,10 @@ const (
 
 // ParseCaptureExtraction parses a reply to CaptureFormatInstruction and
 // normalises its events. Events that cannot become a transaction are
-// dropped and counted rather than guessed (WM-CAP-2).
-func ParseCaptureExtraction(content string, materialID string) (CaptureExtraction, error) {
+// dropped and counted rather than guessed (WM-CAP-2), except that a typed
+// note is the user recording money as it moves: without a date it is
+// dated today, and without a direction it is money out.
+func ParseCaptureExtraction(content string, material CaptureMaterial, today time.Time) (CaptureExtraction, error) {
 	var extraction CaptureExtraction
 	if err := ParseAIJSON(content, &extraction); err != nil {
 		return extraction, err
@@ -168,7 +175,10 @@ func ParseCaptureExtraction(content string, materialID string) (CaptureExtractio
 	extraction.Reason = strings.TrimSpace(extraction.Reason)
 	events := make([]CaptureEvent, 0, len(extraction.Events))
 	for _, event := range extraction.Events {
-		event.MaterialID = materialID
+		event.MaterialID = material.ID
+		if material.Kind == CaptureText {
+			event.assumeTypedNote(today)
+		}
 		if !event.normalize() {
 			extraction.Dropped++
 			continue
@@ -185,8 +195,19 @@ func ParseCaptureExtraction(content string, materialID string) (CaptureExtractio
 	return extraction, nil
 }
 
+func (e *CaptureEvent) assumeTypedNote(today time.Time) {
+	if strings.TrimSpace(e.OccurredAt) == "" {
+		e.OccurredAt = today.Format("2006-01-02")
+		e.DateAssumed = true
+	}
+	if strings.TrimSpace(string(e.Direction)) == "" {
+		e.Direction = CaptureOut
+	}
+}
+
 func (e *CaptureEvent) normalize() bool {
 	e.Counterparty = strings.TrimSpace(e.Counterparty)
+	e.Category = strings.TrimSpace(e.Category)
 	e.Description = strings.TrimSpace(e.Description)
 	e.Reference = strings.TrimSpace(e.Reference)
 	e.SourceApp = strings.TrimSpace(e.SourceApp)
@@ -266,7 +287,11 @@ func (e CaptureEvent) Date() time.Time {
 
 // CaptureFormatInstruction is the extraction output contract (WM-CAP-2),
 // appended by the engine to the tasks/capture-extract prompt.
-var CaptureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation) in this exact format:
+func CaptureFormatInstruction(today time.Time) string {
+	return strings.ReplaceAll(captureFormatInstruction, "{today}", today.Format("2006-01-02"))
+}
+
+const captureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation) in this exact format:
 {
   "events": [
     {
@@ -282,7 +307,8 @@ var CaptureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON object
       "balanceAfter": 3456789,
       "fee": null,
       "confidence": 0.9,
-      "quote": "The exact text the event was read from"
+      "quote": "The exact text the event was read from",
+      "category": ""
     }
   ],
   "unreadable": false,
@@ -292,7 +318,9 @@ var CaptureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON object
 Rules:
 - One event per money movement; a screenshot listing several transactions yields several events.
 - amount is a positive plain number in the shown currency: 1.250.000đ = 1250000, -50k = 50000, +1,250,000 VND = 1250000. The sign goes into direction ("out" for money leaving the account, "in" for money arriving).
-- Dates shown as dd/MM/yyyy are day first. When the year is missing, use the year that makes the date closest to, but not after, today.
+- Today is {today}. Dates shown as dd/MM/yyyy are day first. When the year is missing, use the year that makes the date closest to, but not after, today.
+- Typed notes such as "400k tien gui xe" or "35k cafe yesterday" are the user recording money as it moves: one event per amount, dated today unless the note names a day ("yesterday", "15/10"), direction "out" unless the note says the money came in (received, salary, refund). Put what the money was for into description. k means thousand, m or tr means million: 400k = 400000, 1.5tr = 1500000. The amount is the payment itself, not a fee.
+- category is the category a typed note asks for, as written ("count as transit" = "transit", "category: Food" = "Food"), else "". Leave it out of description.
 - balanceAfter is the balance shown after the movement (e.g. "SD: 3,456,789VND"), else null. fee is a separate fee amount, else null.
 - confidence is 0..1 for the event as a whole; lower it for any field you had to infer.
 - Never invent events. If nothing can be read, return no events, "unreadable": true and a short reason.`

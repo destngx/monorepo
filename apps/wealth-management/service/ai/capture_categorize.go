@@ -19,7 +19,13 @@ func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions
 		suggestion := &suggestions[index]
 		payee := suggestion.Transaction.Payee
 		suggestion.TagOptions = data.tagOptions[suggestion.Transaction.AccountName]
-		if suggestion.Transaction.Category == "" {
+		// A category the user's note asked for outranks rules and history;
+		// one that names no category exactly is left to the model.
+		if suggestion.Transaction.Category == "" && suggestion.CategoryHint != "" {
+			if category, ok := domain.ResolveCategory(suggestion.CategoryHint, data.categories); ok {
+				suggestion.Transaction.Category, suggestion.CategorySource = category, domain.CategorySourceManual
+			}
+		} else if suggestion.Transaction.Category == "" {
 			if category, ok := payeeRules[domain.FoldText(payee)]; ok {
 				suggestion.Transaction.Category, suggestion.CategorySource = category, domain.CategorySourceRule
 			} else if category, ok := historyCategory(payee, data.transactions, data.categories); ok {
@@ -105,6 +111,7 @@ type categorizeItem struct {
 	ID          string   `json:"id"`
 	Payee       string   `json:"payee"`
 	Description string   `json:"description,omitempty"`
+	Hint        string   `json:"hint,omitempty"`
 	Direction   string   `json:"direction"`
 	Amount      float64  `json:"amount"`
 	Currency    string   `json:"currency"`
@@ -126,6 +133,7 @@ const captureCategorizeFormat = `IMPORTANT: Respond with ONLY a valid JSON objec
 Rules:
 - One entry per input item, same id.
 - category must be copied exactly from the category list; use "" when none fits.
+- An item's hint is the category the user asked for in their own words: pick the category it names or means ("transit" = a transport category), whatever the payee suggests.
 - tag must be copied exactly from that item's tagOptions (the card the payment was made with, when the item shows which); use "" when it does not or the item has no tagOptions.`
 
 func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, pending []int, categories []string) error {
@@ -142,7 +150,7 @@ func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestio
 			description = strings.TrimSpace(strings.TrimPrefix(*suggestion.Transaction.Memo, domain.CaptureMemoPrefix))
 		}
 		items = append(items, categorizeItem{
-			ID: suggestion.ID, Payee: s.masker.Mask(suggestion.Transaction.Payee), Description: s.masker.Mask(description),
+			ID: suggestion.ID, Payee: s.masker.Mask(suggestion.Transaction.Payee), Description: s.masker.Mask(description), Hint: s.masker.Mask(suggestion.CategoryHint),
 			Direction: string(suggestion.Direction), Amount: suggestion.Amount, Currency: suggestion.Currency,
 			Account: suggestion.Transaction.AccountName, TagOptions: suggestion.TagOptions,
 		})

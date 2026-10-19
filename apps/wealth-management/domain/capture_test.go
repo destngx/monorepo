@@ -45,7 +45,7 @@ func TestParseCaptureExtractionNormalisesEvents(t *testing.T) {
 		{"occurredAt":"2026-10-03","amount":0,"direction":"out"},
 		{"occurredAt":"2026-10-03","amount":10,"direction":"sideways"}
 	],"unreadable":false,"reason":""}` + "\n```"
-	extraction, err := ParseCaptureExtraction(reply, "m1")
+	extraction, err := ParseCaptureExtraction(reply, captureScreenshot, captureToday)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,11 +62,11 @@ func TestParseCaptureExtractionNormalisesEvents(t *testing.T) {
 }
 
 func TestParseCaptureExtractionReportsUnreadable(t *testing.T) {
-	extraction, err := ParseCaptureExtraction(`{"events":[{"occurredAt":"?","amount":1,"direction":"out"}]}`, "m1")
+	extraction, err := ParseCaptureExtraction(`{"events":[{"occurredAt":"?","amount":1,"direction":"out"}]}`, captureScreenshot, captureToday)
 	if err != nil || !extraction.Unreadable || extraction.Reason == "" {
 		t.Fatalf("all-dropped material must be unreadable: %+v %v", extraction, err)
 	}
-	if _, err := ParseCaptureExtraction("Here you go: {}", "m1"); !errors.Is(err, ErrAIOutput) {
+	if _, err := ParseCaptureExtraction("Here you go: {}", captureScreenshot, captureToday); !errors.Is(err, ErrAIOutput) {
 		t.Fatalf("prose must be rejected, got %v", err)
 	}
 }
@@ -353,5 +353,43 @@ func TestGivenRowsOnOrBeforeTheLastRecordedDateWhenCheckingDuplicatesThenTheyAre
 		if suggestions[index].RecordedThrough != "" || !suggestions[index].Selected {
 			t.Fatalf("row %d is new: %+v", index, suggestions[index])
 		}
+	}
+}
+
+var (
+	captureScreenshot = CaptureMaterial{ID: "m1", Kind: CaptureImage}
+	captureToday      = time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC)
+)
+
+func TestParseCaptureExtractionDatesATypedNoteToday(t *testing.T) {
+	reply := `{"events":[
+		{"occurredAt":"","amount":400000,"direction":"","description":"tien gui xe","category":" transit "},
+		{"occurredAt":"2026-10-18","amount":35000,"direction":"out","description":"cafe"}
+	]}`
+	extraction, err := ParseCaptureExtraction(reply, CaptureMaterial{ID: "n1", Kind: CaptureText}, captureToday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(extraction.Events) != 2 {
+		t.Fatalf("expected both notes kept, got %+v", extraction)
+	}
+	parking, cafe := extraction.Events[0], extraction.Events[1]
+	if parking.Date() != captureToday || parking.HasTime || !parking.DateAssumed || parking.Direction != CaptureOut || parking.Amount != 400000 || parking.Category != "transit" {
+		t.Fatalf("undated note: %+v", parking)
+	}
+	if cafe.DateAssumed || cafe.Date() != captureToday.AddDate(0, 0, -1) {
+		t.Fatalf("dated note: %+v", cafe)
+	}
+
+	// A screenshot without a date or direction is still dropped, not guessed.
+	extraction, err = ParseCaptureExtraction(reply, captureScreenshot, captureToday)
+	if err != nil || extraction.Dropped != 1 || len(extraction.Events) != 1 {
+		t.Fatalf("screenshot event must need a date and direction: %+v %v", extraction, err)
+	}
+}
+
+func TestCaptureFormatInstructionStatesToday(t *testing.T) {
+	if instruction := CaptureFormatInstruction(captureToday); !strings.Contains(instruction, "Today is 2026-10-19.") || strings.Contains(instruction, "{today}") {
+		t.Fatalf("instruction must carry today's date: %s", instruction)
 	}
 }
