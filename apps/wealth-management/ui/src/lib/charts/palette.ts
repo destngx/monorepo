@@ -24,6 +24,12 @@ export const REAL = '#0d9488';
 // Gold and USD protection trends (ROADMAP M4); validated as a pair on both themes.
 export const GOLD = '#d97706';
 export const USD = '#0284c7';
+// Stacked spend (WM-BUD-12, WM-CAT-3): day-to-day spend under fixed costs or a split tag; validated
+// as a pair on both themes (the brighter EXPENSE orange leaves the dark lightness band).
+export const DAY_TO_DAY = '#ea580c';
+export const SPLIT_SHARE = '#6366f1';
+// A second split tag (more fold into it as "Other split tags"); the three pass as a set on both themes.
+export const SPLIT_SECOND = '#0d9488';
 // Net worth history (ROADMAP P3): one series, the first categorical hue. Estimated months are told
 // apart by a dashed line and hollow markers, milestones by a labelled diamond, never by colour.
 export const NET_WORTH = '#6366f1';

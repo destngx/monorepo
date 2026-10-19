@@ -21,6 +21,7 @@ import type {
   Briefing,
   BudgetAdvice,
   BudgetHistory,
+  SpendingWindows,
   BudgetItem,
   BudgetReport,
   CaptureDraftEdit,
@@ -252,6 +253,8 @@ export const api = {
   /** The home inbox, ranked (ROADMAP R5). */
   needsYou: (options?: ReadOptions) => read<NeedsYou>('/home/needs-you', options),
   budgetReport: (month: string, options?: ReadOptions) => read<BudgetReport>('/analytics/budget', options, { month }),
+  /** Today, the last 30 days and the last 3 months, each ending today (WM-BUD-12). */
+  spendingWindows: (options?: ReadOptions) => read<SpendingWindows>('/analytics/budget/spending', options),
   budgetHistory: (month: string, months: number, options?: ReadOptions) =>
     read<BudgetHistory>('/analytics/budget/history', options, { month, months }),
   /** Without a year the engine uses the current one. */

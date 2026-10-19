@@ -75,4 +75,20 @@ describe('BarChart', () => {
     const { container } = render(BarChart, props);
     expect(container.querySelector('rect title')?.textContent).toBe(`Refund: ${MASK}`);
   });
+
+  it('Given stacked series When they render Then each column is one bar of its parts, the empty part left out', () => {
+    mask.toggle();
+    const { container } = render(BarChart, { ...props, stacked: true });
+    const parts = [...container.querySelectorAll('rect title')].map((title) => title.textContent);
+    expect(parts).toEqual(['Refund: 120K', 'Refund: 80K', 'Missed: 15K']);
+
+    const [, february, missed] = [...container.querySelectorAll('rect[fill]')].filter((rect) =>
+      rect.querySelector('title'),
+    );
+    // The second part sits on top of the first, in the same column, with a gap between them.
+    expect(missed.getAttribute('x')).toBe(february.getAttribute('x'));
+    expect(Number(missed.getAttribute('y')) + Number(missed.getAttribute('height'))).toBeLessThan(
+      Number(february.getAttribute('y')),
+    );
+  });
 });

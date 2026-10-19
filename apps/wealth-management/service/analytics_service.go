@@ -98,6 +98,20 @@ func (s *analyticsService) BudgetReport(month string, forceFresh bool) (domain.B
 	return report, nil
 }
 
+// SpendingWindows compares today, the last 30 days and the last 3 months of
+// expense, each ending today (WM-BUD-12).
+func (s *analyticsService) SpendingWindows(forceFresh bool) (domain.SpendingWindows, error) {
+	transactions, err := s.db.ListTransactions(forceFresh)
+	if err != nil {
+		return domain.SpendingWindows{}, err
+	}
+	categories, err := s.db.ListCategories(forceFresh)
+	if err != nil {
+		return domain.SpendingWindows{}, err
+	}
+	return domain.ComputeSpendingWindows(transactions, categories, s.today()), nil
+}
+
 // BudgetHistory returns limit and spending per expense category for the
 // `months` months ending at `month` (default: the current month). Each month
 // reads its own year's tab; an earlier year without a tab has no limits,

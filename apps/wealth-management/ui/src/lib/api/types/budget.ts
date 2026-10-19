@@ -76,6 +76,80 @@ export interface BudgetHistory {
   rows: { category: string; values: { month: string; limit: number; spent: number }[] }[];
 }
 
+/** Today's expense against a typical day of the 30 days before it (WM-BUD-12). */
+export interface SpendingToday {
+  date: string;
+  spent: number;
+  dayToDay: number;
+  typicalDay: number;
+  changePercent: number | null;
+}
+
+/** One day's expense: fixed costs (paid once a month) apart from day-to-day spend. */
+export interface SpendingDay {
+  date: string;
+  fixed: number;
+  dayToDay: number;
+}
+
+/** One expense category in a spending window. */
+export interface SpendingCategory {
+  category: string;
+  nature?: CategoryNature;
+  spent: number;
+  percentOfSpent: number;
+  monthlyAverage: number;
+  previousSpent: number;
+  changePercent: number | null;
+  splits?: SplitSpend[];
+}
+
+/** The expense of a rolling window ending today; averages per day use day-to-day spend only. */
+export interface SpendingWindow {
+  days: number;
+  from: string;
+  to: string;
+  spent: number;
+  fixed: number;
+  dayToDay: number;
+  dailyAverage: number;
+  monthlyAverage: number;
+  previous: { from: string; to: string; spent: number; dayToDay: number; dailyAverage: number };
+  dailyAverageChangePercent: number | null;
+  /** Largest first. */
+  categories: SpendingCategory[];
+}
+
+export type SpendingRecommendationKind = 'faster' | 'slower' | 'category_rising' | 'split_rising' | 'heavy_day';
+
+/**
+ * Engine advice from comparing the windows. Current and usual are daily averages for faster and
+ * slower, the last 30 days against the usual 30 days for a rising category or split, and today
+ * against a typical day for heavy_day. Amount is the extra (or saving) a month; today's extra for heavy_day.
+ */
+export interface SpendingRecommendation {
+  kind: SpendingRecommendationKind;
+  tone: 'warning' | 'info' | 'good';
+  category?: string;
+  tag?: string;
+  nature?: CategoryNature;
+  current: number;
+  usual: number;
+  amount: number;
+  changePercent: number;
+}
+
+/** How am I spending? Today, the last 30 days and the last 3 months (WM-BUD-12). */
+export interface SpendingWindows {
+  asOf: string;
+  today: SpendingToday;
+  /** The last 30 days, then the last 3 months (90 days). */
+  windows: SpendingWindow[];
+  /** The last 90 days, oldest first. */
+  daily: SpendingDay[];
+  recommendations: SpendingRecommendation[];
+}
+
 export interface ReallocateInput {
   year: number;
   month: string;

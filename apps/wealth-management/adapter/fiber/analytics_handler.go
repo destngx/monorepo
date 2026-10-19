@@ -48,6 +48,10 @@ func (h *AnalyticsHandler) GetBudgetHistory(c *fiber.Ctx) error {
 	return h.respond(c)(h.analytics.BudgetHistory(strings.TrimSpace(c.Query("month")), months, forceFresh(c)))
 }
 
+func (h *AnalyticsHandler) GetSpendingWindows(c *fiber.Ctx) error {
+	return h.respond(c)(h.analytics.SpendingWindows(forceFresh(c)))
+}
+
 func (h *AnalyticsHandler) GetYearlyCashFlow(c *fiber.Ctx) error {
 	year := 0
 	if raw := strings.TrimSpace(c.Query("year")); raw != "" {

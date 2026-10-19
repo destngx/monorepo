@@ -100,6 +100,36 @@ func TestGivenFixedCategoriesWhenReadingTheDashboardThenThePaceAddsThemOnce(t *t
 	}
 }
 
+func TestGivenTheLedgerWhenReadingSpendingWindowsThenFixedCategoriesAndSplitsComeFromTheCategories(t *testing.T) {
+	kind := domain.CategoryTypeExpense
+	rent, meal := 6_000_000.0, 300_000.0
+	db := &fakes.Database{
+		Categories: []domain.Category{
+			{Name: "Rent", Type: kind, Nature: domain.NatureFixed},
+			{Name: "Food", Type: kind, Nature: domain.NatureEssential, SplitTags: []string{"eating-out"}},
+		},
+		Transactions: []domain.Transaction{
+			{AccountName: "Bank", Date: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), Category: "Rent", CategoryType: &kind, Payment: &rent},
+			{AccountName: "Bank", Date: time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC), Category: "Food", CategoryType: &kind, Payment: &meal, Tags: []string{"eating-out"}},
+		},
+	}
+
+	spending, err := newAnalytics(db).SpendingWindows(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recent := spending.Windows[0]
+	if spending.AsOf != "2026-10-12" || recent.Fixed != rent || recent.DayToDay != meal || spending.Today.DayToDay != meal {
+		t.Fatalf("spending = %+v", spending)
+	}
+	if food := recent.Categories[1]; food.Nature != domain.NatureEssential || len(food.Splits) != 1 || food.Splits[0].Spent != meal {
+		t.Fatalf("food = %+v", food)
+	}
+	if _, err := newAnalytics(&fakes.Database{Err: errors.New("sheet down")}).SpendingWindows(false); err == nil {
+		t.Fatal("a failing ledger gave no error")
+	}
+}
+
 func TestGivenCategoriesFailWhenReadingTheDashboardThenTheErrorIsReturned(t *testing.T) {
 	failure := errors.New("sheet down")
 	if _, err := newAnalytics(&fakes.Database{Err: failure}).DashboardSummary(false); !errors.Is(err, failure) {

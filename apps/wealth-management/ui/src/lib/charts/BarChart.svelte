@@ -17,20 +17,31 @@
     series: Series[];
     height?: number;
     label?: string;
+    /** Stack the series in one bar per label (parts of a whole) instead of grouping them. */
+    stacked?: boolean;
   }
 
-  // Grouped bars, e.g. income vs expense per month (WM-DASH-3).
-  let { labels, series, height = 220, label = 'Bar chart' }: Props = $props();
+  // Grouped bars, e.g. income vs expense per month (WM-DASH-3); stacked bars for parts of a total.
+  let { labels, series, height = 220, label = 'Bar chart', stacked = false }: Props = $props();
 
   const width = 640;
   const pad = { top: 12, right: 8, bottom: 24, left: 56 };
 
-  const all = $derived(series.flatMap((s) => s.values));
+  // Stacked bars scale to each column's total; parts are never negative.
+  const totals = $derived(labels.map((_, i) => series.reduce((sum, s) => sum + Math.max(0, s.values[i] ?? 0), 0)));
+  const all = $derived(stacked ? totals : series.flatMap((s) => s.values));
   const yExtent = $derived(extent(all, true));
   const yTicks = $derived(ticks(yExtent));
   const y = $derived(scale(yExtent, [height - pad.bottom, pad.top]));
   const band = $derived((width - pad.left - pad.right) / Math.max(labels.length, 1));
-  const barWidth = $derived(Math.min(28, (band * 0.7) / Math.max(series.length, 1)));
+  const barWidth = $derived(Math.min(28, (band * 0.7) / Math.max(stacked ? 1 : series.length, 1)));
+
+  /** Bottom of series j in column i: the parts of the series below it. */
+  function stackBase(i: number, j: number): number {
+    let base = 0;
+    for (let k = 0; k < j; k++) base += Math.max(0, series[k].values[i] ?? 0);
+    return base;
+  }
 
   let hover = $state<number | null>(null);
 </script>
@@ -63,16 +74,34 @@
             />
             {#each series as s, j (s.name)}
               {@const value = s.values[i] ?? 0}
-              <rect
-                x={center - (barWidth * series.length) / 2 + j * barWidth + 1}
-                y={Math.min(y(value), y(0))}
-                width={barWidth - 2}
-                height={Math.max(Math.abs(y(value) - y(0)), 1)}
-                rx="3"
-                fill={s.color}
-              >
-                <title>{s.name}: {mask.revealed ? formatCompact(value) : MASK}</title>
-              </rect>
+              {#if stacked}
+                {@const base = stackBase(i, j)}
+                {@const part = Math.max(0, value)}
+                {#if part > 0}
+                  <!-- A 2px surface gap parts a segment from the one below it. -->
+                  <rect
+                    x={center - barWidth / 2 + 1}
+                    y={y(base + part)}
+                    width={Math.max(barWidth - 2, 1)}
+                    height={Math.max(y(base) - y(base + part) - (base > 0 ? 2 : 0), 1)}
+                    rx="3"
+                    fill={s.color}
+                  >
+                    <title>{s.name}: {mask.revealed ? formatCompact(value) : MASK}</title>
+                  </rect>
+                {/if}
+              {:else}
+                <rect
+                  x={center - (barWidth * series.length) / 2 + j * barWidth + 1}
+                  y={Math.min(y(value), y(0))}
+                  width={barWidth - 2}
+                  height={Math.max(Math.abs(y(value) - y(0)), 1)}
+                  rx="3"
+                  fill={s.color}
+                >
+                  <title>{s.name}: {mask.revealed ? formatCompact(value) : MASK}</title>
+                </rect>
+              {/if}
             {/each}
             <text x={center} y={height - 6} text-anchor="middle" class="fill-slate-500 text-[11px]">{text}</text>
           </g>

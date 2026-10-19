@@ -11,6 +11,7 @@
   import ExpenseCategoriesCard from '$lib/budget/ExpenseCategoriesCard.svelte';
   import LimitModal from '$lib/budget/LimitModal.svelte';
   import ReallocateModal from '$lib/budget/ReallocateModal.svelte';
+  import SpendingRhythmCard from '$lib/budget/SpendingRhythmCard.svelte';
   import type { ReallocationDraft } from '$lib/budget/reallocate';
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -26,6 +27,7 @@
   let { data } = $props();
   const report = track(() => data.report, { scope: () => data.month });
   const transactions = track(() => data.transactions);
+  const spending = track(() => data.spending);
 
   // Lending categories are neither income nor expense (WM-RULE-3).
   const isExpense = (line: BudgetLine) => line.categoryType === 'expense' && !line.lending;
@@ -113,6 +115,17 @@
   {/snippet}
 </Deferred>
 
+<!-- WM-BUD-12: how spending is going today, over 30 days and 3 months, whatever the month shown -->
+<Deferred data={data.spending} label="how you are spending" class="mt-4">
+  {#snippet children(value)}<SpendingRhythmCard spending={value} />{/snippet}
+  {#snippet skeleton()}<SkeletonCard
+      title="How am I spending?"
+      label="how you are spending"
+      lines={3}
+      chart={180}
+    />{/snippet}
+</Deferred>
+
 <!-- WM-BUD-5, WM-BUD-11: the advisor is the page's one AI section, with the actions it is tracking. -->
 <BudgetAdvisor class="mt-4" />
 
@@ -127,6 +140,7 @@
   line={selected}
   month={data.month}
   transactions={transactions.value ?? null}
+  spending={spending.value ?? null}
   onclose={() => (selected = null)}
   onmove={(from) => {
     selected = null;

@@ -13,6 +13,9 @@ type AnalyticsService interface {
 	// BudgetHistory compares limit and spend for `months` months ending at
 	// month ("YYYY-MM", empty = current), oldest first (WM-BUD-7).
 	BudgetHistory(month string, months int, forceFresh bool) (domain.BudgetHistory, error)
+	// SpendingWindows is how the user is spending today, over the last 30
+	// days and the last 3 months, with recommendations (WM-BUD-12).
+	SpendingWindows(forceFresh bool) (domain.SpendingWindows, error)
 	// YearlyCashFlow gives income and expense per month and category for a
 	// calendar year (0 = the current year) (WM-DASH-8).
 	YearlyCashFlow(year int, forceFresh bool) (domain.YearlyCashFlow, error)

@@ -52,7 +52,14 @@ const flush = async () => {
 describe('Budget page', () => {
   it('Given the report is still loading When the page renders Then the header and month switcher are usable at once', () => {
     render(BudgetPage, {
-      data: { engine: never(), month: '2026-09', report: never(), transactions: never(), categories: never() } as never,
+      data: {
+        engine: never(),
+        month: '2026-09',
+        report: never(),
+        spending: never(),
+        transactions: never(),
+        categories: never(),
+      } as never,
     });
 
     expect(screen.getByRole('heading', { level: 1, name: 'Budget' })).toBeTruthy();
@@ -61,6 +68,7 @@ describe('Budget page', () => {
     expect(screen.getByRole('button', { name: 'Next month' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Move money' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByText(/Loading the budget…/)).toBeTruthy();
+    expect(screen.getByText('Loading how you are spending…')).toBeTruthy();
     expect(screen.getByText('Loading categories…')).toBeTruthy();
   });
 
@@ -70,6 +78,7 @@ describe('Budget page', () => {
         engine: never(),
         month: '2026-09',
         report: settled(report),
+        spending: never(),
         transactions: never(),
         categories: never(),
       } as never,

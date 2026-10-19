@@ -47,6 +47,7 @@ func (s *Server) analyticsTools() []tool {
 				return analytics.BudgetReport(args.Month, args.Force)
 			},
 		},
+		readTool("GetSpendingRhythm", "How spending is going (WM-BUD-12): today against a typical day, the last 30 days and the last 3 months (90 days) ending today, each with spent = fixed (categories tagged fixed, paid once) + dayToDay, dailyAverage (dayToDay / days), monthlyAverage, the previous period of the same length and expense categories with split tags; daily is the last 90 days. recommendations: faster or slower (30-day daily average against the 3-month one, at 15%), category_rising and split_rising (the last 30 days more than 25% above the usual 30 days and at least 5% of the 30 days' day-to-day spend; fixed categories never, essentials in the info tone: look at what changed, do not cut a need), heavy_day (today at least twice a typical day).", analytics.SpendingWindows),
 		{
 			definition: definition("GetBudgetHistory", "Limit and spend per expense category for several months ending at month, oldest first.", object(map[string]any{
 				"month":  map[string]any{"type": "string", "description": "YYYY-MM; defaults to the current month."},
