@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
@@ -11,7 +12,9 @@
   import { DIRECTIONS, natureLabel, spendShape } from '$lib/budget/trend';
   import Badge from '$lib/components/Badge.svelte';
   import { formatMonth } from '$lib/format';
+  import OpenRecommendations from '$lib/recommendations/OpenRecommendations.svelte';
   import { recordNote } from '$lib/recommendations/recommendations';
+  import { base } from '$app/paths';
   import { toasts } from '$lib/state/toasts.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
@@ -22,10 +25,13 @@
   const task = new AITask((force, signal) => api.budgetAdvice({ force, signal }));
 
   // The advisor files trackable actions to the Budget page's recommendations
-  // (WM-BUD-11); the page re-reads its list when a run recorded something.
-  let { onrecorded }: { onrecorded?: () => void } = $props();
+  // and lists the open ones in this card (WM-BUD-11); a run that recorded
+  // something re-reads the list.
+  let { class: className = '' }: { class?: string } = $props();
+  let recorded = $state(0);
   $effect(() => {
-    if (task.value?.recorded) onrecorded?.();
+    // Only a new advice value triggers this; the bump itself must not.
+    if (task.value?.recorded) untrack(() => recorded++);
   });
 
   // "Apply" writes a suggested limit to the Budget sheet for the advice's month (WM-BUD-6).
@@ -58,6 +64,7 @@
 </script>
 
 <Card
+  class={className}
   title="AI budget advisor"
   subtitle="Limits to raise, lower or keep from your year-to-date and last 3 months, alerts and a 30-day cash projection"
 >
@@ -192,6 +199,19 @@
       hint="Limits to raise, lower or keep from your year-to-date and 3-month spending, needs before wants, spikes and a cash projection."
     />
   {/if}
+  <section class="mt-6 border-t border-slate-900/5 pt-4 dark:border-white/5" aria-labelledby="budget-actions">
+    <div class="mb-2 flex items-center justify-between gap-2">
+      <h3 id="budget-actions" class="text-sm font-semibold">Actions you're tracking</h3>
+      <a class="btn-ghost px-2 text-xs" href="{base}/recommendations?page=%2Fbudget" title="All budget recommendations"
+        >All</a
+      >
+    </div>
+    <OpenRecommendations
+      page="/budget"
+      refresh={recorded}
+      empty="Nothing to track yet. The advisor adds actions worth following over the coming weeks here."
+    />
+  </section>
 </Card>
 
 <Modal open={confirming !== null} title="Apply suggested limit" onclose={() => (confirming = null)}>

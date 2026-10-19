@@ -3,7 +3,6 @@
   import { page } from '$app/state';
   import { track } from '$lib/api/deferred.svelte';
   import BudgetAdvisor from '$lib/ai/BudgetAdvisor.svelte';
-  import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import type { BudgetLine } from '$lib/api/types';
   import BudgetOverview from '$lib/budget/BudgetOverview.svelte';
   import BudgetWall from '$lib/budget/BudgetWall.svelte';
@@ -43,8 +42,6 @@
 
   // Category detail (WM-BUD-4).
   let selected = $state<BudgetLine | null>(null);
-  // Bumped when the advisor files recommendations, so the list re-reads.
-  let recorded = $state(0);
   // Limit editing (WM-BUD-6).
   let editing = $state<BudgetLine | null>(null);
   let limitScope = $state<'month' | 'year'>('month');
@@ -116,17 +113,8 @@
   {/snippet}
 </Deferred>
 
-<!-- WM-BUD-5, WM-BUD-11: the advisor is the page's one AI request; the list shows what it filed. -->
-<div class="mt-4 grid gap-4 xl:grid-cols-2">
-  <BudgetAdvisor onrecorded={() => recorded++} />
-  <RecommendationsPanel
-    title="Recommendations"
-    subtitle="Actions worth tracking, from the budget advisor"
-    page="/budget"
-    hint="Run the AI budget advisor; actions worth tracking over the coming weeks land here."
-    refresh={recorded}
-  />
-</div>
+<!-- WM-BUD-5, WM-BUD-11: the advisor is the page's one AI section, with the actions it is tracking. -->
+<BudgetAdvisor class="mt-4" />
 
 <BudgetWall month={data.month} />
 
