@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MoneyLentPerson } from '$lib/api/types';
-import { ageTone, balanceStatus, formatAge, splitPeople } from './lending';
+import { ageTone, balanceStatus, formatAge, repayStatus, splitPeople } from './lending';
 
 const person = (name: string, outstanding: number): MoneyLentPerson => ({
   name,
@@ -10,6 +10,8 @@ const person = (name: string, outstanding: number): MoneyLentPerson => ({
   lastActivity: '2026-10-01',
   openSince: outstanding === 0 ? null : '2026-09-01',
   daysOutstanding: outstanding === 0 ? null : 30,
+  repayBy: null,
+  daysUntilRepay: null,
   transactions: [],
 });
 
@@ -43,5 +45,15 @@ describe('money lent', () => {
     expect(ageTone(120)).toBe('warning');
     expect(ageTone(400)).toBe('serious');
     expect(ageTone(null)).toBe('neutral');
+  });
+
+  it('flags a repayment date only when it is close or has passed', () => {
+    expect(repayStatus(null)).toBeNull();
+    expect(repayStatus(10)).toEqual({ tone: 'neutral', label: 'Due in 10 days' });
+    expect(repayStatus(3)).toEqual({ tone: 'warning', label: 'Due in 3 days' });
+    expect(repayStatus(1)).toEqual({ tone: 'warning', label: 'Due tomorrow' });
+    expect(repayStatus(0)).toEqual({ tone: 'warning', label: 'Due today' });
+    expect(repayStatus(-1)).toEqual({ tone: 'serious', label: '1 day overdue' });
+    expect(repayStatus(-5)).toEqual({ tone: 'serious', label: '5 days overdue' });
   });
 });

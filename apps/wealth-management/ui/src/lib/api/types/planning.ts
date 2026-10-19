@@ -124,6 +124,10 @@ export interface MoneyLentPerson {
   /** yyyy-mm-dd the open balance started; null when settled. */
   openSince: string | null;
   daysOutstanding: number | null;
+  /** yyyy-mm-dd repayment date written in a memo of a balance owed to you (WM-LEND-6); null when none. */
+  repayBy: string | null;
+  /** Days from today to repayBy; negative when overdue. */
+  daysUntilRepay: number | null;
   /** Newest first. */
   transactions: Transaction[];
 }

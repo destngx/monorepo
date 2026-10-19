@@ -548,9 +548,13 @@ var ruleKinds = map[string]struct {
 
 func ruleItem(finding RuleFinding, recommendationID string) NeedsYouItem {
 	meta := ruleKinds[finding.Rule]
+	status := meta.status
+	if finding.Urgent && status == NeedsYouWarning {
+		status = NeedsYouSerious
+	}
 	return NeedsYouItem{
-		ID: string(meta.kind), Kind: meta.kind, Status: meta.status, Headline: finding.Title, Detail: finding.Action,
-		AmountVND: finding.AmountVND, ImpactVND: finding.ImpactVND, Route: finding.Page, RecommendationID: recommendationID,
+		ID: string(meta.kind), Kind: meta.kind, Status: status, Headline: finding.Title, Detail: finding.Action,
+		AmountVND: finding.AmountVND, ImpactVND: finding.ImpactVND, DueDate: finding.DueDate, Route: finding.Page, RecommendationID: recommendationID,
 	}
 }
 

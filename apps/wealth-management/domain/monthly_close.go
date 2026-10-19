@@ -278,7 +278,7 @@ func moneyLentItem(in CloseInputs) CloseItem {
 	}
 	count, amount := 0, 0.0
 	for _, person := range in.MoneyLent.People {
-		if person.Outstanding > settledTolerance && person.DaysOutstanding != nil && *person.DaysOutstanding >= LendingChaseDays {
+		if person.Outstanding > settledTolerance && closeChase(person) {
 			count++
 			amount += person.Outstanding
 		}
@@ -287,14 +287,23 @@ func moneyLentItem(in CloseInputs) CloseItem {
 	switch {
 	case count > 0:
 		item.State = CloseAction
-		item.Detail = fmt.Sprintf("%s owed you money for %d days or more.", plural(count, "person has", "people have"), LendingChaseDays)
+		item.Detail = fmt.Sprintf("%s owed you money for %d days or more, or past or close to the repayment date in the memo.", plural(count, "person has", "people have"), LendingChaseDays)
 	case in.MoneyLent.OwedToYou > settledTolerance:
 		item.State = CloseDone
-		item.Detail = fmt.Sprintf("Money owed to you was lent less than %d days ago.", LendingChaseDays)
+		item.Detail = fmt.Sprintf("Money owed to you was lent less than %d days ago or is not due back yet.", LendingChaseDays)
 	default:
 		item.State, item.Detail = CloseDone, "Nobody owes you money."
 	}
 	return item
+}
+
+// closeChase: the repayment date in the memo is close or has passed, or,
+// with no date, the balance is LendingChaseDays old (WM-LEND-6).
+func closeChase(person MoneyLentPerson) bool {
+	if person.RepayBy != nil {
+		return person.RepaymentDue()
+	}
+	return person.DaysOutstanding != nil && *person.DaysOutstanding >= LendingChaseDays
 }
 
 func recommendationsItem(in CloseInputs) CloseItem {

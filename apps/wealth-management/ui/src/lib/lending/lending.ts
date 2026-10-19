@@ -29,3 +29,13 @@ export function ageTone(days: number | null | undefined): StatusTone {
   if (days === null || days === undefined || days < 90) return 'neutral';
   return days < 365 ? 'warning' : 'serious';
 }
+
+/** The repayment date from the memo as a badge: overdue is serious, due within 3 days a warning (WM-LEND-6). */
+export function repayStatus(daysUntil: number | null | undefined): { tone: StatusTone; label: string } | null {
+  if (daysUntil === null || daysUntil === undefined) return null;
+  if (daysUntil < 0)
+    return { tone: 'serious', label: daysUntil === -1 ? '1 day overdue' : `${-daysUntil} days overdue` };
+  if (daysUntil === 0) return { tone: 'warning', label: 'Due today' };
+  if (daysUntil === 1) return { tone: 'warning', label: 'Due tomorrow' };
+  return { tone: daysUntil <= 3 ? 'warning' : 'neutral', label: `Due in ${daysUntil} days` };
+}

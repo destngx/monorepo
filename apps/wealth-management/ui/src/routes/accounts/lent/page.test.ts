@@ -33,6 +33,8 @@ const lent: MoneyLent = {
       lastActivity: '2026-09-05',
       openSince: '2026-09-05',
       daysOutstanding: 40,
+      repayBy: '2026-10-13',
+      daysUntilRepay: -2,
       transactions: [],
     },
   ],
@@ -72,6 +74,14 @@ describe('Money lent page', () => {
     await flush();
     expect(document.body.textContent).toContain('3.400.000');
     expect(document.body.textContent).toContain('Test Person');
+  });
+
+  it('Given a repayment date in a memo When it has passed Then the row shows the date as overdue', async () => {
+    render(LentPage, { data: { engine: never(), lent: settled(lent) } as never });
+    await flush();
+
+    expect(screen.getByRole('columnheader', { name: 'Repay by' })).toBeTruthy();
+    expect(screen.getByText('2 days overdue')).toBeTruthy();
   });
 
   it('Given a person row When the history toggle is pressed Then it says what it does and expands', async () => {

@@ -32,6 +32,11 @@ type MoneyLentPerson struct {
 	// OpenSince is the date the current open balance started; nil when settled.
 	OpenSince       *string `json:"openSince"`
 	DaysOutstanding *int    `json:"daysOutstanding"`
+	// RepayBy is the repayment date written in a memo of the open balance
+	// owed to the user (WM-LEND-6), yyyy-mm-dd; nil when none.
+	RepayBy *string `json:"repayBy"`
+	// DaysUntilRepay counts days from today to RepayBy; negative when overdue.
+	DaysUntilRepay *int `json:"daysUntilRepay"`
 	// Transactions are the person's lending transactions, newest first.
 	Transactions []Transaction `json:"transactions"`
 }
@@ -196,6 +201,10 @@ func moneyLentPerson(group []Transaction, today time.Time) MoneyLentPerson {
 		value := since.Format(time.DateOnly)
 		days := max(0, calendarDaysBetween(since, today))
 		person.OpenSince, person.DaysOutstanding = &value, &days
+		if repayBy, ok := openRepaymentDate(newestFirst, since); ok && outstanding > 0 {
+			date, until := repayBy.Format(time.DateOnly), calendarDaysBetween(today, repayBy)
+			person.RepayBy, person.DaysUntilRepay = &date, &until
+		}
 	}
 	return person
 }

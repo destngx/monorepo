@@ -13,7 +13,7 @@
   import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate } from '$lib/format';
-  import { ageTone, balanceStatus, formatAge, splitPeople } from '$lib/lending/lending';
+  import { ageTone, balanceStatus, formatAge, repayStatus, splitPeople } from '$lib/lending/lending';
 
   // The header renders at once; the ledger streams in (one request).
   let { data } = $props();
@@ -103,7 +103,7 @@
 
 {#snippet ledger(people: MoneyLentPerson[], group: string)}
   <div class="-mx-5 overflow-x-auto">
-    <table class="w-full min-w-[52rem] text-sm">
+    <table class="w-full min-w-[60rem] text-sm">
       <thead>
         <tr class="muted text-left text-xs uppercase">
           <th class="px-5 py-2">Person</th>
@@ -112,6 +112,7 @@
           <th class="px-5 py-2 text-right">Repaid</th>
           <th class="px-5 py-2">Last activity</th>
           <th class="px-5 py-2">Outstanding for</th>
+          <th class="px-5 py-2">Repay by</th>
           <th class="px-5 py-2"><span class="sr-only">History</span></th>
         </tr>
       </thead>
@@ -138,6 +139,15 @@
                 <span class="muted">-</span>
               {/if}
             </td>
+            <td class="px-5 py-2.5">
+              {#if person.repayBy !== null}
+                {@const repay = repayStatus(person.daysUntilRepay)}
+                {formatDate(person.repayBy)}
+                {#if repay}<span class="ml-1.5"><Badge status={repay.tone}>{repay.label}</Badge></span>{/if}
+              {:else}
+                <span class="muted" title="Write the agreed date in a memo, e.g. repay 30/11/2026">-</span>
+              {/if}
+            </td>
             <td class="px-5 py-2.5 text-right">
               <button
                 type="button"
@@ -155,7 +165,7 @@
           </tr>
           {#if expanded === key}
             <tr>
-              <td colspan="7" class="bg-slate-900/[0.02] px-5 py-3 dark:bg-white/[0.02]">
+              <td colspan="8" class="bg-slate-900/[0.02] px-5 py-3 dark:bg-white/[0.02]">
                 <table class="w-full text-xs">
                   <thead>
                     <tr class="muted text-left uppercase">
