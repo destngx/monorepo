@@ -318,3 +318,80 @@ func TestCaptureRecordsATypedNoteDatedTodayInTheCategoryItAsksFor(t *testing.T) 
 		})
 	}
 }
+
+// A transfer screenshot names the person as the bank prints it; the note
+// "lend" reads as no transaction but says what the money was for (WM-CAP-22).
+func TestCaptureMatchesALendingPayeeAndReadsTheLendNote(t *testing.T) {
+	const transferReply = `{"events":[{"occurredAt":"2026-10-09 20:15","amount":2000000,"currency":"VND","direction":"out","counterparty":"LE THU NGHIEM","description":"chuyen tien","sourceApp":"Vietcombank","accountHint":"VCB *1234","confidence":0.95,"quote":"-2,000,000 VND"}]}`
+	for name, test := range map[string]struct {
+		note       string
+		wantSource string
+	}{
+		"with a lend note":    {note: "lend", wantSource: domain.CategorySourceManual},
+		"without a note":      {wantSource: domain.CategorySourceHistory},
+		"with any other note": {note: "dinner money", wantSource: domain.CategorySourceHistory},
+	} {
+		t.Run(name, func(t *testing.T) {
+			db := captureDatabase()
+			db.Categories = append(db.Categories, domain.Category{Name: "Cho vay", Type: domain.CategoryTypeNonBudget, Nature: domain.NatureLending})
+			db.Transactions = append(db.Transactions, domain.Transaction{
+				ID: "r9", AccountName: "Vietcombank", Payee: "Lê Thử Nghiệm", Category: "Cho vay", CategoryNature: domain.NatureLending,
+				Date: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC), Payment: money(1_000_000),
+			})
+			client := &scriptedClient{route: func(request domain.AIRequest) reply {
+				user := request.Messages[len(request.Messages)-1].Content
+				switch {
+				case strings.Contains(user, "Items:"):
+					t.Errorf("a lending payee needs no model call: %q", user)
+					return reply{content: `{"items":[{"id":"s1","category":"Transfer"}]}`}
+				case strings.HasPrefix(user, "Material shot "):
+					return reply{content: transferReply}
+				}
+				return reply{content: `{"events":[],"unreadable":true,"reason":"no amount"}`}
+			}}
+			materials := []domain.CaptureMaterial{{ID: "shot", Kind: domain.CaptureImage, MediaType: "image/png", Data: []byte("\x89PNG")}}
+			if test.note != "" {
+				materials = append(materials, domain.CaptureMaterial{ID: "note", Kind: domain.CaptureText, Text: test.note})
+			}
+
+			result, err := newCaptureService(t, db, client).Capture(context.Background(), port.CaptureRequest{Materials: materials}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Suggestions) != 1 {
+				t.Fatalf("expected one suggestion, got %+v", result.Suggestions)
+			}
+			row := result.Suggestions[0]
+			if row.Transaction.Payee != "Lê Thử Nghiệm" || row.Transaction.Category != "Cho vay" || row.CategorySource != test.wantSource {
+				t.Fatalf("expected Lê Thử Nghiệm under Cho vay from %s, got %q / %q from %q", test.wantSource, row.Transaction.Payee, row.Transaction.Category, row.CategorySource)
+			}
+		})
+	}
+}
+
+func TestCaptureShowsANoteWithoutATransactionToTheCategoriser(t *testing.T) {
+	var categorizeRequest string
+	client := &scriptedClient{route: func(request domain.AIRequest) reply {
+		user := request.Messages[len(request.Messages)-1].Content
+		switch {
+		case strings.Contains(user, "Items:"):
+			categorizeRequest = user
+			return reply{content: `{"items":[{"id":"s1","category":"Shopping"}]}`}
+		case strings.HasPrefix(user, "Material card "):
+			return reply{content: cardReply}
+		}
+		return reply{content: `{"events":[],"unreadable":true,"reason":"no amount"}`}
+	}}
+	png := []byte("\x89PNG")
+	materials := []domain.CaptureMaterial{
+		{ID: "card", Kind: domain.CaptureImage, MediaType: "image/png", Data: png},
+		{ID: "note", Kind: domain.CaptureText, Text: "gift for mom"},
+	}
+
+	if _, err := newCaptureService(t, captureDatabase(), client).Capture(context.Background(), port.CaptureRequest{Materials: materials}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(categorizeRequest, "The user's note:\ngift for mom") {
+		t.Fatalf("the categoriser must see the note: %q", categorizeRequest)
+	}
+}

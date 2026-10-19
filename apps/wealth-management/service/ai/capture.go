@@ -27,9 +27,11 @@ const (
 var capturePrompts = []string{keyCaptureExtract, keyCaptureCategorize}
 
 type captureData struct {
-	accounts     []domain.Account
-	categories   []string
-	transfer     string
+	accounts   []domain.Account
+	categories []string
+	transfer   string
+	// lending are the lending-nature categories (WM-CAP-22).
+	lending      []string
 	transactions []domain.Transaction
 	rules        []domain.CaptureRule
 	tagOptions   map[string][]string
@@ -67,10 +69,17 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 	}
 	result := domain.CaptureResult{Suggestions: []domain.CaptureSuggestion{}, Unreadable: []domain.CaptureUnreadable{}}
 	var items []domain.CaptureItem
+	// A typed note that reads as no transaction ("lend") is context for
+	// the other materials' rows.
+	var notes []string
 	for index, extraction := range extractions {
-		materialID := request.Materials[index].ID
+		material := request.Materials[index]
+		materialID := material.ID
 		if extraction.err != nil || extraction.value.Unreadable {
 			result.Unreadable = append(result.Unreadable, domain.CaptureUnreadable{MaterialID: materialID, Reason: extraction.reason()})
+		}
+		if extraction.err == nil && material.Kind == domain.CaptureText && len(extraction.value.Events) == 0 {
+			notes = append(notes, strings.TrimSpace(material.Text))
 		}
 		for _, event := range extraction.value.Events {
 			items = append(items, domain.NewCaptureItem(event, matchCaptureAccount(event, data)))
@@ -80,8 +89,9 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 	report(port.CaptureProgress{Stage: "match", Status: "running", Events: len(items)})
 	items = domain.ConsolidateCaptureItems(items)
 	result.Suggestions = domain.BuildCaptureSuggestions(domain.CaptureBuildInput{Items: items, Materials: request.Materials, Accounts: data.accounts, TransferCategory: data.transfer})
+	domain.ApplyCaptureLending(result.Suggestions, domain.CaptureLendingInput{Transactions: data.transactions, Categories: data.lending, Notes: notes})
 	report(port.CaptureProgress{Stage: "categorize", Status: "running"})
-	s.categorizeCapture(ctx, p, result.Suggestions, data)
+	s.categorizeCapture(ctx, p, result.Suggestions, data, notes)
 	domain.ApplyCaptureDuplicates(result.Suggestions, data.transactions, s.today())
 	result.Balances = domain.CaptureBalances(items, data.accounts)
 	return result, nil
@@ -120,6 +130,9 @@ func (s *Service) loadCaptureData() (captureData, error) {
 	data := captureData{accounts: accounts, transactions: transactions, rules: rules, tagOptions: map[string][]string{}}
 	for _, category := range categories {
 		data.categories = append(data.categories, category.Name)
+		if category.Nature == domain.NatureLending {
+			data.lending = append(data.lending, category.Name)
+		}
 	}
 	data.transfer, _ = domain.TransferCategory(categories)
 	if s.analytics != nil {

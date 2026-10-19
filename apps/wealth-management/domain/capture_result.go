@@ -49,6 +49,8 @@ type CaptureSuggestion struct {
 	// CategoryHint is the category the user's typed note asked for, as
 	// written; the categoriser resolves it before rules and history.
 	CategoryHint string `json:"-"`
+	// Fee marks the separate fee row of a movement.
+	Fee bool `json:"-"`
 	// TagOptions are the cashback rule tags of the row's card (WM-CAP-5).
 	TagOptions []string          `json:"tagOptions,omitempty"`
 	SourceApp  string            `json:"sourceApp,omitempty"`
@@ -143,6 +145,7 @@ func BuildCaptureSuggestions(input CaptureBuildInput) []CaptureSuggestion {
 			fee.Transaction.Deposit = nil
 			fee.Transaction.Payment = float64Pointer(*event.Fee)
 			fee.Transaction.Payee = strings.TrimSpace(firstNonEmpty(event.SourceApp, item.Account.Name) + " fee")
+			fee.Fee = true
 			fee.Notes = append(fee.Notes, "Fee shown separately on the material.")
 			add(fee)
 		}

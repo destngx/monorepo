@@ -60,4 +60,16 @@ describe('SuggestionRow', () => {
 
     expect(screen.queryByText(/already recorded/)).toBeNull();
   });
+
+  it('Given a payee matched to a near name in money lent When shown Then the payee is highlighted to check', () => {
+    renderRow(suggestion({ lowConfidence: ['payee'] }));
+
+    expect(screen.getByLabelText('Payee').className).toContain('ring-amber-400/70');
+  });
+
+  it('Given a confident payee When shown Then the payee is not highlighted', () => {
+    renderRow(suggestion({}));
+
+    expect(screen.getByLabelText('Payee').className).not.toContain('ring-amber-400/70');
+  });
 });

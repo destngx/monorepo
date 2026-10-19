@@ -11,8 +11,9 @@ import (
 // categorizeCapture fills category and card tag per suggestion: confirmed
 // payee rules, then the payee's history, then one batched model call
 // constrained to known categories and the card's rule tags (WM-CAP-5).
-// Whatever is left is Uncategorized and flagged for review.
-func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, data captureData) {
+// Whatever is left is Uncategorized and flagged for review. Notes are the
+// user's typed notes that read as no transaction, shown to the model.
+func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, data captureData, notes []string) {
 	payeeRules := payeeRuleCategories(data.rules, data.categories)
 	var pending []int
 	for index := range suggestions {
@@ -46,7 +47,7 @@ func (s *Service) categorizeCapture(ctx context.Context, p *prompts, suggestions
 		}
 	}
 	if len(pending) > 0 {
-		if err := s.categorizeWithModel(ctx, p, suggestions, pending, data.categories); err != nil {
+		if err := s.categorizeWithModel(ctx, p, suggestions, pending, data.categories, notes); err != nil {
 			s.log.LogError(ctx, "capture categorisation failed; rows left for review", err)
 			for _, index := range pending {
 				if suggestions[index].Transaction.Category == "" {
@@ -134,9 +135,10 @@ Rules:
 - One entry per input item, same id.
 - category must be copied exactly from the category list; use "" when none fits.
 - An item's hint is the category the user asked for in their own words: pick the category it names or means ("transit" = a transport category), whatever the payee suggests.
+- The user's note, when given, was sent with the materials: let what it says the money was for guide the category of the items it fits.
 - tag must be copied exactly from that item's tagOptions (the card the payment was made with, when the item shows which); use "" when it does not or the item has no tagOptions.`
 
-func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, pending []int, categories []string) error {
+func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestions []domain.CaptureSuggestion, pending []int, categories []string, notes []string) error {
 	task, ok := p.lookup(keyCaptureCategorize, map[string]string{"categories": strings.Join(categories, ", ")})
 	if !ok {
 		return fmt.Errorf("%w: %s", domain.ErrPromptMissing, keyCaptureCategorize)
@@ -157,7 +159,11 @@ func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestio
 		byID[suggestion.ID] = index
 	}
 	sort.Slice(items, func(a, b int) bool { return byID[items[a].ID] < byID[items[b].ID] })
-	user := "Categories: " + strings.Join(categories, ", ") + "\n\nItems:\n" + toJSON(items) + "\n\n" + captureCategorizeFormat
+	user := "Categories: " + strings.Join(categories, ", ") + "\n\nItems:\n" + toJSON(items) + "\n\n"
+	if note := strings.TrimSpace(strings.Join(notes, "\n")); note != "" {
+		user += "The user's note:\n" + s.masker.Mask(note) + "\n\n"
+	}
+	user += captureCategorizeFormat
 	var reply categorizeReply
 	_, err := s.complete(ctx, call{
 		feature:  "capture-categorize",

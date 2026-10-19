@@ -168,7 +168,7 @@
         </p>{/if}
     </td>
     <td class="px-2 pt-2">
-      <input class="field w-48" aria-label="Payee" bind:value={row.tx.payee} {disabled} />
+      <input class="field w-48 {low('payee')}" aria-label="Payee" bind:value={row.tx.payee} {disabled} />
     </td>
     <td class="px-2 pt-2">
       <select

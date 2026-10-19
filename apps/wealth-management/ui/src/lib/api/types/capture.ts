@@ -34,7 +34,7 @@ export interface CaptureDuplicate {
   reference?: string;
 }
 
-export type CaptureField = 'amount' | 'date' | 'account' | 'category';
+export type CaptureField = 'amount' | 'date' | 'account' | 'payee' | 'category';
 
 /** Where a row's category came from; "manual" is picked by the user on a draft. */
 export type CaptureCategorySource = 'rule' | 'history' | 'ai' | 'transfer' | 'default' | 'manual';
