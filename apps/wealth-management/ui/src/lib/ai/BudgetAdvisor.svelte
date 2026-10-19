@@ -8,6 +8,7 @@
   import Icon from '$lib/components/Icon.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
+  import { spendShape } from '$lib/budget/trend';
   import { formatMonth } from '$lib/format';
   import { toasts } from '$lib/state/toasts.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
@@ -47,7 +48,10 @@
   }
 </script>
 
-<Card title="AI budget advisor" subtitle="Suggested limits, alerts and a 30-day cash projection">
+<Card
+  title="AI budget advisor"
+  subtitle="Limits from your year-to-date and last 3 months, alerts and a 30-day cash projection"
+>
   {#snippet actions()}
     {#if task.status === 'done'}
       <button type="button" class="btn-ghost px-2" aria-label="Regenerate advice" onclick={() => task.run(true)}
@@ -78,17 +82,23 @@
           <thead class="muted text-left text-xs">
             <tr
               ><th class="py-1 pr-3">Category</th><th class="pr-3 text-right">Limit</th><th class="pr-3 text-right"
-                >3-mo avg</th
-              ><th class="pr-3 text-right">Suggested</th><th class="pr-3">Why</th><th
-                ><span class="sr-only">Actions</span></th
-              ></tr
+                >YTD avg</th
+              ><th class="pr-3 text-right">3-mo avg</th><th class="pr-3 text-right">Suggested</th><th class="pr-3"
+                >Why</th
+              ><th><span class="sr-only">Actions</span></th></tr
             >
           </thead>
           <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
             {#each advice.suggestedLimits as limit (limit.category)}
+              {@const shape = spendShape(limit.trend, limit.pattern)}
               <tr>
-                <td class="py-2 pr-3 font-medium">{limit.category}</td>
+                <td class="py-2 pr-3"
+                  ><span class="font-medium">{limit.category}</span>{#if shape}<span class="muted block text-xs"
+                      >{shape}</span
+                    >{/if}</td
+                >
                 <td class="pr-3 text-right"><Money value={limit.currentLimit} /></td>
+                <td class="pr-3 text-right"><Money value={limit.yearToDateAverage} /></td>
                 <td class="pr-3 text-right"><Money value={limit.averageSpend} /></td>
                 <td class="pr-3 text-right font-semibold"><Money value={limit.suggestedLimit} /></td>
                 <td class="muted pr-3 text-xs"><MaskedText text={limit.rationale} /></td>

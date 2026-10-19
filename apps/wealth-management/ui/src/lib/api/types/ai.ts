@@ -104,10 +104,22 @@ export interface Briefing {
   recorded?: RecommendationRecord;
 }
 
+/** Last 3 full months against earlier this year (WM-BUD-9). */
+export type SpendTrend = 'rising' | 'falling' | 'steady' | 'unknown';
+/** How a category's spend is spread over its months (WM-BUD-9). */
+export type SpendPattern = 'steady' | 'variable' | 'occasional';
+
 export interface SuggestedLimit {
   category: string;
   currentLimit: number;
+  /** Average over the last 3 full months. */
   averageSpend: number;
+  /** Average over the full months since January. */
+  yearToDateAverage: number;
+  trend: SpendTrend;
+  pattern: SpendPattern;
+  /** The engine's limit from the averages, trend and pattern. */
+  baselineLimit: number;
   suggestedLimit: number;
   rationale: string;
 }
