@@ -289,8 +289,9 @@ func (s *analyticsService) GoalPlan(forceFresh bool) (domain.GoalPlan, error) {
 	return domain.ComputeGoalPlan(sheet, accounts, transactions, categories, prefs.GoalPool, s.today()), nil
 }
 
-// Bills reads the Recurring tab, the ledger, the card settings and the
-// safe-to-spend setting of the Preferences tab and lays out the bills
+// Bills reads the Recurring tab, the ledger, the card settings, the
+// safe-to-spend setting of the Preferences tab, the categories and the
+// budgets and lays out the bills
 // (WM-BILL-2..6). Before the tab exists it still suggests items and shows
 // the card payments and safe-to-spend.
 func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
@@ -312,9 +313,34 @@ func (s *analyticsService) Bills(forceFresh bool) (domain.Bills, error) {
 	if err != nil {
 		return domain.Bills{}, err
 	}
+	// Category natures and budgets set fixed costs and essentials aside (D36).
+	categories, err := s.db.ListCategories(forceFresh)
+	if err != nil {
+		return domain.Bills{}, err
+	}
+	today := s.today()
+	budgets, err := s.billsBudgets(today, forceFresh)
+	if err != nil {
+		return domain.Bills{}, err
+	}
 	return domain.ComputeBills(domain.BillsInput{
-		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Readiness: prefs.SafeToSpend, Minimums: prefs.AccountMinimums, Today: s.today(),
+		Sheet: sheet, Accounts: accounts, Transactions: transactions, Cards: cards, Readiness: prefs.SafeToSpend, Minimums: prefs.AccountMinimums,
+		Categories: categories, Budgets: budgets, Today: today,
 	}), nil
+}
+
+// billsBudgets reads this year's and next year's budget tabs, the years a
+// safe-to-spend window can reach; a missing tab means no limits that year.
+func (s *analyticsService) billsBudgets(today time.Time, forceFresh bool) (map[int][]domain.BudgetItem, error) {
+	budgets := map[int][]domain.BudgetItem{}
+	for _, year := range []int{today.Year(), today.Year() + 1} {
+		items, err := s.db.ListBudget(year, forceFresh)
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return nil, fmt.Errorf("budget %d: %w", year, err)
+		}
+		budgets[year] = items
+	}
+	return budgets, nil
 }
 
 // IdleCash combines the bills (unpaid in the next 30 days and safe to

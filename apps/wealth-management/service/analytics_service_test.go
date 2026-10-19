@@ -287,6 +287,23 @@ func TestGivenRecurringItemsWhenComputingBillsThenTheSheetLedgerAndPreferencesAr
 	}
 }
 
+func TestGivenAFixedCategoryWithABudgetWhenComputingBillsThenItsCostIsSetAsideAndAMissingYearIsNoLimit(t *testing.T) {
+	db := &fakes.Database{
+		Accounts:     []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 20_000_000}},
+		Categories:   []domain.Category{{Name: "Utilities", Type: domain.CategoryTypeExpense, Nature: domain.NatureFixed}},
+		BudgetByYear: map[int][]domain.BudgetItem{2026: {{Category: "Utilities", MonthlyLimit: 1_000_000}}}, // no 2027 tab
+	}
+	bills, err := newAnalytics(db).Bills(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No income: 12 October to 11 November, so October's and November's utilities.
+	safe := bills.SafeToSpend
+	if !safe.NatureTagged || safe.FixedCosts != 2_000_000 || len(safe.Fixed) != 2 || safe.SafeToSpend != 18_000_000 {
+		t.Fatalf("safe = %+v", safe)
+	}
+}
+
 func TestGivenAccountsMarkedNotReadyInPreferencesWhenComputingBillsThenSafeToSpendLeavesThemOut(t *testing.T) {
 	prefs := domain.ParsePreferences([][]string{{"safeToSpend.notReadyAccounts", `["Broker B","Old Broker"]`}}, 2)
 	db := &fakes.Database{

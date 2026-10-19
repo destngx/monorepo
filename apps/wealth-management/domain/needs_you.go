@@ -30,9 +30,13 @@ const (
 	NeedsYouDrafts      NeedsYouKind = "drafts"
 	NeedsYouBillOverdue NeedsYouKind = "bill-overdue"
 	NeedsYouCardDue     NeedsYouKind = "card-due"
-	// NeedsYouShortBeforePayday: ready money does not cover the bills and
-	// card payments due before the next wage (safe-to-spend short, D33).
+	// NeedsYouShortBeforePayday: ready money does not cover the bills,
+	// card payments and fixed costs due before the next wage
+	// (safe-to-spend short, D33, D36).
 	NeedsYouShortBeforePayday NeedsYouKind = "short-before-payday"
+	// NeedsYouTightBeforePayday: what is committed is covered, but not the
+	// essentials until the next wage (D36).
+	NeedsYouTightBeforePayday NeedsYouKind = "tight-before-payday"
 	NeedsYouBudgetOverPace    NeedsYouKind = "budget-over-pace"
 	NeedsYouLentOverdue       NeedsYouKind = "lent-overdue"
 	NeedsYouGoalPlanShort     NeedsYouKind = "goal-plan-short"
@@ -52,7 +56,7 @@ const (
 
 // needsYouKindOrder breaks ties after severity, weight and due date.
 var needsYouKindOrder = []NeedsYouKind{
-	NeedsYouBillOverdue, NeedsYouShortBeforePayday, NeedsYouCardDue, NeedsYouMinimumBalance, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
+	NeedsYouBillOverdue, NeedsYouShortBeforePayday, NeedsYouCardDue, NeedsYouTightBeforePayday, NeedsYouMinimumBalance, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
 	NeedsYouGoalPlanShort, NeedsYouGoalBehind, NeedsYouRebalance, NeedsYouUncategorized, NeedsYouRecommendation,
 	NeedsYouIdleCash, NeedsYouEmergencyFundRate,
 }
@@ -222,6 +226,7 @@ func BuildNeedsYou(in NeedsYouInputs) NeedsYou {
 		add(billsOverdueItem(*in.Bills))
 		add(cardsDueItem(*in.Bills))
 		add(shortBeforePaydayItem(*in.Bills))
+		add(tightBeforePaydayItem(*in.Bills))
 		add(minimumBalanceItem(*in.Bills))
 	}
 	if in.Budget != nil {
@@ -318,24 +323,46 @@ func billsOverdueItem(bills Bills) (NeedsYouItem, bool) {
 }
 
 // shortBeforePaydayItem: safe-to-spend is short, i.e. ready money (no
-// crypto, no account marked not ready) does not cover the unpaid bills and
-// card payments due before the next wage. Serious: something goes unpaid
-// unless money is moved in time.
+// crypto, no account marked not ready) does not cover what is committed
+// before the next wage: unpaid bills, card payments and fixed costs.
+// Serious: something goes unpaid unless money is moved in time.
 func shortBeforePaydayItem(bills Bills) (NeedsYouItem, bool) {
 	safe := bills.SafeToSpend
 	if safe.ShortBy <= 0 {
 		return NeedsYouItem{}, false
 	}
-	headline, detail := "Ready money is short of the bills due before payday",
-		"Ready money does not cover the unpaid bills and card payments due before the next income. "+
+	headline, detail := "Ready money does not cover what must be paid before payday",
+		"Ready money does not cover the unpaid bills, card payments and fixed costs due before the next income. "+
 			"Move money from a slower account in time, or delay a payment."
 	if !safe.UntilIncome {
-		headline, detail = "Ready money is short of the bills due in the next 30 days",
-			"No income is expected, and ready money does not cover the unpaid bills and card payments due in the next 30 days."
+		headline, detail = "Ready money does not cover what must be paid in the next 30 days",
+			"No income is expected, and ready money does not cover the unpaid bills, card payments and fixed costs due in the next 30 days."
 	}
 	return NeedsYouItem{
 		ID: string(NeedsYouShortBeforePayday), Kind: NeedsYouShortBeforePayday, Status: NeedsYouSerious,
 		Headline: headline, Detail: detail, AmountVND: vndAmount(safe.ShortBy), DueDate: safe.Until, Route: "/bills",
+	}, true
+}
+
+// tightBeforePaydayItem: what is committed is covered, but what is left
+// does not cover the usual essentials until the next wage (D36). Warning:
+// nothing goes unpaid, but flexible spending should wait. Quiet when short,
+// which says more.
+func tightBeforePaydayItem(bills Bills) (NeedsYouItem, bool) {
+	safe := bills.SafeToSpend
+	if safe.ShortBy > 0 || safe.TightBy <= 0 {
+		return NeedsYouItem{}, false
+	}
+	headline, detail := "Money for essentials runs short before payday",
+		"Bills and fixed costs are covered, but what is left does not cover your usual essentials until the next income. "+
+			"Hold off flexible spending, or move money from a slower account."
+	if !safe.UntilIncome {
+		headline, detail = "Money for essentials runs short in the next 30 days",
+			"No income is expected; bills and fixed costs are covered, but not your usual essentials for the next 30 days."
+	}
+	return NeedsYouItem{
+		ID: string(NeedsYouTightBeforePayday), Kind: NeedsYouTightBeforePayday, Status: NeedsYouWarning,
+		Headline: headline, Detail: detail, AmountVND: vndAmount(safe.TightBy), DueDate: safe.Until, Route: "/bills",
 	}, true
 }
 

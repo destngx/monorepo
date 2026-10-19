@@ -427,7 +427,8 @@ func TestChatBillsToolReturnsSafeToSpendWithMaskedNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	payload := toJSON(result)
-	if !strings.Contains(payload, `"billsDue":1000000`) || !strings.Contains(payload, `"rule":"safeToSpend = readyMoney - billsDue - cardPayments`) ||
+	if !strings.Contains(payload, `"billsDue":1000000`) || !strings.Contains(payload, `"rule":"Ready money splits into three tiers`) ||
+		!strings.Contains(payload, `"freeToSpend":`) || !strings.Contains(payload, `"committed":6000000`) ||
 		strings.Contains(payload, "goalSetAside") {
 		t.Fatalf("bills context = %s", payload)
 	}

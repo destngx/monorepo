@@ -22,7 +22,15 @@ const billsSummary = "Bills and safe-to-spend. items: the Recurring tab rows (ki
 	"consecutive years (yearly); confirm one by key. calendar: occurrences from the 1st of this month to 30 days " +
 	"ahead with status paid, due or overdue, plus one card payment per credit card account due on the pay-by date " +
 	"(29th, 28th in February) for its statement (WM-CARD-15), or the balance owed when the card has no settings. " +
-	"safeToSpend (D33): readyMoney - billsDue - cardPayments. readyMoney = positive balances of active use, rarely use, " +
+	"safeToSpend (D33, D36), in tiers: committed = billsDue + cardPayments + fixedCosts (never spendable); amount = " +
+	"readyMoney - committed (negative: shortBy); essentials kept for needs; safeToSpend = free to spend = amount - " +
+	"essentials, floored at 0 (tightBy: the essentials left uncovered). fixed: per fixed category (Categories nature) " +
+	"and month the window touches, expected (the monthly budget limit, basis budget, else the 6-completed-month average, " +
+	"basis average) - spent that month - inBills (its unpaid recurring bills that month, matched by the item's category " +
+	"or its payments' category), floored at 0 as amount. essential: per essential category, perDay (6-completed-month " +
+	"average daily spending without recurring bills, basis average, else the monthly budget / days in month, basis " +
+	"budget) x days. natureTagged false: no category is tagged fixed or essential and nothing is set aside; " +
+	"setAsideRule states the rule. readyMoney = positive balances of active use, rarely use, " +
 	"bank and cash accounts (readyAccounts), without crypto accounts or accounts marked not ready to use " +
 	"(excludedAccounts with reason crypto or not_ready; readiness holds the saved names and the etag to change them). " +
 	"An account with a minimum balance to keep (D35, accounts.minimumBalance) adds only max(0, balance - minimum): " +
@@ -35,8 +43,7 @@ const billsSummary = "Bills and safe-to-spend. items: the Recurring tab rows (ki
 	"unknownMinimum names minimums for no account (ignored). " +
 	"billsDue and cardPayments: unpaid, from the 1st of this month (overdue ones too) to the day before until, the " +
 	"next unpaid income (a payment due on payday is paid by that wage); without an income, the next 30 days up to " +
-	"and including until. No goal money is subtracted. safeToSpend is floored at 0, shortBy shows the shortfall, " +
-	"perDay = safeToSpend / days; safeToSpend.issues names marked accounts that no longer exist (ignored). " +
+	"and including until. No goal money is subtracted. perDay = safeToSpend / days; safeToSpend.issues names marked accounts that no longer exist (ignored). " +
 	"issues lists rejected rows and card rows without a card account. tabExists is false until the first item."
 
 func recurringProperties() map[string]any {
@@ -59,7 +66,7 @@ func registerBillsReadRoutes(api RouteRegistrar, h *AnalyticsHandler) {
 	bills := api.Group("/bills", "bills")
 	bills.Get("/", h.GetBills, RouteMeta{Summary: billsSummary, QueryParams: []RouteParameter{forceParam()}})
 	bills.Get("/safe-to-spend", h.GetSafeToSpend, RouteMeta{
-		Summary:     "Headline for the home page: safeToSpend (every component, as in GET /api/bills), facts (active items, unpaid bills and card payments in the next 30 days, overdue count and amount, suggestions waiting), overdue bills and unpaid bills due within 7 days.",
+		Summary:     "Headline for the home page: safeToSpend (every component and tier, as in GET /api/bills), facts (active items, unpaid bills and card payments in the next 30 days, overdue count and amount, committed, fixed costs, essentials, free to spend with shortBy and tightBy, suggestions waiting), overdue bills and unpaid bills due within 7 days.",
 		QueryParams: []RouteParameter{forceParam()},
 	})
 	bills.Get("/idle-cash", h.GetIdleCash, RouteMeta{Summary: idleCashSummary, QueryParams: []RouteParameter{forceParam()}})

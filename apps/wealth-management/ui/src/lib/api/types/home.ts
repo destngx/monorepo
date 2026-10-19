@@ -5,6 +5,7 @@ export type NeedsYouKind =
   | 'bill-overdue'
   | 'card-due'
   | 'short-before-payday'
+  | 'tight-before-payday'
   | 'minimum-balance'
   | 'budget-over-pace'
   | 'lent-overdue'

@@ -29,7 +29,8 @@ type BriefingFacts struct {
 	// Goals summarises the goal plan (D31); nil before it is set up.
 	Goals *GoalPlanFacts `json:"goals,omitempty"`
 	// Bills summarises bills and safe-to-spend (ROADMAP R4): unpaid in the
-	// next 30 days, overdue count and safe-to-spend until the next income.
+	// next 30 days, overdue count and safe-to-spend until the next income,
+	// with committed, fixed costs and essentials set aside (D36).
 	Bills *BillsFacts `json:"bills,omitempty"`
 	// IdleCash summarises the idle cash check (ROADMAP R6, D34): ready
 	// money beyond the day-to-day float and what must stay liquid against

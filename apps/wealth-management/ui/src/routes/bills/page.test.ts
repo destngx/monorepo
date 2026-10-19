@@ -112,10 +112,36 @@ const bills: Bills = {
     unknownMinimum: ['Old Bank'],
     billsDue: 1_250_000,
     cardPayments: 0,
-    amount: 8_620_000,
-    safeToSpend: 8_620_000,
+    fixedCosts: 600_000,
+    fixed: [
+      {
+        category: 'Rent',
+        month: '2026-10',
+        expected: 8_000_000,
+        basis: 'budget',
+        spent: 8_000_000,
+        inBills: 0,
+        amount: 0,
+      },
+      {
+        category: 'Utilities',
+        month: '2026-10',
+        expected: 1_000_000,
+        basis: 'budget',
+        spent: 400_000,
+        inBills: 0,
+        amount: 600_000,
+      },
+    ],
+    committed: 1_850_000,
+    amount: 8_020_000,
+    essentials: 800_000,
+    essential: [{ category: 'Groceries', perDay: 100_000, basis: 'average', days: 8, amount: 800_000 }],
+    safeToSpend: 7_220_000,
     shortBy: 0,
-    perDay: 1_077_500,
+    tightBy: 0,
+    perDay: 902_500,
+    natureTagged: true,
     counted: [
       {
         name: 'Internet',
@@ -131,6 +157,7 @@ const bills: Bills = {
     ],
     explanation: '',
     readyRule: '',
+    setAsideRule: '',
     unknownNotReady: ['Old Broker'],
     issues: ['Preferences: safeToSpend.notReadyAccounts names "Old Broker", which is not an account'],
   },
@@ -195,11 +222,36 @@ describe('Bills page', () => {
     await flush();
 
     expect(screen.getByText('Safe to spend until 25/10/2026')).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/8\.620\.000|9\.870\.000/);
+    expect(document.body.textContent).not.toMatch(/7\.220\.000|9\.870\.000/);
 
     mask.toggle();
     await flush();
-    expect(document.body.textContent).toMatch(/8\.620\.000/);
+    expect(document.body.textContent).toMatch(/7\.220\.000/);
+  });
+
+  it('Given fixed and essential categories When the headline shows Then committed, essentials and free are broken down', async () => {
+    mask.toggle();
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    const rows = [...screen.getByTestId('safe-breakdown').querySelectorAll('dt')].map((dt) => {
+      const value = dt.nextElementSibling?.textContent ?? '';
+      return `${(dt.textContent ?? '').trim()}: ${value.replace(/\s+/g, ' ').trim()}`;
+    });
+    expect(rows).toEqual([
+      'Ready money, above minimum balances: 9.870.000 ₫',
+      'Kept as minimum balances (not counted): 5.000.000 ₫',
+      'Bills due before payday: − 1.250.000 ₫',
+      'Card payments due before payday: − 0 ₫',
+      'Fixed costs still to pay: − 600.000 ₫',
+      'Left after committed: 8.020.000 ₫',
+      'Essentials for 8 days: − 800.000 ₫',
+      'Free to spend: 7.220.000 ₫',
+    ]);
+    const setAside = screen.getByTestId('set-aside').textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(setAside).toContain('Utilities, Oct 2026 budget 1.000.000 ₫, spent 400.000 ₫ 600.000 ₫');
+    expect(setAside).toContain('Rent, Oct 2026 budget 8.000.000 ₫, spent 8.000.000 ₫ 0 ₫');
+    expect(setAside).toContain('Groceries 100.000 ₫ a day (6-month average) for 8 days 800.000 ₫');
   });
 
   it('Given ready money When the breakdown shows Then each account has a switch and left-out accounts give the reason', async () => {

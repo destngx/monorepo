@@ -157,6 +157,32 @@ export interface SafeToSpendReadiness {
  * (overdue ones too; one due on payday is paid by that wage), else in the
  * next 30 days inclusive.
  */
+/** Where a set-aside amount comes from (D36): the monthly budget limit, or the average of the last 6 completed months. */
+export type SetAsideBasis = 'budget' | 'average';
+
+/** A fixed category's cost still to pay in one month of the window: expected - spent - inBills, floored at 0. */
+export interface FixedCost {
+  category: string;
+  /** yyyy-mm */
+  month: string;
+  expected: number;
+  basis: SetAsideBasis;
+  spent: number;
+  /** Its unpaid recurring bills that month (counted with the bills, or paid by the wage). */
+  inBills: number;
+  amount: number;
+}
+
+/** An essential category's spending until the horizon: perDay x days. */
+export interface EssentialNeed {
+  category: string;
+  perDay: number;
+  basis: SetAsideBasis;
+  days: number;
+  amount: number;
+}
+
+/** Safe-to-spend in tiers (D33, D36): ready money - committed - essentials = free to spend (safeToSpend). */
 export interface SafeToSpend {
   asOf: string;
   until: string;
@@ -179,14 +205,29 @@ export interface SafeToSpend {
   unknownMinimum: string[];
   billsDue: number;
   cardPayments: number;
-  /** Can be negative; safeToSpend floors it at 0 and shortBy is the shortfall. */
+  /** Fixed categories' costs still to pay. */
+  fixedCosts: number;
+  fixed: FixedCost[];
+  /** billsDue + cardPayments + fixedCosts: never spendable. */
+  committed: number;
+  /** readyMoney - committed; can be negative (shortBy is the shortfall). */
   amount: number;
+  /** Essential categories' spending until the horizon: money for needs only. */
+  essentials: number;
+  essential: EssentialNeed[];
+  /** Free to spend: amount - essentials, floored at 0. */
   safeToSpend: number;
   shortBy: number;
+  /** Essentials not covered once committed money is kept. */
+  tightBy: number;
+  /** safeToSpend over days. */
   perDay: number;
+  /** False when no expense category is tagged fixed or essential: nothing is set aside. */
+  natureTagged: boolean;
   counted: BillOccurrence[];
   explanation: string;
   readyRule: string;
+  setAsideRule: string;
   /** Marked names that are no longer accounts (renamed or deleted); ignored. */
   unknownNotReady: string[];
   issues: string[];
@@ -214,11 +255,17 @@ export interface BillsFacts {
   upcomingCount: number;
   overdueCount: number;
   overdueAmount: number;
+  /** Free to spend. */
   safeToSpend: number;
   shortBy: number;
+  tightBy: number;
   readyMoney: number;
   /** Unpaid bills and card payments counted before the horizon. */
   dueBeforeUntil: number;
+  fixedCosts: number;
+  /** dueBeforeUntil + fixedCosts. */
+  committed: number;
+  essentials: number;
   excludedAccounts: number;
   minimumReserved: number;
   minimumBalanceAccounts: number;

@@ -301,18 +301,45 @@ func TestGivenReadyMoneyShortOfTheBillsBeforePaydayWhenBuildingThenOneSeriousIte
 	if item.Status != NeedsYouSerious || item.AmountVND == nil || *item.AmountVND != 2_500_000 || item.DueDate != "2026-10-25" || item.Route != "/bills" {
 		t.Fatalf("item = %+v", item)
 	}
-	if item.Headline != "Ready money is short of the bills due before payday" || strings.Contains(item.Headline+item.Detail, "Salary") {
+	if item.Headline != "Ready money does not cover what must be paid before payday" || strings.Contains(item.Headline+item.Detail, "Salary") {
 		t.Fatalf("headline = %q detail = %q", item.Headline, item.Detail)
 	}
 
 	bills.SafeToSpend.UntilIncome = false
-	if item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}), NeedsYouShortBeforePayday); item.Headline != "Ready money is short of the bills due in the next 30 days" {
+	if item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}), NeedsYouShortBeforePayday); item.Headline != "Ready money does not cover what must be paid in the next 30 days" {
 		t.Fatalf("headline without income = %q", item.Headline)
 	}
 
 	bills.SafeToSpend.ShortBy = 0
 	if result := BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}); len(result.Items) != 0 {
 		t.Fatalf("covered: %+v", result.Items)
+	}
+}
+
+func TestGivenEssentialsNotCoveredBeforePaydayWhenBuildingThenOneWarningSaysByHowMuch(t *testing.T) {
+	bills := &Bills{SafeToSpend: SafeToSpend{Until: "2026-10-25", UntilIncome: true, IncomeName: "Salary", Amount: 400_000, Essentials: 800_000, TightBy: 400_000}}
+	result := BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills})
+	item := findItem(t, result, NeedsYouTightBeforePayday)
+	if item.Status != NeedsYouWarning || item.AmountVND == nil || *item.AmountVND != 400_000 || item.DueDate != "2026-10-25" || item.Route != "/bills" {
+		t.Fatalf("item = %+v", item)
+	}
+	if item.Headline != "Money for essentials runs short before payday" || strings.Contains(item.Headline+item.Detail, "Salary") {
+		t.Fatalf("headline = %q detail = %q", item.Headline, item.Detail)
+	}
+	if len(result.Items) != 1 {
+		t.Fatalf("covered commitments are not short: %+v", result.Items)
+	}
+
+	bills.SafeToSpend.UntilIncome = false
+	if item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills}), NeedsYouTightBeforePayday); item.Headline != "Money for essentials runs short in the next 30 days" {
+		t.Fatalf("headline without income = %q", item.Headline)
+	}
+
+	// Short already says it: no second item.
+	bills.SafeToSpend.Amount, bills.SafeToSpend.ShortBy, bills.SafeToSpend.TightBy = -100_000, 100_000, 800_000
+	result = BuildNeedsYou(NeedsYouInputs{Today: homeToday, Bills: bills})
+	if len(result.Items) != 1 || result.Items[0].Kind != NeedsYouShortBeforePayday {
+		t.Fatalf("short = %+v", result.Items)
 	}
 }
 

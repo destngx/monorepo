@@ -3,22 +3,32 @@ package ai
 import "apps/wealth-management/domain"
 
 // billsContext is the bills page as AI facts (ROADMAP R4): safe-to-spend
-// with its parts, the 30-day calendar and the suggestions waiting. Names,
-// payees and account names go through the PII masker.
+// with its tiers and parts (D36), the 30-day calendar and the suggestions
+// waiting. Names, payees and account names go through the PII masker;
+// category names are not personal and stay as they are.
 type billsContext struct {
-	SafeToSpend      float64           `json:"safeToSpend"`
-	ShortBy          float64           `json:"shortBy"`
-	Until            string            `json:"until"`
-	UntilIncome      bool              `json:"untilIncome"`
-	ReadyMoney       float64           `json:"readyMoney"`
-	ExcludedAccounts []excludedContext `json:"excludedAccounts"`
+	// FreeToSpend is the free tier (domain SafeToSpend.SafeToSpend).
+	FreeToSpend      float64                `json:"freeToSpend"`
+	FreePerDay       float64                `json:"freePerDay"`
+	ShortBy          float64                `json:"shortBy"`
+	TightBy          float64                `json:"tightBy"`
+	Committed        float64                `json:"committed"`
+	FixedCosts       float64                `json:"fixedCosts"`
+	Fixed            []domain.FixedCost     `json:"fixed"`
+	Essentials       float64                `json:"essentials"`
+	Essential        []domain.EssentialNeed `json:"essential"`
+	NatureTagged     bool                   `json:"natureTagged"`
+	SetAsideRule     string                 `json:"setAsideRule"`
+	Until            string                 `json:"until"`
+	UntilIncome      bool                   `json:"untilIncome"`
+	ReadyMoney       float64                `json:"readyMoney"`
+	ExcludedAccounts []excludedContext      `json:"excludedAccounts"`
 	// Reserved is the minimum balances kept out of ready money (D35).
 	Reserved        float64              `json:"reserved"`
 	MinimumBalances []minimumContext     `json:"minimumBalances"`
 	MinimumRule     string               `json:"minimumRule"`
 	BillsDue        float64              `json:"billsDue"`
 	CardPayments    float64              `json:"cardPayments"`
-	PerDay          float64              `json:"perDay"`
 	Rule            string               `json:"rule"`
 	ReadyRule       string               `json:"readyRule"`
 	Facts           domain.BillsFacts    `json:"facts"`
@@ -77,19 +87,26 @@ type recurringItemFacts struct {
 	NextDate  string                    `json:"nextDate,omitempty"`
 }
 
-// safeToSpendRule states the formula for the model (WM-BILL-5, D33).
-const safeToSpendRule = "safeToSpend = readyMoney - billsDue - cardPayments, floored at 0 (shortBy is the shortfall). " +
-	"Bills and card payments count when unpaid and due before the next income (overdue ones too); one due on payday " +
-	"is paid by that wage and not counted. Without an expected income the window is the next 30 days, inclusive. " +
-	"Goal money is not subtracted. readyMoney counts each account above its minimum balance to keep only " +
-	"(reserved is what is kept back; a hard reserve, since a bank reward on the month's average cannot be made up late)."
+// safeToSpendRule states the tiers for the model (WM-BILL-5, D33, D36).
+const safeToSpendRule = "Ready money splits into three tiers until the next income: committed = billsDue + cardPayments " +
+	"+ fixedCosts, never spendable (shortBy: ready money does not cover it); essentials = money for needs only " +
+	"(groceries, transport), not for wants (tightBy: what is left does not cover them); freeToSpend = readyMoney - " +
+	"committed - essentials, floored at 0, the only money for wants (freePerDay a day). Answer 'can I afford X' against " +
+	"freeToSpend, never readyMoney; an essential purchase may use essentials. Bills and card payments count when unpaid " +
+	"and due before the next income (overdue ones too); one due on payday is paid by that wage and not counted. Without " +
+	"an expected income the window is the next 30 days, inclusive. Goal money is not subtracted. readyMoney counts " +
+	"each account above its minimum balance to keep only (reserved is what is kept back; a hard reserve, since a bank " +
+	"reward on the month's average cannot be made up late). With natureTagged false nothing is set aside for fixed " +
+	"costs or essentials: suggest tagging categories fixed, essential or flexible."
 
 func (s *Service) billsContext(bills domain.Bills) billsContext {
 	safe := bills.SafeToSpend
 	out := billsContext{
-		SafeToSpend: safe.SafeToSpend, ShortBy: safe.ShortBy, Until: safe.Until, UntilIncome: safe.UntilIncome,
+		FreeToSpend: safe.SafeToSpend, FreePerDay: safe.PerDay, ShortBy: safe.ShortBy, TightBy: safe.TightBy,
+		Committed: safe.Committed, FixedCosts: safe.FixedCosts, Fixed: safe.Fixed, Essentials: safe.Essentials, Essential: safe.Essential,
+		NatureTagged: safe.NatureTagged, SetAsideRule: safe.SetAsideRule, Until: safe.Until, UntilIncome: safe.UntilIncome,
 		ReadyMoney: safe.ReadyMoney, ExcludedAccounts: []excludedContext{}, BillsDue: safe.BillsDue, CardPayments: safe.CardPayments,
-		PerDay: safe.PerDay, Rule: safeToSpendRule, ReadyRule: safe.ReadyRule,
+		Rule: safeToSpendRule, ReadyRule: safe.ReadyRule,
 		Reserved: safe.Reserved, MinimumBalances: []minimumContext{}, MinimumRule: safe.MinimumRule,
 		Facts: bills.Facts(), Calendar: []billContext{}, Items: []recurringItemFacts{},
 	}

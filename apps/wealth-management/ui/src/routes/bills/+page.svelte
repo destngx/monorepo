@@ -12,13 +12,14 @@
     recurringFormFor,
     recurringFormFromSuggestion,
     recurringInputFrom,
-    safeToSpendTone,
+    safeToSpendBadge,
     scheduleLabel,
     splitCalendar,
     suggestionEvidence,
   } from '$lib/bills/bills';
   import IdleCashCard from '$lib/bills/IdleCashCard.svelte';
   import MinimumBalances from '$lib/bills/MinimumBalances.svelte';
+  import SetAside from '$lib/bills/SetAside.svelte';
   import ReadyMoney from '$lib/bills/ReadyMoney.svelte';
   import RecurringFormModal from '$lib/bills/RecurringFormModal.svelte';
   import Badge from '$lib/components/Badge.svelte';
@@ -183,7 +184,7 @@
     {@const safe = bills.safeToSpend}
     <PageHeadline
       question="Safe to spend until {formatDate(safe.until)}"
-      tone={safeToSpendTone(safe)}
+      tone={safeToSpendBadge(safe).tone}
       id="safe-headline"
     >
       {#snippet answer()}
@@ -193,13 +194,17 @@
             Short by <Money value={safe.shortBy} /> before {safe.untilIncome
               ? 'the next income'
               : 'the end of the period'}
+          {:else if safe.tightBy > 0}
+            Essentials short by <Money value={safe.tightBy} /> before {safe.untilIncome
+              ? 'the next income'
+              : 'the end of the period'}
           {:else}
             About <Money value={safe.perDay} /> a day for {safe.days}
             {safe.days === 1 ? 'day' : 'days'}
           {/if}
         </span>
       {/snippet}
-      <dl class="mt-4 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
+      <dl class="mt-4 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm" data-testid="safe-breakdown">
         <dt>
           Ready money{#if safe.reserved > 0}, above minimum balances{/if}
         </dt>
@@ -212,9 +217,21 @@
         <dd class="text-right">− <Money value={safe.billsDue} /></dd>
         <dt>Card payments due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
         <dd class="text-right">− <Money value={safe.cardPayments} /></dd>
-        <dt class="border-t border-slate-900/10 pt-1 font-semibold dark:border-white/10">Left</dt>
-        <dd class="border-t border-slate-900/10 pt-1 text-right font-semibold dark:border-white/10">
+        {#if safe.natureTagged}
+          <dt>Fixed costs still to pay</dt>
+          <dd class="text-right">− <Money value={safe.fixedCosts} /></dd>
+        {/if}
+        <dt class="border-t border-slate-900/10 pt-1 dark:border-white/10">Left after committed</dt>
+        <dd class="border-t border-slate-900/10 pt-1 text-right dark:border-white/10">
           <Money value={safe.amount} />
+        </dd>
+        {#if safe.natureTagged}
+          <dt>Essentials for {safe.days} {safe.days === 1 ? 'day' : 'days'}</dt>
+          <dd class="text-right">− <Money value={safe.essentials} /></dd>
+        {/if}
+        <dt class="border-t border-slate-900/10 pt-1 font-semibold dark:border-white/10">Free to spend</dt>
+        <dd class="border-t border-slate-900/10 pt-1 text-right font-semibold dark:border-white/10">
+          <Money value={safe.safeToSpend} />
         </dd>
       </dl>
       <p class="muted mt-3 text-xs" data-testid="safe-explanation">
@@ -225,7 +242,11 @@
         Ready money is bank, cash, active and rarely used accounts you can spend today; crypto and accounts you mark not ready
         to use (slow to withdraw) are left out. An account with a minimum balance to keep counts only what is above that minimum:
         it is a hard reserve, since a reward on the month's average cannot be saved by topping up late.
+        {#if safe.natureTagged}Committed money is never spendable: bills, card payments and the fixed costs (rent,
+          insurance) still to pay this month, from their budget or their usual amount. Essentials (groceries, transport)
+          are kept for needs at your usual daily pace. Only what is free to spend is for wants.{/if}
       </p>
+      <SetAside {safe} />
       <ReadyMoney {safe} />
       <MinimumBalances {safe} />
     </PageHeadline>

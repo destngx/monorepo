@@ -11,6 +11,7 @@ import {
   recurringFormFor,
   recurringFormFromSuggestion,
   recurringInputFrom,
+  safeToSpendBadge,
   scheduleLabel,
   splitCalendar,
   suggestionEvidence,
@@ -46,6 +47,21 @@ const suggestion: RecurringSuggestion = {
   daySpread: 2,
   confidence: 'high',
 };
+
+describe('safe to spend badge', () => {
+  const safe = (overrides: Partial<SafeToSpend>) =>
+    ({ safeToSpend: 0, shortBy: 0, tightBy: 0, ...overrides }) as Pick<
+      SafeToSpend,
+      'safeToSpend' | 'shortBy' | 'tightBy'
+    >;
+
+  it('is short when committed money is not covered, tight when essentials are not, covered when money is free', () => {
+    expect(safeToSpendBadge(safe({ shortBy: 1, tightBy: 5 }))).toEqual({ tone: 'serious', label: 'Short' });
+    expect(safeToSpendBadge(safe({ tightBy: 5 }))).toEqual({ tone: 'warning', label: 'Tight' });
+    expect(safeToSpendBadge(safe({ safeToSpend: 5 }))).toEqual({ tone: 'good', label: 'Covered' });
+    expect(safeToSpendBadge(safe({}))).toEqual({ tone: 'warning', label: 'Nothing free' });
+  });
+});
 
 describe('bill status', () => {
   it('labels every status with a tone, income in its own words', () => {

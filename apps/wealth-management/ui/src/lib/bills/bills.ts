@@ -13,10 +13,17 @@ import type {
 } from '$lib/api/types';
 import type { StatusTone } from '$lib/status';
 
-/** Safe-to-spend status: short is serious, nothing left is a warning, else good. */
-export function safeToSpendTone(safe: Pick<SafeToSpend, 'shortBy' | 'safeToSpend'>): StatusTone {
-  if (safe.shortBy > 0) return 'serious';
-  return safe.safeToSpend > 0 ? 'good' : 'warning';
+/**
+ * Safe-to-spend status (D36): short (committed money not covered) is serious; tight (essentials not covered)
+ * and nothing free are warnings; free money is good. Always a label, never colour alone.
+ */
+export function safeToSpendBadge(safe: Pick<SafeToSpend, 'shortBy' | 'tightBy' | 'safeToSpend'>): {
+  tone: StatusTone;
+  label: string;
+} {
+  if (safe.shortBy > 0) return { tone: 'serious', label: 'Short' };
+  if (safe.tightBy > 0) return { tone: 'warning', label: 'Tight' };
+  return safe.safeToSpend > 0 ? { tone: 'good', label: 'Covered' } : { tone: 'warning', label: 'Nothing free' };
 }
 
 /** A minimum balance's status: always an icon and a label, never colour alone (D35). */

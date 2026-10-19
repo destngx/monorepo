@@ -152,12 +152,14 @@ const SafeToSpendReadyRule = "Ready money is the positive balance of active use,
 	"adds only what is above it: max(0, balance - minimum). The minimum is a hard reserve: the reward depends on the " +
 	"month's average, so dipping below it late in the month cannot be made up, and keeping it errs safe."
 
-// SafeToSpend is the money free to spend until the next wage (D33):
-// ready money - unpaid bills and card payments due before the next
-// expected income (overdue ones too; one due on payday is paid by the
-// wage). Without an expected income the window is the next 30 days,
-// inclusive. Amount can be negative; SafeToSpend floors it at 0 and
-// ShortBy says by how much it fell below.
+// SafeToSpend is the money free to spend until the next wage (D33, D36),
+// in tiers: ready money - committed (unpaid bills and card payments due
+// before the next expected income, overdue ones too, one due on payday
+// being paid by the wage; plus the fixed costs still to pay) - essentials
+// until the horizon = free to spend. Without an expected income the window
+// is the next 30 days, inclusive. Amount (ready money - committed) can be
+// negative: ShortBy says by how much. SafeToSpend is the free money,
+// floored at 0; TightBy is the essentials it leaves uncovered.
 type SafeToSpend struct {
 	AsOf string `json:"asOf"`
 	// Until is the horizon, yyyy-mm-dd: the next expected income, else
@@ -185,16 +187,33 @@ type SafeToSpend struct {
 	MinimumRule     string                  `json:"minimumRule"`
 	// UnknownMinimum are names with a minimum that match no account; they
 	// are ignored, and Issues says so.
-	UnknownMinimum []string         `json:"unknownMinimum"`
-	BillsDue       float64          `json:"billsDue"`
-	CardPayments   float64          `json:"cardPayments"`
-	Amount         float64          `json:"amount"`
-	SafeToSpend    float64          `json:"safeToSpend"`
-	ShortBy        float64          `json:"shortBy"`
-	PerDay         float64          `json:"perDay"`
-	Counted        []BillOccurrence `json:"counted"`
-	Explanation    string           `json:"explanation"`
-	ReadyRule      string           `json:"readyRule"`
+	UnknownMinimum []string `json:"unknownMinimum"`
+	BillsDue       float64  `json:"billsDue"`
+	CardPayments   float64  `json:"cardPayments"`
+	// FixedCosts is the fixed categories' costs still to pay (D36).
+	FixedCosts float64     `json:"fixedCosts"`
+	Fixed      []FixedCost `json:"fixed"`
+	// Committed = BillsDue + CardPayments + FixedCosts: never spendable.
+	Committed float64 `json:"committed"`
+	// Amount = ReadyMoney - Committed; can be negative.
+	Amount float64 `json:"amount"`
+	// Essentials is the essential categories' spending to the horizon (D36).
+	Essentials float64         `json:"essentials"`
+	Essential  []EssentialNeed `json:"essential"`
+	// SafeToSpend is free to spend: Amount - Essentials, floored at 0.
+	SafeToSpend float64 `json:"safeToSpend"`
+	ShortBy     float64 `json:"shortBy"`
+	// TightBy is the essentials not covered once committed money is kept.
+	TightBy float64 `json:"tightBy"`
+	// PerDay is SafeToSpend over Days.
+	PerDay float64 `json:"perDay"`
+	// NatureTagged is false when no expense category is tagged fixed or
+	// essential: nothing is set aside then.
+	NatureTagged bool             `json:"natureTagged"`
+	Counted      []BillOccurrence `json:"counted"`
+	Explanation  string           `json:"explanation"`
+	ReadyRule    string           `json:"readyRule"`
+	SetAsideRule string           `json:"setAsideRule"`
 	// UnknownNotReady are marked names that match no account (renamed or
 	// deleted); they are ignored, and Issues says so.
 	UnknownNotReady []string `json:"unknownNotReady"`
@@ -219,12 +238,18 @@ type BillsFacts struct {
 	UpcomingCount int     `json:"upcomingCount"`
 	OverdueCount  int     `json:"overdueCount"`
 	OverdueAmount float64 `json:"overdueAmount"`
-	// SafeToSpend = ReadyMoney - DueBeforeUntil, floored at 0.
+	// SafeToSpend is free to spend: ReadyMoney - Committed - Essentials,
+	// floored at 0.
 	SafeToSpend float64 `json:"safeToSpend"`
 	ShortBy     float64 `json:"shortBy"`
+	TightBy     float64 `json:"tightBy"`
 	ReadyMoney  float64 `json:"readyMoney"`
 	// DueBeforeUntil is the unpaid bills and card payments counted.
 	DueBeforeUntil float64 `json:"dueBeforeUntil"`
+	FixedCosts     float64 `json:"fixedCosts"`
+	// Committed = DueBeforeUntil + FixedCosts.
+	Committed  float64 `json:"committed"`
+	Essentials float64 `json:"essentials"`
 	// ExcludedAccounts counts the crypto and not-ready accounts left out.
 	ExcludedAccounts int `json:"excludedAccounts"`
 	// MinimumReserved is the minimum balances kept out of ready money (D35).
@@ -256,8 +281,12 @@ func (b Bills) Facts() BillsFacts {
 		OverdueAmount:    b.Calendar.OverdueAmount,
 		SafeToSpend:      b.SafeToSpend.SafeToSpend,
 		ShortBy:          b.SafeToSpend.ShortBy,
+		TightBy:          b.SafeToSpend.TightBy,
 		ReadyMoney:       b.SafeToSpend.ReadyMoney,
 		DueBeforeUntil:   b.SafeToSpend.BillsDue + b.SafeToSpend.CardPayments,
+		FixedCosts:       b.SafeToSpend.FixedCosts,
+		Committed:        b.SafeToSpend.Committed,
+		Essentials:       b.SafeToSpend.Essentials,
 		ExcludedAccounts: len(b.SafeToSpend.ExcludedAccounts),
 		Until:            b.SafeToSpend.Until,
 		UntilIncome:      b.SafeToSpend.UntilIncome,
@@ -276,7 +305,9 @@ func (b Bills) Facts() BillsFacts {
 
 // BillsInput is what ComputeBills needs. Readiness is the safe-to-spend
 // setting from the Preferences tab (zero value: no account marked);
-// Minimums the minimum balances to keep (zero value: none).
+// Minimums the minimum balances to keep (zero value: none). Categories
+// carry the natures and Budgets the budget items by year, for the money
+// set aside (D36; none: nothing set aside, a year missing: no limits).
 type BillsInput struct {
 	Sheet        RecurringSheet
 	Accounts     []Account
@@ -284,6 +315,8 @@ type BillsInput struct {
 	Cards        CardConfig
 	Readiness    SafeToSpendSettings
 	Minimums     AccountMinimumSettings
+	Categories   []Category
+	Budgets      map[int][]BudgetItem
 	Today        time.Time
 }
 
@@ -571,16 +604,17 @@ func summarizeCalendar(occurrences []BillOccurrence, from, to, today time.Time) 
 	return calendar
 }
 
-// computeSafeToSpend (WM-BILL-5, D33): horizon = the next unpaid income
-// on or after today, else 30 days. Counted = unpaid outgoing occurrences
-// from the first of this month (overdue ones too) and card payments due
-// strictly before the income (one due on payday is paid by the wage), or
-// up to and including the 30th day without an income.
+// computeSafeToSpend (WM-BILL-5, D33, D36): horizon = the next unpaid
+// income on or after today, else 30 days. Counted = unpaid outgoing
+// occurrences from the first of this month (overdue ones too) and card
+// payments due strictly before the income (one due on payday is paid by
+// the wage), or up to and including the 30th day without an income. The
+// fixed costs and essentials are set aside before the free money.
 func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOccurrence, today time.Time) SafeToSpend {
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
 	result := SafeToSpend{
 		AsOf: today.Format(time.DateOnly), ReadyAccounts: []SpendableAccount{}, ExcludedAccounts: []ExcludedAccount{},
-		Counted: []BillOccurrence{}, ReadyRule: SafeToSpendReadyRule, UnknownNotReady: []string{}, Issues: []string{},
+		Counted: []BillOccurrence{}, ReadyRule: SafeToSpendReadyRule, SetAsideRule: SafeToSpendSetAsideRule, UnknownNotReady: []string{}, Issues: []string{},
 		Readiness:       SafeToSpendSettings{NotReadyAccounts: append([]string{}, input.Readiness.NotReadyAccounts...), ETag: input.Readiness.ETag},
 		MinimumBalance:  AccountMinimumSettings{Accounts: append([]AccountMinimum{}, input.Minimums.Accounts...), ETag: input.Minimums.ETag},
 		MinimumBalances: []AccountMinimumBalance{}, MinimumRule: MinimumBalanceRule, UnknownMinimum: []string{},
@@ -631,10 +665,13 @@ func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOc
 		}
 	}
 	sortOccurrences(result.Counted)
+	setAside(&result, input, active, today, lastDay)
 
-	result.Amount = math.Round(result.ReadyMoney - result.BillsDue - result.CardPayments)
-	result.SafeToSpend = math.Max(0, result.Amount)
+	result.Committed = math.Round(result.BillsDue + result.CardPayments + result.FixedCosts)
+	result.Amount = math.Round(result.ReadyMoney - result.Committed)
 	result.ShortBy = math.Max(0, -result.Amount)
+	result.SafeToSpend = math.Max(0, result.Amount-result.Essentials)
+	result.TightBy = math.Max(0, result.Essentials-math.Max(0, result.Amount))
 	result.PerDay = math.Floor(result.SafeToSpend / float64(result.Days))
 	result.Explanation = safeToSpendExplanation(result)
 	return result
@@ -648,12 +685,17 @@ func safeToSpendExplanation(safe SafeToSpend) string {
 		reserve = fmt.Sprintf(" %s VND is kept back as the minimum balance of %s, so only the balance above each "+
 			"minimum counts as ready money.", groupThousands(safe.Reserved), plural(reservedAccounts(safe), "account", "accounts"))
 	}
+	setAside := " No category is tagged fixed or essential, so nothing more is set aside: tag them to keep their money apart."
+	if safe.NatureTagged {
+		setAside = fmt.Sprintf(" The fixed costs still to pay (%s VND) are committed too, and the essentials for %s (%s VND) are "+
+			"kept for needs; the rest is free to spend.", groupThousands(safe.FixedCosts), plural(safe.Days, "day", "days"), groupThousands(safe.Essentials))
+	}
 	if safe.UntilIncome {
 		return fmt.Sprintf("%s minus unpaid bills and card payments due before the next income (%s, %s), overdue ones included. "+
-			"Anything due on payday itself is not counted: that wage pays it.%s", ready, safe.IncomeName, safe.Until, reserve)
+			"Anything due on payday itself is not counted: that wage pays it.%s%s", ready, safe.IncomeName, safe.Until, setAside, reserve)
 	}
 	return fmt.Sprintf("%s minus unpaid bills and card payments due in the next 30 days, up to and including %s, overdue ones "+
-		"included (no income expected).%s", ready, safe.Until, reserve)
+		"included (no income expected).%s%s", ready, safe.Until, setAside, reserve)
 }
 
 func reservedAccounts(safe SafeToSpend) int {

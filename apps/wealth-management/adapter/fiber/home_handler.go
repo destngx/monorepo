@@ -14,7 +14,9 @@ const homeScope = "home_handler"
 // NeedsYouSummary documents GET /api/home/needs-you (also the MCP tool).
 const NeedsYouSummary = "The home inbox: what needs the user now, ranked. items: id, kind (drafts: quick capture drafts to " +
 	"approve; bill-overdue: unpaid bills and card payments past their date, critical; card-due: unpaid card payments due " +
-	"within 7 days, serious within 2; budget-over-pace: expense categories over their limit or on pace to pass it by the " +
+	"within 7 days, serious within 2; short-before-payday: ready money does not cover the bills, card payments and fixed " +
+	"costs due before the next income, serious; tight-before-payday: those are covered but not the essentials until " +
+	"then, warning; budget-over-pace: expense categories over their limit or on pace to pass it by the " +
 	"month end, pace from day 7, fixed categories counted as spent; lent-overdue, goal-plan-short, rebalance, idle-cash, emergency-fund-rate: " +
 	"the live engine rule findings (as POST /api/recommendations/refresh evaluates them), quiet while the user has the " +
 	"rule's recommendation snoozed, dismissed in the last 90 days or done in the last 30; goal-behind: active goals " +
