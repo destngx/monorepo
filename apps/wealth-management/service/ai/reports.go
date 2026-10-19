@@ -102,7 +102,9 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 }
 
 // BudgetAdvice is the budget advisor (WM-BUD-5): the model suggests limits
-// and alerts; projections, averages and velocity are engine facts.
+// and alerts; projections, averages, velocity and the quality-of-life
+// recommendations (WM-BUD-10, checked against what dated goals need a
+// month) are engine facts.
 func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (domain.BudgetAdvice, error) {
 	snap, err := s.loadSnapshot()
 	if err != nil {
@@ -116,7 +118,7 @@ func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (d
 	if err != nil {
 		return domain.BudgetAdvice{}, fmt.Errorf("load goals: %w", err)
 	}
-	facts := domain.ComputeAdvisorFacts(items, snap.accounts, snap.transactions, snap.today)
+	facts := domain.ComputeAdvisorFacts(items, snap.accounts, snap.transactions, snap.today, goals.Check.RequiredPerMonth)
 	monthStart := snap.today.AddDate(0, 0, 1-snap.today.Day())
 	vars := map[string]string{
 		"date":       snap.today.Format("02/01/2006"),

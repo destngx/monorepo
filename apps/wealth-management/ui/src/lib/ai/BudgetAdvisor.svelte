@@ -8,7 +8,8 @@
   import Icon from '$lib/components/Icon.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
-  import { spendShape } from '$lib/budget/trend';
+  import { DIRECTIONS, natureLabel, spendShape } from '$lib/budget/trend';
+  import Badge from '$lib/components/Badge.svelte';
   import { formatMonth } from '$lib/format';
   import { toasts } from '$lib/state/toasts.svelte';
   import AIStatusLine from './AIStatusLine.svelte';
@@ -50,7 +51,7 @@
 
 <Card
   title="AI budget advisor"
-  subtitle="Limits from your year-to-date and last 3 months, alerts and a 30-day cash projection"
+  subtitle="Limits to raise, lower or keep from your year-to-date and last 3 months, alerts and a 30-day cash projection"
 >
   {#snippet actions()}
     {#if task.status === 'done'}
@@ -76,13 +77,26 @@
         {/each}
       </ul>
     {/if}
+    <p class="mt-4 text-sm" data-testid="savings-check">
+      {#if advice.savingsCheck.onTrack}
+        <span class="font-semibold">Savings on track:</span> wants keep their usual level.
+      {:else}
+        <span class="font-semibold">Savings short:</span> rising or swinging wants go back to their lower average; needs are
+        never cut.
+      {/if}
+      <span class="muted"
+        >Income <Money value={advice.savingsCheck.averageIncome} /> a month, usual limits <Money
+          value={advice.savingsCheck.usualSpend}
+        />, saving needed <Money value={advice.savingsCheck.required} /> (goals or 30%, whichever is higher).</span
+      >
+    </p>
     {#if advice.suggestedLimits.length}
       <div class="mt-4 overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="muted text-left text-xs">
             <tr
-              ><th class="py-1 pr-3">Category</th><th class="pr-3 text-right">Limit</th><th class="pr-3 text-right"
-                >YTD avg</th
+              ><th class="py-1 pr-3">Category</th><th class="pr-3">Move</th><th class="pr-3 text-right">Limit</th><th
+                class="pr-3 text-right">YTD avg</th
               ><th class="pr-3 text-right">3-mo avg</th><th class="pr-3 text-right">Suggested</th><th class="pr-3"
                 >Why</th
               ><th><span class="sr-only">Actions</span></th></tr
@@ -93,9 +107,12 @@
               {@const shape = spendShape(limit.trend, limit.pattern)}
               <tr>
                 <td class="py-2 pr-3"
-                  ><span class="font-medium">{limit.category}</span>{#if shape}<span class="muted block text-xs"
-                      >{shape}</span
-                    >{/if}</td
+                  ><span class="font-medium">{limit.category}</span><span class="muted block text-xs"
+                    >{[natureLabel(limit.nature), shape].filter(Boolean).join(' · ')}</span
+                  ></td
+                >
+                <td class="pr-3"
+                  ><Badge tone={DIRECTIONS[limit.direction].tone}>{DIRECTIONS[limit.direction].label}</Badge></td
                 >
                 <td class="pr-3 text-right"><Money value={limit.currentLimit} /></td>
                 <td class="pr-3 text-right"><Money value={limit.yearToDateAverage} /></td>
@@ -161,7 +178,7 @@
     <AIStatusLine
       {task}
       label="Get advice"
-      hint="Suggested limits from your 3-month averages, spending spikes and a cash projection."
+      hint="Limits to raise, lower or keep from your year-to-date and 3-month spending, needs before wants, spikes and a cash projection."
     />
   {/if}
 </Card>

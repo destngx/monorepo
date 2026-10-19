@@ -20,7 +20,7 @@ func TestComputeAdvisorFacts(t *testing.T) {
 	}
 	accounts := []Account{{Name: "Bank", Type: AccountTypeBank, Balance: 50_000_000}}
 
-	facts := ComputeAdvisorFacts(items, accounts, transactions, today)
+	facts := ComputeAdvisorFacts(items, accounts, transactions, today, 0)
 
 	if facts.Month != "2026-10" || len(facts.Categories) != 1 {
 		t.Fatalf("unexpected facts %+v", facts)

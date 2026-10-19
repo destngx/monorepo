@@ -39,7 +39,7 @@ func TestAdvisorFactsYearToDateAndRecentWindow(t *testing.T) {
 	items := []BudgetItem{expenseItem("Food", 2_000_000)}
 
 	// When the advisor facts are computed
-	facts := ComputeAdvisorFacts(items, nil, transactions, day(2026, 10, 19))
+	facts := ComputeAdvisorFacts(items, nil, transactions, day(2026, 10, 19), 0)
 
 	// Then the year-to-date window is the nine full months and the recent window the last three
 	if facts.YearToDateMonths != 9 {
@@ -56,9 +56,9 @@ func TestAdvisorFactsYearToDateAndRecentWindow(t *testing.T) {
 	if food.Trend != SpendTrendRising || food.Pattern != SpendPatternSteady {
 		t.Fatalf("trend=%s pattern=%s", food.Trend, food.Pattern)
 	}
-	// And a steady category's baseline follows the last three months
-	if food.BaselineLimit != 3_000_000 {
-		t.Fatalf("baseline = %v, want 3,000,000", food.BaselineLimit)
+	// And an untagged steady category follows the last three months
+	if food.RecommendedLimit != 3_000_000 || food.Direction != LimitIncrease {
+		t.Fatalf("recommended %v %s, want 3,000,000 increase", food.RecommendedLimit, food.Direction)
 	}
 }
 
@@ -109,10 +109,11 @@ func TestAdvisorFactsTrendAndPattern(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Fun", 1_000_000)}, nil, spendEachMonth(2026, "Fun", test.amounts...), today)
+			// Given no limit yet, so the recommendation is the untagged target
+			facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Fun", 0)}, nil, spendEachMonth(2026, "Fun", test.amounts...), today, 0)
 			fun := statsFor(t, facts, "Fun")
-			if fun.Trend != test.trend || fun.Pattern != test.pattern || fun.BaselineLimit != test.baseline {
-				t.Fatalf("trend=%s pattern=%s baseline=%v, want %s %s %v", fun.Trend, fun.Pattern, fun.BaselineLimit, test.trend, test.pattern, test.baseline)
+			if fun.Trend != test.trend || fun.Pattern != test.pattern || fun.RecommendedLimit != test.baseline {
+				t.Fatalf("trend=%s pattern=%s recommended=%v, want %s %s %v", fun.Trend, fun.Pattern, fun.RecommendedLimit, test.trend, test.pattern, test.baseline)
 			}
 		})
 	}
@@ -126,7 +127,7 @@ func TestAdvisorFactsEarlyInTheYear(t *testing.T) {
 		txn(day(2026, 1, 5), "Food", CategoryTypeExpense, 3_000_000, 0),
 	}
 
-	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Food", 2_000_000)}, nil, transactions, day(2026, 2, 10))
+	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Food", 2_000_000)}, nil, transactions, day(2026, 2, 10), 0)
 
 	// Then the recent window reaches into last year while year to date is January only
 	food := statsFor(t, facts, "Food")
@@ -145,21 +146,23 @@ func TestAdvisorFactsEarlyInTheYear(t *testing.T) {
 func TestAdvisorFactsInJanuary(t *testing.T) {
 	transactions := []Transaction{txn(day(2025, 12, 5), "Food", CategoryTypeExpense, 2_000_000, 0)}
 
-	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Food", 2_000_000)}, nil, transactions, day(2026, 1, 10))
+	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Food", 2_000_000)}, nil, transactions, day(2026, 1, 10), 0)
 
+	// Then there is no year to date yet and the recommendation leans on the last three months:
+	// about 667,000 a month plus the 10% cushion, rounded up
 	food := statsFor(t, facts, "Food")
-	if facts.YearToDateMonths != 0 || food.YearToDateAverage != 0 || food.BaselineLimit != 670_000 {
-		t.Fatalf("ytd months=%d ytd=%v baseline=%v", facts.YearToDateMonths, food.YearToDateAverage, food.BaselineLimit)
+	if facts.YearToDateMonths != 0 || food.YearToDateAverage != 0 || food.RecommendedLimit != 740_000 || food.Direction != LimitLower {
+		t.Fatalf("ytd months=%d ytd=%v recommended=%v %s", facts.YearToDateMonths, food.YearToDateAverage, food.RecommendedLimit, food.Direction)
 	}
 }
 
-func TestAdvisorFactsBaselineRoundsUpToTenThousand(t *testing.T) {
+func TestAdvisorFactsRecommendationRoundsUpToTenThousand(t *testing.T) {
 	transactions := spendEachMonth(2026, "Apps", 0, 0, 0, 0, 0, 0, 101_000, 101_000, 101_000)
 
-	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Apps", 0)}, nil, transactions, day(2026, 10, 1))
+	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Apps", 0)}, nil, transactions, day(2026, 10, 1), 0)
 
-	if apps := statsFor(t, facts, "Apps"); apps.BaselineLimit != 110_000 {
-		t.Fatalf("baseline = %v, want 110,000", apps.BaselineLimit)
+	if apps := statsFor(t, facts, "Apps"); apps.RecommendedLimit != 110_000 {
+		t.Fatalf("recommended = %v, want 110,000", apps.RecommendedLimit)
 	}
 }
 
@@ -167,7 +170,7 @@ func TestAdvisorFactsListBudgetedCategoriesWithHistoryOnly(t *testing.T) {
 	// Given a budget row that was only spent on earlier this year
 	transactions := spendEachMonth(2026, "Travel", 0, 0, 0, 0, 9_000_000)
 
-	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Travel", 0)}, nil, transactions, day(2026, 10, 19))
+	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Travel", 0)}, nil, transactions, day(2026, 10, 19), 0)
 
 	// Then it is still in the facts, so its limit can be planned
 	travel := statsFor(t, facts, "Travel")
@@ -176,35 +179,214 @@ func TestAdvisorFactsListBudgetedCategoriesWithHistoryOnly(t *testing.T) {
 	}
 }
 
-func TestApplyFactsFillsMissingBaselineSuggestions(t *testing.T) {
-	facts := AdvisorFacts{Month: "2026-10", Categories: []BudgetCategoryStats{
-		{Category: "Food", CurrentLimit: 2_000_000, AverageSpend: 3_000_000, YearToDateAverage: 2_330_000, Trend: SpendTrendRising, Pattern: SpendPatternSteady, BaselineLimit: 3_000_000},
-		{Category: "Coffee", CurrentLimit: 500_000, AverageSpend: 480_000, YearToDateAverage: 470_000, Trend: SpendTrendSteady, Pattern: SpendPatternSteady, BaselineLimit: 480_000},
-		{Category: "Gifts", CurrentLimit: 0, AverageSpend: 0, YearToDateAverage: 1_000_000, Trend: SpendTrendFalling, Pattern: SpendPatternOccasional, BaselineLimit: 1_000_000},
-		{Category: "Shoes", CurrentLimit: 1_000_000, AverageSpend: 2_000_000, Trend: SpendTrendRising, Pattern: SpendPatternVariable, BaselineLimit: 2_000_000},
-		{Category: "New", CurrentLimit: 300_000, SpentSoFar: 100_000},
+// natured tags every transaction with the category nature.
+func natured(nature CategoryNature, transactions []Transaction) []Transaction {
+	for i := range transactions {
+		transactions[i].CategoryNature = nature
+	}
+	return transactions
+}
+
+// salary records the same income in each of the last three full months before October.
+func salary(amount float64) []Transaction {
+	return []Transaction{
+		txn(day(2026, 7, 1), "Salary", CategoryTypeIncome, 0, amount),
+		txn(day(2026, 8, 1), "Salary", CategoryTypeIncome, 0, amount),
+		txn(day(2026, 9, 1), "Salary", CategoryTypeIncome, 0, amount),
+	}
+}
+
+func TestRecommendationsProtectNeeds(t *testing.T) {
+	today := day(2026, 10, 19)
+	tests := []struct {
+		name      string
+		nature    CategoryNature
+		limit     float64
+		amounts   []float64
+		want      float64
+		direction LimitDirection
+		reason    string
+	}{
+		{
+			name:      "an essential that costs more than its limit is raised to its usual cost, the higher average",
+			nature:    NatureEssential,
+			limit:     2_000_000,
+			amounts:   []float64{3_000_000, 3_000_000, 3_000_000, 3_000_000, 3_000_000, 3_000_000, 2_500_000, 2_500_000, 2_500_000},
+			want:      2_840_000,
+			direction: LimitIncrease,
+			reason:    "needs are budgeted at their usual cost",
+		},
+		{
+			name:      "an essential is never cut below its usual cost even when recent months were lower",
+			nature:    NatureEssential,
+			limit:     2_900_000,
+			amounts:   []float64{3_000_000, 3_000_000, 3_000_000, 3_000_000, 3_000_000, 3_000_000, 2_000_000, 2_000_000, 2_000_000},
+			want:      2_900_000,
+			direction: LimitKeep,
+			reason:    "fits what you usually spend",
+		},
+		{
+			name:      "an essential limit far above its usual cost is lowered to the usual cost plus a cushion",
+			nature:    NatureEssential,
+			limit:     5_000_000,
+			amounts:   []float64{2_000_000, 2_000_000, 2_000_000, 2_000_000, 2_000_000, 2_000_000, 2_000_000, 2_000_000, 2_000_000},
+			want:      2_200_000,
+			direction: LimitLower,
+			reason:    "slack can go to goals",
+		},
+		{
+			name:      "a fixed cost follows what it costs now",
+			nature:    NatureFixed,
+			limit:     5_000_000,
+			amounts:   []float64{5_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000, 6_000_000, 6_000_000, 6_000_000},
+			want:      6_000_000,
+			direction: LimitIncrease,
+			reason:    "fixed cost above its limit",
+		},
+		{
+			name:      "a fixed cost that came down lets the limit follow",
+			nature:    NatureFixed,
+			limit:     6_000_000,
+			amounts:   []float64{6_000_000, 6_000_000, 6_000_000, 6_000_000, 6_000_000, 6_000_000, 4_000_000, 4_000_000, 4_000_000},
+			want:      4_400_000,
+			direction: LimitLower,
+			reason:    "fixed cost came down",
+		},
+		{
+			name:      "an untagged category asks to be tagged",
+			limit:     1_000_000,
+			amounts:   []float64{1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000},
+			want:      1_000_000,
+			direction: LimitKeep,
+			reason:    "Tag it fixed, essential or flexible",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Need", test.limit)}, nil, natured(test.nature, spendEachMonth(2026, "Need", test.amounts...)), today, 0)
+			need := statsFor(t, facts, "Need")
+			if need.RecommendedLimit != test.want || need.Direction != test.direction || !strings.Contains(need.Reason, test.reason) {
+				t.Fatalf("recommended %v %s %q, want %v %s containing %q", need.RecommendedLimit, need.Direction, need.Reason, test.want, test.direction, test.reason)
+			}
+			if need.Nature != test.nature {
+				t.Fatalf("nature %q, want %q", need.Nature, test.nature)
+			}
+		})
+	}
+}
+
+func TestRecommendationsFundWantsWhileSavingsAreOnTrack(t *testing.T) {
+	today := day(2026, 10, 19)
+	// Dining rose from 1,000,000 to 2,000,000 a month; the limit is still 1,000,000
+	dining := natured(NatureFlexible, spendEachMonth(2026, "Dining", 1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000, 2_000_000, 2_000_000, 2_000_000))
+	rent := natured(NatureFixed, spendEachMonth(2026, "Rent", 5_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000, 5_000_000))
+	items := []BudgetItem{expenseItem("Dining", 1_000_000), expenseItem("Rent", 5_000_000)}
+
+	t.Run("on track: the want keeps its usual level", func(t *testing.T) {
+		// Given 20,000,000 income: 30% is 6,000,000 and the usual 7,000,000 of limits leaves 13,000,000
+		transactions := append(append(append([]Transaction{}, dining...), rent...), salary(20_000_000)...)
+
+		facts := ComputeAdvisorFacts(items, nil, transactions, today, 4_000_000)
+
+		check := facts.SavingsCheck
+		if !check.OnTrack || check.Required != 6_000_000 || check.UsualSpend != 7_000_000 || check.GoalNeed != 4_000_000 || check.AverageIncome != 20_000_000 {
+			t.Fatalf("savings check %+v", check)
+		}
+		food := statsFor(t, facts, "Dining")
+		if food.RecommendedLimit != 2_000_000 || food.Direction != LimitIncrease || !strings.Contains(food.Reason, "on track") {
+			t.Fatalf("dining %+v", food)
+		}
+		if check.RecommendedSpend != 7_000_000 {
+			t.Fatalf("recommended spend %v", check.RecommendedSpend)
+		}
+	})
+
+	t.Run("short: a rising want falls back to its lower average", func(t *testing.T) {
+		// Given 20,000,000 income but goals that need 15,000,000 a month
+		transactions := append(append(append([]Transaction{}, dining...), rent...), salary(20_000_000)...)
+
+		facts := ComputeAdvisorFacts(items, nil, transactions, today, 15_000_000)
+
+		if facts.SavingsCheck.OnTrack || facts.SavingsCheck.Required != 15_000_000 {
+			t.Fatalf("savings check %+v", facts.SavingsCheck)
+		}
+		// Year-to-date average is 1,333,333; the limit 1,000,000 is below it, so it rises only that far
+		food := statsFor(t, facts, "Dining")
+		if food.RecommendedLimit != 1_340_000 || food.Direction != LimitIncrease {
+			t.Fatalf("dining %+v", food)
+		}
+		// And needs are untouched by the savings shortfall
+		if rent := statsFor(t, facts, "Rent"); rent.Direction != LimitKeep || rent.RecommendedLimit != 5_000_000 {
+			t.Fatalf("rent %+v", rent)
+		}
+	})
+
+	t.Run("short: a want limit above its lower average is lowered without a cushion", func(t *testing.T) {
+		transactions := append(append(append([]Transaction{}, dining...), rent...), salary(20_000_000)...)
+
+		facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Dining", 2_000_000), expenseItem("Rent", 5_000_000)}, nil, transactions, today, 15_000_000)
+
+		food := statsFor(t, facts, "Dining")
+		if food.RecommendedLimit != 1_340_000 || food.Direction != LimitLower || !strings.Contains(food.Reason, "rising") {
+			t.Fatalf("dining %+v", food)
+		}
+	})
+
+	t.Run("no income recorded: savings are not on track", func(t *testing.T) {
+		facts := ComputeAdvisorFacts(items, nil, append(append([]Transaction{}, dining...), rent...), today, 0)
+
+		if facts.SavingsCheck.OnTrack {
+			t.Fatalf("savings check %+v", facts.SavingsCheck)
+		}
+	})
+}
+
+func TestRecommendationsKeepLimitsWithoutHistory(t *testing.T) {
+	// Given an annual fee budgeted monthly but not paid in any full month this year
+	facts := ComputeAdvisorFacts([]BudgetItem{expenseItem("Insurance", 500_000)}, nil, nil, day(2026, 10, 19), 0)
+
+	insurance := statsFor(t, facts, "Insurance")
+	if insurance.Direction != LimitKeep || insurance.RecommendedLimit != 500_000 || !strings.Contains(insurance.Reason, "still needed") {
+		t.Fatalf("insurance %+v", insurance)
+	}
+}
+
+func TestApplyFactsFillsMissingRecommendations(t *testing.T) {
+	facts := AdvisorFacts{Month: "2026-10", SavingsCheck: SavingsCheck{OnTrack: true, Required: 6_000_000}, Categories: []BudgetCategoryStats{
+		{Category: "Food", Nature: NatureEssential, CurrentLimit: 2_000_000, AverageSpend: 3_000_000, YearToDateAverage: 2_330_000, Trend: SpendTrendRising, Pattern: SpendPatternSteady, RecommendedLimit: 3_000_000, Direction: LimitIncrease, Reason: "A need that costs more than its limit."},
+		{Category: "Coffee", Nature: NatureFlexible, CurrentLimit: 500_000, AverageSpend: 480_000, RecommendedLimit: 500_000, Direction: LimitKeep, Reason: "Fits."},
+		{Category: "Gifts", Nature: NatureFlexible, CurrentLimit: 0, YearToDateAverage: 1_000_000, Pattern: SpendPatternOccasional, RecommendedLimit: 1_000_000, Direction: LimitIncrease, Reason: "Spent in only some months."},
+		{Category: "Shoes", Nature: NatureFlexible, CurrentLimit: 1_000_000, AverageSpend: 2_000_000, Trend: SpendTrendRising, Pattern: SpendPatternVariable, RecommendedLimit: 2_000_000, Direction: LimitIncrease},
+		{Category: "Gym", CurrentLimit: 2_000_000, AverageSpend: 500_000, RecommendedLimit: 550_000, Direction: LimitLower, Reason: "Slack."},
 	}}
-	// Given the model suggested Shoes only
-	advice := BudgetAdvice{Briefing: "ok", SuggestedLimits: []SuggestedLimit{{Category: "shoes", SuggestedLimit: 1_500_000, Rationale: "Cut back"}}}
+	// Given the model suggested Shoes only, below the current limit
+	advice := BudgetAdvice{Briefing: "ok", SuggestedLimits: []SuggestedLimit{{Category: "shoes", SuggestedLimit: 800_000, Rationale: "Cut back"}}}
 
 	if err := advice.ApplyFacts(facts); err != nil {
 		t.Fatal(err)
 	}
 
-	// Then the model's suggestion stays first with the engine's figures attached
+	// Then the model's suggestion stays first with the engine's figures and its own direction
 	shoes := advice.SuggestedLimits[0]
-	if shoes.Category != "Shoes" || shoes.SuggestedLimit != 1_500_000 || shoes.BaselineLimit != 2_000_000 || shoes.Trend != SpendTrendRising || shoes.Pattern != SpendPatternVariable {
+	if shoes.Category != "Shoes" || shoes.SuggestedLimit != 800_000 || shoes.RecommendedLimit != 2_000_000 || shoes.Direction != LimitLower || shoes.Nature != NatureFlexible || shoes.Trend != SpendTrendRising {
 		t.Fatalf("shoes %+v", shoes)
 	}
-	// And the engine adds baselines that differ from the limit by 10% or more, largest change first
-	if len(advice.SuggestedLimits) != 3 {
+	// And every other move the engine recommends follows, largest relative change first; keeps are left out
+	if len(advice.SuggestedLimits) != 4 {
 		t.Fatalf("suggestions %+v", advice.SuggestedLimits)
 	}
-	gifts, food := advice.SuggestedLimits[1], advice.SuggestedLimits[2]
-	if gifts.Category != "Gifts" || gifts.SuggestedLimit != 1_000_000 || !strings.Contains(gifts.Rationale, "only some months") {
+	gifts, gym, food := advice.SuggestedLimits[1], advice.SuggestedLimits[2], advice.SuggestedLimits[3]
+	if gifts.Category != "Gifts" || gifts.Direction != LimitIncrease || gifts.Rationale != "Spent in only some months." {
 		t.Fatalf("gifts %+v", gifts)
 	}
-	if food.Category != "Food" || food.SuggestedLimit != 3_000_000 || food.YearToDateAverage != 2_330_000 || !strings.Contains(food.Rationale, "above earlier") {
+	if gym.Category != "Gym" || gym.SuggestedLimit != 550_000 || gym.Direction != LimitLower {
+		t.Fatalf("gym %+v", gym)
+	}
+	if food.Category != "Food" || food.SuggestedLimit != 3_000_000 || food.YearToDateAverage != 2_330_000 || food.Direction != LimitIncrease {
 		t.Fatalf("food %+v", food)
+	}
+	// And the savings check is the engine's
+	if !advice.SavingsCheck.OnTrack || advice.SavingsCheck.Required != 6_000_000 {
+		t.Fatalf("savings check %+v", advice.SavingsCheck)
 	}
 }

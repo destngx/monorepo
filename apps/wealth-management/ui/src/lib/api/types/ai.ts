@@ -1,3 +1,4 @@
+import type { CategoryNature } from './budget';
 import type { CaptureLimits } from './capture';
 import type { RecommendationRecord } from './recommendations';
 
@@ -108,9 +109,25 @@ export interface Briefing {
 export type SpendTrend = 'rising' | 'falling' | 'steady' | 'unknown';
 /** How a category's spend is spread over its months (WM-BUD-9). */
 export type SpendPattern = 'steady' | 'variable' | 'occasional';
+/** Which way a recommendation moves a limit (WM-BUD-10). */
+export type LimitDirection = 'increase' | 'lower' | 'keep';
+
+/** Whether wants keep their usual level (WM-BUD-10). */
+export interface SavingsCheck {
+  averageIncome: number;
+  /** What dated goals need saved a month. */
+  goalNeed: number;
+  /** The higher of goalNeed and 30% of income. */
+  required: number;
+  /** Limits with wants at their usual level. */
+  usualSpend: number;
+  onTrack: boolean;
+  recommendedSpend: number;
+}
 
 export interface SuggestedLimit {
   category: string;
+  nature?: CategoryNature;
   currentLimit: number;
   /** Average over the last 3 full months. */
   averageSpend: number;
@@ -118,9 +135,11 @@ export interface SuggestedLimit {
   yearToDateAverage: number;
   trend: SpendTrend;
   pattern: SpendPattern;
-  /** The engine's limit from the averages, trend and pattern. */
-  baselineLimit: number;
+  /** The engine's quality-of-life limit from the averages, trend, pattern and nature. */
+  recommendedLimit: number;
   suggestedLimit: number;
+  /** The suggestion against the current limit. */
+  direction: LimitDirection;
   rationale: string;
 }
 
@@ -135,6 +154,7 @@ export interface AdvisorAlert {
 export interface BudgetAdvice {
   month: string;
   briefing: string;
+  savingsCheck: SavingsCheck;
   suggestedLimits: SuggestedLimit[];
   projection: { date: string; balance: number; note?: string }[];
   alerts: AdvisorAlert[];

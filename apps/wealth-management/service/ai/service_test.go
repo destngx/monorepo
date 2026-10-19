@@ -214,7 +214,10 @@ func TestBudgetAdviceKeepsEngineFacts(t *testing.T) {
 		"projection": [{"date": "2026-10-11", "balance": 1}],
 		"forecastedSavings": 999
 	}`}}}
-	advice, err := newTestService(t, fixtureDatabase(), client, nil).BudgetAdvice(context.Background(), false, "")
+	db := fixtureDatabase()
+	// A goal the pool cannot fill yet, so it needs saving every month.
+	db.GoalPlan.Goals[0].Target = money(300_000_000)
+	advice, err := newTestService(t, db, client, nil).BudgetAdvice(context.Background(), false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,6 +229,10 @@ func TestBudgetAdviceKeepsEngineFacts(t *testing.T) {
 	}
 	if advice.Month != "2026-10" || len(advice.Projection) != 30 || advice.ForecastedSavings == 999 {
 		t.Fatalf("model must not override engine facts: %+v", advice)
+	}
+	// The savings check weighs what the dated goals need a month (WM-BUD-10).
+	if advice.SavingsCheck.GoalNeed <= 0 {
+		t.Fatalf("goal need missing from the savings check: %+v", advice.SavingsCheck)
 	}
 	if !strings.Contains(client.requests[0].Messages[1].Content, "FACTS (computed by the engine") {
 		t.Fatal("facts block missing from the action prompt")
