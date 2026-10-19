@@ -16,6 +16,7 @@
   import SheetsAuthAlert from '$lib/components/SheetsAuthAlert.svelte';
   import AreaTabs from '$lib/components/AreaTabs.svelte';
   import MobileNav from '$lib/components/MobileNav.svelte';
+  import NavProgress from '$lib/components/NavProgress.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import SyncButton from '$lib/components/SyncButton.svelte';
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
@@ -112,11 +113,7 @@
   }}
 />
 
-{#if navigating.to}
-  <div class="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden" role="progressbar" aria-label="Loading page">
-    <div class="h-full w-1/3 animate-[nav-progress_1s_ease-in-out_infinite] bg-indigo-500"></div>
-  </div>
-{/if}
+<NavProgress active={!!navigating.to} />
 
 <div class="flex min-h-screen">
   <!-- Desktop sidebar -->
@@ -213,14 +210,3 @@
     refreshes as soon as you are back online.
   </p>
 </Modal>
-
-<style>
-  @keyframes -global-nav-progress {
-    from {
-      transform: translateX(-100%);
-    }
-    to {
-      transform: translateX(300%);
-    }
-  }
-</style>

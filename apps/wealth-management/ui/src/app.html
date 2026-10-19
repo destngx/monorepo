@@ -4,78 +4,268 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script>
-      // The saved theme, applied before the first paint (same rule as applyTheme).
+      // Before the first paint: the saved theme (same rule as applyTheme), and the
+      // sidebar width so the loading screen's outline matches the app (endBootScreen clears it).
       (() => {
-        let theme = null;
-        try {
-          theme = localStorage.getItem('wm.theme');
-        } catch {
-          // Storage unavailable: follow the system.
-        }
+        const read = (key) => {
+          try {
+            return localStorage.getItem(key);
+          } catch {
+            return null; // Storage unavailable: defaults apply.
+          }
+        };
+        const theme = read('wm.theme');
         const dark =
           theme === 'dark' || (theme !== 'light' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches);
-        document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        const root = document.documentElement;
+        root.classList.toggle('dark', dark);
+        root.style.colorScheme = dark ? 'dark' : 'light';
+        if (read('wm.sidebarCollapsed') === 'true') root.dataset.bootSidebar = 'collapsed';
       })();
     </script>
     <style>
-      /* Shown until the root layout renders (endBootScreen); inline because the app's CSS arrives with its JS. */
+      /* The loading screen, shown until the root layout renders (endBootScreen). It outlines the
+         app shell (routes/+layout.svelte) at the same sizes, so the app lands in place instead of
+         replacing a spinner. Inline because the app's CSS arrives with its JS. */
       .boot {
+        --boot-bg: #f1f5f9;
+        --boot-glass: rgb(255 255 255 / 0.65);
+        --boot-edge: rgb(255 255 255 / 0.6);
+        --boot-shape: rgb(15 23 42 / 0.07);
         position: fixed;
         inset: 0;
-        display: grid;
-        place-content: center;
-        justify-items: center;
-        gap: 0.75rem;
-        background: #f1f5f9;
-        color: #64748b;
+        z-index: 60;
+        overflow: hidden;
+        background-color: var(--boot-bg);
+        background-image:
+          radial-gradient(at 0% 0%, oklch(0.85 0.08 265 / 0.55) 0, transparent 45%),
+          radial-gradient(at 100% 0%, oklch(0.88 0.08 175 / 0.45) 0, transparent 40%),
+          radial-gradient(at 100% 100%, oklch(0.9 0.07 50 / 0.35) 0, transparent 45%);
+        color: #0f172a;
         font:
-          500 0.875rem/1.25rem ui-sans-serif,
+          600 1rem/1.5rem 'Inter',
+          ui-sans-serif,
           system-ui,
           -apple-system,
           'Segoe UI',
           Roboto,
           sans-serif;
-        opacity: 0;
-        animation: boot-in 0.2s ease-out 0.3s forwards;
+        -webkit-font-smoothing: antialiased;
       }
       .dark .boot {
-        background: #020617;
-        color: #94a3b8;
+        --boot-bg: #020617;
+        --boot-glass: rgb(15 23 42 / 0.55);
+        --boot-edge: rgb(255 255 255 / 0.1);
+        --boot-shape: rgb(255 255 255 / 0.08);
+        background-image:
+          radial-gradient(at 0% 0%, oklch(0.35 0.12 265 / 0.5) 0, transparent 45%),
+          radial-gradient(at 100% 0%, oklch(0.35 0.09 175 / 0.35) 0, transparent 40%),
+          radial-gradient(at 100% 100%, oklch(0.35 0.1 50 / 0.25) 0, transparent 45%);
+        color: #f1f5f9;
+      }
+      .boot-sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      /* Same look and pace as the page-load bar (lib/components/NavProgress.svelte). */
+      .boot-bar {
+        position: absolute;
+        inset: 0 0 auto;
+        height: 2px;
+        background: #6366f1;
+        box-shadow: 0 0 8px rgb(99 102 241 / 0.6);
+        transform-origin: left;
+        animation: boot-creep 10s cubic-bezier(0.05, 0.7, 0.1, 1) 0.15s both;
+      }
+      .dark .boot-bar {
+        background: #818cf8;
+      }
+      .boot-art,
+      .boot-shell {
+        height: 100%;
+      }
+      .boot-shell {
+        display: flex;
+      }
+      .boot-glass {
+        border: 1px solid var(--boot-edge);
+        border-radius: 1rem;
+        background: var(--boot-glass);
+        box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+      }
+      .boot-shape {
+        display: block;
+        border-radius: 0.375rem;
+        background: var(--boot-shape);
+        animation: boot-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      .boot-side {
+        display: none;
+        flex-direction: column;
+        flex-shrink: 0;
+        box-sizing: border-box;
+        width: 15rem;
+        margin: 0.75rem 0 0.75rem 0.75rem;
+        padding: 0.75rem;
+      }
+      [data-boot-sidebar='collapsed'] .boot-side {
+        width: 4.25rem;
+      }
+      .boot-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        letter-spacing: -0.025em;
+      }
+      [data-boot-sidebar='collapsed'] .boot-brand > :last-child {
+        display: none;
       }
       .boot-mark {
-        position: relative;
         display: grid;
         place-items: center;
-        width: 3rem;
-        height: 3rem;
-        border-radius: 0.875rem;
+        flex-shrink: 0;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.75rem;
         background: #4f46e5;
         color: #fff;
-        font-size: 1.125rem;
+        font-size: 0.875rem;
       }
-      .boot-mark::after {
+      /* A nav link's icon and label, on the link's 2.25rem row. */
+      .boot-link {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        height: 2.25rem;
+        padding: 0 0.75rem;
+        background: none;
+      }
+      .boot-link::before,
+      .boot-link::after {
         content: '';
-        position: absolute;
-        inset: -0.5rem;
-        border: 2px solid transparent;
-        border-top-color: #6366f1;
-        border-radius: 1.25rem;
-        animation: boot-spin 0.9s linear infinite;
+        border-radius: 0.375rem;
+        background: var(--boot-shape);
       }
-      @keyframes boot-in {
-        to {
-          opacity: 1;
+      .boot-link::before {
+        flex-shrink: 0;
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+      .boot-link::after {
+        width: var(--w, 60%);
+        height: 0.75rem;
+      }
+      [data-boot-sidebar='collapsed'] .boot-link::after {
+        display: none;
+      }
+      .boot-main {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .boot-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 3.25rem;
+        margin: 0.75rem;
+        padding: 0 0.75rem;
+        box-sizing: border-box;
+      }
+      .boot-title {
+        width: 8rem;
+        height: 1rem;
+        margin-right: auto;
+      }
+      .boot-icon {
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 0.75rem;
+      }
+      .boot-content {
+        display: grid;
+        grid-template-columns: 1fr;
+        align-content: start;
+        gap: 1rem;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 80rem;
+        margin: 0 auto;
+        padding: 0.75rem 0.75rem 0;
+      }
+      .boot-headline {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: 0.625rem;
+        padding: 0.25rem 0 0.5rem;
+      }
+      .boot-card {
+        display: grid;
+        gap: 0.75rem;
+        padding: 1rem;
+      }
+      .boot-wide {
+        grid-column: 1 / -1;
+        height: 16rem;
+        align-content: start;
+      }
+      .boot-wide .boot-shape:last-child {
+        height: 100%;
+      }
+      .boot-tabs {
+        position: absolute;
+        inset: auto 0.5rem 0.5rem;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        justify-items: center;
+        padding: 0.875rem 0;
+      }
+      .boot-tabs .boot-shape {
+        width: 2.75rem;
+        height: 1.75rem;
+        border-radius: 9999px;
+      }
+      @media (min-width: 40rem) {
+        .boot-content {
+          grid-template-columns: repeat(3, 1fr);
+          padding: 0.75rem 1.5rem 0;
         }
       }
-      @keyframes boot-spin {
+      @media (min-width: 64rem) {
+        .boot-side {
+          display: flex;
+        }
+        .boot-tabs {
+          display: none;
+        }
+      }
+      @keyframes boot-creep {
+        from {
+          transform: scaleX(0);
+        }
         to {
-          transform: rotate(360deg);
+          transform: scaleX(0.9);
+        }
+      }
+      @keyframes boot-pulse {
+        50% {
+          opacity: 0.5;
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        .boot-mark::after {
-          animation-duration: 3s;
+        .boot-bar {
+          animation: none;
+          transform: scaleX(0.9);
+        }
+        .boot-shape {
+          animation: none;
         }
       }
     </style>
@@ -83,9 +273,59 @@
   </head>
   <body data-sveltekit-preload-data="hover">
     <div style="display: contents">
-      <div id="boot" class="boot" role="status" aria-live="polite">
-        <span class="boot-mark" aria-hidden="true">₫</span>
-        <span>Loading…</span>
+      <div id="boot" class="boot" role="status" aria-live="polite" aria-busy="true">
+        <span class="boot-sr">Loading Wealth…</span>
+        <div class="boot-art" aria-hidden="true">
+          <div class="boot-bar"></div>
+          <div class="boot-shell">
+            <div class="boot-glass boot-side">
+              <div class="boot-brand"><span class="boot-mark">₫</span><span>Wealth</span></div>
+              <span class="boot-shape boot-link" style="--w: 55%"></span>
+              <span class="boot-shape boot-link" style="--w: 70%"></span>
+              <span class="boot-shape boot-link" style="--w: 45%"></span>
+              <span class="boot-shape boot-link" style="--w: 65%"></span>
+              <span class="boot-shape boot-link" style="--w: 50%"></span>
+              <span class="boot-shape boot-link" style="--w: 60%"></span>
+            </div>
+            <div class="boot-main">
+              <div class="boot-glass boot-header">
+                <span class="boot-shape boot-title"></span>
+                <span class="boot-shape boot-icon"></span>
+                <span class="boot-shape boot-icon"></span>
+              </div>
+              <div class="boot-content">
+                <div class="boot-headline">
+                  <span class="boot-shape" style="width: min(24rem, 70%); height: 1.75rem"></span>
+                  <span class="boot-shape" style="width: min(36rem, 90%); height: 0.875rem"></span>
+                </div>
+                <div class="boot-glass boot-card">
+                  <span class="boot-shape" style="width: 40%; height: 0.75rem"></span>
+                  <span class="boot-shape" style="width: 70%; height: 1.5rem"></span>
+                </div>
+                <div class="boot-glass boot-card">
+                  <span class="boot-shape" style="width: 40%; height: 0.75rem"></span>
+                  <span class="boot-shape" style="width: 70%; height: 1.5rem"></span>
+                </div>
+                <div class="boot-glass boot-card">
+                  <span class="boot-shape" style="width: 40%; height: 0.75rem"></span>
+                  <span class="boot-shape" style="width: 70%; height: 1.5rem"></span>
+                </div>
+                <div class="boot-glass boot-card boot-wide">
+                  <span class="boot-shape" style="width: 30%; height: 0.875rem"></span>
+                  <span class="boot-shape"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="boot-glass boot-tabs">
+            <span class="boot-shape"></span>
+            <span class="boot-shape"></span>
+            <span class="boot-shape"></span>
+            <span class="boot-shape"></span>
+            <span class="boot-shape"></span>
+            <span class="boot-shape"></span>
+          </div>
+        </div>
       </div>
       %sveltekit.body%
     </div>
