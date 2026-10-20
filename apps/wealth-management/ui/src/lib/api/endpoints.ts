@@ -27,9 +27,11 @@ import type {
   CaptureDraftEdit,
   CaptureDrafts,
   CaptureEvent,
+  CaptureLearnResult,
   CaptureMaterialPayload,
   CaptureRule,
   CaptureRulesSaveResult,
+  CaptureWrittenRow,
   CardBankReport,
   CardConfig,
   CardPaymentQuery,
@@ -335,6 +337,9 @@ export const api = {
   captureRules: (options?: ReadOptions) => read<CaptureRule[]>('/capture/rules', options),
   saveCaptureRules: (rules: CaptureRule[]) =>
     request<CaptureRulesSaveResult>('/capture/rules', { method: 'POST', body: { rules } }),
+  /** Sends rows the Smart Capture page wrote so later captures learn their payees (WM-CAP-23). */
+  learnCapture: (rows: CaptureWrittenRow[]) =>
+    request<CaptureLearnResult>('/capture/learn', { method: 'POST', body: { rows } }),
 
   /** Quick capture status and the number of drafts waiting for review (WM-CAP-19). */
   captureInbox: (options?: ReadOptions) => read<QuickCaptureOverview>('/capture/inbox', options),

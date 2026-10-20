@@ -85,6 +85,9 @@ type Service struct {
 	portfolio     port.PortfolioService
 	recommend     port.RecommendationService
 	close         port.MonthlyCloseService
+	// captureMemory gives Smart Capture the rows written for a counterparty
+	// before (WM-CAP-23); optional.
+	captureMemory port.CaptureMemoryStore
 }
 
 var _ port.AIService = (*Service)(nil)
@@ -114,6 +117,12 @@ func New(client port.AIClient, db port.DatabaseService, analytics port.Analytics
 		recommend:     options.Recommendations,
 		close:         options.Close,
 	}
+}
+
+// SetCaptureMemory hands Smart Capture the capture memory once the private
+// capture store is open; call it before serving.
+func (s *Service) SetCaptureMemory(memory port.CaptureMemoryStore) {
+	s.captureMemory = memory
 }
 
 func (s *Service) today() time.Time {

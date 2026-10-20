@@ -124,13 +124,13 @@ func RegisterSheetRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuar
 	api.Group("/investments", "investments").Get("/assets", h.GetInvestmentAssets, RouteMeta{Summary: "Returns crypto and fund holdings, raw and typed (symbol, quantity, price, value).", QueryParams: []RouteParameter{forceParam()}})
 	api.Group("/cards", "cards").Get("/programs", h.GetCardPrograms, RouteMeta{Summary: "Card configuration from the sheet: programmes with their dated versions and cashback rules (Programs, ProgramRules), banks with the shared account and reference limit (Banks), cards held (Cards) and payee MCC mappings (Merchants). A missing tab contributes no rows; 400 naming each invalid row.", QueryParams: []RouteParameter{forceParam()}})
 	capture := api.Group("/capture", "capture")
-	capture.Get("/rules", h.GetCaptureRules, RouteMeta{Summary: "Lists Smart Capture account aliases and payee categories from the CaptureRules tab (empty until the first save).", QueryParams: []RouteParameter{forceParam()}})
+	capture.Get("/rules", h.GetCaptureRules, RouteMeta{Summary: "Lists Smart Capture account aliases, payee categories and learned counterparty payees (WM-CAP-23) from the CaptureRules tab (empty until the first save).", QueryParams: []RouteParameter{forceParam()}})
 	capture.Post("/rules", guard.Wrap(h.SaveCaptureRules), RouteMeta{
 		Summary: "Upserts Smart Capture rules by kind and pattern (case and diacritics ignored), creating the CaptureRules tab on first use.",
 		RequestBody: jsonBody(map[string]any{"rules": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
-			"kind":    map[string]any{"type": "string", "enum": []string{"alias", "payee"}},
-			"pattern": map[string]any{"type": "string", "description": "Account hint (alias) or payee (payee)."},
-			"value":   map[string]any{"type": "string", "description": "Account name (alias) or category (payee)."},
+			"kind":    map[string]any{"type": "string", "enum": []string{"alias", "payee", "counterparty"}},
+			"pattern": map[string]any{"type": "string", "description": "Account hint (alias), payee (payee) or the name a material shows (counterparty)."},
+			"value":   map[string]any{"type": "string", "description": "Account name (alias), category (payee) or the payee to write (counterparty)."},
 		}}}}, "rules"),
 	})
 	preferences := api.Group("/preferences", "preferences")

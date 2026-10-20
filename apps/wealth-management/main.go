@@ -408,8 +408,10 @@ func setupCaptureInbox(ctx context.Context, log *loggerAdapter.Logger, api fiber
 		return nil, func() {}
 	}
 	log.LogApplicationEvent(ctx, "quick capture store: "+store.Path())
-	inbox := service.NewCaptureInbox(store, aiSvc, dbSvc, log, service.CaptureInboxOptions{Limits: limits})
-	fiberAdapter.RegisterCaptureInboxRoutes(api, fiberAdapter.NewCaptureInboxHandler(inbox, log), guard)
+	learning := service.NewCaptureLearning(store, dbSvc, service.CaptureLearningOptions{})
+	aiSvc.SetCaptureMemory(store)
+	inbox := service.NewCaptureInbox(store, aiSvc, dbSvc, log, service.CaptureInboxOptions{Limits: limits, Learner: learning})
+	fiberAdapter.RegisterCaptureInboxRoutes(api, fiberAdapter.NewCaptureInboxHandler(inbox, learning, log), guard)
 
 	workerCtx, cancel := context.WithCancel(ctx)
 	stopped := make(chan struct{})

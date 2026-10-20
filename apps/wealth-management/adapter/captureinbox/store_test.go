@@ -319,3 +319,34 @@ func TestOpenAddsTheEditColumnToAnOlderStore(t *testing.T) {
 		t.Fatalf("draft = %+v err=%v, want the edit read back", drafts, err)
 	}
 }
+
+func TestMemoriesAreKeptByCounterpartyKeyAndAddedOnce(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	at := time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
+	memory := func(id, key, payee string, offset time.Duration) domain.CaptureMemory {
+		return domain.CaptureMemory{ID: id, CreatedAt: at.Add(offset), Source: domain.CaptureMemoryApproved, Counterparty: key, CounterpartyKey: key, Payee: payee, Tags: []string{"breakfast"}}
+	}
+	if err := store.AddMemories(ctx, []domain.CaptureMemory{memory("m2", "nguyen van a", "Banh mi stall", time.Hour), memory("m1", "nguyen van a", "Banh mi", 0), memory("m3", "tran thi b", "Fruit stall", 0)}); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	// A replayed approval stores nothing twice.
+	if err := store.AddMemories(ctx, []domain.CaptureMemory{memory("m1", "nguyen van a", "Changed", 0)}); err != nil {
+		t.Fatalf("add again: %v", err)
+	}
+
+	got, err := store.MemoriesByKey(ctx, []string{"nguyen van a", "nobody"})
+	if err != nil || len(got) != 2 || got[0].ID != "m1" || got[0].Payee != "Banh mi" || got[1].ID != "m2" || got[1].Tags[0] != "breakfast" || !got[1].CreatedAt.Equal(at.Add(time.Hour)) {
+		t.Fatalf("memories = %+v err=%v, want m1 then m2 unchanged", got, err)
+	}
+	if none, err := store.MemoriesByKey(ctx, nil); err != nil || len(none) != 0 {
+		t.Fatalf("no keys = %+v err=%v", none, err)
+	}
+	// Purging old drafts keeps the memory.
+	if err := store.Purge(ctx, at.Add(48*time.Hour)); err != nil {
+		t.Fatalf("purge: %v", err)
+	}
+	if kept, _ := store.MemoriesByKey(ctx, []string{"tran thi b"}); len(kept) != 1 {
+		t.Fatalf("memories after purge = %+v", kept)
+	}
+}

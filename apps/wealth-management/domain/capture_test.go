@@ -199,7 +199,7 @@ func TestFindCaptureDuplicates(t *testing.T) {
 	ledger := []Transaction{
 		{ID: "r1", AccountName: "Vietcombank", Date: day(2), Payment: amountPointer(50000)},
 		{ID: "r2", AccountName: "Vietcombank", Date: day(3), Payment: amountPointer(50000), ReferenceNumber: note("FT1")},
-		{ID: "r3", AccountName: "Vietcombank", Date: day(9), Payment: amountPointer(70000)},
+		{ID: "r3", AccountName: "Vietcombank", Date: day(13), Payment: amountPointer(70000)},
 		{ID: "r4", AccountName: "Vietcombank", Date: day(3), Deposit: amountPointer(90000), ReferenceNumber: note("FT7")},
 	}
 	candidates := []CaptureCandidate{
@@ -211,8 +211,68 @@ func TestFindCaptureDuplicates(t *testing.T) {
 		{Account: "Techcombank", Direction: CaptureOut, Amount: 50000, Date: day(3)},
 	}
 	got := FindCaptureDuplicates(candidates, ledger)
-	if len(got) != 2 || got[0].ID != "r2" || got[1].ID != "r1" {
+	if len(got) != 2 || got[0].Row.ID != "r2" || got[0].Score != 100 || got[1].Row.ID != "r1" || got[1].Days != 1 {
 		t.Fatalf("expected the reference match then the remaining row, each used once: %+v", got)
+	}
+}
+
+func TestGivenTheSameAmountUpToAWeekApartWhenFindingDuplicatesThenItMatchesWithAScore(t *testing.T) {
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
+	row := func(id string, d int, payee string) Transaction {
+		return Transaction{ID: id, AccountName: "Ví MoMo", Payee: payee, Date: day(d), Payment: amountPointer(250000)}
+	}
+	candidate := func(d int, text string) CaptureCandidate {
+		return CaptureCandidate{Account: "Ví MoMo", Direction: CaptureOut, Amount: 250000, Date: day(d), Text: text}
+	}
+	tests := []struct {
+		name      string
+		row       Transaction
+		candidate CaptureCandidate
+		score     int
+	}{
+		{"same day, unrelated payee", row("r1", 19, "Gym membership"), candidate(19, "Transfer to D..."), 90},
+		{"one day apart", row("r1", 18, "Gym membership"), candidate(19, "Transfer to D..."), 85},
+		{"two days apart", row("r1", 17, "Gym membership"), candidate(19, "Transfer to D..."), 80},
+		{"a week apart", row("r1", 12, "Gym membership"), candidate(19, "Transfer to D..."), 55},
+		{"a week apart, same payee", row("r1", 12, "Phở Hà Nội"), candidate(19, "pho ha noi"), 85},
+		{"truncated payee", row("r1", 15, "Highlands Coffee"), candidate(19, "Highla..."), 99},
+		{"payee shares only generic words", row("r1", 15, "chuyen tien cho ban"), candidate(19, "Chuyển tiền/thanh toán đến H..."), 70},
+		{"the account name is not a payee", row("r1", 15, "momo topup"), candidate(19, "[capture] MoMo screenshot"), 70},
+	}
+	fromApp := candidate(19, "[capture] VCB screenshot")
+	fromApp.SourceApp = "VCB"
+	earlierCapture := row("r1", 15, "Grab")
+	earlierCapture.Memo = note("[capture] VCB screenshot")
+	tests = append(tests, struct {
+		name      string
+		row       Transaction
+		candidate CaptureCandidate
+		score     int
+	}{"the source app in both memos is not a payee", earlierCapture, fromApp, 70})
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := FindCaptureDuplicates([]CaptureCandidate{test.candidate}, []Transaction{test.row})
+			if match, ok := got[0]; !ok || match.Score != test.score {
+				t.Fatalf("got %+v, want score %d", got, test.score)
+			}
+		})
+	}
+
+	if got := FindCaptureDuplicates([]CaptureCandidate{candidate(19, "")}, []Transaction{row("r1", 11, "")}); len(got) != 0 {
+		t.Fatalf("eight days apart is outside the window: %+v", got)
+	}
+}
+
+func TestGivenTwoDraftsForOneRowWhenFindingDuplicatesThenTheStrongerMatchTakesIt(t *testing.T) {
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
+	ledger := []Transaction{{ID: "r1", AccountName: "Ví MoMo", Payee: "Pho Ha Noi", Date: day(10), Payment: amountPointer(65000)}}
+	candidates := []CaptureCandidate{
+		{Account: "Ví MoMo", Direction: CaptureOut, Amount: 65000, Date: day(10), Text: "Grab"},
+		{Account: "Ví MoMo", Direction: CaptureOut, Amount: 65000, Date: day(12), Text: "PHO HA NOI 24"},
+	}
+	got := FindCaptureDuplicates(candidates, ledger)
+	if _, first := got[0]; first || got[1].Row.ID != "r1" {
+		t.Fatalf("the same payee beats a closer date: %+v", got)
 	}
 }
 
@@ -314,7 +374,30 @@ func TestCaptureRuleValidateAndKey(t *testing.T) {
 	}
 }
 
-func TestGivenRowsOnOrBeforeTheLastRecordedDateWhenCheckingDuplicatesThenTheyAreFlaggedAndUnselected(t *testing.T) {
+func TestGivenMatchesWhenCheckingDuplicatesThenOnlyScoresAbove80AreUnselected(t *testing.T) {
+	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
+	ledger := []Transaction{
+		{ID: "r1", AccountName: "Ví MoMo", Payee: "Gym membership", Date: day(19), Payment: amountPointer(250000)},
+		{ID: "r2", AccountName: "Ví MoMo", Payee: "Fruit stall", Date: day(14), Payment: amountPointer(20000)},
+	}
+	suggestion := func(date string, amount float64) CaptureSuggestion {
+		return CaptureSuggestion{Selected: true, Direction: CaptureOut, Amount: amount, Transaction: TransactionCreateInput{AccountName: "Ví MoMo", Date: date, Payee: "Transfer to D..."}}
+	}
+	suggestions := []CaptureSuggestion{suggestion("19/10/2026", 250000), suggestion("19/10/2026", 20000)}
+
+	ApplyCaptureDuplicates(suggestions, ledger, day(20))
+
+	likely := suggestions[0]
+	if likely.Duplicate == nil || likely.Duplicate.TransactionID != "r1" || likely.Duplicate.Score != 90 || likely.Duplicate.Days != 0 || !likely.Duplicate.Likely || likely.Selected {
+		t.Fatalf("a 90%% match is likely recorded and unselected: %+v", likely)
+	}
+	weak := suggestions[1]
+	if weak.Duplicate == nil || weak.Duplicate.TransactionID != "r2" || weak.Duplicate.Score != 65 || weak.Duplicate.Days != 5 || weak.Duplicate.Likely || !weak.Selected {
+		t.Fatalf("a 65%% match is shown but stays selected: %+v", weak)
+	}
+}
+
+func TestGivenRowsOnOrBeforeTheLastRecordedDateWithoutAMatchWhenCheckingDuplicatesThenTheyMayBeMissingAndStaySelected(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
 	today := day(12)
 	ledger := []Transaction{
@@ -345,8 +428,8 @@ func TestGivenRowsOnOrBeforeTheLastRecordedDateWhenCheckingDuplicatesThenTheyAre
 		t.Fatalf("an exact match keeps its own flag: %+v", suggestions[0])
 	}
 	for _, index := range []int{1, 2} {
-		if suggestions[index].RecordedThrough != "08/10/2026" || suggestions[index].Duplicate != nil || suggestions[index].Selected {
-			t.Fatalf("row %d is on or before the last recorded date: %+v", index, suggestions[index])
+		if suggestions[index].RecordedThrough != "08/10/2026" || suggestions[index].Duplicate != nil || !suggestions[index].Selected {
+			t.Fatalf("row %d may be missing from the sheet and stays selected: %+v", index, suggestions[index])
 		}
 	}
 	for _, index := range []int{3, 4, 5, 6} {

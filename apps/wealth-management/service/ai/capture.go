@@ -5,6 +5,7 @@ import (
 	"apps/wealth-management/port"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -92,12 +93,35 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 	report(port.CaptureProgress{Stage: "match", Status: "running", Events: len(items)})
 	items = domain.ConsolidateCaptureItems(items)
 	result.Suggestions = domain.BuildCaptureSuggestions(domain.CaptureBuildInput{Items: items, Materials: request.Materials, Accounts: data.accounts, TransferCategory: data.transfer})
+	s.applyLearnedPayees(ctx, result.Suggestions, data.rules)
 	domain.ApplyCaptureLending(result.Suggestions, domain.CaptureLendingInput{Transactions: data.transactions, Categories: data.lending, Notes: notes})
 	report(port.CaptureProgress{Stage: "categorize", Status: "running"})
 	s.categorizeCapture(ctx, p, result.Suggestions, data, notes)
 	domain.ApplyCaptureDuplicates(result.Suggestions, data.transactions, s.today())
 	result.Balances = domain.CaptureBalances(items, data.accounts)
 	return result, nil
+}
+
+// applyLearnedPayees fills in payees learned for the suggestions'
+// counterparties (WM-CAP-23). The memory store only adds how often each
+// payee was used, so when it cannot be read the rules still apply.
+func (s *Service) applyLearnedPayees(ctx context.Context, suggestions []domain.CaptureSuggestion, rules []domain.CaptureRule) {
+	var memories []domain.CaptureMemory
+	if s.captureMemory != nil {
+		var keys []string
+		for _, suggestion := range suggestions {
+			if key := domain.CounterpartyKey(domain.CaptureCounterparty(suggestion)); key != "" && !slices.Contains(keys, key) {
+				keys = append(keys, key)
+			}
+		}
+		found, err := s.captureMemory.MemoriesByKey(ctx, keys)
+		if err != nil {
+			s.log.LogError(ctx, "smart capture: capture memory unreadable, learned payees shown without counts", err)
+		} else {
+			memories = found
+		}
+	}
+	domain.ApplyLearnedPayees(suggestions, rules, memories)
 }
 
 // serialised wraps a progress callback so concurrent extractions can call it.

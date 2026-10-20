@@ -26,12 +26,19 @@ export interface CaptureEvidence {
   quote?: string;
 }
 
+/** The sheet row that may already record a suggestion (WM-CAP-6). */
 export interface CaptureDuplicate {
   transactionId: string;
   date: string;
   payee: string;
   amount: number;
   reference?: string;
+  /** How sure the match is, 0-100. */
+  score: number;
+  /** Days between the suggestion and the row. */
+  days: number;
+  /** Score above 80: likely recorded, so the suggestion is unselected. */
+  likely: boolean;
 }
 
 export type CaptureField = 'amount' | 'date' | 'account' | 'payee' | 'category';
@@ -55,11 +62,16 @@ export interface CaptureSuggestion {
   categorySource?: CaptureCategorySource;
   tagOptions?: string[];
   sourceApp?: string;
+  /** Who the material says the money went to or came from, before any renaming. */
+  counterparty?: string;
+  learnedPayee?: CaptureLearnedPayee;
+  /** The separate fee row of a movement. */
+  fee?: boolean;
   evidence: CaptureEvidence[];
   duplicate?: CaptureDuplicate;
   /**
    * The account's last recorded date in the sheet (dd/mm/yyyy) when this row is
-   * dated on or before it without an exact match: possibly recorded already (WM-CAP-21).
+   * dated on or before it and no sheet row matches: it may be missing (WM-CAP-21).
    */
   recordedThrough?: string;
   transferGroup?: string;
@@ -95,7 +107,8 @@ export type CaptureEvent =
   | { type: 'error'; message: string };
 
 export interface CaptureRule {
-  kind: 'alias' | 'payee';
+  /** counterparty: the name a material shows → the payee the user writes, learned from written rows (WM-CAP-23). */
+  kind: 'alias' | 'payee' | 'counterparty';
   pattern: string;
   value: string;
   updatedAt?: string;
@@ -105,6 +118,28 @@ export interface CaptureRulesSaveResult {
   created: number;
   updated: number;
   unchanged: number;
+}
+
+/** A payee filled in from what the user wrote for the counterparty before (WM-CAP-23). */
+export interface CaptureLearnedPayee {
+  /** The name as the material showed it. */
+  counterparty: string;
+  /** Earlier rows written under this payee; 0 when the rule was added in the sheet. */
+  count: number;
+  /** Other payees the same counterparty was written under. */
+  others?: string[];
+}
+
+/** A row the Smart Capture page wrote, sent back so the engine learns from it (WM-CAP-23). */
+export interface CaptureWrittenRow {
+  suggestion: CaptureSuggestion;
+  transaction: TransactionInput;
+  transactionId: string;
+}
+
+export interface CaptureLearnResult {
+  remembered: number;
+  rules: CaptureRulesSaveResult;
 }
 
 // Quick capture (WM-CAP-15..19): the phone posts a screenshot, the engine

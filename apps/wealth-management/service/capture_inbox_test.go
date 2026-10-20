@@ -336,7 +336,7 @@ func TestQuickCaptureDraftsRerunLedgerDedup(t *testing.T) {
 	}
 }
 
-func TestGivenTheSheetFilledInPastADraftWhenListingDraftsThenItIsPossiblyRecorded(t *testing.T) {
+func TestGivenTheSheetFilledInPastADraftWithNoMatchWhenListingDraftsThenItMayBeMissingAndStaysSelected(t *testing.T) {
 	f := newInboxFixture(t)
 	capture := f.submit(t, inboxPNG, "")
 	f.reader.results = []domain.CaptureResult{{Suggestions: []domain.CaptureSuggestion{
@@ -356,8 +356,8 @@ func TestGivenTheSheetFilledInPastADraftWhenListingDraftsThenItIsPossiblyRecorde
 	for _, draft := range drafts.Drafts {
 		byDate[draft.Suggestion.Transaction.Date] = draft.Suggestion
 	}
-	if older := byDate["14/10/2026"]; older.RecordedThrough != "15/10/2026" || older.Selected {
-		t.Fatalf("older draft = %+v, want possibly recorded and unselected", older)
+	if older := byDate["14/10/2026"]; older.RecordedThrough != "15/10/2026" || !older.Selected {
+		t.Fatalf("older draft = %+v, want possibly missed and still selected", older)
 	}
 	if newer := byDate["16/10/2026"]; newer.RecordedThrough != "" || !newer.Selected {
 		t.Fatalf("newer draft = %+v, want new and selected", newer)

@@ -20,6 +20,7 @@ import {
   rowProblems,
   sheetDateToISO,
   toReviewRows,
+  writtenRows,
   type ReviewRow,
 } from './review';
 
@@ -134,6 +135,29 @@ describe('commitBatch', () => {
       payment: 45000,
     });
     expect(cleanInput({ ...rows[1].tx, memo: ' ', referenceNumber: ' FT1 ' }).referenceNumber).toBe('FT1');
+  });
+});
+
+describe('writtenRows', () => {
+  it('pairs each written row with what the engine read, skipping failed rows', () => {
+    const rows = toReviewRows(result([suggestion({ counterparty: 'NGUYEN VAN A' }), suggestion({ id: 's2' })]));
+    rows[0].tx.payee = 'Banh mi stall';
+    const { inputs } = commitBatch(rows);
+
+    const written = writtenRows(rows, inputs, {
+      batchId: 'b1',
+      created: 1,
+      failed: 1,
+      replayed: false,
+      rows: [
+        { index: 0, id: 'row-9' },
+        { index: 1, error: 'bad date' },
+      ],
+    });
+
+    expect(written).toEqual([{ suggestion: rows[0].suggestion, transaction: inputs[0], transactionId: 'row-9' }]);
+    expect(written[0].suggestion.counterparty).toBe('NGUYEN VAN A');
+    expect(written[0].transaction.payee).toBe('Banh mi stall');
   });
 });
 

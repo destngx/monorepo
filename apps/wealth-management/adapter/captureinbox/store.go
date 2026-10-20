@@ -1,7 +1,7 @@
 // Package captureinbox stores quick captures, their materials and the
 // drafts read from them (§6.3) in a SQLite file private to the user.
 // Materials are kept only while a pending draft or an unfinished capture
-// needs them (WM-CAP-17).
+// needs them (WM-CAP-17). Capture memories (WM-CAP-23) are kept for good.
 package captureinbox
 
 import (
@@ -56,7 +56,14 @@ CREATE TABLE IF NOT EXISTS capture_draft_sources (
 	position   INTEGER NOT NULL,
 	PRIMARY KEY (draft_id, capture_id)
 );
-CREATE INDEX IF NOT EXISTS capture_draft_sources_capture ON capture_draft_sources (capture_id);`
+CREATE INDEX IF NOT EXISTS capture_draft_sources_capture ON capture_draft_sources (capture_id);
+CREATE TABLE IF NOT EXISTS capture_memories (
+	id               TEXT PRIMARY KEY,
+	created_at       INTEGER NOT NULL,
+	counterparty_key TEXT NOT NULL,
+	memory           TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS capture_memories_key ON capture_memories (counterparty_key, created_at);`
 
 // unneededCaptures are finished captures no pending draft comes from:
 // their image and note are no longer needed (WM-CAP-17).
@@ -548,6 +555,53 @@ func (s *Store) Purge(ctx context.Context, before time.Time) error {
 		_, err := tx.ExecContext(ctx, `DELETE FROM captures WHERE id IN (`+finished+`)`, cutoff)
 		return err
 	})
+}
+
+// AddMemories stores capture memories; one whose id is already stored is
+// left as it is, so a replayed approval learns nothing twice.
+func (s *Store) AddMemories(ctx context.Context, memories []domain.CaptureMemory) error {
+	return s.inTx(ctx, "add capture memories", func(tx *sql.Tx) error {
+		for _, memory := range memories {
+			data, err := json.Marshal(memory)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO capture_memories (id, created_at, counterparty_key, memory) VALUES (?, ?, ?, ?)
+				ON CONFLICT (id) DO NOTHING`, memory.ID, millis(memory.CreatedAt), memory.CounterpartyKey, string(data)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// MemoriesByKey returns the memories of the given counterparty keys,
+// oldest first.
+func (s *Store) MemoriesByKey(ctx context.Context, keys []string) ([]domain.CaptureMemory, error) {
+	memories := []domain.CaptureMemory{}
+	if len(keys) == 0 {
+		return memories, nil
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT memory FROM capture_memories WHERE counterparty_key IN (`+placeholders(len(keys))+`) ORDER BY created_at, id`, anySlice(keys)...)
+	if err != nil {
+		return nil, fmt.Errorf("list capture memories: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			return nil, fmt.Errorf("list capture memories: %w", err)
+		}
+		var memory domain.CaptureMemory
+		if err := json.Unmarshal([]byte(data), &memory); err != nil {
+			return nil, fmt.Errorf("read capture memory: %w", err)
+		}
+		memories = append(memories, memory)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list capture memories: %w", err)
+	}
+	return memories, nil
 }
 
 func (s *Store) inTx(ctx context.Context, action string, run func(tx *sql.Tx) error) (err error) {

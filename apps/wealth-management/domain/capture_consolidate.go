@@ -28,8 +28,6 @@ const (
 	captureSameEventWindow = 15 * time.Minute
 	captureTransferWindow  = 60 * time.Minute
 	captureAmountTolerance = 0.005
-	// CaptureDuplicateDays is the ledger dedup window (WM-CAP-6).
-	CaptureDuplicateDays = 2
 )
 
 // ConsolidateCaptureItems merges items from different materials that

@@ -4,11 +4,11 @@
   import { base } from '$app/paths';
   import { track } from '$lib/api/deferred.svelte';
   import { api } from '$lib/api/endpoints';
-  import type { CaptureProgress, CaptureResult, ExchangeRate } from '$lib/api/types';
+  import type { CaptureProgress, CaptureResult, ExchangeRate, TransactionInput } from '$lib/api/types';
   import CaptureInbox from '$lib/capture/CaptureInbox.svelte';
   import CaptureReview from '$lib/capture/CaptureReview.svelte';
   import { batchUsage, releaseItem, toPayload, type InboxItem } from '$lib/capture/materials';
-  import { toReviewRows, type ReviewRow } from '$lib/capture/review';
+  import { toReviewRows, writtenRows, type ReviewRow } from '$lib/capture/review';
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Deferred from '$lib/components/Deferred.svelte';
@@ -26,6 +26,20 @@
   // The materials inbox renders at once; the AI status and the review options
   // stream in. Analyze waits for the AI status, the review for the options.
   let { data } = $props();
+
+  // Written rows go back to the engine so later captures fill in the payee
+  // used for each counterparty (WM-CAP-23). The rows are in the sheet either
+  // way, so a failure here only warns.
+  async function write(batchId: string, batchRows: ReviewRow[], inputs: TransactionInput[]) {
+    const outcome = await api.createTransactions(batchId, inputs);
+    const written = writtenRows(batchRows, inputs, outcome);
+    if (written.length) {
+      api
+        .learnCapture(written)
+        .catch((error) => toasts.error(error, 'Rows written, but their payees were not remembered'));
+    }
+    return outcome;
+  }
   const ai = track(() => data.aiStatus);
   const options = track(() => data.options);
   // Null once loaded means the engine has no AI routes.
@@ -209,6 +223,7 @@
             tags={value.tags}
             cardTags={value.cardTags}
             usdRate={usdQuote?.rate ?? null}
+            {write}
           />
         {/if}
       </div>

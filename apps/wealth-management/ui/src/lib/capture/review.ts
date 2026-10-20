@@ -7,7 +7,9 @@ import type {
   CaptureResult,
   CaptureRule,
   CaptureSuggestion,
+  CaptureWrittenRow,
   CategorySuggestion,
+  TransactionBatchResult,
   TransactionInput,
 } from '$lib/api/types';
 
@@ -254,6 +256,23 @@ export function commitBatch(rows: ReviewRow[], only?: number[]): { indices: numb
   const chosen = (row: ReviewRow, index: number) => (only ? only.includes(index) : row.selected);
   const indices = rows.flatMap((row, index) => (chosen(row, index) && !row.createdId ? [index] : []));
   return { indices, inputs: indices.map((index) => cleanInput(rows[index].tx)) };
+}
+
+/**
+ * The rows a batch wrote, each with the suggestion the engine read, so the
+ * engine can learn the payee used for its counterparty (WM-CAP-23). `rows`
+ * and `inputs` are the batch, in the order the result's indices refer to.
+ */
+export function writtenRows(
+  rows: ReviewRow[],
+  inputs: TransactionInput[],
+  outcome: TransactionBatchResult,
+): CaptureWrittenRow[] {
+  return outcome.rows.flatMap(({ index, id, error }) =>
+    id && !error && rows[index] && inputs[index]
+      ? [{ suggestion: rows[index].suggestion, transaction: inputs[index], transactionId: id }]
+      : [],
+  );
 }
 
 const fold = (value: string) =>

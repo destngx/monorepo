@@ -15,14 +15,16 @@ import (
 const captureInboxScope = "capture_inbox_handler"
 
 // CaptureInboxHandler serves quick capture (§6.3): the phone posts a
-// screenshot, the UI reviews the drafts read from it.
+// screenshot, the UI reviews the drafts read from it. It also takes back
+// the rows the Smart Capture page wrote, to learn from them (WM-CAP-23).
 type CaptureInboxHandler struct {
-	inbox port.CaptureInboxService
-	log   *logger.Logger
+	inbox    port.CaptureInboxService
+	learning port.CaptureLearningService
+	log      *logger.Logger
 }
 
-func NewCaptureInboxHandler(inbox port.CaptureInboxService, log *logger.Logger) *CaptureInboxHandler {
-	return &CaptureInboxHandler{inbox: inbox, log: log}
+func NewCaptureInboxHandler(inbox port.CaptureInboxService, learning port.CaptureLearningService, log *logger.Logger) *CaptureInboxHandler {
+	return &CaptureInboxHandler{inbox: inbox, learning: learning, log: log}
 }
 
 // QuickCaptureReceipt is the answer to POST /api/capture/inbox.
@@ -114,6 +116,16 @@ func (h *CaptureInboxHandler) Reject(c *fiber.Ctx) error {
 	return c.SendStatus(http.StatusNoContent)
 }
 
+func (h *CaptureInboxHandler) Learn(c *fiber.Ctx) error {
+	var body struct {
+		Rows []domain.CaptureWrittenRow `json:"rows"`
+	}
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return respondWith(c, h.log, captureInboxScope)(h.learning.LearnWritten(c.UserContext(), body.Rows))
+}
+
 // Material serves a stored screenshot or note; never cached by the browser.
 func (h *CaptureInboxHandler) Material(c *fiber.Ctx) error {
 	material, err := h.inbox.Material(c.UserContext(), c.Params("id"))
@@ -186,6 +198,16 @@ func RegisterCaptureInboxRoutes(api RouteRegistrar, h *CaptureInboxHandler, guar
 		}, "transaction"),
 		PathParams: draftIDParam,
 	})
+	capture.Post("/learn", guard.Wrap(h.Learn), RouteMeta{
+		Summary: "Learns from rows the Smart Capture page wrote (WM-CAP-23): stores what was read next to what was written in the private capture store, and saves a counterparty rule to CaptureRules when the row was written under another payee. Transfers and fee rows teach nothing.",
+		RequestBody: jsonBody(map[string]any{
+			"rows": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
+				"suggestion":    map[string]any{"type": "object", "description": "The suggestion as Smart Capture returned it."},
+				"transaction":   map[string]any{"type": "object", "description": "The row as written, as for POST /api/transactions/batch."},
+				"transactionId": schemaString,
+			}, "required": []string{"suggestion", "transaction", "transactionId"}}},
+		}, "rows"),
+	})
 	capture.Get("/materials/:id", h.Material, RouteMeta{Summary: "A stored screenshot (its image type) or note (text/plain) while a pending draft or an unfinished capture needs it; 404 once deleted.", PathParams: materialIDParam})
 }
 
@@ -195,5 +217,5 @@ func RegisterUnavailableCaptureInboxRoutes(api RouteRegistrar, cause error, log 
 	unavailable := api.Answering(func(c *fiber.Ctx) error {
 		return respondError(c, log, captureInboxScope, cause)
 	})
-	RegisterCaptureInboxRoutes(unavailable, NewCaptureInboxHandler(nil, log), WriteGuard{})
+	RegisterCaptureInboxRoutes(unavailable, NewCaptureInboxHandler(nil, nil, log), WriteGuard{})
 }

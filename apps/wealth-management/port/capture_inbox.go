@@ -65,3 +65,19 @@ type CaptureDraftStore interface {
 	// Purge deletes decided drafts and finished captures older than before.
 	Purge(ctx context.Context, before time.Time) error
 }
+
+// CaptureMemoryStore keeps what Smart Capture read for each written row
+// (WM-CAP-23) in the private capture store. Memories are never purged.
+type CaptureMemoryStore interface {
+	// AddMemories stores memories; one whose id is already stored is skipped.
+	AddMemories(ctx context.Context, memories []domain.CaptureMemory) error
+	// MemoriesByKey returns the memories of the given counterparty keys,
+	// oldest first.
+	MemoriesByKey(ctx context.Context, keys []string) ([]domain.CaptureMemory, error)
+}
+
+// CaptureLearningService learns from rows the Smart Capture page wrote
+// (WM-CAP-23); approved drafts are learned from by the inbox itself.
+type CaptureLearningService interface {
+	LearnWritten(ctx context.Context, rows []domain.CaptureWrittenRow) (domain.CaptureLearnResult, error)
+}

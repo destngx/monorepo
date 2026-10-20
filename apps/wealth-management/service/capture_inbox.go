@@ -33,6 +33,9 @@ type CaptureInboxOptions struct {
 	// Now and NewID default to the clock and random ids; tests set them.
 	Now   func() time.Time
 	NewID func() string
+	// Learner learns from approved drafts and rejected duplicates
+	// (WM-CAP-23); nil learns nothing.
+	Learner CaptureLearner
 }
 
 const (
@@ -44,20 +47,21 @@ const (
 // reads queued captures into drafts in the background, and the user approves
 // or rejects drafts later. Material content is never logged.
 type CaptureInbox struct {
-	store  port.CaptureDraftStore
-	reader CaptureReader
-	ledger CaptureLedger
-	log    *logger.Logger
-	limits domain.CaptureLimits
-	poll   time.Duration
-	now    func() time.Time
-	newID  func() string
-	wake   chan struct{}
+	store   port.CaptureDraftStore
+	reader  CaptureReader
+	ledger  CaptureLedger
+	learner CaptureLearner
+	log     *logger.Logger
+	limits  domain.CaptureLimits
+	poll    time.Duration
+	now     func() time.Time
+	newID   func() string
+	wake    chan struct{}
 }
 
 func NewCaptureInbox(store port.CaptureDraftStore, reader CaptureReader, ledger CaptureLedger, log *logger.Logger, options CaptureInboxOptions) *CaptureInbox {
 	inbox := &CaptureInbox{
-		store: store, reader: reader, ledger: ledger, log: log,
+		store: store, reader: reader, ledger: ledger, learner: options.Learner, log: log,
 		limits: options.Limits, poll: options.Poll, now: options.Now, newID: options.NewID,
 		wake: make(chan struct{}, 1),
 	}
@@ -259,19 +263,82 @@ func (s *CaptureInbox) Approve(ctx context.Context, approval domain.CaptureDraft
 		return domain.TransactionBatchResult{}, err
 	}
 	var decisions []domain.CaptureDraftDecision
+	var memories []domain.CaptureMemory
+	now := s.now().UTC()
 	for _, row := range result.Rows {
 		if row.Error != "" || row.ID == "" || row.Index < 0 || row.Index >= len(approval.Drafts) {
 			continue
 		}
+		id := approval.Drafts[row.Index].ID
 		written := approval.Drafts[row.Index].Transaction
-		decisions = append(decisions, domain.CaptureDraftDecision{ID: approval.Drafts[row.Index].ID, Status: domain.CaptureDraftApproved, TransactionID: row.ID, BatchID: approval.BatchID, Transaction: &written})
+		decisions = append(decisions, domain.CaptureDraftDecision{ID: id, Status: domain.CaptureDraftApproved, TransactionID: row.ID, BatchID: approval.BatchID, Transaction: &written})
+		if memory, ok := domain.NewCaptureMemory(byID[id].Suggestion, written, row.ID, domain.CaptureMemoryApproved, now, memoryID(id)); ok {
+			memories = append(memories, memory)
+		}
 	}
-	if err := s.store.DecideDrafts(ctx, decisions, s.now().UTC()); err != nil {
+	if err := s.store.DecideDrafts(ctx, decisions, now); err != nil {
 		// The rows are in the sheet; approving again with the same batch id
 		// replays the batch and retries this step without writing twice.
 		return domain.TransactionBatchResult{}, fmt.Errorf("transactions written but drafts not updated, approve again to finish: %w", err)
 	}
+	s.learn(ctx, memories)
 	return result, nil
+}
+
+// memoryID ties a draft's memory to the draft, so approving it again
+// (a replayed batch) stores nothing twice.
+func memoryID(draftID string) string { return "mem_" + draftID }
+
+// learn records memories after drafts are decided. The decision already
+// stands, so a failure is logged rather than undoing it.
+func (s *CaptureInbox) learn(ctx context.Context, memories []domain.CaptureMemory) {
+	if s.learner == nil || len(memories) == 0 {
+		return
+	}
+	if _, err := s.learner.Learn(ctx, memories); err != nil {
+		s.log.LogError(ctx, "capture inbox: learning from decided drafts failed", err)
+	}
+}
+
+// duplicateMemories are what rejected drafts teach: a draft rejected while
+// it is a likely duplicate of a sheet row (WM-CAP-6) names its counterparty
+// with that row's payee. Dedup runs again on the current sheet, as the
+// drafts page shows it.
+func (s *CaptureInbox) duplicateMemories(ctx context.Context, drafts []domain.CaptureDraft) []domain.CaptureMemory {
+	if s.learner == nil || len(drafts) == 0 {
+		return nil
+	}
+	transactions, err := s.ledger.ListTransactions(false)
+	if err != nil {
+		s.log.LogError(ctx, "capture inbox: learning from rejected duplicates skipped", fmt.Errorf("load transactions: %w", err))
+		return nil
+	}
+	rows := make(map[string]domain.Transaction, len(transactions))
+	for _, row := range transactions {
+		rows[row.ID] = row
+	}
+	suggestions := make([]domain.CaptureSuggestion, len(drafts))
+	for index, draft := range drafts {
+		suggestions[index] = draft.Suggestion
+		suggestions[index].Duplicate, suggestions[index].RecordedThrough = nil, ""
+	}
+	domain.ApplyCaptureDuplicates(suggestions, transactions, domain.Today(s.now()))
+	now := s.now().UTC()
+	var memories []domain.CaptureMemory
+	for index, suggestion := range suggestions {
+		if suggestion.Duplicate == nil || !suggestion.Duplicate.Likely {
+			continue
+		}
+		row, found := rows[suggestion.Duplicate.TransactionID]
+		if !found {
+			continue
+		}
+		recorded := domain.TransactionCreateInput{AccountName: row.AccountName, Date: row.Date.Format(domain.SheetDateLayout), Payee: row.Payee, Category: row.Category, Tags: row.Tags}
+		if memory, ok := domain.NewCaptureMemory(drafts[index].Suggestion, recorded, row.ID, domain.CaptureMemoryDuplicate, now, memoryID(drafts[index].ID)); ok {
+			memories = append(memories, memory)
+		}
+	}
+	return memories
 }
 
 func (s *CaptureInbox) Reject(ctx context.Context, draftIDs []string) error {
@@ -292,7 +359,22 @@ func (s *CaptureInbox) Reject(ctx context.Context, draftIDs []string) error {
 	if len(drafts) != len(uniqueIDs(draftIDs)) {
 		return fmt.Errorf("%w: some drafts do not exist", domain.ErrNotFound)
 	}
-	return s.store.DecideDrafts(ctx, decisions, s.now().UTC())
+	memories := s.duplicateMemories(ctx, pendingOnly(drafts))
+	if err := s.store.DecideDrafts(ctx, decisions, s.now().UTC()); err != nil {
+		return err
+	}
+	s.learn(ctx, memories)
+	return nil
+}
+
+func pendingOnly(drafts []domain.CaptureDraft) []domain.CaptureDraft {
+	var pending []domain.CaptureDraft
+	for _, draft := range drafts {
+		if draft.Status == domain.CaptureDraftPending {
+			pending = append(pending, draft)
+		}
+	}
+	return pending
 }
 
 // Run reads queued captures until ctx ends. Captures left processing by a

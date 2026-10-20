@@ -319,16 +319,38 @@
         {/each}
       </div>
 
+      {#if suggestion.learnedPayee}
+        {@const learned = suggestion.learnedPayee}
+        {@const times = learned.count === 1 ? 'once' : `${learned.count} times`}
+        <p class="muted mt-2 text-xs">
+          Payee learned: {learned.counterparty}
+          {learned.count
+            ? `was written as ${suggestion.transaction.payee} ${times} before.`
+            : `is ${suggestion.transaction.payee} in CaptureRules.`}
+          {#if learned.others?.length}
+            <span class="text-amber-700 dark:text-amber-300"
+              >Also written as {learned.others.join(', ')}: check the payee.</span
+            >
+          {/if}
+        </p>
+      {/if}
       {#if suggestion.duplicate}
-        <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
-          Likely already recorded: {suggestion.duplicate.payee} on {formatDate(suggestion.duplicate.date)},
-          <Money value={suggestion.duplicate.amount} /> ({suggestion.duplicate.transactionId}). Unselected by default.
+        {@const duplicate = suggestion.duplicate}
+        {@const label = duplicate.likely
+          ? `Likely already recorded (${duplicate.score}% match)`
+          : `Possible match (${duplicate.score}%)`}
+        {@const gap =
+          duplicate.days === 0 ? 'same day' : `${duplicate.days} day${duplicate.days === 1 ? '' : 's'} apart`}
+        <p class="mt-2 text-xs {duplicate.likely ? 'text-amber-700 dark:text-amber-300' : 'muted'}">
+          {label}: {duplicate.payee} on {formatDate(duplicate.date)}, <Money value={duplicate.amount} /> ({duplicate.transactionId}),
+          {gap}. {duplicate.likely
+            ? 'Unselected by default.'
+            : 'Still selected; untick it if it is the same transaction.'}
         </p>
       {:else if suggestion.recordedThrough}
         <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
-          Possibly already recorded: {suggestion.transaction.accountName} is recorded up to
-          {formatDate(suggestion.recordedThrough)} in the sheet, and this row is not after that. Unselected by default; tick
-          it if it is new.
+          May be missing from the sheet: {suggestion.transaction.accountName} is recorded up to
+          {formatDate(suggestion.recordedThrough)}, but no row there matches this one. Still selected.
         </p>
       {/if}
       {#each suggestion.notes ?? [] as note (note)}<p class="muted mt-1 text-xs"><MaskedText text={note} /></p>{/each}

@@ -48,11 +48,59 @@ const renderRow = (value: CaptureSuggestion) =>
   });
 
 describe('SuggestionRow', () => {
-  it('Given a row on or before the last recorded date When shown Then it says it is possibly recorded', () => {
-    renderRow(suggestion({ recordedThrough: '08/10/2026' }));
+  const duplicate = { transactionId: 'row-9', date: '05/10/2026', payee: 'Grab', amount: 120000 };
 
-    expect(screen.getByText(/Possibly already recorded: Vietcombank is recorded up to/)).toBeTruthy();
+  it('Given a match above 80% When shown Then it says it is likely recorded with the score and gap', () => {
+    renderRow(suggestion({ duplicate: { ...duplicate, score: 85, days: 2, likely: true } }));
+
+    expect(screen.getByText(/Likely already recorded \(85% match\): Grab on/)).toBeTruthy();
+    expect(screen.getByText(/2 days apart/)).toBeTruthy();
+    expect(screen.getByText(/Unselected by default/)).toBeTruthy();
+  });
+
+  it('Given a weak match When shown Then it is a possible match that stays selected', () => {
+    renderRow(suggestion({ selected: true, duplicate: { ...duplicate, score: 60, days: 6, likely: false } }));
+
+    expect(screen.getByText(/Possible match \(60%\): Grab on/)).toBeTruthy();
+    expect(screen.getByText(/Still selected/)).toBeTruthy();
     expect(screen.queryByText(/Likely already recorded/)).toBeNull();
+  });
+
+  it('Given a same-day match When shown Then it says same day', () => {
+    renderRow(suggestion({ duplicate: { ...duplicate, score: 90, days: 0, likely: true } }));
+
+    expect(screen.getByText(/same day/)).toBeTruthy();
+  });
+
+  it('Given a learned payee When shown Then it says what the material showed and how often', () => {
+    renderRow(suggestion({ counterparty: 'NGUYEN VAN A', learnedPayee: { counterparty: 'NGUYEN VAN A', count: 3 } }));
+
+    expect(screen.getByText(/Payee learned: NGUYEN VAN A was written as Grab 3 times before/)).toBeTruthy();
+  });
+
+  it('Given a learned payee also written under other names When shown Then the others are listed', () => {
+    renderRow(
+      suggestion({
+        lowConfidence: ['payee'],
+        learnedPayee: { counterparty: 'TRAN THI B', count: 1, others: ['Lent to B', 'Fruit stall'] },
+      }),
+    );
+
+    expect(screen.getByText(/TRAN THI B was written as Grab once before/)).toBeTruthy();
+    expect(screen.getByText(/Also written as Lent to B, Fruit stall: check the payee/)).toBeTruthy();
+  });
+
+  it('Given a payee from a counterparty rule added in the sheet When shown Then it names the rule', () => {
+    renderRow(suggestion({ learnedPayee: { counterparty: 'LE VAN C', count: 0 } }));
+
+    expect(screen.getByText(/Payee learned: LE VAN C is Grab in CaptureRules/)).toBeTruthy();
+  });
+
+  it('Given a row on or before the last recorded date with no match When shown Then it may be missing from the sheet', () => {
+    renderRow(suggestion({ selected: true, recordedThrough: '08/10/2026' }));
+
+    expect(screen.getByText(/May be missing from the sheet: Vietcombank is recorded up to/)).toBeTruthy();
+    expect(screen.queryByText(/already recorded/)).toBeNull();
   });
 
   it('Given a new row When shown Then there is no duplicate warning', () => {

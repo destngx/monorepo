@@ -23,12 +23,19 @@ const (
 // CaptureMemoPrefix marks rows created by Smart Capture (WM-CAP-9).
 const CaptureMemoPrefix = "[capture]"
 
+// CaptureDuplicate is the sheet row that may already record a suggestion.
+// Score is how sure the match is (0-100) and Days the gap between the two
+// dates. Likely is set above CaptureLikelyDuplicateScore, and then the
+// suggestion is unselected.
 type CaptureDuplicate struct {
 	TransactionID string  `json:"transactionId"`
 	Date          string  `json:"date"`
 	Payee         string  `json:"payee"`
 	Amount        float64 `json:"amount"`
 	Reference     string  `json:"reference,omitempty"`
+	Score         int     `json:"score"`
+	Days          int     `json:"days"`
+	Likely        bool    `json:"likely"`
 }
 
 type CaptureSuggestion struct {
@@ -50,16 +57,22 @@ type CaptureSuggestion struct {
 	// written; the categoriser resolves it before rules and history.
 	CategoryHint string `json:"-"`
 	// Fee marks the separate fee row of a movement.
-	Fee bool `json:"-"`
+	Fee bool `json:"fee,omitempty"`
+	// Counterparty is who the material says the money went to or came
+	// from, before any renaming; empty on fee rows (WM-CAP-23).
+	Counterparty string `json:"counterparty,omitempty"`
+	// LearnedPayee is set when the payee was filled in from what the user
+	// wrote for this counterparty before (WM-CAP-23).
+	LearnedPayee *CaptureLearnedPayee `json:"learnedPayee,omitempty"`
 	// TagOptions are the cashback rule tags of the row's card (WM-CAP-5).
 	TagOptions []string          `json:"tagOptions,omitempty"`
 	SourceApp  string            `json:"sourceApp,omitempty"`
 	Evidence   []CaptureEvidence `json:"evidence"`
 	Duplicate  *CaptureDuplicate `json:"duplicate,omitempty"`
 	// RecordedThrough is the account's last recorded date in the sheet
-	// (dd/mm/yyyy) when the row is dated on or before it without an exact
-	// match: the sheet is already filled in up to then, so the row is
-	// possibly recorded already.
+	// (dd/mm/yyyy) when the row is dated on or before it and no sheet row
+	// matches: the sheet is filled in up to then, so the row may have been
+	// missed.
 	RecordedThrough string   `json:"recordedThrough,omitempty"`
 	TransferGroup   string   `json:"transferGroup,omitempty"`
 	Notes           []string `json:"notes,omitempty"`
@@ -129,6 +142,9 @@ func BuildCaptureSuggestions(input CaptureBuildInput) []CaptureSuggestion {
 		event := item.Event
 		suggestion := baseSuggestion(item, materials, accounts, event.Amount)
 		suggestion.Transaction.Payee = capturePayee(event)
+		if suggestion.Transaction.Payee != captureUnknownPayee {
+			suggestion.Counterparty = suggestion.Transaction.Payee
+		}
 		suggestion.CategoryHint = event.Category
 		if group, ok := transferOf[index]; ok {
 			suggestion.TransferGroup = group
@@ -212,7 +228,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 }
 
 func capturePayee(event CaptureEvent) string {
-	return firstNonEmpty(event.Counterparty, event.Description, event.SourceApp, "Unknown")
+	return firstNonEmpty(event.Counterparty, event.Description, event.SourceApp, captureUnknownPayee)
 }
 
 // captureMemo records where the row came from, e.g. "[capture] MoMo
@@ -232,26 +248,40 @@ func captureMemo(item CaptureItem, materials map[string]CaptureMaterial) *string
 	return &memo
 }
 
-// ApplyCaptureDuplicates marks suggestions likely already in the ledger
-// (WM-CAP-6), then the rest dated on or before their account's last
-// recorded date (WM-CAP-21), and unselects both.
+// ApplyCaptureDuplicates marks suggestions that match a ledger row
+// (WM-CAP-6) and unselects those scoring above CaptureLikelyDuplicateScore.
+// Rows with no match dated on or before their account's last recorded date
+// are marked as possibly missed and stay selected (WM-CAP-21).
 func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transaction, today time.Time) {
 	candidates := make([]CaptureCandidate, len(suggestions))
 	for index, suggestion := range suggestions {
 		date, _ := ParseSheetDate(suggestion.Transaction.Date)
-		reference := ""
+		reference, memo := "", ""
 		if suggestion.Transaction.ReferenceNumber != nil {
 			reference = *suggestion.Transaction.ReferenceNumber
 		}
-		candidates[index] = CaptureCandidate{Account: suggestion.Transaction.AccountName, Direction: suggestion.Direction, Amount: suggestion.Amount, Date: date, Reference: reference}
+		if suggestion.Transaction.Memo != nil {
+			memo = *suggestion.Transaction.Memo
+		}
+		candidates[index] = CaptureCandidate{
+			Account: suggestion.Transaction.AccountName, Direction: suggestion.Direction, Amount: suggestion.Amount,
+			Date: date, Reference: reference, SourceApp: suggestion.SourceApp,
+			Text: strings.Join([]string{suggestion.Transaction.Payee, suggestion.Counterparty, memo}, " "),
+		}
 	}
-	for index, row := range FindCaptureDuplicates(candidates, ledger) {
+	for index, match := range FindCaptureDuplicates(candidates, ledger) {
+		row := match.Row
 		amount := row.PaymentAmount()
 		if suggestions[index].Direction == CaptureIn {
 			amount = row.DepositAmount()
 		}
-		suggestions[index].Duplicate = &CaptureDuplicate{TransactionID: row.ID, Date: row.Date.Format(SheetDateLayout), Payee: row.Payee, Amount: amount, Reference: referenceOf(row)}
-		suggestions[index].Selected = false
+		suggestions[index].Duplicate = &CaptureDuplicate{
+			TransactionID: row.ID, Date: row.Date.Format(SheetDateLayout), Payee: row.Payee, Amount: amount,
+			Reference: referenceOf(row), Score: match.Score, Days: match.Days, Likely: match.Score > CaptureLikelyDuplicateScore,
+		}
+		if suggestions[index].Duplicate.Likely {
+			suggestions[index].Selected = false
+		}
 	}
 	lastRecorded := LastRecordedDates(ledger, today)
 	for index := range suggestions {
@@ -262,7 +292,6 @@ func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transactio
 		}
 		if date, err := ParseSheetDate(suggestion.Transaction.Date); err == nil && !date.After(last) {
 			suggestion.RecordedThrough = last.Format(SheetDateLayout)
-			suggestion.Selected = false
 		}
 	}
 }

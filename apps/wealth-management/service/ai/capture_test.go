@@ -503,3 +503,54 @@ func TestGivenAPayeeHistoryFromBeforeSplitTagsWhenCapturingThenTheModelPicksTheS
 		t.Fatalf("row = %+v (%s)", row.Transaction, row.CategorySource)
 	}
 }
+
+type fakeCaptureMemory struct {
+	memories []domain.CaptureMemory
+	err      error
+	keys     []string
+}
+
+func (f *fakeCaptureMemory) AddMemories(context.Context, []domain.CaptureMemory) error { return nil }
+func (f *fakeCaptureMemory) MemoriesByKey(_ context.Context, keys []string) ([]domain.CaptureMemory, error) {
+	f.keys = append(f.keys, keys...)
+	return f.memories, f.err
+}
+
+func TestGivenALearnedCounterpartyWhenCapturingThenThePayeeIsFilledInBeforeCategorising(t *testing.T) {
+	db := captureDatabase()
+	db.CaptureRules = append(db.CaptureRules,
+		domain.CaptureRule{Kind: domain.CaptureRuleCounterparty, Pattern: "shopee", Value: "Shopee Mall"},
+		domain.CaptureRule{Kind: domain.CaptureRulePayee, Pattern: "shopee mall", Value: "Food"},
+	)
+	client := &scriptedClient{route: func(request domain.AIRequest) reply {
+		if strings.Contains(request.Messages[len(request.Messages)-1].Content, "Items:") {
+			return reply{content: `{"items":[{"id":"s1","tag":"gold"}]}`}
+		}
+		return reply{content: cardReply}
+	}}
+	svc := newCaptureService(t, db, client)
+	memory := &fakeCaptureMemory{memories: []domain.CaptureMemory{{CounterpartyKey: "shopee", Payee: "Shopee Mall"}, {CounterpartyKey: "shopee", Payee: "Shopee Mall"}}}
+	svc.SetCaptureMemory(memory)
+
+	result, err := svc.Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := result.Suggestions[0]
+	if row.Transaction.Payee != "Shopee Mall" || row.Counterparty != "Shopee" || row.LearnedPayee == nil || row.LearnedPayee.Count != 2 {
+		t.Fatalf("row = %+v learned=%+v", row.Transaction, row.LearnedPayee)
+	}
+	if row.Transaction.Category != "Food" || row.CategorySource != domain.CategorySourceRule {
+		t.Fatalf("the learned payee's own rule picks the category: %+v (%s)", row.Transaction, row.CategorySource)
+	}
+	if strings.Join(memory.keys, ",") != "shopee" {
+		t.Fatalf("memory keys = %v", memory.keys)
+	}
+
+	// The memory store failing only loses the counts.
+	memory.err = errors.New("disk")
+	if result, err = svc.Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil); err != nil || result.Suggestions[0].Transaction.Payee != "Shopee Mall" || result.Suggestions[0].LearnedPayee.Count != 0 {
+		t.Fatalf("result = %+v err=%v", result.Suggestions, err)
+	}
+}

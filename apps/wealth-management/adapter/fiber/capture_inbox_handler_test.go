@@ -65,10 +65,26 @@ func (f *fakeCaptureInbox) Reject(_ context.Context, ids []string) error {
 	return nil
 }
 
+type fakeCaptureLearning struct {
+	rows []domain.CaptureWrittenRow
+}
+
+func (f *fakeCaptureLearning) LearnWritten(_ context.Context, rows []domain.CaptureWrittenRow) (domain.CaptureLearnResult, error) {
+	if err := domain.ValidateCaptureWrittenRows(rows); err != nil {
+		return domain.CaptureLearnResult{}, err
+	}
+	f.rows = rows
+	return domain.CaptureLearnResult{Remembered: len(rows), Rules: domain.CaptureRulesSaveResult{Created: 1}}, nil
+}
+
 func newCaptureInboxApp(t *testing.T, inbox *fakeCaptureInbox) *fiber.App {
+	return newCaptureLearningApp(t, inbox, &fakeCaptureLearning{})
+}
+
+func newCaptureLearningApp(t *testing.T, inbox *fakeCaptureInbox, learning *fakeCaptureLearning) *fiber.App {
 	t.Helper()
 	app := fiber.New()
-	RegisterCaptureInboxRoutes(NewRouteRegistrar(app, "/api", ""), NewCaptureInboxHandler(inbox, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
+	RegisterCaptureInboxRoutes(NewRouteRegistrar(app, "/api", ""), NewCaptureInboxHandler(inbox, learning, logger.NewTestLogger(t)), NewWriteGuard(staticToken(testToken), "0.0.0.0"))
 	return app
 }
 
@@ -181,6 +197,20 @@ func TestGivenDraftsWhenApprovingAndRejectingThenTheBodiesReachTheInbox(t *testi
 	}
 	if status, _ := call(t, app, http.MethodPost, "/api/capture/inbox/cap_1/retry", ""); status != http.StatusConflict {
 		t.Fatalf("retry status %d, want the inbox conflict as 409", status)
+	}
+}
+
+func TestGivenRowsWrittenFromTheCapturePageWhenLearningThenTheyReachTheLearner(t *testing.T) {
+	learning := &fakeCaptureLearning{}
+	app := newCaptureLearningApp(t, &fakeCaptureInbox{}, learning)
+
+	status, body := call(t, app, http.MethodPost, "/api/capture/learn", `{"rows":[{"suggestion":{"counterparty":"NGUYEN VAN A","direction":"out","amount":25000},"transaction":{"accountName":"Vietcombank","payee":"Banh mi stall"},"transactionId":"tx1"}]}`)
+
+	if status != http.StatusOK || !strings.Contains(body, `"remembered":1`) || len(learning.rows) != 1 || learning.rows[0].Suggestion.Counterparty != "NGUYEN VAN A" || learning.rows[0].TransactionID != "tx1" {
+		t.Fatalf("status %d body %s rows %+v", status, body, learning.rows)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/capture/learn", `{"rows":[]}`); status != http.StatusBadRequest {
+		t.Fatalf("no rows: status %d, want 400", status)
 	}
 }
 
