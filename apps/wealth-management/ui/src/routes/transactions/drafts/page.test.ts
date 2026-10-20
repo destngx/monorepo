@@ -265,19 +265,23 @@ describe('Drafts page', () => {
     expect(screen.queryByText('Balances after approve')).toBeNull();
   });
 
-  it('Given card spending When no card tag is picked Then approve is refused, and an account with one card fills it', async () => {
+  it('Given card spending When no card is picked Then approve is refused until one is, and an account with one card fills it', async () => {
     render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
     await flush();
 
     await fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'Card Duo' } });
     await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await flush();
-    expect(screen.getByText('Pick the card tag: Gold or Silver.')).toBeTruthy();
+    expect(screen.getByText('Pick the card: Gold or Silver.')).toBeTruthy();
     expect(calls.some((call) => call.name === 'approveDrafts')).toBe(false);
+
+    await fireEvent.change(screen.getByLabelText('Card'), { target: { value: 'Silver' } });
+    await flush();
+    expect(screen.queryByText('Pick the card: Gold or Silver.')).toBeNull();
 
     await fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'Card Acme' } });
     await flush();
-    expect(screen.queryByText(/Pick the card tag/)).toBeNull();
+    expect(screen.queryByLabelText('Card')).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await flush();
     const approval = calls.find((call) => call.name === 'approveDrafts');

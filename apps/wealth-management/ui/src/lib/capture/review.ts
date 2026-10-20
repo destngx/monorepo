@@ -168,8 +168,26 @@ export function cardTagOptions(reports: CardBankReport[]): Map<string, string[]>
   return options;
 }
 
-const hasCardTag = (tx: TransactionInput, cardTags: string[]) =>
-  tx.tags.some((tag) => cardTags.some((option) => option.toLowerCase() === tag.trim().toLowerCase()));
+const isCardTag = (tag: string, cardTags: string[]) =>
+  cardTags.some((option) => option.toLowerCase() === tag.trim().toLowerCase());
+const hasCardTag = (tx: TransactionInput, cardTags: string[]) => tx.tags.some((tag) => isCardTag(tag, cardTags));
+const allCardTags = (cardTags: Map<string, string[]>) => [...cardTags.values()].flat();
+
+/** The card tag the row names among the account's cards, or '' when none. */
+export function pickedCardTag(tx: TransactionInput, cardTags: string[]): string {
+  return cardTags.find((option) => tx.tags.some((tag) => isCardTag(tag, [option]))) ?? '';
+}
+
+/** Names `cardTag` as the card that paid, replacing any other card tag. */
+export function pickCardTag(tx: TransactionInput, cardTag: string, cardTags: Map<string, string[]>): void {
+  tx.tags = [...tx.tags.filter((tag) => !isCardTag(tag, allCardTags(cardTags))), cardTag];
+}
+
+/** The row's tags without card tags: the user's own, which the tag picker edits. */
+export function nonCardTags(tags: string[], cardTags: Map<string, string[]>): string[] {
+  const all = allCardTags(cardTags);
+  return tags.filter((tag) => !isCardTag(tag, all));
+}
 
 /** The card tags a row must pick from: spending on a card account, not transfers or repayments. */
 export function requiredCardTags(row: ReviewRow, cardTags: Map<string, string[]>): string[] {
@@ -177,9 +195,16 @@ export function requiredCardTags(row: ReviewRow, cardTags: Map<string, string[]>
   return cardTags.get(row.tx.accountName) ?? [];
 }
 
-/** Adds the card tag when the account has one open card and the row names none. */
-export function fillCardTag(tx: TransactionInput, cardTags: string[]): void {
-  if (cardTags.length === 1 && !hasCardTag(tx, cardTags)) tx.tags = [...tx.tags, cardTags[0]];
+/**
+ * After the account changed: drops a card tag of another account's card, as
+ * the tag is hidden and would file the row to that card, then adds the card
+ * tag when the account has one open card and the row names none.
+ */
+export function fillCardTag(tx: TransactionInput, cardTags: Map<string, string[]>): void {
+  const own = cardTags.get(tx.accountName) ?? [];
+  const others = allCardTags(cardTags).filter((tag) => !isCardTag(tag, own));
+  tx.tags = tx.tags.filter((tag) => !isCardTag(tag, others));
+  if (own.length === 1 && !hasCardTag(tx, own)) tx.tags = [...tx.tags, own[0]];
 }
 
 /**
@@ -202,7 +227,7 @@ export function rowProblems(
   const deposit = tx.deposit ?? 0;
   if (payment > 0 === deposit > 0) problems.push('Enter either a payment or a deposit.');
   if (payment < 0 || deposit < 0) problems.push('Amounts must be positive.');
-  if (cardTags.length && !hasCardTag(tx, cardTags)) problems.push(`Pick the card tag: ${cardTags.join(' or ')}.`);
+  if (cardTags.length && !hasCardTag(tx, cardTags)) problems.push(`Pick the card: ${cardTags.join(' or ')}.`);
   return problems;
 }
 

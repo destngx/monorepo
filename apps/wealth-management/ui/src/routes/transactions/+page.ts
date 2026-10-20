@@ -4,9 +4,10 @@ import type { PageLoad } from './$types';
 
 // Nothing is awaited: the header, search and Add button render at once. The
 // ledger streams into the table; the form options (accounts, categories,
-// tags) stream into the Add/Edit form and the bulk bar. Card keywords only
-// colour card tags: while they load or when the Cards tab is invalid
-// (reported on the credit cards page) the tags stay neutral.
+// tags) stream into the Add/Edit form and the bulk bar. The card set-up says
+// which card paid a row on an account billing several cards: while it loads
+// or when the Cards tab is invalid (reported on the credit cards page) no
+// card is named and card tags read as plain tags.
 export const load: PageLoad = ({ fetch }) => ({
   transactions: defer(() => api.transactions({ fetch })),
   options: defer(async () => {
@@ -17,5 +18,5 @@ export const load: PageLoad = ({ fetch }) => ({
     ]);
     return { accounts, categories, tags };
   }),
-  cardKeywords: defer(async () => (await api.cardPrograms({ fetch })).cards.map((card) => card.keyword)),
+  cardConfig: defer(() => api.cardPrograms({ fetch })),
 });

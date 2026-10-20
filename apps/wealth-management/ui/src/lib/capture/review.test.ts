@@ -4,6 +4,9 @@ import {
   applyCategorySuggestion,
   cardTagOptions,
   fillCardTag,
+  nonCardTags,
+  pickCardTag,
+  pickedCardTag,
   requiredCardTags,
   cleanInput,
   commitBatch,
@@ -282,7 +285,7 @@ describe('card tags', () => {
     const row = onCard('Card Duo');
     const required = requiredCardTags(row, cardTags);
     expect(required).toEqual(['Gold', 'Silver']);
-    expect(rowProblems(row.tx, ['Card Duo'], ['Coffee'], required)).toEqual(['Pick the card tag: Gold or Silver.']);
+    expect(rowProblems(row.tx, ['Card Duo'], ['Coffee'], required)).toEqual(['Pick the card: Gold or Silver.']);
     row.tx.tags = ['silver'];
     expect(rowProblems(row.tx, ['Card Duo'], ['Coffee'], required)).toEqual([]);
 
@@ -296,11 +299,33 @@ describe('card tags', () => {
 
   it('fills the tag of an account with one open card, once', () => {
     const row = onCard('Card Acme');
-    fillCardTag(row.tx, cardTags.get('Card Acme')!);
-    fillCardTag(row.tx, cardTags.get('Card Acme')!);
+    fillCardTag(row.tx, cardTags);
+    fillCardTag(row.tx, cardTags);
     expect(row.tx.tags).toEqual(['Platinum Online']);
     const duo = onCard('Card Duo');
-    fillCardTag(duo.tx, cardTags.get('Card Duo')!);
+    fillCardTag(duo.tx, cardTags);
     expect(duo.tx.tags).toEqual([]);
+  });
+
+  it('drops the card tag of the account the row moved away from', () => {
+    const row = onCard('Card Duo');
+    row.tx.tags = ['eating_out', 'Gold'];
+    row.tx.accountName = 'Card Acme';
+    fillCardTag(row.tx, cardTags);
+    expect(row.tx.tags).toEqual(['eating_out', 'Platinum Online']);
+    row.tx.accountName = 'Vietcombank';
+    fillCardTag(row.tx, cardTags);
+    expect(row.tx.tags).toEqual(['eating_out']);
+  });
+
+  it('picks one card at a time and keeps it apart from the user tags', () => {
+    const row = onCard('Card Duo');
+    row.tx.tags = ['eating_out'];
+    pickCardTag(row.tx, 'Gold', cardTags);
+    pickCardTag(row.tx, 'Silver', cardTags);
+    expect(row.tx.tags).toEqual(['eating_out', 'Silver']);
+    expect(pickedCardTag(row.tx, cardTags.get('Card Duo')!)).toBe('Silver');
+    expect(pickedCardTag({ ...row.tx, tags: ['eating_out'] }, cardTags.get('Card Duo')!)).toBe('');
+    expect(nonCardTags(row.tx.tags, cardTags)).toEqual(['eating_out']);
   });
 });

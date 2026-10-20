@@ -11,7 +11,6 @@ import {
   allCards,
   capsLeft,
   cardPeriodCap,
-  cardTagTone,
   compareCards,
   cumulative,
   formatMccs,
@@ -188,26 +187,6 @@ describe('cross-card comparison', () => {
         { name: 'Master', values: [null, null, 7] },
       ],
     });
-  });
-});
-
-describe('cardTagTone', () => {
-  const keywords = ['silver', 'Gold', 'rose gold'];
-
-  it('gives each card a stable tone by keyword, whatever the order the cards come in', () => {
-    expect(cardTagTone('gold online', keywords)).toBe('green');
-    expect(cardTagTone('Silver Others', keywords)).toBe('violet');
-    expect(cardTagTone('gold online', [...keywords].reverse())).toBe('green');
-  });
-
-  it('prefers the longest keyword a tag contains', () => {
-    expect(cardTagTone('rose gold travel', keywords)).toBe('blue');
-  });
-
-  it('leaves tags of no card neutral', () => {
-    expect(cardTagTone('groceries', keywords)).toBe('neutral');
-    expect(cardTagTone('gold', [])).toBe('neutral');
-    expect(cardTagTone('gold', [' '])).toBe('neutral');
   });
 });
 

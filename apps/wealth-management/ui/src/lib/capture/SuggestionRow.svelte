@@ -12,7 +12,15 @@
   import { formatDate } from '$lib/format';
   import TagPicker from '$lib/transactions/TagPicker.svelte';
   import type { InboxItem } from './materials';
-  import { applyCategorySuggestion, confidenceLevel, fillCardTag, type ReviewRow } from './review';
+  import {
+    applyCategorySuggestion,
+    confidenceLevel,
+    fillCardTag,
+    nonCardTags,
+    pickCardTag,
+    pickedCardTag,
+    type ReviewRow,
+  } from './review';
 
   // One suggested transaction: editable fields, evidence, write status and
   // its own approve, reject and save actions.
@@ -107,6 +115,11 @@
       (row.tx.accountName === suggestion.transaction.accountName ? (suggestion.tagOptions ?? []) : []),
   );
 
+  // The card is picked on its own where the account has several open cards;
+  // the tag picker edits the user's tags and leaves the card tag in place.
+  const userTags = $derived(nonCardTags(row.tx.tags, cardTags));
+  const cardTag = $derived(pickedCardTag(row.tx, accountCardTags));
+
   const canSuggest = $derived(!disabled && !suggestion.transferGroup);
 
   function suggestNow() {
@@ -150,7 +163,7 @@
         class="field w-48 {low('account')}"
         aria-label="Account"
         bind:value={row.tx.accountName}
-        onchange={() => fillCardTag(row.tx, cardTags.get(row.tx.accountName) ?? [])}
+        onchange={() => fillCardTag(row.tx, cardTags)}
         {disabled}
       >
         <option value="">Pick an account…</option>
@@ -251,14 +264,25 @@
           {#if disabled}
             <p class="text-xs">{row.tx.tags.join(', ') || 'No tags'}</p>
           {:else}
+            {#if accountCardTags.length > 1}
+              <select
+                class="field mb-2"
+                aria-label="Card"
+                value={cardTag}
+                onchange={(event) => pickCardTag(row.tx, event.currentTarget.value, cardTags)}
+              >
+                <option value="" disabled>Pick the card…</option>
+                {#each accountCardTags as option (option)}<option value={option}>{option}</option>{/each}
+              </select>
+            {/if}
             <TagPicker
-              options={[...new Set([...accountCardTags, ...(suggestion.tagOptions ?? []), ...tags])]}
-              bind:selected={row.tx.tags}
+              options={nonCardTags([...new Set([...(suggestion.tagOptions ?? []), ...tags])], cardTags)}
+              bind:selected={
+                () => userTags,
+                (own) => (row.tx.tags = [...row.tx.tags.filter((tag) => !userTags.includes(tag)), ...own])
+              }
             />
           {/if}
-          {#if accountCardTags.length}<p class="muted mt-0.5 text-xs">
-              Card tags: {accountCardTags.join(', ')}
-            </p>{/if}
         </div>
         <input class="field" placeholder="Memo" aria-label="Memo" bind:value={row.tx.memo} {disabled} />
         <input

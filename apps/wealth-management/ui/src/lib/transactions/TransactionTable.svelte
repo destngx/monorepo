@@ -6,12 +6,13 @@
   import CategoryBadge from './CategoryBadge.svelte';
   import type { SortDir, SortKey } from './filter';
   import type { CheckedHandler, RowToggleHandler, SortHandler, TransactionHandler } from './handlers';
-  import TagChip from './TagChip.svelte';
+  import Badge from '$lib/components/Badge.svelte';
+  import { mccTag, ownTags, paidWith, type BilledCard } from './cards';
 
   interface Props {
     items: Transaction[];
-    /** Card keywords from the Cards tab, to colour card tags. */
-    cardKeywords: string[];
+    /** Held cards, to name the card that paid and set card tags apart from the user's own. */
+    cards: BilledCard[];
     selectedIds: string[];
     pageSelected: boolean;
     sortKey: SortKey;
@@ -25,7 +26,7 @@
 
   let {
     items,
-    cardKeywords,
+    cards,
     selectedIds,
     pageSelected,
     sortKey,
@@ -36,6 +37,8 @@
     onedit,
     ondelete,
   }: Props = $props();
+
+  const keywords = $derived(cards.map((card) => card.keyword));
 
   const columns: { key: SortKey; label: string; align?: string }[] = [
     { key: 'date', label: 'Date' },
@@ -81,6 +84,9 @@
     </thead>
     <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
       {#each items as tx (tx.id)}
+        {@const card = paidWith(tx, cards)}
+        {@const mcc = mccTag(tx.tags)}
+        {@const tags = ownTags(tx.tags, keywords)}
         <tr class="align-top {selectedIds.includes(tx.id) ? 'bg-indigo-500/[0.06] dark:bg-indigo-400/10' : ''}">
           <td class="py-2.5 pl-5">
             <input
@@ -92,13 +98,18 @@
             />
           </td>
           <td class="tabular px-5 py-2.5 whitespace-nowrap">{formatDate(tx.date)}</td>
-          <td class="px-5 py-2.5">{tx.accountName}</td>
+          <td class="px-5 py-2.5">
+            {tx.accountName}
+            {#if card || mcc}
+              <p class="muted text-xs">{[card?.name, mcc && `MCC ${mcc}`].filter(Boolean).join(' · ')}</p>
+            {/if}
+          </td>
           <td class="px-5 py-2.5">
             <p class="font-medium">{tx.payee}</p>
             {#if tx.memo}<p class="muted text-xs">{tx.memo}</p>{/if}
-            {#if tx.tags.length}
+            {#if tags.length}
               <div class="mt-1 flex flex-wrap gap-1">
-                {#each tx.tags as tag (tag)}<TagChip {tag} {cardKeywords} />{/each}
+                {#each tags as tag (tag)}<Badge>{tag}</Badge>{/each}
               </div>
             {/if}
             {#if tx.issues?.length}

@@ -4,12 +4,15 @@
   import type { Account, Category, CategorySuggestion, Transaction, TransactionInput } from '$lib/api/types';
   import Button from '$lib/components/Button.svelte';
   import { todayISO } from '$lib/format';
+  import { cardChoices, chosenCard, ownTags, settleCardTags, withCard, type BilledCard } from './cards';
   import TagPicker from './TagPicker.svelte';
 
   interface Props {
     accounts: Account[];
     categories: Category[];
     tags: string[];
+    /** Held cards: the card that paid is picked apart from the tags. */
+    cards?: BilledCard[];
     /** Existing row when editing. */
     initial?: Transaction | null;
     defaultAccount?: string;
@@ -25,6 +28,7 @@
     accounts,
     categories,
     tags,
+    cards = [],
     initial = null,
     defaultAccount = '',
     prefill = {},
@@ -62,6 +66,20 @@
     const deposit = Number(form.deposit) || 0;
     return payment < 0 || deposit < 0 || (payment > 0 && deposit > 0) || (payment === 0 && deposit === 0);
   });
+
+  // Card and MCC tags are the engine's: the picker shows the user's own tags
+  // and keeps the others on the row; the card is picked on its own, only
+  // where the account had several cards open that day.
+  const keywords = $derived(cards.map((card) => card.keyword));
+  const tagOptions = $derived(ownTags(tags, keywords));
+  const engineTags = $derived(form.tags.filter((tag) => !ownTags([tag], keywords).length));
+  const choices = $derived(cardChoices(cards, form.accountName, form.date));
+  const chosen = $derived(chosenCard(form.tags, choices));
+
+  function pickCard(keyword: string) {
+    const card = choices.find((choice) => choice.keyword === keyword);
+    if (card) form.tags = withCard(form.tags, card, cards);
+  }
 
   const activeAccounts = $derived(accounts.filter((a) => a.type !== 'deprecated' || a.name === form.accountName));
   const grouped = $derived(
@@ -143,9 +161,16 @@
     }
     error = null;
     attempted = false;
+    const moved = !initial || initial.accountName !== form.accountName || initial.date.slice(0, 10) !== form.date;
     onsubmit(
       {
         ...form,
+        tags: settleCardTags(form.tags, cards, {
+          account: form.accountName,
+          date: form.date,
+          payment: payment > 0,
+          moved,
+        }),
         payee: form.payee.trim(),
         memo: form.memo?.trim() || undefined,
         referenceNumber: form.referenceNumber?.trim() || undefined,
@@ -264,9 +289,28 @@
       aria-invalid={amountInvalid || undefined}
     />
   </div>
+  {#if choices.length > 1}
+    <div class="sm:col-span-2">
+      <label class="label" for="tx-card">Card</label>
+      <select
+        id="tx-card"
+        class="field"
+        value={chosen?.keyword ?? ''}
+        onchange={(event) => pickCard(event.currentTarget.value)}
+      >
+        {#if !chosen}<option value="" disabled>Choose a card</option>{/if}
+        {#each choices as card (card.keyword)}
+          <option value={card.keyword}>{card.name}{card.default ? ' (default)' : ''}</option>
+        {/each}
+      </select>
+    </div>
+  {/if}
   <div class="sm:col-span-2">
     <span class="label">Tags</span>
-    <TagPicker options={tags} bind:selected={form.tags} />
+    <TagPicker
+      options={tagOptions}
+      bind:selected={() => ownTags(form.tags, keywords), (own) => (form.tags = [...engineTags, ...own])}
+    />
   </div>
   <div class="sm:col-span-2">
     <label class="label" for="tx-memo">Memo</label>

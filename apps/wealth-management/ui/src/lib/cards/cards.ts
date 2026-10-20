@@ -21,25 +21,6 @@ export function visibleCards(cards: CardReport[], showClosed: boolean): CardRepo
   return showClosed ? cards : cards.filter((card) => !card.closedFrom);
 }
 
-export type CardTagTone = 'green' | 'blue' | 'violet' | 'amber' | 'orange' | 'neutral';
-
-const CARD_TAG_TONES: CardTagTone[] = ['green', 'blue', 'violet', 'amber', 'orange'];
-
-/**
- * Card tags get their card's colour (WM-TX-3). A tag belongs to the card whose
- * keyword it contains (the longest one wins, as "rose gold" over "gold"); tones
- * follow the sorted keywords, so every page that knows the same cards agrees.
- */
-export function cardTagTone(tag: string, keywords: string[]): CardTagTone {
-  const sorted = [...new Set(keywords.map((keyword) => keyword.trim().toLowerCase()).filter(Boolean))].sort();
-  const lower = tag.toLowerCase();
-  let match = -1;
-  sorted.forEach((keyword, index) => {
-    if (lower.includes(keyword) && (match < 0 || keyword.length > sorted[match].length)) match = index;
-  });
-  return match < 0 ? 'neutral' : CARD_TAG_TONES[match % CARD_TAG_TONES.length];
-}
-
 // WM-CARD-4 bands (<30%, <70%, else high) on the shared status scale.
 export const UTILIZATION: Record<UtilizationBand, { label: string; tone: StatusTone }> = {
   good: { label: 'Low use', tone: 'good' },
@@ -190,7 +171,7 @@ export function parseCardPayment(form: {
   return { query: { payee, amount, ...(mccText ? { mcc: Number(mccText) } : {}) } };
 }
 
-/** One card with its bank and every card's keyword (to colour card tags), or null when no card has that name. */
+/** One card with its bank and every card's keyword (to leave card tags out), or null when no card has that name. */
 export function findCard(
   banks: CardBankReport[],
   name: string,

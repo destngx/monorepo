@@ -54,7 +54,7 @@ const categories: Category[] = [
   { name: 'Transport', type: 'expense' },
 ];
 
-const pending = () => ({ engine: never(), transactions: never(), options: never(), cardKeywords: never() });
+const pending = () => ({ engine: never(), transactions: never(), options: never(), cardConfig: never() });
 
 describe('Transactions page', () => {
   beforeAll(() => {
@@ -146,5 +146,108 @@ describe('Transactions page', () => {
     mask.toggle();
     await flush();
     expect(document.body.textContent).toMatch(/734\.000/);
+  });
+  describe('cards on a shared account', () => {
+    // Invented set-up: two cards bill to one account until the second closes.
+    const cardConfig = {
+      programs: [{ name: 'Shared Programme', bank: 'Bank A', versions: [] }],
+      banks: [{ name: 'Bank A', sharedAccount: 'Card A', referenceLimit: 0 }],
+      cards: [
+        { name: 'Emerald', program: 'Shared Programme', keyword: 'emerald', default: true },
+        { name: 'Ruby', program: 'Shared Programme', keyword: 'ruby', closedFrom: '2026-03-01T00:00:00Z' },
+      ],
+      merchants: [],
+    };
+    const cardAccounts = [...accounts, { name: 'Card A', type: 'negative active use', currency: 'VND' } as Account];
+    const onCard = (id: string, payee: string, date: string, tags: string[]): Transaction => ({
+      ...tx(id, payee, 90_000),
+      accountName: 'Card A',
+      date,
+      tags,
+    });
+
+    it('Given card rows When the ledger renders Then the card is named only while several were open and tags show the user tags', async () => {
+      render(TransactionsPage, {
+        data: {
+          ...pending(),
+          transactions: settled([
+            onCard('c1', 'Noodle Bar', '2026-10-10', ['emerald', 'eating_out']),
+            onCard('c2', 'Old Cafe', '2026-02-10', ['ruby', 'mcc:5812']),
+          ]),
+          options: settled({ accounts: cardAccounts, categories, tags: [] }),
+          cardConfig: settled(cardConfig),
+        } as never,
+      });
+      await flush();
+
+      const recent = screen.getByText('Noodle Bar').closest('tr')!;
+      expect(within(recent).getByText('eating_out')).toBeTruthy();
+      expect(within(recent).queryByText(/emerald/i)).toBeNull();
+      const old = screen.getByText('Old Cafe').closest('tr')!;
+      expect(within(old).getByText('Ruby · MCC 5812')).toBeTruthy();
+      expect(within(old).queryByText('ruby')).toBeNull();
+    });
+
+    it('Given an account with several open cards When a payment is added Then the card is picked apart from the tags', async () => {
+      render(TransactionsPage, {
+        data: {
+          ...pending(),
+          transactions: settled([]),
+          options: settled({ accounts: cardAccounts, categories, tags: ['eating_out', 'emerald', 'mcc:5812'] }),
+          cardConfig: settled(cardConfig),
+        } as never,
+      });
+      await flush();
+      await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      await flush();
+
+      await fireEvent.change(document.getElementById('tx-account')!, { target: { value: 'Card A' } });
+      await fireEvent.input(document.getElementById('tx-date')!, { target: { value: '2026-02-10' } });
+      await flush();
+      const card = screen.getByLabelText<HTMLSelectElement>('Card');
+      expect(card.value).toBe('emerald');
+      await fireEvent.change(card, { target: { value: 'ruby' } });
+      await fireEvent.input(screen.getByRole('textbox', { name: 'Add tag' }), { target: { value: 'a' } });
+      await flush();
+      expect(screen.queryByRole('button', { name: 'emerald' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'eating_out' })).toBeTruthy();
+
+      await fireEvent.click(screen.getByRole('button', { name: 'eating_out' }));
+      await fireEvent.input(document.getElementById('tx-payee')!, { target: { value: 'Old Cafe' } });
+      await fireEvent.change(document.getElementById('tx-category')!, { target: { value: 'Groceries' } });
+      await fireEvent.input(document.getElementById('tx-payment')!, { target: { value: '90000' } });
+      await fireEvent.click(screen.getByRole('button', { name: 'Add transaction' }));
+      await flush();
+
+      const created = calls.find((call) => call.name === 'createTransaction');
+      expect((created?.args[0] as { tags: string[] }).tags).toEqual(['ruby', 'eating_out']);
+    });
+
+    it('Given an account with one open card When a payment is added Then the card is filled without asking', async () => {
+      render(TransactionsPage, {
+        data: {
+          ...pending(),
+          transactions: settled([]),
+          options: settled({ accounts: cardAccounts, categories, tags: [] }),
+          cardConfig: settled(cardConfig),
+        } as never,
+      });
+      await flush();
+      await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      await flush();
+
+      await fireEvent.change(document.getElementById('tx-account')!, { target: { value: 'Card A' } });
+      await fireEvent.input(document.getElementById('tx-date')!, { target: { value: '2026-10-10' } });
+      await flush();
+      expect(screen.queryByLabelText('Card')).toBeNull();
+      await fireEvent.input(document.getElementById('tx-payee')!, { target: { value: 'Noodle Bar' } });
+      await fireEvent.change(document.getElementById('tx-category')!, { target: { value: 'Groceries' } });
+      await fireEvent.input(document.getElementById('tx-payment')!, { target: { value: '90000' } });
+      await fireEvent.click(screen.getByRole('button', { name: 'Add transaction' }));
+      await flush();
+
+      const created = calls.find((call) => call.name === 'createTransaction');
+      expect((created?.args[0] as { tags: string[] }).tags).toEqual(['emerald']);
+    });
   });
 });

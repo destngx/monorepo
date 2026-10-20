@@ -22,6 +22,7 @@
   import { toasts } from '$lib/state/toasts.svelte';
   import BulkBar from '$lib/transactions/BulkBar.svelte';
   import BulkFailures from '$lib/transactions/BulkFailures.svelte';
+  import { billedCards } from '$lib/transactions/cards';
   import TransactionForm from '$lib/transactions/TransactionForm.svelte';
   import TransactionTable from '$lib/transactions/TransactionTable.svelte';
   import { nextEntry, prefillFromURL, recategorise, type BulkFailure } from '$lib/transactions/entry';
@@ -39,10 +40,11 @@
   let { data } = $props();
   const ledger = track(() => data.transactions);
   const options = track(() => data.options);
-  const cardKeywords = track(() => data.cardKeywords);
+  const cardConfig = track(() => data.cardConfig);
   const rows = $derived(ledger.value ?? []);
   const accounts = $derived(options.value?.accounts ?? []);
   const categories = $derived(options.value?.categories ?? []);
+  const cards = $derived(cardConfig.value ? billedCards(cardConfig.value, accounts) : []);
 
   const PAGE_SIZE = 50;
   let query = $state('');
@@ -244,7 +246,7 @@
         {#if paged.items.length}
           <TransactionTable
             items={paged.items}
-            cardKeywords={cardKeywords.value ?? []}
+            {cards}
             {selectedIds}
             {pageSelected}
             {sortKey}
@@ -318,6 +320,7 @@
           accounts={value.accounts}
           categories={value.categories}
           tags={value.tags}
+          {cards}
           initial={editing === 'new' ? null : editing}
           {defaultAccount}
           {prefill}
