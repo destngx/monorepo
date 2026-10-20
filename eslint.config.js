@@ -8,15 +8,16 @@ export default [
   // Global ignores
   {
     ignores: [
-      'node_modules/**',
-      'dist/**',
+      // Build output and tool folders at any depth, not only the repo root
+      '**/node_modules/**',
+      '**/dist/**',
       '**/build/**',
-      '.next/**',
+      '**/.next/**',
       '**/.svelte-kit/**',
-      'coverage/**',
-      '.nx/**',
-      '.pytest_cache/**',
-      '.venv/**',
+      '**/coverage/**',
+      '**/.nx/**',
+      '**/.pytest_cache/**',
+      '**/.venv/**',
       '**/__generated__/**',
       '**/*.d.ts',
       '**/*.svelte.d.ts',

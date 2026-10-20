@@ -73,7 +73,7 @@
     "lint-ui": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec svelte-kit sync && pnpm exec eslint .",
+        "command": "pnpm exec svelte-kit sync && pnpm exec eslint --concurrency auto .",
         "cwd": "apps/wealth-management/ui"
       }
     },

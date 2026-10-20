@@ -37,8 +37,9 @@
     },
     "lint": {
       "executor": "nx:run-commands",
+      "cache": true,
       "options": {
-        "command": "pnpm exec eslint .",
+        "command": "pnpm exec eslint --concurrency auto .",
         "cwd": "apps/portfolio-landpage"
       }
     },
