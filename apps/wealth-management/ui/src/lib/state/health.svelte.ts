@@ -1,5 +1,6 @@
 import type { Settled } from '$lib/api/load';
 import type { EngineHealth } from '$lib/api/types';
+import { toasts } from './toasts.svelte';
 
 /**
  * Engine health (WM-OPS-6) as loaded in the background by the root layout:
@@ -22,6 +23,17 @@ class EngineHealthState {
   /** The engine did not answer the health check. */
   get unreachable(): boolean {
     return this.settled !== null && !this.settled.ok;
+  }
+
+  /**
+   * Stores a new health answer. The sheets check reads the spreadsheet with
+   * the engine's current token, so a pass means Google accepts it again (a
+   * re-auth followed by a restart) and the re-auth alert from an earlier
+   * failed request is out of date.
+   */
+  report(settled: Settled<EngineHealth> | null): void {
+    this.settled = settled;
+    if (this.ready('sheets')) toasts.sheetsAuthProblem = null;
   }
 
   ready(name: string): boolean {

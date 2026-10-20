@@ -40,7 +40,8 @@
   // Health arrives in the background; the last answer stays while a sync re-checks it.
   const engine = track(() => data.engine);
   $effect(() => {
-    engineHealth.settled = engine.settled;
+    const settled = engine.settled;
+    untrack(() => engineHealth.report(settled));
   });
   const aiReady = $derived(engineHealth.ready('ai'));
   const sheetsReady = $derived(engineHealth.ready('sheets'));
