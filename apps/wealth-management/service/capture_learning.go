@@ -88,7 +88,7 @@ func (l *CaptureLearning) LearnWritten(ctx context.Context, rows []domain.Captur
 	var memories []domain.CaptureMemory
 	for _, row := range rows {
 		id := "mem_" + strings.ToLower(l.newID())
-		if memory, ok := domain.NewCaptureMemory(row.Suggestion, row.Transaction, row.TransactionID, domain.CaptureMemoryApproved, now, id); ok {
+		if memory, ok := domain.NewCaptureMemory(row.Suggestion, row.Transaction, row.Note, row.TransactionID, domain.CaptureMemoryApproved, now, id); ok {
 			memories = append(memories, memory)
 		}
 	}

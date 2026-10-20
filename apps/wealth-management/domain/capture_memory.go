@@ -42,6 +42,9 @@ type CaptureMemory struct {
 	Category      string   `json:"category,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	TransactionID string   `json:"transactionId,omitempty"`
+	// Note is what the user wrote about the row for later captures
+	// (WM-CAP-24).
+	Note string `json:"note,omitempty"`
 }
 
 // CaptureLearnedPayee explains a payee filled in from a counterparty rule:
@@ -59,6 +62,7 @@ type CaptureWrittenRow struct {
 	Suggestion    CaptureSuggestion      `json:"suggestion"`
 	Transaction   TransactionCreateInput `json:"transaction"`
 	TransactionID string                 `json:"transactionId"`
+	Note          string                 `json:"note,omitempty"`
 }
 
 func ValidateCaptureWrittenRows(rows []CaptureWrittenRow) error {
@@ -73,6 +77,9 @@ func ValidateCaptureWrittenRows(rows []CaptureWrittenRow) error {
 	for index, row := range rows {
 		if strings.TrimSpace(row.TransactionID) == "" {
 			problems = append(problems, fmt.Sprintf("row %d: transactionId is required", index+1))
+		}
+		if problem := captureNoteProblem(row.Note); problem != "" {
+			problems = append(problems, fmt.Sprintf("row %d: %s", index+1, problem))
 		}
 	}
 	return validationError(problems)
@@ -118,9 +125,10 @@ func CaptureCounterparty(suggestion CaptureSuggestion) string {
 	return suggestion.Transaction.Payee
 }
 
-// NewCaptureMemory records a written row: false when the suggestion has no
-// counterparty to learn from or nothing was written as payee.
-func NewCaptureMemory(suggestion CaptureSuggestion, written TransactionCreateInput, transactionID string, source CaptureMemorySource, at time.Time, id string) (CaptureMemory, bool) {
+// NewCaptureMemory records a written row with the user's note: false when
+// the suggestion has no counterparty to learn from or nothing was written
+// as payee.
+func NewCaptureMemory(suggestion CaptureSuggestion, written TransactionCreateInput, note string, transactionID string, source CaptureMemorySource, at time.Time, id string) (CaptureMemory, bool) {
 	counterparty := strings.TrimSpace(CaptureCounterparty(suggestion))
 	key := CounterpartyKey(counterparty)
 	payee := strings.TrimSpace(written.Payee)
@@ -143,6 +151,7 @@ func NewCaptureMemory(suggestion CaptureSuggestion, written TransactionCreateInp
 		Quote: strings.Join(uniqueStrings(quotes), " | "), Reference: reference,
 		Account: written.AccountName, Direction: suggestion.Direction, Amount: suggestion.Amount, Date: written.Date,
 		Payee: payee, Category: written.Category, Tags: written.Tags, TransactionID: transactionID,
+		Note: strings.TrimSpace(note),
 	}, true
 }
 
@@ -223,6 +232,29 @@ func ApplyLearnedPayees(suggestions []CaptureSuggestion, rules []CaptureRule, me
 		suggestion.LearnedPayee = info
 		if len(info.Others) > 0 {
 			suggestion.LowConfidence = uniqueStrings(append(suggestion.LowConfidence, "payee"))
+		}
+	}
+}
+
+// capturePastNotesShown is how many earlier notes a suggestion shows.
+const capturePastNotesShown = 3
+
+// ApplyPastNotes gives each suggestion the user's latest notes about rows
+// with the same counterparty, newest first and without repeats, to show
+// on review and to guide the categoriser (WM-CAP-24). Memories are oldest
+// first, as the store returns them.
+func ApplyPastNotes(suggestions []CaptureSuggestion, memories []CaptureMemory) {
+	for index := range suggestions {
+		suggestion := &suggestions[index]
+		key := CounterpartyKey(CaptureCounterparty(*suggestion))
+		if key == "" {
+			continue
+		}
+		for position := len(memories) - 1; position >= 0 && len(suggestion.PastNotes) < capturePastNotesShown; position-- {
+			memory := memories[position]
+			if memory.CounterpartyKey == key && memory.Note != "" && !containsFolded(suggestion.PastNotes, memory.Note) {
+				suggestion.PastNotes = append(suggestion.PastNotes, memory.Note)
+			}
 		}
 	}
 }

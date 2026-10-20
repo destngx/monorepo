@@ -272,7 +272,8 @@ func (s *CaptureInbox) Approve(ctx context.Context, approval domain.CaptureDraft
 		id := approval.Drafts[row.Index].ID
 		written := approval.Drafts[row.Index].Transaction
 		decisions = append(decisions, domain.CaptureDraftDecision{ID: id, Status: domain.CaptureDraftApproved, TransactionID: row.ID, BatchID: approval.BatchID, Transaction: &written})
-		if memory, ok := domain.NewCaptureMemory(byID[id].Suggestion, written, row.ID, domain.CaptureMemoryApproved, now, memoryID(id)); ok {
+		note := approval.Drafts[row.Index].Note
+		if memory, ok := domain.NewCaptureMemory(byID[id].Suggestion, written, note, row.ID, domain.CaptureMemoryApproved, now, memoryID(id)); ok {
 			memories = append(memories, memory)
 		}
 	}
@@ -334,7 +335,11 @@ func (s *CaptureInbox) duplicateMemories(ctx context.Context, drafts []domain.Ca
 			continue
 		}
 		recorded := domain.TransactionCreateInput{AccountName: row.AccountName, Date: row.Date.Format(domain.SheetDateLayout), Payee: row.Payee, Category: row.Category, Tags: row.Tags}
-		if memory, ok := domain.NewCaptureMemory(drafts[index].Suggestion, recorded, row.ID, domain.CaptureMemoryDuplicate, now, memoryID(drafts[index].ID)); ok {
+		note := ""
+		if drafts[index].Edit != nil {
+			note = drafts[index].Edit.Note
+		}
+		if memory, ok := domain.NewCaptureMemory(drafts[index].Suggestion, recorded, note, row.ID, domain.CaptureMemoryDuplicate, now, memoryID(drafts[index].ID)); ok {
 			memories = append(memories, memory)
 		}
 	}

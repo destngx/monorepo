@@ -293,6 +293,20 @@
           {disabled}
         />
       </div>
+      {#if !suggestion.transferGroup && !suggestion.fee}
+        <textarea
+          class="field mt-2 w-full"
+          rows="1"
+          maxlength="500"
+          placeholder="Note for next time: what this payment is for. Kept by the app, not written to the sheet."
+          aria-label="Note for next time"
+          bind:value={row.note}
+          {disabled}
+        ></textarea>
+      {/if}
+      {#if suggestion.pastNotes?.length}
+        <p class="muted mt-1 text-xs">Your earlier notes: {suggestion.pastNotes.join(' · ')}</p>
+      {/if}
 
       <div class="mt-2 flex flex-wrap items-start gap-2 text-xs">
         {#if suggestion.transferGroup}<Badge tone="violet">Transfer {suggestion.transferGroup}</Badge>{/if}

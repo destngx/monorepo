@@ -22,7 +22,9 @@ export function toDraftRows(drafts: CaptureDrafts): ReviewRow[] {
   const byId = new Map(drafts.drafts.map((draft) => [draft.id, draft]));
   const rows = toReviewRows(draftResult(drafts)).map((row) => {
     const edit = byId.get(row.suggestion.id)?.edit;
-    const shown = edit ? { ...row, tx: editableInput(edit.transaction), categorySource: edit.categorySource } : row;
+    const shown = edit
+      ? { ...row, tx: editableInput(edit.transaction), categorySource: edit.categorySource, note: edit.note ?? '' }
+      : row;
     return { ...shown, savedKey: rowKey(shown) };
   });
   const keys = new Map(rows.map((row) => [row.suggestion.id, draftOrder(row, byId.get(row.suggestion.id)?.createdAt)]));

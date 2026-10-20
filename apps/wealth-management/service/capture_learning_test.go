@@ -57,7 +57,7 @@ func TestCaptureLearningStoresWrittenRowsAndSavesTheCounterpartyRules(t *testing
 	written.Payee, written.Category = "Banh mi stall", "Eating out"
 
 	result, err := learning.LearnWritten(context.Background(), []domain.CaptureWrittenRow{
-		{Suggestion: counterpartyRow("NGUYEN VAN A", 25000, "2026-10-16"), Transaction: written, TransactionID: "tx1"},
+		{Suggestion: counterpartyRow("NGUYEN VAN A", 25000, "2026-10-16"), Transaction: written, TransactionID: "tx1", Note: "breakfast stall by the office"},
 		{Suggestion: counterpartyRow("PHAM VAN D", 40000, "2026-10-16"), Transaction: counterpartyRow("PHAM VAN D", 40000, "2026-10-16").Transaction, TransactionID: "tx2"},
 	})
 
@@ -68,7 +68,7 @@ func TestCaptureLearningStoresWrittenRowsAndSavesTheCounterpartyRules(t *testing
 		t.Fatalf("saved rules = %+v, want only the renamed counterparty", rules.saved)
 	}
 	memories, err := store.MemoriesByKey(context.Background(), []string{"nguyen van a"})
-	if err != nil || len(memories) != 1 || memories[0].ID != "mem_id1" || memories[0].Category != "Eating out" || memories[0].TransactionID != "tx1" {
+	if err != nil || len(memories) != 1 || memories[0].ID != "mem_id1" || memories[0].Category != "Eating out" || memories[0].TransactionID != "tx1" || memories[0].Note != "breakfast stall by the office" {
 		t.Fatalf("memories = %+v err=%v", memories, err)
 	}
 	if _, err := learning.LearnWritten(context.Background(), []domain.CaptureWrittenRow{{Suggestion: counterpartyRow("X", 1, "2026-10-16"), Transaction: written}}); !errors.Is(err, domain.ErrValidation) {
@@ -103,7 +103,7 @@ func TestGivenADraftApprovedUnderAnotherPayeeWhenApprovingThenTheCounterpartyIsL
 	edited := drafts.Drafts[0].Suggestion.Transaction
 	edited.Payee = "Banh mi stall"
 
-	if _, err := f.inbox.Approve(context.Background(), domain.CaptureDraftApproval{BatchID: "b1", Drafts: []domain.CaptureDraftApprovalRow{{ID: drafts.Drafts[0].ID, Transaction: edited}}}); err != nil {
+	if _, err := f.inbox.Approve(context.Background(), domain.CaptureDraftApproval{BatchID: "b1", Drafts: []domain.CaptureDraftApprovalRow{{ID: drafts.Drafts[0].ID, Transaction: edited, Note: "breakfast"}}}); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
 
@@ -111,7 +111,7 @@ func TestGivenADraftApprovedUnderAnotherPayeeWhenApprovingThenTheCounterpartyIsL
 		t.Fatalf("saved rules = %+v", rules.saved)
 	}
 	memories, _ := f.store.MemoriesByKey(context.Background(), []string{"nguyen van a"})
-	if len(memories) != 1 || memories[0].ID != "mem_"+drafts.Drafts[0].ID || memories[0].TransactionID != "tx1" || memories[0].Source != domain.CaptureMemoryApproved {
+	if len(memories) != 1 || memories[0].ID != "mem_"+drafts.Drafts[0].ID || memories[0].TransactionID != "tx1" || memories[0].Source != domain.CaptureMemoryApproved || memories[0].Note != "breakfast" {
 		t.Fatalf("memories = %+v, want one keyed by the draft", memories)
 	}
 }
@@ -146,6 +146,10 @@ func TestGivenALikelyDuplicateRejectedWhenRejectingThenTheSheetPayeeIsLearned(t 
 	// matches the second draft.
 	f.ledger.transactions = []domain.Transaction{{ID: "tx9", AccountName: "Vietcombank", Payee: "Banh mi stall", Category: "Eating out", Date: time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC), Payment: floatPointer(25000)}}
 	drafts, _ := f.inbox.Drafts(context.Background())
+	// A note saved on the draft before rejecting it is kept.
+	if err := f.inbox.Edit(context.Background(), drafts.Drafts[0].ID, domain.CaptureDraftEdit{Transaction: drafts.Drafts[0].Suggestion.Transaction, Note: "same as the stall row"}); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
 
 	if err := f.inbox.Reject(context.Background(), []string{drafts.Drafts[0].ID, drafts.Drafts[1].ID}); err != nil {
 		t.Fatalf("reject: %v", err)
@@ -155,7 +159,7 @@ func TestGivenALikelyDuplicateRejectedWhenRejectingThenTheSheetPayeeIsLearned(t 
 		t.Fatalf("saved rules = %+v, want the duplicate's sheet payee only", rules.saved)
 	}
 	memories, _ := f.store.MemoriesByKey(context.Background(), []string{"nguyen van a", "tran thi b"})
-	if len(memories) != 1 || memories[0].Source != domain.CaptureMemoryDuplicate || memories[0].TransactionID != "tx9" || memories[0].Category != "Eating out" {
+	if len(memories) != 1 || memories[0].Source != domain.CaptureMemoryDuplicate || memories[0].TransactionID != "tx9" || memories[0].Category != "Eating out" || memories[0].Note != "same as the stall row" {
 		t.Fatalf("memories = %+v", memories)
 	}
 }

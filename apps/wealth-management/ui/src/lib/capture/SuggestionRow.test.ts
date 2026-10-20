@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import type { CaptureSuggestion } from '$lib/api/types';
-import { toReviewRows } from './review';
+import { toReviewRows, type ReviewRow } from './review';
 import SuggestionRow from './SuggestionRow.svelte';
 
 const suggestion = (extra: Partial<CaptureSuggestion>): CaptureSuggestion => ({
@@ -26,9 +26,11 @@ const suggestion = (extra: Partial<CaptureSuggestion>): CaptureSuggestion => ({
   ...extra,
 });
 
+let lastRow: ReviewRow;
+
 const renderRow = (value: CaptureSuggestion) =>
   render(SuggestionRow, {
-    row: toReviewRows({ suggestions: [value], unreadable: [], balances: [] })[0],
+    row: (lastRow = toReviewRows({ suggestions: [value], unreadable: [], balances: [] })[0]),
     disabled: false,
     problems: [],
     usdPreview: null,
@@ -94,6 +96,27 @@ describe('SuggestionRow', () => {
     renderRow(suggestion({ learnedPayee: { counterparty: 'LE VAN C', count: 0 } }));
 
     expect(screen.getByText(/Payee learned: LE VAN C is Grab in CaptureRules/)).toBeTruthy();
+  });
+
+  it('Given a draft When a note is typed Then the row keeps it for approve', async () => {
+    renderRow(suggestion({ counterparty: 'NGUYEN VAN A' }));
+
+    await fireEvent.input(screen.getByLabelText('Note for next time'), {
+      target: { value: 'breakfast stall by the office' },
+    });
+
+    expect(lastRow.note).toBe('breakfast stall by the office');
+  });
+
+  it('Given a transfer or fee row When shown Then there is no note box', () => {
+    renderRow(suggestion({ transferGroup: 't1' }));
+    expect(screen.queryByLabelText('Note for next time')).toBeNull();
+  });
+
+  it('Given earlier notes for the counterparty When shown Then they are listed', () => {
+    renderRow(suggestion({ pastNotes: ['breakfast stall', 'coffee too'] }));
+
+    expect(screen.getByText(/Your earlier notes: breakfast stall · coffee too/)).toBeTruthy();
   });
 
   it('Given a row on or before the last recorded date with no match When shown Then it may be missing from the sheet', () => {

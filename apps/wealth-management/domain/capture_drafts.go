@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Quick capture and drafts (§6.3). The phone sends one screenshot, with an
@@ -338,6 +339,8 @@ type CaptureDraftApproval struct {
 type CaptureDraftApprovalRow struct {
 	ID          string                 `json:"id"`
 	Transaction TransactionCreateInput `json:"transaction"`
+	// Note is the user's note for later captures (WM-CAP-24).
+	Note string `json:"note,omitempty"`
 }
 
 func (approval CaptureDraftApproval) Validate() error {
@@ -361,8 +364,22 @@ func (approval CaptureDraftApproval) Validate() error {
 			problems = append(problems, fmt.Sprintf("draft %d: duplicate id %q", index+1, id))
 		}
 		seen[id] = true
+		if problem := captureNoteProblem(row.Note); problem != "" {
+			problems = append(problems, fmt.Sprintf("draft %d: %s", index+1, problem))
+		}
 	}
 	return validationError(problems)
+}
+
+// CaptureNoteMaxLength bounds a note on a draft or written row, in
+// characters (WM-CAP-24).
+const CaptureNoteMaxLength = 500
+
+func captureNoteProblem(note string) string {
+	if utf8.RuneCountInString(strings.TrimSpace(note)) > CaptureNoteMaxLength {
+		return fmt.Sprintf("note must be at most %d characters", CaptureNoteMaxLength)
+	}
+	return ""
 }
 
 // CaptureDraftEdit is a pending draft's row saved without approving it
@@ -371,14 +388,21 @@ func (approval CaptureDraftApproval) Validate() error {
 type CaptureDraftEdit struct {
 	Transaction    TransactionCreateInput `json:"transaction"`
 	CategorySource string                 `json:"categorySource,omitempty"`
+	// Note is the user's note for later captures (WM-CAP-24).
+	Note string `json:"note,omitempty"`
 }
 
 func (edit CaptureDraftEdit) Validate() error {
+	var problems []string
 	switch edit.CategorySource {
 	case "", CategorySourceRule, CategorySourceHistory, CategorySourceAI, CategorySourceTransfer, CategorySourceDefault, CategorySourceManual:
-		return nil
+	default:
+		problems = append(problems, fmt.Sprintf("categorySource %q is not a known source", edit.CategorySource))
 	}
-	return validationError([]string{fmt.Sprintf("categorySource %q is not a known source", edit.CategorySource)})
+	if problem := captureNoteProblem(edit.Note); problem != "" {
+		problems = append(problems, problem)
+	}
+	return validationError(problems)
 }
 
 // CaptureDraftDecision moves a pending draft to approved or rejected.

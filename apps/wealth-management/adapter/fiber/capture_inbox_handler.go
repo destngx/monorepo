@@ -183,6 +183,7 @@ func RegisterCaptureInboxRoutes(api RouteRegistrar, h *CaptureInboxHandler, guar
 			"drafts": map[string]any{"type": "array", "items": map[string]any{"type": "object", "properties": map[string]any{
 				"id":          schemaString,
 				"transaction": map[string]any{"type": "object", "description": "The row to write, as for POST /api/transactions/batch."},
+				"note":        map[string]any{"type": "string", "maxLength": 500, "description": "The user's note for later captures from the same counterparty (WM-CAP-24); kept by the engine, not written to the sheet."},
 			}, "required": []string{"id", "transaction"}}},
 		}, "batchId", "drafts"),
 	})
@@ -195,6 +196,7 @@ func RegisterCaptureInboxRoutes(api RouteRegistrar, h *CaptureInboxHandler, guar
 		RequestBody: jsonBody(map[string]any{
 			"transaction":    map[string]any{"type": "object", "description": "The row as edited, as for POST /api/transactions/batch."},
 			"categorySource": map[string]any{"type": "string", "enum": []string{"rule", "history", "ai", "transfer", "default", "manual"}},
+			"note":           map[string]any{"type": "string", "maxLength": 500, "description": "The user's note for later captures from the same counterparty (WM-CAP-24); kept by the engine, not written to the sheet."},
 		}, "transaction"),
 		PathParams: draftIDParam,
 	})
@@ -205,6 +207,7 @@ func RegisterCaptureInboxRoutes(api RouteRegistrar, h *CaptureInboxHandler, guar
 				"suggestion":    map[string]any{"type": "object", "description": "The suggestion as Smart Capture returned it."},
 				"transaction":   map[string]any{"type": "object", "description": "The row as written, as for POST /api/transactions/batch."},
 				"transactionId": schemaString,
+				"note":          map[string]any{"type": "string", "maxLength": 500, "description": "The user's note for later captures from the same counterparty (WM-CAP-24); kept by the engine, not written to the sheet."},
 			}, "required": []string{"suggestion", "transaction", "transactionId"}}},
 		}, "rows"),
 	})

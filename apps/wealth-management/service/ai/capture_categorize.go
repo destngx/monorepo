@@ -161,6 +161,9 @@ type categorizeItem struct {
 	TagOptions  []string `json:"tagOptions,omitempty"`
 	// Category is set when it is already decided and only the tags are open.
 	Category string `json:"category,omitempty"`
+	// Notes are the user's notes about earlier rows with this counterparty
+	// (WM-CAP-24).
+	Notes []string `json:"notes,omitempty"`
 }
 
 type categorizeReply struct {
@@ -180,6 +183,7 @@ Rules:
 - category must be copied exactly from the category list; use "" when none fits.
 - An item's hint is the category the user asked for in their own words: pick the category it names or means ("transit" = a transport category), whatever the payee suggests.
 - The user's note, when given, was sent with the materials: let what it says the money was for guide the category of the items it fits.
+- An item's notes are what the user wrote about earlier payments to or from the same counterparty: use them to tell what this payment is likely for.
 - tag must be copied exactly from that item's tagOptions (the card the payment was made with, when the item shows which); use "" when it does not or the item has no tagOptions.
 - An item that already has a category keeps it: copy it back and only choose tag and splitTag.
 - When a category guide is given, choose between categories by their definitions, and set splitTag to one of the chosen category's split tags when its definition says that tag applies to the item; otherwise "".`
@@ -194,6 +198,10 @@ func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestio
 	byID := map[string]int{}
 	for _, index := range pending {
 		suggestion := suggestions[index]
+		var notes []string
+		for _, note := range suggestion.PastNotes {
+			notes = append(notes, s.masker.Mask(note))
+		}
 		description := ""
 		if suggestion.Transaction.Memo != nil {
 			description = strings.TrimSpace(strings.TrimPrefix(*suggestion.Transaction.Memo, domain.CaptureMemoPrefix))
@@ -202,6 +210,7 @@ func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestio
 			ID: suggestion.ID, Payee: s.masker.Mask(suggestion.Transaction.Payee), Description: s.masker.Mask(description), Hint: s.masker.Mask(suggestion.CategoryHint),
 			Direction: string(suggestion.Direction), Amount: suggestion.Amount, Currency: suggestion.Currency,
 			Account: suggestion.Transaction.AccountName, TagOptions: suggestion.TagOptions, Category: suggestion.Transaction.Category,
+			Notes: notes,
 		})
 		byID[suggestion.ID] = index
 	}

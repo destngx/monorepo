@@ -64,6 +64,9 @@ type CaptureSuggestion struct {
 	// LearnedPayee is set when the payee was filled in from what the user
 	// wrote for this counterparty before (WM-CAP-23).
 	LearnedPayee *CaptureLearnedPayee `json:"learnedPayee,omitempty"`
+	// PastNotes are the user's latest notes about rows with this
+	// counterparty, newest first (WM-CAP-24).
+	PastNotes []string `json:"pastNotes,omitempty"`
 	// TagOptions are the cashback rule tags of the row's card (WM-CAP-5).
 	TagOptions []string          `json:"tagOptions,omitempty"`
 	SourceApp  string            `json:"sourceApp,omitempty"`

@@ -68,6 +68,7 @@ The **Drafts** entry under Transactions shows the number of drafts waiting. On t
 - Edit drafts like Smart Capture rows, then **Approve** writes the selected ones to the sheet; **Reject** discards them. A rejected transaction is not offered again by later screenshots.
 - Drafts that match a sheet row show that row with a match score. Above 80% they are "likely already recorded" and unselected; weaker matches stay selected. A draft with no match, dated on or before the last date recorded for its account, "may be missing from the sheet" and stays selected.
 - When you approve a draft under a different payee than the bank showed (say NGUYEN VAN A as "Banh mi stall"), the engine remembers it and fills that payee in for later captures, marked "Payee learned". The rule is saved in the CaptureRules tab (kind `counterparty`), where you can edit or delete it. Rejecting a draft that is likely already recorded teaches the payee of the sheet row it matched.
+- Each draft has a "Note for next time" box: write what the payment was for ("banh mi, breakfast"). The note is kept by the app, not written to the sheet, and later drafts from the same person or shop show it and use it to pick the category.
 - **Captures** lists what was sent: queued, reading, retrying (1 min, 5 min, 15 min, 1 h, 6 h), done or failed. Failed captures can be retried or discarded.
 - **Upload** sends screenshots from the browser the same way, for photos already in the library.
 

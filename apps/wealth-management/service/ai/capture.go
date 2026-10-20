@@ -103,8 +103,9 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 }
 
 // applyLearnedPayees fills in payees learned for the suggestions'
-// counterparties (WM-CAP-23). The memory store only adds how often each
-// payee was used, so when it cannot be read the rules still apply.
+// counterparties (WM-CAP-23) and the user's earlier notes about them
+// (WM-CAP-24). The memory store only adds counts and notes, so when it
+// cannot be read the rules still apply.
 func (s *Service) applyLearnedPayees(ctx context.Context, suggestions []domain.CaptureSuggestion, rules []domain.CaptureRule) {
 	var memories []domain.CaptureMemory
 	if s.captureMemory != nil {
@@ -122,6 +123,7 @@ func (s *Service) applyLearnedPayees(ctx context.Context, suggestions []domain.C
 		}
 	}
 	domain.ApplyLearnedPayees(suggestions, rules, memories)
+	domain.ApplyPastNotes(suggestions, memories)
 }
 
 // serialised wraps a progress callback so concurrent extractions can call it.

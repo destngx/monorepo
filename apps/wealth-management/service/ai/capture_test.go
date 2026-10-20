@@ -554,3 +554,31 @@ func TestGivenALearnedCounterpartyWhenCapturingThenThePayeeIsFilledInBeforeCateg
 		t.Fatalf("result = %+v err=%v", result.Suggestions, err)
 	}
 }
+
+func TestGivenEarlierNotesForACounterpartyWhenCapturingThenTheyAreShownAndGuideTheCategoriser(t *testing.T) {
+	var categorizeRequest string
+	client := &scriptedClient{route: func(request domain.AIRequest) reply {
+		user := request.Messages[len(request.Messages)-1].Content
+		if strings.Contains(user, "Items:") {
+			categorizeRequest = user
+			return reply{content: `{"items":[{"id":"s1","category":"Food","tag":"gold"}]}`}
+		}
+		return reply{content: cardReply}
+	}}
+	svc := newCaptureService(t, captureDatabase(), client)
+	svc.SetCaptureMemory(&fakeCaptureMemory{memories: []domain.CaptureMemory{
+		{CounterpartyKey: "shopee", Note: "groceries for the week"},
+	}})
+
+	result, err := svc.Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if notes := result.Suggestions[0].PastNotes; len(notes) != 1 || notes[0] != "groceries for the week" {
+		t.Fatalf("past notes = %v", notes)
+	}
+	if !strings.Contains(categorizeRequest, `"notes":["groceries for the week"]`) {
+		t.Fatalf("the categoriser must see the earlier notes: %s", categorizeRequest)
+	}
+}

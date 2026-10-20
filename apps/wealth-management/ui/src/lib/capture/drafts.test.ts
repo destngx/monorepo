@@ -78,21 +78,29 @@ describe('toDraftRows', () => {
       edit: {
         transaction: { ...suggestion().transaction, date: '2026-10-17', payee: 'Grab', category: 'Transport' },
         categorySource: 'ai',
+        note: 'ride to the office',
       },
     };
 
     const [row] = toDraftRows(drafts([edited]));
 
-    expect([row.tx.payee, row.tx.category, row.tx.date, row.categorySource]).toEqual([
+    expect([row.tx.payee, row.tx.category, row.tx.date, row.categorySource, row.note]).toEqual([
       'Grab',
       'Transport',
       '2026-10-17',
       'ai',
+      'ride to the office',
     ]);
     expect(row.suggestion.transaction.payee).toBe('Pho 24');
     expect(isRowDirty(row)).toBe(false);
     row.tx.payee = 'Be';
     expect(isRowDirty(row)).toBe(true);
+  });
+
+  it('starts with an empty note when the draft has none', () => {
+    const [row] = toDraftRows(drafts([draft('drf_1', '2026-10-16T09:00:00Z', {})]));
+
+    expect(row.note).toBe('');
   });
 });
 

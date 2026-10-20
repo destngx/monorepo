@@ -65,6 +65,8 @@ export interface CaptureSuggestion {
   /** Who the material says the money went to or came from, before any renaming. */
   counterparty?: string;
   learnedPayee?: CaptureLearnedPayee;
+  /** The user's latest notes about rows with this counterparty, newest first (WM-CAP-24). */
+  pastNotes?: string[];
   /** The separate fee row of a movement. */
   fee?: boolean;
   evidence: CaptureEvidence[];
@@ -135,6 +137,7 @@ export interface CaptureWrittenRow {
   suggestion: CaptureSuggestion;
   transaction: TransactionInput;
   transactionId: string;
+  note?: string;
 }
 
 export interface CaptureLearnResult {
@@ -185,6 +188,8 @@ export interface CaptureDraft {
 export interface CaptureDraftEdit {
   transaction: TransactionInput;
   categorySource?: CaptureCategorySource;
+  /** The user's note for later captures; kept by the engine, not written to the sheet (WM-CAP-24). */
+  note?: string;
 }
 
 export interface CaptureMaterialEntry {

@@ -355,7 +355,7 @@ export const api = {
   discardCapture: (id: string) => request<void>(`/capture/inbox/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   captureDrafts: (options?: ReadOptions) => read<CaptureDrafts>('/capture/drafts', options),
   /** Writes the edited drafts through the batch path; replaying batchId does not write twice. */
-  approveDrafts: (batchId: string, drafts: { id: string; transaction: TransactionInput }[]) =>
+  approveDrafts: (batchId: string, drafts: { id: string; transaction: TransactionInput; note?: string }[]) =>
     request<TransactionBatchResult>('/capture/drafts/approve', { method: 'POST', body: { batchId, drafts } }),
   editDraft: (id: string, edit: CaptureDraftEdit) =>
     request<void>(`/capture/drafts/${encodeURIComponent(id)}`, { method: 'PATCH', body: edit }),

@@ -22,6 +22,8 @@ export interface ReviewRow {
   tx: TransactionInput;
   /** Where the category now comes from: the engine, a re-suggestion after a payee edit, or the user. */
   categorySource?: CaptureCategorySource;
+  /** The user's note for later captures from the same counterparty (WM-CAP-24); not written to the sheet. */
+  note: string;
   /** rowKey of the row as last saved; drafts only, to tell unsaved edits apart. */
   savedKey?: string;
   /** Set once the row is in the sheet; committed rows are locked. */
@@ -41,6 +43,7 @@ export function toReviewRows(result: CaptureResult): ReviewRow[] {
     selected: suggestion.selected,
     tx: editableInput(suggestion.transaction),
     categorySource: suggestion.categorySource,
+    note: '',
   }));
 }
 
@@ -57,7 +60,7 @@ export function editableInput(tx: TransactionInput): TransactionInput {
 
 /** Identity of a row's content as saved, so stray spaces are not an edit. */
 export const rowKey = (row: ReviewRow) =>
-  JSON.stringify({ tx: cleanInput(row.tx), categorySource: row.categorySource ?? '' });
+  JSON.stringify({ tx: cleanInput(row.tx), categorySource: row.categorySource ?? '', note: row.note.trim() });
 
 /** True when a saved draft row has edits not saved yet. */
 export const isRowDirty = (row: ReviewRow) => row.savedKey !== undefined && rowKey(row) !== row.savedKey;
@@ -270,9 +273,15 @@ export function writtenRows(
 ): CaptureWrittenRow[] {
   return outcome.rows.flatMap(({ index, id, error }) =>
     id && !error && rows[index] && inputs[index]
-      ? [{ suggestion: rows[index].suggestion, transaction: inputs[index], transactionId: id }]
+      ? [{ suggestion: rows[index].suggestion, transaction: inputs[index], transactionId: id, ...noteOf(rows[index]) }]
       : [],
   );
+}
+
+/** The row's note for a request, left out when blank. */
+export function noteOf(row: ReviewRow): { note?: string } {
+  const note = row.note.trim();
+  return note ? { note } : {};
 }
 
 const fold = (value: string) =>

@@ -47,27 +47,28 @@ func TestNewCaptureMemoryKeepsWhatWasReadAndWhatWasWritten(t *testing.T) {
 	at := time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
 	written := TransactionCreateInput{AccountName: "Vietcombank", Date: "12/10/2026", Payee: "Banh mi stall", Category: "Eating out", Tags: []string{"breakfast"}}
 
-	memory, ok := NewCaptureMemory(learnedSuggestion("NGUYEN VAN A", "NGUYEN VAN A"), written, "row-7", CaptureMemoryApproved, at, "mem1")
+	memory, ok := NewCaptureMemory(learnedSuggestion("NGUYEN VAN A", "NGUYEN VAN A"), written, "  near the office, breakfast  ", "row-7", CaptureMemoryApproved, at, "mem1")
 
 	if !ok || memory.ID != "mem1" || memory.CounterpartyKey != "nguyen van a" || memory.Counterparty != "NGUYEN VAN A" || memory.Payee != "Banh mi stall" ||
 		memory.Category != "Eating out" || memory.TransactionID != "row-7" || memory.Source != CaptureMemoryApproved || memory.Reference != "FT1" ||
-		memory.Quote != "-25,000 NGUYEN VAN A" || memory.SourceApp != "Vietcombank" || memory.Amount != 25000 || !memory.CreatedAt.Equal(at) {
+		memory.Quote != "-25,000 NGUYEN VAN A" || memory.SourceApp != "Vietcombank" || memory.Amount != 25000 || !memory.CreatedAt.Equal(at) ||
+		memory.Note != "near the office, breakfast" {
 		t.Fatalf("memory = %+v", memory)
 	}
 	transfer := learnedSuggestion("NGUYEN VAN A", "Ví MoMo")
 	transfer.TransferGroup = "t1"
-	if _, ok := NewCaptureMemory(transfer, written, "row-8", CaptureMemoryApproved, at, "mem2"); ok {
+	if _, ok := NewCaptureMemory(transfer, written, "", "row-8", CaptureMemoryApproved, at, "mem2"); ok {
 		t.Fatal("own-account transfers teach nothing")
 	}
 	fee := learnedSuggestion("", "Vietcombank fee")
 	fee.Fee = true
-	if _, ok := NewCaptureMemory(fee, written, "row-9", CaptureMemoryApproved, at, "mem3"); ok {
+	if _, ok := NewCaptureMemory(fee, written, "", "row-9", CaptureMemoryApproved, at, "mem3"); ok {
 		t.Fatal("rows with no counterparty, like fee rows, teach nothing")
 	}
 	// Drafts saved before the counterparty was kept fall back to the payee
 	// the engine read.
 	old := learnedSuggestion("", "NGUYEN VAN B")
-	if memory, ok := NewCaptureMemory(old, written, "row-10", CaptureMemoryApproved, at, "mem4"); !ok || memory.CounterpartyKey != "nguyen van b" {
+	if memory, ok := NewCaptureMemory(old, written, "", "row-10", CaptureMemoryApproved, at, "mem4"); !ok || memory.CounterpartyKey != "nguyen van b" {
 		t.Fatalf("old draft memory = %+v ok=%v", memory, ok)
 	}
 }
@@ -160,5 +161,46 @@ func TestGivenALearnedPayeeWhenCheckingDuplicatesThenAHandEnteredRowUnderThatNam
 	// Four days apart: 70 on dates alone, 99 with the learned payee.
 	if suggestions[0].Duplicate == nil || suggestions[0].Duplicate.Score != 99 || suggestions[0].Selected {
 		t.Fatalf("duplicate = %+v", suggestions[0].Duplicate)
+	}
+}
+
+func TestApplyPastNotesShowsTheLatestNotesForTheCounterparty(t *testing.T) {
+	memories := []CaptureMemory{
+		{CounterpartyKey: "nguyen van a", Note: "banh mi, breakfast"},
+		{CounterpartyKey: "nguyen van a"},
+		{CounterpartyKey: "nguyen van a", Note: "Banh mi, breakfast "},
+		{CounterpartyKey: "nguyen van a", Note: "coffee too"},
+		{CounterpartyKey: "nguyen van a", Note: "tet bonus for the owner"},
+		{CounterpartyKey: "nguyen van a", Note: "lunch"},
+		{CounterpartyKey: "tran thi b", Note: "fruit"},
+	}
+	transfer := learnedSuggestion("NGUYEN VAN A", "Ví MoMo")
+	transfer.TransferGroup = "t1"
+	suggestions := []CaptureSuggestion{learnedSuggestion("Nguyễn Văn A", "Nguyễn Văn A"), learnedSuggestion("LE VAN C", "LE VAN C"), transfer}
+
+	ApplyPastNotes(suggestions, memories)
+
+	if got := strings.Join(suggestions[0].PastNotes, " | "); got != "lunch | tet bonus for the owner | coffee too" {
+		t.Fatalf("past notes = %q, want the 3 newest, distinct", got)
+	}
+	if suggestions[1].PastNotes != nil || suggestions[2].PastNotes != nil {
+		t.Fatalf("no notes for other counterparties or transfers: %+v %+v", suggestions[1].PastNotes, suggestions[2].PastNotes)
+	}
+}
+
+func TestCaptureNotesAreBounded(t *testing.T) {
+	long := strings.Repeat("ă", CaptureNoteMaxLength+1)
+	if err := (CaptureDraftEdit{Note: long}).Validate(); err == nil {
+		t.Fatal("a draft note over the limit is refused")
+	}
+	if err := (CaptureDraftEdit{Note: strings.Repeat("ă", CaptureNoteMaxLength)}).Validate(); err != nil {
+		t.Fatalf("a note at the limit is fine: %v", err)
+	}
+	approval := CaptureDraftApproval{BatchID: "b1", Drafts: []CaptureDraftApprovalRow{{ID: "d1", Note: long}}}
+	if err := approval.Validate(); err == nil {
+		t.Fatal("an approval note over the limit is refused")
+	}
+	if err := ValidateCaptureWrittenRows([]CaptureWrittenRow{{TransactionID: "tx1", Note: long}}); err == nil {
+		t.Fatal("a written row note over the limit is refused")
 	}
 }

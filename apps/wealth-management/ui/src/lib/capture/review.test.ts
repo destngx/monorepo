@@ -142,6 +142,7 @@ describe('writtenRows', () => {
   it('pairs each written row with what the engine read, skipping failed rows', () => {
     const rows = toReviewRows(result([suggestion({ counterparty: 'NGUYEN VAN A' }), suggestion({ id: 's2' })]));
     rows[0].tx.payee = 'Banh mi stall';
+    rows[0].note = '  near the office ';
     const { inputs } = commitBatch(rows);
 
     const written = writtenRows(rows, inputs, {
@@ -155,7 +156,9 @@ describe('writtenRows', () => {
       ],
     });
 
-    expect(written).toEqual([{ suggestion: rows[0].suggestion, transaction: inputs[0], transactionId: 'row-9' }]);
+    expect(written).toEqual([
+      { suggestion: rows[0].suggestion, transaction: inputs[0], transactionId: 'row-9', note: 'near the office' },
+    ]);
     expect(written[0].suggestion.counterparty).toBe('NGUYEN VAN A');
     expect(written[0].transaction.payee).toBe('Banh mi stall');
   });
@@ -251,6 +254,15 @@ describe('isRowDirty', () => {
     row.tx.payee = 'Highlands Coffee ';
     expect(isRowDirty(row)).toBe(false);
     row.tx.category = 'Transport';
+    expect(isRowDirty(row)).toBe(true);
+  });
+
+  it('counts a changed note as an unsaved edit', () => {
+    const [row] = toReviewRows(result([suggestion()]));
+    row.savedKey = rowKey(row);
+    row.note = '  ';
+    expect(isRowDirty(row)).toBe(false);
+    row.note = 'breakfast stall';
     expect(isRowDirty(row)).toBe(true);
   });
 });
