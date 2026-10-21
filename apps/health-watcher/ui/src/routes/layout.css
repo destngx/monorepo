@@ -1,0 +1,137 @@
+@import 'tailwindcss';
+
+/* Dark mode follows the .dark class set from the theme setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-accent: oklch(0.6 0.11 185);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    background-image:
+      radial-gradient(at 0% 0%, oklch(0.88 0.07 185 / 0.55) 0, transparent 45%),
+      radial-gradient(at 100% 0%, oklch(0.88 0.08 175 / 0.45) 0, transparent 40%),
+      radial-gradient(at 100% 100%, oklch(0.9 0.07 50 / 0.35) 0, transparent 45%);
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(at 0% 0%, oklch(0.35 0.08 185 / 0.45) 0, transparent 45%),
+      radial-gradient(at 100% 0%, oklch(0.35 0.09 175 / 0.35) 0, transparent 40%),
+      radial-gradient(at 100% 100%, oklch(0.35 0.1 50 / 0.25) 0, transparent 45%);
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-teal-500;
+  }
+
+  /* Interaction feedback for every page (same rules as wealth-management).
+     Base-layer rules lose to any utility, so a component's own classes always win. */
+  :where(button, [role='button'], summary, select, label:has(input[type='checkbox'], input[type='radio'])) {
+    cursor: pointer;
+  }
+  :where(input[type='checkbox'], input[type='radio']) {
+    @apply cursor-pointer accent-teal-600 dark:accent-teal-400;
+  }
+  :where(:disabled, [aria-disabled='true']) {
+    cursor: not-allowed;
+  }
+  :where([aria-busy='true']) {
+    cursor: progress;
+  }
+  :where(a, button, summary, [role='button']) {
+    transition-property: color, background-color, border-color, box-shadow, opacity, translate, scale;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+  /* A pressed button sinks a pixel, whatever its own styles. */
+  :where(button, [role='button']):not(:disabled, [aria-disabled='true'], [aria-hidden='true']):active {
+    translate: 0 1px;
+  }
+  /* Bare links in page text. */
+  :where(a:not([class])) {
+    @apply text-teal-600 underline-offset-2 hover:underline dark:text-teal-400;
+  }
+  /* Table body rows highlight under the pointer. */
+  :where(tbody > tr) {
+    @apply transition-colors hover:bg-slate-900/[0.03] dark:hover:bg-white/[0.04];
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    :where(button, [role='button']):active {
+      translate: none;
+    }
+  }
+}
+
+/* Shared component styles; @utility makes them usable with variants and @apply. */
+@utility glass {
+  @apply rounded-2xl border border-white/60 bg-white/65 shadow-sm shadow-slate-900/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/55;
+}
+
+@utility btn {
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition duration-150 ease-out select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 aria-busy:cursor-progress aria-disabled:cursor-not-allowed aria-disabled:active:scale-100 motion-reduce:active:scale-100;
+}
+@utility btn-primary {
+  @apply btn bg-teal-600 text-white shadow-sm hover:bg-teal-500 hover:shadow-md hover:shadow-teal-600/20 active:bg-teal-700 disabled:hover:bg-teal-600 disabled:hover:shadow-sm;
+}
+@utility btn-ghost {
+  @apply btn text-slate-700 hover:bg-slate-900/[0.06] hover:text-slate-900 active:bg-slate-900/10 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white dark:active:bg-white/15;
+}
+@utility btn-danger {
+  @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-500 active:bg-rose-700 disabled:hover:bg-rose-600;
+}
+
+@utility field {
+  @apply w-full rounded-xl border border-slate-300/80 bg-white/80 px-3 py-2 text-sm text-slate-900 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-400 hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-300/80 aria-[invalid=true]:border-rose-500 dark:border-white/15 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:border-white/30 dark:focus:border-teal-400;
+}
+@utility label {
+  @apply mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400;
+}
+
+@utility muted {
+  @apply text-slate-500 dark:text-slate-400;
+}
+
+/* A text link: tint, underline on hover. */
+@utility link {
+  @apply cursor-pointer rounded-sm text-teal-600 underline-offset-2 transition-colors hover:text-teal-500 hover:underline dark:text-teal-400 dark:hover:text-teal-300;
+}
+
+/* A card or tile that is clickable as a whole: lift and tint on hover, sink on press. */
+@utility interactive {
+  @apply cursor-pointer transition duration-150 ease-out hover:border-teal-400/40 hover:shadow-md hover:shadow-slate-900/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 active:translate-y-0 active:shadow-sm motion-safe:hover:-translate-y-0.5 dark:hover:border-teal-400/30;
+}
+
+/* A table row or list item that opens something. */
+@utility row-link {
+  @apply cursor-pointer transition-colors hover:bg-teal-500/[0.06] active:bg-teal-500/10 dark:hover:bg-teal-400/10;
+}
+
+/* Skeleton placeholder shape (lib/components/skeleton). */
+@utility skeleton {
+  @apply rounded-md bg-slate-900/[0.07] motion-safe:animate-pulse dark:bg-white/[0.08];
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Small icon buttons, such as the chat message toolbar. */
+@utility icon-btn {
+  @apply inline-grid size-7 cursor-pointer place-items-center rounded-lg text-slate-500 transition duration-150 hover:bg-slate-900/[0.07] hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:outline-none active:scale-90 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white;
+}

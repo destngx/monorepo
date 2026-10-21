@@ -1,0 +1,117 @@
+{
+  "name": "health-watcher",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/health-watcher",
+  "tags": ["type:app", "app:health-watcher", "scope:backend", "scope:frontend", "lang:go", "lang:typescript"],
+  "targets": {
+    "build": {
+      "executor": "@nx-go/nx-go:build",
+      "options": {
+        "main": "main.go"
+      },
+      "cache": true,
+      "inputs": ["default", "^default", "!{projectRoot}/ui/**/*"],
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": ["pnpm exec nx run health-watcher:serve-api", "pnpm exec nx run health-watcher:serve-ui"],
+        "parallel": true
+      }
+    },
+    "serve-api": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run .",
+        "cwd": "apps/health-watcher"
+      },
+      "cache": false
+    },
+    "serve-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vite dev --host",
+        "cwd": "apps/health-watcher/ui"
+      }
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        {
+          "target": "build-ui",
+          "configurations": "production"
+        }
+      ],
+      "options": {
+        "command": "go run .",
+        "cwd": "apps/health-watcher"
+      },
+      "cache": false
+    },
+    "build-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vite build",
+        "cwd": "apps/health-watcher/ui"
+      },
+      "configurations": {
+        "production": {
+          "command": "pnpm exec vite build --mode production",
+          "cwd": "apps/health-watcher/ui"
+        }
+      }
+    },
+    "check-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json",
+        "cwd": "apps/health-watcher/ui"
+      }
+    },
+    "lint-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec svelte-kit sync && pnpm exec eslint --concurrency auto .",
+        "cwd": "apps/health-watcher/ui"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test ./...",
+        "cwd": "apps/health-watcher"
+      },
+      "inputs": ["default", "!{projectRoot}/ui/**/*"]
+    },
+    "test-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run --passWithNoTests",
+        "cwd": "apps/health-watcher/ui"
+      }
+    },
+    "reset-password": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run ./cmd/reset_password",
+        "cwd": "apps/health-watcher"
+      },
+      "cache": false
+    },
+    "lint": {
+      "executor": "@nx-go/nx-go:lint"
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "find . -name '*.go' -not -path './tmp/*' -not -path './ui/*' -exec gofmt -w {} +",
+        "cwd": "apps/health-watcher"
+      }
+    },
+    "tidy": {
+      "executor": "@nx-go/nx-go:tidy"
+    }
+  }
+}

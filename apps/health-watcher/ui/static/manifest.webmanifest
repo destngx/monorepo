@@ -1,0 +1,10 @@
+{
+  "name": "Health Watcher",
+  "short_name": "Health",
+  "start_url": "/ui/",
+  "scope": "/ui/",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0d9488",
+  "icons": [{ "src": "/ui/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

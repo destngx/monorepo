@@ -1,0 +1,221 @@
+package domain
+
+import (
+	"strings"
+	"time"
+	"unicode/utf8"
+)
+
+// ReadingStatus is where an inbox item's AI reading is (HW-READ-3, HW-READ-6).
+type ReadingStatus string
+
+const (
+	// ReadingWaiting items still have files in OCR.
+	ReadingWaiting ReadingStatus = "waiting"
+	// ReadingOff means AI is not configured; the item is filed by hand.
+	ReadingOff ReadingStatus = "off"
+	// ReadingNeedsCheck items wait for a person to check the masked pages.
+	ReadingNeedsCheck ReadingStatus = "needs_check"
+	ReadingQueued     ReadingStatus = "queued"
+	ReadingDone       ReadingStatus = "done"
+	// ReadingFailed items ran out of attempts; Retry starts again.
+	ReadingFailed ReadingStatus = "failed"
+	// ReadingSkipped items are never sent: no text (a film photo or a blank
+	// page), or a person turned reading off for the item.
+	ReadingSkipped ReadingStatus = "skipped"
+)
+
+// Reasons an item is skipped.
+const (
+	SkipNoText = "No text was found, so there is nothing to read: a film photo or a blank page."
+	SkipByUser = "Reading was turned off for this item."
+)
+
+// MinReadableChars is the least OCR text an item needs before it is sent.
+const MinReadableChars = 30
+
+// MaxReadPages bounds the pages sent in one reading.
+const MaxReadPages = 20
+
+// Proposal is the reading's suggestion for filing the item. PersonID comes
+// from the local name match or the backlog person, never from the model.
+type Proposal struct {
+	PersonID     string       `json:"personId,omitempty"`
+	Date         string       `json:"date,omitempty"`
+	VisitType    VisitType    `json:"visitType,omitempty"`
+	ProviderName string       `json:"providerName,omitempty"`
+	ProviderKind ProviderKind `json:"providerKind,omitempty"`
+	Kind         DocumentKind `json:"kind,omitempty"`
+	Title        string       `json:"title,omitempty"`
+	Confidence   int          `json:"confidence"`
+}
+
+// Reading is the AI reading of one inbox item.
+type Reading struct {
+	ItemID        string        `json:"itemId"`
+	Status        ReadingStatus `json:"status"`
+	Reason        string        `json:"reason,omitempty"`
+	Model         string        `json:"model,omitempty"`
+	Proposal      *Proposal     `json:"proposal,omitempty"`
+	Attempts      int           `json:"attempts"`
+	NextAttemptAt *time.Time    `json:"nextAttemptAt,omitempty"`
+	Error         string        `json:"error,omitempty"`
+	PagesSent     int           `json:"pagesSent"`
+	UpdatedAt     time.Time     `json:"updatedAt"`
+}
+
+// ReadingDocument is the model's view of the document as a whole.
+type ReadingDocument struct {
+	Kind         string `json:"kind"`
+	Title        string `json:"title"`
+	Date         string `json:"date"`
+	VisitType    string `json:"visit_type"`
+	ProviderName string `json:"provider_name"`
+	ProviderKind string `json:"provider_kind"`
+	Confidence   int    `json:"confidence"`
+}
+
+// ReadingObservation is one value the model read.
+type ReadingObservation struct {
+	Page       int    `json:"page"`
+	Analyte    string `json:"analyte"`
+	Value      string `json:"value"`
+	Unit       string `json:"unit"`
+	Reference  string `json:"reference"`
+	Flag       string `json:"flag"`
+	SampleDate string `json:"sample_date"`
+	Confidence int    `json:"confidence"`
+}
+
+// ReadingFinding is one finding the model read.
+type ReadingFinding struct {
+	Page       int    `json:"page"`
+	Kind       string `json:"kind"`
+	Text       string `json:"text"`
+	ICD10      string `json:"icd10"`
+	Drug       string `json:"drug"`
+	Dose       string `json:"dose"`
+	Frequency  string `json:"frequency"`
+	Duration   string `json:"duration"`
+	Confidence int    `json:"confidence"`
+}
+
+// ReadingOutput is the model's answer, shaped by ReadingSchema.
+type ReadingOutput struct {
+	Document     ReadingDocument      `json:"document"`
+	Observations []ReadingObservation `json:"observations"`
+	Findings     []ReadingFinding     `json:"findings"`
+}
+
+// Limits on what one reading may propose.
+const (
+	MaxReadObservations = 300
+	MaxReadFindings     = 100
+)
+
+func clampConfidence(c int) int { return max(0, min(100, c)) }
+
+func cut(s string, n int) string {
+	s = CleanText(s)
+	if utf8.RuneCountInString(s) > n {
+		return string([]rune(s)[:n])
+	}
+	return s
+}
+
+func cleanDate(s, today string) string {
+	d, err := Date(strings.TrimSpace(s))
+	if err != nil || d > today {
+		return ""
+	}
+	return d
+}
+
+// Proposal returns the document-level suggestion, with every enum checked:
+// an unknown value becomes the default rather than an error, since the
+// person fixes it on the review page.
+func (o ReadingOutput) Proposal(today string) Proposal {
+	d := o.Document
+	p := Proposal{Date: cleanDate(d.Date, today), Title: cut(d.Title, 120), ProviderName: cut(d.ProviderName, 120),
+		Confidence: clampConfidence(d.Confidence)}
+	if k, err := ParseDocumentKind(d.Kind); err == nil {
+		p.Kind = k
+	} else {
+		p.Kind = "other"
+	}
+	if t, err := ParseVisitType(d.VisitType); err == nil {
+		p.VisitType = t
+	} else {
+		p.VisitType = "other"
+	}
+	if k, err := ParseProviderKind(d.ProviderKind); err == nil {
+		p.ProviderKind = k
+	} else {
+		p.ProviderKind = ProviderOther
+	}
+	return p
+}
+
+// CleanObservations keeps the readable observations, each as a valid input
+// with its page number (1-based, within pageCount) and confidence. Flags the
+// reader made up are dropped rather than failing the row.
+func (o ReadingOutput) CleanObservations(pageCount int, today string, catalog *Catalog) ([]ObservationInput, []int, []int) {
+	var ins []ObservationInput
+	var pages, confs []int
+	for _, r := range o.Observations {
+		if len(ins) == MaxReadObservations {
+			break
+		}
+		flag, err := ParseFlag(r.Flag)
+		if err != nil {
+			flag = ""
+		}
+		in := ObservationInput{Analyte: cut(r.Analyte, 120), Value: cut(r.Value, 120), Unit: cut(r.Unit, 120),
+			Reference: cut(r.Reference, 120), Flag: flag, SampleDate: cleanDate(r.SampleDate, today)}
+		if in.Analyte == "" || in.Value == "" {
+			continue
+		}
+		if m, ok := catalog.Match(in.Analyte, in.Unit); ok {
+			in.MetricCode = m.Code
+		}
+		ins = append(ins, in)
+		pages = append(pages, clampPage(r.Page, pageCount))
+		confs = append(confs, clampConfidence(r.Confidence))
+	}
+	return ins, pages, confs
+}
+
+// CleanFindings keeps the valid findings, with pages and confidences.
+func (o ReadingOutput) CleanFindings(pageCount int) ([]FindingInput, []int, []int) {
+	var ins []FindingInput
+	var pages, confs []int
+	for _, r := range o.Findings {
+		if len(ins) == MaxReadFindings {
+			break
+		}
+		in := FindingInput{Kind: r.Kind, Text: r.Text, ICD10: r.ICD10, Drug: r.Drug, Dose: r.Dose, Frequency: r.Frequency, Duration: r.Duration}
+		if _, err := ParseFindingKind(in.Kind); err != nil {
+			in.Kind = "note"
+		}
+		if !icd10Code.MatchString(strings.ToUpper(strings.TrimSpace(in.ICD10))) {
+			in.ICD10 = ""
+		}
+		in.Text = cut(in.Text, 4000)
+		in.Drug, in.Dose, in.Frequency, in.Duration = cut(in.Drug, 200), cut(in.Dose, 200), cut(in.Frequency, 200), cut(in.Duration, 200)
+		v, err := in.Validate()
+		if err != nil {
+			continue
+		}
+		ins = append(ins, v)
+		pages = append(pages, clampPage(r.Page, pageCount))
+		confs = append(confs, clampConfidence(r.Confidence))
+	}
+	return ins, pages, confs
+}
+
+func clampPage(p, count int) int {
+	if p < 1 || p > count {
+		return 1
+	}
+	return p
+}

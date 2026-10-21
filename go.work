@@ -2,5 +2,6 @@ go 1.26.0
 
 use (
 	./apps/ai-gateway
+	./apps/health-watcher
 	./apps/wealth-management
 )

@@ -1,0 +1,351 @@
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"path/filepath"
+	"unicode/utf8"
+
+	"apps/health-watcher/domain"
+	"apps/health-watcher/port"
+)
+
+// Limits are the upload limits (HW-IMP-2).
+type Limits struct {
+	MaxFileBytes  int64
+	MaxBatchBytes int64
+}
+
+// DefaultLimits are the limits when settings leave them unset.
+var DefaultLimits = Limits{
+	MaxFileBytes:  domain.DefaultMaxFileMB << 20,
+	MaxBatchBytes: domain.DefaultMaxBatchMB << 20,
+}
+
+// Inbox receives uploads and files them under visits (HW-IMP-1..4), with
+// their AI readings as drafts (HW-READ-3, HW-READ-4) and backlog groups
+// (HW-IMP-6).
+type Inbox struct {
+	Deps
+	Records *Records
+	Limits  Limits
+	// Pipeline reads uploads in the background; nil in tests that only file.
+	Pipeline *Pipeline
+}
+
+// UploadRequest is one batch of files.
+type UploadRequest struct {
+	Source domain.InboxSource
+	Note   string
+	Files  []domain.Upload
+	// OneItem keeps every new file of the batch in a single item, as pages
+	// of one document. Otherwise each new file is its own item.
+	OneItem bool
+	// PersonID is the backlog person every new item belongs to (HW-IMP-6).
+	PersonID string
+}
+
+// UploadResponse lists the items created and what happened to each file.
+type UploadResponse struct {
+	Items []domain.InboxItem    `json:"items"`
+	Files []domain.UploadResult `json:"files"`
+}
+
+func (in *Inbox) checkBatch(req UploadRequest) error {
+	if len(req.Files) == 0 {
+		return domain.Invalid("no files received")
+	}
+	if len(req.Files) > domain.MaxFilesPerItem {
+		return domain.Invalid("at most %d files per upload", domain.MaxFilesPerItem)
+	}
+	if utf8.RuneCountInString(req.Note) > domain.MaxNoteLength {
+		return domain.Invalid("note is longer than %d characters", domain.MaxNoteLength)
+	}
+	var total int64
+	for _, f := range req.Files {
+		size := int64(len(f.Data))
+		if size == 0 {
+			return domain.Invalid("%s is empty", displayName(f.Name))
+		}
+		if size > in.Limits.MaxFileBytes {
+			return domain.Invalid("%s is larger than %d MB", displayName(f.Name), in.Limits.MaxFileBytes>>20)
+		}
+		total += size
+	}
+	if total > in.Limits.MaxBatchBytes {
+		return domain.Invalid("the upload is larger than %d MB", in.Limits.MaxBatchBytes>>20)
+	}
+	return nil
+}
+
+func displayName(name string) string {
+	if name == "" {
+		return "a file"
+	}
+	return name
+}
+
+// cleanName keeps only the base name, so a client path never leaks into storage.
+func cleanName(name string) string {
+	base := filepath.Base(filepath.Clean("/" + name))
+	if base == "/" || base == "." {
+		return ""
+	}
+	if utf8.RuneCountInString(base) > 200 {
+		return string([]rune(base)[:200])
+	}
+	return base
+}
+
+// Upload stores a batch. A file the tenant already has is reported as a
+// duplicate and left out of the new items (HW-IMP-1). The whole batch is
+// checked first; file bytes are written next, then every row in one
+// transaction, so a failure leaves no half-stored batch behind.
+func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest) (UploadResponse, error) {
+	if err := sc.RequireUpload(); err != nil {
+		return UploadResponse{}, err
+	}
+	if err := in.checkBatch(req); err != nil {
+		return UploadResponse{}, err
+	}
+	if req.PersonID != "" {
+		if _, err := in.Store.Person(ctx, sc.TenantID, req.PersonID); errors.Is(err, domain.ErrNotFound) {
+			return UploadResponse{}, domain.Invalid("unknown person")
+		} else if err != nil {
+			return UploadResponse{}, err
+		}
+	}
+	files := make([]domain.StoredFile, len(req.Files))
+	for i, up := range req.Files {
+		mime, err := domain.SniffMIME(up.Data)
+		if err != nil {
+			return UploadResponse{}, domain.Invalid("%s: only PDF, JPEG, PNG, WebP and HEIC files are accepted", displayName(up.Name))
+		}
+		sum := sha256.Sum256(up.Data)
+		files[i] = domain.StoredFile{ID: NewID(), SHA256: hex.EncodeToString(sum[:]), MIME: mime, Size: int64(len(up.Data)),
+			OriginalName: cleanName(up.Name), CreatedAt: in.Clock()}
+	}
+	in.FileLock.Lock()
+	defer in.FileLock.Unlock()
+	// Put is idempotent and cheap for bytes already on disk, so every file
+	// is written; under the lock no release can remove them before commit.
+	var written []string
+	for i, f := range files {
+		if err := in.Files.Put(ctx, f.SHA256, req.Files[i].Data); err != nil {
+			return UploadResponse{}, errors.Join(err, in.dropOrphans(ctx, written))
+		}
+		written = append(written, f.SHA256)
+	}
+
+	var resp UploadResponse
+	err := in.Store.InTx(ctx, func(r port.Repos) error {
+		resp = UploadResponse{Items: []domain.InboxItem{}, Files: []domain.UploadResult{}}
+		var newIDs []string
+		seen := map[string]domain.StoredFile{}
+		for i, f := range files {
+			if first, ok := seen[f.SHA256]; ok {
+				resp.Files = append(resp.Files, domain.UploadResult{Name: cleanName(req.Files[i].Name), File: first, Duplicate: true})
+				continue
+			}
+			existing, err := r.FileBySHA(ctx, sc.TenantID, f.SHA256)
+			switch {
+			case err == nil:
+				resp.Files = append(resp.Files, domain.UploadResult{Name: f.OriginalName, File: existing, Duplicate: true})
+				seen[f.SHA256] = existing
+				continue
+			case !errors.Is(err, domain.ErrNotFound):
+				return err
+			}
+			if err := r.CreateFile(ctx, sc.TenantID, f); err != nil {
+				return err
+			}
+			// Every new file is read in the background (HW-READ-1).
+			if err := r.EnqueueJob(ctx, domain.Job{ID: NewID(), TenantID: sc.TenantID, Kind: domain.JobOCR, SubjectID: f.ID}, in.Clock()); err != nil {
+				return err
+			}
+			seen[f.SHA256] = f
+			resp.Files = append(resp.Files, domain.UploadResult{Name: f.OriginalName, File: f})
+			newIDs = append(newIDs, f.ID)
+		}
+		groups := [][]string{}
+		if req.OneItem && len(newIDs) > 0 {
+			groups = append(groups, newIDs)
+		} else {
+			for _, id := range newIDs {
+				groups = append(groups, []string{id})
+			}
+		}
+		for _, ids := range groups {
+			item := domain.InboxItem{ID: NewID(), Status: domain.InboxNew, Source: req.Source, Note: req.Note,
+				UploadedBy: sc.UserID, PersonID: req.PersonID, CreatedAt: in.Clock()}
+			if err := r.CreateInboxItem(ctx, sc.TenantID, item, ids); err != nil {
+				return err
+			}
+			stored, err := r.InboxItem(ctx, sc.TenantID, item.ID)
+			if err != nil {
+				return err
+			}
+			resp.Items = append(resp.Items, stored)
+		}
+		return nil
+	})
+	if err != nil {
+		return UploadResponse{}, errors.Join(err, in.dropOrphans(ctx, written))
+	}
+	if in.Pipeline != nil {
+		in.Pipeline.Wake()
+	}
+	return resp, nil
+}
+
+// dropOrphans deletes written bytes that no tenant references. The caller
+// holds FileLock.
+func (in *Inbox) dropOrphans(ctx context.Context, shas []string) error {
+	return dropUnused(ctx, in.Deps, shas)
+}
+
+// Items lists unfiled items, oldest first, each with its OCR progress and
+// AI reading.
+func (in *Inbox) Items(ctx context.Context, sc domain.Scope) ([]domain.InboxItem, error) {
+	if err := sc.RequireRead(); err != nil {
+		return nil, err
+	}
+	items, err := in.Store.InboxItems(ctx, sc.TenantID, domain.InboxNew)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		if err := in.withProgress(ctx, sc.TenantID, &items[i]); err != nil {
+			return nil, err
+		}
+	}
+	return items, nil
+}
+
+func (in *Inbox) withProgress(ctx context.Context, tenantID string, item *domain.InboxItem) error {
+	prog, err := in.Store.OCRProgress(ctx, tenantID, item.ID)
+	if err != nil {
+		return err
+	}
+	item.OCR = &prog
+	rd, err := in.Store.Reading(ctx, tenantID, item.ID)
+	switch {
+	case err == nil:
+		item.Reading = &rd
+	case !errors.Is(err, domain.ErrNotFound):
+		return err
+	}
+	return nil
+}
+
+// Filed is the result of filing an item.
+type Filed struct {
+	Visit    domain.Visit    `json:"visit"`
+	Document domain.Document `json:"document"`
+}
+
+// docInput is the document part of a filing request.
+func docInput(kindRaw, titleRaw string) (domain.DocumentKind, string, error) {
+	kind, err := domain.ParseDocumentKind(kindRaw)
+	if err != nil {
+		return "", "", err
+	}
+	title := domain.CleanText(titleRaw)
+	if utf8.RuneCountInString(title) > 120 {
+		return "", "", domain.Invalid("title is longer than 120 characters")
+	}
+	return kind, title, nil
+}
+
+// fileItem files one unfiled item as a document under visit and approves
+// its drafts (HW-READ-4), inside a transaction.
+func (in *Inbox) fileItem(ctx context.Context, r port.Repos, sc domain.Scope, itemID string, visit domain.Visit,
+	kind domain.DocumentKind, title string) (string, error) {
+	item, err := r.InboxItem(ctx, sc.TenantID, itemID)
+	if err != nil {
+		return "", err
+	}
+	if item.Status != domain.InboxNew {
+		return "", domain.Conflict("this item is already %s", item.Status)
+	}
+	fileIDs := make([]string, len(item.Files))
+	for i, f := range item.Files {
+		fileIDs[i] = f.ID
+	}
+	doc := domain.Document{ID: NewID(), VisitID: visit.ID, PersonID: visit.PersonID, Kind: kind, Title: title, CreatedAt: in.Clock()}
+	if err := r.CreateDocument(ctx, sc.TenantID, doc, fileIDs); err != nil {
+		return "", err
+	}
+	if err := r.ApproveItemDrafts(ctx, sc.TenantID, item.ID, doc.ID, visit.PersonID, visit.Date, in.Clock()); err != nil {
+		return "", err
+	}
+	return doc.ID, r.SetInboxStatus(ctx, sc.TenantID, item.ID, domain.InboxFiled, doc.ID)
+}
+
+// File turns an unfiled item into a document under an existing or new
+// visit. Its remaining drafts are approved; rejected ones are dropped.
+func (in *Inbox) File(ctx context.Context, sc domain.Scope, itemID string, req domain.FileInput) (Filed, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return Filed{}, err
+	}
+	kind, title, err := docInput(req.Kind, req.Title)
+	if err != nil {
+		return Filed{}, err
+	}
+	if (req.VisitID == "") == (req.Visit == nil) {
+		return Filed{}, domain.Invalid("choose an existing visit or describe a new one")
+	}
+	var visitID, docID string
+	err = in.Store.InTx(ctx, func(r port.Repos) error {
+		var visit domain.Visit
+		var err error
+		if req.VisitID != "" {
+			visit, err = r.Visit(ctx, sc.TenantID, req.VisitID)
+		} else {
+			visit, err = in.Records.createVisit(ctx, r, sc, *req.Visit)
+		}
+		if err != nil {
+			return err
+		}
+		visitID = visit.ID
+		docID, err = in.fileItem(ctx, r, sc, itemID, visit, kind, title)
+		return err
+	})
+	if err != nil {
+		return Filed{}, err
+	}
+	visit, err := in.Records.Visit(ctx, sc, visitID)
+	if err != nil {
+		return Filed{}, err
+	}
+	doc, err := in.Store.Document(ctx, sc.TenantID, docID)
+	return Filed{Visit: visit, Document: doc}, err
+}
+
+// Discard drops an unfiled item, its drafts and the files only it used.
+func (in *Inbox) Discard(ctx context.Context, sc domain.Scope, itemID string) error {
+	if err := sc.RequireEdit(); err != nil {
+		return err
+	}
+	item, err := in.Store.InboxItem(ctx, sc.TenantID, itemID)
+	if err != nil {
+		return err
+	}
+	if item.Status != domain.InboxNew {
+		return domain.Conflict("this item is already %s", item.Status)
+	}
+	err = in.Store.InTx(ctx, func(r port.Repos) error {
+		if err := r.SetInboxStatus(ctx, sc.TenantID, itemID, domain.InboxDiscarded, ""); errors.Is(err, domain.ErrNotFound) {
+			return domain.Conflict("this item was filed or discarded meanwhile")
+		} else if err != nil {
+			return err
+		}
+		return r.DeleteItemDrafts(ctx, sc.TenantID, itemID)
+	})
+	if err != nil {
+		return err
+	}
+	return releaseFiles(ctx, in.Deps, sc.TenantID, item.Files)
+}

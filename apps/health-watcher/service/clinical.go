@@ -1,0 +1,471 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+	"unicode/utf8"
+
+	"apps/health-watcher/domain"
+	"apps/health-watcher/port"
+)
+
+// Clinical manages observations and findings: drafts from AI readings,
+// approved records with their audit log, manual entry, metric links, the
+// document viewer and search (HW-REC-3..6, HW-READ-4, HW-READ-5,
+// HW-READ-7, HW-FIND-2, HW-FIND-3, HW-MET-1).
+type Clinical struct {
+	Deps
+	Catalog *domain.Catalog
+}
+
+// audit records the old value of an approved record before it changes.
+func (c *Clinical) audit(ctx context.Context, r port.Repos, sc domain.Scope, entity domain.AuditEntity, id, action string, old any) error {
+	return addAudit(ctx, r, c.Clock, sc, entity, id, action, old)
+}
+
+func addAudit(ctx context.Context, r port.Repos, clock func() time.Time, sc domain.Scope, entity domain.AuditEntity, id, action string, old any) error {
+	raw, err := json.Marshal(old)
+	if err != nil {
+		return fmt.Errorf("encode audit entry: %w", err)
+	}
+	return r.AddAudit(ctx, sc.TenantID, domain.AuditEntry{ID: NewID(), Entity: entity, EntityID: id, Action: action, UserID: sc.UserID,
+		At: clock(), OldJSON: string(raw)})
+}
+
+// ObservationPatch changes an observation. Status moves a draft between
+// draft and rejected; approved records change only by editing.
+type ObservationPatch struct {
+	domain.ObservationInput
+	Status domain.RecordStatus `json:"status"`
+}
+
+func (c *Clinical) checkPage(ctx context.Context, r port.Repos, sc domain.Scope, pageID string) error {
+	if pageID == "" {
+		return nil
+	}
+	_, err := r.Page(ctx, sc.TenantID, pageID)
+	if errors.Is(err, domain.ErrNotFound) {
+		return domain.Invalid("unknown page")
+	}
+	return err
+}
+
+func setStatus(current domain.RecordStatus, want domain.RecordStatus) (domain.RecordStatus, error) {
+	switch {
+	case want == "" || want == current:
+		return current, nil
+	case current == domain.StatusApproved:
+		return "", domain.Invalid("an approved record can be edited or deleted, not moved back to a draft")
+	case want == domain.StatusDraft || want == domain.StatusRejected:
+		return want, nil
+	}
+	return "", domain.Invalid("status must be draft or rejected")
+}
+
+// UpdateObservation edits a draft or an approved observation. A person's
+// edit sets the confidence to 100; editing an approved one is audited.
+func (c *Clinical) UpdateObservation(ctx context.Context, sc domain.Scope, id string, patch ObservationPatch) (domain.Observation, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return domain.Observation{}, err
+	}
+	in, err := patch.Validate(c.today(), c.Catalog)
+	if err != nil {
+		return domain.Observation{}, err
+	}
+	err = c.Store.InTx(ctx, func(r port.Repos) error {
+		old, err := r.Observation(ctx, sc.TenantID, id)
+		if err != nil {
+			return err
+		}
+		status, err := setStatus(old.Status, patch.Status)
+		if err != nil {
+			return err
+		}
+		if err := c.checkPage(ctx, r, sc, in.PageID); err != nil {
+			return err
+		}
+		next := observationFrom(in, c.Clock())
+		next.ID, next.Status, next.ItemID, next.DocumentID, next.PersonID = old.ID, status, old.ItemID, old.DocumentID, old.PersonID
+		next.CreatedAt, next.Confidence = old.CreatedAt, 100
+		if in.PageID == "" {
+			next.PageID = old.PageID
+		}
+		if in.SampleDate == "" {
+			next.SampleDate = old.SampleDate
+		}
+		if old.Status == domain.StatusApproved {
+			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "update", old); err != nil {
+				return err
+			}
+		}
+		return r.UpdateObservation(ctx, sc.TenantID, next)
+	})
+	if err != nil {
+		return domain.Observation{}, err
+	}
+	return c.Store.Observation(ctx, sc.TenantID, id)
+}
+
+// DeleteObservation deletes an observation; deleting an approved one is audited.
+func (c *Clinical) DeleteObservation(ctx context.Context, sc domain.Scope, id string) error {
+	if err := sc.RequireEdit(); err != nil {
+		return err
+	}
+	return c.Store.InTx(ctx, func(r port.Repos) error {
+		old, err := r.Observation(ctx, sc.TenantID, id)
+		if err != nil {
+			return err
+		}
+		if old.Status == domain.StatusApproved {
+			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "delete", old); err != nil {
+				return err
+			}
+		}
+		return r.DeleteObservation(ctx, sc.TenantID, id)
+	})
+}
+
+// documentOwner returns a document's person and visit date.
+func documentOwner(ctx context.Context, r port.Repos, tenantID, documentID string) (domain.Document, domain.Visit, error) {
+	doc, err := r.Document(ctx, tenantID, documentID)
+	if err != nil {
+		return doc, domain.Visit{}, err
+	}
+	visit, err := r.Visit(ctx, tenantID, doc.VisitID)
+	return doc, visit, err
+}
+
+// AddObservation types an observation into a filed document by hand; it
+// is approved at once (HW-READ-7).
+func (c *Clinical) AddObservation(ctx context.Context, sc domain.Scope, documentID string, input domain.ObservationInput) (domain.Observation, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return domain.Observation{}, err
+	}
+	in, err := input.Validate(c.today(), c.Catalog)
+	if err != nil {
+		return domain.Observation{}, err
+	}
+	if in.MetricCode == "" {
+		if m, ok := c.Catalog.Match(in.Analyte, in.Unit); ok {
+			in.MetricCode = m.Code
+		}
+	}
+	o := observationFrom(in, c.Clock())
+	err = c.Store.InTx(ctx, func(r port.Repos) error {
+		doc, visit, err := documentOwner(ctx, r, sc.TenantID, documentID)
+		if err != nil {
+			return err
+		}
+		if err := c.checkPage(ctx, r, sc, in.PageID); err != nil {
+			return err
+		}
+		o.ID, o.Status, o.DocumentID, o.PersonID, o.Confidence = NewID(), domain.StatusApproved, doc.ID, doc.PersonID, 100
+		if o.SampleDate == "" {
+			o.SampleDate = visit.Date
+		}
+		return r.CreateObservation(ctx, sc.TenantID, o)
+	})
+	if err != nil {
+		return domain.Observation{}, err
+	}
+	return c.Store.Observation(ctx, sc.TenantID, o.ID)
+}
+
+// FindingPatch changes a finding; Status works as for observations.
+type FindingPatch struct {
+	domain.FindingInput
+	Status domain.RecordStatus `json:"status"`
+}
+
+// UpdateFinding edits a draft or an approved finding; approved edits are audited.
+func (c *Clinical) UpdateFinding(ctx context.Context, sc domain.Scope, id string, patch FindingPatch) (domain.Finding, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return domain.Finding{}, err
+	}
+	in, err := patch.Validate()
+	if err != nil {
+		return domain.Finding{}, err
+	}
+	err = c.Store.InTx(ctx, func(r port.Repos) error {
+		old, err := r.Finding(ctx, sc.TenantID, id)
+		if err != nil {
+			return err
+		}
+		status, err := setStatus(old.Status, patch.Status)
+		if err != nil {
+			return err
+		}
+		if err := c.checkPage(ctx, r, sc, in.PageID); err != nil {
+			return err
+		}
+		next := findingFrom(in, c.Clock())
+		next.ID, next.Status, next.ItemID, next.DocumentID, next.PersonID = old.ID, status, old.ItemID, old.DocumentID, old.PersonID
+		next.CreatedAt, next.Confidence = old.CreatedAt, 100
+		if in.PageID == "" {
+			next.PageID = old.PageID
+		}
+		if old.Status == domain.StatusApproved {
+			if err := c.audit(ctx, r, sc, domain.AuditFinding, id, "update", old); err != nil {
+				return err
+			}
+		}
+		return r.UpdateFinding(ctx, sc.TenantID, next)
+	})
+	if err != nil {
+		return domain.Finding{}, err
+	}
+	return c.Store.Finding(ctx, sc.TenantID, id)
+}
+
+// DeleteFinding deletes a finding; deleting an approved one is audited.
+func (c *Clinical) DeleteFinding(ctx context.Context, sc domain.Scope, id string) error {
+	if err := sc.RequireEdit(); err != nil {
+		return err
+	}
+	return c.Store.InTx(ctx, func(r port.Repos) error {
+		old, err := r.Finding(ctx, sc.TenantID, id)
+		if err != nil {
+			return err
+		}
+		if old.Status == domain.StatusApproved {
+			if err := c.audit(ctx, r, sc, domain.AuditFinding, id, "delete", old); err != nil {
+				return err
+			}
+		}
+		return r.DeleteFinding(ctx, sc.TenantID, id)
+	})
+}
+
+// AddFinding types a finding into a filed document by hand (HW-READ-7).
+func (c *Clinical) AddFinding(ctx context.Context, sc domain.Scope, documentID string, input domain.FindingInput) (domain.Finding, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return domain.Finding{}, err
+	}
+	in, err := input.Validate()
+	if err != nil {
+		return domain.Finding{}, err
+	}
+	f := findingFrom(in, c.Clock())
+	err = c.Store.InTx(ctx, func(r port.Repos) error {
+		doc, _, err := documentOwner(ctx, r, sc.TenantID, documentID)
+		if err != nil {
+			return err
+		}
+		if err := c.checkPage(ctx, r, sc, in.PageID); err != nil {
+			return err
+		}
+		f.ID, f.Status, f.DocumentID, f.PersonID, f.Confidence = NewID(), domain.StatusApproved, doc.ID, doc.PersonID, 100
+		return r.CreateFinding(ctx, sc.TenantID, f)
+	})
+	if err != nil {
+		return domain.Finding{}, err
+	}
+	return c.Store.Finding(ctx, sc.TenantID, f.ID)
+}
+
+// observationProvider returns the provider whose papers an observation
+// came from: its visit's provider once filed, else the reading's proposal.
+func observationProvider(ctx context.Context, r port.Repos, tenantID string, o domain.Observation) (string, error) {
+	if o.DocumentID != "" {
+		_, visit, err := documentOwner(ctx, r, tenantID, o.DocumentID)
+		if err != nil {
+			return "", err
+		}
+		if visit.Provider != nil {
+			return visit.Provider.ID, nil
+		}
+		return "", nil
+	}
+	if o.ItemID == "" {
+		return "", nil
+	}
+	rd, err := r.Reading(ctx, tenantID, o.ItemID)
+	if errors.Is(err, domain.ErrNotFound) || (err == nil && (rd.Proposal == nil || rd.Proposal.ProviderName == "")) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	pr, err := r.ProviderByKey(ctx, tenantID, domain.FoldKey(rd.Proposal.ProviderName))
+	if errors.Is(err, domain.ErrNotFound) {
+		return "", nil
+	}
+	return pr.ID, err
+}
+
+// LinkMetric links an observation to a catalog entry, or unlinks it with
+// "", and remembers the link for that analyte name and provider so later
+// readings use it (HW-READ-5).
+func (c *Clinical) LinkMetric(ctx context.Context, sc domain.Scope, id, code string) (domain.Observation, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return domain.Observation{}, err
+	}
+	if code != "" {
+		if _, ok := c.Catalog.Metric(code); !ok {
+			return domain.Observation{}, domain.Invalid("unknown metric %q", code)
+		}
+	}
+	err := c.Store.InTx(ctx, func(r port.Repos) error {
+		o, err := r.Observation(ctx, sc.TenantID, id)
+		if err != nil {
+			return err
+		}
+		if o.Status == domain.StatusApproved {
+			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "update", o); err != nil {
+				return err
+			}
+		}
+		providerID, err := observationProvider(ctx, r, sc.TenantID, o)
+		if err != nil {
+			return err
+		}
+		if code != "" {
+			if err := r.SetAnalyteLink(ctx, sc.TenantID, providerID, domain.FoldKey(o.Analyte), code); err != nil {
+				return err
+			}
+		}
+		o.MetricCode, o.UpdatedAt = code, c.Clock()
+		return r.UpdateObservation(ctx, sc.TenantID, o)
+	})
+	if err != nil {
+		return domain.Observation{}, err
+	}
+	return c.Store.Observation(ctx, sc.TenantID, id)
+}
+
+// History returns the audit log of an observation or finding (HW-REC-6).
+func (c *Clinical) History(ctx context.Context, sc domain.Scope, entity domain.AuditEntity, id string) ([]domain.AuditEntry, error) {
+	if err := sc.RequireRead(); err != nil {
+		return nil, err
+	}
+	return c.Store.AuditOf(ctx, sc.TenantID, entity, id)
+}
+
+// Metrics returns the catalog (HW-MET-1).
+func (c *Clinical) Metrics(sc domain.Scope) ([]domain.Metric, error) {
+	if err := sc.RequireRead(); err != nil {
+		return nil, err
+	}
+	return c.Catalog.Metrics(), nil
+}
+
+// DocumentDetail is the document viewer's data (HW-FIND-3).
+type DocumentDetail struct {
+	Document     domain.Document      `json:"document"`
+	Visit        domain.Visit         `json:"visit"`
+	Pages        []domain.Page        `json:"pages"`
+	Observations []domain.Observation `json:"observations"`
+	Findings     []domain.Finding     `json:"findings"`
+}
+
+// Document returns a filed document with its pages, observations and findings.
+func (c *Clinical) Document(ctx context.Context, sc domain.Scope, id string) (DocumentDetail, error) {
+	if err := sc.RequireRead(); err != nil {
+		return DocumentDetail{}, err
+	}
+	doc, err := c.Store.Document(ctx, sc.TenantID, id)
+	if err != nil {
+		return DocumentDetail{}, err
+	}
+	d := DocumentDetail{Document: doc, Pages: []domain.Page{}}
+	if d.Visit, err = c.Store.Visit(ctx, sc.TenantID, doc.VisitID); err != nil {
+		return DocumentDetail{}, err
+	}
+	for _, f := range doc.Files {
+		pages, err := c.Store.PagesOf(ctx, sc.TenantID, f.ID)
+		if err != nil {
+			return DocumentDetail{}, err
+		}
+		d.Pages = append(d.Pages, pages...)
+	}
+	if d.Observations, err = c.Store.ObservationsOfDocument(ctx, sc.TenantID, id); err != nil {
+		return DocumentDetail{}, err
+	}
+	if d.Findings, err = c.Store.FindingsOfDocument(ctx, sc.TenantID, id); err != nil {
+		return DocumentDetail{}, err
+	}
+	return d, nil
+}
+
+// DocumentInput changes a document's kind and title (HW-READ-7).
+type DocumentInput struct {
+	Kind  string `json:"kind"`
+	Title string `json:"title"`
+}
+
+// UpdateDocument changes a filed document's kind and title.
+func (c *Clinical) UpdateDocument(ctx context.Context, sc domain.Scope, id string, in DocumentInput) (DocumentDetail, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return DocumentDetail{}, err
+	}
+	kind, title, err := docInput(in.Kind, in.Title)
+	if err != nil {
+		return DocumentDetail{}, err
+	}
+	if err := c.Store.UpdateDocument(ctx, sc.TenantID, id, kind, title); err != nil {
+		return DocumentDetail{}, err
+	}
+	return c.Document(ctx, sc, id)
+}
+
+// auditDocumentRecords audits every approved record of a document before
+// the document and its records are deleted (HW-REC-6).
+func auditDocumentRecords(ctx context.Context, r port.Repos, clock func() time.Time, sc domain.Scope, documentID string) error {
+	obs, err := r.ObservationsOfDocument(ctx, sc.TenantID, documentID)
+	if err != nil {
+		return err
+	}
+	for _, o := range obs {
+		if err := addAudit(ctx, r, clock, sc, domain.AuditObservation, o.ID, "delete", o); err != nil {
+			return err
+		}
+	}
+	finds, err := r.FindingsOfDocument(ctx, sc.TenantID, documentID)
+	if err != nil {
+		return err
+	}
+	for _, f := range finds {
+		if err := addAudit(ctx, r, clock, sc, domain.AuditFinding, f.ID, "delete", f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MaxSearchResults bounds one search.
+const MaxSearchResults = 50
+
+// SearchResult is the answer to a search.
+type SearchResult struct {
+	Query string             `json:"query"`
+	Hits  []domain.SearchHit `json:"hits"`
+}
+
+// Search finds pages, findings and visits by their words, ignoring case
+// and accents (HW-FIND-2).
+func (c *Clinical) Search(ctx context.Context, sc domain.Scope, q string) (SearchResult, error) {
+	if err := sc.RequireRead(); err != nil {
+		return SearchResult{}, err
+	}
+	if utf8.RuneCountInString(q) > 200 {
+		return SearchResult{}, domain.Invalid("the search is longer than 200 characters")
+	}
+	expr, terms, err := domain.SearchQuery(q)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	rows, err := c.Store.Search(ctx, sc.TenantID, expr, MaxSearchResults)
+	if err != nil {
+		return SearchResult{}, err
+	}
+	res := SearchResult{Query: q, Hits: make([]domain.SearchHit, len(rows))}
+	for i, row := range rows {
+		hit := row.Hit
+		hit.Snippet = domain.Snippet(row.Body, terms, 80)
+		res.Hits[i] = hit
+	}
+	return res, nil
+}
