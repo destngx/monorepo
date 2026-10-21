@@ -36,6 +36,7 @@ type Services struct {
 	Records  *service.Records
 	Inbox    *service.Inbox
 	Clinical *service.Clinical
+	Engine   *service.Engine
 }
 
 // Options configure the HTTP server.
@@ -75,6 +76,7 @@ func New(svc Services, opts Options) *fiber.App {
 
 	signedIn := api.Group("", s.requireSession, s.requireCSRF)
 	s.accountRoutes(signedIn)
+	s.engineRoutes(signedIn)
 
 	tenant := signedIn.Group("/tenants/:tenantId", s.requireTenant)
 	s.tenantRoutes(tenant)

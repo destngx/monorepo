@@ -11,33 +11,37 @@ pnpm exec nx run health-watcher:serve   # engine on :9191 and the UI dev server 
 pnpm exec nx run health-watcher:start   # production: builds the UI, the engine serves it at http://127.0.0.1:9191/ui
 ```
 
-Reading needs the mac-ocr binary with schema 1.2 (`--render-dir`): `pnpm exec nx build mac-ocr` writes `apps/mac-ocr/bin/mac-ocr`, the engine's default. An older build still reads text, but its pages have no images, so nothing is sent to the AI provider until it is rebuilt.
+Reading needs the mac-ocr binary with schema 1.2 (`--render-dir`): `pnpm exec nx build mac-ocr` writes `apps/mac-ocr/bin/mac-ocr`, the engine's default. After setup, turn AI reading on by setting the AI address in Engine settings (section 2). An older build still reads text, but its pages have no images, so nothing is sent to the AI provider until it is rebuilt.
 
 On the first start the engine writes a one-time setup code to `setup-code` in the data folder and logs that file's path. The UI shows a setup page that asks for the code, then creates the first account and family. Only someone who can read the Mac's data folder can do setup.
 
-## 2. Configuration
+## 2. Engine settings
 
-Environment variables, all optional:
+Settings live in the database, not in environment variables. An engine admin edits them at **Settings → Engine settings** (`/ui/settings/engine`). The account that ran first-time setup is the first admin and can make other accounts admins; one admin always remains. The settings apply to every family on the Mac.
 
-| Variable             | Default                                        | Meaning                                                                                                                           |
-| -------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `HOST`               | `127.0.0.1`                                    | Listen address. Use the Mac's Tailscale address to reach it from a phone.                                                         |
-| `PORT`               | `9191`                                         | Listen port.                                                                                                                      |
-| `HW_DATA_DIR`        | `~/Library/Application Support/health-watcher` | Database and files.                                                                                                               |
-| `HW_UI_BUILD_DIR`    | `ui/build`                                     | The built UI the engine serves.                                                                                                   |
-| `HW_MAX_FILE_MB`     | `50`                                           | Largest accepted file.                                                                                                            |
-| `HW_MAX_BATCH_MB`    | `200`                                          | Largest upload batch.                                                                                                             |
-| `HW_MAC_OCR_BIN`     | `../mac-ocr/bin/mac-ocr`                       | The mac-ocr binary, relative to the engine's working directory.                                                                   |
-| `HW_WORKERS`         | `2`                                            | Background jobs (OCR and AI reading) that run at once, 1 to 8.                                                                    |
-| `AI_BASE_URL`        | empty                                          | OpenAI Responses API base, e.g. `http://localhost:8080/v1` for ai-gateway. Empty turns AI reading off; OCR and search still work. |
-| `AI_API_KEY`         | empty                                          | Bearer token for the provider, if it needs one.                                                                                   |
-| `AI_TIMEOUT_SECONDS` | `180`                                          | Limit for one reading request.                                                                                                    |
+| Setting                 | Default                                  | Applies           | Meaning                                                                                                                           |
+| ----------------------- | ---------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| AI address              | empty                                    | at once           | OpenAI Responses API base, e.g. `http://localhost:8080/v1` for ai-gateway. Empty turns AI reading off; OCR and search still work. |
+| API key                 | empty                                    | at once           | Bearer token for the provider, if it needs one. Never shown again after saving.                                                   |
+| Time limit per reading  | 180 s                                    | at once           | 5 to 1800 seconds.                                                                                                                |
+| mac-ocr program         | `../mac-ocr/bin/mac-ocr` from the engine | at once           | A full path to a program named `mac-ocr`; empty uses the build next to the engine.                                                |
+| Background jobs at once | 2                                        | at once           | OCR and AI readings, 1 to 8.                                                                                                      |
+| Largest file            | 50 MB                                    | at once           | Up to 1024 MB.                                                                                                                    |
+| Largest upload          | 200 MB                                   | restart if raised | Up to 4096 MB, at least the largest file.                                                                                         |
+| Host                    | `127.0.0.1`                              | restart           | An address of this Mac. Use its Tailscale address to reach it from a phone.                                                       |
+| Port                    | `9191`                                   | restart           | 1024 to 65535.                                                                                                                    |
+
+The model is always `gpt-6-luna` at low reasoning effort (D6); it is not a setting. _Check connection_ sends a small request with the saved AI settings and no health data.
+
+If the engine cannot listen on the saved host and port for about 30 seconds, for example because Tailscale is down, it starts on `127.0.0.1:9191` and logs why, so the page stays reachable on the Mac. A saved value that fails the checks, for example after editing the database by hand, keeps its default; the page names it until the next save.
+
+The only environment variable left is `HW_DATA_DIR`, the data folder (default `~/Library/Application Support/health-watcher`), because the database lives in it. Upgrading from the environment-variable setup: on the first start with an empty settings table, the engine imports the retired variables it finds (`HOST`, `PORT`, `AI_BASE_URL`, `AI_API_KEY` and the rest) once. After that it logs a warning for each one still set; they do nothing.
 
 ## 3. Data
 
-Everything stays on the Mac, in `HW_DATA_DIR`:
+Everything stays on the Mac, in the data folder (`HW_DATA_DIR`):
 
-- `health.db`: SQLite, mode `0600`. Schema changes are numbered SQL files in `adapter/sqlite/migrations`, applied at start.
+- `health.db`: SQLite, mode `0600`. It holds the engine settings too, the AI API key included. Schema changes are numbered SQL files in `adapter/sqlite/migrations`, applied at start.
 - `files/ab/cd/<sha256>`: originals, named by their SHA-256, mode `0600`. The same file uploaded twice is stored once. Rendered page images and their masked copies live here too.
 - `work/`: scratch space for mac-ocr, emptied after each file.
 

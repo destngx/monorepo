@@ -63,7 +63,7 @@ func (in *Inbox) newItem(ctx context.Context, sc domain.Scope, itemID string) (d
 
 func (in *Inbox) requirePipeline() error {
 	if in.Pipeline == nil || !in.Pipeline.AIEnabled() {
-		return domain.Conflict("AI reading is off: set AI_BASE_URL to turn it on")
+		return domain.Conflict("AI reading is off: an engine admin turns it on in Engine settings")
 	}
 	return nil
 }

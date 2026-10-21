@@ -18,8 +18,8 @@ func (r repos) CountUsers(ctx context.Context) (int, error) {
 }
 
 func (r repos) CreateUser(ctx context.Context, u domain.User, passwordHash string) error {
-	res, err := r.q.ExecContext(ctx, `INSERT INTO users (id, email, display_name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)`,
-		u.ID, u.Email, u.DisplayName, passwordHash, formatTime(u.CreatedAt))
+	res, err := r.q.ExecContext(ctx, `INSERT INTO users (id, email, display_name, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		u.ID, u.Email, u.DisplayName, passwordHash, u.Admin, formatTime(u.CreatedAt))
 	if isUnique(err) {
 		return domain.Conflict("an account with this email already exists")
 	}
@@ -29,8 +29,8 @@ func (r repos) CreateUser(ctx context.Context, u domain.User, passwordHash strin
 func (r repos) userBy(ctx context.Context, column, value string) (domain.User, string, error) {
 	var u domain.User
 	var hash, created string
-	err := r.q.QueryRowContext(ctx, `SELECT id, email, display_name, password_hash, created_at FROM users WHERE `+column+` = ?`, value).
-		Scan(&u.ID, &u.Email, &u.DisplayName, &hash, &created)
+	err := r.q.QueryRowContext(ctx, `SELECT id, email, display_name, password_hash, is_admin, created_at FROM users WHERE `+column+` = ?`, value).
+		Scan(&u.ID, &u.Email, &u.DisplayName, &hash, &u.Admin, &created)
 	if err := one(err, "user"); err != nil {
 		return u, "", err
 	}
@@ -46,6 +46,43 @@ func (r repos) UserByEmail(ctx context.Context, email string) (domain.User, stri
 
 func (r repos) UserByID(ctx context.Context, id string) (domain.User, string, error) {
 	return r.userBy(ctx, "id", id)
+}
+
+func (r repos) ListUsers(ctx context.Context) ([]domain.User, error) {
+	rows, err := r.q.QueryContext(ctx, `SELECT id, email, display_name, is_admin, created_at FROM users ORDER BY created_at, id`)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.User{}
+	for rows.Next() {
+		var u domain.User
+		var created string
+		if err := rows.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Admin, &created); err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		if u.CreatedAt, err = parseTime(created); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	return out, nil
+}
+
+func (r repos) CountAdmins(ctx context.Context) (int, error) {
+	var n int
+	if err := r.q.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE is_admin = 1`).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count admins: %w", err)
+	}
+	return n, nil
+}
+
+func (r repos) SetUserAdmin(ctx context.Context, userID string, admin bool) error {
+	res, err := r.q.ExecContext(ctx, `UPDATE users SET is_admin = ? WHERE id = ?`, admin, userID)
+	return affected(res, err, "user")
 }
 
 func (r repos) SetPasswordHash(ctx context.Context, userID, passwordHash string) error {

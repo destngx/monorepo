@@ -7,10 +7,10 @@ The flow: Notes or Files scanner (or Zalo, Mail, Photos) → Share → **Send to
 ## 1. Engine reachable from the phone
 
 1. Install Tailscale on the Mac and the iPhone and sign both into the same tailnet. Note the Mac's tailnet address (`tailscale ip -4`, a `100.x.y.z` address).
-2. Start the engine with `HOST` set to that address:
+2. On the Mac, open **Settings → Engine settings** (engine admins only), set **Host** to that address and save. Restart the engine:
 
    ```sh
-   HOST=100.x.y.z pnpm exec nx run health-watcher:start
+   pnpm exec nx run health-watcher:start
    ```
 
 3. On the iPhone, open Safari at `http://100.x.y.z:9191/api/health`. A short JSON page means the phone can reach the engine.

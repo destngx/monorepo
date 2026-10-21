@@ -1,10 +1,13 @@
 import { request } from './client';
 import type {
+  AICheck,
   AuditEntry,
   CreatedInvite,
   CreatedUploadToken,
   DocumentDetail,
   DocumentKind,
+  EngineSettingsInput,
+  EngineSettingsView,
   Filed,
   FileInput,
   Finding,
@@ -30,6 +33,7 @@ import type {
   Role,
   SetupStatus,
   Tenant,
+  User,
   UploadResponse,
   UploadToken,
   Visit,
@@ -67,6 +71,16 @@ export const auth = {
   acceptInvite: (token: string) => request<Tenant>(`/invites/${encodeURIComponent(token)}/accept`, { method: 'POST' }),
   signUp: (token: string, body: SignUpInput) =>
     request<Me>(`/invites/${encodeURIComponent(token)}/signup`, { method: 'POST', body }),
+};
+
+/** Engine settings and admins; the engine lets only engine admins in (HW-OPS-9). */
+export const engine = {
+  settings: (fetch?: Fetch) => request<EngineSettingsView>('/engine/settings', { fetch }),
+  save: (body: EngineSettingsInput) => request<EngineSettingsView>('/engine/settings', { method: 'PUT', body }),
+  checkAI: () => request<AICheck>('/engine/settings/check-ai', { method: 'POST' }),
+  users: (fetch?: Fetch) => request<User[]>('/engine/users', { fetch }),
+  setAdmin: (userId: string, admin: boolean) =>
+    request<User>(`/engine/users/${encodeURIComponent(userId)}/admin`, { method: 'PUT', body: { admin } }),
 };
 
 /** Routes of one tenant. */

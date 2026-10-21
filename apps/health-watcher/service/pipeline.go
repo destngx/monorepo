@@ -25,6 +25,8 @@ import (
 // so work survives a restart.
 type Pipeline struct {
 	Deps
+	// OCR, Reader and Workers may change while the pipeline runs; see
+	// Configure.
 	OCR    port.OCR
 	Masker port.ImageMasker
 	// Reader is nil when AI is not configured; items then stay OCR-only.
@@ -40,6 +42,47 @@ type Pipeline struct {
 
 	wakeOnce sync.Once
 	wake     chan struct{}
+
+	mu sync.RWMutex
+	// changed is closed and replaced by each Configure, waking parked workers.
+	changed chan struct{}
+}
+
+// Configure swaps the OCR tool, the AI reader (nil turns AI reading off)
+// and the number of workers while the pipeline runs (HW-OPS-9). A job in
+// progress finishes with the tools it started with.
+func (p *Pipeline) Configure(ocr port.OCR, reader port.Reader, workers int) {
+	p.mu.Lock()
+	p.OCR, p.Reader, p.Workers = ocr, reader, workers
+	if p.changed != nil {
+		close(p.changed)
+	}
+	p.changed = make(chan struct{})
+	p.mu.Unlock()
+	p.Wake()
+}
+
+func (p *Pipeline) ocr() port.OCR {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.OCR
+}
+
+func (p *Pipeline) reader() port.Reader {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.Reader
+}
+
+// workers is how many workers may claim jobs now, and a channel closed at
+// the next Configure.
+func (p *Pipeline) workers() (int, <-chan struct{}) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.changed == nil {
+		p.changed = make(chan struct{})
+	}
+	return min(max(domain.MinWorkers, p.Workers), domain.MaxWorkers), p.changed
 }
 
 func (p *Pipeline) wakeChan() chan struct{} {
@@ -56,10 +99,11 @@ func (p *Pipeline) Wake() {
 }
 
 // AIEnabled reports whether items are sent for AI reading.
-func (p *Pipeline) AIEnabled() bool { return p.Reader != nil }
+func (p *Pipeline) AIEnabled() bool { return p.reader() != nil }
 
 // Start requeues jobs a stopped engine left running, queues OCR for files
-// that have none, and starts the workers. They stop with ctx.
+// that have none, and starts the most workers Configure may allow; only
+// as many as Workers claim jobs, the rest wait. They stop with ctx.
 func (p *Pipeline) Start(ctx context.Context) (*sync.WaitGroup, error) {
 	if err := os.MkdirAll(p.WorkDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create work directory: %w", err)
@@ -76,24 +120,30 @@ func (p *Pipeline) Start(ctx context.Context) (*sync.WaitGroup, error) {
 			return nil, err
 		}
 	}
-	workers := max(1, p.Workers)
 	poll := p.Poll
 	if poll <= 0 {
 		poll = 5 * time.Second
 	}
 	var wg sync.WaitGroup
-	for range workers {
+	for i := range domain.MaxWorkers {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			p.loop(ctx, poll)
+			p.loop(ctx, poll, i)
 		}()
 	}
 	return &wg, nil
 }
 
-func (p *Pipeline) loop(ctx context.Context, poll time.Duration) {
+func (p *Pipeline) loop(ctx context.Context, poll time.Duration, index int) {
 	for ctx.Err() == nil {
+		if n, changed := p.workers(); index >= n {
+			select {
+			case <-ctx.Done():
+			case <-changed:
+			}
+			continue
+		}
 		ran, err := p.RunOnce(ctx)
 		if err != nil && ctx.Err() == nil {
 			p.Log.Error("job queue", "error", err)
@@ -226,7 +276,7 @@ func (p *Pipeline) runOCR(ctx context.Context, job domain.Job) error {
 	if err := os.Mkdir(renderDir, 0o700); err != nil {
 		return fmt.Errorf("create render directory: %w", err)
 	}
-	read, err := p.OCR.Read(ctx, input, renderDir)
+	read, err := p.ocr().Read(ctx, input, renderDir)
 	if err != nil {
 		return err
 	}
@@ -350,7 +400,7 @@ func (p *Pipeline) ScheduleReading(ctx context.Context, tenantID, itemID string,
 	case prog.Done < prog.Total:
 		rd.Status, rd.Reason = domain.ReadingWaiting, ""
 		return ignoreGone(p.Store.SaveReading(ctx, tenantID, rd))
-	case p.Reader == nil:
+	case p.reader() == nil:
 		rd.Status, rd.Reason = domain.ReadingOff, ""
 		return ignoreGone(p.Store.SaveReading(ctx, tenantID, rd))
 	}
@@ -458,9 +508,7 @@ func (p *Pipeline) readBytes(ctx context.Context, sha string) ([]byte, error) {
 // runRead masks an item's pages and, when every page may be sent, asks the
 // AI provider to read them. The answer becomes drafts (HW-READ-4).
 func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
-	if p.Reader == nil {
-		return nil
-	}
+	reader := p.reader()
 	tenantID, itemID := job.TenantID, job.SubjectID
 	item, err := p.Store.InboxItem(ctx, tenantID, itemID)
 	if errors.Is(err, domain.ErrNotFound) {
@@ -484,6 +532,10 @@ func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
 	save := func(status domain.ReadingStatus, reason string) error {
 		rd.Status, rd.Reason, rd.Error, rd.UpdatedAt = status, reason, "", p.Clock()
 		return ignoreGone(p.Store.SaveReading(ctx, tenantID, rd))
+	}
+	// An admin turned AI reading off after this job was queued.
+	if reader == nil {
+		return save(domain.ReadingOff, "")
 	}
 
 	pages, ready, err := p.itemPages(ctx, tenantID, item)
@@ -540,7 +592,7 @@ func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
 		}
 		readPages[i] = port.ReadPage{Number: i + 1, JPEG: img, Text: masks[i].Text}
 	}
-	res, err := p.Reader.Read(ctx, readPages)
+	res, err := reader.Read(ctx, readPages)
 	if err != nil {
 		return err
 	}

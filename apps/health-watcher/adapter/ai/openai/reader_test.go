@@ -79,3 +79,39 @@ func TestGivenAnIncompleteOrRefusedAnswerWhenReadingThenItIsAnError(t *testing.T
 		srv.Close()
 	}
 }
+
+func TestGivenAProviderWhenPingingThenASmallStrictRequestChecksTheModelAndKey(t *testing.T) {
+	var got map[string]any
+	answer := `{"ok":true}`
+	status := http.StatusOK
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &got)
+		if r.Header.Get("Authorization") != "Bearer k" {
+			t.Errorf("authorization = %q", r.Header.Get("Authorization"))
+		}
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]any{"model": "gpt-6-luna", "status": "completed",
+			"output": []any{map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": answer}}}}})
+	}))
+	r := New(Config{BaseURL: srv.URL, APIKey: "k", Model: "gpt-6-luna", Effort: "low"}, nil)
+	if err := r.Ping(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	format := got["text"].(map[string]any)["format"].(map[string]any)
+	if got["model"] != "gpt-6-luna" || got["store"] != false || format["strict"] != true || got["reasoning"].(map[string]any)["effort"] != "low" {
+		t.Fatalf("request = %v", got)
+	}
+	answer = `{"ok":false}`
+	if err := r.Ping(context.Background()); err == nil {
+		t.Fatal("a wrong answer passed")
+	}
+	status, answer = http.StatusUnauthorized, `Incorrect API key provided: sk-...abcd`
+	if err := r.Ping(context.Background()); err == nil || err.Error() != "the AI provider returned 401 Unauthorized" {
+		t.Fatalf("err = %v", err)
+	}
+	srv.Close()
+	if err := r.Ping(context.Background()); err == nil || err.Error() != "the AI provider is unreachable at this address" {
+		t.Fatalf("err = %v", err)
+	}
+}

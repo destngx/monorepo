@@ -129,6 +129,8 @@ func (a *Accounts) Setup(ctx context.Context, in SetupInput) (SignedIn, error) {
 	if err != nil {
 		return SignedIn{}, err
 	}
+	// The account that sets the engine up is its first admin (HW-OPS-9).
+	user.Admin = true
 	now := a.Clock()
 	err = a.Store.InTx(ctx, func(r port.Repos) error {
 		n, err := r.CountUsers(ctx)

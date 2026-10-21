@@ -35,7 +35,11 @@ export function readingState(item: InboxItem): ReadingState {
     case 'waiting':
       return { label: 'Reading text on the Mac', detail: '', tone: 'busy' };
     case 'off':
-      return { label: 'AI reading is off', detail: 'File it by hand, or set AI_BASE_URL.', tone: 'neutral' };
+      return {
+        label: 'AI reading is off',
+        detail: 'File it by hand, or ask an engine admin to set the AI address in Engine settings.',
+        tone: 'neutral',
+      };
     case 'needs_check':
       return { label: 'Check the masked pages', detail: r.reason ?? '', tone: 'warn' };
     case 'queued':

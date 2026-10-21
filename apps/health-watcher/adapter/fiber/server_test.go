@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -63,6 +64,11 @@ func newHarness(t *testing.T) *harness {
 		Records:  records,
 		Inbox:    &service.Inbox{Deps: deps, Records: records, Limits: service.DefaultLimits},
 		Clinical: &service.Clinical{Deps: deps, Catalog: domain.DefaultCatalog},
+		Engine: &service.Engine{Deps: deps, Log: slog.New(slog.DiscardHandler), DefaultMacOCRBin: filepath.Join(dir, "no-mac-ocr"),
+			LocalAddrs: func() ([]netip.Addr, error) { return []netip.Addr{netip.MustParseAddr("127.0.0.1")}, nil }},
+	}
+	if _, _, err := svc.Engine.Load(ctx, nil); err != nil {
+		t.Fatal(err)
 	}
 	code, err := accounts.PrepareSetup(ctx)
 	if err != nil {

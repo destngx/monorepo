@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"path/filepath"
+	"sync"
 	"unicode/utf8"
 
 	"apps/health-watcher/domain"
@@ -30,9 +31,25 @@ var DefaultLimits = Limits{
 type Inbox struct {
 	Deps
 	Records *Records
-	Limits  Limits
+	// Limits may change while the engine runs; see SetLimits.
+	Limits Limits
 	// Pipeline reads uploads in the background; nil in tests that only file.
 	Pipeline *Pipeline
+
+	limitsMu sync.RWMutex
+}
+
+// SetLimits changes the upload limits for the next upload (HW-OPS-9).
+func (in *Inbox) SetLimits(l Limits) {
+	in.limitsMu.Lock()
+	in.Limits = l
+	in.limitsMu.Unlock()
+}
+
+func (in *Inbox) limits() Limits {
+	in.limitsMu.RLock()
+	defer in.limitsMu.RUnlock()
+	return in.Limits
 }
 
 // UploadRequest is one batch of files.
@@ -63,19 +80,20 @@ func (in *Inbox) checkBatch(req UploadRequest) error {
 	if utf8.RuneCountInString(req.Note) > domain.MaxNoteLength {
 		return domain.Invalid("note is longer than %d characters", domain.MaxNoteLength)
 	}
+	limits := in.limits()
 	var total int64
 	for _, f := range req.Files {
 		size := int64(len(f.Data))
 		if size == 0 {
 			return domain.Invalid("%s is empty", displayName(f.Name))
 		}
-		if size > in.Limits.MaxFileBytes {
-			return domain.Invalid("%s is larger than %d MB", displayName(f.Name), in.Limits.MaxFileBytes>>20)
+		if size > limits.MaxFileBytes {
+			return domain.Invalid("%s is larger than %d MB", displayName(f.Name), limits.MaxFileBytes>>20)
 		}
 		total += size
 	}
-	if total > in.Limits.MaxBatchBytes {
-		return domain.Invalid("the upload is larger than %d MB", in.Limits.MaxBatchBytes>>20)
+	if total > limits.MaxBatchBytes {
+		return domain.Invalid("the upload is larger than %d MB", limits.MaxBatchBytes>>20)
 	}
 	return nil
 }

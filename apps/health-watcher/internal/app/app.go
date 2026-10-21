@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/netip"
 	"os"
 	"sync"
 	"time"
@@ -22,6 +24,7 @@ import (
 	"apps/health-watcher/adapter/sqlite"
 	"apps/health-watcher/domain"
 	"apps/health-watcher/internal/config"
+	"apps/health-watcher/port"
 	"apps/health-watcher/service"
 )
 
@@ -31,6 +34,11 @@ type Engine struct {
 	Services fiberAdapter.Services
 	// Pipeline is the background reader; Start runs it.
 	Pipeline *service.Pipeline
+	// Settings holds the engine settings from the database (HW-OPS-9).
+	Settings *service.Engine
+	// ImportedEnv says the retired environment variables were saved as the
+	// first settings at this start.
+	ImportedEnv bool
 	// SetupCodePath is the file holding the first-run setup code, or ""
 	// once setup is done (HW-AUTH-4).
 	SetupCodePath string
@@ -69,26 +77,72 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 		_ = store.Close()
 		return nil, err
 	}
-	pipeline := &service.Pipeline{Deps: deps, OCR: macocr.New(cfg.MacOCRBin), Masker: imaging.Masker{Quality: 85},
-		Catalog: domain.DefaultCatalog, WorkDir: cfg.WorkDir(), Log: log, Workers: cfg.Workers}
-	if cfg.AI.Enabled() {
-		pipeline.Reader = openai.New(openai.Config{BaseURL: cfg.AI.BaseURL, APIKey: cfg.AI.APIKey, Model: cfg.AI.Model,
-			Effort: cfg.AI.Effort, Timeout: cfg.AI.Timeout}, nil)
+	defaultBin, err := config.DefaultMacOCRBin()
+	if err != nil {
+		_ = store.Close()
+		return nil, err
 	}
+	settings := &service.Engine{Deps: deps, Log: log, DefaultMacOCRBin: defaultBin, LocalAddrs: localAddrs,
+		PingAI: func(ctx context.Context, s domain.Settings) error { return newReader(s).Ping(ctx) }}
+	current, imported, err := settings.Load(ctx, cfg.Legacy)
+	if err != nil {
+		_ = store.Close()
+		return nil, err
+	}
+	pipeline := &service.Pipeline{Deps: deps, Masker: imaging.Masker{Quality: 85}, Catalog: domain.DefaultCatalog,
+		WorkDir: cfg.WorkDir(), Log: log}
 	records := &service.Records{Deps: deps}
-	limits := service.Limits{MaxFileBytes: int64(cfg.MaxFileMB) << 20, MaxBatchBytes: int64(cfg.MaxBatchMB) << 20}
+	inbox := &service.Inbox{Deps: deps, Records: records, Pipeline: pipeline}
+	settings.Apply = func(s domain.Settings) {
+		bin := s.MacOCRBin
+		if bin == "" {
+			bin = defaultBin
+		}
+		var reader port.Reader
+		if s.AIEnabled() {
+			reader = newReader(s)
+		}
+		pipeline.Configure(macocr.New(bin), reader, s.Workers)
+		inbox.SetLimits(service.Limits{MaxFileBytes: int64(s.MaxFileMB) << 20, MaxBatchBytes: int64(s.MaxBatchMB) << 20})
+	}
+	settings.Apply(current)
 	return &Engine{
 		SetupCodePath: setupPath,
 		Store:         store,
 		Pipeline:      pipeline,
+		Settings:      settings,
+		ImportedEnv:   imported,
 		Services: fiberAdapter.Services{
 			Accounts: accounts,
 			Tenants:  &service.Tenants{Deps: deps, Accounts: accounts},
 			Records:  records,
-			Inbox:    &service.Inbox{Deps: deps, Records: records, Limits: limits, Pipeline: pipeline},
+			Inbox:    inbox,
 			Clinical: &service.Clinical{Deps: deps, Catalog: domain.DefaultCatalog},
+			Engine:   settings,
 		},
 	}, nil
+}
+
+func newReader(s domain.Settings) *openai.Reader {
+	return openai.New(openai.Config{BaseURL: s.AIBaseURL, APIKey: s.AIAPIKey, Model: domain.AIModel, Effort: domain.AIEffort,
+		Timeout: time.Duration(s.AITimeoutSeconds) * time.Second}, nil)
+}
+
+// localAddrs lists the addresses of this Mac's network interfaces.
+func localAddrs() ([]netip.Addr, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]netip.Addr, 0, len(addrs))
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok {
+			if ip, ok := netip.AddrFromSlice(n.IP); ok {
+				out = append(out, ip.Unmap())
+			}
+		}
+	}
+	return out, nil
 }
 
 // writeSetupCode writes a fresh setup code to path (mode 0600) while no
@@ -113,13 +167,14 @@ func writeSetupCode(ctx context.Context, accounts *service.Accounts, path string
 	return path, nil
 }
 
-// HTTP builds the Fiber app for the engine.
-func (e *Engine) HTTP(cfg config.Config, log *slog.Logger) *fiber.App {
+// HTTP builds the Fiber app for the engine. Its body limit is the batch
+// limit at start; a larger one waits for the next start.
+func (e *Engine) HTTP(log *slog.Logger) *fiber.App {
 	// Multipart framing adds a little to the batch; 1 MiB covers it.
 	return fiberAdapter.New(e.Services, fiberAdapter.Options{
 		Log:        log,
-		BodyLimit:  (cfg.MaxBatchMB + 1) << 20,
-		UIBuildDir: cfg.UIBuildDir,
+		BodyLimit:  (e.Settings.Current().MaxBatchMB + 1) << 20,
+		UIBuildDir: config.UIBuildDir,
 	})
 }
 

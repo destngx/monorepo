@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"sync"
@@ -28,6 +29,7 @@ type env struct {
 	records  *Records
 	inbox    *Inbox
 	clinical *Clinical
+	engine   *Engine
 	pipeline *Pipeline
 	ocr      *fakeOCR
 	reader   *fakeReader
@@ -66,6 +68,13 @@ func newEnv(t *testing.T) *env {
 	}
 	e.inbox = &Inbox{Deps: deps, Records: e.records, Limits: DefaultLimits, Pipeline: e.pipeline}
 	e.clinical = &Clinical{Deps: deps, Catalog: domain.DefaultCatalog}
+	e.engine = &Engine{Deps: deps, Log: slog.New(slog.DiscardHandler), DefaultMacOCRBin: filepath.Join(dir, "no-mac-ocr"),
+		LocalAddrs: func() ([]netip.Addr, error) {
+			return []netip.Addr{netip.MustParseAddr("127.0.0.1"), netip.MustParseAddr("::1"), netip.MustParseAddr("100.64.0.7")}, nil
+		}}
+	if _, _, err := e.engine.Load(ctx, nil); err != nil {
+		t.Fatal(err)
+	}
 	return e
 }
 

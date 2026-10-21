@@ -17,6 +17,8 @@ export interface User {
   id: string;
   email: string;
   displayName: string;
+  /** May change the engine settings (HW-OPS-9). */
+  admin: boolean;
   createdAt: string;
 }
 
@@ -440,4 +442,44 @@ export interface FileInput {
 export interface Filed {
   visit: Visit;
   document: HealthDocument;
+}
+
+/** Engine settings, for every family on the Mac (HW-OPS-9). The API key is never sent back. */
+export interface EngineSettings {
+  host: string;
+  port: number;
+  maxFileMb: number;
+  maxBatchMb: number;
+  /** Empty means the mac-ocr build next to the engine. */
+  macOcrBin: string;
+  workers: number;
+  /** Empty turns AI reading off. */
+  aiBaseUrl: string;
+  aiTimeoutSeconds: number;
+}
+
+export type RestartField = 'host' | 'port' | 'maxBatchMb';
+
+export interface EngineSettingsView {
+  settings: EngineSettings;
+  aiApiKeySet: boolean;
+  aiModel: string;
+  aiEffort: string;
+  defaultMacOcrBin: string;
+  macOcrFound: boolean;
+  listening: string;
+  restartFields: RestartField[];
+  /** Fields whose stored value failed the checks at start; they use the default until the next save. */
+  rejected: (keyof EngineSettings | 'aiApiKey')[];
+  stamp: { updatedAt: string | null; updatedBy: string; updatedByName: string };
+}
+
+export interface EngineSettingsInput extends EngineSettings {
+  /** Absent keeps the saved key; empty removes it. */
+  aiApiKey?: string;
+}
+
+export interface AICheck {
+  ok: boolean;
+  message: string;
 }

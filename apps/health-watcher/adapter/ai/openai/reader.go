@@ -112,16 +112,67 @@ func (r *Reader) Read(ctx context.Context, pages []port.ReadPage) (port.ReadResu
 			content{Type: "input_text", Text: fmt.Sprintf("Page %d OCR text (personal lines replaced with %s):\n%s", p.Number, domain.MaskPlaceholder, p.Text)},
 		)
 	}
-	body := request{Model: r.cfg.Model, Instructions: domain.ReadingInstructions, Input: []message{{Role: "user", Content: parts}}}
-	body.Text.Format = textFormat{Type: "json_schema", Name: "document_reading", Strict: true, Schema: domain.ReadingSchema()}
+	body := r.request(domain.ReadingInstructions, parts, "document_reading", domain.ReadingSchema())
+	decoded, err := r.post(ctx, body)
+	if err != nil {
+		return port.ReadResult{}, err
+	}
+	var out domain.ReadingOutput
+	if err := json.Unmarshal([]byte(outputText(decoded)), &out); err != nil {
+		return port.ReadResult{}, fmt.Errorf("the AI answer is not the expected JSON: %w", err)
+	}
+	model := decoded.Model
+	if model == "" {
+		model = r.cfg.Model
+	}
+	return port.ReadResult{Model: model, Output: out}, nil
+}
+
+// Ping sends a small request with a strict schema, the same model and
+// effort as a reading, and no health data. It checks the address, the key
+// and that the provider serves the model (HW-OPS-9).
+func (r *Reader) Ping(ctx context.Context) error {
+	schema := map[string]any{"type": "object", "additionalProperties": false,
+		"properties": map[string]any{"ok": map[string]any{"type": "boolean"}}, "required": []any{"ok"}}
+	body := r.request("Answer with ok set to true.", []content{{Type: "input_text", Text: "Connection check."}}, "connection_check", schema)
+	decoded, err := r.post(ctx, body)
+	// The check answers an admin's browser: give the status only, since a
+	// provider's error text can quote part of the key.
+	var se *statusError
+	var ue *unreachableError
+	switch {
+	case errors.As(err, &se):
+		return fmt.Errorf("the AI provider returned %d %s", se.code, http.StatusText(se.code))
+	case errors.As(err, &ue):
+		return errors.New("the AI provider is unreachable at this address")
+	case err != nil:
+		return errors.New("the AI provider answered, but not as expected")
+	}
+	var out struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal([]byte(outputText(decoded)), &out); err != nil || !out.OK {
+		return errors.New("the AI provider answered, but not with the expected JSON")
+	}
+	return nil
+}
+
+func (r *Reader) request(instructions string, parts []content, name string, schema map[string]any) request {
+	body := request{Model: r.cfg.Model, Instructions: instructions, Input: []message{{Role: "user", Content: parts}}}
+	body.Text.Format = textFormat{Type: "json_schema", Name: name, Strict: true, Schema: schema}
 	if r.cfg.Effort != "" {
 		body.Reasoning = &struct {
 			Effort string `json:"effort"`
 		}{Effort: r.cfg.Effort}
 	}
+	return body
+}
+
+// post sends body to the Responses API and returns a completed answer.
+func (r *Reader) post(ctx context.Context, body request) (response, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return port.ReadResult{}, fmt.Errorf("encode AI request: %w", err)
+		return response{}, fmt.Errorf("encode AI request: %w", err)
 	}
 	if r.cfg.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -130,7 +181,7 @@ func (r *Reader) Read(ctx context.Context, pages []port.ReadPage) (port.ReadResu
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.cfg.BaseURL+"/responses", bytes.NewReader(payload))
 	if err != nil {
-		return port.ReadResult{}, fmt.Errorf("build AI request: %w", err)
+		return response{}, fmt.Errorf("build AI request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(providerHeader, "openai")
@@ -139,47 +190,64 @@ func (r *Reader) Read(ctx context.Context, pages []port.ReadPage) (port.ReadResu
 	}
 	resp, err := r.http.Do(req)
 	if err != nil {
-		return port.ReadResult{}, fmt.Errorf("AI provider unreachable: %w", err)
+		return response{}, &unreachableError{err: err}
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return port.ReadResult{}, fmt.Errorf("read AI response: %w", err)
+		return response{}, fmt.Errorf("read AI response: %w", err)
 	}
 	if resp.StatusCode/100 != 2 {
-		return port.ReadResult{}, fmt.Errorf("AI provider returned %d: %s", resp.StatusCode, errorMessage(raw))
+		return response{}, &statusError{code: resp.StatusCode, message: errorMessage(raw)}
 	}
 	var decoded response
 	if err := json.Unmarshal(raw, &decoded); err != nil {
-		return port.ReadResult{}, fmt.Errorf("decode AI response: %w", err)
+		return response{}, fmt.Errorf("decode AI response: %w", err)
 	}
 	if decoded.Status != "" && decoded.Status != "completed" {
 		reason := decoded.Status
 		if decoded.IncompleteDetails != nil && decoded.IncompleteDetails.Reason != "" {
 			reason += ": " + decoded.IncompleteDetails.Reason
 		}
-		return port.ReadResult{}, fmt.Errorf("AI response was %s", reason)
+		return response{}, fmt.Errorf("AI response was %s", reason)
 	}
-	var text strings.Builder
 	for _, o := range decoded.Output {
 		for _, c := range o.Content {
 			if c.Refusal != "" {
-				return port.ReadResult{}, errors.New("the AI provider refused to read the document")
+				return response{}, errors.New("the AI provider refused to read the document")
 			}
+		}
+	}
+	return decoded, nil
+}
+
+// statusError is a non-2xx answer.
+type statusError struct {
+	code    int
+	message string
+}
+
+func (e *statusError) Error() string {
+	return fmt.Sprintf("AI provider returned %d: %s", e.code, e.message)
+}
+
+// unreachableError is a request that got no answer.
+type unreachableError struct{ err error }
+
+func (e *unreachableError) Error() string { return fmt.Sprintf("AI provider unreachable: %v", e.err) }
+func (e *unreachableError) Unwrap() error { return e.err }
+
+// outputText joins the answer's text parts.
+func outputText(decoded response) string {
+	var text strings.Builder
+	for _, o := range decoded.Output {
+		for _, c := range o.Content {
 			if c.Type == "output_text" {
 				text.WriteString(c.Text)
 			}
 		}
 	}
-	var out domain.ReadingOutput
-	if err := json.Unmarshal([]byte(text.String()), &out); err != nil {
-		return port.ReadResult{}, fmt.Errorf("the AI answer is not the expected JSON: %w", err)
-	}
-	model := decoded.Model
-	if model == "" {
-		model = r.cfg.Model
-	}
-	return port.ReadResult{Model: model, Output: out}, nil
+	return text.String()
 }
 
 // errorMessage pulls a short message out of an error body. ai-gateway may

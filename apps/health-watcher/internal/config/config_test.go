@@ -1,79 +1,57 @@
 package config
 
 import (
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"apps/health-watcher/domain"
 )
 
-func env(m map[string]string) func(string) string {
-	return func(k string) string { return m[k] }
-}
+func env(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
 
-func TestGivenNoEnvironmentWhenLoadingThenDefaultsApply(t *testing.T) {
-	c, err := Load(env(map[string]string{"HW_DATA_DIR": "/data/hw"}))
+func TestGivenNoDataDirWhenLoadingThenApplicationSupportIsUsed(t *testing.T) {
+	c, err := Load(env(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Addr() != "127.0.0.1:9191" || c.MaxFileMB != 50 || c.MaxBatchMB != 200 || c.DBPath() != "/data/hw/health.db" || c.FilesDir() != "/data/hw/files" {
+	if filepath.Base(c.DataDir) != "health-watcher" || c.DBPath() != filepath.Join(c.DataDir, "health.db") ||
+		c.FilesDir() != filepath.Join(c.DataDir, "files") || c.WorkDir() != filepath.Join(c.DataDir, "work") {
 		t.Fatalf("config = %+v", c)
 	}
 }
 
-func TestGivenBadNumbersWhenLoadingThenItFailsNamingTheVariable(t *testing.T) {
-	cases := map[string]map[string]string{
-		"PORT":            {"PORT": "http"},
-		"HW_MAX_FILE_MB":  {"HW_MAX_FILE_MB": "0"},
-		"HW_MAX_BATCH_MB": {"HW_MAX_FILE_MB": "100", "HW_MAX_BATCH_MB": "50"},
-	}
-	for name, vars := range cases {
-		vars["HW_DATA_DIR"] = "/d"
-		if _, err := Load(env(vars)); err == nil || !strings.Contains(err.Error(), name) {
-			t.Errorf("%s: err = %v", name, err)
-		}
+func TestGivenADataDirWhenLoadingThenItIsUsed(t *testing.T) {
+	c, err := Load(env(map[string]string{"HW_DATA_DIR": " /tmp/hw-test "}))
+	if err != nil || c.DataDir != "/tmp/hw-test" || c.SetupCodePath() != "/tmp/hw-test/setup-code" {
+		t.Fatalf("config = %+v, %v", c, err)
 	}
 }
 
-func TestGivenAnIPv6HostWhenFormattingTheAddressThenItIsBracketed(t *testing.T) {
-	c, _ := Load(env(map[string]string{"HOST": "fd7a:115c::1", "HW_DATA_DIR": "/d"}))
-	if c.Addr() != "[fd7a:115c::1]:9191" {
-		t.Fatalf("Addr = %s", c.Addr())
+func TestGivenRetiredVariablesWhenCheckingThenTheSetOnesAreListed(t *testing.T) {
+	got := Ignored(env(map[string]string{"AI_BASE_URL": "http://localhost:8080/v1", "PORT": "9292", "HW_DATA_DIR": "/x", "AI_MODEL": " "}))
+	if !reflect.DeepEqual(got, []string{"PORT", "AI_BASE_URL"}) {
+		t.Fatalf("ignored = %v", got)
 	}
 }
 
-func TestGivenNoAISettingsWhenLoadingThenReadingIsOffAndOCRUsesTheSiblingBuild(t *testing.T) {
-	c, err := Load(env(map[string]string{"HW_DATA_DIR": "/data/hw"}))
+func TestGivenRetiredVariablesWhenLoadingThenTheyBecomeStoredSettingsToImport(t *testing.T) {
+	c, err := Load(env(map[string]string{"AI_BASE_URL": "http://localhost:8080/v1", "AI_API_KEY": "sk-test", "HW_WORKERS": "3",
+		"HW_MAC_OCR_BIN": "bin/mac-ocr", "AI_MODEL": "other"}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.AI.Enabled() || c.AI.Model != "gpt-6-luna" || c.AI.Effort != "low" || c.AI.Timeout.Seconds() != 180 {
-		t.Fatalf("ai = %+v", c.AI)
-	}
-	if !strings.HasSuffix(c.MacOCRBin, "/mac-ocr/bin/mac-ocr") || c.Workers != 2 || c.WorkDir() != "/data/hw/work" {
-		t.Fatalf("config = %+v", c)
-	}
-}
-
-func TestGivenModelSettingsWhenLoadingThenReadingStaysOnGPT6LunaAtLowEffort(t *testing.T) {
-	c, err := Load(env(map[string]string{"HW_DATA_DIR": "/d", "AI_BASE_URL": "http://127.0.0.1:8080/v1", "AI_MODEL": "gpt-5.6-luna",
-		"AI_MODEL_READ": "gpt-5.6-terra", "AI_REASONING_EFFORT": "medium", "AI_TIMEOUT_SECONDS": "60", "HW_MAC_OCR_BIN": "/opt/mac-ocr"}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !c.AI.Enabled() || c.AI.Model != "gpt-6-luna" || c.AI.Effort != "low" || c.AI.Timeout.Seconds() != 60 || c.MacOCRBin != "/opt/mac-ocr" {
-		t.Fatalf("config = %+v", c)
+	s, rejected := domain.SettingsFromValues(c.Legacy)
+	if rejected != nil || s.AIBaseURL != "http://localhost:8080/v1" || s.AIAPIKey != "sk-test" || s.Workers != 3 ||
+		!filepath.IsAbs(s.MacOCRBin) || len(c.Legacy) != 4 {
+		t.Fatalf("legacy = %v, settings = %+v, rejected = %v", c.Legacy, s, rejected)
 	}
 }
 
-func TestGivenBadAISettingsWhenLoadingThenItFailsNamingTheVariable(t *testing.T) {
-	cases := map[string]map[string]string{
-		"AI_TIMEOUT_SECONDS": {"AI_TIMEOUT_SECONDS": "0"},
-		"AI_BASE_URL":        {"AI_BASE_URL": "localhost:8080"},
-		"HW_WORKERS":         {"HW_WORKERS": "99"},
-	}
-	for name, vars := range cases {
-		vars["HW_DATA_DIR"] = "/d"
-		if _, err := Load(env(vars)); err == nil || !strings.Contains(err.Error(), name) {
-			t.Errorf("%s: err = %v", name, err)
-		}
+func TestGivenTheMonorepoLayoutWhenFindingMacOCRThenTheSiblingBuildIsUsed(t *testing.T) {
+	p, err := DefaultMacOCRBin()
+	if err != nil || !filepath.IsAbs(p) || !strings.HasSuffix(p, filepath.Join("mac-ocr", "bin", "mac-ocr")) {
+		t.Fatalf("path = %q, %v", p, err)
 	}
 }

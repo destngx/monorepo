@@ -36,7 +36,16 @@ type Repos interface {
 	ReadingRepo
 	ClinicalRepo
 	AnalyteLinkRepo
+	SettingsRepo
 	SearchRepo
+}
+
+// SettingsRepo stores the engine settings as key and value (HW-OPS-9).
+type SettingsRepo interface {
+	// Settings returns every stored value and when they last changed.
+	Settings(ctx context.Context) (map[string]string, domain.SettingsStamp, error)
+	// SaveSettings writes each value, stamped with the time and the user.
+	SaveSettings(ctx context.Context, values map[string]string, at time.Time, by string) error
 }
 
 type UserRepo interface {
@@ -45,6 +54,10 @@ type UserRepo interface {
 	UserByEmail(ctx context.Context, email string) (domain.User, string, error)
 	UserByID(ctx context.Context, id string) (domain.User, string, error)
 	SetPasswordHash(ctx context.Context, userID, passwordHash string) error
+	// ListUsers lists every account of the engine, oldest first.
+	ListUsers(ctx context.Context) ([]domain.User, error)
+	CountAdmins(ctx context.Context) (int, error)
+	SetUserAdmin(ctx context.Context, userID string, admin bool) error
 	RecordLoginFailure(ctx context.Context, email string, at time.Time) error
 	CountLoginFailures(ctx context.Context, email string, since time.Time) (int, error)
 	ClearLoginFailures(ctx context.Context, email string) error

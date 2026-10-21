@@ -281,6 +281,15 @@
     </form>
   </Card>
 
+  {#if me?.admin}
+    <Card title="Engine" subtitle="AI address and key, mac-ocr, background jobs, upload limits, host and port.">
+      <a class="btn-ghost" href="{base}/settings/engine">Engine settings</a>
+      <p class="muted mt-2 text-xs">
+        They apply to every family on this Mac. You see this because you are an engine admin.
+      </p>
+    </Card>
+  {/if}
+
   <Card title="Appearance">
     <div class="flex gap-2">
       {#each themes as t (t.value)}

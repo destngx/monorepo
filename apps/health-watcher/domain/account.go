@@ -19,10 +19,12 @@ const (
 
 // User is a login account. A user may be linked to a Person.
 type User struct {
-	ID          string    `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"displayName"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName"`
+	// Admin may change the engine settings (HW-OPS-9).
+	Admin     bool      `json:"admin"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // Email validates an address and returns it in lower case.

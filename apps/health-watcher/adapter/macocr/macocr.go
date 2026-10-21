@@ -49,7 +49,7 @@ func (r *Runner) probe(ctx context.Context) error {
 	r.once.Do(func() {
 		out, err := exec.CommandContext(ctx, r.Bin, "--help").CombinedOutput()
 		if err != nil && len(out) == 0 {
-			r.probeErr = fmt.Errorf("run %s: %w (build it with `pnpx nx build mac-ocr` or set HW_MAC_OCR_BIN)", r.Bin, err)
+			r.probeErr = fmt.Errorf("run %s: %w (build it with `pnpm exec nx build mac-ocr` or set its path in Engine settings)", r.Bin, err)
 			return
 		}
 		r.canRender = bytes.Contains(out, []byte("--render-dir"))

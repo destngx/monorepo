@@ -1,52 +1,26 @@
-// Package config reads the engine's settings from the environment.
+// Package config finds the engine's data folder. Every other setting lives
+// in the database and is edited on the Engine settings page (HW-OPS-9).
 package config
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
-
-	"apps/health-watcher/domain"
 )
 
-// Config is the engine's runtime configuration.
+// UIBuildDir is the built UI the engine serves, relative to its working
+// directory.
+const UIBuildDir = "ui/build"
+
+// Config is what the engine needs before it can open the database.
 type Config struct {
-	Host       string
-	Port       int
-	DataDir    string
-	UIBuildDir string
-	MaxFileMB  int
-	MaxBatchMB int
-	// MacOCRBin is the mac-ocr binary (HW-READ-1).
-	MacOCRBin string
-	// Workers is how many background jobs run at once.
-	Workers int
-	AI      AI
+	DataDir string
+	// Legacy are the retired environment variables that are set, under
+	// their stored setting keys. The engine imports them once, into an
+	// empty settings table.
+	Legacy map[string]string
 }
-
-// The model and reasoning effort are fixed, not settings: readings were
-// measured with this pair (D6), and the gateway account serves few models.
-const (
-	AIModel  = "gpt-6-luna"
-	AIEffort = "low"
-)
-
-// AI is the AI provider setting (HW-AI-1). An empty BaseURL turns AI
-// reading off; OCR and search still work.
-type AI struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Effort  string
-	Timeout time.Duration
-}
-
-// Enabled reports whether AI reading is configured.
-func (a AI) Enabled() bool { return a.BaseURL != "" }
 
 // WorkDir is the background reader's private scratch directory.
 func (c Config) WorkDir() string { return filepath.Join(c.DataDir, "work") }
@@ -60,47 +34,21 @@ func (c Config) FilesDir() string { return filepath.Join(c.DataDir, "files") }
 // SetupCodePath is the first-run setup code file (HW-AUTH-4).
 func (c Config) SetupCodePath() string { return filepath.Join(c.DataDir, "setup-code") }
 
-// Addr is the listen address.
-func (c Config) Addr() string {
-	host := c.Host
-	if strings.Contains(host, ":") {
-		host = "[" + host + "]"
-	}
-	return fmt.Sprintf("%s:%d", host, c.Port)
-}
-
-// Load reads HOST, PORT, HW_DATA_DIR, HW_UI_BUILD_DIR, HW_MAX_FILE_MB,
-// HW_MAX_BATCH_MB, HW_MAC_OCR_BIN, HW_WORKERS, AI_BASE_URL, AI_API_KEY and
-// AI_TIMEOUT_SECONDS, with
-// defaults for each (HW-OPS-6, HW-IMP-2, HW-AI-1).
+// Load reads HW_DATA_DIR, defaulting to the user's Application Support
+// folder.
 func Load(getenv func(string) string) (Config, error) {
-	c := Config{
-		Host:       envOr(getenv, "HOST", "127.0.0.1"),
-		UIBuildDir: envOr(getenv, "HW_UI_BUILD_DIR", "ui/build"),
-		DataDir:    strings.TrimSpace(getenv("HW_DATA_DIR")),
-		MacOCRBin:  envOr(getenv, "HW_MAC_OCR_BIN", filepath.Join("..", "mac-ocr", "bin", "mac-ocr")),
+	c := Config{DataDir: strings.TrimSpace(getenv("HW_DATA_DIR")), Legacy: map[string]string{}}
+	for env, key := range legacyKeys {
+		if v := strings.TrimSpace(getenv(env)); v != "" {
+			c.Legacy[key] = v
+		}
 	}
-	var err error
-	if c.MacOCRBin, err = filepath.Abs(c.MacOCRBin); err != nil {
-		return c, fmt.Errorf("resolve HW_MAC_OCR_BIN: %w", err)
-	}
-	if c.Workers, err = intEnv(getenv, "HW_WORKERS", 2, 1, 8); err != nil {
-		return c, err
-	}
-	if c.AI, err = loadAI(getenv); err != nil {
-		return c, err
-	}
-	if c.Port, err = intEnv(getenv, "PORT", 9191, 1, 65535); err != nil {
-		return c, err
-	}
-	if c.MaxFileMB, err = intEnv(getenv, "HW_MAX_FILE_MB", domain.DefaultMaxFileMB, 1, 1024); err != nil {
-		return c, err
-	}
-	if c.MaxBatchMB, err = intEnv(getenv, "HW_MAX_BATCH_MB", domain.DefaultMaxBatchMB, 1, 4096); err != nil {
-		return c, err
-	}
-	if c.MaxBatchMB < c.MaxFileMB {
-		return c, fmt.Errorf("HW_MAX_BATCH_MB (%d) is smaller than HW_MAX_FILE_MB (%d)", c.MaxBatchMB, c.MaxFileMB)
+	if bin, ok := c.Legacy["mac_ocr_bin"]; ok {
+		abs, err := filepath.Abs(bin)
+		if err != nil {
+			return c, fmt.Errorf("resolve HW_MAC_OCR_BIN: %w", err)
+		}
+		c.Legacy["mac_ocr_bin"] = abs
 	}
 	if c.DataDir == "" {
 		dir, err := os.UserConfigDir()
@@ -112,42 +60,34 @@ func Load(getenv func(string) string) (Config, error) {
 	return c, nil
 }
 
-func loadAI(getenv func(string) string) (AI, error) {
-	a := AI{
-		BaseURL: strings.TrimRight(strings.TrimSpace(getenv("AI_BASE_URL")), "/"),
-		APIKey:  strings.TrimSpace(getenv("AI_API_KEY")),
-		Model:   AIModel,
-		Effort:  AIEffort,
+// DefaultMacOCRBin is the mac-ocr build next to the engine in the
+// monorepo, used while the setting is empty.
+func DefaultMacOCRBin() (string, error) {
+	p, err := filepath.Abs(filepath.Join("..", "mac-ocr", "bin", "mac-ocr"))
+	if err != nil {
+		return "", fmt.Errorf("resolve the mac-ocr path: %w", err)
 	}
-	if a.BaseURL != "" {
-		u, err := url.Parse(a.BaseURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return a, fmt.Errorf("AI_BASE_URL must be an http or https URL, got %q", a.BaseURL)
+	return p, nil
+}
+
+// legacyKeys maps the retired variables that had a setting to its stored key.
+var legacyKeys = map[string]string{"HOST": "host", "PORT": "port", "HW_MAX_FILE_MB": "max_file_mb", "HW_MAX_BATCH_MB": "max_batch_mb",
+	"HW_MAC_OCR_BIN": "mac_ocr_bin", "HW_WORKERS": "workers", "AI_BASE_URL": "ai_base_url", "AI_API_KEY": "ai_api_key",
+	"AI_TIMEOUT_SECONDS": "ai_timeout_seconds"}
+
+// retired are the environment variables that set the engine before the
+// settings moved into the database.
+var retired = []string{"HOST", "PORT", "HW_UI_BUILD_DIR", "HW_MAX_FILE_MB", "HW_MAX_BATCH_MB", "HW_MAC_OCR_BIN", "HW_WORKERS",
+	"AI_BASE_URL", "AI_API_KEY", "AI_TIMEOUT_SECONDS", "AI_MODEL", "AI_MODEL_READ", "AI_REASONING_EFFORT"}
+
+// Ignored lists the retired variables that are set, so the engine can say
+// they no longer do anything.
+func Ignored(getenv func(string) string) []string {
+	var out []string
+	for _, k := range retired {
+		if strings.TrimSpace(getenv(k)) != "" {
+			out = append(out, k)
 		}
 	}
-	secs, err := intEnv(getenv, "AI_TIMEOUT_SECONDS", 180, 5, 1800)
-	if err != nil {
-		return a, err
-	}
-	a.Timeout = time.Duration(secs) * time.Second
-	return a, nil
-}
-
-func envOr(getenv func(string) string, key, fallback string) string {
-	if v := strings.TrimSpace(getenv(key)); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func intEnv(getenv func(string) string, key string, fallback, lo, hi int) (int, error) {
-	raw := strings.TrimSpace(getenv(key))
-	if raw == "" {
-		return fallback, nil
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil || n < lo || n > hi {
-		return 0, fmt.Errorf("%s must be a whole number from %d to %d, got %q", key, lo, hi, raw)
-	}
-	return n, nil
+	return out
 }
