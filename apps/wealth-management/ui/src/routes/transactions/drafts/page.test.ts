@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defer, settled, type Settled, type Streamed } from '$lib/api/load';
@@ -60,6 +60,8 @@ const draft: CaptureDraft = {
     currency: 'VND',
     occurredAt: '2026-10-16 08:15',
     confidence: 0.9,
+    overall: 90,
+    reasons: [],
     lowConfidence: [],
     evidence: [{ materialId: 'cap_a-image' }],
   },
@@ -251,7 +253,7 @@ describe('Drafts page', () => {
     expect(screen.queryByLabelText('Payee')).toBeNull();
   });
 
-  it('Given selected drafts When the page renders Then each account shows its balance after approve', async () => {
+  it('Given selected drafts When ticking and unticking Then the side panel shows each balance after approve', async () => {
     mask.toggle();
     render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
     await flush();
@@ -262,7 +264,9 @@ describe('Drafts page', () => {
     expect(screen.getByText(/Balance after:/).textContent).toContain(after);
 
     await fireEvent.click(screen.getByRole('checkbox', { name: 'Select Noodle Bar' }));
-    expect(screen.queryByText('Balances after approve')).toBeNull();
+    const panel = within(screen.getByText('Balances after approve').closest('section')!);
+    expect(panel.getByText('None selected')).toBeTruthy();
+    expect(screen.queryAllByText(after).length).toBe(0);
   });
 
   it('Given card spending When no card is picked Then approve is refused until one is, and an account with one card fills it', async () => {

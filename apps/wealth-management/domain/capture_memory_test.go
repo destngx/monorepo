@@ -159,7 +159,7 @@ func TestGivenALearnedPayeeWhenCheckingDuplicatesThenAHandEnteredRowUnderThatNam
 	ApplyCaptureDuplicates(suggestions, ledger, day(12))
 
 	// Four days apart: 70 on dates alone, 99 with the learned payee.
-	if suggestions[0].Duplicate == nil || suggestions[0].Duplicate.Score != 99 || suggestions[0].Selected {
+	if suggestions[0].Duplicate == nil || suggestions[0].Duplicate.Score != 99 || !suggestions[0].Duplicate.Likely {
 		t.Fatalf("duplicate = %+v", suggestions[0].Duplicate)
 	}
 }

@@ -10,7 +10,6 @@ import {
   requiredCardTags,
   cleanInput,
   commitBatch,
-  confidenceLevel,
   learnedRules,
   isRowDirty,
   projectBalances,
@@ -43,6 +42,8 @@ function suggestion(overrides: Partial<CaptureSuggestion> = {}): CaptureSuggesti
     currency: 'VND',
     occurredAt: '2026-10-03 12:30',
     confidence: 0.9,
+    overall: 90,
+    reasons: [],
     lowConfidence: [],
     evidence: [{ materialId: 'm1', quote: '-45,000VND' }],
     ...overrides,
@@ -202,14 +203,6 @@ describe('learnedRules', () => {
   });
 });
 
-describe('confidenceLevel', () => {
-  it('uses the engine threshold for low', () => {
-    expect(confidenceLevel(0.95)).toBe('high');
-    expect(confidenceLevel(0.7)).toBe('medium');
-    expect(confidenceLevel(0.69)).toBe('low');
-  });
-});
-
 describe('applyCategorySuggestion', () => {
   const categories = ['Coffee', 'Transport', 'Uncategorized'];
 
@@ -274,7 +267,7 @@ describe('projectBalances', () => {
     { name: 'Idle', balance: 5, currency: 'USD' },
   ] as Account[];
 
-  it('adds the selected rows not yet written to each account they touch', () => {
+  it('lists each account with a draft not yet written, changed by the selected ones', () => {
     const rows = toReviewRows(
       result([
         suggestion(),
@@ -288,6 +281,7 @@ describe('projectBalances', () => {
 
     expect(projectBalances(accounts, rows)).toEqual([
       { account: 'Vietcombank', currency: 'VND', rows: 2, current: 1_000_000, change: -35_000, after: 965_000 },
+      { account: 'Idle', currency: 'USD', rows: 0, current: 5, change: 0, after: 5 },
     ]);
     expect(runningBalances(accounts, rows)).toEqual([955_000, 965_000, null, null, null]);
   });

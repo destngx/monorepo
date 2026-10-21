@@ -110,7 +110,7 @@ export function reconcile(balances: CaptureBalance[], rows: ReviewRow[]): Reconc
 export interface BalanceProjection {
   account: string;
   currency: string;
-  /** Selected rows not yet written on the account. */
+  /** Selected rows not yet written on the account; 0 when its drafts are all unticked. */
   rows: number;
   /** The account's sheet balance now. */
   current: number;
@@ -120,14 +120,17 @@ export interface BalanceProjection {
 }
 
 /**
- * Each account's sheet balance before and after the selected rows not yet
- * written, in the account's currency. Written rows are already in the
- * reloaded balance; rows on unknown accounts cannot be projected.
+ * The sheet balance before and after the selected rows, in the account's
+ * currency, for each account with a row not yet written: ticking a row
+ * moves its account's line instead of adding or removing it. Written rows
+ * are already in the reloaded balance; rows on unknown accounts cannot be
+ * projected.
  */
 export function projectBalances(accounts: Account[], rows: ReviewRow[]): BalanceProjection[] {
   return accounts.flatMap((account) => {
-    const pending = rows.filter((row) => row.selected && !row.createdId && row.tx.accountName === account.name);
-    if (!pending.length) return [];
+    const open = rows.filter((row) => !row.createdId && row.tx.accountName === account.name);
+    if (!open.length) return [];
+    const pending = open.filter((row) => row.selected);
     const change = round(pending.reduce((sum, row) => sum + rowDelta(row.tx), 0));
     return [
       {
@@ -316,15 +319,6 @@ export function learnedRules(rows: ReviewRow[]): CaptureRule[] {
     if (isCorrected || isGuessed) add({ kind: 'payee', pattern: tx.payee, value: tx.category });
   }
   return [...rules.values()];
-}
-
-export type ConfidenceLevel = 'high' | 'medium' | 'low';
-
-/** Matches the engine's CaptureLowConfidence (0.7) threshold. */
-export function confidenceLevel(confidence: number): ConfidenceLevel {
-  if (confidence >= 0.9) return 'high';
-  if (confidence >= 0.7) return 'medium';
-  return 'low';
 }
 
 /** Stable identity of a learned rule, used to track which were saved or skipped. */

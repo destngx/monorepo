@@ -37,8 +37,14 @@ export interface CaptureDuplicate {
   score: number;
   /** Days between the suggestion and the row. */
   days: number;
-  /** Score above 80: likely recorded, so the suggestion is unselected. */
+  /** Score above 80: likely recorded, which caps the overall confidence. */
   likely: boolean;
+}
+
+/** Part of a suggestion's overall confidence: the points it added or took away, absent for context. */
+export interface CaptureReason {
+  text: string;
+  effect?: number;
 }
 
 export type CaptureField = 'amount' | 'date' | 'account' | 'payee' | 'category';
@@ -54,7 +60,15 @@ export interface CaptureSuggestion {
   amount: number;
   currency: string;
   occurredAt: string;
+  /** How sure the model was of its reading, 0-1. */
   confidence: number;
+  /** How safe the row is to approve as it is, 0-100; above 80 starts selected (WM-CAP-26). */
+  overall: number;
+  reasons: CaptureReason[];
+  /** No date on the material, so the row is dated today. */
+  dateAssumed?: boolean;
+  /** The amount is in another currency than the account. */
+  currencyMismatch?: boolean;
   lowConfidence: CaptureField[];
   accountHint?: string;
   accountSource?: 'alias' | 'digits' | 'name';

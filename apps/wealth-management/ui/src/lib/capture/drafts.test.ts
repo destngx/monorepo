@@ -21,6 +21,8 @@ function suggestion(overrides: Partial<CaptureSuggestion> = {}): CaptureSuggesti
     currency: 'VND',
     occurredAt: '2026-10-16 08:15',
     confidence: 0.9,
+    overall: 90,
+    reasons: [],
     lowConfidence: [],
     evidence: [{ materialId: 'cap_a-image' }],
     ...overrides,

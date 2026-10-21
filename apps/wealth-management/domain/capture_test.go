@@ -316,12 +316,12 @@ func TestBuildCaptureSuggestions(t *testing.T) {
 	if feeRow.Transaction.Payee != "Vietcombank fee" || *feeRow.Transaction.Payment != 1100 || feeRow.TransferGroup != "" || feeRow.Transaction.Category != "" {
 		t.Fatalf("fee row: %+v", feeRow)
 	}
-	if coffeeRow.Transaction.Payee != "Highlands" || strings.Join(coffeeRow.LowConfidence, ",") != "amount,date,account" || len(coffeeRow.Notes) != 2 {
+	if coffeeRow.Transaction.Payee != "Highlands" || strings.Join(coffeeRow.LowConfidence, ",") != "amount,date,account" || len(coffeeRow.Notes) != 1 || !coffeeRow.CurrencyMismatch {
 		t.Fatalf("coffee row should flag confidence, name match and currency: %+v", coffeeRow)
 	}
 	for index, suggestion := range suggestions {
-		if suggestion.ID == "" || suggestion.Selected != (suggestion.Confidence > CaptureSelectConfidence) || (index > 0 && suggestion.ID == suggestions[index-1].ID) {
-			t.Fatalf("ids and selection: %+v", suggestions)
+		if suggestion.ID == "" || (index > 0 && suggestion.ID == suggestions[index-1].ID) {
+			t.Fatalf("ids: %+v", suggestions)
 		}
 		if !suggestion.Transaction.Cleared {
 			t.Fatalf("suggestion %d should default to cleared like manual entry: %+v", index, suggestion.Transaction)
@@ -329,27 +329,9 @@ func TestBuildCaptureSuggestions(t *testing.T) {
 	}
 
 	ApplyCaptureDuplicates(suggestions, []Transaction{{ID: "r9", AccountName: "Ví MoMo", Payee: "VCB", Date: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC), Deposit: amountPointer(2000000)}}, time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC))
+	ApplyCaptureConfidence(suggestions)
 	if suggestions[2].Selected || suggestions[2].Duplicate == nil || suggestions[2].Duplicate.TransactionID != "r9" || suggestions[2].Duplicate.Date != "04/10/2026" || !suggestions[0].Selected {
 		t.Fatalf("duplicate marking: %+v", suggestions[2])
-	}
-}
-
-func TestGivenAReadingConfidenceWhenBuildingSuggestionsThenOnlyAbove80PercentIsSelected(t *testing.T) {
-	event := func(confidence float64) CaptureItem {
-		read := captureEvent("a", "2026-10-03 09:00", 40000, CaptureOut)
-		read.Confidence = confidence
-		return NewCaptureItem(read, AccountMatch{Name: "Vietcombank", Source: MatchSourceAlias})
-	}
-	suggestions := BuildCaptureSuggestions(CaptureBuildInput{
-		Items:     []CaptureItem{event(0.81), event(0.8), event(0.48)},
-		Materials: []CaptureMaterial{{ID: "a", Kind: CaptureImage}},
-		Accounts:  captureAccounts,
-	})
-	if !suggestions[0].Selected || suggestions[1].Selected || suggestions[2].Selected {
-		t.Fatalf("selection = %v %v %v, want only the 81%% reading", suggestions[0].Selected, suggestions[1].Selected, suggestions[2].Selected)
-	}
-	if !suggestions[0].SelectedByDefault() || suggestions[1].SelectedByDefault() {
-		t.Fatal("SelectedByDefault follows the same rule")
 	}
 }
 
@@ -393,7 +375,7 @@ func TestCaptureRuleValidateAndKey(t *testing.T) {
 	}
 }
 
-func TestGivenMatchesWhenCheckingDuplicatesThenOnlyScoresAbove80AreUnselected(t *testing.T) {
+func TestGivenMatchesWhenCheckingDuplicatesThenOnlyScoresAbove80AreLikely(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
 	ledger := []Transaction{
 		{ID: "r1", AccountName: "Ví MoMo", Payee: "Gym membership", Date: day(19), Payment: amountPointer(250000)},
@@ -407,16 +389,16 @@ func TestGivenMatchesWhenCheckingDuplicatesThenOnlyScoresAbove80AreUnselected(t 
 	ApplyCaptureDuplicates(suggestions, ledger, day(20))
 
 	likely := suggestions[0]
-	if likely.Duplicate == nil || likely.Duplicate.TransactionID != "r1" || likely.Duplicate.Score != 90 || likely.Duplicate.Days != 0 || !likely.Duplicate.Likely || likely.Selected {
-		t.Fatalf("a 90%% match is likely recorded and unselected: %+v", likely)
+	if likely.Duplicate == nil || likely.Duplicate.TransactionID != "r1" || likely.Duplicate.Score != 90 || likely.Duplicate.Days != 0 || !likely.Duplicate.Likely {
+		t.Fatalf("a 90%% match is likely recorded: %+v", likely)
 	}
 	weak := suggestions[1]
-	if weak.Duplicate == nil || weak.Duplicate.TransactionID != "r2" || weak.Duplicate.Score != 65 || weak.Duplicate.Days != 5 || weak.Duplicate.Likely || !weak.Selected {
-		t.Fatalf("a 65%% match is shown but stays selected: %+v", weak)
+	if weak.Duplicate == nil || weak.Duplicate.TransactionID != "r2" || weak.Duplicate.Score != 65 || weak.Duplicate.Days != 5 || weak.Duplicate.Likely {
+		t.Fatalf("a 65%% match is only a possible match: %+v", weak)
 	}
 }
 
-func TestGivenRowsOnOrBeforeTheLastRecordedDateWithoutAMatchWhenCheckingDuplicatesThenTheyMayBeMissingAndStaySelected(t *testing.T) {
+func TestGivenRowsOnOrBeforeTheLastRecordedDateWithoutAMatchWhenCheckingDuplicatesThenTheyMayBeMissing(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
 	today := day(12)
 	ledger := []Transaction{
@@ -443,16 +425,16 @@ func TestGivenRowsOnOrBeforeTheLastRecordedDateWithoutAMatchWhenCheckingDuplicat
 
 	ApplyCaptureDuplicates(suggestions, ledger, today)
 
-	if suggestions[0].Duplicate == nil || suggestions[0].RecordedThrough != "" || suggestions[0].Selected {
+	if suggestions[0].Duplicate == nil || suggestions[0].RecordedThrough != "" {
 		t.Fatalf("an exact match keeps its own flag: %+v", suggestions[0])
 	}
 	for _, index := range []int{1, 2} {
-		if suggestions[index].RecordedThrough != "08/10/2026" || suggestions[index].Duplicate != nil || !suggestions[index].Selected {
-			t.Fatalf("row %d may be missing from the sheet and stays selected: %+v", index, suggestions[index])
+		if suggestions[index].RecordedThrough != "08/10/2026" || suggestions[index].Duplicate != nil {
+			t.Fatalf("row %d may be missing from the sheet: %+v", index, suggestions[index])
 		}
 	}
 	for _, index := range []int{3, 4, 5, 6} {
-		if suggestions[index].RecordedThrough != "" || !suggestions[index].Selected {
+		if suggestions[index].RecordedThrough != "" {
 			t.Fatalf("row %d is new: %+v", index, suggestions[index])
 		}
 	}

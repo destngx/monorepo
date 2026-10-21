@@ -21,6 +21,8 @@ const suggestion = (extra: Partial<CaptureSuggestion>): CaptureSuggestion => ({
   currency: 'VND',
   occurredAt: '2026-10-07 08:00',
   confidence: 0.9,
+  overall: 90,
+  reasons: [],
   lowConfidence: [],
   evidence: [],
   ...extra,
@@ -30,111 +32,35 @@ let lastRow: ReviewRow;
 
 const renderRow = (value: CaptureSuggestion) =>
   render(SuggestionRow, {
+    ...rowProps(),
     row: (lastRow = toReviewRows({ suggestions: [value], unreadable: [], balances: [] })[0]),
-    disabled: false,
-    problems: [],
-    usdPreview: null,
-    itemById: new Map(),
-    activeAccounts: [],
-    categoryNames: [],
-    grouped: [],
-    tags: [],
-    balanceAfter: null,
-    balanceCurrency: 'VND',
-    cardTags: new Map(),
-    verb: 'Approve',
-    actionsDisabled: false,
-    dirty: false,
-    saving: false,
-    onapprove: () => Promise.resolve(),
   });
+
+const rowProps = () => ({
+  disabled: false,
+  problems: [],
+  usdPreview: null,
+  itemById: new Map(),
+  activeAccounts: [],
+  categoryNames: [],
+  grouped: [],
+  tags: [],
+  balanceAfter: null,
+  balanceCurrency: 'VND',
+  cardTags: new Map(),
+  verb: 'Approve',
+  actionsDisabled: false,
+  dirty: false,
+  saving: false,
+  onapprove: () => Promise.resolve(),
+});
 
 describe('SuggestionRow', () => {
-  const duplicate = { transactionId: 'row-9', date: '05/10/2026', payee: 'Grab', amount: 120000 };
-
-  it('Given a match above 80% When shown Then it says it is likely recorded with the score and gap', () => {
-    renderRow(suggestion({ duplicate: { ...duplicate, score: 85, days: 2, likely: true } }));
-
-    expect(screen.getByText(/Likely already recorded \(85% match\): Grab on/)).toBeTruthy();
-    expect(screen.getByText(/2 days apart/)).toBeTruthy();
-    expect(screen.getByText(/Unselected by default/)).toBeTruthy();
-  });
-
-  it('Given a weak match When shown Then it is a possible match that stays selected', () => {
-    renderRow(suggestion({ selected: true, duplicate: { ...duplicate, score: 60, days: 6, likely: false } }));
-
-    expect(screen.getByText(/Possible match \(60%\): Grab on/)).toBeTruthy();
-    expect(screen.getByText(/Still selected/)).toBeTruthy();
-    expect(screen.queryByText(/Likely already recorded/)).toBeNull();
-  });
-
-  it('Given a same-day match When shown Then it says same day', () => {
-    renderRow(suggestion({ duplicate: { ...duplicate, score: 90, days: 0, likely: true } }));
-
-    expect(screen.getByText(/same day/)).toBeTruthy();
-  });
-
-  it('Given a learned payee When shown Then it says what the material showed and how often', () => {
-    renderRow(suggestion({ counterparty: 'NGUYEN VAN A', learnedPayee: { counterparty: 'NGUYEN VAN A', count: 3 } }));
-
-    expect(screen.getByText(/Payee learned: NGUYEN VAN A was written as Grab 3 times before/)).toBeTruthy();
-  });
-
-  it('Given a learned payee also written under other names When shown Then the others are listed', () => {
+  it('Given a draft When shown Then it has one overall confidence and no inline score notes', () => {
     renderRow(
       suggestion({
-        lowConfidence: ['payee'],
-        learnedPayee: { counterparty: 'TRAN THI B', count: 1, others: ['Lent to B', 'Fruit stall'] },
-      }),
-    );
-
-    expect(screen.getByText(/TRAN THI B was written as Grab once before/)).toBeTruthy();
-    expect(screen.getByText(/Also written as Lent to B, Fruit stall: check the payee/)).toBeTruthy();
-  });
-
-  it('Given a payee from a counterparty rule added in the sheet When shown Then it names the rule', () => {
-    renderRow(suggestion({ learnedPayee: { counterparty: 'LE VAN C', count: 0 } }));
-
-    expect(screen.getByText(/Payee learned: LE VAN C is Grab in CaptureRules/)).toBeTruthy();
-  });
-
-  it('Given a draft When a note is typed Then the row keeps it for approve', async () => {
-    renderRow(suggestion({ counterparty: 'NGUYEN VAN A' }));
-
-    await fireEvent.input(screen.getByLabelText('Note for next time'), {
-      target: { value: 'breakfast stall by the office' },
-    });
-
-    expect(lastRow.note).toBe('breakfast stall by the office');
-  });
-
-  it('Given a transfer or fee row When shown Then there is no note box', () => {
-    renderRow(suggestion({ transferGroup: 't1' }));
-    expect(screen.queryByLabelText('Note for next time')).toBeNull();
-  });
-
-  it('Given earlier notes for the counterparty When shown Then they are listed', () => {
-    renderRow(suggestion({ pastNotes: ['breakfast stall', 'coffee too'] }));
-
-    expect(screen.getByText(/Your earlier notes: breakfast stall · coffee too/)).toBeTruthy();
-  });
-
-  it('Given a draft the engine left unselected for its confidence When shown Then it says why', () => {
-    renderRow(suggestion({ selected: false, confidence: 0.48 }));
-
-    expect(screen.getByText(/Not selected: read with 48% confidence. Check it, then tick it./)).toBeTruthy();
-  });
-
-  it('Given a selected draft or a likely duplicate When shown Then there is no confidence hint', () => {
-    renderRow(suggestion({ selected: true, confidence: 0.95 }));
-    expect(screen.queryByText(/Not selected: read with/)).toBeNull();
-  });
-
-  it('Given an unselected likely duplicate When shown Then only the duplicate note explains it', () => {
-    renderRow(
-      suggestion({
-        selected: false,
-        confidence: 0.5,
+        overall: 10,
+        reasons: [{ text: 'Likely already in the sheet as row-9 (Grab, 05/10/2026), 90% match', effect: -80 }],
         duplicate: {
           transactionId: 'row-9',
           date: '05/10/2026',
@@ -144,22 +70,45 @@ describe('SuggestionRow', () => {
           days: 0,
           likely: true,
         },
+        recordedThrough: '08/10/2026',
+        learnedPayee: { counterparty: 'NGUYEN VAN A', count: 2 },
+        notes: ['No time on the material; matched by date only.'],
       }),
     );
-    expect(screen.queryByText(/Not selected: read with/)).toBeNull();
+
+    expect(screen.getByRole('button', { name: /Confidence 10%/ })).toBeTruthy();
+    expect(screen.queryByText(/Likely already/)).toBeNull();
+    expect(screen.queryByText(/May be missing/)).toBeNull();
+    expect(screen.queryByText(/Payee learned/)).toBeNull();
+    expect(screen.queryByText(/No time on the material/)).toBeNull();
   });
 
-  it('Given a row on or before the last recorded date with no match When shown Then it may be missing from the sheet', () => {
-    renderRow(suggestion({ selected: true, recordedThrough: '08/10/2026' }));
+  it('Given a draft When the Note button is clicked Then the note box opens and keeps what is typed', async () => {
+    renderRow(suggestion({ counterparty: 'NGUYEN VAN A', pastNotes: ['breakfast stall', 'coffee too'] }));
+    expect(screen.queryByLabelText('Note for next time')).toBeNull();
+    expect(screen.queryByText(/Your earlier notes/)).toBeNull();
 
-    expect(screen.getByText(/May be missing from the sheet: Vietcombank is recorded up to/)).toBeTruthy();
-    expect(screen.queryByText(/already recorded/)).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 'Add note' }));
+    await fireEvent.input(screen.getByLabelText('Note for next time'), {
+      target: { value: 'breakfast stall by the office' },
+    });
+
+    expect(lastRow.note).toBe('breakfast stall by the office');
+    expect(screen.getByText(/Your earlier notes: breakfast stall · coffee too/)).toBeTruthy();
   });
 
-  it('Given a new row When shown Then there is no duplicate warning', () => {
-    renderRow(suggestion({ selected: true }));
+  it('Given a draft with a saved note When shown Then the button says so and the box stays closed', () => {
+    const row = toReviewRows({ suggestions: [suggestion({})], unreadable: [], balances: [] })[0];
+    row.note = 'saved before';
+    render(SuggestionRow, { ...rowProps(), row });
 
-    expect(screen.queryByText(/already recorded/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Edit note' })).toBeTruthy();
+    expect(screen.queryByLabelText('Note for next time')).toBeNull();
+  });
+
+  it('Given a transfer or fee row When shown Then there is no Note button', () => {
+    renderRow(suggestion({ transferGroup: 't1' }));
+    expect(screen.queryByRole('button', { name: 'Add note' })).toBeNull();
   });
 
   it('Given a payee matched to a near name in money lent When shown Then the payee is highlighted to check', () => {

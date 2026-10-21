@@ -309,7 +309,7 @@ func TestCaptureRecordsATypedNoteDatedTodayInTheCategoryItAsksFor(t *testing.T) 
 			if tx.Category != "Transport" || row.CategorySource != test.wantSource {
 				t.Fatalf("expected Transport from %s, got %q from %q", test.wantSource, tx.Category, row.CategorySource)
 			}
-			if !strings.Contains(strings.Join(row.LowConfidence, ","), "date") || !strings.Contains(strings.Join(row.Notes, " "), "dated today") {
+			if !strings.Contains(strings.Join(row.LowConfidence, ","), "date") || !row.DateAssumed || !strings.Contains(fmt.Sprint(row.Reasons), "dated today") {
 				t.Fatalf("an assumed date must be flagged: %+v", row)
 			}
 			if test.wantSource == domain.CategorySourceAI && !strings.Contains(categorizeRequest, `"hint":"transit"`) {

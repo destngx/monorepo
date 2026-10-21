@@ -9,12 +9,11 @@
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import { mask } from '$lib/state/mask.svelte';
-  import { formatDate } from '$lib/format';
   import TagPicker from '$lib/transactions/TagPicker.svelte';
+  import ConfidenceBadge from './ConfidenceBadge.svelte';
   import type { InboxItem } from './materials';
   import {
     applyCategorySuggestion,
-    confidenceLevel,
     fillCardTag,
     nonCardTags,
     pickCardTag,
@@ -75,10 +74,11 @@
   }: Props = $props();
 
   const suggestion = $derived(row.suggestion);
-  const level = $derived(confidenceLevel(suggestion.confidence));
+  // The note box opens on demand; a transfer or fee row has none (WM-CAP-24).
+  const notable = $derived(!suggestion.transferGroup && !suggestion.fee);
+  let noteOpen = $state(false);
 
   const low = (field: CaptureField) => (suggestion.lowConfidence.includes(field) ? 'ring-2 ring-amber-400/70' : '');
-  const confidenceTone = { high: 'good', medium: 'info', low: 'warning' } as const;
 
   // A new payee gets a new category suggestion (WM-TX-5 rules: 3 chars,
   // 1 s debounce): automatic unless the user picked the category by hand.
@@ -253,7 +253,7 @@
         </p>{/if}
     </td>
     <td class="px-3 pt-3">
-      <Badge status={confidenceTone[level]}>{Math.round(suggestion.confidence * 100)}%</Badge>
+      <ConfidenceBadge overall={suggestion.overall} reasons={suggestion.reasons} notes={suggestion.notes} />
     </td>
   </tr>
   <tr>
@@ -293,7 +293,7 @@
           {disabled}
         />
       </div>
-      {#if !suggestion.transferGroup && !suggestion.fee}
+      {#if notable && noteOpen}
         <textarea
           class="field mt-2 w-full"
           rows="1"
@@ -303,9 +303,9 @@
           bind:value={row.note}
           {disabled}
         ></textarea>
-      {/if}
-      {#if suggestion.pastNotes?.length}
-        <p class="muted mt-1 text-xs">Your earlier notes: {suggestion.pastNotes.join(' · ')}</p>
+        {#if suggestion.pastNotes?.length}
+          <p class="muted mt-1 text-xs">Your earlier notes: {suggestion.pastNotes.join(' · ')}</p>
+        {/if}
       {/if}
 
       <div class="mt-2 flex flex-wrap items-start gap-2 text-xs">
@@ -333,46 +333,6 @@
         {/each}
       </div>
 
-      {#if !suggestion.selected && !suggestion.duplicate?.likely}
-        <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
-          Not selected: read with {Math.round(suggestion.confidence * 100)}% confidence. Check it, then tick it.
-        </p>
-      {/if}
-      {#if suggestion.learnedPayee}
-        {@const learned = suggestion.learnedPayee}
-        {@const times = learned.count === 1 ? 'once' : `${learned.count} times`}
-        <p class="muted mt-2 text-xs">
-          Payee learned: {learned.counterparty}
-          {learned.count
-            ? `was written as ${suggestion.transaction.payee} ${times} before.`
-            : `is ${suggestion.transaction.payee} in CaptureRules.`}
-          {#if learned.others?.length}
-            <span class="text-amber-700 dark:text-amber-300"
-              >Also written as {learned.others.join(', ')}: check the payee.</span
-            >
-          {/if}
-        </p>
-      {/if}
-      {#if suggestion.duplicate}
-        {@const duplicate = suggestion.duplicate}
-        {@const label = duplicate.likely
-          ? `Likely already recorded (${duplicate.score}% match)`
-          : `Possible match (${duplicate.score}%)`}
-        {@const gap =
-          duplicate.days === 0 ? 'same day' : `${duplicate.days} day${duplicate.days === 1 ? '' : 's'} apart`}
-        <p class="mt-2 text-xs {duplicate.likely ? 'text-amber-700 dark:text-amber-300' : 'muted'}">
-          {label}: {duplicate.payee} on {formatDate(duplicate.date)}, <Money value={duplicate.amount} /> ({duplicate.transactionId}),
-          {gap}. {duplicate.likely
-            ? 'Unselected by default.'
-            : 'Still selected; untick it if it is the same transaction.'}
-        </p>
-      {:else if suggestion.recordedThrough}
-        <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
-          May be missing from the sheet: {suggestion.transaction.accountName} is recorded up to
-          {formatDate(suggestion.recordedThrough)}, but no row there matches this one. Still selected.
-        </p>
-      {/if}
-      {#each suggestion.notes ?? [] as note (note)}<p class="muted mt-1 text-xs"><MaskedText text={note} /></p>{/each}
       {#each problems as problem (problem)}
         <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">{problem}</p>
       {/each}
@@ -385,6 +345,15 @@
           <p class="mt-1 text-xs text-rose-600 dark:text-rose-400">Not written: {row.error}</p>
         {/if}
         <div class="mt-2 flex flex-wrap items-center justify-end gap-2">
+          {#if notable}
+            <Button
+              size="sm"
+              icon="pencil"
+              class="mr-auto"
+              aria-expanded={noteOpen}
+              onclick={() => (noteOpen = !noteOpen)}>{row.note?.trim() ? 'Edit note' : 'Add note'}</Button
+            >
+          {/if}
           {#if dirty}<span class="muted text-xs">Unsaved changes</span>{/if}
           {#if onsave}
             <Button

@@ -152,11 +152,11 @@ func (s *CaptureInbox) Discard(ctx context.Context, captureID string) error {
 	return s.store.DeleteCapture(ctx, captureID)
 }
 
-// Drafts returns the pending drafts with selection and ledger dedup run
-// again: a draft starts selected only when read with confidence above 80%
-// (WM-CAP-25), rows entered by hand since the capture are matched
-// (WM-CAP-18), and unmatched rows the sheet has since been filled in past
-// may be missing (WM-CAP-21).
+// Drafts returns the pending drafts with ledger dedup and overall
+// confidence run again: rows entered by hand since the capture are matched
+// (WM-CAP-18), unmatched rows the sheet has since been filled in past may
+// be missing (WM-CAP-21), and a draft starts selected only when its overall
+// confidence is above 80 (WM-CAP-26).
 func (s *CaptureInbox) Drafts(ctx context.Context) (domain.CaptureDrafts, error) {
 	drafts, err := s.store.ListDrafts(ctx, domain.CaptureDraftPending, time.Time{})
 	if err != nil {
@@ -173,9 +173,10 @@ func (s *CaptureInbox) Drafts(ctx context.Context) (domain.CaptureDrafts, error)
 	suggestions := make([]domain.CaptureSuggestion, len(drafts))
 	for index, draft := range drafts {
 		suggestions[index] = draft.Suggestion
-		suggestions[index].Selected, suggestions[index].Duplicate, suggestions[index].RecordedThrough = suggestions[index].SelectedByDefault(), nil, ""
+		suggestions[index].Duplicate, suggestions[index].RecordedThrough = nil, ""
 	}
 	domain.ApplyCaptureDuplicates(suggestions, transactions, domain.Today(s.now()))
+	domain.ApplyCaptureConfidence(suggestions)
 	var captureIDs []string
 	for index := range drafts {
 		drafts[index].Suggestion = suggestions[index]

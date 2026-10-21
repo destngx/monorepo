@@ -67,6 +67,16 @@ type CaptureSuggestion struct {
 	// PastNotes are the user's latest notes about rows with this
 	// counterparty, newest first (WM-CAP-24).
 	PastNotes []string `json:"pastNotes,omitempty"`
+	// DateAssumed is set when the material had no date and the row is
+	// dated today; CurrencyMismatch when the material's currency is not
+	// the account's.
+	DateAssumed      bool `json:"dateAssumed,omitempty"`
+	CurrencyMismatch bool `json:"currencyMismatch,omitempty"`
+	// Overall is how safe the row is to approve as it is (0-100), with
+	// the reasons behind it; only rows above CaptureSelectScore start
+	// selected (WM-CAP-26).
+	Overall int             `json:"overall"`
+	Reasons []CaptureReason `json:"reasons"`
 	// TagOptions are the cashback rule tags of the row's card (WM-CAP-5).
 	TagOptions []string          `json:"tagOptions,omitempty"`
 	SourceApp  string            `json:"sourceApp,omitempty"`
@@ -79,13 +89,6 @@ type CaptureSuggestion struct {
 	RecordedThrough string   `json:"recordedThrough,omitempty"`
 	TransferGroup   string   `json:"transferGroup,omitempty"`
 	Notes           []string `json:"notes,omitempty"`
-}
-
-// SelectedByDefault reports whether the suggestion starts selected: only
-// when it was read with confidence above CaptureSelectConfidence. Ledger
-// dedup may unselect it afterwards (WM-CAP-25).
-func (s CaptureSuggestion) SelectedByDefault() bool {
-	return s.Confidence > CaptureSelectConfidence
 }
 
 // CaptureBalance is the latest balance a material showed for an account,
@@ -203,7 +206,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 		occurredAt = event.At.Format("2006-01-02")
 	}
 	suggestion := CaptureSuggestion{
-		Selected:          event.Confidence > CaptureSelectConfidence,
+		DateAssumed:       event.DateAssumed,
 		Transaction:       transaction,
 		Direction:         event.Direction,
 		Amount:            amount,
@@ -222,7 +225,6 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 	}
 	if event.DateAssumed {
 		suggestion.LowConfidence = append(suggestion.LowConfidence, "date")
-		suggestion.Notes = append(suggestion.Notes, "No date in the text; dated today.")
 	} else if !event.HasTime {
 		suggestion.Notes = append(suggestion.Notes, "No time on the material; matched by date only.")
 	}
@@ -231,7 +233,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 	}
 	if account, ok := accounts[item.Account.Name]; ok && account.Currency != "" && string(account.Currency) != event.Currency {
 		suggestion.LowConfidence = append(suggestion.LowConfidence, "amount")
-		suggestion.Notes = append(suggestion.Notes, fmt.Sprintf("Material amount is in %s but the account is in %s.", event.Currency, account.Currency))
+		suggestion.CurrencyMismatch = true
 	}
 	suggestion.LowConfidence = uniqueStrings(suggestion.LowConfidence)
 	return suggestion
@@ -259,9 +261,9 @@ func captureMemo(item CaptureItem, materials map[string]CaptureMaterial) *string
 }
 
 // ApplyCaptureDuplicates marks suggestions that match a ledger row
-// (WM-CAP-6) and unselects those scoring above CaptureLikelyDuplicateScore.
-// Rows with no match dated on or before their account's last recorded date
-// are marked as possibly missed and stay selected (WM-CAP-21).
+// (WM-CAP-6); rows with no match dated on or before their account's last
+// recorded date are marked as possibly missed (WM-CAP-21). Selection is
+// left to ApplyCaptureConfidence.
 func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transaction, today time.Time) {
 	candidates := make([]CaptureCandidate, len(suggestions))
 	for index, suggestion := range suggestions {
@@ -288,9 +290,6 @@ func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transactio
 		suggestions[index].Duplicate = &CaptureDuplicate{
 			TransactionID: row.ID, Date: row.Date.Format(SheetDateLayout), Payee: row.Payee, Amount: amount,
 			Reference: referenceOf(row), Score: match.Score, Days: match.Days, Likely: match.Score > CaptureLikelyDuplicateScore,
-		}
-		if suggestions[index].Duplicate.Likely {
-			suggestions[index].Selected = false
 		}
 	}
 	lastRecorded := LastRecordedDates(ledger, today)

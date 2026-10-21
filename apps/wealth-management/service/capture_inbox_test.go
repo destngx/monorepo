@@ -122,7 +122,7 @@ func row(account string, amount float64, occurredAt string, materialID string) d
 	}
 }
 
-func TestGivenALowConfidenceDraftWhenListingDraftsThenItStaysUnselected(t *testing.T) {
+func TestGivenALowConfidenceDraftWhenListingDraftsThenOnlyTheConfidentOneIsSelected(t *testing.T) {
 	f := newInboxFixture(t)
 	f.submit(t, inboxPNG, "")
 	unsure := row("Sacombank", 40000, "2026-10-16 08:15", "m1")
@@ -136,8 +136,9 @@ func TestGivenALowConfidenceDraftWhenListingDraftsThenItStaysUnselected(t *testi
 		t.Fatalf("drafts = %+v err=%v", drafts.Drafts, err)
 	}
 	for _, draft := range drafts.Drafts {
-		if want := draft.Suggestion.Confidence > domain.CaptureSelectConfidence; draft.Suggestion.Selected != want {
-			t.Fatalf("draft %v selected = %v, want %v", draft.Suggestion.Amount, draft.Suggestion.Selected, want)
+		want := map[float64]int{40000: 48, 70000: 90}[draft.Suggestion.Amount]
+		if draft.Suggestion.Overall != want || draft.Suggestion.Selected != (want > domain.CaptureSelectScore) || len(draft.Suggestion.Reasons) == 0 {
+			t.Fatalf("draft %v = overall %d selected %v, want %d", draft.Suggestion.Amount, draft.Suggestion.Overall, draft.Suggestion.Selected, want)
 		}
 	}
 }
