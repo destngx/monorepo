@@ -47,7 +47,7 @@ func TestGivenTheReferenceInTheRowMemoWhenFindingDuplicatesThenItMatchesEvenOneC
 	}
 }
 
-func TestGivenADraftWithNoAccountWhenCheckingDuplicatesThenItMatchesAnyAccountAndALikelyMatchFillsIt(t *testing.T) {
+func TestGivenADraftWithNoAccountWhenCheckingDuplicatesThenItMatchesAnyAccountAndTakesItsAccount(t *testing.T) {
 	memo := "[capture] Techcombank screenshot - MS00T1122334456677,TRAN THI B"
 	ledger := []Transaction{
 		{ID: "r1", AccountName: "Techcombank", Payee: "Tran Thi B", Date: dedupDay(17), Deposit: amountPointer(1200000), ReferenceNumber: note(`FT26000000000001\BNK`), Memo: &memo},
@@ -70,8 +70,11 @@ func TestGivenADraftWithNoAccountWhenCheckingDuplicatesThenItMatchesAnyAccountAn
 	}
 	// 90 - 5*2 days - 10 for the unknown account.
 	possible := suggestions[1]
-	if possible.Duplicate == nil || possible.Duplicate.Score != 70 || possible.Duplicate.Account != "Ví MoMo" || possible.Transaction.AccountName != "" {
-		t.Fatalf("a possible match names its account but does not fill it: %+v", possible)
+	if possible.Duplicate == nil || possible.Duplicate.Score != 70 || possible.Duplicate.Account != "Ví MoMo" {
+		t.Fatalf("expected a possible match on Ví MoMo: %+v", possible.Duplicate)
+	}
+	if possible.Transaction.AccountName != "Ví MoMo" || possible.AccountSource != MatchSourceLedger || len(possible.LowConfidence) != 1 {
+		t.Fatalf("a possible match fills the account, still highlighted to check: %+v", possible)
 	}
 }
 

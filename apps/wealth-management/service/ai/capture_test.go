@@ -582,3 +582,29 @@ func TestGivenEarlierNotesForACounterpartyWhenCapturingThenTheyAreShownAndGuideT
 		t.Fatalf("the categoriser must see the earlier notes: %s", categorizeRequest)
 	}
 }
+
+func TestGivenAScreenRuleWhenTheModelSeesItsLabelThenTheRowGoesToItsAccount(t *testing.T) {
+	db := captureDatabase()
+	db.CaptureRules = append(db.CaptureRules, domain.CaptureRule{Kind: domain.CaptureRuleScreen, Pattern: "Tải sao kê", Value: "Vietcombank"})
+	client := &scriptedClient{}
+	client.route = func(request domain.AIRequest) reply {
+		user := request.Messages[len(request.Messages)-1].Content
+		if strings.Contains(user, "Items:") {
+			return reply{content: `{"items":[]}`}
+		}
+		return reply{content: `{"events":[{"occurredAt":"2026-10-04","amount":120000,"currency":"VND","direction":"in","counterparty":"TRAN T...","screenCues":["Tải sao kê"],"confidence":0.95,"quote":"+120,000"}]}`}
+	}
+
+	result, err := newCaptureService(t, db, client).Capture(context.Background(), port.CaptureRequest{Materials: captureMaterials()[2:3]}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(client.requests[0].Messages[1].Content, `copied from this list: "Tải sao kê"`) {
+		t.Fatalf("the model should be asked for the rule's label: %q", client.requests[0].Messages[1].Content)
+	}
+	got := result.Suggestions[0]
+	if got.Transaction.AccountName != "Vietcombank" || got.AccountSource != domain.MatchSourceScreen || got.AccountCue != "Tải sao kê" {
+		t.Fatalf("the label should name the account: %+v", got)
+	}
+}

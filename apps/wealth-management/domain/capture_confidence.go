@@ -26,6 +26,7 @@ const (
 
 	confidenceNoAccount      = 40
 	confidenceGuessedAccount = 15
+	confidenceScreenAccount  = 5
 	confidenceDateAssumed    = 20
 	confidenceCurrency       = 25
 	confidencePossibleMatch  = 15
@@ -67,8 +68,12 @@ func ApplyCaptureConfidence(suggestions []CaptureSuggestion) {
 			deduct(confidenceSameReference, fmt.Sprintf("Same reference as %s (%s, %s) with another amount or date: check which one is right", same.TransactionID, same.Payee, same.Date))
 		}
 		switch {
-		case suggestion.AccountSource == MatchSourceLedger:
+		case suggestion.AccountSource == MatchSourceLedger && suggestion.Duplicate != nil && suggestion.Duplicate.Likely:
 			reasons = append(reasons, CaptureReason{Text: "Account taken from the sheet row it matches"})
+		case suggestion.AccountSource == MatchSourceLedger:
+			deduct(confidenceGuessedAccount, "Account taken from a possible match in the sheet: check it")
+		case suggestion.AccountSource == MatchSourceScreen:
+			deduct(confidenceScreenAccount, fmt.Sprintf("Account from the screen label %q", suggestion.AccountCue))
 		case suggestion.Transaction.AccountName == "":
 			deduct(confidenceNoAccount, "No account: pick one before approving")
 		case suggestion.AccountSource == MatchSourceName:

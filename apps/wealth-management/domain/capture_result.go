@@ -55,17 +55,19 @@ type CaptureSuggestion struct {
 	ID       string `json:"id"`
 	Selected bool   `json:"selected"`
 	// Transaction is the editable row, ready for the batch create path.
-	Transaction       TransactionCreateInput `json:"transaction"`
-	Direction         CaptureDirection       `json:"direction"`
-	Amount            float64                `json:"amount"`
-	Currency          string                 `json:"currency"`
-	OccurredAt        string                 `json:"occurredAt"`
-	Confidence        float64                `json:"confidence"`
-	LowConfidence     []string               `json:"lowConfidence"`
-	AccountHint       string                 `json:"accountHint,omitempty"`
-	AccountSource     string                 `json:"accountSource,omitempty"`
-	AccountCandidates []string               `json:"accountCandidates,omitempty"`
-	CategorySource    string                 `json:"categorySource,omitempty"`
+	Transaction   TransactionCreateInput `json:"transaction"`
+	Direction     CaptureDirection       `json:"direction"`
+	Amount        float64                `json:"amount"`
+	Currency      string                 `json:"currency"`
+	OccurredAt    string                 `json:"occurredAt"`
+	Confidence    float64                `json:"confidence"`
+	LowConfidence []string               `json:"lowConfidence"`
+	AccountHint   string                 `json:"accountHint,omitempty"`
+	AccountSource string                 `json:"accountSource,omitempty"`
+	// AccountCue is the screen label that named the account (MatchSourceScreen).
+	AccountCue        string   `json:"accountCue,omitempty"`
+	AccountCandidates []string `json:"accountCandidates,omitempty"`
+	CategorySource    string   `json:"categorySource,omitempty"`
 	// CategoryHint is the category the user's typed note asked for, as
 	// written; the categoriser resolves it before rules and history.
 	CategoryHint string `json:"-"`
@@ -231,6 +233,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 		LowConfidence:     []string{},
 		AccountHint:       event.AccountHint,
 		AccountSource:     item.Account.Source,
+		AccountCue:        item.Account.Cue,
 		AccountCandidates: item.Account.Candidates,
 		SourceApp:         event.SourceApp,
 		Evidence:          item.Evidence,
@@ -308,10 +311,10 @@ func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transactio
 			Reference: referenceOf(row), Score: match.Score, Days: match.Days, Likely: match.Score > CaptureLikelyDuplicateScore,
 		}
 		if suggestion.Transaction.AccountName == "" {
+			// The matching row tells the account; a weaker match leaves it highlighted to check.
 			duplicate.Account = row.AccountName
-			// The row it likely repeats tells the account; a weaker match only names it.
+			suggestion.Transaction.AccountName, suggestion.AccountSource = row.AccountName, MatchSourceLedger
 			if duplicate.Likely {
-				suggestion.Transaction.AccountName, suggestion.AccountSource = row.AccountName, MatchSourceLedger
 				suggestion.LowConfidence = slices.DeleteFunc(suggestion.LowConfidence, func(field string) bool { return field == "account" })
 			}
 		}

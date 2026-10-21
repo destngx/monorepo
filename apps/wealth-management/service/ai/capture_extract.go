@@ -42,7 +42,7 @@ func firstNonBlank(values ...string) string {
 // extractAll reads every material, a few at a time. A material that fails
 // is reported as unreadable; when all fail for a reason other than the
 // model's output, the first error is returned instead.
-func (s *Service) extractAll(ctx context.Context, request port.CaptureRequest, system string, promptKeys []string, report func(port.CaptureProgress)) ([]extractionOutcome, error) {
+func (s *Service) extractAll(ctx context.Context, request port.CaptureRequest, system string, screenLabels []string, promptKeys []string, report func(port.CaptureProgress)) ([]extractionOutcome, error) {
 	outcomes := make([]extractionOutcome, len(request.Materials))
 	slots := make(chan struct{}, captureConcurrency)
 	var wg sync.WaitGroup
@@ -53,7 +53,7 @@ func (s *Service) extractAll(ctx context.Context, request port.CaptureRequest, s
 			slots <- struct{}{}
 			defer func() { <-slots }()
 			report(port.CaptureProgress{Stage: "extract", MaterialID: material.ID, Status: "running"})
-			value, err := s.extract(ctx, material, system, promptKeys, request.Model)
+			value, err := s.extract(ctx, material, system, screenLabels, promptKeys, request.Model)
 			outcomes[index] = extractionOutcome{value: value, err: err}
 			event := port.CaptureProgress{Stage: "extract", MaterialID: material.ID, Status: "ok", Events: len(value.Events)}
 			switch {
@@ -82,7 +82,7 @@ func (s *Service) extractAll(ctx context.Context, request port.CaptureRequest, s
 	return nil, firstErr
 }
 
-func (s *Service) extract(ctx context.Context, material domain.CaptureMaterial, system string, promptKeys []string, model string) (domain.CaptureExtraction, error) {
+func (s *Service) extract(ctx context.Context, material domain.CaptureMaterial, system string, screenLabels []string, promptKeys []string, model string) (domain.CaptureExtraction, error) {
 	user := fmt.Sprintf("Material %s (%s", material.ID, material.Label())
 	if name := strings.TrimSpace(material.Name); name != "" {
 		user += ", " + s.masker.Mask(name)
@@ -96,7 +96,7 @@ func (s *Service) extract(ctx context.Context, material domain.CaptureMaterial, 
 		user += "Read every money movement in this text:\n```\n" + s.masker.Mask(material.Text) + "\n```"
 	}
 	today := s.today()
-	message.Content = user + "\n\n" + domain.CaptureFormatInstruction(today)
+	message.Content = user + "\n\n" + domain.CaptureFormatInstruction(today, screenLabels)
 	var extraction domain.CaptureExtraction
 	_, err := s.complete(ctx, call{
 		feature:  "capture-extract",

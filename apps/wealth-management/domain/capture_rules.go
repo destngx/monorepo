@@ -15,6 +15,10 @@ const (
 	// (Pattern, matched by CounterpartyKey) to the payee the user writes
 	// (Value), learned from written rows (WM-CAP-23).
 	CaptureRuleCounterparty CaptureRuleKind = "counterparty"
+	// CaptureRuleScreen maps a label an app shows on its screens (Pattern),
+	// such as a button, to the account its screenshots are mostly from
+	// (Value).
+	CaptureRuleScreen CaptureRuleKind = "screen"
 )
 
 // CaptureRule is a correction confirmed during review (WM-CAP-11).
@@ -47,8 +51,8 @@ type CaptureRulesSaveResult struct {
 
 func (r CaptureRule) Validate() error {
 	var problems []string
-	if r.Kind != CaptureRuleAlias && r.Kind != CaptureRulePayee && r.Kind != CaptureRuleCounterparty {
-		problems = append(problems, "kind must be alias, payee or counterparty")
+	if r.Kind != CaptureRuleAlias && r.Kind != CaptureRulePayee && r.Kind != CaptureRuleCounterparty && r.Kind != CaptureRuleScreen {
+		problems = append(problems, "kind must be alias, payee, counterparty or screen")
 	}
 	if r.matchText() == "" {
 		problems = append(problems, "pattern is required")

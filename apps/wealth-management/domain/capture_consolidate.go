@@ -114,6 +114,9 @@ func mergeItems(a, b CaptureItem) CaptureItem {
 	fill(&event.SourceApp, other.Event.SourceApp)
 	fill(&event.AccountHint, other.Event.AccountHint)
 	fill(&event.Category, other.Event.Category)
+	if len(event.ScreenCues) == 0 {
+		event.ScreenCues = other.Event.ScreenCues
+	}
 	if event.BalanceAfter == nil {
 		event.BalanceAfter = other.Event.BalanceAfter
 	}

@@ -81,8 +81,9 @@ export interface CaptureSuggestion {
   currencyMismatch?: boolean;
   lowConfidence: CaptureField[];
   accountHint?: string;
-  /** `ledger`: filled from the sheet row the suggestion likely duplicates. */
-  accountSource?: 'alias' | 'digits' | 'name' | 'ledger';
+  /** `screen`: named by a screen rule label (accountCue); `ledger`: filled from the sheet row the suggestion matches. */
+  accountSource?: 'alias' | 'digits' | 'screen' | 'name' | 'ledger';
+  accountCue?: string;
   accountCandidates?: string[];
   categorySource?: CaptureCategorySource;
   tagOptions?: string[];
@@ -136,7 +137,7 @@ export type CaptureEvent =
 
 export interface CaptureRule {
   /** counterparty: the name a material shows → the payee the user writes, learned from written rows (WM-CAP-23). */
-  kind: 'alias' | 'payee' | 'counterparty';
+  kind: 'alias' | 'payee' | 'counterparty' | 'screen';
   pattern: string;
   value: string;
   updatedAt?: string;

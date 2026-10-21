@@ -473,7 +473,7 @@ func TestParseCaptureExtractionDatesATypedNoteToday(t *testing.T) {
 }
 
 func TestCaptureFormatInstructionStatesToday(t *testing.T) {
-	if instruction := CaptureFormatInstruction(captureToday); !strings.Contains(instruction, "Today is 2026-10-19.") || strings.Contains(instruction, "{today}") {
+	if instruction := CaptureFormatInstruction(captureToday, nil); !strings.Contains(instruction, "Today is 2026-10-19.") || strings.Contains(instruction, "{today}") {
 		t.Fatalf("instruction must carry today's date: %s", instruction)
 	}
 }

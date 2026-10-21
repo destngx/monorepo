@@ -193,13 +193,13 @@ func (s *Server) sheetTools() []tool {
 		readTool("GetTags", "Lists normalised transaction tags.", db.ListTags),
 		readTool("GetInvestmentAssets", "Returns crypto and fund holdings with symbol, quantity, price and value.", db.GetInvestmentAssets),
 		readTool("GetCardPrograms", "Card configuration from the sheet: programmes with dated versions and cashback rules, banks with shared account and reference limit, cards held (keyword, expiry, statement and due days) and payee MCC mappings.", db.ListCardConfig),
-		readTool("GetCaptureRules", "Lists Smart Capture rules: alias (text in a material -> account), payee (payee -> category) and counterparty (name a material shows -> payee the user writes, learned from written rows).", db.ListCaptureRules),
+		readTool("GetCaptureRules", "Lists Smart Capture rules: alias (text in a material -> account), payee (payee -> category), counterparty (name a material shows -> payee the user writes, learned from written rows) and screen (a label an app shows on screen, such as a button -> the account its screenshots are mostly from).", db.ListCaptureRules),
 		{
 			definition: definition("SaveCaptureRules", "Creates or updates Smart Capture rules, keyed by kind and pattern (case and accents ignored; counterparty patterns also ignore words with digits and generic transfer words).", object(map[string]any{
 				"rules": map[string]any{"type": "array", "minItems": 1, "items": object(map[string]any{
-					"kind":    map[string]any{"type": "string", "enum": []string{string(domain.CaptureRuleAlias), string(domain.CaptureRulePayee), string(domain.CaptureRuleCounterparty)}},
+					"kind":    map[string]any{"type": "string", "enum": []string{string(domain.CaptureRuleAlias), string(domain.CaptureRulePayee), string(domain.CaptureRuleCounterparty), string(domain.CaptureRuleScreen)}},
 					"pattern": stringSchema,
-					"value":   map[string]any{"type": "string", "description": "Account name for alias rules, category for payee rules, payee for counterparty rules."},
+					"value":   map[string]any{"type": "string", "description": "Account name for alias and screen rules, category for payee rules, payee for counterparty rules."},
 				}, "kind", "pattern", "value")},
 			}, "rules")),
 			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {

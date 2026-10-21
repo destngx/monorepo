@@ -67,7 +67,7 @@ func (s *Service) Capture(ctx context.Context, request port.CaptureRequest, prog
 		return domain.CaptureResult{}, err
 	}
 
-	extractions, err := s.extractAll(ctx, request, system, p.used, report)
+	extractions, err := s.extractAll(ctx, request, system, domain.ScreenCueLabels(data.rules), p.used, report)
 	if err != nil {
 		return domain.CaptureResult{}, err
 	}
@@ -188,6 +188,7 @@ func (s *Service) loadCaptureData() (captureData, error) {
 
 // matchCaptureAccount prefers a held card's last four digits to every
 // other match but a confirmed alias: they name the card, not just a bank.
+// A screen rule label comes next, ahead of a guess from the account names.
 func matchCaptureAccount(event domain.CaptureEvent, data captureData) domain.AccountMatch {
 	match := domain.MatchCaptureAccount(event.AccountHint, event.SourceApp, data.accounts, data.rules)
 	if match.Source == domain.MatchSourceAlias {
@@ -197,6 +198,12 @@ func matchCaptureAccount(event domain.CaptureEvent, data captureData) domain.Acc
 		if name, ok := accountNamed(card.Account, data.accounts); ok {
 			return domain.AccountMatch{Name: name, Source: domain.MatchSourceDigits}
 		}
+	}
+	if match.Source == domain.MatchSourceDigits {
+		return match
+	}
+	if screen, ok := domain.MatchCaptureScreenCue(event.ScreenCues, data.accounts, data.rules); ok {
+		return screen
 	}
 	return match
 }

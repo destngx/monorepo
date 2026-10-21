@@ -30,6 +30,9 @@ func FoldText(value string) string {
 const (
 	MatchSourceAlias  = "alias"
 	MatchSourceDigits = "digits"
+	// MatchSourceScreen is an account named by a label seen on the screen
+	// (a screen rule), weaker than an alias or digits.
+	MatchSourceScreen = "screen"
 	MatchSourceName   = "name"
 	// MatchSourceLedger is an account filled from the sheet row a capture
 	// with no account likely duplicates (WM-CAP-6).
@@ -42,6 +45,42 @@ type AccountMatch struct {
 	Name       string   `json:"name"`
 	Source     string   `json:"source,omitempty"`
 	Candidates []string `json:"candidates,omitempty"`
+	// Cue is the screen label that named the account (MatchSourceScreen).
+	Cue string `json:"cue,omitempty"`
+}
+
+// ScreenCueLabels are the labels of the screen rules, for the model to
+// look for (CaptureFormatInstruction).
+func ScreenCueLabels(rules []CaptureRule) []string {
+	var labels []string
+	for _, rule := range rules {
+		if rule.Kind == CaptureRuleScreen && FoldText(rule.Pattern) != "" {
+			labels = append(labels, strings.TrimSpace(rule.Pattern))
+		}
+	}
+	return labels
+}
+
+// MatchCaptureScreenCue maps the screen labels the model saw to the
+// account of the first screen rule they name whose account is active.
+func MatchCaptureScreenCue(cues []string, accounts []Account, rules []CaptureRule) (AccountMatch, bool) {
+	active := make([]Account, 0, len(accounts))
+	for _, account := range accounts {
+		if account.Type != AccountTypeDeprecated {
+			active = append(active, account)
+		}
+	}
+	for _, cue := range cues {
+		for _, rule := range rules {
+			if rule.Kind != CaptureRuleScreen || FoldText(cue) == "" || FoldText(cue) != FoldText(rule.Pattern) {
+				continue
+			}
+			if name, ok := accountNamed(rule.Value, active); ok {
+				return AccountMatch{Name: name, Source: MatchSourceScreen, Cue: strings.TrimSpace(rule.Pattern)}, true
+			}
+		}
+	}
+	return AccountMatch{}, false
 }
 
 var (

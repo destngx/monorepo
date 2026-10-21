@@ -3,6 +3,8 @@ package domain
 import (
 	"fmt"
 	"math"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -138,6 +140,8 @@ type CaptureEvent struct {
 	// Category is the category a typed note asks for, as written, e.g.
 	// "transit" from "400k parking count as transit".
 	Category string `json:"category"`
+	// ScreenCues are the screen rule labels the model saw on the screen.
+	ScreenCues []string `json:"screenCues,omitempty"`
 
 	// Set by the engine after parsing.
 	MaterialID string    `json:"materialId"`
@@ -213,6 +217,7 @@ func (e *CaptureEvent) normalize() bool {
 	e.SourceApp = strings.TrimSpace(e.SourceApp)
 	e.AccountHint = strings.TrimSpace(e.AccountHint)
 	e.Quote = strings.TrimSpace(e.Quote)
+	e.ScreenCues = slices.DeleteFunc(e.ScreenCues, func(cue string) bool { return strings.TrimSpace(cue) == "" })
 	e.Currency = normalizeCurrency(e.Currency)
 
 	switch strings.ToLower(strings.TrimSpace(string(e.Direction))) {
@@ -286,9 +291,19 @@ func (e CaptureEvent) Date() time.Time {
 }
 
 // CaptureFormatInstruction is the extraction output contract (WM-CAP-2),
-// appended by the engine to the tasks/capture-extract prompt.
-func CaptureFormatInstruction(today time.Time) string {
-	return strings.ReplaceAll(captureFormatInstruction, "{today}", today.Format("2006-01-02"))
+// appended by the engine to the tasks/capture-extract prompt. With screen
+// rule labels, the model also reports which of them the screen shows.
+func CaptureFormatInstruction(today time.Time, screenLabels []string) string {
+	field, rule := "", ""
+	if len(screenLabels) > 0 {
+		quoted := make([]string, len(screenLabels))
+		for index, label := range screenLabels {
+			quoted[index] = strconv.Quote(label)
+		}
+		field = ",\n      \"screenCues\": [\"Labels from the list in the rules that the screen shows\"]"
+		rule = "\n- screenCues lists each of these labels shown anywhere on the screen (buttons, tabs, headings), copied from this list: " + strings.Join(quoted, ", ") + ". Leave it empty when none is shown."
+	}
+	return strings.NewReplacer("{today}", today.Format("2006-01-02"), "{screenCuesField}", field, "{screenCuesRule}", rule).Replace(captureFormatInstruction)
 }
 
 const captureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation) in this exact format:
@@ -308,7 +323,7 @@ const captureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON obje
       "fee": null,
       "confidence": 0.9,
       "quote": "The exact text the event was read from",
-      "category": ""
+      "category": ""{screenCuesField}
     }
   ],
   "unreadable": false,
@@ -323,4 +338,4 @@ Rules:
 - category is the category a typed note asks for, as written ("count as transit" = "transit", "category: Food" = "Food"), else "". Leave it out of description.
 - balanceAfter is the balance shown after the movement (e.g. "SD: 3,456,789VND"), else null. fee is a separate fee amount, else null.
 - confidence is 0..1 for the event as a whole; lower it for any field you had to infer.
-- Never invent events. If nothing can be read, return no events, "unreadable": true and a short reason.`
+- Never invent events. If nothing can be read, return no events, "unreadable": true and a short reason.{screenCuesRule}`
