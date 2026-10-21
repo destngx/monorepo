@@ -176,6 +176,7 @@ describe('captureStatus', () => {
     hasImage: true,
     attempts: 0,
     newDrafts: 0,
+    readAgain: false,
     ...overrides,
   });
 

@@ -73,6 +73,13 @@ func (h *CaptureInboxHandler) Retry(c *fiber.Ctx) error {
 	return c.Status(http.StatusAccepted).JSON(fiber.Map{"status": string(domain.QuickCaptureQueued)})
 }
 
+func (h *CaptureInboxHandler) ReadAgain(c *fiber.Ctx) error {
+	if err := h.inbox.ReadAgain(c.UserContext(), c.Params("id")); err != nil {
+		return respondError(c, h.log, captureInboxScope, err)
+	}
+	return c.Status(http.StatusAccepted).JSON(fiber.Map{"status": string(domain.QuickCaptureQueued)})
+}
+
 func (h *CaptureInboxHandler) Discard(c *fiber.Ctx) error {
 	if err := h.inbox.Discard(c.UserContext(), c.Params("id")); err != nil {
 		return respondError(c, h.log, captureInboxScope, err)
@@ -153,6 +160,7 @@ var (
 		"nextAttemptAt": map[string]any{"type": "string", "format": "date-time"},
 		"message":       schemaString,
 		"newDrafts":     map[string]any{"type": "integer"},
+		"readAgain":     map[string]any{"type": "boolean", "description": "Done with every draft still pending: POST /api/capture/inbox/{id}/read-again reads it again in place of them."},
 	}}
 	captureIDParam  = []RouteParameter{{Name: "id", In: "path", Type: "string", Required: true, Description: "Capture id."}}
 	draftIDParam    = []RouteParameter{{Name: "id", In: "path", Type: "string", Required: true, Description: "Draft id."}}
@@ -174,6 +182,7 @@ func RegisterCaptureInboxRoutes(api RouteRegistrar, h *CaptureInboxHandler, guar
 	})
 	capture.Get("/inbox", h.List, RouteMeta{Summary: "The latest 50 quick captures, newest first, with status (queued, processing, done, failed), attempts, next retry and outcome message, and the number of drafts waiting for review (pendingDrafts)."})
 	capture.Post("/inbox/:id/retry", guard.Wrap(h.Retry), RouteMeta{Summary: "Queues a failed capture again with fresh retries. 409 unless the capture failed.", PathParams: captureIDParam})
+	capture.Post("/inbox/:id/read-again", guard.Wrap(h.ReadAgain), RouteMeta{Summary: "Reads a done capture again, for rules added since (WM-CAP-27): its drafts, all still pending, are deleted (not rejected, so the rows can be offered again; edits to them are lost) and the capture is queued. 409 unless readAgain is set on the capture.", PathParams: captureIDParam})
 	capture.Delete("/inbox/:id", guard.Wrap(h.Discard), RouteMeta{Summary: "Deletes a capture and its material. 409 when drafts came from it (approve or reject them instead) or while it is being read.", PathParams: captureIDParam})
 	capture.Get("/drafts", h.Drafts, RouteMeta{Summary: "Pending drafts (WM-CAP-19) with ledger dedup run against the current sheet, the materials they came from (fetch content from /api/capture/materials/{id}) and the latest balance each capture showed per account."})
 	capture.Post("/drafts/approve", guard.Wrap(h.Approve), RouteMeta{

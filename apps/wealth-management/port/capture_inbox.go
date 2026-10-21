@@ -16,6 +16,9 @@ type CaptureInboxService interface {
 	// Overview lists the latest captures and counts the pending drafts.
 	Overview(ctx context.Context) (domain.QuickCaptureOverview, error)
 	Retry(ctx context.Context, captureID string) error
+	// ReadAgain reads a done capture again in place of its drafts, all
+	// still pending (WM-CAP-27).
+	ReadAgain(ctx context.Context, captureID string) error
 	// Discard deletes a capture that produced no drafts, with its material.
 	Discard(ctx context.Context, captureID string) error
 	Drafts(ctx context.Context) (domain.CaptureDrafts, error)
@@ -46,6 +49,9 @@ type CaptureDraftStore interface {
 	UpdateCapture(ctx context.Context, capture domain.QuickCapture) error
 	GetCapture(ctx context.Context, id string) (domain.QuickCapture, error)
 	ListCaptures(ctx context.Context, limit int) ([]domain.QuickCapture, error)
+	// ReadAgain deletes the drafts of a done capture whose drafts are all
+	// pending and queues it again; ErrConflict otherwise.
+	ReadAgain(ctx context.Context, id string) error
 	// DeleteCapture removes a capture without drafts and its material.
 	DeleteCapture(ctx context.Context, id string) error
 	// ListDrafts returns drafts created at or after since, any status,

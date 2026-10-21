@@ -457,3 +457,36 @@ func TestQuickCaptureEditSavesTheRowWithoutWritingIt(t *testing.T) {
 		t.Fatalf("edit rejected draft: err = %v, want conflict", err)
 	}
 }
+
+func TestGivenARuleAddedAfterAReadWhenTheCaptureIsReadAgainThenItsDraftsAreReplaced(t *testing.T) {
+	f := newInboxFixture(t)
+	capture := f.submit(t, inboxPNG, "")
+	noAccount := row("", 40000, "2026-10-16 08:15", capture.ID+"-image")
+	f.reader.results = []domain.CaptureResult{
+		{Suggestions: []domain.CaptureSuggestion{noAccount}},
+		{Suggestions: []domain.CaptureSuggestion{row("Sacombank", 40000, "2026-10-16 08:15", capture.ID+"-image")}},
+	}
+	f.process(t)
+	if overview, _ := f.inbox.Overview(context.Background()); !overview.Captures[0].ReadAgain {
+		t.Fatalf("a read capture with pending drafts offers read again: %+v", overview.Captures[0])
+	}
+
+	if err := f.inbox.ReadAgain(context.Background(), capture.ID); err != nil {
+		t.Fatalf("read again: %v", err)
+	}
+	if drafts, _ := f.inbox.Drafts(context.Background()); len(drafts.Drafts) != 0 {
+		t.Fatalf("its drafts wait for the new reading: %+v", drafts.Drafts)
+	}
+	f.process(t)
+
+	drafts, err := f.inbox.Drafts(context.Background())
+	if err != nil || len(drafts.Drafts) != 1 || drafts.Drafts[0].Suggestion.Transaction.AccountName != "Sacombank" || len(f.reader.requests) != 2 {
+		t.Fatalf("drafts = %+v err=%v, want the second reading alone", drafts.Drafts, err)
+	}
+	if _, err := f.inbox.Approve(context.Background(), domain.CaptureDraftApproval{BatchID: "b1", Drafts: []domain.CaptureDraftApprovalRow{{ID: drafts.Drafts[0].ID, Transaction: drafts.Drafts[0].Suggestion.Transaction}}}); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	if err := f.inbox.ReadAgain(context.Background(), capture.ID); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("read again after an approval: err = %v, want conflict", err)
+	}
+}

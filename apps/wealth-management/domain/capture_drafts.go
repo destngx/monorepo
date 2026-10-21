@@ -75,6 +75,9 @@ type QuickCapture struct {
 	// Message says what was found, or why the capture failed.
 	Message   string `json:"message,omitempty"`
 	NewDrafts int    `json:"newDrafts"`
+	// ReadAgain is set when the capture is done and every draft from it is
+	// still pending: it can be read again in place of them (WM-CAP-27).
+	ReadAgain bool `json:"readAgain"`
 	// Balances are the balances the material showed (WM-CAP-7).
 	Balances []CaptureBalance `json:"-"`
 }

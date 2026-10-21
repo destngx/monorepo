@@ -350,3 +350,67 @@ func TestMemoriesAreKeptByCounterpartyKeyAndAddedOnce(t *testing.T) {
 		t.Fatalf("memories after purge = %+v", kept)
 	}
 }
+
+func TestGivenADoneCaptureWithPendingDraftsWhenReadAgainThenItsDraftsGoAndItIsQueuedWithItsImage(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
+	mustAdd(t, store, queued("c1", now, "lunch"), "h1", png)
+	mustAdd(t, store, queued("c2", now, ""), "h2", png)
+	done := domain.QuickCapture{ID: "c1", Status: domain.QuickCaptureDone, NewDrafts: 2, Message: "2 found", Balances: []domain.CaptureBalance{{Account: "Sacombank", BalanceAfter: 10}}}
+	if err := store.CompleteCapture(ctx, done, []domain.CaptureDraft{pendingDraft("d1", "c1", now), pendingDraft("d2", "c1", now)}, nil); err != nil {
+		t.Fatalf("complete c1: %v", err)
+	}
+	if err := store.CompleteCapture(ctx, domain.QuickCapture{ID: "c2", Status: domain.QuickCaptureDone}, []domain.CaptureDraft{pendingDraft("d3", "c2", now)}, nil); err != nil {
+		t.Fatalf("complete c2: %v", err)
+	}
+	if capture, _ := store.GetCapture(ctx, "c1"); !capture.ReadAgain {
+		t.Fatalf("a done capture with only pending drafts can be read again: %+v", capture)
+	}
+
+	if err := store.ReadAgain(ctx, "c1"); err != nil {
+		t.Fatalf("read again: %v", err)
+	}
+
+	capture, err := store.GetCapture(ctx, "c1")
+	if err != nil || capture.Status != domain.QuickCaptureQueued || capture.Attempts != 0 || capture.NewDrafts != 0 || capture.Message != "" || len(capture.Balances) != 0 || capture.ReadAgain {
+		t.Fatalf("capture = %+v err=%v, want queued afresh", capture, err)
+	}
+	drafts, _ := store.ListDrafts(ctx, "", time.Time{})
+	if len(drafts) != 1 || drafts[0].ID != "d3" {
+		t.Fatalf("drafts = %+v, want only the other capture's", drafts)
+	}
+	claimed, image, found, err := store.ClaimCapture(ctx, now.Add(time.Minute))
+	if err != nil || !found || claimed.ID != "c1" || len(image) == 0 || claimed.Note != "lunch" {
+		t.Fatalf("claim = %+v found=%v err=%v, want c1 with its image and note", claimed, found, err)
+	}
+}
+
+func TestGivenADecidedDraftWhenReadAgainThenItIsRefused(t *testing.T) {
+	store := openStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC)
+	mustAdd(t, store, queued("c1", now, ""), "h1", png)
+	mustAdd(t, store, queued("c2", now, ""), "h2", png)
+	if err := store.CompleteCapture(ctx, domain.QuickCapture{ID: "c1", Status: domain.QuickCaptureDone}, []domain.CaptureDraft{pendingDraft("d1", "c1", now), pendingDraft("d2", "c1", now)}, nil); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if err := store.DecideDrafts(ctx, []domain.CaptureDraftDecision{{ID: "d1", Status: domain.CaptureDraftRejected}}, now); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+
+	if capture, _ := store.GetCapture(ctx, "c1"); capture.ReadAgain {
+		t.Fatal("a capture with a decided draft cannot be read again")
+	}
+	for _, id := range []string{"c1", "c2"} {
+		if err := store.ReadAgain(ctx, id); !errors.Is(err, domain.ErrConflict) {
+			t.Fatalf("%s: err = %v, want conflict (decided draft, or still queued)", id, err)
+		}
+	}
+	if err := store.ReadAgain(ctx, "missing"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("missing: err = %v, want not found", err)
+	}
+	if drafts, _ := store.ListDrafts(ctx, domain.CaptureDraftPending, time.Time{}); len(drafts) != 1 {
+		t.Fatalf("a refused read again changes nothing: %+v", drafts)
+	}
+}

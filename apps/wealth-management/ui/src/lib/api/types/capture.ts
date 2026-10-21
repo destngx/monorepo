@@ -187,6 +187,8 @@ export interface QuickCapture {
   nextAttemptAt?: string;
   message?: string;
   newDrafts: number;
+  /** Done with every draft still pending: it can be read again in place of them (WM-CAP-27). */
+  readAgain: boolean;
 }
 
 export interface QuickCaptureReceipt extends QuickCapture {

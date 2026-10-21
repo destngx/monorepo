@@ -20,12 +20,13 @@ import (
 )
 
 type fakeCaptureInbox struct {
-	submitted []domain.QuickCaptureInput
-	rejected  []string
-	approval  domain.CaptureDraftApproval
-	editedID  string
-	edit      domain.CaptureDraftEdit
-	materials map[string]domain.CaptureMaterial
+	submitted   []domain.QuickCaptureInput
+	rejected    []string
+	approval    domain.CaptureDraftApproval
+	editedID    string
+	edit        domain.CaptureDraftEdit
+	materials   map[string]domain.CaptureMaterial
+	readAgainID string
 }
 
 func (f *fakeCaptureInbox) Submit(_ context.Context, input domain.QuickCaptureInput) (domain.QuickCapture, bool, error) {
@@ -40,6 +41,10 @@ func (f *fakeCaptureInbox) Overview(context.Context) (domain.QuickCaptureOvervie
 }
 func (f *fakeCaptureInbox) Retry(_ context.Context, id string) error {
 	return fmt.Errorf("%w: capture %s", domain.ErrConflict, id)
+}
+func (f *fakeCaptureInbox) ReadAgain(_ context.Context, id string) error {
+	f.readAgainID = id
+	return nil
 }
 func (f *fakeCaptureInbox) Discard(context.Context, string) error { return nil }
 func (f *fakeCaptureInbox) Drafts(context.Context) (domain.CaptureDrafts, error) {
@@ -197,6 +202,9 @@ func TestGivenDraftsWhenApprovingAndRejectingThenTheBodiesReachTheInbox(t *testi
 	}
 	if status, _ := call(t, app, http.MethodPost, "/api/capture/inbox/cap_1/retry", ""); status != http.StatusConflict {
 		t.Fatalf("retry status %d, want the inbox conflict as 409", status)
+	}
+	if status, body := call(t, app, http.MethodPost, "/api/capture/inbox/cap_2/read-again", ""); status != http.StatusAccepted || inbox.readAgainID != "cap_2" || !strings.Contains(body, `"queued"`) {
+		t.Fatalf("read again status %d body %s id %q", status, body, inbox.readAgainID)
 	}
 }
 

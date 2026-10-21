@@ -94,6 +94,7 @@ const overview: QuickCaptureOverview = {
       hasImage: true,
       attempts: 1,
       newDrafts: 1,
+      readAgain: false,
     },
   ],
 };
@@ -267,6 +268,31 @@ describe('Drafts page', () => {
     const panel = within(screen.getByText('Balances after approve').closest('section')!);
     expect(panel.getByText('None selected')).toBeTruthy();
     expect(screen.queryAllByText(after).length).toBe(0);
+  });
+
+  it('Given a read capture with pending drafts When Read again is confirmed Then the engine reads it again', async () => {
+    if (!('showModal' in HTMLDialogElement.prototype)) {
+      Object.assign(HTMLDialogElement.prototype, {
+        showModal(this: HTMLDialogElement) {
+          this.open = true;
+        },
+        close(this: HTMLDialogElement) {
+          this.open = false;
+        },
+      });
+    }
+    answers.readCaptureAgain = () => ({ status: 'queued' });
+    const readable = { ...overview, captures: [{ ...overview.captures[0], readAgain: true }] };
+    render(DraftsPage, { data: { ...pending(), overview: settled(readable) } as never });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Read again' }));
+    expect(screen.getByText(/edits to them are lost/)).toBeTruthy();
+    expect(calls.some((call) => call.name === 'readCaptureAgain')).toBe(false);
+    await fireEvent.click(screen.getByRole('button', { name: 'Read it again' }));
+    await flush();
+
+    expect(calls.find((call) => call.name === 'readCaptureAgain')?.args[0]).toBe('cap_a');
   });
 
   it('Given card spending When no card is picked Then approve is refused until one is, and an account with one card fills it', async () => {

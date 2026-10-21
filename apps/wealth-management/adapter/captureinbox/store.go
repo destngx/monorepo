@@ -268,7 +268,13 @@ func (s *Store) GetCapture(ctx context.Context, id string) (domain.QuickCapture,
 	return capture, err
 }
 
-const captureColumns = `id, created_at, status, note, has_image, attempts, next_attempt_at, message, new_drafts, balances`
+// readAgainColumn is set for a done capture whose drafts are all still
+// pending; its material is kept while they are (WM-CAP-27).
+const readAgainColumn = `(captures.status = 'done'
+	AND EXISTS (SELECT 1 FROM capture_draft_sources s JOIN capture_drafts d ON d.id = s.draft_id WHERE s.capture_id = captures.id AND d.status = 'pending')
+	AND NOT EXISTS (SELECT 1 FROM capture_draft_sources s JOIN capture_drafts d ON d.id = s.draft_id WHERE s.capture_id = captures.id AND d.status != 'pending'))`
+
+const captureColumns = `id, created_at, status, note, has_image, attempts, next_attempt_at, message, new_drafts, balances, ` + readAgainColumn
 
 func getCapture(ctx context.Context, tx *sql.Tx, id string) (domain.QuickCapture, error) {
 	capture, err := scanCapture(tx.QueryRowContext(ctx, `SELECT `+captureColumns+` FROM captures WHERE id = ?`, id))
@@ -284,7 +290,7 @@ func scanCapture(row scanner) (domain.QuickCapture, error) {
 	var capture domain.QuickCapture
 	var created, next int64
 	var balances string
-	if err := row.Scan(&capture.ID, &created, &capture.Status, &capture.Note, &capture.HasImage, &capture.Attempts, &next, &capture.Message, &capture.NewDrafts, &balances); err != nil {
+	if err := row.Scan(&capture.ID, &created, &capture.Status, &capture.Note, &capture.HasImage, &capture.Attempts, &next, &capture.Message, &capture.NewDrafts, &balances, &capture.ReadAgain); err != nil {
 		return capture, err
 	}
 	capture.CreatedAt = fromMillis(created)
@@ -316,6 +322,34 @@ func (s *Store) ListCaptures(ctx context.Context, limit int) ([]domain.QuickCapt
 		return nil, fmt.Errorf("list captures: %w", err)
 	}
 	return captures, nil
+}
+
+// ReadAgain deletes the drafts of a capture that can be read again and
+// queues it with fresh attempts (WM-CAP-27).
+func (s *Store) ReadAgain(ctx context.Context, id string) error {
+	return s.inTx(ctx, "read capture again", func(tx *sql.Tx) error {
+		capture, err := getCapture(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if !capture.ReadAgain {
+			return fmt.Errorf("%w: only a read capture whose drafts are all pending can be read again; this one is %s", domain.ErrConflict, capture.Status)
+		}
+		drafts := `SELECT draft_id FROM capture_draft_sources WHERE capture_id = ?`
+		if _, err := tx.ExecContext(ctx, `DELETE FROM capture_drafts WHERE id IN (`+drafts+`)`, id); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM capture_draft_sources WHERE draft_id NOT IN (SELECT id FROM capture_drafts)`); err != nil {
+			return err
+		}
+		capture.Status, capture.Attempts, capture.NextAttemptAt = domain.QuickCaptureQueued, 0, nil
+		capture.Message, capture.NewDrafts, capture.Balances = "", 0, nil
+		if err := updateCapture(ctx, tx, capture); err != nil {
+			return err
+		}
+		// Another capture that only backed the deleted drafts no longer needs its material.
+		return dropUnneededMaterials(ctx, tx)
+	})
 }
 
 func (s *Store) DeleteCapture(ctx context.Context, id string) error {

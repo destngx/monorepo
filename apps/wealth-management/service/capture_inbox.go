@@ -141,6 +141,17 @@ func (s *CaptureInbox) Retry(ctx context.Context, captureID string) error {
 	return nil
 }
 
+// ReadAgain reads a done capture again, for rules added since its first
+// reading: its drafts, all still pending, are deleted rather than rejected
+// so the new reading can offer the same rows (WM-CAP-27).
+func (s *CaptureInbox) ReadAgain(ctx context.Context, captureID string) error {
+	if err := s.store.ReadAgain(ctx, captureID); err != nil {
+		return err
+	}
+	s.signal()
+	return nil
+}
+
 func (s *CaptureInbox) Discard(ctx context.Context, captureID string) error {
 	capture, err := s.store.GetCapture(ctx, captureID)
 	if err != nil {

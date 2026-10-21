@@ -352,6 +352,9 @@ export const api = {
   },
   retryCapture: (id: string) =>
     request<{ status: string }>(`/capture/inbox/${encodeURIComponent(id)}/retry`, { method: 'POST' }),
+  /** Reads a done capture again in place of its pending drafts (WM-CAP-27). */
+  readCaptureAgain: (id: string) =>
+    request<{ status: string }>(`/capture/inbox/${encodeURIComponent(id)}/read-again`, { method: 'POST' }),
   discardCapture: (id: string) => request<void>(`/capture/inbox/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   captureDrafts: (options?: ReadOptions) => read<CaptureDrafts>('/capture/drafts', options),
   /** Writes the edited drafts through the batch path; replaying batchId does not write twice. */

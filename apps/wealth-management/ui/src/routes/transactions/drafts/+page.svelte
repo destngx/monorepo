@@ -16,6 +16,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
   import LoadError from '$lib/components/LoadError.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import { maskText } from '$lib/ai/moneyMask';
@@ -141,17 +142,29 @@
 
   let busyCapture = $state<string | null>(null);
 
-  async function act(capture: QuickCapture, action: 'retry' | 'discard') {
+  const failures = { retry: 'Retry failed', discard: 'Discard failed', 'read-again': 'Read again failed' };
+
+  async function act(capture: QuickCapture, action: 'retry' | 'discard' | 'read-again') {
     busyCapture = capture.id;
     try {
       if (action === 'retry') await api.retryCapture(capture.id);
+      else if (action === 'read-again') await api.readCaptureAgain(capture.id);
       else await api.discardCapture(capture.id);
       await invalidate('wm:capture-drafts');
     } catch (error) {
-      toasts.error(error, action === 'retry' ? 'Retry failed' : 'Discard failed');
+      toasts.error(error, failures[action]);
     } finally {
       busyCapture = null;
     }
+  }
+
+  // Read again replaces the capture's drafts, so it asks first (WM-CAP-27).
+  let readAgain = $state<QuickCapture | null>(null);
+
+  async function confirmReadAgain() {
+    const capture = readAgain;
+    readAgain = null;
+    if (capture) await act(capture, 'read-again');
   }
 
   function statusTone(capture: QuickCapture): string {
@@ -239,6 +252,16 @@
                     onclick={() => act(capture, 'retry')}>Retry</Button
                   >
                 {/if}
+                {#if capture.readAgain}
+                  <Button
+                    size="sm"
+                    icon="refresh"
+                    title="Read the screenshot again with the current rules"
+                    busy={busyCapture === capture.id}
+                    disabled={busyCapture !== null && busyCapture !== capture.id}
+                    onclick={() => (readAgain = capture)}>Read again</Button
+                  >
+                {/if}
                 {#if capture.status !== 'processing' && !(capture.status === 'done' && capture.newDrafts > 0)}
                   <Button
                     size="icon"
@@ -300,3 +323,14 @@
     >
   </div>
 </Card>
+
+<Modal open={readAgain !== null} title="Read this capture again?" onclose={() => (readAgain = null)}>
+  <p class="text-sm">
+    The screenshot is read again with the current rules, and the new reading replaces its drafts. They are deleted, not
+    rejected, so the same rows can come back; edits to them are lost.
+  </p>
+  {#snippet footer()}
+    <Button onclick={() => (readAgain = null)}>Cancel</Button>
+    <Button variant="primary" icon="refresh" onclick={confirmReadAgain}>Read it again</Button>
+  {/snippet}
+</Modal>
