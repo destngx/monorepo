@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -175,14 +176,61 @@ func (o ReadingOutput) CleanObservations(pageCount int, today string, catalog *C
 		if in.Analyte == "" || in.Value == "" {
 			continue
 		}
-		if m, ok := catalog.Match(in.Analyte, in.Unit); ok {
-			in.MetricCode = m.Code
+		parts := splitBloodPressure(in, catalog)
+		if parts == nil {
+			if m, ok := catalog.Match(in.Analyte, in.Unit); ok {
+				in.MetricCode = m.Code
+			}
+			parts = []ObservationInput{in}
 		}
-		ins = append(ins, in)
-		pages = append(pages, clampPage(r.Page, pageCount))
-		confs = append(confs, clampConfidence(r.Confidence))
+		if len(ins)+len(parts) > MaxReadObservations {
+			break
+		}
+		for _, p := range parts {
+			ins = append(ins, p)
+			pages = append(pages, clampPage(r.Page, pageCount))
+			confs = append(confs, clampConfidence(r.Confidence))
+		}
 	}
 	return ins, pages, confs
+}
+
+var pressurePair = regexp.MustCompile(`^([0-9]{2,3})\s*/\s*([0-9]{2,3})$`)
+
+// splitBloodPressure turns a blood pressure written as one pair, such as
+// `130/85 mmHg`, into its systolic and diastolic observations so each one
+// links to its catalog metric. Anything else gives nil.
+func splitBloodPressure(in ObservationInput, catalog *Catalog) []ObservationInput {
+	key := FoldKey(in.Analyte)
+	vi := strings.Contains(key, "huyet ap") || key == "ha"
+	if !vi && !strings.Contains(key, "blood pressure") && key != "bp" {
+		return nil
+	}
+	if in.Unit != "" && FoldKey(in.Unit) != "mmhg" {
+		return nil
+	}
+	v := pressurePair.FindStringSubmatch(in.Value)
+	if v == nil {
+		return nil
+	}
+	ref := pressurePair.FindStringSubmatch(in.Reference)
+	var out []ObservationInput
+	for i, code := range []string{"bp_systolic", "bp_diastolic"} {
+		m, ok := catalog.Metric(code)
+		if !ok {
+			return nil
+		}
+		p := in
+		p.Analyte, p.MetricCode, p.Value, p.Unit = m.Name, m.Code, v[i+1], "mmHg"
+		if vi {
+			p.Analyte = m.NameVI
+		}
+		if ref != nil {
+			p.Reference = ref[i+1]
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 // CleanFindings keeps the valid findings, with pages and confidences.
@@ -197,9 +245,7 @@ func (o ReadingOutput) CleanFindings(pageCount int) ([]FindingInput, []int, []in
 		if _, err := ParseFindingKind(in.Kind); err != nil {
 			in.Kind = "note"
 		}
-		if !icd10Code.MatchString(strings.ToUpper(strings.TrimSpace(in.ICD10))) {
-			in.ICD10 = ""
-		}
+		in.ICD10 = CleanICD10(in.ICD10)
 		in.Text = cut(in.Text, 4000)
 		in.Drug, in.Dose, in.Frequency, in.Duration = cut(in.Drug, 200), cut(in.Dose, 200), cut(in.Frequency, 200), cut(in.Duration, 200)
 		v, err := in.Validate()

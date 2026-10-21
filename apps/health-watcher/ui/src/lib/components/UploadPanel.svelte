@@ -5,6 +5,7 @@
   import { session } from '$lib/state/session.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { ACCEPT, pickFiles } from '$lib/upload';
+  import FilmGuide from './FilmGuide.svelte';
   import Icon from './Icon.svelte';
 
   // Staging area for uploads (HW-IMP-3, HW-IMP-5): files from the picker, a
@@ -115,6 +116,7 @@
         <Icon name="folder" size={16} />Choose a folder
       </button>
     </div>
+    <div class="w-full max-w-lg"><FilmGuide /></div>
   </div>
   <input
     bind:this={filesInput}

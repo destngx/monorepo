@@ -203,6 +203,35 @@ type FindingInput struct {
 
 var icd10Code = regexp.MustCompile(`^[A-Z][0-9]{2}(?:\.[0-9A-Z]{1,4})?$`)
 
+// CleanICD10 fixes the usual OCR misreads in an ICD-10 code read from paper:
+// the letter O for zero and I or l for one in the digit places, zero for O
+// in the letter place, a comma for the dot and stray spaces. A string that
+// still is not a code gives "".
+func CleanICD10(s string) string {
+	r := []rune(strings.ToUpper(strings.ReplaceAll(strings.Join(strings.Fields(s), ""), ",", ".")))
+	if len(r) < 3 {
+		return ""
+	}
+	switch r[0] {
+	case '0':
+		r[0] = 'O'
+	case '1':
+		r[0] = 'I'
+	}
+	for i := 1; i < 3; i++ {
+		switch r[i] {
+		case 'O':
+			r[i] = '0'
+		case 'I', 'L':
+			r[i] = '1'
+		}
+	}
+	if code := string(r); icd10Code.MatchString(code) {
+		return code
+	}
+	return ""
+}
+
 // Validate cleans the input. Drug fields belong to prescriptions only.
 func (in FindingInput) Validate() (FindingInput, error) {
 	kind, err := ParseFindingKind(in.Kind)

@@ -76,3 +76,46 @@ func TestGivenTheReadingSchemaWhenEncodedThenEveryObjectIsStrict(t *testing.T) {
 		t.Fatal("document kinds missing from the schema")
 	}
 }
+
+func TestGivenABloodPressurePairWhenCleaningThenItSplitsIntoSystolicAndDiastolic(t *testing.T) {
+	out := ReadingOutput{Observations: []ReadingObservation{
+		{Page: 1, Analyte: "Huyết áp", Value: "130/85", Unit: "mmHg", Reference: "120/80", Flag: "H", Confidence: 70},
+		{Page: 1, Analyte: "Blood pressure", Value: "118 / 76", Confidence: 90},
+		{Page: 1, Analyte: "Huyết áp", Value: "130/85", Unit: "cmHg"},
+		{Page: 1, Analyte: "Tỷ lệ A/G", Value: "1/2"},
+	}}
+	obs, pages, confs := out.CleanObservations(1, today, DefaultCatalog)
+	if len(obs) != 6 || len(pages) != 6 || len(confs) != 6 {
+		t.Fatalf("observations = %+v", obs)
+	}
+	want := []ObservationInput{
+		{Analyte: "Huyết áp tâm thu", Value: "130", Unit: "mmHg", Reference: "120", Flag: "H", MetricCode: "bp_systolic"},
+		{Analyte: "Huyết áp tâm trương", Value: "85", Unit: "mmHg", Reference: "80", Flag: "H", MetricCode: "bp_diastolic"},
+		{Analyte: "Systolic blood pressure", Value: "118", Unit: "mmHg", MetricCode: "bp_systolic"},
+		{Analyte: "Diastolic blood pressure", Value: "76", Unit: "mmHg", MetricCode: "bp_diastolic"},
+	}
+	for i, w := range want {
+		if obs[i] != w {
+			t.Errorf("observation %d = %+v, want %+v", i, obs[i], w)
+		}
+	}
+	if confs[0] != 70 || confs[1] != 70 || obs[4].Value != "130/85" || obs[5].Value != "1/2" {
+		t.Fatalf("observations = %+v, confidences = %v", obs, confs)
+	}
+}
+
+func TestGivenAnICD10CodeWithOCRMisreadsWhenCleaningThenDigitsAreRestored(t *testing.T) {
+	cases := map[string]string{
+		"JO2.9": "J02.9", "j02.9": "J02.9", "E1l.9": "E11.9", "I1O": "I10", "J02,9": "J02.9", " K 29.7 ": "K29.7",
+		"080.0": "O80.0", "O80": "O80", "not a code": "", "J0": "", "": "",
+	}
+	for in, want := range cases {
+		if got := CleanICD10(in); got != want {
+			t.Errorf("CleanICD10(%q) = %q, want %q", in, got, want)
+		}
+	}
+	out := ReadingOutput{Findings: []ReadingFinding{{Page: 1, Kind: "diagnosis", Text: "Viêm họng cấp", ICD10: "JO2.9"}}}
+	if fs, _, _ := out.CleanFindings(1); len(fs) != 1 || fs[0].ICD10 != "J02.9" {
+		t.Fatalf("findings = %+v", fs)
+	}
+}

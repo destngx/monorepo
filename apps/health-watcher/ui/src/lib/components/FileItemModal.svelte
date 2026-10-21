@@ -6,6 +6,7 @@
   import { proposalVisit } from '$lib/reading';
   import Field from './Field.svelte';
   import FilePreview from './FilePreview.svelte';
+  import FilmGuide from './FilmGuide.svelte';
   import Modal from './Modal.svelte';
   import VisitFields from './VisitFields.svelte';
 
@@ -97,6 +98,7 @@
           Film photos are stored and shown only. File the written radiology report too; it's the part that can be
           searched and read.
         </p>
+        <FilmGuide />
       {/if}
 
       <fieldset>

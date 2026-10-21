@@ -1,7 +1,7 @@
 package domain
 
 // CatalogVersion changes whenever DefaultCatalog's entries change.
-const CatalogVersion = "2026-10-21.1"
+const CatalogVersion = "2026-10-21.2"
 
 // Metric categories.
 const (
@@ -67,7 +67,7 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 	{Code: "uric_acid", LOINC: "14933-6", Name: "Uric acid", NameVI: "Acid uric", Category: CatKidney, Unit: "µmol/L",
 		Conversions: []Conversion{conv("mg/dL", 59.48)},
 		Aliases:     []string{"acid uric", "axit uric", "uric acid", "ua", "a. uric", "urat"}},
-	{Code: "acr", LOINC: "14959-1", Name: "Urine albumin/creatinine ratio", NameVI: "Tỷ số albumin/creatinin niệu", Category: CatKidney, Unit: "mg/g",
+	{Code: "acr", LOINC: "9318-7", Name: "Urine albumin/creatinine ratio", NameVI: "Tỷ số albumin/creatinin niệu", Category: CatKidney, Unit: "mg/g",
 		Conversions: []Conversion{conv("mg/mmol", 8.84)},
 		Aliases:     []string{"acr", "uacr", "microalbumin/creatinin", "tỷ số albumin creatinin", "albumin/creatinin"}},
 
