@@ -303,7 +303,12 @@ func CaptureFormatInstruction(today time.Time, screenLabels []string) string {
 		field = ",\n      \"screenCues\": [\"Labels from the list in the rules that the screen shows\"]"
 		rule = "\n- screenCues lists each of these labels shown anywhere on the screen (buttons, tabs, headings), copied from this list: " + strings.Join(quoted, ", ") + ". Leave it empty when none is shown."
 	}
-	return strings.NewReplacer("{today}", today.Format("2006-01-02"), "{screenCuesField}", field, "{screenCuesRule}", rule).Replace(captureFormatInstruction)
+	return strings.NewReplacer(
+		"{today}", today.Format("2006-01-02"),
+		"{yesterday}", today.AddDate(0, 0, -1).Format("2006-01-02"),
+		"{dayBefore}", today.AddDate(0, 0, -2).Format("2006-01-02"),
+		"{screenCuesField}", field, "{screenCuesRule}", rule,
+	).Replace(captureFormatInstruction)
 }
 
 const captureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON object (no markdown, no backticks, no explanation) in this exact format:
@@ -334,6 +339,7 @@ Rules:
 - One event per money movement; a screenshot listing several transactions yields several events.
 - amount is a positive plain number in the shown currency: 1.250.000đ = 1250000, -50k = 50000, +1,250,000 VND = 1250000. The sign goes into direction ("out" for money leaving the account, "in" for money arriving).
 - Today is {today}. Dates shown as dd/MM/yyyy are day first. When the year is missing, use the year that makes the date closest to, but not after, today.
+- A history screen groups rows under day headers; each row takes the date of the nearest header above it. "Hôm nay" (today) is {today}, "Hôm qua" (yesterday) is {yesterday}, "Hôm kia" is {dayBefore}. When a header is partly hidden (by a floating button, a crop), work it out from the headers around it: between "Hôm nay" and an older date it is "Hôm qua", not today.
 - Typed notes such as "400k tien gui xe" or "35k cafe yesterday" are the user recording money as it moves: one event per amount, dated today unless the note names a day ("yesterday", "15/10"), direction "out" unless the note says the money came in (received, salary, refund). Put what the money was for into description. k means thousand, m or tr means million: 400k = 400000, 1.5tr = 1500000. The amount is the payment itself, not a fee.
 - category is the category a typed note asks for, as written ("count as transit" = "transit", "category: Food" = "Food"), else "". Leave it out of description.
 - balanceAfter is the balance shown after the movement (e.g. "SD: 3,456,789VND"), else null. fee is a separate fee amount, else null.

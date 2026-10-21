@@ -484,3 +484,15 @@ func TestCaptureFormatInstructionStatesToday(t *testing.T) {
 		t.Fatalf("instruction must carry today's date: %s", instruction)
 	}
 }
+
+func TestGivenDayHeadersWhenAskingForTheFormatThenHomNayIsTodayAndHomQuaIsYesterday(t *testing.T) {
+	instruction := CaptureFormatInstruction(captureToday, nil)
+	for _, want := range []string{`"Hôm nay" (today) is 2026-10-19`, `"Hôm qua" (yesterday) is 2026-10-18`, `"Hôm kia" is 2026-10-17`, "partly hidden"} {
+		if !strings.Contains(instruction, want) {
+			t.Fatalf("instruction should say %q: %s", want, instruction)
+		}
+	}
+	if strings.Contains(instruction, "{yesterday}") || strings.Contains(instruction, "{dayBefore}") {
+		t.Fatalf("placeholders left: %s", instruction)
+	}
+}
