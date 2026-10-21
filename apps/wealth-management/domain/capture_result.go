@@ -90,6 +90,8 @@ type CaptureSuggestion struct {
 	// DateCheck is set when the day header was hidden: CaptureDateInferred
 	// or CaptureDateHidden.
 	DateCheck string `json:"dateCheck,omitempty"`
+	// DayHeader is the day header the model read above the row, as written.
+	DayHeader string `json:"dayHeader,omitempty"`
 	// Overall is how safe the row is to approve as it is (0-100), with
 	// the reasons behind it; only rows above CaptureSelectScore start
 	// selected (WM-CAP-26).
@@ -228,6 +230,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 	suggestion := CaptureSuggestion{
 		DateAssumed:       event.DateAssumed,
 		DateCheck:         event.DateCheck,
+		DayHeader:         event.DayHeader,
 		Transaction:       transaction,
 		Direction:         event.Direction,
 		Amount:            amount,

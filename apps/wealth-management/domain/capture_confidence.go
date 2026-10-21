@@ -114,6 +114,9 @@ func ApplyCaptureConfidence(suggestions []CaptureSuggestion) {
 			}
 			reasons = append(reasons, CaptureReason{Text: text})
 		}
+		if suggestion.DayHeader != "" {
+			reasons = append(reasons, CaptureReason{Text: fmt.Sprintf("Day header read: %q", suggestion.DayHeader)})
+		}
 		if suggestion.RecordedThrough != "" {
 			reasons = append(reasons, CaptureReason{Text: fmt.Sprintf("May be missing from the sheet: its account is recorded up to %s and no row matches", suggestion.RecordedThrough)})
 		}

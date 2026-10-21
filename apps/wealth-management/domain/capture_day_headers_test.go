@@ -88,3 +88,16 @@ func TestGivenACheckedDateWhenScoringThenItCostsPoints(t *testing.T) {
 		t.Fatalf("hidden: overall=%d reasons=%q", got.Overall, reasonTexts(got))
 	}
 }
+
+func TestGivenADayHeaderWhenScoringThenTheHeaderReadIsShownWithoutCost(t *testing.T) {
+	suggestion := confident(0.95)
+	suggestion.DayHeader = "Hôm nay"
+	suggestions := []CaptureSuggestion{suggestion}
+
+	ApplyCaptureConfidence(suggestions)
+
+	got := suggestions[0]
+	if got.Overall != 95 || got.Reasons[len(got.Reasons)-1] != (CaptureReason{Text: `Day header read: "Hôm nay"`}) {
+		t.Fatalf("overall=%d reasons=%+v", got.Overall, got.Reasons)
+	}
+}

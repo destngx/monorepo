@@ -79,6 +79,8 @@ export interface CaptureSuggestion {
   dateAssumed?: boolean;
   /** The day header was hidden: `inferred` from the headers around it, or `hidden` when they left several days. */
   dateCheck?: 'inferred' | 'hidden';
+  /** The day header the model read above the row, as written. */
+  dayHeader?: string;
   /** The amount is in another currency than the account. */
   currencyMismatch?: boolean;
   lowConfidence: CaptureField[];
