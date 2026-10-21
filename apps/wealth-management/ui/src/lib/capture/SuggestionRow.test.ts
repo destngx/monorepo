@@ -48,6 +48,7 @@ const rowProps = () => ({
   balanceAfter: null,
   balanceCurrency: 'VND',
   cardTags: new Map(),
+  cardNames: new Map(),
   verb: 'Approve',
   actionsDisabled: false,
   dirty: false,
@@ -109,6 +110,56 @@ describe('SuggestionRow', () => {
   it('Given a transfer or fee row When shown Then there is no Note button', () => {
     renderRow(suggestion({ transferGroup: 't1' }));
     expect(screen.queryByRole('button', { name: 'Add note' })).toBeNull();
+  });
+
+  it('Given an account with one open card When shown Then the row names the card it uses', () => {
+    const row = toReviewRows({
+      suggestions: [
+        suggestion({
+          transaction: { ...suggestion({}).transaction, accountName: 'Credit Card Acme', tags: ['platinum'] },
+        }),
+      ],
+      unreadable: [],
+      balances: [],
+    })[0];
+    render(SuggestionRow, {
+      ...rowProps(),
+      row,
+      cardTags: new Map([['Credit Card Acme', ['platinum']]]),
+      cardNames: new Map([['Credit Card Acme', new Map([['platinum', 'Acme Visa Platinum']])]]),
+    });
+
+    expect(screen.getByText('Card: Acme Visa Platinum')).toBeTruthy();
+    expect(screen.queryByLabelText('Card')).toBeNull();
+  });
+
+  it('Given an account with several open cards When shown Then the picker lists them by name', () => {
+    const row = toReviewRows({
+      suggestions: [suggestion({ transaction: { ...suggestion({}).transaction, accountName: 'Card Duo' } })],
+      unreadable: [],
+      balances: [],
+    })[0];
+    render(SuggestionRow, {
+      ...rowProps(),
+      row,
+      cardTags: new Map([['Card Duo', ['Gold', 'Silver']]]),
+      cardNames: new Map([
+        [
+          'Card Duo',
+          new Map([
+            ['gold', 'Duo Gold'],
+            ['silver', 'Duo Silver'],
+          ]),
+        ],
+      ]),
+    });
+
+    const picker = screen.getByLabelText<HTMLSelectElement>('Card');
+    expect([...picker.options].map((option) => option.textContent)).toEqual([
+      'Pick the card…',
+      'Duo Gold',
+      'Duo Silver',
+    ]);
   });
 
   it('Given a payee matched to a near name in money lent When shown Then the payee is highlighted to check', () => {

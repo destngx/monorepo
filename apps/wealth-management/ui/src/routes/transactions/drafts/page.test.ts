@@ -82,6 +82,16 @@ const review = {
     ['Card Acme', ['Platinum Online']],
     ['Card Duo', ['Gold', 'Silver']],
   ]),
+  cardNames: new Map([
+    ['Card Acme', new Map([['platinum online', 'Acme Platinum Online']])],
+    [
+      'Card Duo',
+      new Map([
+        ['gold', 'Duo Gold'],
+        ['silver', 'Duo Silver'],
+      ]),
+    ],
+  ]),
 };
 const overview: QuickCaptureOverview = {
   pendingDrafts: 1,
@@ -312,6 +322,7 @@ describe('Drafts page', () => {
     await fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'Card Acme' } });
     await flush();
     expect(screen.queryByLabelText('Card')).toBeNull();
+    expect(screen.getByText('Card: Acme Platinum Online')).toBeTruthy();
     await fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await flush();
     const approval = calls.find((call) => call.name === 'approveDrafts');

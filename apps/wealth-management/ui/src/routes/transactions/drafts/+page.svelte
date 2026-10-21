@@ -211,6 +211,7 @@
         categories={value.categories}
         tags={value.tags}
         cardTags={value.cardTags}
+        cardNames={value.cardNames}
         write={approve}
         {reject}
         {save}

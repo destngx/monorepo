@@ -1,7 +1,7 @@
 import { api } from '$lib/api/endpoints';
 import { defer } from '$lib/api/load';
 import { captureAIStatus } from '$lib/capture/aiStatus';
-import { cardTagOptions } from '$lib/capture/review';
+import { cardNameOptions, cardTagOptions } from '$lib/capture/review';
 import type { PageLoad } from './$types';
 
 // Nothing is awaited: the header and the upload card render at once. The
@@ -19,7 +19,7 @@ export const load: PageLoad = ({ fetch, depends }) => {
         api.tags({ fetch }),
         api.cards({ fetch }),
       ]);
-      return { drafts, accounts, categories, tags, cardTags: cardTagOptions(cards) };
+      return { drafts, accounts, categories, tags, cardTags: cardTagOptions(cards), cardNames: cardNameOptions(cards) };
     }),
     overview: defer(() => api.captureInbox({ fetch })),
     aiStatus: defer(() => captureAIStatus(fetch)),

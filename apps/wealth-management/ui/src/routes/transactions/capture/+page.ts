@@ -1,7 +1,7 @@
 import { api } from '$lib/api/endpoints';
 import { defer } from '$lib/api/load';
 import { captureAIStatus } from '$lib/capture/aiStatus';
-import { cardTagOptions } from '$lib/capture/review';
+import { cardNameOptions, cardTagOptions } from '$lib/capture/review';
 import type { PageLoad } from './$types';
 
 // Nothing is awaited: materials can be added while the AI status and the
@@ -15,7 +15,7 @@ export const load: PageLoad = ({ fetch }) => ({
       api.tags({ fetch }),
       api.cards({ fetch }),
     ]);
-    return { accounts, categories, tags, cardTags: cardTagOptions(cards) };
+    return { accounts, categories, tags, cardTags: cardTagOptions(cards), cardNames: cardNameOptions(cards) };
   }),
   aiStatus: defer(() => captureAIStatus(fetch)),
 });

@@ -39,6 +39,8 @@
     tags: string[];
     /** Open card keywords per account: the tags saying which card paid. */
     cardTags: Map<string, string[]>;
+    /** Open card names per account by lowercased keyword. */
+    cardNames: Map<string, Map<string, string>>;
     /** Verb of the write button: "Commit" or "Approve". */
     verb: string;
     /** True while an unanswered batch waits for its retry. */
@@ -64,6 +66,7 @@
     grouped,
     tags,
     cardTags,
+    cardNames,
     verb,
     actionsDisabled,
     dirty,
@@ -119,6 +122,8 @@
   // the tag picker edits the user's tags and leaves the card tag in place.
   const userTags = $derived(nonCardTags(row.tx.tags, cardTags));
   const cardTag = $derived(pickedCardTag(row.tx, accountCardTags));
+  // The card is always shown: a picker with several open cards, its name with one.
+  const cardName = (keyword: string) => cardNames.get(row.tx.accountName)?.get(keyword.toLowerCase()) ?? keyword;
 
   const canSuggest = $derived(!disabled && !suggestion.transferGroup);
 
@@ -272,8 +277,10 @@
                 onchange={(event) => pickCardTag(row.tx, event.currentTarget.value, cardTags)}
               >
                 <option value="" disabled>Pick the card…</option>
-                {#each accountCardTags as option (option)}<option value={option}>{option}</option>{/each}
+                {#each accountCardTags as option (option)}<option value={option}>{cardName(option)}</option>{/each}
               </select>
+            {:else if cardTag}
+              <p class="mb-2 text-xs">Card: {cardName(cardTag)}</p>
             {/if}
             <TagPicker
               options={nonCardTags([...new Set([...(suggestion.tagOptions ?? []), ...tags])], cardTags)}

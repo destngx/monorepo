@@ -176,6 +176,18 @@ export function cardTagOptions(reports: CardBankReport[]): Map<string, string[]>
   return options;
 }
 
+/** Each account's open card names by keyword, lowercased, so a row can say which card it uses. */
+export function cardNameOptions(reports: CardBankReport[]): Map<string, Map<string, string>> {
+  const names = new Map<string, Map<string, string>>();
+  for (const card of reports.flatMap((bank) => bank.cards)) {
+    if (card.closedFrom || !card.keyword) continue;
+    const byKeyword = names.get(card.accountName) ?? new Map<string, string>();
+    byKeyword.set(card.keyword.toLowerCase(), card.name);
+    names.set(card.accountName, byKeyword);
+  }
+  return names;
+}
+
 const isCardTag = (tag: string, cardTags: string[]) =>
   cardTags.some((option) => option.toLowerCase() === tag.trim().toLowerCase());
 const hasCardTag = (tx: TransactionInput, cardTags: string[]) => tx.tags.some((tag) => isCardTag(tag, cardTags));

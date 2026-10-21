@@ -222,6 +222,7 @@
             categories={value.categories}
             tags={value.tags}
             cardTags={value.cardTags}
+            cardNames={value.cardNames}
             usdRate={usdQuote?.rate ?? null}
             {write}
           />

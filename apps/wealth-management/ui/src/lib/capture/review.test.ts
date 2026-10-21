@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Account, CaptureResult, CaptureSuggestion, CardBankReport } from '$lib/api/types';
 import {
   applyCategorySuggestion,
+  cardNameOptions,
   cardTagOptions,
   fillCardTag,
   nonCardTags,
@@ -291,10 +292,10 @@ describe('card tags', () => {
   const reports = [
     {
       cards: [
-        { accountName: 'Card Acme', keyword: 'Platinum Online' },
-        { accountName: 'Card Acme', keyword: 'Old', closedFrom: '2020-01-01' },
-        { accountName: 'Card Duo', keyword: 'Gold' },
-        { accountName: 'Card Duo', keyword: 'Silver' },
+        { name: 'Acme Platinum Online', accountName: 'Card Acme', keyword: 'Platinum Online' },
+        { name: 'Acme Old', accountName: 'Card Acme', keyword: 'Old', closedFrom: '2020-01-01' },
+        { name: 'Duo Gold', accountName: 'Card Duo', keyword: 'Gold' },
+        { name: 'Duo Silver', accountName: 'Card Duo', keyword: 'Silver' },
       ],
     },
   ] as unknown as CardBankReport[];
@@ -309,6 +310,13 @@ describe('card tags', () => {
       ['Card Acme', ['Platinum Online']],
       ['Card Duo', ['Gold', 'Silver']],
     ]);
+  });
+
+  it('names each open card by its account and keyword, whatever the case of the tag', () => {
+    const names = cardNameOptions(reports);
+    expect(names.get('Card Duo')?.get('silver')).toBe('Duo Silver');
+    expect(names.get('Card Acme')?.get('platinum online')).toBe('Acme Platinum Online');
+    expect(names.get('Card Acme')?.has('old')).toBe(false);
   });
 
   it('requires a card tag on card spending, not on transfers, repayments or other accounts', () => {

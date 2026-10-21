@@ -35,6 +35,8 @@
     tags: string[];
     /** Open card keywords per account (cardTagOptions): spending on a card account must pick one. */
     cardTags: Map<string, string[]>;
+    /** Open card names per account by lowercased keyword (cardNameOptions). */
+    cardNames: Map<string, Map<string, string>>;
     /** VND per USD for previewing USD and USDT rows; the sheet does the real conversion. */
     usdRate?: number | null;
     /** Writes the rows; the batch create path by default. Quick capture approves drafts instead. */
@@ -56,6 +58,7 @@
     categories,
     tags,
     cardTags,
+    cardNames,
     usdRate = null,
     write = (batchId, _rows, inputs) => api.createTransactions(batchId, inputs),
     reject,
@@ -287,6 +290,7 @@
             {grouped}
             {tags}
             {cardTags}
+            {cardNames}
             {verb}
             actionsDisabled={Boolean(pending)}
             dirty={isRowDirty(row)}
