@@ -130,7 +130,7 @@ func TestGivenRowOrderedTextWhenMaskingThenPersonalRowsAndNumbersAreReplaced(t *
 		"BỆNH VIỆN ĐA KHOA MẪU",
 		"Họ tên: NGUYỄN VĂN MẪU Năm sinh: 1985 Giới: Nam",
 		"Mã BN: 24-000123 Số thẻ BHYT: DN4790000000000",
-		"Liên hệ 0901 234 567 hoặc mau@example.test",
+		"Liên hệ 0900 000 000 hoặc mau@example.test",
 		"STT Tên xét nghiệm Kết quả",
 		"1 Glucose (đói) 6.4 H mmol/L 3.9 - 6.1",
 		"BS. TRẦN THỊ MẪU",
