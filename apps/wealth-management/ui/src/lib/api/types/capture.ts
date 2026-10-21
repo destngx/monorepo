@@ -77,6 +77,8 @@ export interface CaptureSuggestion {
   reasons: CaptureReason[];
   /** No date on the material, so the row is dated today. */
   dateAssumed?: boolean;
+  /** The day header was hidden: `inferred` from the headers around it, or `hidden` when they left several days. */
+  dateCheck?: 'inferred' | 'hidden';
   /** The amount is in another currency than the account. */
   currencyMismatch?: boolean;
   lowConfidence: CaptureField[];

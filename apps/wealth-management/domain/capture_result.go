@@ -87,6 +87,9 @@ type CaptureSuggestion struct {
 	// the account's.
 	DateAssumed      bool `json:"dateAssumed,omitempty"`
 	CurrencyMismatch bool `json:"currencyMismatch,omitempty"`
+	// DateCheck is set when the day header was hidden: CaptureDateInferred
+	// or CaptureDateHidden.
+	DateCheck string `json:"dateCheck,omitempty"`
 	// Overall is how safe the row is to approve as it is (0-100), with
 	// the reasons behind it; only rows above CaptureSelectScore start
 	// selected (WM-CAP-26).
@@ -224,6 +227,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 	}
 	suggestion := CaptureSuggestion{
 		DateAssumed:       event.DateAssumed,
+		DateCheck:         event.DateCheck,
 		Transaction:       transaction,
 		Direction:         event.Direction,
 		Amount:            amount,
@@ -241,7 +245,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 	if event.Confidence < CaptureLowConfidence {
 		suggestion.LowConfidence = append(suggestion.LowConfidence, "amount", "date")
 	}
-	if event.DateAssumed {
+	if event.DateAssumed || event.DateCheck != "" {
 		suggestion.LowConfidence = append(suggestion.LowConfidence, "date")
 	} else if !event.HasTime {
 		suggestion.Notes = append(suggestion.Notes, "No time on the material; matched by date only.")

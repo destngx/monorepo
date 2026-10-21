@@ -28,6 +28,8 @@ const (
 	confidenceGuessedAccount = 15
 	confidenceScreenAccount  = 5
 	confidenceDateAssumed    = 20
+	confidenceDateInferred   = 10
+	confidenceDateHidden     = 20
 	confidenceCurrency       = 25
 	confidencePossibleMatch  = 15
 	confidenceSameReference  = 20
@@ -81,6 +83,12 @@ func ApplyCaptureConfidence(suggestions []CaptureSuggestion) {
 		}
 		if suggestion.DateAssumed {
 			deduct(confidenceDateAssumed, "No date on the material: dated today")
+		}
+		switch suggestion.DateCheck {
+		case CaptureDateInferred:
+			deduct(confidenceDateInferred, "Date worked out from the day headers around it: check it")
+		case CaptureDateHidden:
+			deduct(confidenceDateHidden, "Its day header is hidden: check the date")
 		}
 		if suggestion.CurrencyMismatch {
 			deduct(confidenceCurrency, "The amount is in another currency than the account")

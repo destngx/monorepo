@@ -123,6 +123,10 @@ func mergeItems(a, b CaptureItem) CaptureItem {
 	if event.Fee == nil {
 		event.Fee = other.Event.Fee
 	}
+	if event.DateCheck != "" && other.Event.DateCheck == "" {
+		// The other screenshot showed the row's day header.
+		event.At, event.HasTime, event.DateCheck = other.Event.At, other.Event.HasTime, ""
+	}
 	if !event.HasTime && other.Event.HasTime {
 		event.At, event.HasTime = other.Event.At, true
 	}

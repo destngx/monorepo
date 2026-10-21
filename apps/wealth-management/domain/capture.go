@@ -142,6 +142,9 @@ type CaptureEvent struct {
 	Category string `json:"category"`
 	// ScreenCues are the screen rule labels the model saw on the screen.
 	ScreenCues []string `json:"screenCues,omitempty"`
+	// DayHeader is the day header the row sits under on a history screen,
+	// as written, or "hidden" when one is there but covered.
+	DayHeader string `json:"dayHeader,omitempty"`
 
 	// Set by the engine after parsing.
 	MaterialID string    `json:"materialId"`
@@ -149,6 +152,9 @@ type CaptureEvent struct {
 	HasTime    bool      `json:"-"`
 	// DateAssumed marks a typed note without a date, dated today.
 	DateAssumed bool `json:"-"`
+	// DateCheck says why the date needs a check: CaptureDateInferred or
+	// CaptureDateHidden, from a hidden day header.
+	DateCheck string `json:"-"`
 }
 
 // CaptureExtraction is the model's reply for one material.
@@ -189,6 +195,7 @@ func ParseCaptureExtraction(content string, material CaptureMaterial, today time
 		}
 		events = append(events, event)
 	}
+	resolveDayHeaders(events, today)
 	extraction.Events = events
 	if len(events) == 0 && !extraction.Unreadable && extraction.Dropped > 0 {
 		extraction.Unreadable = true
@@ -217,6 +224,7 @@ func (e *CaptureEvent) normalize() bool {
 	e.SourceApp = strings.TrimSpace(e.SourceApp)
 	e.AccountHint = strings.TrimSpace(e.AccountHint)
 	e.Quote = strings.TrimSpace(e.Quote)
+	e.DayHeader = strings.TrimSpace(e.DayHeader)
 	e.ScreenCues = slices.DeleteFunc(e.ScreenCues, func(cue string) bool { return strings.TrimSpace(cue) == "" })
 	e.Currency = normalizeCurrency(e.Currency)
 
@@ -328,7 +336,8 @@ const captureFormatInstruction = `IMPORTANT: Respond with ONLY a valid JSON obje
       "fee": null,
       "confidence": 0.9,
       "quote": "The exact text the event was read from",
-      "category": ""{screenCuesField}
+      "category": "",
+      "dayHeader": "The day header above the row on a history screen, as written (Hôm nay, Hôm qua, 19/10/2026); hidden when it is covered; empty when the screen has none"{screenCuesField}
     }
   ],
   "unreadable": false,
@@ -339,7 +348,7 @@ Rules:
 - One event per money movement; a screenshot listing several transactions yields several events.
 - amount is a positive plain number in the shown currency: 1.250.000đ = 1250000, -50k = 50000, +1,250,000 VND = 1250000. The sign goes into direction ("out" for money leaving the account, "in" for money arriving).
 - Today is {today}. Dates shown as dd/MM/yyyy are day first. When the year is missing, use the year that makes the date closest to, but not after, today.
-- A history screen groups rows under day headers; each row takes the date of the nearest header above it. "Hôm nay" (today) is {today}, "Hôm qua" (yesterday) is {yesterday}, "Hôm kia" is {dayBefore}. When a header is partly hidden (by a floating button, a crop), work it out from the headers around it: between "Hôm nay" and an older date it is "Hôm qua", not today.
+- A history screen groups rows under day headers; each row takes the date of the nearest header above it. "Hôm nay" (today) is {today}, "Hôm qua" (yesterday) is {yesterday}, "Hôm kia" is {dayBefore}. List events top to bottom as on the screen, and put each row's header in dayHeader. When the header is partly hidden (by a floating button, a crop), set dayHeader to "hidden" rather than guessing; the engine works the date out from the headers around it.
 - Typed notes such as "400k tien gui xe" or "35k cafe yesterday" are the user recording money as it moves: one event per amount, dated today unless the note names a day ("yesterday", "15/10"), direction "out" unless the note says the money came in (received, salary, refund). Put what the money was for into description. k means thousand, m or tr means million: 400k = 400000, 1.5tr = 1500000. The amount is the payment itself, not a fee.
 - category is the category a typed note asks for, as written ("count as transit" = "transit", "category: Food" = "Food"), else "". Leave it out of description.
 - balanceAfter is the balance shown after the movement (e.g. "SD: 3,456,789VND"), else null. fee is a separate fee amount, else null.
