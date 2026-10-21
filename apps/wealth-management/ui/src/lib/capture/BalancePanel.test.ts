@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { formatMoney } from '$lib/format';
+import { mask } from '$lib/state/mask.svelte';
 import BalancePanel from './BalancePanel.svelte';
 
 describe('BalancePanel', () => {
+  afterEach(() => mask.hide());
+
   it('Given accounts with drafts When shown Then each has its balance now and after the selected rows, with the screenshot check', () => {
     render(BalancePanel, {
       verb: 'Approve',
@@ -41,5 +45,29 @@ describe('BalancePanel', () => {
     expect(screen.getByText('None selected')).toBeTruthy();
     expect(screen.getByText('Matches')).toBeTruthy();
     expect(screen.getByText(/Off by/)).toBeTruthy();
+  });
+
+  it('Given a card account with a limit When shown Then the credit left leads, with its balance below', () => {
+    mask.toggle();
+    render(BalancePanel, {
+      verb: 'Approve',
+      projections: [
+        {
+          account: 'Card Acme',
+          currency: 'VND',
+          rows: 1,
+          current: -300_000,
+          change: -100_000,
+          after: -400_000,
+          credit: { now: 4_700_000, after: 4_600_000 },
+        },
+      ],
+      reconciliation: [],
+    });
+
+    const tile = screen.getByText('Card Acme').closest('li')!;
+    expect(tile.textContent).toContain('credit left');
+    expect(tile.textContent).toContain(formatMoney(4_600_000, 'VND'));
+    expect(tile.textContent).toContain(`Balance ${formatMoney(-400_000, 'VND')}`);
   });
 });

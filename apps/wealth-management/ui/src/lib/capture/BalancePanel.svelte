@@ -6,7 +6,8 @@
 
   // Above the draft list: each account's sheet balance now and once the
   // selected rows are written, so ticking a row shows its effect at once,
-  // and the balance a screenshot showed when there is one.
+  // and the balance a screenshot showed when there is one. A card account
+  // with a limit leads with the credit left, its balance below.
   interface Props {
     projections: BalanceProjection[];
     reconciliation: Reconciliation[];
@@ -44,17 +45,32 @@
         <li class="rounded-lg bg-slate-900/5 px-3 py-2 dark:bg-white/5">
           <div class="flex items-baseline justify-between gap-3">
             <span class="font-medium">{line.account}</span>
-            <span class="font-medium"><Money value={line.after} currency={line.currency} /></span>
+            {#if line.credit}
+              <span class="text-right"
+                ><span class="font-medium"><Money value={line.credit.after} currency={line.currency} /></span>
+                <span class="muted text-xs">credit left</span></span
+              >
+            {:else}
+              <span class="font-medium"><Money value={line.after} currency={line.currency} /></span>
+            {/if}
           </div>
           <div class="muted mt-0.5 flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
             <span>{line.rows ? `${line.rows} selected` : 'None selected'}</span>
-            {#if line.change}
+            {#if line.credit && line.credit.after !== line.credit.now}
+              <span
+                >now <Money value={line.credit.now} currency={line.currency} />
+                <Money value={line.credit.after - line.credit.now} currency={line.currency} signed tone /></span
+              >
+            {:else if !line.credit && line.change}
               <span
                 >now <Money value={line.current} currency={line.currency} />
                 <Money value={line.change} currency={line.currency} signed tone /></span
               >
             {/if}
           </div>
+          {#if line.credit}
+            <p class="muted mt-0.5 text-xs">Balance <Money value={line.after} currency={line.currency} /></p>
+          {/if}
           {#if screenshot}{@render check(screenshot)}{/if}
         </li>
       {/each}

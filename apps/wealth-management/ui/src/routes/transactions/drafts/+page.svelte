@@ -212,6 +212,7 @@
         tags={value.tags}
         cardTags={value.cardTags}
         cardNames={value.cardNames}
+        creditLines={value.creditLines}
         write={approve}
         {reject}
         {save}

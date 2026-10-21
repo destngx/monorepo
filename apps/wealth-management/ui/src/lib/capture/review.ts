@@ -117,6 +117,54 @@ export interface BalanceProjection {
   change: number;
   /** The sheet balance once those rows are written. */
   after: number;
+  /** A card account's credit left now and after those rows; absent when it has no limit. */
+  credit?: { now: number; after: number };
+}
+
+/** A credit limit and the card accounts that draw on it. */
+export interface CreditLine {
+  limit: number;
+  accounts: string[];
+}
+
+const isCardAccount = (account: Account) => account.type === 'negative active use';
+
+/**
+ * Each card account's credit line: its bank's limit, shared by every card
+ * account the bank's cards bill to (WM-CARD-16), else the account's own
+ * limit (Accounts C). Accounts with neither have no line.
+ */
+export function creditLines(reports: CardBankReport[], accounts: Account[]): Map<string, CreditLine> {
+  const cards = new Map(accounts.filter(isCardAccount).map((account) => [account.name, account]));
+  const lines = new Map<string, CreditLine>();
+  for (const bank of reports) {
+    const names = [...new Set(bank.cards.map((card) => card.accountName))].filter((name) => cards.has(name));
+    if (bank.limit <= 0 || !names.length) continue;
+    const line = { limit: bank.limit, accounts: names };
+    for (const name of names) lines.set(name, line);
+  }
+  for (const account of cards.values()) {
+    if (!lines.has(account.name) && (account.creditLimit ?? 0) > 0) {
+      lines.set(account.name, { limit: account.creditLimit!, accounts: [account.name] });
+    }
+  }
+  return lines;
+}
+
+/** The limit less what the line's accounts owe; money paid in ahead is not extra room, as on the Cards page. */
+function creditLeft(line: CreditLine, balances: Map<string, number>): number {
+  const owed = line.accounts.reduce((sum, name) => sum + Math.max(0, -(balances.get(name) ?? 0)), 0);
+  return round(line.limit - owed);
+}
+
+/** The selected rows' change per account. */
+function selectedChanges(rows: ReviewRow[]): Map<string, number> {
+  const changes = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.selected || row.createdId) continue;
+    changes.set(row.tx.accountName, (changes.get(row.tx.accountName) ?? 0) + rowDelta(row.tx));
+  }
+  return changes;
 }
 
 /**
@@ -124,40 +172,60 @@ export interface BalanceProjection {
  * currency, for each account with a row not yet written: ticking a row
  * moves its account's line instead of adding or removing it. Written rows
  * are already in the reloaded balance; rows on unknown accounts cannot be
- * projected.
+ * projected. A card account with a credit line also gets its credit left,
+ * which rows on the other accounts sharing the limit move too.
  */
-export function projectBalances(accounts: Account[], rows: ReviewRow[]): BalanceProjection[] {
+export function projectBalances(
+  accounts: Account[],
+  rows: ReviewRow[],
+  lines: Map<string, CreditLine>,
+): BalanceProjection[] {
+  const now = new Map(accounts.map((account) => [account.name, account.balance]));
+  const changes = selectedChanges(rows);
+  const later = new Map(accounts.map((account) => [account.name, account.balance + (changes.get(account.name) ?? 0)]));
   return accounts.flatMap((account) => {
     const open = rows.filter((row) => !row.createdId && row.tx.accountName === account.name);
     if (!open.length) return [];
-    const pending = open.filter((row) => row.selected);
-    const change = round(pending.reduce((sum, row) => sum + rowDelta(row.tx), 0));
+    const change = round(changes.get(account.name) ?? 0);
+    const line = lines.get(account.name);
     return [
       {
         account: account.name,
         currency: account.currency,
-        rows: pending.length,
+        rows: open.filter((row) => row.selected).length,
         current: account.balance,
         change,
         after: round(account.balance + change),
+        ...(line ? { credit: { now: creditLeft(line, now), after: creditLeft(line, later) } } : {}),
       },
     ];
   });
 }
 
+/** What a row leaves on its account: the credit left on a card account with a limit, else the balance. */
+export interface RunningBalance {
+  amount: number;
+  credit: boolean;
+}
+
 /**
- * The balance each selected row leaves on its account, in list order (a
- * draft list is oldest first, so it reads like a statement); null for rows
- * not selected, already written or on an unknown account.
+ * What each selected row leaves on its account, in list order (a draft list
+ * is oldest first, so it reads like a statement); null for rows not
+ * selected, already written or on an unknown account.
  */
-export function runningBalances(accounts: Account[], rows: ReviewRow[]): (number | null)[] {
+export function runningBalances(
+  accounts: Account[],
+  rows: ReviewRow[],
+  lines: Map<string, CreditLine>,
+): (RunningBalance | null)[] {
   const balances = new Map(accounts.map((account) => [account.name, account.balance]));
   return rows.map((row) => {
     const balance = balances.get(row.tx.accountName);
     if (!row.selected || row.createdId || balance === undefined) return null;
     const after = round(balance + rowDelta(row.tx));
     balances.set(row.tx.accountName, after);
-    return after;
+    const line = lines.get(row.tx.accountName);
+    return line ? { amount: creditLeft(line, balances), credit: true } : { amount: after, credit: false };
   });
 }
 

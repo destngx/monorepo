@@ -18,6 +18,7 @@
     rowProblems,
     ruleKey,
     runningBalances,
+    type CreditLine,
     type ReviewRow,
   } from './review';
   import BalancePanel from './BalancePanel.svelte';
@@ -37,6 +38,8 @@
     cardTags: Map<string, string[]>;
     /** Open card names per account by lowercased keyword (cardNameOptions). */
     cardNames: Map<string, Map<string, string>>;
+    /** Each card account's credit line (creditLines), to project the credit left instead of the balance. */
+    creditLines: Map<string, CreditLine>;
     /** VND per USD for previewing USD and USDT rows; the sheet does the real conversion. */
     usdRate?: number | null;
     /** Writes the rows; the batch create path by default. Quick capture approves drafts instead. */
@@ -59,6 +62,7 @@
     tags,
     cardTags,
     cardNames,
+    creditLines,
     usdRate = null,
     write = (batchId, _rows, inputs) => api.createTransactions(batchId, inputs),
     reject,
@@ -80,8 +84,8 @@
   );
 
   const reconciliation = $derived(reconcile(result.balances, rows));
-  const projections = $derived(projectBalances(accounts, rows));
-  const balancesAfter = $derived(runningBalances(accounts, rows));
+  const projections = $derived(projectBalances(accounts, rows, creditLines));
+  const balancesAfter = $derived(runningBalances(accounts, rows, creditLines));
   // Rows the user tried to write alone show their problems even when not selected.
   let attempted = $state<string[]>([]);
   const problems = $derived(

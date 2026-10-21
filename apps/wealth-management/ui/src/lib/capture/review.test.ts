@@ -4,6 +4,7 @@ import {
   applyCategorySuggestion,
   cardNameOptions,
   cardTagOptions,
+  creditLines,
   fillCardTag,
   nonCardTags,
   pickCardTag,
@@ -280,11 +281,76 @@ describe('projectBalances', () => {
     );
     rows[2].createdId = 'tx1';
 
-    expect(projectBalances(accounts, rows)).toEqual([
+    expect(projectBalances(accounts, rows, new Map())).toEqual([
       { account: 'Vietcombank', currency: 'VND', rows: 2, current: 1_000_000, change: -35_000, after: 965_000 },
       { account: 'Idle', currency: 'USD', rows: 0, current: 5, change: 0, after: 5 },
     ]);
-    expect(runningBalances(accounts, rows)).toEqual([955_000, 965_000, null, null, null]);
+    expect(runningBalances(accounts, rows, new Map())).toEqual([
+      { amount: 955_000, credit: false },
+      { amount: 965_000, credit: false },
+      null,
+      null,
+      null,
+    ]);
+  });
+});
+
+describe('credit left on card accounts', () => {
+  const accounts = [
+    { name: 'Card Acme', balance: -300_000, type: 'negative active use', creditLimit: 5_000_000, currency: 'VND' },
+    { name: 'Card Acme Extra', balance: -200_000, type: 'negative active use', creditLimit: null, currency: 'VND' },
+    { name: 'Card Solo', balance: 100_000, type: 'negative active use', creditLimit: 2_000_000, currency: 'VND' },
+    { name: 'Card Nolimit', balance: -50_000, type: 'negative active use', creditLimit: null, currency: 'VND' },
+    { name: 'Vietcombank', balance: 1_000_000, type: 'bank', creditLimit: null, currency: 'VND' },
+  ] as Account[];
+  const reports = [
+    {
+      limit: 5_000_000,
+      cards: [
+        { accountName: 'Card Acme', keyword: 'platinum' },
+        { accountName: 'Card Acme Extra', keyword: 'gold' },
+      ],
+    },
+    { limit: 0, cards: [{ accountName: 'Card Nolimit', keyword: 'silver' }] },
+  ] as unknown as CardBankReport[];
+  const lines = creditLines(reports, accounts);
+  const on = (id: string, account: string, payment: number) =>
+    suggestion({ id, transaction: { ...suggestion().transaction, accountName: account, payment } });
+
+  it('shares a bank limit among its card accounts, else uses the account limit, and skips accounts with none', () => {
+    expect(lines.get('Card Acme')).toEqual({ limit: 5_000_000, accounts: ['Card Acme', 'Card Acme Extra'] });
+    expect(lines.get('Card Acme Extra')).toBe(lines.get('Card Acme'));
+    expect(lines.get('Card Solo')).toEqual({ limit: 2_000_000, accounts: ['Card Solo'] });
+    expect(lines.has('Card Nolimit')).toBe(false);
+    expect(lines.has('Vietcombank')).toBe(false);
+  });
+
+  it('projects the credit left now and after the selected rows, across the accounts sharing the limit', () => {
+    const rows = toReviewRows(
+      result([on('s1', 'Card Acme', 100_000), on('s2', 'Card Acme Extra', 50_000), on('s3', 'Card Solo', 150_000)]),
+    );
+
+    const projections = projectBalances(accounts, rows, lines);
+    expect(projections.map((line) => [line.account, line.credit])).toEqual([
+      ['Card Acme', { now: 4_500_000, after: 4_350_000 }],
+      ['Card Acme Extra', { now: 4_500_000, after: 4_350_000 }],
+      ['Card Solo', { now: 2_000_000, after: 1_950_000 }],
+    ]);
+    expect(runningBalances(accounts, rows, lines)).toEqual([
+      { amount: 4_400_000, credit: true },
+      { amount: 4_350_000, credit: true },
+      { amount: 1_950_000, credit: true },
+    ]);
+  });
+
+  it('keeps the balance on accounts without a limit', () => {
+    const rows = toReviewRows(result([on('s1', 'Card Nolimit', 10_000), on('s2', 'Vietcombank', 10_000)]));
+
+    expect(projectBalances(accounts, rows, lines).every((line) => line.credit === undefined)).toBe(true);
+    expect(runningBalances(accounts, rows, lines)).toEqual([
+      { amount: -60_000, credit: false },
+      { amount: 990_000, credit: false },
+    ]);
   });
 });
 

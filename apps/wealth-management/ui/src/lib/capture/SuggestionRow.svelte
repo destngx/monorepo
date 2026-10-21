@@ -19,6 +19,7 @@
     pickCardTag,
     pickedCardTag,
     type ReviewRow,
+    type RunningBalance,
   } from './review';
 
   // One suggested transaction: editable fields, evidence, write status and
@@ -29,8 +30,8 @@
     problems: string[];
     /** VND equivalent of a USD or USDT row, or null when not applicable. */
     usdPreview: number | null;
-    /** The account balance once this row and the selected rows above it are written; null when not projected. */
-    balanceAfter: number | null;
+    /** What the account has once this row and the selected rows above it are written; null when not projected. */
+    balanceAfter: RunningBalance | null;
     balanceCurrency: string;
     itemById: Map<string, InboxItem>;
     activeAccounts: Account[];
@@ -258,8 +259,14 @@
       {#if suggestion.currency !== 'VND'}<p class="muted mt-0.5 text-xs">
           read as {suggestion.currency}
         </p>{/if}
-      {#if balanceAfter !== null}<p class="muted mt-0.5 text-xs" title="{row.tx.accountName} balance after this row">
-          Balance after: <Money value={balanceAfter} currency={balanceCurrency} />
+      {#if balanceAfter?.credit}<p
+          class="muted mt-0.5 text-xs"
+          title="Credit left on the {row.tx.accountName} limit after this row"
+        >
+          Credit left after: <Money value={balanceAfter.amount} currency={balanceCurrency} />
+        </p>
+      {:else if balanceAfter}<p class="muted mt-0.5 text-xs" title="{row.tx.accountName} balance after this row">
+          Balance after: <Money value={balanceAfter.amount} currency={balanceCurrency} />
         </p>{/if}
     </td>
     <td class="px-3 pt-3">

@@ -82,6 +82,7 @@ const review = {
     ['Card Acme', ['Platinum Online']],
     ['Card Duo', ['Gold', 'Silver']],
   ]),
+  creditLines: new Map([['Card Acme', { limit: 5_000_000, accounts: ['Card Acme'] }]]),
   cardNames: new Map([
     ['Card Acme', new Map([['platinum online', 'Acme Platinum Online']])],
     [
@@ -303,6 +304,24 @@ describe('Drafts page', () => {
     await flush();
 
     expect(calls.find((call) => call.name === 'readCaptureAgain')?.args[0]).toBe('cap_a');
+  });
+
+  it('Given a draft on a card account with a limit When shown Then the credit left is projected instead of the balance', async () => {
+    mask.toggle();
+    render(DraftsPage, { data: { ...pending(), review: settled(review) } as never });
+    await flush();
+
+    await fireEvent.change(screen.getByLabelText('Account'), { target: { value: 'Card Acme' } });
+    await flush();
+
+    const left = formatMoney(2_915_000, 'VND');
+    expect(screen.getByText(/Credit left after:/).textContent).toContain(left);
+    expect(screen.queryByText(/Balance after:/)).toBeNull();
+    const panel = within(screen.getByText('Balances after approve').closest('section')!);
+    const tile = panel.getByText('Card Acme').closest('li')!;
+    expect(tile.textContent).toContain('credit left');
+    expect(tile.textContent).toContain(left);
+    expect(tile.textContent).toContain(formatMoney(-2_085_000, 'VND'));
   });
 
   it('Given card spending When no card is picked Then approve is refused until one is, and an account with one card fills it', async () => {
