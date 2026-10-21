@@ -29,10 +29,12 @@ Branch: `$ARGUMENTS`, or the current branch when empty.
    ```
 
    On conflicts, stop and report them; do not resolve them silently. If the rebase rewrote commits, run the
-   affected checks (tests, lint, build) again, then update the PR branch so GitHub can mark the PR merged:
+   affected checks (tests, lint, build) again. Then push the branch, even when it has no PR: GitHub marks a PR
+   merged from it, and the upstream lets `git branch -d` in cleanup check the branch against its pushed copy
+   instead of the primary checkout's `main`, which may lag behind origin:
 
    ```sh
-   git push --force-with-lease origin <branch>
+   git push --force-with-lease -u origin <branch>
    ```
 
    Confirm `git rev-parse <branch>` equals `git rev-parse origin/<branch>`.
@@ -75,13 +77,15 @@ Branch: `$ARGUMENTS`, or the current branch when empty.
 
    ```sh
    cd <primary checkout>
-   git worktree remove <worktree>      # refuses if it has uncommitted changes; report, never --force
-   git branch -d <branch>              # -d, not -D: refuses unless fully merged
+   gwf rm -y -D <branch>               # removes the worktree, deletes the branch with -d, prunes
    git push origin --delete <branch>
-   git worktree prune
    ```
 
-   Ignored files (`node_modules`, build output) go with the worktree; that is expected.
+   `gwf rm -y` skips a worktree with uncommitted changes or one another process is using, and `-D` deletes the
+   branch with `git branch -d`, which refuses unless it is fully merged. If either is refused, report it; never
+   force-remove the worktree or use `git branch -D`. Without `gwf` on PATH, run `git worktree remove <worktree>`,
+   `git branch -d <branch>` and `git worktree prune` instead. Ignored files (`node_modules`, build output) go
+   with the worktree; that is expected.
 
 7. **Report.** The new `main` SHA, the PR state, the deploy URL and status, what the live check covered, and
    what was cleaned up.

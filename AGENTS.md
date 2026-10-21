@@ -14,7 +14,7 @@ Multiple agent sessions work in this repo concurrently. Never do feature work in
 - **Location**: always `../monorepo-worktrees/<app>-<topic>` (sibling of the repo, never nested inside it, so Nx and file watchers do not pick it up).
 - **Check first**: run `gwf ls` (or `git worktree list`) and `git status` before editing. If the checkout has uncommitted changes unrelated to your task, stop and move to (or create) the correct worktree instead of editing alongside them.
 - **One feature = one branch = one worktree.** Several agents may work on the same app at once, each in its own worktree. Only touch files belonging to your feature.
-- **Cleanup** after merge: `git worktree remove ../monorepo-worktrees/<app>-<topic>` and `git branch -d <branch>`. `gwf rm` and `gwf gc` are interactive and meant for the user, not agents.
+- **Cleanup** after merge, from the primary checkout: `gwf rm -y -D <branch>` removes the worktree, deletes the branch with `git branch -d` and prunes. It skips a worktree with uncommitted changes or one in use by another process; report that instead of forcing it. Interactive `gwf rm` (no `-y`) and `gwf gc` are for the user, not agents. Without `gwf`: `git worktree remove ../monorepo-worktrees/<app>-<topic>` and `git branch -d <branch>`.
 
 ### Runtime and Tooling
 
