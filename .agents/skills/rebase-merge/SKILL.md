@@ -17,9 +17,9 @@ Branch: `$ARGUMENTS`, or the current branch when empty.
 
 ## Steps
 
-1. **Locate the branch.** Run `git worktree list`. Work inside the branch's own worktree; never check out `main`
-   or switch branches in the primary checkout (other sessions use it). Stop if `git status --short` shows
-   uncommitted changes, and ask the user to commit them first.
+1. **Locate the branch.** Run `gwf ls` (without `gwf`: `git worktree list`). Work inside the branch's own
+   worktree; never check out `main` or switch branches in the primary checkout (other sessions use it). Stop if
+   `git status --short` shows uncommitted changes, and ask the user to commit them first.
 
 2. **Rebase onto main.**
 
@@ -79,6 +79,7 @@ Branch: `$ARGUMENTS`, or the current branch when empty.
    cd <primary checkout>
    gwf rm -y -D <branch>               # removes the worktree, deletes the branch with -d, prunes
    git push origin --delete <branch>
+   git pull --ff-only                  # only when on main with a clean `git status --short`
    ```
 
    `gwf rm -y` skips a worktree with uncommitted changes or one another process is using, and `-D` deletes the
@@ -87,5 +88,9 @@ Branch: `$ARGUMENTS`, or the current branch when empty.
    `git branch -d <branch>` and `git worktree prune` instead. Ignored files (`node_modules`, build output) go
    with the worktree; that is expected.
 
-7. **Report.** The new `main` SHA, the PR state, the deploy URL and status, what the live check covered, and
-   what was cleaned up.
+   Then bring the primary checkout's `main` up to date. Pull only when it is on `main` and `git status --short`
+   is empty; otherwise another session is working there, so skip the pull and report it. If `--ff-only` fails,
+   report it; never merge or rebase the primary checkout.
+
+7. **Report.** The new `main` SHA, the PR state, the deploy URL and status, what the live check covered, what was
+   cleaned up, and whether the primary checkout was pulled.
