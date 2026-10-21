@@ -5,6 +5,7 @@ describe('isPublicPath', () => {
   it('matches the auth pages and their children only', () => {
     expect(isPublicPath('/login')).toBe(true);
     expect(isPublicPath('/invite/hwi_abc')).toBe(true);
+    expect(isPublicPath('/capture')).toBe(true);
     expect(isPublicPath('/loginx')).toBe(false);
     expect(isPublicPath('/')).toBe(false);
   });

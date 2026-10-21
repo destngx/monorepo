@@ -119,7 +119,11 @@ func (s *server) tokenUpload(c *fiber.Ctx) error {
 	if err != nil {
 		return respond(c, s.log, err)
 	}
-	return s.upload(c, sc, domain.SourceShortcut)
+	source := domain.SourceShortcut
+	if sc.Credential == domain.CredentialCaptureLink {
+		source = domain.SourcePhone
+	}
+	return s.upload(c, sc, source)
 }
 
 // upload reads a multipart body: one or more `files` parts (the Shortcut

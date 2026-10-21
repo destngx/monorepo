@@ -66,6 +66,7 @@ export interface UploadToken {
   userId: string;
   createdAt: string;
   lastUsedAt: string | null;
+  expiresAt: string | null;
 }
 
 export interface CreatedUploadToken {
@@ -166,7 +167,7 @@ export interface VisitFilter {
   to?: string;
 }
 
-export type InboxSource = 'web' | 'shortcut';
+export type InboxSource = 'web' | 'shortcut' | 'phone';
 
 export interface InboxItem {
   id: string;
@@ -234,6 +235,8 @@ export interface PageMask {
   boxes: Quad[] | null;
   manual: Quad[] | null;
   maskedLines: number;
+  /** The masked text: personal lines replaced with [ẩn]. */
+  text: string;
 }
 
 export interface Page {
@@ -482,4 +485,11 @@ export interface EngineSettingsInput extends EngineSettings {
 export interface AICheck {
   ok: boolean;
   message: string;
+}
+
+/** A phone capture link (HW-IMP-9), shown once. qr is a PNG data URL of url. */
+export interface CaptureLink {
+  url: string;
+  qr: string;
+  expiresAt: string;
 }

@@ -201,7 +201,7 @@
           <span class="muted text-xs">{p.mask.maskedLines} lines hidden</span>
         {/if}
         <span class="ml-auto flex gap-1">
-          {#if p.mask && p.hasImage}
+          {#if p.mask}
             <button
               type="button"
               class="btn-ghost px-2.5 py-1 text-xs {viewOf(p) === 'masked'
@@ -248,10 +248,15 @@
         onboxes={(boxes) => void setBoxes(p, boxes)}
       />
       {#if p.text}
+        {@const masked = viewOf(p) === 'masked' && p.mask}
         <details class="mt-3">
-          <summary class="muted cursor-pointer text-xs">Text read on the Mac</summary>
+          <summary class="muted cursor-pointer text-xs"
+            >{masked ? 'Text the AI sees (personal lines replaced with [ẩn])' : 'Text read on the Mac'}</summary
+          >
           <pre
-            class="mt-2 max-h-80 overflow-auto rounded-xl bg-slate-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{p.text}</pre>
+            class="mt-2 max-h-80 overflow-auto rounded-xl bg-slate-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{masked
+              ? p.mask?.text
+              : p.text}</pre>
         </details>
       {/if}
     </section>

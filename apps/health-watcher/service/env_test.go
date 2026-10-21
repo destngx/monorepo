@@ -30,6 +30,7 @@ type env struct {
 	inbox    *Inbox
 	clinical *Clinical
 	engine   *Engine
+	capture  *Capture
 	pipeline *Pipeline
 	ocr      *fakeOCR
 	reader   *fakeReader
@@ -75,6 +76,7 @@ func newEnv(t *testing.T) *env {
 	if _, _, err := e.engine.Load(ctx, nil); err != nil {
 		t.Fatal(err)
 	}
+	e.capture = &Capture{Deps: deps, QR: fakeQR{}, Listening: e.engine.Listening}
 	return e
 }
 

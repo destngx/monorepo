@@ -1,6 +1,7 @@
 import { request } from './client';
 import type {
   AICheck,
+  CaptureLink,
   AuditEntry,
   CreatedInvite,
   CreatedUploadToken,
@@ -99,6 +100,8 @@ export function tenantApi(tenantId: string) {
     createUploadToken: (name: string) =>
       request<CreatedUploadToken>(`${t}/upload-tokens`, { method: 'POST', body: { name } }),
     revokeUploadToken: (id: string) => request<void>(`${t}/upload-tokens/${id}`, { method: 'DELETE' }),
+    /** A QR link that opens the phone camera page for this inbox (HW-IMP-9). */
+    capture: (origin: string) => request<CaptureLink>(`${t}/capture`, { method: 'POST', body: { origin } }),
 
     people: (fetch?: Fetch) => request<Person[]>(`${t}/people`, { fetch }),
     person: (id: string, fetch?: Fetch) => request<Person>(`${t}/people/${id}`, { fetch }),

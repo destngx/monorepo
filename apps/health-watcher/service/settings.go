@@ -89,6 +89,13 @@ func (e *Engine) Current() domain.Settings {
 	return e.current
 }
 
+// Listening is the address the engine listens on now.
+func (e *Engine) Listening() (string, int) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.started.Host, e.started.Port
+}
+
 // StartedOn records the address the engine listens on, when it had to fall
 // back from the stored one.
 func (e *Engine) StartedOn(host string, port int) {

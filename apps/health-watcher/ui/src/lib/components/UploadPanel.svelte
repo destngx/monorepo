@@ -1,12 +1,15 @@
 <script lang="ts">
+  import { invalidateAll } from '$app/navigation';
   import type { Person, UploadResponse } from '$lib/api/types';
   import { formatSize } from '$lib/format';
   import { action } from '$lib/state/action.svelte';
   import { session } from '$lib/state/session.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
+  import { draftStore, idbBackend } from '$lib/drafts';
   import { ACCEPT, pickFiles } from '$lib/upload';
   import FilmGuide from './FilmGuide.svelte';
   import Icon from './Icon.svelte';
+  import PhoneCaptureModal from './PhoneCaptureModal.svelte';
 
   // Staging area for uploads (HW-IMP-3, HW-IMP-5): files from the picker, a
   // folder, drag and drop or the phone camera wait here until sent. In
@@ -26,6 +29,36 @@
   let filesInput: HTMLInputElement | undefined = $state();
   let folderInput: HTMLInputElement | undefined = $state();
   let cameraInput: HTMLInputElement | undefined = $state();
+  let phoneOpen = $state(false);
+
+  // Staged files survive a reload: iOS can unload the page while the camera
+  // is open. Restore once per tenant, then keep the draft in step.
+  const drafts = draftStore(idbBackend());
+  const draftKey = $derived(session.tenantId ? `upload:${session.tenantId}` : null);
+  let restoredKey = $state<string | null>(null);
+  $effect(() => {
+    const key = draftKey;
+    if (!key || restoredKey === key) return;
+    drafts
+      .load(key)
+      .then((d) => {
+        if (d && !staged.length) {
+          staged = d.files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+          oneItem = d.oneItem;
+          note = d.note;
+          personId = d.personId;
+          toasts.info(`${d.files.length} ${d.files.length === 1 ? 'file' : 'files'} not sent yet are back`);
+        }
+      })
+      .catch((error: unknown) => toasts.error(error, 'Could not bring back the files not sent yet'))
+      .finally(() => (restoredKey = key));
+  });
+  $effect(() => {
+    const key = draftKey;
+    if (!key || restoredKey !== key) return;
+    const draft = { files: staged.map((s) => s.file), oneItem, note, personId };
+    drafts.save(key, draft).catch((error: unknown) => toasts.error(error, 'Could not keep the files for later'));
+  });
 
   const totalSize = $derived(staged.reduce((sum, s) => sum + s.file.size, 0));
 
@@ -106,8 +139,12 @@
       <p class="muted text-sm">Up to 50 MB a file. Duplicates are recognised and skipped.</p>
     </div>
     <div class="flex flex-wrap justify-center gap-2">
-      <button class="btn-primary" type="button" onclick={() => cameraInput?.click()}
+      <!-- A phone opens its own camera; a computer shows a QR code for the phone. -->
+      <button class="btn-primary hidden pointer-coarse:inline-flex" type="button" onclick={() => cameraInput?.click()}
         ><Icon name="camera" size={16} />Take photos</button
+      >
+      <button class="btn-primary pointer-coarse:hidden" type="button" onclick={() => (phoneOpen = true)}
+        ><Icon name="camera" size={16} />Take photos with iPhone</button
       >
       <button class="btn-ghost" type="button" onclick={() => filesInput?.click()}
         ><Icon name="file" size={16} />Choose files</button
@@ -229,3 +266,11 @@
     </div>
   {/if}
 </section>
+
+<PhoneCaptureModal
+  open={phoneOpen}
+  onclose={() => {
+    phoneOpen = false;
+    void invalidateAll();
+  }}
+/>

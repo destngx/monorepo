@@ -21,6 +21,7 @@ import (
 	"apps/health-watcher/adapter/imaging"
 	"apps/health-watcher/adapter/macocr"
 	"apps/health-watcher/adapter/password"
+	"apps/health-watcher/adapter/qrcode"
 	"apps/health-watcher/adapter/sqlite"
 	"apps/health-watcher/domain"
 	"apps/health-watcher/internal/config"
@@ -119,6 +120,7 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 			Inbox:    inbox,
 			Clinical: &service.Clinical{Deps: deps, Catalog: domain.DefaultCatalog},
 			Engine:   settings,
+			Capture:  &service.Capture{Deps: deps, QR: qrcode.Coder{}, Listening: settings.Listening},
 		},
 	}, nil
 }

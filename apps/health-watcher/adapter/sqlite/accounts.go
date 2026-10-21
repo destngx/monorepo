@@ -306,25 +306,32 @@ func (r repos) DeleteInvite(ctx context.Context, tenantID, id string) error {
 }
 
 func (r repos) CreateUploadToken(ctx context.Context, tok domain.UploadToken, tokenHash string) error {
-	res, err := r.q.ExecContext(ctx, `INSERT INTO upload_tokens (id, tenant_id, user_id, name, token_hash, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)`, tok.ID, tok.TenantID, tok.UserID, tok.Name, tokenHash, formatTime(tok.CreatedAt))
+	var expires sql.NullString
+	if tok.ExpiresAt != nil {
+		expires = sql.NullString{String: formatTime(*tok.ExpiresAt), Valid: true}
+	}
+	res, err := r.q.ExecContext(ctx, `INSERT INTO upload_tokens (id, tenant_id, user_id, name, token_hash, created_at, expires_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`, tok.ID, tok.TenantID, tok.UserID, tok.Name, tokenHash, formatTime(tok.CreatedAt), expires)
 	return exec(res, err, "upload token")
 }
 
-const uploadTokenColumns = `id, tenant_id, user_id, name, created_at, last_used_at`
+const uploadTokenColumns = `id, tenant_id, user_id, name, created_at, last_used_at, expires_at`
 
 func scanUploadToken(scan func(...any) error) (domain.UploadToken, error) {
 	var tok domain.UploadToken
 	var created string
-	var lastUsed sql.NullString
-	if err := scan(&tok.ID, &tok.TenantID, &tok.UserID, &tok.Name, &created, &lastUsed); err != nil {
+	var lastUsed, expires sql.NullString
+	if err := scan(&tok.ID, &tok.TenantID, &tok.UserID, &tok.Name, &created, &lastUsed, &expires); err != nil {
 		return tok, err
 	}
 	var err error
 	if tok.CreatedAt, err = parseTime(created); err != nil {
 		return tok, err
 	}
-	tok.LastUsedAt, err = parseTimePtr(lastUsed)
+	if tok.LastUsedAt, err = parseTimePtr(lastUsed); err != nil {
+		return tok, err
+	}
+	tok.ExpiresAt, err = parseTimePtr(expires)
 	return tok, err
 }
 
@@ -340,7 +347,7 @@ func (r repos) TouchUploadToken(ctx context.Context, id string, at time.Time) er
 
 func (r repos) UploadTokens(ctx context.Context, tenantID, userID string) ([]domain.UploadToken, error) {
 	rows, err := r.q.QueryContext(ctx, `SELECT `+uploadTokenColumns+` FROM upload_tokens
-		WHERE tenant_id = ? AND user_id = ? ORDER BY created_at`, tenantID, userID)
+		WHERE tenant_id = ? AND user_id = ? AND expires_at IS NULL ORDER BY created_at`, tenantID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list upload tokens: %w", err)
 	}
@@ -354,6 +361,11 @@ func (r repos) UploadTokens(ctx context.Context, tenantID, userID string) ([]dom
 		out = append(out, tok)
 	}
 	return out, rows.Err()
+}
+
+func (r repos) DeleteExpiredUploadTokens(ctx context.Context, now time.Time) error {
+	res, err := r.q.ExecContext(ctx, `DELETE FROM upload_tokens WHERE expires_at IS NOT NULL AND expires_at <= ?`, formatTime(now))
+	return exec(res, err, "expired upload tokens")
 }
 
 func (r repos) DeleteUserUploadTokens(ctx context.Context, tenantID, userID string) error {

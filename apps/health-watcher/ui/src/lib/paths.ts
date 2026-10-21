@@ -1,4 +1,5 @@
-const PUBLIC = ['/login', '/setup', '/invite'];
+// /capture is the phone camera page; its link carries an upload token instead of a session.
+const PUBLIC = ['/login', '/setup', '/invite', '/capture'];
 
 /** Pages reachable without a session (path without the /ui base). */
 export function isPublicPath(path: string): boolean {

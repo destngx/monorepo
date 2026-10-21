@@ -352,6 +352,9 @@ func (a *Accounts) UploadScope(ctx context.Context, raw string) (domain.Scope, e
 	if err != nil {
 		return domain.Scope{}, err
 	}
+	if tok.Expired(a.Clock()) {
+		return domain.Scope{}, domain.ErrUnauthorized
+	}
 	role, err := a.Store.RoleOf(ctx, tok.TenantID, tok.UserID)
 	if errors.Is(err, domain.ErrNotFound) {
 		return domain.Scope{}, domain.ErrUnauthorized
@@ -362,5 +365,9 @@ func (a *Accounts) UploadScope(ctx context.Context, raw string) (domain.Scope, e
 	if err := a.Store.TouchUploadToken(ctx, tok.ID, a.Clock()); err != nil {
 		return domain.Scope{}, err
 	}
-	return domain.Scope{UserID: tok.UserID, TenantID: tok.TenantID, Role: role, Credential: domain.CredentialUploadToken}, nil
+	cred := domain.CredentialUploadToken
+	if tok.ExpiresAt != nil {
+		cred = domain.CredentialCaptureLink
+	}
+	return domain.Scope{UserID: tok.UserID, TenantID: tok.TenantID, Role: role, Credential: cred}, nil
 }

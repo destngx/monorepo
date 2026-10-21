@@ -20,6 +20,7 @@ import (
 
 	"apps/health-watcher/adapter/filestore"
 	"apps/health-watcher/adapter/password"
+	"apps/health-watcher/adapter/qrcode"
 	"apps/health-watcher/adapter/sqlite"
 	"apps/health-watcher/domain"
 	"apps/health-watcher/service"
@@ -67,6 +68,7 @@ func newHarness(t *testing.T) *harness {
 		Engine: &service.Engine{Deps: deps, Log: slog.New(slog.DiscardHandler), DefaultMacOCRBin: filepath.Join(dir, "no-mac-ocr"),
 			LocalAddrs: func() ([]netip.Addr, error) { return []netip.Addr{netip.MustParseAddr("127.0.0.1")}, nil }},
 	}
+	svc.Capture = &service.Capture{Deps: deps, QR: qrcode.Coder{}, Listening: svc.Engine.Listening}
 	if _, _, err := svc.Engine.Load(ctx, nil); err != nil {
 		t.Fatal(err)
 	}

@@ -60,6 +60,8 @@ type Credential string
 const (
 	CredentialSession     Credential = "session"
 	CredentialUploadToken Credential = "upload_token"
+	// CredentialCaptureLink is the short-lived token of a phone capture link.
+	CredentialCaptureLink Credential = "capture_link"
 )
 
 // Scope is who acts, in which tenant, with which role. Services take it

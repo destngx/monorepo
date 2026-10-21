@@ -29,6 +29,9 @@ type InboxSource string
 const (
 	SourceWeb      InboxSource = "web"
 	SourceShortcut InboxSource = "shortcut"
+	// SourcePhone items come from the phone capture page opened by a QR
+	// code on the Mac (HW-IMP-9).
+	SourcePhone InboxSource = "phone"
 )
 
 // InboxItem holds files waiting to be filed under a visit (HW-IMP-1).

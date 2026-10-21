@@ -37,6 +37,7 @@ type Services struct {
 	Inbox    *service.Inbox
 	Clinical *service.Clinical
 	Engine   *service.Engine
+	Capture  *service.Capture
 }
 
 // Options configure the HTTP server.

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"math"
 	"slices"
 	"strings"
@@ -210,5 +211,15 @@ func TestGivenATextLayerPageWhenMaskingThenBoxesBarelyGrowBecausePDFLineBoxesAlr
 	}
 	if got, want := height(text.Boxes[0]), 0.02*1.1; math.Abs(got-want) > 1e-9 {
 		t.Fatalf("text-layer box height = %v, want %v", got, want)
+	}
+}
+
+func TestGivenAPageMaskWhenEncodedThenTheMaskedTextIsShownButNotTheImageHash(t *testing.T) {
+	raw, err := json.Marshal(PageMask{Status: MaskReady, Text: "Glucose 6.4\n[ẩn]", ImageSHA: "abc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"text":"Glucose 6.4\n[ẩn]"`) || strings.Contains(string(raw), "abc") {
+		t.Fatalf("json = %s", raw)
 	}
 }

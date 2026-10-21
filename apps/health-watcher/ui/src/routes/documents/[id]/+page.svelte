@@ -37,6 +37,8 @@
 
   let zoom = $state(1);
   let showText = $state<Record<string, boolean>>({});
+  // Per page: the original, or the masked copy the AI was sent (HW-AI-7).
+  let masked = $state<Record<string, boolean>>({});
   let obsForm = $state<{ id: string | null; value: ObservationInput } | null>(null);
   let findingForm = $state<{ id: string | null; value: FindingInput } | null>(null);
   let history = $state<AuditEntry[] | null>(null);
@@ -190,19 +192,35 @@
       <section id="page-{p.id}" class="glass scroll-mt-24 p-3">
         <header class="mb-2 flex items-center gap-2">
           <span class="text-sm font-medium">Page {i + 1}</span>
-          {#if p.text}
-            <button
-              type="button"
-              class="btn-ghost ml-auto px-2.5 py-1 text-xs"
-              onclick={() => (showText[p.id] = !showText[p.id])}>{showText[p.id] ? 'Image' : 'Text'}</button
-            >
-          {/if}
+          <span class="ml-auto flex gap-1">
+            {#if p.mask}
+              <button
+                type="button"
+                class="btn-ghost px-2.5 py-1 text-xs {masked[p.id]
+                  ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300'
+                  : ''}"
+                aria-pressed={!!masked[p.id]}
+                onclick={() => (masked[p.id] = !masked[p.id])}>Masked</button
+              >
+            {/if}
+            {#if p.text}
+              <button
+                type="button"
+                class="btn-ghost px-2.5 py-1 text-xs"
+                onclick={() => (showText[p.id] = !showText[p.id])}>{showText[p.id] ? 'Image' : 'Text'}</button
+              >
+            {/if}
+          </span>
         </header>
         {#if showText[p.id]}
           <pre
-            class="max-h-[70vh] overflow-auto rounded-xl bg-slate-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{p.text}</pre>
+            class="max-h-[70vh] overflow-auto rounded-xl bg-slate-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{masked[
+              p.id
+            ] && p.mask
+              ? p.mask.text
+              : p.text}</pre>
         {:else}
-          <PageImage page={p} {zoom} />
+          <PageImage page={p} {zoom} masked={!!masked[p.id] && !!p.mask} />
         {/if}
       </section>
     {/each}

@@ -87,6 +87,14 @@ type UploadToken struct {
 	UserID     string     `json:"userId"`
 	CreatedAt  time.Time  `json:"createdAt"`
 	LastUsedAt *time.Time `json:"lastUsedAt"`
+	// ExpiresAt is set on the short-lived tokens of a phone capture link;
+	// a Shortcut token has none.
+	ExpiresAt *time.Time `json:"expiresAt"`
+}
+
+// Expired reports whether the token is past its expiry at now.
+func (t UploadToken) Expired(now time.Time) bool {
+	return t.ExpiresAt != nil && !now.Before(*t.ExpiresAt)
 }
 
 // Me is the signed-in user with their tenants.

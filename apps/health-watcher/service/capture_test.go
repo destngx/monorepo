@@ -1,0 +1,91 @@
+package service
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	"apps/health-watcher/domain"
+)
+
+type fakeQR struct{}
+
+func (fakeQR) PNG(text string) ([]byte, error) { return []byte("png:" + text), nil }
+
+func token(t *testing.T, link string) string {
+	t.Helper()
+	_, raw, ok := strings.Cut(link, "#")
+	if !ok || !strings.HasPrefix(raw, "hwu_") {
+		t.Fatalf("link = %q", link)
+	}
+	return raw
+}
+
+func TestGivenTheAppOpenedOnTheTailnetWhenStartingACaptureThenTheLinkUsesThatAddressAndAFragment(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	link, err := e.capture.Start(e.ctx, sc, "http://100.64.0.7:5174")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(link.URL, "http://100.64.0.7:5174/ui/capture#hwu_") || !strings.HasPrefix(link.QR, "data:image/png;base64,") ||
+		!link.ExpiresAt.Equal(e.now.Add(CaptureLifetime)) {
+		t.Fatalf("link = %+v", link)
+	}
+
+	// The link uploads to this tenant's inbox, tagged as from the phone.
+	up, err := e.accounts.UploadScope(e.ctx, token(t, link.URL))
+	if err != nil || up.TenantID != sc.TenantID || up.Credential != domain.CredentialCaptureLink {
+		t.Fatalf("scope = %+v, %v", up, err)
+	}
+	// Capture links stay out of the Shortcut token list.
+	if toks, err := e.tenants.UploadTokens(e.ctx, sc); err != nil || len(toks) != 0 {
+		t.Fatalf("tokens = %+v, %v", toks, err)
+	}
+}
+
+func TestGivenACaptureLinkWhenItExpiresThenItNoLongerUploadsAndIsCleanedUp(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	link, err := e.capture.Start(e.ctx, sc, "http://100.64.0.7:9191")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.now = e.now.Add(CaptureLifetime)
+	if _, err := e.accounts.UploadScope(e.ctx, token(t, link.URL)); !errors.Is(err, domain.ErrUnauthorized) {
+		t.Fatalf("an expired link uploads: %v", err)
+	}
+	if _, err := e.capture.Start(e.ctx, sc, "http://100.64.0.7:9191"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.store.UploadTokenByHash(e.ctx, HashToken(token(t, link.URL))); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expired link kept: %v", err)
+	}
+}
+
+func TestGivenTheAppOpenedOnTheMacItselfWhenStartingACaptureThenTheEngineAddressIsUsedOrItExplains(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	if _, err := e.capture.Start(e.ctx, sc, "http://127.0.0.1:9191"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("a loopback-only engine made a link: %v", err)
+	}
+	e.engine.StartedOn("100.64.0.7", 9191)
+	link, err := e.capture.Start(e.ctx, sc, "http://localhost:5174")
+	if err != nil || !strings.HasPrefix(link.URL, "http://100.64.0.7:9191/ui/capture#") {
+		t.Fatalf("link = %+v, %v", link, err)
+	}
+	for _, bad := range []string{"", "javascript:alert(1)", "http://100.64.0.7/ui/inbox", "ftp://100.64.0.7"} {
+		if _, err := e.capture.Start(e.ctx, sc, bad); !errors.Is(err, domain.ErrValidation) {
+			t.Errorf("%q: err = %v", bad, err)
+		}
+	}
+}
+
+func TestGivenAViewerWhenStartingACaptureThenItIsForbidden(t *testing.T) {
+	e := newEnv(t)
+	owner := e.setup()
+	viewer := e.join(owner, "viewer@example.test", "viewer")
+	if _, err := e.capture.Start(e.ctx, viewer, "http://100.64.0.7:9191"); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("err = %v", err)
+	}
+}

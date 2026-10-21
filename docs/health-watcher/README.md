@@ -8,6 +8,7 @@ Phases 1 to 3 are built: accounts, families (tenants) with roles and invites, pe
 
 ```sh
 pnpm exec nx run health-watcher:serve   # engine on :9191 and the UI dev server on :5174
+# The dev server proxies /api to http://127.0.0.1:9191; set HW_DEV_ENGINE when the engine listens elsewhere.
 pnpm exec nx run health-watcher:start   # production: builds the UI, the engine serves it at http://127.0.0.1:9191/ui
 ```
 
@@ -62,6 +63,8 @@ Encryption at rest relies on FileVault (D1). Back up both the database and `file
 ## 5. Getting papers in
 
 - **Browser**: Inbox page. Drop files or a whole folder, or pick them. On a phone, _Take photos_ opens the camera; take each page, then tick _pages of one document_.
+- **iPhone camera from the Mac**: Inbox, _Take photos with iPhone_ shows a QR code. Point the iPhone's Camera app at it, take each page on the page that opens, then press Send. The link needs no sign-in, adds only to that inbox, and expires after 15 minutes. The iPhone reaches the Mac over Tailscale: open the app on the Mac at its Tailscale address, or set Host in Engine settings to it.
+- Files waiting to be sent are kept in the browser until sent, so a page that reloads while the camera is open (iOS does this) loses nothing. On the phone, use the engine's own address (`:9191/ui`, from `start`) rather than the dev server on `:5174`, which reloads the page whenever its connection drops.
 - **iPhone share sheet**: a Shortcut posts scans and PDFs to the inbox with a personal upload token. See [\_setup/iphone-shortcut.md](./_setup/iphone-shortcut.md).
 - Every upload lands in the inbox first. _File_ puts it under an existing or new visit for a person.
 - **Backlog**: for a pile of one person's old papers, pick the person under _Whose papers_ before uploading. Once read, the inbox suggests one visit per date and provider; _File as one visit_ files the group.

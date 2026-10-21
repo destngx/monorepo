@@ -169,6 +169,18 @@ func (s *server) tenantRoutes(r fiber.Router) {
 	r.Delete("/upload-tokens/:id", func(c *fiber.Ctx) error {
 		return s.noContent(c, s.svc.Tenants.RevokeUploadToken(c.UserContext(), scope(c), c.Params("id")))
 	})
+	// A phone capture link (HW-IMP-9); the token in it is shown once.
+	r.Post("/capture", func(c *fiber.Ctx) error {
+		var in struct {
+			Origin string `json:"origin"`
+		}
+		if err := parseJSON(c, &in); err != nil {
+			return respond(c, s.log, err)
+		}
+		c.Set(fiber.HeaderCacheControl, "private, no-store")
+		link, err := s.svc.Capture.Start(c.UserContext(), scope(c), in.Origin)
+		return s.created(c, link, err)
+	})
 }
 
 // list returns a writer for a (slice, error) pair.

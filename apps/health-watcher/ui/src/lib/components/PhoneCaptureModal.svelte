@@ -1,0 +1,81 @@
+<script lang="ts">
+  import type { CaptureLink } from '$lib/api/types';
+  import { session } from '$lib/state/session.svelte';
+  import CopyField from './CopyField.svelte';
+  import Modal from './Modal.svelte';
+  import Spinner from './Spinner.svelte';
+
+  // The Mac shows a QR code; the iPhone's camera opens it and the page there
+  // takes photos straight into this inbox (HW-IMP-9). While open, it counts
+  // what arrives from the phone.
+  let { open, onclose }: { open: boolean; onclose: () => void } = $props();
+
+  let link = $state<CaptureLink | null>(null);
+  let problem = $state('');
+  let received = $state(0);
+
+  async function start() {
+    link = null;
+    problem = '';
+    try {
+      link = await session.api.capture(location.origin);
+    } catch (error) {
+      problem = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  $effect(() => {
+    if (!open) return;
+    received = 0;
+    void start();
+    let known: Set<string> | null = null;
+    const poll = async () => {
+      try {
+        const items = await session.api.inbox();
+        if (!known) known = new Set(items.map((i) => i.id));
+        else received = items.filter((i) => i.source === 'phone' && !known!.has(i.id)).length;
+      } catch {
+        // The count is a nicety; the inbox page shows the items either way.
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 3000);
+    return () => clearInterval(timer);
+  });
+
+  const expires = $derived(
+    link ? new Date(link.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+  );
+</script>
+
+<Modal {open} title="Take photos with the iPhone" {onclose}>
+  {#if problem}
+    <p class="text-sm text-red-600 dark:text-red-400">{problem}</p>
+    <p class="muted mt-2 text-xs">
+      The iPhone opens this Mac over Tailscale. Open the app here from the Mac's Tailscale address, or ask an engine
+      admin to set Host in Engine settings.
+    </p>
+    <button class="btn-ghost mt-4" type="button" onclick={() => void start()}>Try again</button>
+  {:else if !link}
+    <div class="grid place-items-center py-10"><Spinner /></div>
+  {:else}
+    <div class="flex flex-col items-center gap-3 text-center">
+      <img src={link.qr} alt="QR code for the phone camera page" class="size-64 rounded-xl bg-white p-2" />
+      <p class="text-sm">Open the iPhone's Camera app and point it at the code. Take each page, then press Send.</p>
+      <p class="muted text-xs">
+        The link works until {expires} and can only add to this inbox. The iPhone needs Tailscale on.
+      </p>
+      {#if received}
+        <p class="text-sm font-medium text-teal-700 dark:text-teal-300" role="status">
+          {received}
+          {received === 1 ? 'item' : 'items'} received from the phone
+        </p>
+      {/if}
+      <details class="w-full text-left">
+        <summary class="muted cursor-pointer text-xs">Link instead of a code</summary>
+        <div class="mt-2"><CopyField label="Phone camera link" value={link.url} /></div>
+      </details>
+      <button class="btn-ghost" type="button" onclick={() => void start()}>Make a new code</button>
+    </div>
+  {/if}
+</Modal>

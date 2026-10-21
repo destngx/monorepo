@@ -129,6 +129,8 @@ type PageMask struct {
 	Boxes       []Quad     `json:"boxes"`
 	Manual      []Quad     `json:"manual"`
 	MaskedLines int        `json:"maskedLines"`
-	Text        string     `json:"-"`
-	ImageSHA    string     `json:"-"`
+	// Text is the masked text, shown next to the original on the review
+	// page and in the viewer.
+	Text     string `json:"text"`
+	ImageSHA string `json:"-"`
 }

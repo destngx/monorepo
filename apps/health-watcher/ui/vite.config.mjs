@@ -3,14 +3,11 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 
-// The engine listens on HOST (default 127.0.0.1, IPv4 only). Proxy to that
-// address, not `localhost`: Node resolves `localhost` to ::1 first.
-const engineHost = (() => {
-  const host = process.env.HOST?.trim();
-  if (!host || host === '0.0.0.0' || host === 'localhost') return '127.0.0.1';
-  if (host === '::') return '[::1]';
-  return host.includes(':') ? `[${host}]` : host;
-})();
+// The dev server proxies /api to the engine. Host and port are engine
+// settings in its database now, so the dev proxy takes HW_DEV_ENGINE when the
+// engine is not on the default 127.0.0.1:9191 (an IPv4 address, not
+// `localhost`: Node resolves `localhost` to ::1 first).
+const engine = process.env.HW_DEV_ENGINE?.trim() || 'http://127.0.0.1:9191';
 
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit(), svelteTesting()],
@@ -18,7 +15,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: `http://${engineHost}:${process.env.PORT?.trim() || 9191}`,
+        target: engine,
         changeOrigin: true,
       },
     },

@@ -98,9 +98,16 @@ type UploadTokenRepo interface {
 	CreateUploadToken(ctx context.Context, tok domain.UploadToken, tokenHash string) error
 	UploadTokenByHash(ctx context.Context, tokenHash string) (domain.UploadToken, error)
 	TouchUploadToken(ctx context.Context, id string, at time.Time) error
+	// UploadTokens lists the user's lasting tokens; capture links are left out.
 	UploadTokens(ctx context.Context, tenantID, userID string) ([]domain.UploadToken, error)
+	DeleteExpiredUploadTokens(ctx context.Context, now time.Time) error
 	DeleteUploadToken(ctx context.Context, tenantID, userID, id string) error
 	DeleteUserUploadTokens(ctx context.Context, tenantID, userID string) error
+}
+
+// QRCoder draws a QR code as a PNG.
+type QRCoder interface {
+	PNG(text string) ([]byte, error)
 }
 
 type PersonRepo interface {
