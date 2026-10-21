@@ -29,6 +29,7 @@ const (
 	confidenceDateAssumed    = 20
 	confidenceCurrency       = 25
 	confidencePossibleMatch  = 15
+	confidenceSameReference  = 20
 	confidencePayee          = 10
 	confidenceCategory       = 10
 )
@@ -48,6 +49,9 @@ func ApplyCaptureConfidence(suggestions []CaptureSuggestion) {
 		}
 		if duplicate := suggestion.Duplicate; duplicate != nil {
 			where := fmt.Sprintf("%s (%s, %s), %d%% match", duplicate.TransactionID, duplicate.Payee, duplicate.Date, duplicate.Score)
+			if duplicate.Account != "" {
+				where = fmt.Sprintf("%s (%s, %s) on %s, %d%% match", duplicate.TransactionID, duplicate.Payee, duplicate.Date, duplicate.Account, duplicate.Score)
+			}
 			if duplicate.Likely {
 				capped := min(score, 100-duplicate.Score)
 				reasons = append(reasons, CaptureReason{Text: "Likely already in the sheet as " + where, Effect: capped - score})
@@ -59,7 +63,12 @@ func ApplyCaptureConfidence(suggestions []CaptureSuggestion) {
 				deduct(confidencePossibleMatch, "Possibly in the sheet as "+where)
 			}
 		}
+		if same := suggestion.SameReference; same != nil {
+			deduct(confidenceSameReference, fmt.Sprintf("Same reference as %s (%s, %s) with another amount or date: check which one is right", same.TransactionID, same.Payee, same.Date))
+		}
 		switch {
+		case suggestion.AccountSource == MatchSourceLedger:
+			reasons = append(reasons, CaptureReason{Text: "Account taken from the sheet row it matches"})
 		case suggestion.Transaction.AccountName == "":
 			deduct(confidenceNoAccount, "No account: pick one before approving")
 		case suggestion.AccountSource == MatchSourceName:

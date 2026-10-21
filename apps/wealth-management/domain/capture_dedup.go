@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 )
 
 const (
@@ -22,6 +23,12 @@ const (
 	captureMaxScoreWithout = 99
 	captureMinTokenLength  = 2
 	captureMinPrefixLength = 3
+	// captureUnknownAccountPenalty is taken off a match found on any account
+	// because the capture had none.
+	captureUnknownAccountPenalty = 10
+	// captureFuzzyReferenceLength is the length from which a reference read
+	// one character off still matches.
+	captureFuzzyReferenceLength = 10
 )
 
 // Words that say how money moved rather than to whom, plus the words
@@ -57,12 +64,14 @@ type CaptureMatch struct {
 }
 
 // FindCaptureDuplicates matches candidates to ledger rows on the same
-// account with the same amount and direction, dated up to a week apart,
-// with no conflicting reference (WM-CAP-6). A shared reference scores 100.
-// Otherwise the score starts at 90 on the same day, loses 5 a day, and
-// gains up to 30 for payee and memo words in common, capped at 99. Each
-// row explains at most one candidate; the strongest pairs are taken first.
-// The result maps candidate index to its match.
+// account (any account when the candidate has none, for 10 points less)
+// with the same amount and direction, dated up to a week apart, with no
+// conflicting reference (WM-CAP-6). A shared reference, in the row's
+// reference or its memo, scores 100. Otherwise the score starts at 90 on
+// the same day, loses 5 a day, and gains up to 30 for payee and memo words
+// in common, capped at 99. Each row explains at most one candidate; the
+// strongest pairs are taken first. The result maps candidate index to its
+// match.
 func FindCaptureDuplicates(candidates []CaptureCandidate, ledger []Transaction) map[int]CaptureMatch {
 	type pair struct {
 		candidate, row int
@@ -70,9 +79,6 @@ func FindCaptureDuplicates(candidates []CaptureCandidate, ledger []Transaction) 
 	}
 	var pairs []pair
 	for c, candidate := range candidates {
-		if candidate.Account == "" {
-			continue
-		}
 		ignored := candidate.Account + " " + candidate.SourceApp
 		words := captureWords(candidate.Text, ignored)
 		for r, row := range ledger {
@@ -100,7 +106,7 @@ func FindCaptureDuplicates(candidates []CaptureCandidate, ledger []Transaction) 
 }
 
 func scoreCaptureMatch(candidate CaptureCandidate, words []string, ignored string, row Transaction) (CaptureMatch, bool) {
-	if !row.Usable() || row.AccountName != candidate.Account {
+	if !row.Usable() || (candidate.Account != "" && row.AccountName != candidate.Account) {
 		return CaptureMatch{}, false
 	}
 	amount := row.PaymentAmount()
@@ -115,12 +121,14 @@ func scoreCaptureMatch(candidate CaptureCandidate, words []string, ignored strin
 		return CaptureMatch{}, false
 	}
 	match := CaptureMatch{Row: row, Days: days}
-	if reference := referenceOf(row); reference != "" && candidate.Reference != "" {
-		if FoldText(reference) != FoldText(candidate.Reference) {
+	if candidate.Reference != "" {
+		if CaptureReferenceIn(candidate.Reference, row) {
+			match.Score = captureReferenceScore
+			return match, true
+		}
+		if reference := referenceOf(row); reference != "" && sameReferenceKind(reference, candidate.Reference) {
 			return CaptureMatch{}, false
 		}
-		match.Score = captureReferenceScore
-		return match, true
 	}
 	memo := ""
 	if row.Memo != nil {
@@ -128,8 +136,56 @@ func scoreCaptureMatch(candidate CaptureCandidate, words []string, ignored strin
 	}
 	similarity := wordSimilarity(words, captureWords(row.Payee+" "+memo, ignored))
 	score := captureSameDayScore - captureScorePerDay*days + int(math.Round(captureTextScore*similarity))
+	if candidate.Account == "" {
+		score -= captureUnknownAccountPenalty
+	}
 	match.Score = min(score, captureMaxScoreWithout)
 	return match, true
+}
+
+// CaptureReferenceIn reports whether a row records the reference, as its
+// reference number or a word of its memo, where earlier captures keep the
+// codes they read. A long reference may be one character off: screenshots
+// are read by a model that can drop or repeat a digit.
+func CaptureReferenceIn(reference string, row Transaction) bool {
+	want := compactReference(reference)
+	if want == "" {
+		return false
+	}
+	codes := []string{compactReference(referenceOf(row))}
+	if row.Memo != nil {
+		codes = append(codes, strings.Fields(FoldText(*row.Memo))...)
+	}
+	for _, code := range codes {
+		if code == want {
+			return true
+		}
+		if len(want) >= captureFuzzyReferenceLength && len(code) >= captureFuzzyReferenceLength && editDistance(code, want) <= 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// sameReferenceKind reports whether two references are numbered the same
+// way, by their leading letters: two bank numbers ("FT…") that differ are
+// two transfers, but a bank number and a transfer network code ("MS00T…")
+// can name the same one.
+func sameReferenceKind(a, b string) bool {
+	return referenceKind(compactReference(a)) == referenceKind(compactReference(b))
+}
+
+func referenceKind(reference string) string {
+	if end := strings.IndexFunc(reference, unicode.IsDigit); end >= 0 {
+		return reference[:end]
+	}
+	return reference
+}
+
+// compactReference folds a reference and drops its separators, so
+// "FT26…\BNK" and "ft26… bnk" compare equal.
+func compactReference(reference string) string {
+	return strings.ReplaceAll(FoldText(reference), " ", "")
 }
 
 // captureWords are the folded words of a payee or memo that can tell two

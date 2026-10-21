@@ -31,6 +31,9 @@ const (
 	MatchSourceAlias  = "alias"
 	MatchSourceDigits = "digits"
 	MatchSourceName   = "name"
+	// MatchSourceLedger is an account filled from the sheet row a capture
+	// with no account likely duplicates (WM-CAP-6).
+	MatchSourceLedger = "ledger"
 )
 
 // AccountMatch is the sheet account for an event, or the candidates when

@@ -39,6 +39,16 @@ export interface CaptureDuplicate {
   days: number;
   /** Score above 80: likely recorded, which caps the overall confidence. */
   likely: boolean;
+  /** The row's account, when the suggestion had none and was matched across all accounts. */
+  account?: string;
+}
+
+/** Another sheet row with the suggestion's reference but another amount or date (WM-CAP-6). */
+export interface CaptureSameReference {
+  transactionId: string;
+  account: string;
+  date: string;
+  payee: string;
 }
 
 /** Part of a suggestion's overall confidence: the points it added or took away, absent for context. */
@@ -71,7 +81,8 @@ export interface CaptureSuggestion {
   currencyMismatch?: boolean;
   lowConfidence: CaptureField[];
   accountHint?: string;
-  accountSource?: 'alias' | 'digits' | 'name';
+  /** `ledger`: filled from the sheet row the suggestion likely duplicates. */
+  accountSource?: 'alias' | 'digits' | 'name' | 'ledger';
   accountCandidates?: string[];
   categorySource?: CaptureCategorySource;
   tagOptions?: string[];
@@ -85,6 +96,7 @@ export interface CaptureSuggestion {
   fee?: boolean;
   evidence: CaptureEvidence[];
   duplicate?: CaptureDuplicate;
+  sameReference?: CaptureSameReference;
   /**
    * The account's last recorded date in the sheet (dd/mm/yyyy) when this row is
    * dated on or before it and no sheet row matches: it may be missing (WM-CAP-21).

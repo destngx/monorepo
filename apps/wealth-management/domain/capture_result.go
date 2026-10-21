@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -36,6 +37,18 @@ type CaptureDuplicate struct {
 	Score         int     `json:"score"`
 	Days          int     `json:"days"`
 	Likely        bool    `json:"likely"`
+	// Account is the row's account, set when the suggestion had none and
+	// was matched across all accounts.
+	Account string `json:"account,omitempty"`
+}
+
+// CaptureSameReference is a sheet row with the suggestion's reference but
+// another amount or date: one of the two may be misread (WM-CAP-6).
+type CaptureSameReference struct {
+	TransactionID string `json:"transactionId"`
+	Account       string `json:"account"`
+	Date          string `json:"date"`
+	Payee         string `json:"payee"`
 }
 
 type CaptureSuggestion struct {
@@ -82,6 +95,8 @@ type CaptureSuggestion struct {
 	SourceApp  string            `json:"sourceApp,omitempty"`
 	Evidence   []CaptureEvidence `json:"evidence"`
 	Duplicate  *CaptureDuplicate `json:"duplicate,omitempty"`
+	// SameReference is another sheet row with this reference.
+	SameReference *CaptureSameReference `json:"sameReference,omitempty"`
 	// RecordedThrough is the account's last recorded date in the sheet
 	// (dd/mm/yyyy) when the row is dated on or before it and no sheet row
 	// matches: the sheet is filled in up to then, so the row may have been
@@ -282,14 +297,39 @@ func ApplyCaptureDuplicates(suggestions []CaptureSuggestion, ledger []Transactio
 		}
 	}
 	for index, match := range FindCaptureDuplicates(candidates, ledger) {
+		suggestion := &suggestions[index]
 		row := match.Row
 		amount := row.PaymentAmount()
-		if suggestions[index].Direction == CaptureIn {
+		if suggestion.Direction == CaptureIn {
 			amount = row.DepositAmount()
 		}
-		suggestions[index].Duplicate = &CaptureDuplicate{
+		duplicate := &CaptureDuplicate{
 			TransactionID: row.ID, Date: row.Date.Format(SheetDateLayout), Payee: row.Payee, Amount: amount,
 			Reference: referenceOf(row), Score: match.Score, Days: match.Days, Likely: match.Score > CaptureLikelyDuplicateScore,
+		}
+		if suggestion.Transaction.AccountName == "" {
+			duplicate.Account = row.AccountName
+			// The row it likely repeats tells the account; a weaker match only names it.
+			if duplicate.Likely {
+				suggestion.Transaction.AccountName, suggestion.AccountSource = row.AccountName, MatchSourceLedger
+				suggestion.LowConfidence = slices.DeleteFunc(suggestion.LowConfidence, func(field string) bool { return field == "account" })
+			}
+		}
+		suggestion.Duplicate = duplicate
+	}
+	for index, candidate := range candidates {
+		if candidate.Reference == "" {
+			continue
+		}
+		for _, row := range ledger {
+			duplicate := suggestions[index].Duplicate
+			if !row.Usable() || (duplicate != nil && duplicate.TransactionID == row.ID) || !CaptureReferenceIn(candidate.Reference, row) {
+				continue
+			}
+			suggestions[index].SameReference = &CaptureSameReference{
+				TransactionID: row.ID, Account: row.AccountName, Date: row.Date.Format(SheetDateLayout), Payee: row.Payee,
+			}
+			break
 		}
 	}
 	lastRecorded := LastRecordedDates(ledger, today)

@@ -173,7 +173,7 @@ func (s *CaptureInbox) Drafts(ctx context.Context) (domain.CaptureDrafts, error)
 	suggestions := make([]domain.CaptureSuggestion, len(drafts))
 	for index, draft := range drafts {
 		suggestions[index] = draft.Suggestion
-		suggestions[index].Duplicate, suggestions[index].RecordedThrough = nil, ""
+		suggestions[index].Duplicate, suggestions[index].SameReference, suggestions[index].RecordedThrough = nil, nil, ""
 	}
 	domain.ApplyCaptureDuplicates(suggestions, transactions, domain.Today(s.now()))
 	domain.ApplyCaptureConfidence(suggestions)
@@ -323,7 +323,7 @@ func (s *CaptureInbox) duplicateMemories(ctx context.Context, drafts []domain.Ca
 	suggestions := make([]domain.CaptureSuggestion, len(drafts))
 	for index, draft := range drafts {
 		suggestions[index] = draft.Suggestion
-		suggestions[index].Duplicate, suggestions[index].RecordedThrough = nil, ""
+		suggestions[index].Duplicate, suggestions[index].SameReference, suggestions[index].RecordedThrough = nil, nil, ""
 	}
 	domain.ApplyCaptureDuplicates(suggestions, transactions, domain.Today(s.now()))
 	now := s.now().UTC()
