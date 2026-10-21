@@ -40,4 +40,24 @@ describe('AIExplain', () => {
     expect(container.contains(dialog)).toBe(false);
     expect(dialog.classList.contains('fixed')).toBe(true);
   });
+
+  it('moves focus into the popover, and back to its button when closed', async () => {
+    render(AIExplain, { title: 'Insight', label: 'Explain', load: () => Promise.resolve('x') });
+    const button = screen.getByRole('button', { name: 'Explain' });
+    await fireEvent.click(button);
+    expect(document.activeElement).toBe(screen.getByRole('dialog', { name: 'Insight' }));
+
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('closes on a press outside it, but not on a press inside it', async () => {
+    render(AIExplain, { title: 'Insight', label: 'Explain', load: () => Promise.resolve('Explained') });
+    await fireEvent.click(screen.getByRole('button', { name: 'Explain' }));
+    await fireEvent.pointerDown(await screen.findByText('Explained'));
+    expect(screen.getByRole('dialog', { name: 'Insight' })).toBeTruthy();
+
+    await fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });

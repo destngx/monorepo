@@ -309,7 +309,7 @@
   onsubmit={submit}
 />
 
-<Modal open={deleting !== null} title="Delete goal" onclose={() => (deleting = null)}>
+<Modal open={deleting !== null} title="Delete goal" onclose={() => (deleting = null)} {busy}>
   {#if deleting}
     <p class="text-sm">
       Delete <strong>{deleting.name}</strong>? Its row in the Goal Plan tab is cleared. To keep it, mark it done or

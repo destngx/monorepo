@@ -448,7 +448,12 @@
   onsubmit={submit}
 />
 
-<Modal open={deleting !== null} title="Delete recurring item" onclose={() => (deleting = null)}>
+<Modal
+  open={deleting !== null}
+  title="Delete recurring item"
+  onclose={() => (deleting = null)}
+  busy={isPending('delete')}
+>
   {#if deleting}
     <p class="text-sm">
       Delete <strong>{deleting.name}</strong>? Its row in the Recurring tab is cleared. To keep it without counting it,

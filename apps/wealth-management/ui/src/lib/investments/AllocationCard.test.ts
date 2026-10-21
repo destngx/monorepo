@@ -78,6 +78,17 @@ describe('AllocationCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     browser.targetAllocation.value = '';
+    // jsdom has no modal dialogs; the Modal only needs them to toggle.
+    if (!('showModal' in HTMLDialogElement.prototype)) {
+      Object.assign(HTMLDialogElement.prototype, {
+        showModal(this: HTMLDialogElement) {
+          this.open = true;
+        },
+        close(this: HTMLDialogElement) {
+          this.open = false;
+        },
+      });
+    }
   });
 
   it('given targets only in this browser, when saving them to the sheet, then the browser copy is dropped', async () => {
@@ -120,5 +131,19 @@ describe('AllocationCard', () => {
 
     expect(endpoints.savePreferences).not.toHaveBeenCalled();
     expect(toastMock.push).toHaveBeenCalledWith('warning', 'Targets must add up to 100% (now 70%).');
+  });
+
+  it('given saved targets, when Clear is pressed, then they are only removed once confirmed', async () => {
+    endpoints.savePreferences.mockResolvedValue({});
+    endpoints.allocation.mockResolvedValue(allocation(null));
+    render(AllocationCard, { allocation: allocation({ cash: 50, funds: 40, crypto: 10 }), onchange: vi.fn() });
+    await fireEvent.click(screen.getByRole('button', { name: /Edit targets/ }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(endpoints.savePreferences).not.toHaveBeenCalled();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear targets', hidden: true }));
+    await settle();
+    expect(endpoints.savePreferences).toHaveBeenCalledTimes(1);
+    expect(toastMock.push).toHaveBeenCalledWith('success', 'Targets cleared.');
   });
 });

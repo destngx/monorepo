@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { BudgetLine } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import { formatMonth } from '$lib/format';
   import { toasts } from '$lib/state/toasts.svelte';
@@ -41,7 +42,7 @@
   }
 </script>
 
-<Modal open={line !== null} title="Limit for {line?.category ?? ''}" {onclose}>
+<Modal open={line !== null} title="Limit for {line?.category ?? ''}" {onclose} busy={saving}>
   <form id="limit-form" class="space-y-4" onsubmit={save}>
     <fieldset class="space-y-2 text-sm">
       <legend class="label">Apply to</legend>
@@ -68,13 +69,11 @@
     </fieldset>
     <div>
       <label class="label" for="limit-value">Limit (VND)</label>
-      <input id="limit-value" type="number" min="0" step="1000" class="field" bind:value required />
+      <input id="limit-value" type="number" min="0" step="1000" class="field" bind:value required data-autofocus />
     </div>
   </form>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={onclose}>Cancel</button>
-    <button type="submit" form="limit-form" class="btn-primary" disabled={saving}
-      >{saving ? 'Saving…' : 'Save limit'}</button
-    >
+    <Button disabled={saving} onclick={onclose}>Cancel</Button>
+    <Button type="submit" form="limit-form" variant="primary" busy={saving} busyText="Saving…">Save limit</Button>
   {/snippet}
 </Modal>

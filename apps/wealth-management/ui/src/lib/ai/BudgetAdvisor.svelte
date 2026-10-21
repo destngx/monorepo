@@ -7,6 +7,7 @@
   import LineChart from '$lib/charts/LineChart.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import { DIRECTIONS, natureLabel, spendShape } from '$lib/budget/trend';
@@ -70,9 +71,7 @@
 >
   {#snippet actions()}
     {#if task.status === 'done'}
-      <button type="button" class="btn-ghost px-2" aria-label="Regenerate advice" onclick={() => task.run(true)}
-        ><Icon name="refresh" size={16} /></button
-      >
+      <Button size="icon" icon="refresh" label="Regenerate advice" onclick={() => void task.run(true)} />
     {/if}
   {/snippet}
   {#if task.status === 'done' && task.value}
@@ -214,7 +213,7 @@
   </section>
 </Card>
 
-<Modal open={confirming !== null} title="Apply suggested limit" onclose={() => (confirming = null)}>
+<Modal open={confirming !== null} title="Apply suggested limit" onclose={() => (confirming = null)} busy={applying}>
   {#if confirming}
     <p class="text-sm">
       Set the {formatMonth(adviceMonth)} limit for <strong>{confirming.category}</strong> from
@@ -223,9 +222,7 @@
     </p>
   {/if}
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={() => (confirming = null)}>Cancel</button>
-    <button type="button" class="btn-primary" disabled={applying} onclick={apply}
-      >{applying ? 'Applying…' : 'Apply'}</button
-    >
+    <Button disabled={applying} onclick={() => (confirming = null)}>Cancel</Button>
+    <Button variant="primary" busy={applying} busyText="Applying…" onclick={() => void apply()}>Apply</Button>
   {/snippet}
 </Modal>

@@ -34,6 +34,23 @@
   let { data, children } = $props();
 
   let mobileNavOpen = $state(false);
+  let mobileNav = $state<HTMLDialogElement>();
+  // A modal dialog makes the page inert, keeps focus inside and gives focus back to the menu button on close.
+  $effect(() => {
+    if (!mobileNav) return;
+    if (mobileNavOpen && !mobileNav.open) mobileNav.showModal();
+    if (!mobileNavOpen && mobileNav.open) mobileNav.close();
+  });
+  // The sheet is hidden from the desktop breakpoint up; an open one would leave the page inert behind nothing.
+  $effect(() => {
+    const desktop = globalThis.matchMedia?.('(min-width: 64rem)');
+    if (!desktop) return;
+    const onChange = () => {
+      if (desktop.matches) mobileNavOpen = false;
+    };
+    desktop.addEventListener('change', onChange);
+    return () => desktop.removeEventListener('change', onChange);
+  });
   const collapsed = $derived(sidebarCollapsed.value === 'true');
   const path = $derived(page.url.pathname.slice(base.length) || '/');
   const title = $derived(titleFor(path));
@@ -108,11 +125,6 @@
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
-<svelte:window
-  onkeydown={(event) => {
-    if (event.key === 'Escape' && mobileNavOpen) mobileNavOpen = false;
-  }}
-/>
 
 <NavProgress active={!!navigating.to} />
 
@@ -144,15 +156,17 @@
   </aside>
 
   <!-- Mobile navigation sheet -->
-  {#if mobileNavOpen}
-    <div class="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="All pages">
-      <button
-        type="button"
-        class="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
-        tabindex="-1"
-        aria-hidden="true"
-        onclick={() => (mobileNavOpen = false)}
-      ></button>
+  <!-- The dialog covers the screen; a click on it outside the sheet is a click on the backdrop. -->
+  <dialog
+    bind:this={mobileNav}
+    class="m-0 h-full max-h-none w-full max-w-none bg-transparent p-0 text-inherit backdrop:bg-slate-950/40 backdrop:backdrop-blur-sm lg:hidden"
+    aria-label="All pages"
+    onclose={() => (mobileNavOpen = false)}
+    onclick={(event) => {
+      if (event.target === mobileNav) mobileNavOpen = false;
+    }}
+  >
+    {#if mobileNavOpen}
       <aside class="glass absolute inset-y-3 left-3 w-64 overflow-y-auto p-3">
         <div class="mb-2 flex items-center justify-between px-2 py-1">
           <p class="font-semibold tracking-tight">Wealth</p>
@@ -168,8 +182,8 @@
         </div>
         <Sidebar onnavigate={() => (mobileNavOpen = false)} />
       </aside>
-    </div>
-  {/if}
+    {/if}
+  </dialog>
 
   <div class="flex min-w-0 flex-1 flex-col">
     <header class="glass sticky top-3 z-30 m-3 flex items-center gap-2 px-3 py-2">

@@ -2,8 +2,10 @@
   import { api } from '$lib/api/endpoints';
   import type { Allocation, AllocationTargets } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatPercent } from '$lib/format';
   import { STATUS } from '$lib/status';
@@ -38,6 +40,7 @@
 
   let editing = $state(false);
   let saving = $state(false);
+  let confirmClear = $state(false);
   let draft = $state<AllocationTargets>({ cash: 0, funds: 0, crypto: 0 });
 
   function edit() {
@@ -52,6 +55,7 @@
       targetAllocation.value = '';
       onchange(await api.allocation());
       editing = false;
+      confirmClear = false;
       toasts.push('success', success);
     } catch (error) {
       toasts.error(error, 'Could not save the targets');
@@ -82,9 +86,7 @@
   {#snippet actions()}
     <Badge status={status.tone}>{status.label}</Badge>
     {#if !editing}
-      <button type="button" class="btn-ghost text-xs" onclick={edit}
-        ><Icon name="pencil" size={14} /> {allocation.targets ? 'Edit targets' : 'Set targets'}</button
-      >
+      <Button size="sm" icon="pencil" onclick={edit}>{allocation.targets ? 'Edit targets' : 'Set targets'}</Button>
     {/if}
   {/snippet}
 
@@ -95,15 +97,14 @@
         >Targets saved in this browser only: {describe(browserTargets)}. Save them to your sheet so every device uses
         them.</span
       >
-      <button
-        type="button"
-        class="btn-primary text-xs"
-        disabled={saving}
-        onclick={() => save(browserTargets, 'Targets moved to your sheet.')}>Save to your sheet</button
+      <Button
+        size="sm"
+        variant="primary"
+        busy={saving}
+        busyText="Saving…"
+        onclick={() => save(browserTargets, 'Targets moved to your sheet.')}>Save to your sheet</Button
       >
-      <button type="button" class="btn-ghost text-xs" disabled={saving} onclick={() => (targetAllocation.value = '')}
-        >Discard</button
-      >
+      <Button size="sm" disabled={saving} onclick={() => (targetAllocation.value = '')}>Discard</Button>
     </div>
   {/if}
 
@@ -124,13 +125,10 @@
         </div>
       {/each}
       <div class="flex gap-2">
-        <button type="submit" class="btn-primary" disabled={saving}>Save</button>
-        <button type="button" class="btn-ghost" onclick={() => (editing = false)}>Cancel</button>
-        {#if allocation.targets}<button
-            type="button"
-            class="btn-ghost"
-            disabled={saving}
-            onclick={() => save(null, 'Targets cleared.')}>Clear</button
+        <Button type="submit" variant="primary" busy={saving && !confirmClear} busyText="Saving…">Save</Button>
+        <Button disabled={saving} onclick={() => (editing = false)}>Cancel</Button>
+        {#if allocation.targets}<Button variant="danger" disabled={saving} onclick={() => (confirmClear = true)}
+            >Clear</Button
           >{/if}
       </div>
     </form>
@@ -192,3 +190,13 @@
     </p>
   {/if}
 </Card>
+
+<Modal open={confirmClear} title="Clear allocation targets?" onclose={() => (confirmClear = false)} busy={saving}>
+  <p class="text-sm">The targets are removed from your sheet, and drift is no longer checked until you set new ones.</p>
+  {#snippet footer()}
+    <Button disabled={saving} onclick={() => (confirmClear = false)}>Cancel</Button>
+    <Button variant="danger" busy={saving} busyText="Clearing…" onclick={() => save(null, 'Targets cleared.')}
+      >Clear targets</Button
+    >
+  {/snippet}
+</Modal>

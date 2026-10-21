@@ -209,7 +209,7 @@
   onsubmit={submit}
 />
 
-<Modal open={deleting !== null} title="Delete account" onclose={() => (deleting = null)}>
+<Modal open={deleting !== null} title="Delete account" onclose={() => (deleting = null)} busy={remove.busy}>
   {#if deleting}
     <p class="text-sm">
       Delete <strong>{deleting.name}</strong>? The account is soft-deleted in the sheet; its transactions stay.

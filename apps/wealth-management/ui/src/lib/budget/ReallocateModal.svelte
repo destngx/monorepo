@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { BudgetLine } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import { formatMonth } from '$lib/format';
@@ -51,7 +52,7 @@
   }
 </script>
 
-<Modal {open} title="Move money between categories" {onclose}>
+<Modal {open} title="Move money between categories" {onclose} busy={moving}>
   <form id="reallocate-form" class="space-y-4" onsubmit={submit} novalidate>
     <p class="muted text-sm">
       Moves part of one category's {formatMonth(month)} limit to another. The total budget stays the same.
@@ -92,9 +93,7 @@
     {/if}
   </form>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={onclose}>Cancel</button>
-    <button type="submit" form="reallocate-form" class="btn-primary" disabled={moving}
-      >{moving ? 'Moving…' : 'Move'}</button
-    >
+    <Button disabled={moving} onclick={onclose}>Cancel</Button>
+    <Button type="submit" form="reallocate-form" variant="primary" busy={moving} busyText="Moving…">Move</Button>
   {/snippet}
 </Modal>

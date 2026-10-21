@@ -48,6 +48,15 @@
     }
   }
 
+  // Escape closes the editor and gives focus back to its Change / Set minimum button.
+  function onEditorKeydown(event: KeyboardEvent, account: string) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    editing = null;
+    document.querySelector<HTMLElement>(`[aria-controls="${inputId(account)}"]`)?.focus();
+  }
+
+  const focus = (node: HTMLElement) => node.focus();
   const waits = (account: string) => pending !== null && pending !== account;
   const inputId = (account: string) => `minimum-${account.replace(/\W+/g, '-').toLowerCase()}`;
 </script>
@@ -95,7 +104,8 @@
           </span>
         </div>
         {#if editing === row.account}
-          <div class="mt-1 flex flex-wrap items-center gap-2">
+          <!-- Enter in a field clicks Save, the form's submit button, which runs and reports the save. -->
+          <form class="mt-1 flex flex-wrap items-center gap-2" onsubmit={(event) => event.preventDefault()}>
             <label class="sr-only" for={inputId(row.account)}>Minimum for {row.account} in VND</label>
             <input
               id={inputId(row.account)}
@@ -106,6 +116,8 @@
               aria-invalid={problem ? true : undefined}
               bind:value={draft}
               oninput={() => (touched = true)}
+              onkeydown={(event) => onEditorKeydown(event, row.account)}
+              {@attach focus}
             />
             <label class="sr-only" for="{inputId(row.account)}-note">Note for {row.account}</label>
             <input
@@ -115,8 +127,10 @@
               maxlength="200"
               placeholder="Note, e.g. monthly reward"
               bind:value={noteDraft}
+              onkeydown={(event) => onEditorKeydown(event, row.account)}
             />
             <Button
+              type="submit"
               size="sm"
               variant="primary"
               busy={pending === row.account}
@@ -138,7 +152,7 @@
                 onclick={() => save(row.account, null, '')}>Remove</Button
               >
             {/if}
-          </div>
+          </form>
           {#if problem}
             <p class="mt-1 text-xs {STATUS.warning.ink}" role="alert">{problem}</p>
           {/if}

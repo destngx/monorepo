@@ -22,7 +22,7 @@
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 </script>
 
-<Modal {open} {title} {onclose}>
+<Modal {open} {title} {onclose} {busy}>
   <form id="recurring-form" class="grid gap-4 sm:grid-cols-2" {onsubmit}>
     <div class="sm:col-span-2">
       <label class="label" for="recurring-name">Name *</label>

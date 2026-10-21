@@ -32,6 +32,8 @@ function save(entries: ChatEntry[]): void {
 class ChatStore {
   entries = $state<ChatEntry[]>(load());
   streaming = $state(false);
+  /** The message being typed: it lives here so closing the widget or opening /chat keeps it. */
+  draft = $state('');
   #controller: AbortController | null = null;
 
   async send(text: string, page?: ChatPageContext): Promise<void> {

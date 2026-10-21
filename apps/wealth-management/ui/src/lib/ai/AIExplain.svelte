@@ -18,6 +18,7 @@
   let { title, label, icon = 'sparkles', load }: Props = $props();
   let open = $state(false);
   let button: HTMLButtonElement | undefined = $state();
+  let popover: HTMLDivElement | undefined = $state();
   let placement = $state('');
   const task = $derived(new AITask(load));
 
@@ -60,6 +61,28 @@
     };
   });
 
+  // A press anywhere outside the button and the popover closes it.
+  $effect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!button?.contains(target) && !popover?.contains(target)) open = false;
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  });
+
+  // The popover sits at the end of <body>, far from the button in tab order: focus moves into it on
+  // open, and back to the button when Escape or Close shuts it.
+  function focusOnOpen(node: HTMLElement) {
+    node.focus();
+  }
+
+  function close() {
+    open = false;
+    button?.focus();
+  }
+
   function toggle() {
     open = !open;
     if (open && task.status === 'idle') void task.run();
@@ -68,7 +91,7 @@
 
 <svelte:window
   onkeydown={(event) => {
-    if (open && event.key === 'Escape') open = false;
+    if (open && event.key === 'Escape') close();
   }}
 />
 
@@ -76,7 +99,7 @@
   <button
     bind:this={button}
     type="button"
-    class="btn-ghost px-1.5 text-indigo-600 dark:text-indigo-400"
+    class="btn-ghost hit-area px-1.5 text-indigo-600 dark:text-indigo-400"
     aria-label={label}
     aria-expanded={open}
     title={label}
@@ -87,7 +110,10 @@
   {#if open}
     <div
       use:portal
-      class="glass fixed z-50 overflow-y-auto p-4 text-left text-sm font-normal normal-case shadow-lg"
+      bind:this={popover}
+      {@attach focusOnOpen}
+      tabindex="-1"
+      class="glass fixed z-50 overflow-y-auto p-4 text-left text-sm font-normal normal-case shadow-lg outline-none"
       style={placement}
       role="dialog"
       aria-label={title}
@@ -96,11 +122,15 @@
         <span class="text-xs font-semibold tracking-wide uppercase">{title}</span>
         <div class="flex">
           {#if task.status === 'done'}
-            <button type="button" class="btn-ghost px-1.5" aria-label="Regenerate" onclick={() => task.run(true)}
-              ><Icon name="refresh" size={14} /></button
+            <button
+              type="button"
+              class="btn-ghost hit-area px-1.5"
+              aria-label="Regenerate"
+              title="Regenerate"
+              onclick={() => task.run(true)}><Icon name="refresh" size={14} /></button
             >
           {/if}
-          <button type="button" class="btn-ghost px-1.5" aria-label="Close" onclick={() => (open = false)}
+          <button type="button" class="btn-ghost hit-area px-1.5" aria-label="Close" title="Close" onclick={close}
             ><Icon name="x" size={14} /></button
           >
         </div>

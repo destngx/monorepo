@@ -31,7 +31,7 @@
 
   const COPIED_MS = 1500;
 
-  let draft = $state('');
+  let confirmClear = $state(false);
   let scroller = $state<HTMLDivElement>();
   /** Index of the message just copied, to flash a check mark. */
   let copied = $state<number | null>(null);
@@ -55,7 +55,7 @@
 
   function send(text: string) {
     if (chat.streaming || !text.trim()) return;
-    draft = '';
+    chat.draft = '';
     editing = null;
     void chat.send(text, page);
   }
@@ -112,7 +112,7 @@
   function onkeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
-      send(draft);
+      send(chat.draft);
     }
   }
 </script>
@@ -211,6 +211,21 @@
   {#snippet footer()}
     <Button onclick={() => (pending = null)}>Cancel</Button>
     <Button variant="primary" onclick={confirmPending}>{pending?.text === undefined ? 'Retry' : 'Send'}</Button>
+  {/snippet}
+</Modal>
+
+<Modal open={confirmClear} title="Clear the conversation?" onclose={() => (confirmClear = false)}>
+  <p class="text-sm">Every message is removed from this browser. This can't be undone.</p>
+  {#snippet footer()}
+    <Button onclick={() => (confirmClear = false)}>Cancel</Button>
+    <Button
+      variant="danger"
+      onclick={() => {
+        confirmClear = false;
+        editing = null;
+        chat.clear();
+      }}>Clear</Button
+    >
   {/snippet}
 </Modal>
 
@@ -319,19 +334,11 @@
     class="flex items-end gap-2 border-t border-slate-900/10 pt-3 dark:border-white/10 {compact ? 'px-3 pb-3' : ''}"
     onsubmit={(event) => {
       event.preventDefault();
-      send(draft);
+      send(chat.draft);
     }}
   >
     {#if chat.entries.length && !chat.streaming}
-      <Button
-        size="icon"
-        icon="trash"
-        label="Clear conversation"
-        onclick={() => {
-          editing = null;
-          chat.clear();
-        }}
-      />
+      <Button size="icon" icon="trash" label="Clear conversation" onclick={() => (confirmClear = true)} />
     {/if}
     <label class="sr-only" for="chat-input-{compact ? 'widget' : 'page'}">Message</label>
     <textarea
@@ -339,7 +346,7 @@
       class="field max-h-32 min-h-10 flex-1 resize-none"
       rows="1"
       placeholder="Ask about your finances…"
-      bind:value={draft}
+      bind:value={chat.draft}
       {onkeydown}
     ></textarea>
     <!-- While a reply streams, Send stays busy and Stop ends the reply. -->
@@ -355,7 +362,7 @@
       label="Send"
       title={chat.streaming ? 'Answering…' : 'Send'}
       busy={chat.streaming}
-      disabled={!chat.streaming && !draft.trim()}
+      disabled={!chat.streaming && !chat.draft.trim()}
     />
   </form>
 </div>

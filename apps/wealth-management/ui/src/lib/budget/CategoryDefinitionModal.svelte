@@ -2,6 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { Category } from '$lib/api/types';
+  import Button from '$lib/components/Button.svelte';
   import Modal from '$lib/components/Modal.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { parseSplitTags } from './natures';
@@ -44,7 +45,7 @@
   }
 </script>
 
-<Modal open={category !== null} title="Define {category?.name ?? ''}" {onclose}>
+<Modal open={category !== null} title="Define {category?.name ?? ''}" {onclose} busy={saving}>
   <form id="category-definition-form" class="space-y-4" onsubmit={save}>
     <div>
       <label class="label" for="category-definition">What belongs here</label>
@@ -71,9 +72,9 @@
     </div>
   </form>
   {#snippet footer()}
-    <button type="button" class="btn-ghost" onclick={onclose}>Cancel</button>
-    <button type="submit" form="category-definition-form" class="btn-primary" disabled={saving}
-      >{saving ? 'Saving…' : 'Save'}</button
+    <Button disabled={saving} onclick={onclose}>Cancel</Button>
+    <Button type="submit" form="category-definition-form" variant="primary" busy={saving} busyText="Saving…"
+      >Save</Button
     >
   {/snippet}
 </Modal>

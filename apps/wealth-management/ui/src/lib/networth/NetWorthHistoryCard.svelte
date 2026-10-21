@@ -89,36 +89,39 @@
     onclick={() => (showTable = !showTable)}>{showTable ? 'Hide the table' : 'Show as a table'}</button
   >
   {#if showTable}
-    <table class="mt-2 w-full text-sm" data-testid="networth-table">
-      <thead>
-        <tr class="muted text-left text-xs uppercase">
-          <th class="py-2">Month</th>
-          <th class="py-2">Source</th>
-          <th class="py-2 text-right">Net worth</th>
-          <th class="py-2 text-right">Change</th>
-          <th class="py-2 text-right">Savings</th>
-          <th class="py-2 text-right">Market and other</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
-        {#each [...points].reverse() as point (point.month)}
-          <tr>
-            <td class="py-2">{formatMonth(point.month)}</td>
-            <td class="py-2 {point.estimated ? 'muted italic' : ''}">{sourceLabel(point)}</td>
-            <td class="py-2 text-right"><Money value={point.netWorth} /></td>
-            <td class="py-2 text-right">
-              {#if point.change !== null}<Money value={point.change} signed />{:else}<span class="muted">-</span>{/if}
-            </td>
-            <td class="py-2 text-right">
-              {#if point.savings !== null}<Money value={point.savings} signed />{:else}<span class="muted">-</span>{/if}
-            </td>
-            <td class="py-2 text-right">
-              {#if point.market !== null}<Money value={point.market} signed />{:else}<span class="muted">-</span>{/if}
-            </td>
+    <div class="mt-2 overflow-x-auto">
+      <table class="w-full text-sm" data-testid="networth-table">
+        <thead>
+          <tr class="muted text-left text-xs uppercase">
+            <th class="py-2">Month</th>
+            <th class="py-2">Source</th>
+            <th class="py-2 text-right">Net worth</th>
+            <th class="py-2 text-right">Change</th>
+            <th class="py-2 text-right">Savings</th>
+            <th class="py-2 text-right">Market and other</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
+        </thead>
+        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          {#each [...points].reverse() as point (point.month)}
+            <tr>
+              <td class="py-2">{formatMonth(point.month)}</td>
+              <td class="py-2 {point.estimated ? 'muted italic' : ''}">{sourceLabel(point)}</td>
+              <td class="py-2 text-right"><Money value={point.netWorth} /></td>
+              <td class="py-2 text-right">
+                {#if point.change !== null}<Money value={point.change} signed />{:else}<span class="muted">-</span>{/if}
+              </td>
+              <td class="py-2 text-right">
+                {#if point.savings !== null}<Money value={point.savings} signed />{:else}<span class="muted">-</span
+                  >{/if}
+              </td>
+              <td class="py-2 text-right">
+                {#if point.market !== null}<Money value={point.market} signed />{:else}<span class="muted">-</span>{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
     <p class="muted mt-2 text-xs">
       Savings is income minus expense between two measured months; market and other is the rest of the change: price
       moves, balance corrections and anything not recorded as income or expense. It is shown only when both months are

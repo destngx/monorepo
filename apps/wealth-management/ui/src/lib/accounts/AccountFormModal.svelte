@@ -33,7 +33,7 @@
   }
 </script>
 
-<Modal {open} title={editing ? `Edit ${editing.name}` : 'New account'} {onclose}>
+<Modal {open} title={editing ? `Edit ${editing.name}` : 'New account'} {onclose} {busy}>
   <form id="account-form" class="grid gap-4 sm:grid-cols-2" onsubmit={submit}>
     {#if !editing}
       <div class="sm:col-span-2">

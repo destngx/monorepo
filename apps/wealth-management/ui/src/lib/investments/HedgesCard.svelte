@@ -60,44 +60,46 @@
   </div>
 
   {#if trends.length}
-    <table class="mt-3 w-full text-sm">
-      <thead>
-        <tr class="muted text-left text-xs uppercase">
-          <th class="py-2">Asset</th>
-          <th class="py-2 text-right">Latest</th>
-          <th class="py-2 text-right">3M</th>
-          <th class="py-2 text-right">1Y</th>
-          <th class="py-2 text-right">Your cash held in it (1Y)</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
-        {#each trends as { trend, color } (trend!.asset)}
-          {@const t = trend!}
-          {@const quarter = trendChange(t, '3M')}
-          {@const twelve = trendChange(t, '1Y')}
-          <tr>
-            <td class="py-2">
-              <span class="flex items-center gap-2">
-                <span class="inline-block h-0.5 w-4 rounded" style:background-color={color}></span>{t.label}
-              </span>
-              {#if t.source}<span class="block text-xs"><SourceBadge source={t.source} /></span>{/if}
-            </td>
-            <td class="py-2 text-right">
-              <span class="tabular">{nf.format(t.latest)}</span>
-              <span class="muted block text-xs">{t.unit}, {formatDate(t.latestDate)}</span>
-            </td>
-            <td class="tabular py-2 text-right">{formatSignedPercent(quarter?.changePct, 1)}</td>
-            <td class="tabular py-2 text-right">
-              {formatSignedPercent(twelve?.changePct, 1)}
-              {#if twelve?.partial}<span class="muted block text-xs">since {formatDate(twelve.fromDate)}</span>{/if}
-            </td>
-            <td class="py-2 text-right">
-              {#if twelve}<Money value={twelve.onCash} signed tone />{:else}<span class="muted">-</span>{/if}
-            </td>
+    <div class="mt-3 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="muted text-left text-xs uppercase">
+            <th class="py-2">Asset</th>
+            <th class="py-2 text-right">Latest</th>
+            <th class="py-2 text-right">3M</th>
+            <th class="py-2 text-right">1Y</th>
+            <th class="py-2 text-right">Your cash held in it (1Y)</th>
           </tr>
-        {/each}
-      </tbody>
-    </table>
+        </thead>
+        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          {#each trends as { trend, color } (trend!.asset)}
+            {@const t = trend!}
+            {@const quarter = trendChange(t, '3M')}
+            {@const twelve = trendChange(t, '1Y')}
+            <tr>
+              <td class="py-2">
+                <span class="flex items-center gap-2">
+                  <span class="inline-block h-0.5 w-4 rounded" style:background-color={color}></span>{t.label}
+                </span>
+                {#if t.source}<span class="block text-xs"><SourceBadge source={t.source} /></span>{/if}
+              </td>
+              <td class="py-2 text-right">
+                <span class="tabular">{nf.format(t.latest)}</span>
+                <span class="muted block text-xs">{t.unit}, {formatDate(t.latestDate)}</span>
+              </td>
+              <td class="tabular py-2 text-right">{formatSignedPercent(quarter?.changePct, 1)}</td>
+              <td class="tabular py-2 text-right">
+                {formatSignedPercent(twelve?.changePct, 1)}
+                {#if twelve?.partial}<span class="muted block text-xs">since {formatDate(twelve.fromDate)}</span>{/if}
+              </td>
+              <td class="py-2 text-right">
+                {#if twelve}<Money value={twelve.onCash} signed tone />{:else}<span class="muted">-</span>{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
     <p class="muted mt-2 text-xs">
       The last column is what your VND cash (<Money value={hedges.cash} />) would have gained or lost had it been held
       in the asset for the period. Past moves, not a forecast.

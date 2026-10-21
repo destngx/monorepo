@@ -69,6 +69,7 @@
   let editing = $state<Transaction | 'new' | null>(null);
   let deleting = $state<Transaction | null>(null);
   let busy = $state(false);
+  let removing = $state(false);
   // Seed for a new row, and a counter that remounts the form for "Save & add another".
   let prefill = $state<Partial<TransactionInput>>({});
   let formKey = $state(0);
@@ -176,7 +177,8 @@
 
   // Runs from the dialog's Delete Button, which stays busy until the sheet answers.
   async function remove() {
-    if (!deleting) return;
+    if (!deleting || removing) return;
+    removing = true;
     try {
       await api.deleteTransaction(deleting.id, deleting.etag);
       toasts.push('success', 'Transaction deleted.');
@@ -185,6 +187,8 @@
     } catch (error) {
       toasts.error(error, 'Could not delete the transaction');
       await invalidateAll();
+    } finally {
+      removing = false;
     }
   }
 </script>
@@ -310,6 +314,7 @@
   open={editing !== null}
   title={editing === 'new' ? 'Add transaction' : 'Edit transaction'}
   onclose={closeEditor}
+  {busy}
   wide
 >
   <!-- The form needs the accounts, categories and tags; it opens at once and they stream in. -->
@@ -334,7 +339,7 @@
   </Deferred>
 </Modal>
 
-<Modal open={deleting !== null} title="Delete transaction" onclose={() => (deleting = null)}>
+<Modal open={deleting !== null} title="Delete transaction" onclose={() => (deleting = null)} busy={removing}>
   {#if deleting}
     <p class="text-sm">
       Delete <strong>{deleting.payee}</strong> on {formatDate(deleting.date)} from {deleting.accountName}? The row is
@@ -342,7 +347,7 @@
     </p>
   {/if}
   {#snippet footer()}
-    <Button onclick={() => (deleting = null)}>Cancel</Button>
-    <Button variant="danger" busyText="Deleting…" onclick={remove}>Delete</Button>
+    <Button disabled={removing} onclick={() => (deleting = null)}>Cancel</Button>
+    <Button variant="danger" busy={removing} busyText="Deleting…" onclick={remove}>Delete</Button>
   {/snippet}
 </Modal>

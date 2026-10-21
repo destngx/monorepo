@@ -2,12 +2,38 @@
   import Icon from '$lib/components/Icon.svelte';
   import type { ChatPageContext } from '$lib/api/types';
   import { base } from '$app/paths';
+  import { tick } from 'svelte';
   import ChatPanel from './ChatPanel.svelte';
 
   // Floating assistant on every page except /chat (WM-AI-11).
   let { page }: { page: ChatPageContext } = $props();
   let open = $state(false);
+  let toggle = $state<HTMLButtonElement>();
+  let panel = $state<HTMLDivElement>();
+
+  // It stays open on clicks elsewhere so the page can be read and copied from while chatting.
+  async function show() {
+    open = true;
+    await tick();
+    // Not on touch screens, where focusing the box opens the keyboard over the answers.
+    if (!globalThis.matchMedia?.('(pointer: coarse)').matches) panel?.querySelector('textarea')?.focus();
+  }
+
+  function hide() {
+    // Focus would fall to the page when the panel unmounts; it goes back to the toggle.
+    if (panel?.contains(document.activeElement)) toggle?.focus();
+    open = false;
+  }
+
+  function onkeydown(event: KeyboardEvent) {
+    // An open confirm dialog or an edit box handles its own Escape.
+    if (!open || event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
+    event.preventDefault();
+    hide();
+  }
 </script>
+
+<svelte:window {onkeydown} />
 
 <div class="fixed right-4 bottom-24 z-40 lg:bottom-4 flex flex-col items-end gap-3">
   {#if open}
@@ -15,23 +41,20 @@
       class="glass flex h-[min(34rem,75vh)] w-[min(24rem,calc(100vw-2rem))] flex-col shadow-xl"
       role="dialog"
       aria-label="Assistant"
+      bind:this={panel}
     >
       <div class="flex items-center justify-between border-b border-slate-900/10 px-3 py-2 dark:border-white/10">
         <span class="text-sm font-semibold">Assistant</span>
         <div class="flex">
-          <a
-            href="{base}/chat"
-            class="btn-ghost px-2"
-            aria-label="Open full page"
-            title="Open full page"
-            onclick={() => (open = false)}><Icon name="chat" size={16} /></a
+          <a href="{base}/chat" class="btn-ghost px-2" aria-label="Open full page" title="Open full page" onclick={hide}
+            ><Icon name="chat" size={16} /></a
           >
           <button
             type="button"
             class="btn-ghost px-2"
             aria-label="Close assistant"
             title="Close assistant"
-            onclick={() => (open = false)}><Icon name="x" size={16} /></button
+            onclick={hide}><Icon name="x" size={16} /></button
           >
         </div>
       </div>
@@ -44,7 +67,8 @@
     title={open ? 'Hide assistant' : 'Ask the assistant'}
     aria-label={open ? 'Hide assistant' : 'Ask the assistant'}
     aria-expanded={open}
-    onclick={() => (open = !open)}
+    bind:this={toggle}
+    onclick={() => (open ? hide() : void show())}
   >
     <Icon name={open ? 'x' : 'sparkles'} />
   </button>

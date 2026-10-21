@@ -9,6 +9,13 @@
       .slice(0, 8),
   );
 
+  // Enter adds the tag with exactly the typed name (in its saved spelling) or a new one, never a
+  // longer tag that only contains the text; a suggestion is picked by clicking it.
+  function addTyped() {
+    const typed = query.trim().toLowerCase();
+    add(options.find((tag) => tag.toLowerCase() === typed) ?? query);
+  }
+
   function add(tag: string) {
     const value = tag.trim();
     if (value && !selected.includes(value)) selected = [...selected, value];
@@ -30,7 +37,7 @@
       {tag}
       <button
         type="button"
-        class="-mr-1 grid size-4 place-items-center rounded-full hover:bg-indigo-500/25 active:bg-indigo-500/35"
+        class="hit-area -mr-1 grid size-4 place-items-center rounded-full hover:bg-indigo-500/25 active:bg-indigo-500/35"
         aria-label="Remove {tag}"
         title="Remove {tag}"
         onclick={() => remove(tag)}>×</button
@@ -45,7 +52,7 @@
     onkeydown={(event) => {
       if (event.key === 'Enter' && query.trim()) {
         event.preventDefault();
-        add(suggestions[0] ?? query);
+        addTyped();
       } else if (event.key === 'Backspace' && !query && selected.length) {
         remove(selected[selected.length - 1]);
       }

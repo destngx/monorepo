@@ -37,6 +37,7 @@ async function ask(text: string) {
 describe('ChatPanel', () => {
   beforeEach(() => {
     chat.clear();
+    chat.draft = '';
     mask.hide();
     // jsdom has no modal dialogs; the Modal only needs them to toggle.
     if (!('showModal' in HTMLDialogElement.prototype)) {
@@ -102,5 +103,28 @@ describe('ChatPanel', () => {
     expect(screen.getAllByRole('button', { name: MASK_TOKEN_LABEL }).length).toBeGreaterThanOrEqual(1);
     chat.stop();
     await flush();
+  });
+
+  it('Given a conversation When Clear conversation is pressed Then it asks before removing the messages', async () => {
+    endpoints.chat.mockImplementation(reply([{ type: 'text', delta: 'On track.' }]));
+    render(ChatPanel, { page });
+    await ask('How is my budget?');
+    chat.stop();
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear conversation' }));
+    expect(chat.entries.length).toBeGreaterThan(0);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Clear', hidden: true }));
+    expect(chat.entries).toEqual([]);
+  });
+
+  it('Given a message being typed When the panel closes and opens again Then the text is still there', async () => {
+    const first = render(ChatPanel, { page });
+    await fireEvent.input(screen.getByLabelText('Message'), { target: { value: 'Half a question' } });
+    first.unmount();
+
+    render(ChatPanel, { page });
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Message').value).toBe('Half a question');
   });
 });

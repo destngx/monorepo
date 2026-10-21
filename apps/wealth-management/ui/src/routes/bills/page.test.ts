@@ -336,6 +336,25 @@ describe('Bills page', () => {
     expect(screen.getByRole('button', { name: 'Change the minimum of Bank A' }).hasAttribute('disabled')).toBe(true);
   });
 
+  it('Given the minimum editor When it opens Then the amount has focus, Enter saves and Escape closes it', async () => {
+    render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
+    await flush();
+
+    const toggle = screen.getByRole('button', { name: 'Set a minimum for Wallet' });
+    await fireEvent.click(toggle);
+    await flush();
+    const amount = screen.getByLabelText('Minimum for Wallet in VND');
+    expect(document.activeElement).toBe(amount);
+    // Enter in a field clicks the form's submit button.
+    expect(screen.getByRole('button', { name: 'Save' }).getAttribute('type')).toBe('submit');
+    expect(amount.closest('form')).toBe(screen.getByRole('button', { name: 'Save' }).closest('form'));
+
+    await fireEvent.keyDown(amount, { key: 'Escape' });
+    await flush();
+    expect(screen.queryByLabelText('Minimum for Wallet in VND')).toBeNull();
+    expect(document.activeElement).toBe(toggle);
+  });
+
   it('Given a minimum for a name that is no account When Remove is clicked Then its minimum is cleared', async () => {
     render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
     await flush();

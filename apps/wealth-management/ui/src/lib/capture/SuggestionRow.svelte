@@ -80,6 +80,11 @@
   // The note box opens on demand; a transfer or fee row has none (WM-CAP-24).
   const notable = $derived(!suggestion.transferGroup && !suggestion.fee);
   let noteOpen = $state(false);
+  // Opening the note box puts the caret at the end of the note.
+  function focusNote(node: HTMLTextAreaElement) {
+    node.focus();
+    node.setSelectionRange(node.value.length, node.value.length);
+  }
 
   const low = (field: CaptureField) => (suggestion.lowConfidence.includes(field) ? 'ring-2 ring-amber-400/70' : '');
 
@@ -158,7 +163,7 @@
       <input type="checkbox" aria-label="Select {row.tx.payee}" bind:checked={row.selected} {disabled} />
     </td>
     <td class="px-2 pt-2">
-      <input type="date" class="field w-36 {low('date')}" bind:value={row.tx.date} {disabled} />
+      <input type="date" class="field w-36 {low('date')}" aria-label="Date" bind:value={row.tx.date} {disabled} />
       {#if suggestion.occurredAt.length > 10}<p class="muted mt-0.5 text-xs">
           {suggestion.occurredAt.slice(11)}
         </p>{/if}
@@ -214,7 +219,7 @@
         {#if canSuggest && !suggesting}
           <button
             type="button"
-            class="link inline-flex items-center gap-0.5"
+            class="link hit-area inline-flex items-center gap-0.5"
             title="Suggest a category for this payee"
             onclick={suggestNow}><Icon name="sparkles" size={12} /> Suggest</button
           >
@@ -309,6 +314,7 @@
           aria-label="Note for next time"
           bind:value={row.note}
           {disabled}
+          {@attach focusNote}
         ></textarea>
         {#if suggestion.pastNotes?.length}
           <p class="muted mt-1 text-xs">Your earlier notes: {suggestion.pastNotes.join(' · ')}</p>
