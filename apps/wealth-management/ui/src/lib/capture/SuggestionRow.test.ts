@@ -119,6 +119,36 @@ describe('SuggestionRow', () => {
     expect(screen.getByText(/Your earlier notes: breakfast stall · coffee too/)).toBeTruthy();
   });
 
+  it('Given a draft the engine left unselected for its confidence When shown Then it says why', () => {
+    renderRow(suggestion({ selected: false, confidence: 0.48 }));
+
+    expect(screen.getByText(/Not selected: read with 48% confidence. Check it, then tick it./)).toBeTruthy();
+  });
+
+  it('Given a selected draft or a likely duplicate When shown Then there is no confidence hint', () => {
+    renderRow(suggestion({ selected: true, confidence: 0.95 }));
+    expect(screen.queryByText(/Not selected: read with/)).toBeNull();
+  });
+
+  it('Given an unselected likely duplicate When shown Then only the duplicate note explains it', () => {
+    renderRow(
+      suggestion({
+        selected: false,
+        confidence: 0.5,
+        duplicate: {
+          transactionId: 'row-9',
+          date: '05/10/2026',
+          payee: 'Grab',
+          amount: 120000,
+          score: 90,
+          days: 0,
+          likely: true,
+        },
+      }),
+    );
+    expect(screen.queryByText(/Not selected: read with/)).toBeNull();
+  });
+
   it('Given a row on or before the last recorded date with no match When shown Then it may be missing from the sheet', () => {
     renderRow(suggestion({ selected: true, recordedThrough: '08/10/2026' }));
 

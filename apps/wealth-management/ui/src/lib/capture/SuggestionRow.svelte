@@ -333,6 +333,11 @@
         {/each}
       </div>
 
+      {#if !suggestion.selected && !suggestion.duplicate?.likely}
+        <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+          Not selected: read with {Math.round(suggestion.confidence * 100)}% confidence. Check it, then tick it.
+        </p>
+      {/if}
       {#if suggestion.learnedPayee}
         {@const learned = suggestion.learnedPayee}
         {@const times = learned.count === 1 ? 'once' : `${learned.count} times`}

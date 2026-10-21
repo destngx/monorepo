@@ -81,6 +81,13 @@ type CaptureSuggestion struct {
 	Notes           []string `json:"notes,omitempty"`
 }
 
+// SelectedByDefault reports whether the suggestion starts selected: only
+// when it was read with confidence above CaptureSelectConfidence. Ledger
+// dedup may unselect it afterwards (WM-CAP-25).
+func (s CaptureSuggestion) SelectedByDefault() bool {
+	return s.Confidence > CaptureSelectConfidence
+}
+
 // CaptureBalance is the latest balance a material showed for an account,
 // with the sheet balance to reconcile against (WM-CAP-7).
 type CaptureBalance struct {
@@ -196,7 +203,7 @@ func baseSuggestion(item CaptureItem, materials map[string]CaptureMaterial, acco
 		occurredAt = event.At.Format("2006-01-02")
 	}
 	suggestion := CaptureSuggestion{
-		Selected:          true,
+		Selected:          event.Confidence > CaptureSelectConfidence,
 		Transaction:       transaction,
 		Direction:         event.Direction,
 		Amount:            amount,

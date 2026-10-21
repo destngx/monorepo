@@ -160,6 +160,9 @@ const (
 	captureDefaultConfidence = 0.5
 	// CaptureLowConfidence highlights fields below it on the review screen (WM-CAP-8).
 	CaptureLowConfidence = 0.7
+	// CaptureSelectConfidence is the reading confidence a suggestion must
+	// beat to be selected by default (WM-CAP-25).
+	CaptureSelectConfidence = 0.8
 )
 
 // ParseCaptureExtraction parses a reply to CaptureFormatInstruction and

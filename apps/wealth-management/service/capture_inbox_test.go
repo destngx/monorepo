@@ -116,9 +116,29 @@ func (f *inboxFixture) process(t *testing.T) {
 func row(account string, amount float64, occurredAt string, materialID string) domain.CaptureSuggestion {
 	date, _ := time.Parse("2006-01-02", occurredAt[:10])
 	return domain.CaptureSuggestion{
-		ID: "s", Selected: true, Direction: domain.CaptureOut, Amount: amount, OccurredAt: occurredAt,
+		ID: "s", Selected: true, Confidence: 0.9, Direction: domain.CaptureOut, Amount: amount, OccurredAt: occurredAt,
 		Transaction: domain.TransactionCreateInput{AccountName: account, Date: date.Format(domain.SheetDateLayout), Payment: &amount},
 		Evidence:    []domain.CaptureEvidence{{MaterialID: materialID}},
+	}
+}
+
+func TestGivenALowConfidenceDraftWhenListingDraftsThenItStaysUnselected(t *testing.T) {
+	f := newInboxFixture(t)
+	f.submit(t, inboxPNG, "")
+	unsure := row("Sacombank", 40000, "2026-10-16 08:15", "m1")
+	unsure.Confidence, unsure.Selected = 0.48, false
+	f.reader.results = []domain.CaptureResult{{Suggestions: []domain.CaptureSuggestion{unsure, row("Sacombank", 70000, "2026-10-16 09:15", "m1")}}}
+	f.process(t)
+
+	drafts, err := f.inbox.Drafts(context.Background())
+
+	if err != nil || len(drafts.Drafts) != 2 {
+		t.Fatalf("drafts = %+v err=%v", drafts.Drafts, err)
+	}
+	for _, draft := range drafts.Drafts {
+		if want := draft.Suggestion.Confidence > domain.CaptureSelectConfidence; draft.Suggestion.Selected != want {
+			t.Fatalf("draft %v selected = %v, want %v", draft.Suggestion.Amount, draft.Suggestion.Selected, want)
+		}
 	}
 }
 

@@ -320,7 +320,7 @@ func TestBuildCaptureSuggestions(t *testing.T) {
 		t.Fatalf("coffee row should flag confidence, name match and currency: %+v", coffeeRow)
 	}
 	for index, suggestion := range suggestions {
-		if suggestion.ID == "" || !suggestion.Selected || (index > 0 && suggestion.ID == suggestions[index-1].ID) {
+		if suggestion.ID == "" || suggestion.Selected != (suggestion.Confidence > CaptureSelectConfidence) || (index > 0 && suggestion.ID == suggestions[index-1].ID) {
 			t.Fatalf("ids and selection: %+v", suggestions)
 		}
 		if !suggestion.Transaction.Cleared {
@@ -331,6 +331,25 @@ func TestBuildCaptureSuggestions(t *testing.T) {
 	ApplyCaptureDuplicates(suggestions, []Transaction{{ID: "r9", AccountName: "Ví MoMo", Payee: "VCB", Date: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC), Deposit: amountPointer(2000000)}}, time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC))
 	if suggestions[2].Selected || suggestions[2].Duplicate == nil || suggestions[2].Duplicate.TransactionID != "r9" || suggestions[2].Duplicate.Date != "04/10/2026" || !suggestions[0].Selected {
 		t.Fatalf("duplicate marking: %+v", suggestions[2])
+	}
+}
+
+func TestGivenAReadingConfidenceWhenBuildingSuggestionsThenOnlyAbove80PercentIsSelected(t *testing.T) {
+	event := func(confidence float64) CaptureItem {
+		read := captureEvent("a", "2026-10-03 09:00", 40000, CaptureOut)
+		read.Confidence = confidence
+		return NewCaptureItem(read, AccountMatch{Name: "Vietcombank", Source: MatchSourceAlias})
+	}
+	suggestions := BuildCaptureSuggestions(CaptureBuildInput{
+		Items:     []CaptureItem{event(0.81), event(0.8), event(0.48)},
+		Materials: []CaptureMaterial{{ID: "a", Kind: CaptureImage}},
+		Accounts:  captureAccounts,
+	})
+	if !suggestions[0].Selected || suggestions[1].Selected || suggestions[2].Selected {
+		t.Fatalf("selection = %v %v %v, want only the 81%% reading", suggestions[0].Selected, suggestions[1].Selected, suggestions[2].Selected)
+	}
+	if !suggestions[0].SelectedByDefault() || suggestions[1].SelectedByDefault() {
+		t.Fatal("SelectedByDefault follows the same rule")
 	}
 }
 

@@ -152,10 +152,11 @@ func (s *CaptureInbox) Discard(ctx context.Context, captureID string) error {
 	return s.store.DeleteCapture(ctx, captureID)
 }
 
-// Drafts returns the pending drafts with ledger dedup run again, so rows
-// entered by hand since the capture show as likely recorded (WM-CAP-18),
-// and rows the sheet has since been filled in past as possibly recorded
-// (WM-CAP-21).
+// Drafts returns the pending drafts with selection and ledger dedup run
+// again: a draft starts selected only when read with confidence above 80%
+// (WM-CAP-25), rows entered by hand since the capture are matched
+// (WM-CAP-18), and unmatched rows the sheet has since been filled in past
+// may be missing (WM-CAP-21).
 func (s *CaptureInbox) Drafts(ctx context.Context) (domain.CaptureDrafts, error) {
 	drafts, err := s.store.ListDrafts(ctx, domain.CaptureDraftPending, time.Time{})
 	if err != nil {
@@ -172,7 +173,7 @@ func (s *CaptureInbox) Drafts(ctx context.Context) (domain.CaptureDrafts, error)
 	suggestions := make([]domain.CaptureSuggestion, len(drafts))
 	for index, draft := range drafts {
 		suggestions[index] = draft.Suggestion
-		suggestions[index].Selected, suggestions[index].Duplicate, suggestions[index].RecordedThrough = true, nil, ""
+		suggestions[index].Selected, suggestions[index].Duplicate, suggestions[index].RecordedThrough = suggestions[index].SelectedByDefault(), nil, ""
 	}
 	domain.ApplyCaptureDuplicates(suggestions, transactions, domain.Today(s.now()))
 	var captureIDs []string
