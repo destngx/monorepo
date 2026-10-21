@@ -4,7 +4,7 @@
   import Money from '$lib/components/Money.svelte';
   import type { BalanceProjection, Reconciliation } from './review';
 
-  // Beside the draft list: each account's sheet balance now and once the
+  // Above the draft list: each account's sheet balance now and once the
   // selected rows are written, so ticking a row shows its effect at once,
   // and the balance a screenshot showed when there is one.
   interface Props {
@@ -36,12 +36,12 @@
   </p>
 {/snippet}
 
-<Card title="Balances after {verb.toLowerCase()}" subtitle="Sheet balance now and with the selected rows.">
+<Card title="Balances after {verb.toLowerCase()}" subtitle="Sheet balance now and with the selected rows." class="mb-4">
   {#if projections.length || checksOnly.length}
-    <ul class="-mx-5 divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+    <ul class="grid gap-2 text-sm sm:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
       {#each projections as line (line.account)}
         {@const screenshot = checkByAccount.get(line.account)}
-        <li class="px-5 py-2.5">
+        <li class="rounded-lg bg-slate-900/5 px-3 py-2 dark:bg-white/5">
           <div class="flex items-baseline justify-between gap-3">
             <span class="font-medium">{line.account}</span>
             <span class="font-medium"><Money value={line.after} currency={line.currency} /></span>
@@ -59,7 +59,7 @@
         </li>
       {/each}
       {#each checksOnly as line (line.account)}
-        <li class="px-5 py-2.5">
+        <li class="rounded-lg bg-slate-900/5 px-3 py-2 dark:bg-white/5">
           <span class="font-medium">{line.account}</span>
           <p class="muted text-xs">Sheet <Money value={line.projected} currency={line.currency} /></p>
           {@render check(line)}

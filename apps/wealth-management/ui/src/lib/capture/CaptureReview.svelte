@@ -243,99 +243,94 @@
   </Card>
 {/if}
 
-<!-- The list scrolls on its own beside the balances, so ticking a row shows
-     its effect without scrolling away (WM-CAP-26). -->
-<div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-  <Card
-    class="min-w-0"
-    title="Suggested transactions"
-    subtitle="{rows.length} found · {selectedCount} selected{committedCount
-      ? ` · ${committedCount} written`
-      : ''}. Highlighted fields need a closer look; click a confidence to see why."
-  >
-    {#snippet actions()}
-      <Button size="sm" disabled={busy} onclick={() => selectAll(true)}>Select all</Button>
-      <Button size="sm" disabled={busy} onclick={() => selectAll(false)}>None</Button>
-    {/snippet}
+<!-- The balances sit above a list that scrolls on its own, so ticking a row
+     shows its effect without scrolling away (WM-CAP-26). -->
+<BalancePanel {projections} {reconciliation} {verb} />
 
-    {#if rows.length}
-      <div class="-mx-5 max-h-[70vh] overflow-auto">
-        <table class="w-full min-w-[68rem] text-sm">
-          <thead class="sticky top-0 z-10 bg-white dark:bg-slate-900">
-            <tr class="muted border-b border-slate-900/10 text-left text-xs uppercase dark:border-white/10">
-              <th class="w-8 px-3 py-2"><span class="sr-only">Selected</span></th>
-              <th class="px-2 py-2 font-medium">Date</th>
-              <th class="px-2 py-2 font-medium">Account</th>
-              <th class="px-2 py-2 font-medium">Payee</th>
-              <th class="px-2 py-2 font-medium">Category</th>
-              <th class="px-2 py-2 text-right font-medium">Payment</th>
-              <th class="px-2 py-2 text-right font-medium">Deposit</th>
-              <th class="px-3 py-2 font-medium">Confidence</th>
-            </tr>
-          </thead>
-          {#each rows as row, index (row.suggestion.id)}
-            <SuggestionRow
-              bind:row={rows[index]}
-              disabled={locked(row)}
-              problems={problems[index]}
-              usdPreview={usdPreview(row)}
-              balanceAfter={balancesAfter[index]}
-              balanceCurrency={accountByName.get(row.tx.accountName)?.currency ?? 'VND'}
-              {itemById}
-              {activeAccounts}
-              {categoryNames}
-              {grouped}
-              {tags}
-              {cardTags}
-              {verb}
-              actionsDisabled={Boolean(pending)}
-              dirty={isRowDirty(row)}
-              saving={saving.includes(row.suggestion.id)}
-              onapprove={() => commit([index])}
-              onreject={reject ? () => rejectRows([row]) : undefined}
-              onsave={save ? () => saveRow(row) : undefined}
-            />
-          {/each}
-        </table>
-      </div>
-    {:else}
-      <p class="muted text-sm">{emptyText}</p>
-    {/if}
+<Card
+  title="Suggested transactions"
+  subtitle="{rows.length} found · {selectedCount} selected{committedCount
+    ? ` · ${committedCount} written`
+    : ''}. Highlighted fields need a closer look; click a confidence to see why."
+>
+  {#snippet actions()}
+    <Button size="sm" disabled={busy} onclick={() => selectAll(true)}>Select all</Button>
+    <Button size="sm" disabled={busy} onclick={() => selectAll(false)}>None</Button>
+  {/snippet}
 
-    <div class="mt-4 flex flex-wrap items-center justify-end gap-3">
-      {#if pending && !committing}
-        <p class="muted text-xs">
-          The last {verb.toLowerCase()} got no response. Retrying sends the same rows and cannot write them twice.
-        </p>
-      {/if}
-      {#if reject}
-        <Button
-          icon="x"
-          busy={rejecting}
-          busyText="Rejecting…"
-          disabled={committing || selectedCount === 0 || Boolean(pending)}
-          onclick={rejectSelected}
-        >
-          Reject {selectedCount}
-        </Button>
-      {/if}
-      <Button
-        variant="primary"
-        icon="check"
-        busy={committing && !committingRow}
-        busyText="Writing…"
-        disabled={rejecting || (!pending && selectedCount === 0)}
-        onclick={() => commit()}
-      >
-        {pending ? `Retry ${verb.toLowerCase()}` : `${verb} ${selectedCount} row${selectedCount === 1 ? '' : 's'}`}
-      </Button>
+  {#if rows.length}
+    <div class="-mx-5 max-h-[60vh] overflow-auto">
+      <table class="w-full min-w-[68rem] text-sm">
+        <thead class="sticky top-0 z-10 bg-white dark:bg-slate-900">
+          <tr class="muted border-b border-slate-900/10 text-left text-xs uppercase dark:border-white/10">
+            <th class="w-8 px-3 py-2"><span class="sr-only">Selected</span></th>
+            <th class="px-2 py-2 font-medium">Date</th>
+            <th class="px-2 py-2 font-medium">Account</th>
+            <th class="px-2 py-2 font-medium">Payee</th>
+            <th class="px-2 py-2 font-medium">Category</th>
+            <th class="px-2 py-2 text-right font-medium">Payment</th>
+            <th class="px-2 py-2 text-right font-medium">Deposit</th>
+            <th class="px-3 py-2 font-medium">Confidence</th>
+          </tr>
+        </thead>
+        {#each rows as row, index (row.suggestion.id)}
+          <SuggestionRow
+            bind:row={rows[index]}
+            disabled={locked(row)}
+            problems={problems[index]}
+            usdPreview={usdPreview(row)}
+            balanceAfter={balancesAfter[index]}
+            balanceCurrency={accountByName.get(row.tx.accountName)?.currency ?? 'VND'}
+            {itemById}
+            {activeAccounts}
+            {categoryNames}
+            {grouped}
+            {tags}
+            {cardTags}
+            {verb}
+            actionsDisabled={Boolean(pending)}
+            dirty={isRowDirty(row)}
+            saving={saving.includes(row.suggestion.id)}
+            onapprove={() => commit([index])}
+            onreject={reject ? () => rejectRows([row]) : undefined}
+            onsave={save ? () => saveRow(row) : undefined}
+          />
+        {/each}
+      </table>
     </div>
-  </Card>
+  {:else}
+    <p class="muted text-sm">{emptyText}</p>
+  {/if}
 
-  <aside class="lg:sticky lg:top-4">
-    <BalancePanel {projections} {reconciliation} {verb} />
-  </aside>
-</div>
+  <div class="mt-4 flex flex-wrap items-center justify-end gap-3">
+    {#if pending && !committing}
+      <p class="muted text-xs">
+        The last {verb.toLowerCase()} got no response. Retrying sends the same rows and cannot write them twice.
+      </p>
+    {/if}
+    {#if reject}
+      <Button
+        icon="x"
+        busy={rejecting}
+        busyText="Rejecting…"
+        disabled={committing || selectedCount === 0 || Boolean(pending)}
+        onclick={rejectSelected}
+      >
+        Reject {selectedCount}
+      </Button>
+    {/if}
+    <Button
+      variant="primary"
+      icon="check"
+      busy={committing && !committingRow}
+      busyText="Writing…"
+      disabled={rejecting || (!pending && selectedCount === 0)}
+      onclick={() => commit()}
+    >
+      {pending ? `Retry ${verb.toLowerCase()}` : `${verb} ${selectedCount} row${selectedCount === 1 ? '' : 's'}`}
+    </Button>
+  </div>
+</Card>
 
 {#if rules.length}
   <RulesCard
