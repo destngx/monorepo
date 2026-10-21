@@ -61,6 +61,8 @@ Sending the same screenshot twice is safe: the engine returns the first capture 
 
 Open the bank app or notification you want, long-press the AssistiveTouch button, choose **Send** or **Add note & send**.
 
+The button shows in the screenshot. Drag it to a screen edge where it covers no transaction rows or day headers ("Hôm nay", "Hôm qua", a date). Rows under a header it covers are read as belonging to the header above, so they get the wrong date.
+
 ## 4. Review
 
 The **Drafts** entry under Transactions shows the number of drafts waiting. On the page:
