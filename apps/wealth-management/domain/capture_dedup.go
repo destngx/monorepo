@@ -9,9 +9,14 @@ import (
 )
 
 const (
-	// CaptureDuplicateDays is the ledger dedup window (WM-CAP-6): a week,
-	// since rows are sometimes entered once a week with the entry day.
+	// CaptureDuplicateDays is how much later than a capture a sheet row may
+	// be dated and still match it (WM-CAP-6): a week, since rows are
+	// sometimes entered once a week, dated the day they are entered. Such a
+	// row is never dated before the transaction.
 	CaptureDuplicateDays = 7
+	// CaptureDuplicateDaysBefore is how much earlier a row may be dated: a
+	// day, for a bank that posts a transfer the next day.
+	CaptureDuplicateDaysBefore = 1
 	// CaptureLikelyDuplicateScore is the score a match must beat to count as
 	// likely recorded and be unselected.
 	CaptureLikelyDuplicateScore = 80
@@ -65,7 +70,8 @@ type CaptureMatch struct {
 
 // FindCaptureDuplicates matches candidates to ledger rows on the same
 // account (any account when the candidate has none, for 10 points less)
-// with the same amount and direction, dated up to a week apart, with no
+// with the same amount and direction, dated from a day before to a week
+// after the candidate, with no
 // conflicting reference (WM-CAP-6). A shared reference, in the row's
 // reference or its memo, scores 100. Otherwise the score starts at 90 on
 // the same day, loses 5 a day, and gains up to 30 for payee and memo words
@@ -116,10 +122,11 @@ func scoreCaptureMatch(candidate CaptureCandidate, words []string, ignored strin
 	if math.Abs(amount-candidate.Amount) > captureAmountTolerance {
 		return CaptureMatch{}, false
 	}
-	days := dayDistance(row.Date, candidate.Date)
-	if days > CaptureDuplicateDays {
+	later := int(math.Round(row.Date.Sub(candidate.Date).Hours() / 24))
+	if later > CaptureDuplicateDays || later < -CaptureDuplicateDaysBefore {
 		return CaptureMatch{}, false
 	}
+	days := dayDistance(row.Date, candidate.Date)
 	match := CaptureMatch{Row: row, Days: days}
 	if candidate.Reference != "" {
 		if CaptureReferenceIn(candidate.Reference, row) {

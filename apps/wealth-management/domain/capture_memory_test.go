@@ -149,7 +149,7 @@ func TestApplyLearnedPayees(t *testing.T) {
 
 func TestGivenALearnedPayeeWhenCheckingDuplicatesThenAHandEnteredRowUnderThatNameMatches(t *testing.T) {
 	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
-	ledger := []Transaction{{ID: "r1", AccountName: "Vietcombank", Payee: "Banh mi stall", Date: day(8), Payment: amountPointer(25000)}}
+	ledger := []Transaction{{ID: "r1", AccountName: "Vietcombank", Payee: "Banh mi stall", Date: day(16), Payment: amountPointer(25000)}}
 	suggestion := learnedSuggestion("NGUYEN VAN A", "NGUYEN VAN A")
 	suggestion.Transaction.ReferenceNumber = nil
 	suggestion.Selected = true
@@ -158,7 +158,7 @@ func TestGivenALearnedPayeeWhenCheckingDuplicatesThenAHandEnteredRowUnderThatNam
 	ApplyLearnedPayees(suggestions, []CaptureRule{{Kind: CaptureRuleCounterparty, Pattern: "nguyen van a", Value: "Banh mi stall"}}, nil)
 	ApplyCaptureDuplicates(suggestions, ledger, day(12))
 
-	// Four days apart: 70 on dates alone, 99 with the learned payee.
+	// Entered four days later: 70 on dates alone, 99 with the learned payee.
 	if suggestions[0].Duplicate == nil || suggestions[0].Duplicate.Score != 99 || !suggestions[0].Duplicate.Likely {
 		t.Fatalf("duplicate = %+v", suggestions[0].Duplicate)
 	}

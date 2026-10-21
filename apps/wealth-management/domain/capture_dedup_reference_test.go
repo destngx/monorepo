@@ -51,7 +51,7 @@ func TestGivenADraftWithNoAccountWhenCheckingDuplicatesThenItMatchesAnyAccountAn
 	memo := "[capture] Techcombank screenshot - MS00T1122334456677,TRAN THI B"
 	ledger := []Transaction{
 		{ID: "r1", AccountName: "Techcombank", Payee: "Tran Thi B", Date: dedupDay(17), Deposit: amountPointer(1200000), ReferenceNumber: note(`FT26000000000001\BNK`), Memo: &memo},
-		{ID: "r2", AccountName: "Ví MoMo", Payee: "Gym membership", Date: dedupDay(15), Payment: amountPointer(250000)},
+		{ID: "r2", AccountName: "Ví MoMo", Payee: "Gym membership", Date: dedupDay(19), Payment: amountPointer(250000)},
 	}
 	reference := "MS00T11223344556677"
 	suggestions := []CaptureSuggestion{

@@ -230,18 +230,18 @@ func TestGivenTheSameAmountUpToAWeekApartWhenFindingDuplicatesThenItMatchesWithA
 		candidate CaptureCandidate
 		score     int
 	}{
-		{"same day, unrelated payee", row("r1", 19, "Gym membership"), candidate(19, "Transfer to D..."), 90},
-		{"one day apart", row("r1", 18, "Gym membership"), candidate(19, "Transfer to D..."), 85},
-		{"two days apart", row("r1", 17, "Gym membership"), candidate(19, "Transfer to D..."), 80},
-		{"a week apart", row("r1", 12, "Gym membership"), candidate(19, "Transfer to D..."), 55},
-		{"a week apart, same payee", row("r1", 12, "Phở Hà Nội"), candidate(19, "pho ha noi"), 85},
-		{"truncated payee", row("r1", 15, "Highlands Coffee"), candidate(19, "Highla..."), 99},
-		{"payee shares only generic words", row("r1", 15, "chuyen tien cho ban"), candidate(19, "Chuyển tiền/thanh toán đến H..."), 70},
-		{"the account name is not a payee", row("r1", 15, "momo topup"), candidate(19, "[capture] MoMo screenshot"), 70},
+		{"same day, unrelated payee", row("r1", 12, "Gym membership"), candidate(12, "Transfer to D..."), 90},
+		{"one day apart", row("r1", 13, "Gym membership"), candidate(12, "Transfer to D..."), 85},
+		{"two days apart", row("r1", 14, "Gym membership"), candidate(12, "Transfer to D..."), 80},
+		{"a week apart", row("r1", 19, "Gym membership"), candidate(12, "Transfer to D..."), 55},
+		{"a week apart, same payee", row("r1", 19, "Phở Hà Nội"), candidate(12, "pho ha noi"), 85},
+		{"truncated payee", row("r1", 16, "Highlands Coffee"), candidate(12, "Highla..."), 99},
+		{"payee shares only generic words", row("r1", 16, "chuyen tien cho ban"), candidate(12, "Chuyển tiền/thanh toán đến H..."), 70},
+		{"the account name is not a payee", row("r1", 16, "momo topup"), candidate(12, "[capture] MoMo screenshot"), 70},
 	}
-	fromApp := candidate(19, "[capture] VCB screenshot")
+	fromApp := candidate(12, "[capture] VCB screenshot")
 	fromApp.SourceApp = "VCB"
-	earlierCapture := row("r1", 15, "Grab")
+	earlierCapture := row("r1", 16, "Grab")
 	earlierCapture.Memo = note("[capture] VCB screenshot")
 	tests = append(tests, struct {
 		name      string
@@ -258,8 +258,15 @@ func TestGivenTheSameAmountUpToAWeekApartWhenFindingDuplicatesThenItMatchesWithA
 		})
 	}
 
-	if got := FindCaptureDuplicates([]CaptureCandidate{candidate(19, "")}, []Transaction{row("r1", 11, "")}); len(got) != 0 {
-		t.Fatalf("eight days apart is outside the window: %+v", got)
+	if got := FindCaptureDuplicates([]CaptureCandidate{candidate(12, "")}, []Transaction{row("r1", 11, "Gym membership")}); len(got) != 1 || got[0].Score != 85 {
+		t.Fatalf("a row dated the day before still matches, for a transfer posted the next day: %+v", got)
+	}
+	// Rows entered later are dated the day they are entered, never before the transaction.
+	if got := FindCaptureDuplicates([]CaptureCandidate{candidate(12, "")}, []Transaction{row("r1", 10, "Gym membership")}); len(got) != 0 {
+		t.Fatalf("a row dated two days before the capture is another transaction: %+v", got)
+	}
+	if got := FindCaptureDuplicates([]CaptureCandidate{candidate(12, "")}, []Transaction{row("r1", 20, "")}); len(got) != 0 {
+		t.Fatalf("a row dated eight days later is outside the window: %+v", got)
 	}
 }
 
@@ -268,7 +275,7 @@ func TestGivenTwoDraftsForOneRowWhenFindingDuplicatesThenTheStrongerMatchTakesIt
 	ledger := []Transaction{{ID: "r1", AccountName: "Ví MoMo", Payee: "Pho Ha Noi", Date: day(10), Payment: amountPointer(65000)}}
 	candidates := []CaptureCandidate{
 		{Account: "Ví MoMo", Direction: CaptureOut, Amount: 65000, Date: day(10), Text: "Grab"},
-		{Account: "Ví MoMo", Direction: CaptureOut, Amount: 65000, Date: day(12), Text: "PHO HA NOI 24"},
+		{Account: "Ví MoMo", Direction: CaptureOut, Amount: 65000, Date: day(8), Text: "PHO HA NOI 24"},
 	}
 	got := FindCaptureDuplicates(candidates, ledger)
 	if _, first := got[0]; first || got[1].Row.ID != "r1" {
@@ -379,12 +386,12 @@ func TestGivenMatchesWhenCheckingDuplicatesThenOnlyScoresAbove80AreLikely(t *tes
 	day := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, time.UTC) }
 	ledger := []Transaction{
 		{ID: "r1", AccountName: "Ví MoMo", Payee: "Gym membership", Date: day(19), Payment: amountPointer(250000)},
-		{ID: "r2", AccountName: "Ví MoMo", Payee: "Fruit stall", Date: day(14), Payment: amountPointer(20000)},
+		{ID: "r2", AccountName: "Ví MoMo", Payee: "Fruit stall", Date: day(19), Payment: amountPointer(20000)},
 	}
 	suggestion := func(date string, amount float64) CaptureSuggestion {
 		return CaptureSuggestion{Selected: true, Direction: CaptureOut, Amount: amount, Transaction: TransactionCreateInput{AccountName: "Ví MoMo", Date: date, Payee: "Transfer to D..."}}
 	}
-	suggestions := []CaptureSuggestion{suggestion("19/10/2026", 250000), suggestion("19/10/2026", 20000)}
+	suggestions := []CaptureSuggestion{suggestion("19/10/2026", 250000), suggestion("14/10/2026", 20000)}
 
 	ApplyCaptureDuplicates(suggestions, ledger, day(20))
 
