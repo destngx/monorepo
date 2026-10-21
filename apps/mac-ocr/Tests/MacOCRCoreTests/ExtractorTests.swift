@@ -140,6 +140,189 @@ final class ExtractorTests: XCTestCase {
         assertUpright(try extract(url, options).pages[0])
     }
 
+    // MARK: Layout
+
+    func testTableIsReadRowByRow() throws {
+        let url = file("table.png")
+        Fixtures.writeImage(Fixtures.tableImage(), to: url, type: .png)
+
+        let content = try extract(url).pages[0].content
+        for (name, value) in Fixtures.tableRows {
+            XCTAssertTrue(content.contains("\(name)\t\(value)"), "row \(name) not on one line: \(content)")
+        }
+
+        var raw = OCROptions()
+        raw.layout = .raw
+        XCTAssertFalse(try extract(url, raw).pages[0].content.contains("\t"))
+    }
+
+    // MARK: Engine contract (schema 1.2)
+
+    func testRenderDirWritesEveryPDFPageIncludingTextLayerPages() throws {
+        let text = file("text.pdf")
+        Fixtures.textPDF(at: text, pages: 2)
+        let output = directory.appendingPathComponent("pages/text")
+
+        var options = OCROptions()
+        options.renderDirectory = output
+        options.dpi = 144
+        let pages = try extract(text, options).pages
+
+        XCTAssertEqual(pages.map(\.method), [.direct, .direct])
+        for page in pages {
+            let image = try XCTUnwrap(page.image)
+            XCTAssertEqual(image.path, output.appendingPathComponent("page-\(page.index).jpg").path)
+            XCTAssertEqual(image.width, Int(Fixtures.letter.width * 2))
+            XCTAssertEqual(image.height, Int(Fixtures.letter.height * 2))
+            let info = try XCTUnwrap(Fixtures.imageInfo(at: URL(fileURLWithPath: image.path)))
+            XCTAssertEqual(info.type, UTType.jpeg.identifier)
+            XCTAssertEqual(info.colorModel, "RGB")
+            XCTAssertEqual(info.profile, "sRGB IEC61966-2.1")
+            XCTAssertEqual(info.depth, 8)
+            XCTAssertEqual([info.width, info.height], [image.width, image.height])
+        }
+    }
+
+    func testRenderedPDFPagesMatchTheirLineBoxes() throws {
+        for (name, make) in [("rotated.pdf", Fixtures.rotatedTextPDF(at:)), ("cropped.pdf", Fixtures.croppedPDF(at:))] {
+            let url = file(name)
+            make(url)
+            var options = OCROptions()
+            options.renderDirectory = directory.appendingPathComponent("pages-\(name)")
+            options.includeBBox = true
+            let page = try extract(url, options).pages[0]
+            assertBoxesSitOnText(page, image: URL(fileURLWithPath: try XCTUnwrap(page.image).path))
+        }
+    }
+
+    func testRenderDirWritesRotatedPDFPageUpright() throws {
+        let url = file("rotated.pdf")
+        Fixtures.rotatedTextPDF(at: url)
+
+        var options = OCROptions()
+        options.renderDirectory = directory.appendingPathComponent("pages")
+        options.dpi = 72
+        let image = try XCTUnwrap(try extract(url, options).pages[0].image)
+        XCTAssertEqual([image.width, image.height], [Int(Fixtures.letter.width), Int(Fixtures.letter.height)])
+    }
+
+    func testRenderDirWritesImageInputUprightAsJPEG() throws {
+        let url = file("rotated.png")
+        let sideways = Fixtures.rotatedClockwise(Fixtures.scanImage())
+        Fixtures.writeImage(sideways, to: url, type: .png, orientation: .left)
+
+        var options = OCROptions()
+        options.renderDirectory = directory.appendingPathComponent("pages")
+        options.includeBBox = true
+        let page = try extract(url, options).pages[0]
+
+        let image = try XCTUnwrap(page.image)
+        XCTAssertEqual(image.path, directory.appendingPathComponent("pages/page-1.jpg").path)
+        XCTAssertEqual([image.width, image.height], [sideways.height, sideways.width])
+        let info = try XCTUnwrap(Fixtures.imageInfo(at: URL(fileURLWithPath: image.path)))
+        XCTAssertEqual(info.type, UTType.jpeg.identifier)
+        XCTAssertEqual(info.colorModel, "RGB")
+        XCTAssertEqual(info.profile, "sRGB IEC61966-2.1")
+        XCTAssertEqual(info.depth, 8)
+        assertUpright(page)
+        assertBoxesSitOnText(page, image: URL(fileURLWithPath: image.path))
+    }
+
+    func testRenderDirRejectsSeveralInputs() throws {
+        let a = file("a.pdf"), b = file("b.pdf")
+        Fixtures.textPDF(at: a)
+        Fixtures.textPDF(at: b)
+
+        var options = OCROptions()
+        options.renderDirectory = directory.appendingPathComponent("pages")
+        XCTAssertThrowsError(try Extractor.extract(urls: [a, b], options: options)) { error in
+            XCTAssertEqual((error as? OCRError)?.exitCode, 1)
+        }
+    }
+
+    func testNoPageImagesWithoutRenderDir() throws {
+        let url = file("text.pdf")
+        Fixtures.textPDF(at: url)
+        XCTAssertNil(try extract(url).pages[0].image)
+    }
+
+    func testOCRLinesCarryQuads() throws {
+        let url = file("scan.png")
+        Fixtures.writeImage(Fixtures.scanImage(), to: url, type: .png)
+
+        var options = OCROptions()
+        options.includeBBox = true
+        let page = try extract(url, options).pages[0]
+
+        for box in try XCTUnwrap(page.bbox) {
+            let quad = try XCTUnwrap(box.quad)
+            XCTAssertEqual(quad.bottomLeft.x, box.x, accuracy: 0.01)
+            XCTAssertEqual(quad.bottomLeft.y, box.y, accuracy: 0.01)
+            XCTAssertEqual(quad.topRight.x, box.x + box.w, accuracy: 0.01)
+            XCTAssertEqual(quad.topRight.y, box.y + box.h, accuracy: 0.01)
+        }
+        XCTAssertEqual(try XCTUnwrap(page.skewDegrees), 0, accuracy: 0.5)
+    }
+
+    /// Text-layer boxes must land where OCR finds the same lines, including on rotated and cropped pages.
+    func testTextLayerLinesMatchOCRLines() throws {
+        for (name, make) in [("text.pdf", Fixtures.textPDF(at:pages:)), ("rotated.pdf", { url, _ in Fixtures.rotatedTextPDF(at: url) }),
+                             ("cropped.pdf", { url, _ in Fixtures.croppedPDF(at: url) })] as [(String, (URL, Int) -> Void)] {
+            let url = file(name)
+            make(url, 1)
+
+            var options = OCROptions()
+            options.includeBBox = true
+            let direct = try extract(url, options).pages[0]
+            options.forceOCR = true
+            let ocr = try extract(url, options).pages[0]
+
+            XCTAssertEqual(direct.method, .direct, name)
+            assertUpright(direct, file: #filePath, line: #line)
+            let directBoxes = try XCTUnwrap(direct.bbox), ocrBoxes = try XCTUnwrap(ocr.bbox)
+            XCTAssertEqual(directBoxes.count, ocrBoxes.count, name)
+            for (d, o) in zip(directBoxes, ocrBoxes) {
+                XCTAssertEqual(d.confidence, 1, name)
+                XCTAssertNotNil(d.quad, name)
+                XCTAssertEqual(d.x, o.x, accuracy: 0.02, "\(name): \(d.text)")
+                XCTAssertEqual(d.y + d.h / 2, o.y + o.h / 2, accuracy: 0.02, "\(name): \(d.text)")
+            }
+        }
+    }
+
+    func testBarcodesAreReportedWithoutPayload() throws {
+        let url = file("qr.png")
+        let (image, rect) = Fixtures.scanWithQRCode(payload: "PLACEHOLDER-ID-0000")
+        Fixtures.writeImage(image, to: url, type: .png)
+
+        var options = OCROptions()
+        options.includeBBox = true
+        let page = try extract(url, options).pages[0]
+
+        let barcode = try XCTUnwrap(page.barcodes?.first)
+        XCTAssertEqual(page.barcodes?.count, 1)
+        XCTAssertEqual(barcode.symbology, "QR")
+        for corner in [barcode.quad.topLeft, barcode.quad.topRight, barcode.quad.bottomRight, barcode.quad.bottomLeft] {
+            XCTAssertTrue(rect.insetBy(dx: -0.02, dy: -0.02).contains(CGPoint(x: corner.x, y: corner.y)), "\(corner) outside \(rect)")
+        }
+        let json = try OutputFormatter.format([try extract(url, options)], as: .json)
+        XCTAssertFalse(json.contains("PLACEHOLDER-ID-0000"))
+        XCTAssertFalse(page.content.contains("PLACEHOLDER-ID-0000"))
+    }
+
+    func testBarcodesKeyIsEmptyWhenDetectionFoundNothing() throws {
+        let text = file("text.pdf"), scan = file("scan.pdf")
+        Fixtures.textPDF(at: text)
+        Fixtures.scannedPDF(at: scan)
+
+        var options = OCROptions()
+        options.includeBBox = true
+        XCTAssertEqual(try extract(text, options).pages[0].barcodes, [])
+        XCTAssertEqual(try extract(scan, options).pages[0].barcodes, [])
+        XCTAssertNil(try extract(scan).pages[0].barcodes)
+        XCTAssertNil(try extract(text).pages[0].barcodes)
+    }
+
     // MARK: Input validation
 
     func testMissingFileFailsWithExitCode2() {
@@ -207,6 +390,18 @@ final class ExtractorTests: XCTestCase {
             XCTAssertGreaterThan(box.w, box.h * 3, "line box is not horizontal: \(box)", file: file, line: line)
         }
         XCTAssertEqual(boxes.map(\.y), boxes.map(\.y).sorted(by: >), "lines are not ordered top to bottom", file: file, line: line)
+    }
+
+    /// Line boxes cover dark text pixels in the page image; the same boxes moved off the text cover white paper.
+    private func assertBoxesSitOnText(_ page: PageResult, image: URL, file: StaticString = #filePath, line: UInt = #line) {
+        guard let boxes = page.bbox, !boxes.isEmpty else { return XCTFail("no line boxes", file: file, line: line) }
+        for box in boxes {
+            let rect = CGRect(x: box.x, y: box.y, width: box.w, height: box.h)
+            XCTAssertLessThan(Fixtures.meanGray(at: image, in: rect), 225, "no text under \(box.text)", file: file, line: line)
+        }
+        let lowest = boxes.map(\.y).min()!
+        let below = CGRect(x: boxes[0].x, y: lowest - 0.08, width: boxes[0].w, height: 0.05)
+        XCTAssertGreaterThan(Fixtures.meanGray(at: image, in: below), 250, "text where none should be", file: file, line: line)
     }
 
     private func assertReadsSentence(_ content: String, file: StaticString = #filePath, line: UInt = #line) {

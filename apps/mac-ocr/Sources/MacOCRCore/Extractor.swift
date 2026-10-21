@@ -8,6 +8,11 @@ public enum Extractor {
     /// Files run sequentially: Vision serializes recognition, so cross-file parallelism gains nothing.
     public static func extract(urls: [URL], options: OCROptions) throws -> [OCRResult] {
         try TextRecognizer.validate(languages: options.languages)
+        if let directory = options.renderDirectory {
+            // Page images are named page-<n>.jpg, so a second input would overwrite the first one's.
+            guard urls.count == 1 else { throw OCRError.usage("--render-dir takes exactly one input file") }
+            try PageImageWriter.prepare(directory: directory)
+        }
         for url in urls {
             try ensureFileExists(url)
         }
@@ -50,8 +55,44 @@ public enum Extractor {
         let orientation = (properties?[kCGImagePropertyOrientation] as? UInt32)
             .flatMap(CGImagePropertyOrientation.init(rawValue:)) ?? .up
 
-        let handler = VNImageRequestHandler(cgImage: image, orientation: orientation)
-        let ocr = try TextRecognizer.recognize(handler, options: options)
-        return PageResult(index: 1, method: .ocr, content: ocr.content, confidence: ocr.confidence, bbox: ocr.lines)
+        let pageImage = try options.renderDirectory == nil ? nil : PageImageWriter.write(
+            try upright(source, image: image, url: url), page: 1, options: options
+        )
+
+        let ocr = try TextRecognizer.recognize(image, orientation: orientation, options: options)
+        return PageResult(
+            index: 1,
+            method: .ocr,
+            content: ocr.content,
+            confidence: ocr.confidence,
+            bbox: ocr.lines,
+            barcodes: ocr.barcodes,
+            skewDegrees: ocr.skewDegrees,
+            image: pageImage,
+            warnings: ocr.warnings
+        )
+    }
+
+    /// The full-size image with its EXIF orientation applied, matching the space Vision reports coordinates in.
+    private static func upright(_ source: CGImageSource, image: CGImage, url: URL) throws -> CGImage {
+        let options = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: max(image.width, image.height),
+        ] as CFDictionary
+        guard let upright = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else {
+            throw OCRError.renderFailed("Failed to orient image: \(url.lastPathComponent)")
+        }
+        return upright
+    }
+}
+
+extension CGImagePropertyOrientation {
+    /// Orientations that turn the stored image a quarter turn, so width and height trade places.
+    var swapsAxes: Bool {
+        switch self {
+        case .left, .leftMirrored, .right, .rightMirrored: return true
+        default: return false
+        }
     }
 }

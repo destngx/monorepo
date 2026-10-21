@@ -26,7 +26,13 @@ public enum CommandLineParser {
       --lang <langs>    Comma-separated Vision language codes  [default: en-US]
       --dpi <n>         Render DPI for PDF pages (72-600)  [default: 150]
       --force-ocr       Skip direct text extraction; always use Vision OCR
-      --bbox            Include line bounding boxes in JSON output
+      --bbox            Include line boxes, corner quads and barcode regions in JSON output
+      --layout <mode>   Page text order: rows | raw  [default: rows]
+                        rows: one line per visual row, table cells separated by tabs
+                        raw: Vision's order, one recognized line per line
+      --render-dir <d>  Write each page as an upright sRGB JPEG <d>/page-<n>.jpg (one input only)
+      --jpeg-quality <q>
+                        JPEG quality for --render-dir (0.1-1.0)  [default: 0.85]
       --timeout <secs>  Per-page recognition timeout in seconds  [default: 30]
       --page <n>        Extract only page N (1-indexed, PDFs only)
       --version         Print version string
@@ -80,6 +86,22 @@ public enum CommandLineParser {
                     throw OCRError.usage("Invalid value for --page: \(raw) (expected an integer >= 1)")
                 }
                 options.ocr.targetPage = page
+            case "--layout":
+                let raw = try value(for: arg)
+                guard let layout = TextLayout(rawValue: raw) else {
+                    throw OCRError.usage("Invalid value for --layout: \(raw) (expected rows | raw)")
+                }
+                options.ocr.layout = layout
+            case "--render-dir":
+                let raw = try value(for: arg)
+                guard !raw.isEmpty else { throw OCRError.usage("--render-dir requires a directory path") }
+                options.ocr.renderDirectory = URL(fileURLWithPath: raw, isDirectory: true).standardizedFileURL
+            case "--jpeg-quality":
+                let raw = try value(for: arg)
+                guard let quality = Double(raw), PageImageWriter.qualityRange.contains(quality) else {
+                    throw OCRError.usage("Invalid value for --jpeg-quality: \(raw) (expected 0.1-1.0)")
+                }
+                options.ocr.jpegQuality = quality
             case "--force-ocr":
                 options.ocr.forceOCR = true
             case "--bbox":

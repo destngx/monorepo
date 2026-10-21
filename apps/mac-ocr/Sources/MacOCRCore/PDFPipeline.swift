@@ -61,6 +61,7 @@ enum PDFPipeline {
         options: OCROptions
     ) -> (page: PageResult, error: OCRError?) {
         let number = pageIndex + 1
+        let writesImage = options.renderDirectory != nil
 
         let prepared: Result<PreparedPage, OCRError> = {
             documentLock.lock()
@@ -68,40 +69,95 @@ enum PDFPipeline {
             guard let page = document.page(at: pageIndex) else {
                 return .failure(.renderFailed("Failed to load page"))
             }
-            if !options.forceOCR, let text = page.string, TextLayer.isUsable(text) {
-                return .success(.direct(text))
+            var text: String?
+            var lines: [BBox]?
+            if !options.forceOCR, let layer = page.string, TextLayer.isUsable(layer) {
+                text = layer
+                lines = options.includeBBox ? textLayerLines(page) : nil
+                // Direct pages only need pixels for the page image or for barcode regions.
+                guard writesImage || options.includeBBox else { return .success(PreparedPage(text: text, lines: lines, image: nil)) }
             }
-            guard let image = render(page, dpi: options.dpi) else {
+            guard let image = render(page, dpi: options.dpi, color: writesImage) else {
                 return .failure(.renderFailed("Failed to render page"))
             }
-            return .success(.image(image))
+            return .success(PreparedPage(text: text, lines: lines, image: image))
         }()
 
-        switch prepared {
-        case .failure(let error):
-            return (.failed(index: number, error: error), error)
-        case .success(.direct(let text)):
-            let page = PageResult(
-                index: number,
-                method: .direct,
-                content: text.trimmingCharacters(in: .whitespacesAndNewlines),
-                confidence: 1.0,
-                bbox: nil
-            )
-            return (page, nil)
-        case .success(.image(let image)):
-            do {
-                let ocr = try TextRecognizer.recognize(VNImageRequestHandler(cgImage: image), options: options)
-                return (PageResult(index: number, method: .ocr, content: ocr.content, confidence: ocr.confidence, bbox: ocr.lines), nil)
-            } catch {
-                let failure = error as? OCRError ?? .recognitionFailed(error.localizedDescription)
-                return (.failed(index: number, error: failure), failure)
+        var pageImage: PageImage?
+        do {
+            let page = try prepared.get()
+            pageImage = try page.image.flatMap { try PageImageWriter.write($0, page: number, options: options) }
+
+            if let text = page.text {
+                var barcodes: [Barcode]?
+                var warnings: [String] = []
+                if options.includeBBox, let image = page.image {
+                    do {
+                        barcodes = try TextRecognizer.detectBarcodes(VNImageRequestHandler(cgImage: image), timeout: options.timeout)
+                    } catch {
+                        warnings.append("barcode detection failed: \(error.localizedDescription)")
+                    }
+                }
+                let result = PageResult(
+                    index: number,
+                    method: .direct,
+                    content: text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    confidence: 1.0,
+                    bbox: page.lines,
+                    barcodes: barcodes,
+                    image: pageImage,
+                    warnings: warnings
+                )
+                return (result, nil)
             }
+
+            guard let rendered = page.image, let image = writesImage ? PageImageWriter.grayscale(rendered) : rendered else {
+                throw OCRError.renderFailed("Failed to render page")
+            }
+            let ocr = try TextRecognizer.recognize(image, options: options)
+            let result = PageResult(
+                index: number,
+                method: .ocr,
+                content: ocr.content,
+                confidence: ocr.confidence,
+                bbox: ocr.lines,
+                barcodes: ocr.barcodes,
+                skewDegrees: ocr.skewDegrees,
+                image: pageImage,
+                warnings: ocr.warnings
+            )
+            return (result, nil)
+        } catch {
+            let failure = error as? OCRError ?? .recognitionFailed(error.localizedDescription)
+            return (.failed(index: number, error: failure, image: pageImage), failure)
         }
     }
 
-    /// Renders the visible (crop box) area of `page` into an 8-bit grayscale bitmap, honoring page rotation.
-    static func render(_ page: PDFPage, dpi: CGFloat) -> CGImage? {
+    /// Text-layer lines with their boxes in the displayed (crop box, rotated) page, normalized like Vision's.
+    static func textLayerLines(_ page: PDFPage) -> [BBox] {
+        let box = PDFDisplayBox.cropBox
+        let bounds = page.bounds(for: box)
+        let quarterTurns = ((page.rotation % 360) + 360) % 360 / 90
+        let size = quarterTurns.isMultiple(of: 2) ? bounds.size : CGSize(width: bounds.height, height: bounds.width)
+        guard size.width > 0, size.height > 0, let selection = page.selection(for: bounds) else { return [] }
+        // The same page-to-display transform `draw(with:to:)` applies when rendering.
+        let transform = page.transform(for: box)
+
+        return selection.selectionsByLine().compactMap { line in
+            guard let text = line.string?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+            let rect = line.bounds(for: page).applying(transform)
+            let normalized = CGRect(
+                x: rect.minX / size.width,
+                y: rect.minY / size.height,
+                width: rect.width / size.width,
+                height: rect.height / size.height
+            )
+            return BBox(text: text, confidence: 1.0, rect: normalized, quad: Quad(normalized))
+        }
+    }
+
+    /// Renders the visible (crop box) area of `page` into an 8-bit grayscale (or RGB) bitmap, honoring page rotation.
+    static func render(_ page: PDFPage, dpi: CGFloat, color: Bool = false) -> CGImage? {
         let box = PDFDisplayBox.cropBox
         let bounds = page.bounds(for: box)
         let quarterTurns = ((page.rotation % 360) + 360) % 360 / 90
@@ -118,12 +174,12 @@ enum PDFPipeline {
             height: height,
             bitsPerComponent: 8,
             bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceGray(),
-            bitmapInfo: CGImageAlphaInfo.none.rawValue
+            space: color ? CGColorSpace(name: CGColorSpace.sRGB)! : CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: color ? CGImageAlphaInfo.noneSkipLast.rawValue : CGImageAlphaInfo.none.rawValue
         ) else { return nil }
 
         context.interpolationQuality = .high
-        context.setFillColor(gray: 1, alpha: 1)
+        context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         context.scaleBy(x: scale, y: scale)
         // `draw(with:to:)` applies `transform(for:)` itself: box origin to zero plus page rotation.
@@ -131,9 +187,11 @@ enum PDFPipeline {
         return context.makeImage()
     }
 
-    private enum PreparedPage {
-        case direct(String)
-        case image(CGImage)
+    /// `text` is set for text-layer pages; `image` whenever pixels are needed.
+    private struct PreparedPage {
+        let text: String?
+        let lines: [BBox]?
+        let image: CGImage?
     }
 }
 

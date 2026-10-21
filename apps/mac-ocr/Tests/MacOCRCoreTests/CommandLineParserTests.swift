@@ -13,6 +13,7 @@ final class CommandLineParserTests: XCTestCase {
         let options = try runOptions([
             "a.pdf", "--format", "json", "--lang", "en-US, vi-VT", "--dpi", "300",
             "--force-ocr", "--bbox", "--timeout", "2.5", "--page", "3", "b.png",
+            "--layout", "raw", "--render-dir", "out/pages", "--jpeg-quality", "0.5",
         ])
         XCTAssertEqual(options.inputs, ["a.pdf", "b.png"])
         XCTAssertEqual(options.format, .json)
@@ -22,6 +23,16 @@ final class CommandLineParserTests: XCTestCase {
         XCTAssertTrue(options.ocr.includeBBox)
         XCTAssertEqual(options.ocr.timeout, 2.5)
         XCTAssertEqual(options.ocr.targetPage, 3)
+        XCTAssertEqual(options.ocr.layout, .raw)
+        XCTAssertEqual(options.ocr.renderDirectory, URL(fileURLWithPath: "out/pages", isDirectory: true).standardizedFileURL)
+        XCTAssertEqual(options.ocr.jpegQuality, 0.5)
+    }
+
+    func testNewDefaults() throws {
+        let options = try runOptions(["a.pdf"]).ocr
+        XCTAssertEqual(options.layout, .rows)
+        XCTAssertNil(options.renderDirectory)
+        XCTAssertEqual(options.jpegQuality, 0.85)
     }
 
     func testHelpAndVersion() throws {
@@ -49,6 +60,12 @@ final class CommandLineParserTests: XCTestCase {
             ["a.pdf", "--timeout", "inf"],
             ["a.pdf", "--lang", " , "],
             ["a.pdf", "--unknown"],
+            ["a.pdf", "--layout", "columns"],
+            ["a.pdf", "--render-dir"],
+            ["a.pdf", "--render-dir", ""],
+            ["a.pdf", "--jpeg-quality", "0.05"],
+            ["a.pdf", "--jpeg-quality", "1.1"],
+            ["a.pdf", "--jpeg-quality", "high"],
         ]
         for arguments in invalid {
             XCTAssertThrowsError(try CommandLineParser.parse(arguments), "\(arguments)") { error in
