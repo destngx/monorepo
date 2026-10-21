@@ -87,19 +87,19 @@ The compiled binary will be available at `bin/mac-ocr`.
 
 `--layout raw` keeps Vision's order, which reads ruled tables column by column.
 
-## JSON Schema (v1.2)
+## JSON Schema (v1.3)
 
 The `--format json` flag produces one object per file (an array when several files are given):
 
 ```json
 {
-  "schema_version": "1.1",
+  "schema_version": "1.3",
   "metadata": {
     "filename": "invoice.pdf",
     "file_size_bytes": 48211,
     "page_count": 1,
     "processed_at": "2026-10-10T...",
-    "tool_version": "1.2.0",
+    "tool_version": "1.3.0",
     "config": { "dpi": 150, "languages": ["en-US"], "force_ocr": false, "layout": "rows" }
   },
   "pages": [
@@ -110,7 +110,8 @@ The `--format json` flag produces one object per file (an array when several fil
       "confidence": 0.98,
       "char_count": 1250,
       "bbox": [{ "text": "...", "confidence": 0.99, "x": 0.1, "y": 0.8, "w": 0.5, "h": 0.02,
-                 "quad": [[0.1, 0.82], [0.6, 0.83], [0.6, 0.81], [0.1, 0.8]] }], // with --bbox
+                 "quad": [[0.1, 0.82], [0.6, 0.83], [0.6, 0.81], [0.1, 0.8]],
+                 "words": [{ "text": "...", "quad": [[x, y], [x, y], [x, y], [x, y]] }] }], // with --bbox
       "barcodes": [{ "symbology": "QR", "quad": [[x, y], [x, y], [x, y], [x, y]] }], // with --bbox
       "skew_degrees": 2.5, // with --bbox, OCR pages
       "image": { "path": "pages/page-1.jpg", "width": 1654, "height": 2339 }, // with --render-dir
@@ -129,6 +130,8 @@ The `--format json` flag produces one object per file (an array when several fil
 ```
 
 Bounding boxes are normalized (0-1) with a **bottom-left origin** (Vision convention): larger `y` is higher on the page.
+
+v1.3 changes (additive): `bbox` entries carry `words`, the line's whitespace-separated tokens in order, each with its own `quad`. For OCR lines the corners come from Vision's box for that token; for text-layer PDF pages they are the union of the token's glyph boxes. Use them to mask part of a line. `words` is absent when a token could not be boxed (for example a ligature that PDFKit reports as several characters); fall back to the line `quad`.
 
 v1.2 changes (all additive):
 

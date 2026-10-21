@@ -290,6 +290,41 @@ final class ExtractorTests: XCTestCase {
         }
     }
 
+    func testOCRLinesCarryWordQuadsInsideTheLine() throws {
+        let url = file("scan.png")
+        Fixtures.writeImage(Fixtures.scanImage(), to: url, type: .png)
+
+        var options = OCROptions()
+        options.includeBBox = true
+        for box in try XCTUnwrap(extract(url, options).pages[0].bbox) {
+            assertWords(of: box)
+        }
+    }
+
+    /// Text-layer word boxes must land where OCR boxes the same words, including on rotated and cropped pages.
+    func testTextLayerWordsMatchOCRWords() throws {
+        for (name, make) in [("text.pdf", { Fixtures.textPDF(at: $0) }), ("rotated.pdf", Fixtures.rotatedTextPDF(at:)),
+                             ("cropped.pdf", Fixtures.croppedPDF(at:))] as [(String, (URL) -> Void)] {
+            let url = file(name)
+            make(url)
+
+            var options = OCROptions()
+            options.includeBBox = true
+            let direct = try XCTUnwrap(extract(url, options).pages[0].bbox)
+            options.forceOCR = true
+            let ocr = try XCTUnwrap(extract(url, options).pages[0].bbox)
+
+            for box in direct { assertWords(of: box) }
+            let directWords = direct.flatMap { $0.words ?? [] }, ocrWords = ocr.flatMap { $0.words ?? [] }
+            for word in ["quick", "brown", "lazy"] {
+                let d = try XCTUnwrap(directWords.first { $0.text == word }, "\(name): \(word)")
+                let o = try XCTUnwrap(ocrWords.first { $0.text.lowercased() == word }, "\(name): \(word)")
+                XCTAssertEqual(center(d.quad).x, center(o.quad).x, accuracy: 0.01, "\(name): \(word)")
+                XCTAssertEqual(center(d.quad).y, center(o.quad).y, accuracy: 0.01, "\(name): \(word)")
+            }
+        }
+    }
+
     func testBarcodesAreReportedWithoutPayload() throws {
         let url = file("qr.png")
         let (image, rect) = Fixtures.scanWithQRCode(payload: "PLACEHOLDER-ID-0000")
@@ -402,6 +437,24 @@ final class ExtractorTests: XCTestCase {
         let lowest = boxes.map(\.y).min()!
         let below = CGRect(x: boxes[0].x, y: lowest - 0.08, width: boxes[0].w, height: 0.05)
         XCTAssertGreaterThan(Fixtures.meanGray(at: image, in: below), 250, "text where none should be", file: file, line: line)
+    }
+
+    /// Words are the line's whitespace-separated tokens in order, each boxed inside the line box.
+    private func assertWords(of box: BBox, file: StaticString = #filePath, line: UInt = #line) {
+        guard let words = box.words else { return XCTFail("no words for \(box.text)", file: file, line: line) }
+        XCTAssertEqual(words.map(\.text), box.text.split(whereSeparator: \.isWhitespace).map(String.init), file: file, line: line)
+        let slack = box.h * 0.5
+        for word in words {
+            let c = center(word.quad)
+            XCTAssertTrue(box.x - slack <= c.x && c.x <= box.x + box.w + slack && box.y - slack <= c.y && c.y <= box.y + box.h + slack,
+                          "\(word.text) at \(c) is outside \(box.text)", file: file, line: line)
+        }
+        let xs = words.map { center($0.quad).x }
+        XCTAssertEqual(xs, xs.sorted(), "words of \(box.text) are not left to right", file: file, line: line)
+    }
+
+    private func center(_ quad: Quad) -> CGPoint {
+        CGPoint(x: (quad.topLeft.x + quad.bottomRight.x) / 2, y: (quad.topLeft.y + quad.bottomRight.y) / 2)
     }
 
     private func assertReadsSentence(_ content: String, file: StaticString = #filePath, line: UInt = #line) {

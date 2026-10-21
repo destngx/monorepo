@@ -2,8 +2,8 @@ import Foundation
 import CoreGraphics
 
 public enum MacOCR {
-    public static let version = "1.2.0"
-    public static let schemaVersion = "1.2"
+    public static let version = "1.3.0"
+    public static let schemaVersion = "1.3"
 }
 
 public enum ExtractionMethod: String, Codable {
@@ -61,6 +61,13 @@ public struct Quad: Codable, Equatable {
     }
 }
 
+/// A word of a line (since 1.3): one whitespace-separated token with its own corners, so part of a line can be
+/// masked without the rest.
+public struct Word: Codable, Equatable {
+    public let text: String
+    public let quad: Quad
+}
+
 /// A recognized line. Coordinates are normalized (0-1) with a bottom-left origin (Vision convention).
 public struct BBox: Codable, Equatable {
     public let text: String
@@ -71,8 +78,10 @@ public struct BBox: Codable, Equatable {
     public let h: Double
     /// Since 1.2.
     public let quad: Quad?
+    /// The line's whitespace-separated tokens in order (since 1.3). Nil when they could not all be boxed.
+    public let words: [Word]?
 
-    init(text: String, confidence: Double, rect: CGRect, quad: Quad) {
+    init(text: String, confidence: Double, rect: CGRect, quad: Quad, words: [Word]? = nil) {
         self.text = text
         self.confidence = confidence
         x = Double(rect.origin.x)
@@ -80,6 +89,7 @@ public struct BBox: Codable, Equatable {
         w = Double(rect.width)
         h = Double(rect.height)
         self.quad = quad
+        self.words = words
     }
 }
 

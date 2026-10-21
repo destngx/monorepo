@@ -143,17 +143,60 @@ enum PDFPipeline {
         // The same page-to-display transform `draw(with:to:)` applies when rendering.
         let transform = page.transform(for: box)
 
+        func normalize(_ rect: CGRect) -> CGRect {
+            let r = rect.applying(transform)
+            return CGRect(x: r.minX / size.width, y: r.minY / size.height, width: r.width / size.width, height: r.height / size.height)
+        }
+
         return selection.selectionsByLine().compactMap { line in
             guard let text = line.string?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
-            let rect = line.bounds(for: page).applying(transform)
-            let normalized = CGRect(
-                x: rect.minX / size.width,
-                y: rect.minY / size.height,
-                width: rect.width / size.width,
-                height: rect.height / size.height
-            )
-            return BBox(text: text, confidence: 1.0, rect: normalized, quad: Quad(normalized))
+            let normalized = normalize(line.bounds(for: page))
+            let words = textLayerWords(line, page: page, text: text).map { words in
+                words.map { Word(text: $0.text, quad: Quad(normalize($0.bounds))) }
+            }
+            return BBox(text: text, confidence: 1.0, rect: normalized, quad: Quad(normalized), words: words)
         }
+    }
+
+    /// Words of a text-layer line with their page-space bounds (union of the characters' bounds). Nil when the
+    /// line's characters cannot be matched to its text, e.g. ligatures that PDFKit reports as several characters.
+    private static func textLayerWords(_ line: PDFSelection, page: PDFPage, text: String) -> [(text: String, bounds: CGRect)]? {
+        var characters: [(character: String, bounds: CGRect)] = []
+        for i in 0..<line.numberOfTextRanges(on: page) {
+            let range = line.range(at: i, on: page)
+            guard range.location != NSNotFound else { continue }
+            // One selection per character: PDFPage.characterBounds(at:) and page.string do not share the selection
+            // index space (they drift by one per line) and ignore the page rotation. PDFKit snaps the selection of a
+            // line break to the previous character (and that character's selection takes the break along), so a
+            // selection starting elsewhere counts as a space and line breaks are dropped from the string.
+            for index in range.location..<(range.location + range.length) {
+                guard let character = page.selection(for: NSRange(location: index, length: 1)),
+                      character.numberOfTextRanges(on: page) >= 1,
+                      character.range(at: 0, on: page).location == index
+                else {
+                    characters.append((" ", .null))
+                    continue
+                }
+                let string = (character.string ?? "").trimmingCharacters(in: .newlines)
+                characters.append((string.isEmpty ? " " : string, character.bounds(for: page)))
+            }
+        }
+        var words: [(text: String, bounds: CGRect)] = []
+        var current = "", bounds = CGRect.null
+        for (character, box) in characters {
+            if character.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !current.isEmpty { words.append((current, bounds)) }
+                current = ""
+                bounds = .null
+            } else {
+                current += character
+                if !box.isEmpty { bounds = bounds.union(box) }
+            }
+        }
+        if !current.isEmpty { words.append((current, bounds)) }
+        let expected = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard words.map(\.text) == expected, words.allSatisfy({ !$0.bounds.isNull }) else { return nil }
+        return words
     }
 
     /// Renders the visible (crop box) area of `page` into an 8-bit grayscale (or RGB) bitmap, honoring page rotation.

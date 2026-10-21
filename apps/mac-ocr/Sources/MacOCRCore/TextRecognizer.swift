@@ -63,7 +63,10 @@ enum TextRecognizer {
             lines.append(LayoutLine(text: candidate.string, quad: quad))
             totalConfidence += confidence
             if options.includeBBox {
-                boxes.append(BBox(text: candidate.string, confidence: confidence, rect: observation.boundingBox, quad: quad))
+                boxes.append(BBox(
+                    text: candidate.string, confidence: confidence, rect: observation.boundingBox, quad: quad,
+                    words: words(of: candidate)
+                ))
             }
         }
 
@@ -77,7 +80,10 @@ enum TextRecognizer {
             var analysis = Layout.analyze(lines, imageSize: imageSize)
             let found = fillEmptyCells(&analysis, image: image, orientation: orientation, deadline: deadline, options: options, warnings: &warnings)
             for reading in found where options.includeBBox {
-                boxes.append(BBox(text: reading.text, confidence: reading.confidence, rect: reading.rect, quad: reading.quad))
+                boxes.append(BBox(
+                    text: reading.text, confidence: reading.confidence, rect: reading.rect, quad: reading.quad,
+                    words: reading.words
+                ))
             }
             content = analysis.text
             skew = analysis.skew
@@ -100,6 +106,32 @@ enum TextRecognizer {
             skewDegrees: options.includeBBox ? skew * 180 / .pi : nil,
             warnings: warnings
         )
+    }
+
+    /// Each whitespace-separated token with Vision's box for it; nil if Vision cannot box one of them.
+    static func words(of candidate: VNRecognizedText) -> [Word]? {
+        let string = candidate.string
+        var words: [Word] = []
+        for range in tokenRanges(in: string) {
+            guard let box = try? candidate.boundingBox(for: range) else { return nil }
+            words.append(Word(text: String(string[range]), quad: Quad(box)))
+        }
+        return words
+    }
+
+    static func tokenRanges(in string: String) -> [Range<String.Index>] {
+        var ranges: [Range<String.Index>] = []
+        var start: String.Index?
+        for index in string.indices {
+            if string[index].isWhitespace {
+                if let s = start { ranges.append(s..<index) }
+                start = nil
+            } else if start == nil {
+                start = index
+            }
+        }
+        if let s = start { ranges.append(s..<string.endIndex) }
+        return ranges
     }
 
     /// Rows keep leading and trailing tabs: they mark empty cells in the first and last rows.

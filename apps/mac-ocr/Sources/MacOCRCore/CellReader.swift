@@ -16,6 +16,7 @@ enum CellReader {
         /// Normalized, bottom-left origin, in the upright page.
         let quad: Quad
         let rect: CGRect
+        let words: [Word]?
     }
 
     /// `region` is in deskewed pixel space (the upright page rotated by `-skew` about its origin).
@@ -57,9 +58,10 @@ enum CellReader {
         let confidence = candidates.map { Double($0.1.confidence) }.min()!
         guard !text.isEmpty, confidence >= minimumConfidence else { return nil }
 
-        // Map the union of the readings back: canvas -> crop -> deskewed page -> upright page -> normalized.
+        // Map back: canvas -> crop -> deskewed page -> upright page -> normalized.
         let union = candidates.map(\.0.boundingBox).reduce(CGRect.null) { $0.union($1) }
         let toPage = CGAffineTransform(rotationAngle: skew)
+        func pagePoint(_ p: CGPoint) -> Point { point(p.x, p.y) }
         func point(_ x: CGFloat, _ y: CGFloat) -> Point {
             let cx = canvas.minX + x * canvas.width, cy = canvas.minY + y * canvas.height
             let p = CGPoint(x: crop.minX + cx / scale, y: crop.minY + cy / scale).applying(toPage)
@@ -74,6 +76,20 @@ enum CellReader {
         let corners = [quad.topLeft, quad.topRight, quad.bottomRight, quad.bottomLeft]
         let xs = corners.map(\.x), ys = corners.map(\.y)
         let rect = CGRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
-        return Reading(text: text, confidence: confidence, quad: quad, rect: rect)
+        // Words in the joined text, boxed by the reading they came from.
+        var words: [Word]? = []
+        boxing: for (_, candidate) in candidates {
+            for range in TextRecognizer.tokenRanges(in: candidate.string) {
+                guard let box = try? candidate.boundingBox(for: range) else {
+                    words = nil
+                    break boxing
+                }
+                words?.append(Word(text: String(candidate.string[range]), quad: Quad(
+                    topLeft: pagePoint(box.topLeft), topRight: pagePoint(box.topRight),
+                    bottomRight: pagePoint(box.bottomRight), bottomLeft: pagePoint(box.bottomLeft)
+                )))
+            }
+        }
+        return Reading(text: text, confidence: confidence, quad: quad, rect: rect, words: words)
     }
 }

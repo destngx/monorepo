@@ -24,6 +24,13 @@ final class CellReaderTests: XCTestCase {
             let angle = atan2((reading.quad.topRight.y - reading.quad.topLeft.y) * size.height,
                               (reading.quad.topRight.x - reading.quad.topLeft.x) * size.width)
             XCTAssertEqual(angle, skew, accuracy: 0.01, "\(degrees)°")
+
+            let words = try XCTUnwrap(reading.words, "\(degrees)°")
+            XCTAssertEqual(words.map(\.text), ["mmol/L"], "\(degrees)°")
+            for (a, b) in zip([words[0].quad.topLeft, words[0].quad.bottomRight], [reading.quad.topLeft, reading.quad.bottomRight]) {
+                XCTAssertEqual(a.x * size.width, b.x * size.width, accuracy: 6, "\(degrees)°")
+                XCTAssertEqual(a.y * size.height, b.y * size.height, accuracy: 6, "\(degrees)°")
+            }
         }
     }
 

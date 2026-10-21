@@ -53,24 +53,28 @@ final class OutputFormatterTests: XCTestCase {
         XCTAssertEqual((multiple as? [Any])?.count, 2)
     }
 
-    func testSchema12Shapes() throws {
+    func testSchemaShapes() throws {
         let quad = Quad(CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.05))
         let page = PageResult(
             index: 1, method: .ocr, content: "a", confidence: 0.9,
-            bbox: [BBox(text: "a", confidence: 0.9, rect: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.05), quad: quad)],
+            bbox: [BBox(text: "a", confidence: 0.9, rect: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.05), quad: quad,
+                        words: [Word(text: "a", quad: quad)])],
             barcodes: [Barcode(symbology: "QR", quad: quad)],
             skewDegrees: 1.5,
             image: PageImage(path: "/tmp/pages/page-1.jpg", width: 10, height: 20)
         )
         let json = try OutputFormatter.format([result([page])], as: .json)
         let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
-        XCTAssertEqual(object["schema_version"] as? String, "1.2")
+        XCTAssertEqual(object["schema_version"] as? String, "1.3")
         let encoded = try XCTUnwrap((object["pages"] as? [[String: Any]])?.first)
 
         let expectedQuad: [[Double]] = [[0.1, 0.25], [0.4, 0.25], [0.4, 0.2], [0.1, 0.2]]
         let box = try XCTUnwrap((encoded["bbox"] as? [[String: Any]])?.first)
-        XCTAssertEqual(Set(box.keys), ["text", "confidence", "x", "y", "w", "h", "quad"])
+        XCTAssertEqual(Set(box.keys), ["text", "confidence", "x", "y", "w", "h", "quad", "words"])
         assertQuad(box["quad"], expectedQuad)
+        let word = try XCTUnwrap((box["words"] as? [[String: Any]])?.first)
+        XCTAssertEqual(Set(word.keys), ["text", "quad"])
+        assertQuad(word["quad"], expectedQuad)
         let barcode = try XCTUnwrap((encoded["barcodes"] as? [[String: Any]])?.first)
         XCTAssertEqual(Set(barcode.keys), ["symbology", "quad"])
         assertQuad(barcode["quad"], expectedQuad)
