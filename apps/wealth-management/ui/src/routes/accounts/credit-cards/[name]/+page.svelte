@@ -42,7 +42,7 @@
 <Deferred data={data.detail} scope={data.name} label="the card">
   {#snippet children(found)}
     {#if found}
-      <CardDetail bank={found.bank} card={found.card} cardKeywords={found.cardKeywords} />
+      <CardDetail bank={found.bank} card={found.card} />
     {:else}
       <Card>
         <EmptyState

@@ -166,7 +166,7 @@ describe('Transactions page', () => {
       tags,
     });
 
-    it('Given card rows When the ledger renders Then the card is named only while several were open and tags show the user tags', async () => {
+    it('Given card rows When the ledger renders Then the card is named only while several were open and every tag shows', async () => {
       render(TransactionsPage, {
         data: {
           ...pending(),
@@ -182,10 +182,12 @@ describe('Transactions page', () => {
 
       const recent = screen.getByText('Noodle Bar').closest('tr')!;
       expect(within(recent).getByText('eating_out')).toBeTruthy();
-      expect(within(recent).queryByText(/emerald/i)).toBeNull();
+      expect(within(recent).getByText('emerald')).toBeTruthy();
+      expect(within(recent).queryByText('Emerald')).toBeNull();
       const old = screen.getByText('Old Cafe').closest('tr')!;
       expect(within(old).getByText('Ruby · MCC 5812')).toBeTruthy();
-      expect(within(old).queryByText('ruby')).toBeNull();
+      expect(within(old).getByText('ruby')).toBeTruthy();
+      expect(within(old).getByText('mcc:5812')).toBeTruthy();
     });
 
     it('Given an account with several open cards When a payment is added Then the card is picked apart from the tags', async () => {
@@ -211,6 +213,8 @@ describe('Transactions page', () => {
       await flush();
       expect(screen.queryByRole('button', { name: 'emerald' })).toBeNull();
       expect(screen.getByRole('button', { name: 'eating_out' })).toBeTruthy();
+      expect(screen.getByTitle('ruby: the card that paid, not edited here')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Remove ruby' })).toBeNull();
 
       await fireEvent.click(screen.getByRole('button', { name: 'eating_out' }));
       await fireEvent.input(document.getElementById('tx-payee')!, { target: { value: 'Old Cafe' } });

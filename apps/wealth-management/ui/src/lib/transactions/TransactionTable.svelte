@@ -7,11 +7,11 @@
   import type { SortDir, SortKey } from './filter';
   import type { CheckedHandler, RowToggleHandler, SortHandler, TransactionHandler } from './handlers';
   import Badge from '$lib/components/Badge.svelte';
-  import { mccTag, ownTags, paidWith, type BilledCard } from './cards';
+  import { mccTag, paidWith, type BilledCard } from './cards';
 
   interface Props {
     items: Transaction[];
-    /** Held cards, to name the card that paid and set card tags apart from the user's own. */
+    /** Held cards, to name the card that paid. */
     cards: BilledCard[];
     selectedIds: string[];
     pageSelected: boolean;
@@ -37,8 +37,6 @@
     onedit,
     ondelete,
   }: Props = $props();
-
-  const keywords = $derived(cards.map((card) => card.keyword));
 
   const columns: { key: SortKey; label: string; align?: string }[] = [
     { key: 'date', label: 'Date' },
@@ -86,7 +84,6 @@
       {#each items as tx (tx.id)}
         {@const card = paidWith(tx, cards)}
         {@const mcc = mccTag(tx.tags)}
-        {@const tags = ownTags(tx.tags, keywords)}
         <tr class="align-top {selectedIds.includes(tx.id) ? 'bg-indigo-500/[0.06] dark:bg-indigo-400/10' : ''}">
           <td class="py-2.5 pl-5">
             <input
@@ -107,9 +104,9 @@
           <td class="px-5 py-2.5">
             <p class="font-medium">{tx.payee}</p>
             {#if tx.memo}<p class="muted text-xs">{tx.memo}</p>{/if}
-            {#if tags.length}
+            {#if tx.tags.length}
               <div class="mt-1 flex flex-wrap gap-1">
-                {#each tags as tag (tag)}<Badge>{tag}</Badge>{/each}
+                {#each tx.tags as tag (tag)}<Badge>{tag}</Badge>{/each}
               </div>
             {/if}
             {#if tx.issues?.length}

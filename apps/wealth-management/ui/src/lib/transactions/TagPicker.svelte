@@ -1,6 +1,11 @@
 <script lang="ts">
-  // Multi-select over existing tags, plus free entry for a new one.
-  let { options, selected = $bindable([]) }: { options: string[]; selected: string[] } = $props();
+  // Multi-select over existing tags, plus free entry for a new one. Fixed tags
+  // (card and MCC tags) show first and are changed elsewhere, so they cannot be removed here.
+  let {
+    options,
+    selected = $bindable([]),
+    fixed = [],
+  }: { options: string[]; selected: string[]; fixed?: { tag: string; title: string }[] } = $props();
 
   let query = $state('');
   const suggestions = $derived(
@@ -30,6 +35,9 @@
 <div
   class="field flex flex-wrap items-center gap-1.5 py-1.5 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/25"
 >
+  {#each fixed as { tag, title } (tag)}
+    <span class="rounded-full bg-slate-900/5 px-2 py-0.5 text-xs dark:bg-white/10" {title}>{tag}</span>
+  {/each}
   {#each selected as tag (tag)}
     <span
       class="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-xs text-indigo-700 dark:text-indigo-300"
@@ -46,7 +54,7 @@
   {/each}
   <input
     class="min-w-24 flex-1 bg-transparent text-sm outline-none"
-    placeholder={selected.length ? '' : 'Add tags'}
+    placeholder={selected.length || fixed.length ? '' : 'Add tags'}
     aria-label="Add tag"
     bind:value={query}
     onkeydown={(event) => {

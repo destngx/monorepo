@@ -131,6 +131,8 @@ describe('SuggestionRow', () => {
 
     expect(screen.getByText('Card: Acme Visa Platinum')).toBeTruthy();
     expect(screen.queryByLabelText('Card')).toBeNull();
+    expect(screen.getByTitle('platinum: the card that paid, not edited here')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove platinum' })).toBeNull();
   });
 
   it('Given an account with several open cards When shown Then the picker lists them by name', () => {

@@ -21,4 +21,15 @@ describe('TagPicker', () => {
     await enter('eating_out');
     expect(screen.getByRole('button', { name: 'Remove Eating_Out' })).toBeTruthy();
   });
+
+  it('Given fixed tags When the picker renders Then they show as chips that cannot be removed here', () => {
+    render(TagPicker, {
+      options: [],
+      selected: ['eating_out'],
+      fixed: [{ tag: 'platinum online', title: 'the card' }],
+    });
+    expect(screen.getByText('platinum online')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Remove platinum online' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Remove eating_out' })).toBeTruthy();
+  });
 });

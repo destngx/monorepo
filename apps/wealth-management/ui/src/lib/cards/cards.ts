@@ -171,14 +171,11 @@ export function parseCardPayment(form: {
   return { query: { payee, amount, ...(mccText ? { mcc: Number(mccText) } : {}) } };
 }
 
-/** One card with its bank and every card's keyword (to leave card tags out), or null when no card has that name. */
-export function findCard(
-  banks: CardBankReport[],
-  name: string,
-): { bank: CardBankReport; card: CardReport; cardKeywords: string[] } | null {
+/** One card with its bank, or null when no card has that name. */
+export function findCard(banks: CardBankReport[], name: string): { bank: CardBankReport; card: CardReport } | null {
   for (const bank of banks) {
     const card = bank.cards.find((candidate) => candidate.name === name);
-    if (card) return { bank, card, cardKeywords: allCards(banks).map((other) => other.keyword) };
+    if (card) return { bank, card };
   }
   return null;
 }

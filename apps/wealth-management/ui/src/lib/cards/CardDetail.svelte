@@ -15,18 +15,15 @@
   import Masked from '$lib/components/Masked.svelte';
   import { STATUS } from '$lib/status';
   import CategoryBadge from '$lib/transactions/CategoryBadge.svelte';
-  import { ownTags } from '$lib/transactions/cards';
 
   // One card's page body (WM-CARD-1, 2, 5, 11, 12, 15, 16): its bank limit,
   // this period, pay-by, history and rules. The page streams it in.
   interface Props {
     bank: CardBankReport;
     card: CardReport;
-    /** Every card's keyword: card tags are left out, as the page already names the card. */
-    cardKeywords: string[];
   }
 
-  let { bank, card, cardKeywords }: Props = $props();
+  let { bank, card }: Props = $props();
   const use = $derived(UTILIZATION[bank.utilizationBand]);
   const cycle = $derived(card.cycle);
   const standing = $derived(card.standing);
@@ -280,7 +277,7 @@
               </p>
               <div class="mt-1 flex flex-wrap items-center gap-1">
                 <CategoryBadge name={tx.category} type={tx.categoryType} />
-                {#each ownTags(tx.tags, cardKeywords) as tag (tag)}<Badge>{tag}</Badge>{/each}
+                {#each tx.tags as tag (tag)}<Badge>{tag}</Badge>{/each}
                 {#if rule}
                   <Badge status={MCC_STATUS[mcc.status].tone}
                     >{mcc.code

@@ -221,14 +221,13 @@ describe('parseCardPayment', () => {
 });
 
 describe('findCard', () => {
-  it('finds a card with its bank and every card keyword, or null for an unknown name', () => {
+  it('finds a card with its bank, or null for an unknown name', () => {
     const other = testCard({ name: 'Green Miles', keyword: 'green' });
     const banks = [testBank([testCard(), other])];
 
     const found = findCard(banks, 'Green Miles');
     expect(found?.card).toBe(other);
     expect(found?.bank).toBe(banks[0]);
-    expect(found?.cardKeywords).toEqual(['blue', 'green']);
     expect(findCard(banks, 'Nope')).toBeNull();
   });
 });

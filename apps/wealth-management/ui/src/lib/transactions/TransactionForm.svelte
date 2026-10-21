@@ -4,7 +4,7 @@
   import type { Account, Category, CategorySuggestion, Transaction, TransactionInput } from '$lib/api/types';
   import Button from '$lib/components/Button.svelte';
   import { todayISO } from '$lib/format';
-  import { cardChoices, chosenCard, ownTags, settleCardTags, withCard, type BilledCard } from './cards';
+  import { cardChoices, chosenCard, mccTag, ownTags, settleCardTags, withCard, type BilledCard } from './cards';
   import TagPicker from './TagPicker.svelte';
 
   interface Props {
@@ -67,9 +67,9 @@
     return payment < 0 || deposit < 0 || (payment > 0 && deposit > 0) || (payment === 0 && deposit === 0);
   });
 
-  // Card and MCC tags are the engine's: the picker shows the user's own tags
-  // and keeps the others on the row; the card is picked on its own, only
-  // where the account had several cards open that day.
+  // Card and MCC tags are the engine's: the picker shows them but edits only
+  // the user's own tags; the card is picked on its own, only where the account
+  // had several cards open that day.
   const keywords = $derived(cards.map((card) => card.keyword));
   const tagOptions = $derived(ownTags(tags, keywords));
   const engineTags = $derived(form.tags.filter((tag) => !ownTags([tag], keywords).length));
@@ -308,6 +308,10 @@
   <div class="sm:col-span-2">
     <span class="label">Tags</span>
     <TagPicker
+      fixed={engineTags.map((tag) => ({
+        tag,
+        title: `${tag}: ${mccTag([tag]) ? 'the confirmed MCC' : 'the card that paid'}, not edited here`,
+      }))}
       options={tagOptions}
       bind:selected={() => ownTags(form.tags, keywords), (own) => (form.tags = [...engineTags, ...own])}
     />

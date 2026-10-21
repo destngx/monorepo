@@ -124,7 +124,7 @@
   );
 
   // The card is picked on its own where the account has several open cards;
-  // the tag picker edits the user's tags and leaves the card tag in place.
+  // the tag picker shows the card tag but edits only the user's tags.
   const userTags = $derived(nonCardTags(row.tx.tags, cardTags));
   const cardTag = $derived(pickedCardTag(row.tx, accountCardTags));
   // The card is always shown: a picker with several open cards, its name with one.
@@ -288,6 +288,9 @@
               <p class="mb-2 text-xs">Card: {cardName(cardTag)}</p>
             {/if}
             <TagPicker
+              fixed={row.tx.tags
+                .filter((tag) => !userTags.includes(tag))
+                .map((tag) => ({ tag, title: `${tag}: the card that paid, not edited here` }))}
               options={nonCardTags([...new Set([...(suggestion.tagOptions ?? []), ...tags])], cardTags)}
               bind:selected={
                 () => userTags,
