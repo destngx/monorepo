@@ -415,6 +415,48 @@ func TestGivenDrawnBoxesWhenSavedThenThePageIsRemaskedAndNeedsACheckAgain(t *tes
 	_ = img.Close()
 }
 
+func TestGivenARuleBoxTurnedOffWhenSavedThenThePageIsRemaskedAndKeepsItThroughLaterMasks(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	e.person(sc, "Nguyễn Văn Mẫu")
+	d := e.uploadRead(sc, "lab")
+	before := d.Pages[0].Mask
+	if len(before.Auto) < 2 || before.Auto[1].Key != "line:3" {
+		t.Fatalf("auto = %+v", before.Auto)
+	}
+
+	pg, err := e.inbox.SetPageOff(e.ctx, sc, d.Item.ID, d.Pages[0].ID, []string{"line:3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !pg.Mask.Auto[1].Off || pg.Mask.Auto[0].Off || len(pg.Mask.Boxes) != len(before.Boxes)-1 {
+		t.Fatalf("mask = %+v", pg.Mask)
+	}
+	if !strings.Contains(pg.Mask.Text, "Mã BN: 24-000123") || strings.Contains(pg.Mask.Text, "NGUYỄN") {
+		t.Fatalf("masked text = %q", pg.Mask.Text)
+	}
+	if _, err := e.inbox.SetPageOff(e.ctx, sc, d.Item.ID, d.Pages[0].ID, []string{"line:0"}); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("unknown key = %v", err)
+	}
+
+	if pg, err = e.inbox.SetPageBoxes(e.ctx, sc, d.Item.ID, d.Pages[0].ID, []domain.Quad{domain.RectQuad(0.6, 0.5, 0.2, 0.1)}); err != nil {
+		t.Fatal(err)
+	}
+	if !pg.Mask.Auto[1].Off {
+		t.Fatalf("drawing a box turned the rule box back on: %+v", pg.Mask.Auto)
+	}
+	if err := e.inbox.RetryReading(e.ctx, sc, d.Item.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.drain()
+	if m := e.item(sc, d.Item.ID).Pages[0].Mask; !m.Auto[1].Off {
+		t.Fatalf("reading again turned the rule box back on: %+v", m.Auto)
+	}
+	if got := e.reader.calls[len(e.reader.calls)-1][0].Text; !strings.Contains(got, "Mã BN: 24-000123") {
+		t.Fatalf("sent text = %q", got)
+	}
+}
+
 func TestGivenTwoItemsFromOneVisitWhenGroupedThenTheyFileAsOneVisit(t *testing.T) {
 	e := newEnv(t)
 	sc := e.setup()

@@ -223,3 +223,91 @@ func TestGivenAPageMaskWhenEncodedThenTheMaskedTextIsShownButNotTheImageHash(t *
 		t.Fatalf("json = %s", raw)
 	}
 }
+
+func TestGivenAMaskedPageWhenMaskingThenEachRuleBoxHasAKeyAndTheLineItHides(t *testing.T) {
+	in := readyInput(labReport())
+	in.Barcodes = []Quad{RectQuad(0.8, 0.05, 0.1, 0.05)}
+	res := MaskPage(in)
+	var keys, texts []string
+	for _, b := range res.Auto {
+		keys, texts = append(keys, b.Key), append(texts, b.Text)
+	}
+	if want := []string{"line:2", "line:4", "line:5", "line:9", "barcode:0"}; !slices.Equal(keys, want) {
+		t.Fatalf("keys = %q", keys)
+	}
+	if texts[0] != "Khoa Xét nghiệm - ĐT: 028 0000 0000" || texts[4] != "" {
+		t.Fatalf("texts = %q", texts)
+	}
+	if res.Auto[0].Kind != MaskBoxLine || res.Auto[4].Kind != MaskBoxBarcode || res.Auto[4].Quad != in.Barcodes[0] {
+		t.Fatalf("auto = %+v", res.Auto)
+	}
+	if len(res.Boxes) != len(res.Auto) {
+		t.Fatalf("boxes = %d, auto = %d", len(res.Boxes), len(res.Auto))
+	}
+}
+
+func TestGivenALineBoxTurnedOffWhenMaskingThenTheLineIsSentInTheImageAndTheText(t *testing.T) {
+	in := readyInput(labReport())
+	in.Text = strings.Join([]string{
+		"BỆNH VIỆN ĐA KHOA MẪU",
+		"Khoa Xét nghiệm - ĐT: 028 0000 0000",
+		"Họ tên: NGUYỄN VĂN MẪU Năm sinh: 1985 Giới: Nam",
+		"1 Glucose (đói) 6.4 H mmol/L 3.9 - 6.1",
+		"Liên hệ 0900 000 000",
+	}, "\n")
+	in.Off = []string{"line:2", "line:99"}
+	res := MaskPage(in)
+	if !res.Auto[0].Off || res.Auto[1].Off {
+		t.Fatalf("auto = %+v", res.Auto)
+	}
+	if res.Masked[2] || !res.Masked[4] {
+		t.Fatalf("masked = %v", res.Masked)
+	}
+	if len(res.Boxes) != 3 {
+		t.Fatalf("boxes = %d", len(res.Boxes))
+	}
+	want := strings.Join([]string{
+		"BỆNH VIỆN ĐA KHOA MẪU",
+		"Khoa Xét nghiệm - ĐT: 028 0000 0000",
+		MaskPlaceholder,
+		"1 Glucose (đói) 6.4 H mmol/L 3.9 - 6.1",
+		MaskPlaceholder,
+	}, "\n")
+	if res.Text != want {
+		t.Fatalf("masked text:\n%s\nwant:\n%s", res.Text, want)
+	}
+}
+
+func TestGivenALineBoxTurnedOffAndNoPageTextWhenMaskingThenTheOCRLineIsKept(t *testing.T) {
+	in := readyInput(labReport())
+	in.Off = []string{"line:2"}
+	got := MaskPage(in).Text
+	if !strings.Contains(got, "Khoa Xét nghiệm - ĐT: 028 0000 0000") || strings.Contains(got, "24-000123") {
+		t.Fatalf("masked text = %q", got)
+	}
+}
+
+func TestGivenALabelBoxTurnedOffWhenMaskingThenItsValueStaysHidden(t *testing.T) {
+	lines := []Line{row("Họ tên:", 0.1, 0.2, 0.1), row("NGUYỄN VĂN A", 0.25, 0.2, 0.3), row("Xét nghiệm máu", 0.1, 0.4, 0.3)}
+	in := readyInput(lines)
+	in.Off = []string{"line:0"}
+	in.Text = "Họ tên:\nNGUYỄN VĂN A\nXét nghiệm máu"
+	res := MaskPage(in)
+	if got := maskedTexts(in, res); !slices.Equal(got, []string{"NGUYỄN VĂN A"}) {
+		t.Fatalf("masked = %q", got)
+	}
+	if res.Text != "Họ tên:\n"+MaskPlaceholder+"\nXét nghiệm máu" {
+		t.Fatalf("masked text = %q", res.Text)
+	}
+}
+
+func TestGivenABarcodeBoxTurnedOffWhenMaskingThenItIsNotBlackedOut(t *testing.T) {
+	in := readyInput([]Line{row("Họ tên: NGUYỄN VĂN MẪU", 0.1, 0.2, 0.5)})
+	in.Barcodes = []Quad{RectQuad(0.8, 0.05, 0.1, 0.05)}
+	in.Manual = []Quad{RectQuad(0.1, 0.9, 0.1, 0.05)}
+	in.Off = []string{"barcode:0"}
+	res := MaskPage(in)
+	if len(res.Boxes) != 2 || slices.Contains(res.Boxes, in.Barcodes[0]) || !slices.Contains(res.Boxes, in.Manual[0]) {
+		t.Fatalf("boxes = %+v", res.Boxes)
+	}
+}

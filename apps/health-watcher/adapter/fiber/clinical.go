@@ -42,6 +42,15 @@ func (s *server) reviewRoutes(r fiber.Router) {
 		}
 		return s.list(c)(s.svc.Inbox.SetPageBoxes(c.UserContext(), scope(c), c.Params("id"), c.Params("pageId"), in.Boxes))
 	})
+	r.Put("/inbox/:id/pages/:pageId/off", func(c *fiber.Ctx) error {
+		var in struct {
+			Off []string `json:"off"`
+		}
+		if err := parseJSON(c, &in); err != nil {
+			return respond(c, s.log, err)
+		}
+		return s.list(c)(s.svc.Inbox.SetPageOff(c.UserContext(), scope(c), c.Params("id"), c.Params("pageId"), in.Off))
+	})
 }
 
 // clinicalRoutes are the document viewer, record editing, search and

@@ -1,4 +1,4 @@
-import type { Point, Quad } from './api/types';
+import type { MaskBox, Point, Quad } from './api/types';
 
 const clamp = (n: number) => Math.min(1, Math.max(0, n));
 
@@ -31,4 +31,14 @@ export function boxesKey(boxes: Quad[]): string {
   let hash = 5381;
   for (const ch of JSON.stringify(boxes)) hash = ((hash << 5) + hash + ch.charCodeAt(0)) | 0;
   return (hash >>> 0).toString(36);
+}
+
+/** Where a box's number goes: the top-left corner of its bounds, scaled to an image. */
+export function labelAt(q: Quad, width: number, height: number): Point {
+  return { x: Math.min(...q.map((p) => p.x)) * width, y: Math.min(...q.map((p) => p.y)) * height };
+}
+
+/** The keys of the rule boxes left off after turning one box off or back on. */
+export function toggleOff(auto: MaskBox[], key: string): string[] {
+  return auto.filter((b) => (b.key === key ? !b.off : b.off)).map((b) => b.key);
 }

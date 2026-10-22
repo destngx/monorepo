@@ -14,6 +14,7 @@
   import PageImage from '$lib/components/PageImage.svelte';
   import PageTitle from '$lib/components/PageTitle.svelte';
   import ReadingBadge from '$lib/components/ReadingBadge.svelte';
+  import { toggleOff } from '$lib/boxes';
   import { documentKindLabels, formatDate } from '$lib/format';
   import { findingInput, observationInput, readingState } from '$lib/reading';
   import { session } from '$lib/state/session.svelte';
@@ -42,6 +43,7 @@
   let filing = $state(false);
   let view = $state<Record<string, 'masked' | 'original'>>({});
   let drawing = $state<string | null>(null);
+  let toggling = $state<string | null>(null);
   let editingObs = $state<Observation | null>(null);
   let editingFinding = $state<Finding | null>(null);
 
@@ -64,6 +66,19 @@
   async function setBoxes(p: Page, boxes: Quad[]) {
     await session.api.setPageBoxes(item.id, p.id, boxes);
     await invalidateAll();
+  }
+
+  const canMask = (p: Page) => editable && !!p.mask && p.hasImage && data.detail.aiEnabled;
+
+  async function toggleBox(p: Page, key: string) {
+    if (toggling) return;
+    toggling = p.id;
+    try {
+      await session.api.setPageOff(item.id, p.id, toggleOff(p.mask?.auto ?? [], key));
+      await invalidateAll();
+    } finally {
+      toggling = null;
+    }
   }
 
   async function setObsStatus(o: Observation, status: RecordStatus) {
@@ -150,8 +165,8 @@
   </div>
   {#if needsCheck}
     <p class="muted mt-3 text-sm">
-      Look at each page as the AI would see it. Black boxes hide names, ids, phone numbers and barcodes. Drag on a page
-      to hide anything else, then send.
+      Look at each page as the AI would see it. Black boxes hide names, ids, phone numbers and barcodes. Click a
+      numbered box to let a line through when it hides a result, use Hide more to black out anything else, then send.
     </p>
   {:else if reading?.status === 'done' && reading.model}
     <p class="muted mt-3 text-xs">
@@ -198,7 +213,12 @@
           <span class="rounded-full bg-teal-600/10 px-2 py-0.5 text-xs text-teal-700 dark:text-teal-300">Checked</span>
         {/if}
         {#if p.mask}
-          <span class="muted text-xs">{p.mask.maskedLines} lines hidden</span>
+          {@const through = (p.mask.auto ?? []).filter((b) => b.off).length}
+          <span class="muted text-xs"
+            >{p.mask.maskedLines} lines hidden{through
+              ? `, ${through} ${through === 1 ? 'box' : 'boxes'} let through`
+              : ''}</span
+          >
         {/if}
         <span class="ml-auto flex gap-1">
           {#if p.mask}
@@ -220,7 +240,7 @@
               }}>Original</button
             >
           {/if}
-          {#if editable && p.mask && p.hasImage && data.detail.aiEnabled}
+          {#if canMask(p)}
             <Button
               size="sm"
               icon="pencil"
@@ -246,7 +266,43 @@
         drawing={drawing === p.id}
         boxes={p.mask?.manual ?? []}
         onboxes={(boxes) => void setBoxes(p, boxes)}
+        auto={p.mask?.auto ?? []}
+        ontoggle={canMask(p) && toggling === null ? (key) => void toggleBox(p, key) : undefined}
       />
+      {#if viewOf(p) === 'masked' && p.mask?.auto?.length}
+        <details class="mt-3" open={canMask(p)}>
+          <summary class="muted cursor-pointer text-xs">Numbered boxes ({p.mask.auto.length})</summary>
+          {#if canMask(p)}
+            <p class="muted mt-2 text-xs">
+              Untick a box that hides a result or another line the AI needs. That line is then sent in the image and the
+              text.
+            </p>
+          {/if}
+          <ul class="mt-2 max-h-72 space-y-1 overflow-auto text-sm">
+            {#each p.mask.auto as box, n (box.key)}
+              <li>
+                <label class="flex items-start gap-2 {canMask(p) ? 'cursor-pointer' : ''}">
+                  <input
+                    type="checkbox"
+                    class="mt-1"
+                    checked={!box.off}
+                    disabled={!canMask(p) || toggling !== null}
+                    onchange={() => void toggleBox(p, box.key)}
+                  />
+                  <span
+                    class="mt-0.5 min-w-6 rounded px-1 text-center text-xs font-semibold text-white {box.off
+                      ? 'bg-amber-500'
+                      : 'bg-teal-600'}">{n + 1}</span
+                  >
+                  <span class={box.off ? 'muted line-through' : ''}
+                    >{box.kind === 'barcode' ? 'Barcode or QR code' : box.text}</span
+                  >
+                </label>
+              </li>
+            {/each}
+          </ul>
+        </details>
+      {/if}
       {#if p.text}
         {@const masked = viewOf(p) === 'masked' && p.mask}
         <details class="mt-3">

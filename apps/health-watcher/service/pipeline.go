@@ -479,18 +479,20 @@ func peopleNames(people []domain.Person) []string {
 }
 
 // maskPage builds and stores a page's mask: the black boxes, the masked
-// text and the masked image (HW-AI-7). Manual boxes and a person's check
-// carry over from the page's previous mask.
+// text and the masked image (HW-AI-7). Manual boxes, the rule boxes turned
+// off and a person's check carry over from the page's previous mask.
 func (p *Pipeline) maskPage(ctx context.Context, tenantID string, ip itemPage, people []string) (domain.PageMask, error) {
 	pg := ip.page
 	in := domain.MaskInput{Lines: pg.Lines, Text: pg.Text, Barcodes: pg.Barcodes, BarcodesChecked: pg.BarcodesChecked,
 		HasImage: pg.HasImage, FirstPage: ip.first, Method: pg.Method, People: people, Width: pg.Width, Height: pg.Height}
 	if pg.Mask != nil {
 		in.Manual = pg.Mask.Manual
+		in.Off = pg.Mask.OffKeys()
 		in.Checked = pg.Mask.Status == domain.MaskChecked
 	}
 	res := domain.MaskPage(in)
-	m := domain.PageMask{Status: res.Status, Reasons: res.Reasons, Boxes: res.Boxes, Manual: in.Manual, Text: res.Text}
+	m := domain.PageMask{Status: res.Status, Reasons: res.Reasons, Boxes: res.Boxes, Auto: res.Auto, Manual: in.Manual,
+		Text: res.Text}
 	for _, masked := range res.Masked {
 		if masked {
 			m.MaskedLines++

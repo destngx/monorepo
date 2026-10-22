@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"sort"
 
 	"apps/health-watcher/domain"
@@ -171,19 +172,45 @@ const MaxManualBoxes = 50
 // SetPageBoxes stores the boxes a person drew on a page to black out what
 // the rules missed, and remasks the page at once so the preview shows them.
 func (in *Inbox) SetPageBoxes(ctx context.Context, sc domain.Scope, itemID, pageID string, boxes []domain.Quad) (domain.Page, error) {
+	return in.remask(ctx, sc, itemID, pageID, func(m *domain.PageMask) error {
+		if len(boxes) > MaxManualBoxes {
+			return domain.Invalid("at most %d boxes per page", MaxManualBoxes)
+		}
+		for _, b := range boxes {
+			if !b.Valid() {
+				return domain.Invalid("a box is outside the page")
+			}
+		}
+		m.Manual = boxes
+		return nil
+	})
+}
+
+// SetPageOff turns off the rule boxes with these keys on a page, and turns
+// the others back on, when a box hides clinical text. The page is remasked
+// at once so the preview and the text show the change.
+func (in *Inbox) SetPageOff(ctx context.Context, sc domain.Scope, itemID, pageID string, off []string) (domain.Page, error) {
+	return in.remask(ctx, sc, itemID, pageID, func(m *domain.PageMask) error {
+		for _, key := range off {
+			if !slices.ContainsFunc(m.Auto, func(b domain.MaskBox) bool { return b.Key == key }) {
+				return domain.Invalid("no box %q on this page", key)
+			}
+		}
+		for i := range m.Auto {
+			m.Auto[i].Off = slices.Contains(off, m.Auto[i].Key)
+		}
+		return nil
+	})
+}
+
+// remask changes a page's mask and masks the page again. A change to what
+// is sent means a checked page must be checked again.
+func (in *Inbox) remask(ctx context.Context, sc domain.Scope, itemID, pageID string, change func(*domain.PageMask) error) (domain.Page, error) {
 	if err := sc.RequireEdit(); err != nil {
 		return domain.Page{}, err
 	}
 	if in.Pipeline == nil {
 		return domain.Page{}, domain.Conflict("page masks need the background reader")
-	}
-	if len(boxes) > MaxManualBoxes {
-		return domain.Page{}, domain.Invalid("at most %d boxes per page", MaxManualBoxes)
-	}
-	for _, b := range boxes {
-		if !b.Valid() {
-			return domain.Page{}, domain.Invalid("a box is outside the page")
-		}
 	}
 	item, err := in.newItem(ctx, sc, itemID)
 	if err != nil {
@@ -205,8 +232,9 @@ func (in *Inbox) SetPageBoxes(ctx context.Context, sc domain.Scope, itemID, page
 		if ip.page.Mask != nil {
 			prev = *ip.page.Mask
 		}
-		// New boxes change what is sent, so a check must be made again.
-		prev.Manual = boxes
+		if err := change(&prev); err != nil {
+			return domain.Page{}, err
+		}
 		if prev.Status == domain.MaskChecked {
 			prev.Status = domain.MaskNeedsCheck
 		}

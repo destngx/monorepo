@@ -74,7 +74,7 @@ Encryption at rest relies on FileVault (D1). Back up both the database and `file
 ## 6. Reading
 
 1. A background worker runs each new file through mac-ocr. The page text is searchable at once, with no AI call.
-2. When every file of an item has pages, the engine masks each page on the Mac (HW-AI-7): lines with personal labels, the family's names, long digit runs and barcodes are blacked out in the image and replaced with `[ẩn]` in the text. A page it is unsure about waits for someone to check the masked preview on the review page, draw more boxes if needed, and press _Pages look safe, send_.
+2. When every file of an item has pages, the engine masks each page on the Mac (HW-AI-7): lines with personal labels, the family's names, long digit runs and barcodes are blacked out in the image and replaced with `[ẩn]` in the text. A page it is unsure about waits for someone to check the masked preview on the review page, draw more boxes if needed, and press _Pages look safe, send_. Each box has a number. Untick a box that hides a result, and the engine sends that line to the AI.
 3. The masked images and text go to the AI provider in one request, always to `gpt-6-luna` at low reasoning effort (D6). The answer becomes drafts: values linked to the metric catalog, findings, and a proposed person, date, provider and document kind. The person always comes from the local name match.
 4. _File_ approves the drafts that were not rejected. Approved values can be edited or deleted later; each change is kept in their history.
 

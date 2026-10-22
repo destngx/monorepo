@@ -11,15 +11,15 @@ import (
 )
 
 const pageColumns = `id, file_id, number, method, text, confidence, width, height, image_sha, lines_json, barcodes_json,
-	mask_status, mask_reasons_json, mask_boxes_json, mask_manual_json, mask_lines, mask_text, mask_image_sha`
+	mask_status, mask_reasons_json, mask_boxes_json, mask_manual_json, mask_auto_json, mask_lines, mask_text, mask_image_sha`
 
 func scanPage(scan func(...any) error) (domain.Page, error) {
 	var p domain.Page
-	var method, linesJSON, maskStatus, reasonsJSON, boxesJSON, manualJSON, maskText, maskSHA string
+	var method, linesJSON, maskStatus, reasonsJSON, boxesJSON, manualJSON, autoJSON, maskText, maskSHA string
 	var barcodesJSON sql.NullString
 	var maskLines int
 	if err := scan(&p.ID, &p.FileID, &p.Number, &method, &p.Text, &p.Confidence, &p.Width, &p.Height, &p.ImageSHA, &linesJSON,
-		&barcodesJSON, &maskStatus, &reasonsJSON, &boxesJSON, &manualJSON, &maskLines, &maskText, &maskSHA); err != nil {
+		&barcodesJSON, &maskStatus, &reasonsJSON, &boxesJSON, &manualJSON, &autoJSON, &maskLines, &maskText, &maskSHA); err != nil {
 		return p, err
 	}
 	p.Method = domain.PageMethod(method)
@@ -38,7 +38,7 @@ func scanPage(scan func(...any) error) (domain.Page, error) {
 		for _, d := range []struct {
 			raw string
 			out any
-		}{{reasonsJSON, &m.Reasons}, {boxesJSON, &m.Boxes}, {manualJSON, &m.Manual}} {
+		}{{reasonsJSON, &m.Reasons}, {boxesJSON, &m.Boxes}, {manualJSON, &m.Manual}, {autoJSON, &m.Auto}} {
 			if err := json.Unmarshal([]byte(d.raw), d.out); err != nil {
 				return p, fmt.Errorf("decode page mask: %w", err)
 			}
@@ -112,7 +112,7 @@ func (r repos) SavePages(ctx context.Context, tenantID, fileID string, pages []d
 			ON CONFLICT (file_id, number) DO UPDATE SET method = excluded.method, text = excluded.text,
 				confidence = excluded.confidence, width = excluded.width, height = excluded.height, image_sha = excluded.image_sha,
 				lines_json = excluded.lines_json, barcodes_json = excluded.barcodes_json, mask_status = '', mask_reasons_json = '[]',
-				mask_boxes_json = '[]', mask_manual_json = '[]', mask_lines = 0, mask_text = '', mask_image_sha = ''`,
+				mask_boxes_json = '[]', mask_manual_json = '[]', mask_auto_json = '[]', mask_lines = 0, mask_text = '', mask_image_sha = ''`,
 			p.ID, tenantID, fileID, p.Number, string(p.Method), p.Text, p.Confidence, p.Width, p.Height, p.ImageSHA, lines, barcodes,
 			formatTime(p.CreatedAt))
 		if err := exec(res, err, "page"); err != nil {
@@ -167,9 +167,13 @@ func (r repos) SetPageMask(ctx context.Context, tenantID, pageID string, m domai
 	if err != nil {
 		return "", err
 	}
+	auto, err := jsonText(nonNil(m.Auto))
+	if err != nil {
+		return "", err
+	}
 	res, err := r.q.ExecContext(ctx, `UPDATE pages SET mask_status = ?, mask_reasons_json = ?, mask_boxes_json = ?, mask_manual_json = ?,
-		mask_lines = ?, mask_text = ?, mask_image_sha = ? WHERE tenant_id = ? AND id = ?`,
-		string(m.Status), reasons, boxes, manual, m.MaskedLines, m.Text, m.ImageSHA, tenantID, pageID)
+		mask_auto_json = ?, mask_lines = ?, mask_text = ?, mask_image_sha = ? WHERE tenant_id = ? AND id = ?`,
+		string(m.Status), reasons, boxes, manual, auto, m.MaskedLines, m.Text, m.ImageSHA, tenantID, pageID)
 	if err := affected(res, err, "page"); err != nil {
 		return "", err
 	}

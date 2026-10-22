@@ -229,10 +229,23 @@ export type Quad = [Point, Point, Point, Point];
 
 export type MaskStatus = 'ready' | 'needs_check' | 'checked';
 
+/** A box the masking rules put on a page; a person can turn it off when it hides clinical text. */
+export interface MaskBox {
+  /** The line or barcode it covers, e.g. "line:4" or "barcode:0". */
+  key: string;
+  kind: 'line' | 'barcode';
+  quad: Quad;
+  /** The line it hides, "" for a barcode. */
+  text: string;
+  off: boolean;
+}
+
 export interface PageMask {
   status: MaskStatus;
   reasons: string[] | null;
   boxes: Quad[] | null;
+  /** The rule boxes, numbered in this order, including the ones turned off. */
+  auto: MaskBox[] | null;
   manual: Quad[] | null;
   maskedLines: number;
   /** The masked text: personal lines replaced with [ẩn]. */

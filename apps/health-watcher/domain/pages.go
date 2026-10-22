@@ -121,16 +121,51 @@ const (
 	MaskChecked MaskStatus = "checked"
 )
 
+// MaskBoxKind says what a rule box hides.
+type MaskBoxKind string
+
+const (
+	MaskBoxLine    MaskBoxKind = "line"
+	MaskBoxBarcode MaskBoxKind = "barcode"
+)
+
+// MaskBox is a box the rules put on a page. A person can turn one off when
+// it hides clinical text; the line is then sent in the image and the text.
+type MaskBox struct {
+	// Key names the line or barcode it covers, e.g. "line:4" or
+	// "barcode:0". It stays the same until the page is read again.
+	Key  string      `json:"key"`
+	Kind MaskBoxKind `json:"kind"`
+	Quad Quad        `json:"quad"`
+	// Text is the line the box hides, "" for a barcode.
+	Text string `json:"text"`
+	Off  bool   `json:"off"`
+}
+
 // PageMask is what the AI provider gets for a page: the image with black
 // boxes and the text with personal lines replaced (HW-AI-7).
 type PageMask struct {
-	Status      MaskStatus `json:"status"`
-	Reasons     []string   `json:"reasons"`
-	Boxes       []Quad     `json:"boxes"`
-	Manual      []Quad     `json:"manual"`
-	MaskedLines int        `json:"maskedLines"`
+	Status  MaskStatus `json:"status"`
+	Reasons []string   `json:"reasons"`
+	Boxes   []Quad     `json:"boxes"`
+	// Auto are the boxes the rules found, numbered in this order on the
+	// review page, including the ones a person turned off.
+	Auto        []MaskBox `json:"auto"`
+	Manual      []Quad    `json:"manual"`
+	MaskedLines int       `json:"maskedLines"`
 	// Text is the masked text, shown next to the original on the review
 	// page and in the viewer.
 	Text     string `json:"text"`
 	ImageSHA string `json:"-"`
+}
+
+// OffKeys lists the keys of the rule boxes a person turned off.
+func (m PageMask) OffKeys() []string {
+	var out []string
+	for _, b := range m.Auto {
+		if b.Off {
+			out = append(out, b.Key)
+		}
+	}
+	return out
 }

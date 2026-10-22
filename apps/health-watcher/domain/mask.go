@@ -1,8 +1,10 @@
 package domain
 
 import (
+	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -185,6 +187,8 @@ type MaskInput struct {
 	Method    PageMethod
 	People    []string
 	Manual    []Quad
+	// Off are the keys of rule boxes a person turned off.
+	Off []string
 	// Checked is true once a person checked the masked preview.
 	Checked       bool
 	Width, Height int
@@ -192,8 +196,9 @@ type MaskInput struct {
 
 // MaskResult is the masked page.
 type MaskResult struct {
-	Masked  []bool // per input line
+	Masked  []bool // per input line, without the lines turned off
 	Boxes   []Quad // black boxes on the image, manual ones included
+	Auto    []MaskBox
 	Text    string
 	Status  MaskStatus
 	Reasons []string
@@ -237,14 +242,32 @@ func MaskPage(in MaskInput) MaskResult {
 	if in.Method == MethodText {
 		pad = 0.05
 	}
+	res.Auto = []MaskBox{}
+	kept := map[string]bool{}
 	for i, l := range in.Lines {
-		if res.Masked[i] {
-			res.Boxes = append(res.Boxes, l.Quad.Expand(pad, in.Width, in.Height))
+		if !res.Masked[i] {
+			continue
+		}
+		b := MaskBox{Key: fmt.Sprintf("line:%d", i), Kind: MaskBoxLine, Quad: l.Quad.Expand(pad, in.Width, in.Height), Text: l.Text}
+		b.Off = slices.Contains(in.Off, b.Key)
+		res.Auto = append(res.Auto, b)
+		if b.Off {
+			res.Masked[i] = false
+			kept[rowKey(l.Text)] = true
+		} else {
+			res.Boxes = append(res.Boxes, b.Quad)
 		}
 	}
-	res.Boxes = append(res.Boxes, in.Barcodes...)
+	for i, q := range in.Barcodes {
+		b := MaskBox{Key: fmt.Sprintf("barcode:%d", i), Kind: MaskBoxBarcode, Quad: q}
+		b.Off = slices.Contains(in.Off, b.Key)
+		res.Auto = append(res.Auto, b)
+		if !b.Off {
+			res.Boxes = append(res.Boxes, q)
+		}
+	}
 	res.Boxes = append(res.Boxes, in.Manual...)
-	res.Text = maskText(in.Text, in.Lines, res.Masked, names, &nameFound)
+	res.Text = maskText(in.Text, in.Lines, res.Masked, kept, names, &nameFound)
 
 	if !in.HasImage {
 		res.Reasons = append(res.Reasons, ReasonNoImage)
@@ -314,15 +337,23 @@ func blurryTop(lines []Line) bool {
 // maskText replaces personal lines in the page text. It applies the line
 // rules to each line of the text itself (a label line with no value masks
 // the next line too), replaces the masked OCR lines wherever they appear,
-// then removes long digit runs and e-mail addresses anywhere. If a masked
-// line still shows after that, it falls back to the OCR lines in order.
-func maskText(text string, lines []Line, masked []bool, names [][]string, nameFound *bool) string {
+// then removes long digit runs and e-mail addresses anywhere. Rows that
+// match a line a person turned off stay as they are. If a masked line
+// still shows after that, it falls back to the OCR lines in order.
+func maskText(text string, lines []Line, masked []bool, kept map[string]bool, names [][]string, nameFound *bool) string {
 	if strings.TrimSpace(text) == "" {
-		return linesText(lines, masked)
+		return linesText(lines, masked, kept)
 	}
 	rows := strings.Split(text, "\n")
+	keep := make([]bool, len(rows))
+	for i, row := range rows {
+		keep[i] = kept[rowKey(row)]
+	}
 	hide := make([]bool, len(rows))
 	for i, row := range rows {
+		if keep[i] {
+			continue
+		}
 		m, labeled, personal := personalLine(row, names)
 		if !personal {
 			continue
@@ -332,29 +363,45 @@ func maskText(text string, lines []Line, masked []bool, names [][]string, nameFo
 		if labeled && m.empty {
 			for j := i + 1; j < len(rows); j++ {
 				if strings.TrimSpace(rows[j]) != "" {
-					hide[j] = true
+					hide[j] = !keep[j]
 					break
 				}
 			}
 		}
 	}
+	var checked []string
 	for i := range rows {
-		if hide[i] {
+		switch {
+		case hide[i]:
 			rows[i] = MaskPlaceholder
+		case !keep[i]:
+			rows[i] = scrubRow(rows[i], lines, masked)
+		}
+		if !keep[i] {
+			checked = append(checked, rows[i])
 		}
 	}
-	out := collapsePlaceholders(rows)
+	if leaks(strings.Join(checked, "\n"), lines, masked, names) {
+		return linesText(lines, masked, kept)
+	}
+	return collapsePlaceholders(rows)
+}
+
+// scrubRow replaces the masked OCR lines, long digit runs and e-mail
+// addresses in a row of text.
+func scrubRow(row string, lines []Line, masked []bool) string {
 	for i, l := range lines {
 		if masked[i] && strings.TrimSpace(l.Text) != "" {
-			out = strings.ReplaceAll(out, l.Text, MaskPlaceholder)
+			row = strings.ReplaceAll(row, l.Text, MaskPlaceholder)
 		}
 	}
-	out = longDigits.ReplaceAllString(out, MaskPlaceholder)
-	out = email.ReplaceAllString(out, MaskPlaceholder)
-	if leaks(out, lines, masked, names) {
-		return linesText(lines, masked)
-	}
-	return out
+	row = longDigits.ReplaceAllString(row, MaskPlaceholder)
+	return email.ReplaceAllString(row, MaskPlaceholder)
+}
+
+// rowKey compares a row of text with an OCR line, ignoring spacing.
+func rowKey(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // leaks reports whether a masked line or a person's name still shows in
@@ -378,17 +425,20 @@ func leaks(out string, lines []Line, masked []bool, names [][]string) bool {
 	return false
 }
 
-func linesText(lines []Line, masked []bool) string {
+func linesText(lines []Line, masked []bool, kept map[string]bool) string {
 	rows := make([]string, len(lines))
 	for i, l := range lines {
-		rows[i] = l.Text
-		if masked[i] {
+		switch {
+		case masked[i]:
 			rows[i] = MaskPlaceholder
+		case kept[rowKey(l.Text)]:
+			rows[i] = l.Text
+		default:
+			rows[i] = longDigits.ReplaceAllString(l.Text, MaskPlaceholder)
+			rows[i] = email.ReplaceAllString(rows[i], MaskPlaceholder)
 		}
 	}
-	out := collapsePlaceholders(rows)
-	out = longDigits.ReplaceAllString(out, MaskPlaceholder)
-	return email.ReplaceAllString(out, MaskPlaceholder)
+	return collapsePlaceholders(rows)
 }
 
 // collapsePlaceholders joins rows, writing one placeholder for a run of

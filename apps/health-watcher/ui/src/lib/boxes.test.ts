@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { boxesKey, dragQuad, quadPoints, usableBox } from './boxes';
+import type { MaskBox } from './api/types';
+import { boxesKey, dragQuad, labelAt, quadPoints, toggleOff, usableBox } from './boxes';
 
 describe('dragQuad', () => {
   it('orders the corners whichever way the drag went', () => {
@@ -37,5 +38,30 @@ describe('boxesKey', () => {
     const b = [dragQuad({ x: 0.1, y: 0.1 }, { x: 0.2, y: 0.3 })];
     expect(boxesKey(a)).toBe(boxesKey(structuredClone(a)));
     expect(boxesKey(a)).not.toBe(boxesKey(b));
+  });
+});
+
+describe('labelAt', () => {
+  it('puts the number at the top-left of the box bounds', () => {
+    const q = dragQuad({ x: 0.5, y: 0.25 }, { x: 0.25, y: 0.75 });
+    expect(labelAt(q, 200, 400)).toEqual({ x: 50, y: 100 });
+  });
+});
+
+describe('toggleOff', () => {
+  const box = (key: string, off: boolean): MaskBox => ({
+    key,
+    kind: 'line',
+    quad: dragQuad({ x: 0, y: 0 }, { x: 0.1, y: 0.1 }),
+    text: '',
+    off,
+  });
+  const auto = [box('line:1', false), box('line:4', true), box('barcode:0', false)];
+
+  it('turns a box off and keeps the others as they are', () => {
+    expect(toggleOff(auto, 'line:1')).toEqual(['line:1', 'line:4']);
+  });
+  it('turns an off box back on', () => {
+    expect(toggleOff(auto, 'line:4')).toEqual([]);
   });
 });

@@ -221,6 +221,10 @@ func TestGivenTwoTenantsWhenOneReachesForTheOthersReadingsThenEverythingIsNotFou
 			_, err := e.inbox.SetPageBoxes(e.ctx, b, item.Item.ID, item.Pages[0].ID, nil)
 			return err
 		}(),
+		"off": func() error {
+			_, err := e.inbox.SetPageOff(e.ctx, b, item.Item.ID, item.Pages[0].ID, nil)
+			return err
+		}(),
 		"page image": func() error { _, err := e.records.OpenPageImage(e.ctx, b, pageID, false); return err }(),
 		"masked":     func() error { _, err := e.records.OpenPageImage(e.ctx, b, item.Pages[0].ID, true); return err }(),
 		"document":   func() error { _, err := e.clinical.Document(e.ctx, b, doc.Document.ID); return err }(),
