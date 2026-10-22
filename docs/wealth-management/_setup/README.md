@@ -29,7 +29,6 @@ There is no env file. The engine reads its settings from a SQLite file, edited o
 - **API token (WM-SEC-1)**: set on the Settings page, General tab, **API token** card, and stored in `settings.db` as `API_TOKEN`. It is not an engine setting of the generic save: `POST /api/settings/api-token` replaces it, needs the current token when one is set, and applies at once without a restart. **Set on engine** also saves it in that browser; **Save in this browser** only stores a token you already have (another device). `GET /api/settings/api-token` says whether one is set, never its value. It cannot be cleared from the UI. While no token is set, writes work only when `HOST` is a loopback address, so set the first token at `http://localhost:9090/ui` before binding to the tailnet. An `API_TOKEN` environment variable is ignored, with a startup log line.
 - **Bad stored values never stop the engine**: an invalid card programs file or capture limit falls back to the defaults with an error log, so the Settings page stays reachable to fix it.
 - **Process environment is ignored for settings**: setting `GOOGLE_SHEETS_ID` and friends in the shell has no effect. Only the bootstrap variables in section 3.1 are read from the environment.
-- **Migrating an old `.env.local`**: `pnpx nx run wealth-management:import-settings` copies the known keys from `../../.env.local` and `apps/wealth-management/.env.local` (the app file wins) into the store, or from the files passed after `--`. It prints key names only, never values. Delete the env files afterwards.
 
 ## 3. Settings reference
 
@@ -143,29 +142,27 @@ Re-authorise the same way when the token expires (`invalid_grant`).
 
 Run from the repo root with `pnpx nx run wealth-management:<target>`. pnpm only; never bun, npm or yarn.
 
-| Target            | What it does                                                                                         |
-| ----------------- | ---------------------------------------------------------------------------------------------------- |
-| `serve`           | Dev: runs `serve-api` and `serve-ui` in parallel.                                                    |
-| `serve-api`       | Engine with live reload (`air`, `.air.toml`), port 9090 by default.                                  |
-| `serve-ui`        | Vite dev server for the UI (default port 5173, `/api` proxied to `localhost:9090`).                  |
-| `start`           | Prod-like: builds the UI (`build-ui:production`), then `go run .`; UI served by the engine at `/ui`. |
-| `build`           | Go build of the engine.                                                                              |
-| `build-ui`        | `vite build` into `ui/build/`.                                                                       |
-| `test`            | Go unit and contract tests (`go test ./...`).                                                        |
-| `test-ui`         | Vitest for the UI.                                                                                   |
-| `check-ui`        | `svelte-check` type check.                                                                           |
-| `lint`            | Go lint.                                                                                             |
-| `lint-ui`         | ESLint for the UI.                                                                                   |
-| `test-e2e`        | Live tests (`RUN_LIVE_API_TESTS=true`, `TestE2E*`). See section 6.                                   |
-| `verify-auth`     | Checks the OAuth credentials and sheet access (`cmd/verify_auth`).                                   |
-| `import-settings` | Copies an old `.env.local` into the settings store (`cmd/import_settings`).                          |
+| Target        | What it does                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------- |
+| `serve`       | Dev: runs `serve-api` and `serve-ui` in parallel.                                                    |
+| `serve-api`   | Engine with live reload (`air`, `.air.toml`), port 9090 by default.                                  |
+| `serve-ui`    | Vite dev server for the UI (default port 5173, `/api` proxied to `localhost:9090`).                  |
+| `start`       | Prod-like: builds the UI (`build-ui:production`), then `go run .`; UI served by the engine at `/ui`. |
+| `build`       | Go build of the engine.                                                                              |
+| `build-ui`    | `vite build` into `ui/build/`.                                                                       |
+| `test`        | Go unit and contract tests (`go test ./...`).                                                        |
+| `test-ui`     | Vitest for the UI.                                                                                   |
+| `check-ui`    | `svelte-check` type check.                                                                           |
+| `lint`        | Go lint.                                                                                             |
+| `lint-ui`     | ESLint for the UI.                                                                                   |
+| `test-e2e`    | Live tests (`RUN_LIVE_API_TESTS=true`, `TestE2E*`). See section 6.                                   |
+| `verify-auth` | Checks the OAuth credentials and sheet access (`cmd/verify_auth`).                                   |
 
 ## 5. CLIs
 
-The CLIs read and write the same settings store as the engine (`WM_SETTINGS_PATH` or the user config directory). Restart the engine after they change it.
+The CLI reads the same settings store as the engine (`WM_SETTINGS_PATH` or the user config directory).
 
 - **`verify-auth`** (`cmd/verify_auth`): reads `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` and `GOOGLE_SHEETS_ID`, refreshes an access token, then opens the spreadsheet. `invalid_grant` means the refresh token expired or was revoked (a Google Cloud project in "Testing" mode expires tokens after 7 days): use **Connect Google account** again (section 3.8).
-- **`import-settings`** (`cmd/import_settings`): see section 2. Values are validated like the Settings page; bootstrap and unknown keys are listed by name and skipped.
 
 ## 6. Live E2E tests (local workbook)
 

@@ -100,14 +100,6 @@
         "cwd": "apps/wealth-management"
       }
     },
-    "import-settings": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "go run ./cmd/import_settings",
-        "cwd": "apps/wealth-management"
-      },
-      "cache": false
-    },
     "verify-auth": {
       "executor": "nx:run-commands",
       "options": {
