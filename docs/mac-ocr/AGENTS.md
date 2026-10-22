@@ -61,9 +61,9 @@ _Binary output: `apps/mac-ocr/bin/mac-ocr`_ (also `pnpx nx build mac-ocr`; tests
 | `--timeout`   | Per-page recognition timeout (seconds)                   | `30`    |
 | `--page`      | Extract only page N (PDFs)                               | all     |
 
-## 🔗 AI Workflow Integration (GraphWeave)
+## 🔗 Use Before an LLM
 
-The tool is designed to be a reliable **CLI Node** primitive. This allows you to extract intelligence deterministically before passing it to an LLM.
+Run `mac-ocr` in a script to turn images and PDFs into text before any LLM step sees them. The Obsidian vault's inbox pipeline does this in `process_media_refs.sh`, which replaces each embedded image or PDF with its OCR text.
 
 ### Why use this over LLM Vision?
 
@@ -71,24 +71,11 @@ The tool is designed to be a reliable **CLI Node** primitive. This allows you to
 - **Spatial Awareness**: `--bbox` provides normalized coordinates (bottom-left origin) for table and header detection.
 - **Deterministic**: No hallucinations in text extraction; perfectly preserves numbers and technical terms.
 
-### Example Node Definition
+### Example
 
-```json
-{
-  "id": "document_ingest",
-  "type": "cli_node",
-  "config": {
-    "command": "apps/mac-ocr/bin/mac-ocr {{file_path}} --format json --bbox",
-    "output_key": "ocr_result"
-  }
-}
-```
-
-### Accessing Data in Downstream Nodes
-
-```
-{{document_ingest_output.ocr_result.pages[0].content}}
-{{document_ingest_output.ocr_result.summary.total_chars}}
+```sh
+apps/mac-ocr/bin/mac-ocr "$file_path" --format json --bbox > ocr.json
+jq -r '.pages[0].content, .summary.total_chars' ocr.json
 ```
 
 ## 🛠 Maintenance & Troubleshooting

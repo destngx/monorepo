@@ -120,7 +120,7 @@ The Gateway provides a uniform JSON error response that includes diagnostic data
 
 `POST /v1/chat/completions`
 
-The gateway supports transparent passthrough of OpenAI-compatible tool definitions. It also handles the complex translation between OpenAI and Anthropic tool formats. This allows you to use frameworks like **LangGraph** or **Graph-weave** with any backend.
+The gateway supports transparent passthrough of OpenAI-compatible tool definitions. It also handles the complex translation between OpenAI and Anthropic tool formats. This allows you to use frameworks like **LangGraph** with any backend.
 
 **Example Request (with Tools):**
 

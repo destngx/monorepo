@@ -2,9 +2,9 @@
 title: GraphWeave
 summary: A FastAPI service that validates JSON workflow graphs, stores them per tenant in Redis, and runs them as LLM agent loops with MCP tools, plus a SvelteKit editor for building them.
 year: 2026
-status: active
+status: archived
 stack: [Python, FastAPI, Redis, MCP, SvelteKit]
-repo: https://github.com/destngx/monorepo/tree/main/apps/graph-weave
+repo: https://github.com/destngx/monorepo/tree/61c58ea42f045c2ee3eac145d6e9d26cbee6a2f3/apps/graph-weave
 featured: true
 order: 1
 sfx: ドン
@@ -46,7 +46,10 @@ def is_stagnated(self, max_hops: Optional[int] = None) -> bool:
 - The project started with a mock executor and mock AI provider. The MVP phase replaced them with real Redis, real execution, and real LLM calls.
 - In April 2026 I changed direction and routed LLM calls through the AI gateway, so provider choice and fallback live in one service.
 
-## What's next
+## Why I archived it
 
-- The FULL phase is still pending. Planned work includes tenant isolation in Redis and execution, RBAC, rate limiting, quota management, error recovery, MCP sandboxing, and structured observability.
-- Kill switches at tenant, workflow, and thread scope, with half-open recovery, are specified but are FULL-phase work.
+In October 2026 I compared it with what already exists. n8n, Dify, Flowise, and Langflow store and run workflows as data, and n8n drafts them from a prompt. Tiered skill loading and isolated subagents are how Claude Code skills already work. The planned FULL phase (tenant isolation, RBAC, quotas) only pays off with tenants, and its one real user was my own note-ingestion pipeline.
+
+That pipeline now runs as an agent skill called headless with `claude -p --json-schema`, with shell scripts doing the claiming, OCR, validation, and file writes. Moving it showed two bugs GraphWeave never caught: drafts linked to source ids the model made up, and a draft once landed in the source-card list. The new runner checks both before writing anything.
+
+The code stays readable at the [last commit before removal](https://github.com/destngx/monorepo/tree/61c58ea42f045c2ee3eac145d6e9d26cbee6a2f3/apps/graph-weave).

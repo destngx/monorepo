@@ -119,7 +119,7 @@ The AI Gateway performs deep schema normalization when mapping between Anthropic
 
 ### 3. Integration with Orchestrators
 
-This gateway is optimized for use with stateful orchestrators like **LangGraph** or **Graph-weave**.
+This gateway is optimized for use with stateful orchestrators like **LangGraph**.
 
 - **Statefulness**: Orchestrators maintain the chat history and checkpointer (e.g., in Redis).
 - **Control**: By using the Gateway in Proxy Mode, the orchestrator has full visibility and control over tool execution results.

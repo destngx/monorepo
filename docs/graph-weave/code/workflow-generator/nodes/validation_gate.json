@@ -1,8 +1,0 @@
-{
-  "id": "validation_gate",
-  "type": "branch",
-  "display_name": "Validation Gate",
-  "config": {
-    "condition_expression": "$.nodes.assembler.result.is_valid"
-  }
-}

@@ -4,7 +4,7 @@
 
 - [AI Gateway](./ai-gateway/README.md)
 - [Web Crawler](./web-crawler/AGENTS.md)
-- [Graph Weave](./graph-weave/README.md)
+- [Graph Weave (archived)](./graph-weave/README.md)
 - [Wealth Management](./wealth-management/README.md)
 - [Health Watcher](./health-watcher/README.md)
 - [Portfolio Landpage: Writing Content](./portfolio-landpage/writing-content.md)

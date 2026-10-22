@@ -145,19 +145,12 @@ v1.2 changes (all additive):
 
 v1.1 changes: failed pages report `error` with empty `content` (previously an `[Error: ...]` string in `content`), `summary.warnings` is populated, and bbox entries carry `confidence`.
 
-## Integration with GraphWeave
+## Use before an LLM
 
-Use `mac-ocr` as a `cli_node` in your workflows for deterministic, cost-effective document ingestion.
+Run `mac-ocr` in a script to turn images and PDFs into text before an LLM step, so extraction costs nothing and keeps numbers exact:
 
-```json
-{
-  "id": "ingest_pdf",
-  "type": "cli_node",
-  "config": {
-    "command": "apps/mac-ocr/bin/mac-ocr {{input.file_path}} --format json",
-    "output_key": "ocr_data"
-  }
-}
+```sh
+apps/mac-ocr/bin/mac-ocr "$file_path" --format json > ocr.json
 ```
 
 ## Exit Codes
