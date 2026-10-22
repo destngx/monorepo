@@ -1,6 +1,7 @@
 package fiber
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -114,4 +115,31 @@ func TestGivenNoAIAddressWhenCheckingThenItExplainsWhy(t *testing.T) {
 	h.login()
 	resp, body := h.json(http.MethodPost, "/api/engine/settings/check-ai", nil)
 	wantStatus(t, resp, body, http.StatusConflict, CodeConflict)
+}
+
+func TestGivenAViewerWhenAskingForAIUsageThenTheyGetItButNotTheSettings(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	viewer, _ := h.member("viewer")
+	h.svc.Engine.ReadAIUsage = func(_ context.Context, _ domain.Settings) (domain.AIUsage, error) {
+		return domain.AIUsage{Provider: "openai", Windows: []domain.AIUsageWindow{{Name: "weekly", UsedPercent: 40}}}, nil
+	}
+
+	resp, body := viewer.json(http.MethodGet, "/api/engine/ai-usage", nil)
+	wantStatus(t, resp, body, http.StatusOK, "")
+	if string(body) != `{"enabled":false}` {
+		t.Fatalf("AI off = %s", body)
+	}
+	resp, body = h.json(http.MethodPut, "/api/engine/settings", map[string]any{"host": "127.0.0.1", "port": 9191,
+		"maxFileMb": 50, "maxBatchMb": 200, "workers": 2, "aiBaseUrl": "http://localhost:8080/v1", "aiTimeoutSeconds": 180})
+	wantStatus(t, resp, body, http.StatusOK, "")
+	resp, body = viewer.json(http.MethodGet, "/api/engine/ai-usage", nil)
+	wantStatus(t, resp, body, http.StatusOK, "")
+	if !strings.Contains(string(body), `"enabled":true`) || !strings.Contains(string(body), `"usedPercent":40`) {
+		t.Fatalf("AI on = %s", body)
+	}
+	resp, body = viewer.json(http.MethodGet, "/api/engine/settings", nil)
+	wantStatus(t, resp, body, http.StatusForbidden, "")
+	resp, body = (&harness{t: t, app: h.app, svc: h.svc}).json(http.MethodGet, "/api/engine/ai-usage", nil)
+	wantStatus(t, resp, body, http.StatusUnauthorized, "")
 }

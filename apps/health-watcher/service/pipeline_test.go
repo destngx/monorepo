@@ -496,3 +496,24 @@ func TestGivenAStoppedEngineWhenStartedThenFilesWithoutPagesAreRead(t *testing.T
 	cancel()
 	wg.Wait()
 }
+
+func TestGivenItemsReadWhileAIWasOffWhenAIIsTurnedOnThenOpenItemsAreSentForReading(t *testing.T) {
+	e := newEnv(t)
+	e.pipeline.Reader = nil
+	sc := e.setup()
+	open := e.uploadRead(sc, "lab")
+	discarded := e.uploadRead(sc, "lab second copy")
+	if err := e.inbox.Discard(e.ctx, sc, discarded.Item.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	e.pipeline.Configure(e.ocr, e.reader, 1)
+	e.drain()
+
+	if rd := readingOf(t, e.item(sc, open.Item.ID)); rd.Status != domain.ReadingDone {
+		t.Fatalf("open item reading = %+v", rd)
+	}
+	if len(e.reader.calls) != 1 {
+		t.Fatalf("reads = %d, want only the open item", len(e.reader.calls))
+	}
+}

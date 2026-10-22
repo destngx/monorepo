@@ -32,6 +32,8 @@ Settings live in the database, not in environment variables. An engine admin edi
 | Host                    | `127.0.0.1`                              | restart           | An address of this Mac. Use its Tailscale address to reach it from a phone.                                                       |
 | Port                    | `9191`                                   | restart           | 1024 to 65535.                                                                                                                    |
 
+Items read while AI reading was off are sent as soon as an admin sets the AI address; no _Retry_ is needed. With AI on, the menu bar shows the quota left on a two-ring gauge (outer ring weekly, inner ring 5 hours); hover it for the percentages and reset times.
+
 The model is always `gpt-6-luna` at low reasoning effort (D6); it is not a setting. _Check connection_ sends a small request with the saved AI settings and no health data.
 
 If the engine cannot listen on the saved host and port for about 30 seconds, for example because Tailscale is down, it starts on `127.0.0.1:9191` and logs why, so the page stays reachable on the Mac. A saved value that fails the checks, for example after editing the database by hand, keeps its default; the page names it until the next save.

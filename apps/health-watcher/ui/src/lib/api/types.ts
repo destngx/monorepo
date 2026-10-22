@@ -487,6 +487,36 @@ export interface AICheck {
   message: string;
 }
 
+/** One rate-limit window of the AI provider (HW-OPS-10). */
+export interface AIUsageWindow {
+  name: string; // "5h" | "weekly"
+  usedPercent: number;
+  resetsAt?: string;
+}
+
+/** Token totals an API-key account reports instead of windows. */
+export interface AIUsageTotals {
+  since?: string;
+  inputTokens: number;
+  outputTokens: number;
+  requests: number;
+}
+
+export interface AIUsage {
+  provider: string;
+  authMode?: string;
+  source?: string;
+  windows: AIUsageWindow[];
+  totals?: AIUsageTotals;
+}
+
+/** The menu bar quota; enabled is false while AI reading is off. */
+export interface AIUsageView {
+  enabled: boolean;
+  usage?: AIUsage;
+  error?: string;
+}
+
 /** A phone capture link (HW-IMP-9), shown once. qr is a PNG data URL of url. */
 export interface CaptureLink {
   url: string;

@@ -8,11 +8,14 @@ import (
 
 // engineRoutes are the Engine settings page: settings that apply to every
 // tenant on the Mac, and who may change them (HW-OPS-9). The service lets
-// only engine admins in.
+// only engine admins in, except to the AI quota (HW-OPS-10).
 func (s *server) engineRoutes(r fiber.Router) {
 	g := r.Group("/engine", func(c *fiber.Ctx) error {
 		c.Set(fiber.HeaderCacheControl, "private, no-store")
 		return c.Next()
+	})
+	g.Get("/ai-usage", func(c *fiber.Ctx) error {
+		return c.JSON(s.svc.Engine.AIUsage(c.UserContext()))
 	})
 	g.Get("/settings", func(c *fiber.Ctx) error {
 		v, err := s.svc.Engine.View(c.UserContext(), session(c).UserID)

@@ -30,6 +30,9 @@ type Engine struct {
 	Apply func(domain.Settings)
 	// PingAI sends a small request to the AI provider of s.
 	PingAI func(ctx context.Context, s domain.Settings) error
+	// ReadAIUsage reads the quota of the AI provider of s; its error is
+	// safe to show in a browser.
+	ReadAIUsage func(ctx context.Context, s domain.Settings) (domain.AIUsage, error)
 
 	// saveMu runs one Update at a time, so the stored and the live settings
 	// never disagree.
@@ -294,6 +297,29 @@ func (e *Engine) CheckAI(ctx context.Context, userID string) (AICheck, error) {
 		return AICheck{Message: err.Error()}, nil
 	}
 	return AICheck{OK: true, Message: fmt.Sprintf("%s answered at %s effort", domain.AIModel, domain.AIEffort)}, nil
+}
+
+// AIUsageView is the AI quota for the menu bar (HW-OPS-10).
+type AIUsageView struct {
+	// Enabled is false while AI reading is off; nothing else is set then.
+	Enabled bool            `json:"enabled"`
+	Usage   *domain.AIUsage `json:"usage,omitempty"`
+	// Error says why the quota could not be read.
+	Error string `json:"error,omitempty"`
+}
+
+// AIUsage reads the AI provider's quota. Every signed-in account may see
+// it: it holds no health data, and every member's uploads spend it.
+func (e *Engine) AIUsage(ctx context.Context) AIUsageView {
+	s := e.Current()
+	if !s.AIEnabled() {
+		return AIUsageView{}
+	}
+	u, err := e.ReadAIUsage(ctx, s)
+	if err != nil {
+		return AIUsageView{Enabled: true, Error: err.Error()}
+	}
+	return AIUsageView{Enabled: true, Usage: &u}
 }
 
 // Users lists every account, for granting admin.

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -46,6 +47,9 @@ type Pipeline struct {
 	mu sync.RWMutex
 	// changed is closed and replaced by each Configure, waking parked workers.
 	changed chan struct{}
+	// resumeOff is set when Configure turns AI reading on: the next worker
+	// sends the items whose reading is off.
+	resumeOff atomic.Bool
 }
 
 // Configure swaps the OCR tool, the AI reader (nil turns AI reading off)
@@ -53,6 +57,9 @@ type Pipeline struct {
 // progress finishes with the tools it started with.
 func (p *Pipeline) Configure(ocr port.OCR, reader port.Reader, workers int) {
 	p.mu.Lock()
+	if p.Reader == nil && reader != nil {
+		p.resumeOff.Store(true)
+	}
 	p.OCR, p.Reader, p.Workers = ocr, reader, workers
 	if p.changed != nil {
 		close(p.changed)
@@ -171,6 +178,12 @@ func (p *Pipeline) Drain(ctx context.Context) error {
 
 // RunOnce claims and runs one due job. It reports false when none is due.
 func (p *Pipeline) RunOnce(ctx context.Context) (bool, error) {
+	if p.resumeOff.CompareAndSwap(true, false) {
+		if err := p.resumeReadings(ctx); err != nil {
+			p.resumeOff.Store(true)
+			return false, err
+		}
+	}
 	job, err := p.Store.ClaimJob(ctx, p.Clock())
 	if errors.Is(err, domain.ErrNotFound) {
 		return false, nil
@@ -412,6 +425,23 @@ func (p *Pipeline) ScheduleReading(ctx context.Context, tenantID, itemID string,
 		return err
 	}
 	p.Wake()
+	return nil
+}
+
+// resumeReadings sends the unfiled items read while AI reading was off.
+func (p *Pipeline) resumeReadings(ctx context.Context) error {
+	items, err := p.Store.OffReadings(ctx)
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		if err := p.ScheduleReading(ctx, it.TenantID, it.ItemID, false); err != nil {
+			return err
+		}
+	}
+	if len(items) > 0 {
+		p.Log.Info("AI reading turned on: sending items read while it was off", "items", len(items))
+	}
 	return nil
 }
 

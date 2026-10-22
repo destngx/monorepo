@@ -1,0 +1,73 @@
+import { render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { engine } from '$lib/api/endpoints';
+import type { AIUsageView, Me } from '$lib/api/types';
+import { session } from '$lib/state/session.svelte';
+import AIUsageGauge from './AIUsageGauge.svelte';
+
+function signIn(admin: boolean) {
+  session.me = {
+    user: { id: 'u1', email: 'user@example.test', displayName: 'User', admin, createdAt: '2026-10-22T00:00:00Z' },
+    memberships: [],
+    csrfToken: 't',
+  } satisfies Me;
+}
+
+function answer(view: AIUsageView) {
+  vi.spyOn(engine, 'aiUsage').mockResolvedValue(view);
+}
+
+describe('AIUsageGauge', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    session.me = null;
+  });
+
+  it('Given both windows, when shown to an admin, then it reads what is left and links to the AI settings', async () => {
+    signIn(true);
+    answer({
+      enabled: true,
+      usage: {
+        provider: 'openai',
+        windows: [
+          { name: '5h', usedPercent: 20 },
+          { name: 'weekly', usedPercent: 60 },
+        ],
+      },
+    });
+
+    render(AIUsageGauge);
+
+    const gauge = await screen.findByLabelText('AI quota left: Weekly window 40%, 5-hour window 80%');
+    expect(gauge.getAttribute('href')).toBe('/ui/settings/engine');
+  });
+
+  it('Given a member who is not an admin, when shown, then the gauge is not a link', async () => {
+    signIn(false);
+    answer({ enabled: true, usage: { provider: 'openai', windows: [{ name: 'weekly', usedPercent: 10 }] } });
+
+    render(AIUsageGauge);
+
+    const gauge = await screen.findByLabelText('AI quota left: Weekly window 90%');
+    expect(gauge.tagName).toBe('SPAN');
+  });
+
+  it('Given the gateway fails, when shown, then the gauge says why', async () => {
+    signIn(true);
+    answer({ enabled: true, error: 'the AI provider returned 502 Bad Gateway' });
+
+    render(AIUsageGauge);
+
+    expect(await screen.findByLabelText('AI usage unavailable: the AI provider returned 502 Bad Gateway')).toBeTruthy();
+  });
+
+  it('Given AI reading is off, when loaded, then nothing is shown', async () => {
+    signIn(true);
+    answer({ enabled: false });
+
+    const { container } = render(AIUsageGauge);
+
+    await waitFor(() => expect(engine.aiUsage).toHaveBeenCalled());
+    expect(container.querySelector('svg')).toBeNull();
+  });
+});

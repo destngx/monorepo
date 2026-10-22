@@ -84,7 +84,8 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 		return nil, err
 	}
 	settings := &service.Engine{Deps: deps, Log: log, DefaultMacOCRBin: defaultBin, LocalAddrs: localAddrs,
-		PingAI: func(ctx context.Context, s domain.Settings) error { return newReader(s).Ping(ctx) }}
+		PingAI:      func(ctx context.Context, s domain.Settings) error { return newReader(s).Ping(ctx) },
+		ReadAIUsage: func(ctx context.Context, s domain.Settings) (domain.AIUsage, error) { return newReader(s).Usage(ctx) }}
 	current, imported, err := settings.Load(ctx, cfg.Legacy)
 	if err != nil {
 		_ = store.Close()

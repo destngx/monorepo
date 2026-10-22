@@ -18,8 +18,12 @@ import (
 	"apps/health-watcher/port"
 )
 
-// providerHeader picks the provider behind ai-gateway; the official API ignores it.
-const providerHeader = "X-AI-Provider"
+// providerHeader picks the provider behind ai-gateway; the official API
+// ignores it.
+const (
+	providerHeader  = "X-AI-Provider"
+	gatewayProvider = "openai"
+)
 
 // Config is the AI provider setting (HW-AI-1).
 type Config struct {
@@ -136,17 +140,8 @@ func (r *Reader) Ping(ctx context.Context) error {
 		"properties": map[string]any{"ok": map[string]any{"type": "boolean"}}, "required": []any{"ok"}}
 	body := r.request("Answer with ok set to true.", []content{{Type: "input_text", Text: "Connection check."}}, "connection_check", schema)
 	decoded, err := r.post(ctx, body)
-	// The check answers an admin's browser: give the status only, since a
-	// provider's error text can quote part of the key.
-	var se *statusError
-	var ue *unreachableError
-	switch {
-	case errors.As(err, &se):
-		return fmt.Errorf("the AI provider returned %d %s", se.code, http.StatusText(se.code))
-	case errors.As(err, &ue):
-		return errors.New("the AI provider is unreachable at this address")
-	case err != nil:
-		return errors.New("the AI provider answered, but not as expected")
+	if err != nil {
+		return publicError(err)
 	}
 	var out struct {
 		OK bool `json:"ok"`
@@ -155,6 +150,21 @@ func (r *Reader) Ping(ctx context.Context) error {
 		return errors.New("the AI provider answered, but not with the expected JSON")
 	}
 	return nil
+}
+
+// publicError is err as a browser may see it: the status only, since a
+// provider's error text can quote part of the key.
+func publicError(err error) error {
+	var se *statusError
+	var ue *unreachableError
+	switch {
+	case errors.As(err, &se):
+		return fmt.Errorf("the AI provider returned %d %s", se.code, http.StatusText(se.code))
+	case errors.As(err, &ue):
+		return errors.New("the AI provider is unreachable at this address")
+	default:
+		return errors.New("the AI provider answered, but not as expected")
+	}
 }
 
 func (r *Reader) request(instructions string, parts []content, name string, schema map[string]any) request {
@@ -184,10 +194,7 @@ func (r *Reader) post(ctx context.Context, body request) (response, error) {
 		return response{}, fmt.Errorf("build AI request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(providerHeader, "openai")
-	if r.cfg.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+r.cfg.APIKey)
-	}
+	r.authorize(req)
 	resp, err := r.http.Do(req)
 	if err != nil {
 		return response{}, &unreachableError{err: err}
@@ -219,6 +226,14 @@ func (r *Reader) post(ctx context.Context, body request) (response, error) {
 		}
 	}
 	return decoded, nil
+}
+
+// authorize picks the gateway's provider and sends the key, if any.
+func (r *Reader) authorize(req *http.Request) {
+	req.Header.Set(providerHeader, gatewayProvider)
+	if r.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+r.cfg.APIKey)
+	}
 }
 
 // statusError is a non-2xx answer.

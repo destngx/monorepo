@@ -1,6 +1,7 @@
 import { request } from './client';
 import type {
   AICheck,
+  AIUsageView,
   CaptureLink,
   AuditEntry,
   CreatedInvite,
@@ -74,8 +75,9 @@ export const auth = {
     request<Me>(`/invites/${encodeURIComponent(token)}/signup`, { method: 'POST', body }),
 };
 
-/** Engine settings and admins; the engine lets only engine admins in (HW-OPS-9). */
+/** Engine settings and admins; the engine lets only engine admins in (HW-OPS-9), except to the AI quota (HW-OPS-10). */
 export const engine = {
+  aiUsage: (fetch?: Fetch) => request<AIUsageView>('/engine/ai-usage', { fetch }),
   settings: (fetch?: Fetch) => request<EngineSettingsView>('/engine/settings', { fetch }),
   save: (body: EngineSettingsInput) => request<EngineSettingsView>('/engine/settings', { method: 'PUT', body }),
   checkAI: () => request<AICheck>('/engine/settings/check-ai', { method: 'POST' }),

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"apps/health-watcher/domain"
+	"apps/health-watcher/port"
 )
 
 const jobColumns = `id, tenant_id, kind, subject_id, status, attempts, next_attempt_at, last_error`
@@ -121,4 +122,24 @@ func (r repos) Reading(ctx context.Context, tenantID, itemID string) (domain.Rea
 		rd.NextAttemptAt = &t
 	}
 	return rd, nil
+}
+
+func (r repos) OffReadings(ctx context.Context) ([]port.TenantItem, error) {
+	rows, err := r.q.QueryContext(ctx, `SELECT r.tenant_id, r.item_id FROM readings r
+		JOIN inbox_items i ON i.id = r.item_id
+		WHERE r.status = 'off' AND i.status = 'new'
+		ORDER BY i.created_at`)
+	if err != nil {
+		return nil, fmt.Errorf("list readings that are off: %w", err)
+	}
+	defer rows.Close()
+	var out []port.TenantItem
+	for rows.Next() {
+		var ti port.TenantItem
+		if err := rows.Scan(&ti.TenantID, &ti.ItemID); err != nil {
+			return nil, fmt.Errorf("scan reading: %w", err)
+		}
+		out = append(out, ti)
+	}
+	return out, rows.Err()
 }

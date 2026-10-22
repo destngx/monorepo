@@ -312,3 +312,28 @@ func TestGivenQueuedReadingsWhenAIIsTurnedOffThenTheyShowAsOff(t *testing.T) {
 		t.Fatalf("after = %+v, reads = %d", items[0].Reading, len(e.reader.calls))
 	}
 }
+
+func TestGivenAnySignedInAccountWhenAskingForAIUsageThenItShowsTheQuotaOrWhyNot(t *testing.T) {
+	e := newEnv(t)
+	owner := e.setup()
+	usage := domain.AIUsage{Provider: "openai", Windows: []domain.AIUsageWindow{{Name: "5h", UsedPercent: 12}}}
+	var usageErr error
+	var got domain.Settings
+	e.engine.ReadAIUsage = func(_ context.Context, s domain.Settings) (domain.AIUsage, error) { got = s; return usage, usageErr }
+
+	if v := e.engine.AIUsage(e.ctx); v.Enabled || v.Usage != nil || v.Error != "" {
+		t.Fatalf("with AI off = %+v", v)
+	}
+	in := settingsInput(domain.DefaultSettings())
+	in.AIBaseURL, in.AIAPIKey = "http://localhost:8080/v1", ptr("sk-test")
+	if _, err := e.engine.Update(e.ctx, owner.UserID, in); err != nil {
+		t.Fatal(err)
+	}
+	if v := e.engine.AIUsage(e.ctx); !v.Enabled || v.Usage == nil || v.Usage.Windows[0].UsedPercent != 12 || got.AIAPIKey != "sk-test" {
+		t.Fatalf("with AI on = %+v", v)
+	}
+	usageErr = errors.New("the AI provider returned 502 Bad Gateway")
+	if v := e.engine.AIUsage(e.ctx); !v.Enabled || v.Usage != nil || v.Error != usageErr.Error() {
+		t.Fatalf("failing = %+v", v)
+	}
+}

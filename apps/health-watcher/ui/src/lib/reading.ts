@@ -37,7 +37,8 @@ export function readingState(item: InboxItem): ReadingState {
     case 'off':
       return {
         label: 'AI reading is off',
-        detail: 'File it by hand, or ask an engine admin to set the AI address in Engine settings.',
+        detail:
+          'File it by hand, or ask an engine admin to set the AI address in Engine settings. It is read as soon as AI is on.',
         tone: 'neutral',
       };
     case 'needs_check':

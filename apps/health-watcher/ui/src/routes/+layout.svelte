@@ -5,6 +5,7 @@
   import { page } from '$app/state';
   import { setUnauthorizedHandler } from '$lib/api/client';
   import { auth } from '$lib/api/endpoints';
+  import AIUsageGauge from '$lib/components/AIUsageGauge.svelte';
   import Icon, { type IconName } from '$lib/components/Icon.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
   import { session } from '$lib/state/session.svelte';
@@ -101,6 +102,7 @@
         <a href="{base}/search" class="icon-btn size-9 md:hidden" aria-label="Search" title="Search">
           <Icon name="search" size={18} />
         </a>
+        <AIUsageGauge />
         {#if (session.me?.memberships.length ?? 0) > 1}
           <label class="sr-only" for="tenant">Family or group</label>
           <select

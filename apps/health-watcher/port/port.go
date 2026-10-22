@@ -220,6 +220,14 @@ type ReadingRepo interface {
 	// Reading returns an item's reading with attempts and next attempt
 	// from its job; an item never read is domain.ErrNotFound.
 	Reading(ctx context.Context, tenantID, itemID string) (domain.Reading, error)
+	// OffReadings lists unfiled items whose reading is off, oldest first.
+	OffReadings(ctx context.Context) ([]TenantItem, error)
+}
+
+// TenantItem is an inbox item and its tenant.
+type TenantItem struct {
+	TenantID string
+	ItemID   string
 }
 
 // ClinicalRepo stores observations and findings with their audit log
