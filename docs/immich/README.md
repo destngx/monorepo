@@ -25,7 +25,7 @@ Sources:
 
 ## Alternatives considered
 
-- **Cloudinary.** The free tier is small and video bandwidth costs money. See the [archived app](../cloudinary-photos-app/README.md).
+- **Cloudinary.** The free tier is small and video bandwidth costs money. See the [archived app](../archived/cloudinary-photos-app/README.md).
 - **Google Photos, iCloud, OneDrive.** No setup, but the free tiers (5 to 15 GB) are far below the library size.
 - **Ente.** End-to-end encrypted and open source, but the free tier is small.
 - **Synology DS223j.** Its ARM CPU and 1 GB RAM cannot run Immich, and DSM 7.2.2 removed server-side HEVC processing, which iPhone video needs.

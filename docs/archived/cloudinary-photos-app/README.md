@@ -20,7 +20,7 @@ A Next.js photo manager built on Cloudinary. It uploaded images with `CldUploadB
 
 ## What replaced it
 
-[Immich](../immich/README.md), self-hosted on an always-on PC, with automatic backup from phones and tablets.
+[Immich](../../immich/README.md), self-hosted on an always-on PC, with automatic backup from phones and tablets.
 
 ## Restore
 
