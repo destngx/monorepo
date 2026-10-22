@@ -1,7 +1,8 @@
 import { api } from '$lib/api/endpoints';
 import { defer } from '$lib/api/load';
 import { captureAIStatus } from '$lib/capture/aiStatus';
-import { cardNameOptions, cardTagOptions, creditLines } from '$lib/capture/review';
+import { creditLines } from '$lib/accounts';
+import { cardNameOptions, cardTagOptions } from '$lib/capture/review';
 import type { PageLoad } from './$types';
 
 // Nothing is awaited: materials can be added while the AI status and the

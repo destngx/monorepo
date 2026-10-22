@@ -1,3 +1,4 @@
+import { creditLeft, type CreditLine } from '$lib/accounts';
 import { withSplitTag } from '$lib/budget/natures';
 import type {
   Account,
@@ -121,42 +122,6 @@ export interface BalanceProjection {
   credit?: { now: number; after: number };
 }
 
-/** A credit limit and the card accounts that draw on it. */
-export interface CreditLine {
-  limit: number;
-  accounts: string[];
-}
-
-const isCardAccount = (account: Account) => account.type === 'negative active use';
-
-/**
- * Each card account's credit line: its bank's limit, shared by every card
- * account the bank's cards bill to (WM-CARD-16), else the account's own
- * limit (Accounts C). Accounts with neither have no line.
- */
-export function creditLines(reports: CardBankReport[], accounts: Account[]): Map<string, CreditLine> {
-  const cards = new Map(accounts.filter(isCardAccount).map((account) => [account.name, account]));
-  const lines = new Map<string, CreditLine>();
-  for (const bank of reports) {
-    const names = [...new Set(bank.cards.map((card) => card.accountName))].filter((name) => cards.has(name));
-    if (bank.limit <= 0 || !names.length) continue;
-    const line = { limit: bank.limit, accounts: names };
-    for (const name of names) lines.set(name, line);
-  }
-  for (const account of cards.values()) {
-    if (!lines.has(account.name) && (account.creditLimit ?? 0) > 0) {
-      lines.set(account.name, { limit: account.creditLimit!, accounts: [account.name] });
-    }
-  }
-  return lines;
-}
-
-/** The limit less what the line's accounts owe; money paid in ahead is not extra room, as on the Cards page. */
-function creditLeft(line: CreditLine, balances: Map<string, number>): number {
-  const owed = line.accounts.reduce((sum, name) => sum + Math.max(0, -(balances.get(name) ?? 0)), 0);
-  return round(line.limit - owed);
-}
-
 /** The selected rows' change per account. */
 function selectedChanges(rows: ReviewRow[]): Map<string, number> {
   const changes = new Map<string, number>();
@@ -196,7 +161,7 @@ export function projectBalances(
         current: account.balance,
         change,
         after: round(account.balance + change),
-        ...(line ? { credit: { now: creditLeft(line, now), after: creditLeft(line, later) } } : {}),
+        ...(line ? { credit: { now: round(creditLeft(line, now)), after: round(creditLeft(line, later)) } } : {}),
       },
     ];
   });
@@ -225,7 +190,7 @@ export function runningBalances(
     const after = round(balance + rowDelta(row.tx));
     balances.set(row.tx.accountName, after);
     const line = lines.get(row.tx.accountName);
-    return line ? { amount: creditLeft(line, balances), credit: true } : { amount: after, credit: false };
+    return line ? { amount: round(creditLeft(line, balances)), credit: true } : { amount: after, credit: false };
   });
 }
 

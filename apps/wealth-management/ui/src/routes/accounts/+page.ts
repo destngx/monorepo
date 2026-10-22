@@ -13,4 +13,6 @@ export const load: PageLoad = ({ fetch }) => ({
   histories: defer(() => api.accountHistories(HISTORY_DAYS, { fetch })),
   summary: defer(() => api.dashboard({ fetch })),
   allocation: defer(() => api.allocation({ fetch })),
+  // The card set-up holds the bank limits that card accounts share (WM-CARD-16).
+  cards: defer(() => api.cards({ fetch })),
 });

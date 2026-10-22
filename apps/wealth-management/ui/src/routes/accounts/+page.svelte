@@ -2,7 +2,14 @@
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
-  import { groupAccounts, liquidityBreakdown, sumBalances, totalHistory } from '$lib/accounts';
+  import {
+    creditLines,
+    creditStandings,
+    groupAccounts,
+    liquidityBreakdown,
+    sumBalances,
+    totalHistory,
+  } from '$lib/accounts';
   import AccountFormModal from '$lib/accounts/AccountFormModal.svelte';
   import AccountGroupSection from '$lib/accounts/AccountGroupSection.svelte';
   import LiquidityCard from '$lib/accounts/LiquidityCard.svelte';
@@ -33,6 +40,14 @@
   let { data } = $props();
   const accounts = track(() => data.accounts);
   const histories = track(() => data.histories);
+  const cards = track(() => data.cards);
+  // Card rows show what is available once the bank limits are known; if the
+  // card set-up fails, only the accounts' own limits count.
+  const credits = $derived(
+    accounts.value && !cards.loading
+      ? creditStandings(accounts.value, creditLines(cards.value ?? [], accounts.value))
+      : null,
+  );
   // The balance history needs both the histories and the accounts.
   const historyData = $derived(joinStreamed(data.histories, data.accounts));
 
@@ -181,6 +196,7 @@
           open={isExpanded(group.key, group.expanded)}
           total={sumBalances(members)}
           histories={histories.value ?? {}}
+          {credits}
           ontoggle={() => (expanded[group.key] = !isExpanded(group.key, group.expanded))}
           onedit={openEdit}
           ondelete={(account) => (deleting = account)}

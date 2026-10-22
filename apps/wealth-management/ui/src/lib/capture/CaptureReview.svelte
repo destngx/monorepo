@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { CreditLine } from '$lib/accounts';
   import { invalidateAll } from '$app/navigation';
   import { ApiError } from '$lib/api/client';
   import { api } from '$lib/api/endpoints';
@@ -18,7 +19,6 @@
     rowProblems,
     ruleKey,
     runningBalances,
-    type CreditLine,
     type ReviewRow,
   } from './review';
   import BalancePanel from './BalancePanel.svelte';

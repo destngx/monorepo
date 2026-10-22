@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Account } from './api/types';
 import {
   adjustmentHref,
-  creditRemaining,
-  creditUtilization,
+  creditLines,
+  creditStandings,
   groupAccounts,
   LIQUIDITY_BY_TYPE,
   liquidityBreakdown,
@@ -12,7 +12,7 @@ import {
   sumBalances,
   totalHistory,
 } from './accounts';
-import { ACCOUNT_TYPES } from './api/types';
+import { ACCOUNT_TYPES, type CardBankReport } from './api/types';
 
 const account = (overrides: Partial<Account>): Account => ({
   name: 'A',
@@ -42,15 +42,64 @@ describe('groupAccounts', () => {
 });
 
 describe('credit helpers', () => {
-  it('reads remaining credit from a numeric note, else the balance', () => {
+  it('reads a number from a note', () => {
     expect(noteAmount('Còn 12.500.000')).toBe(12500000);
-    expect(creditRemaining(account({ note: '3,000,000', balance: -9 }))).toBe(3000000);
-    expect(creditRemaining(account({ note: 'due soon', balance: -9 }))).toBe(9);
+    expect(noteAmount('3,000,000')).toBe(3000000);
+    expect(noteAmount('due soon')).toBeNull();
+  });
+});
+
+describe('credit standings (WM-ACC-3)', () => {
+  const card = (name: string, balance: number, creditLimit: number | null = null) =>
+    account({ name, balance, creditLimit, type: 'negative active use' });
+  const accounts = [
+    card('Card Acme', -300_000),
+    card('Card Acme Extra', -200_000),
+    card('Card Solo', -1_500_000, 2_000_000),
+    card('Card Ahead', 100_000, 1_000_000),
+    card('Card Nolimit', -50_000),
+    account({ name: 'Bank', balance: 1_000_000 }),
+  ];
+  const reports = [
+    {
+      limit: 5_000_000,
+      cards: [
+        { accountName: 'Card Acme', keyword: 'platinum' },
+        { accountName: 'Card Acme Extra', keyword: 'gold' },
+      ],
+    },
+  ] as unknown as CardBankReport[];
+  const standings = creditStandings(accounts, creditLines(reports, accounts));
+
+  it('takes a shared bank limit less what every account on it owes', () => {
+    expect(standings.get('Card Acme')).toEqual({
+      limit: 5_000_000,
+      owed: 500_000,
+      available: 4_500_000,
+      utilization: 10,
+      sharedWith: ['Card Acme Extra'],
+    });
+    expect(standings.get('Card Acme Extra')?.sharedWith).toEqual(['Card Acme']);
+    expect(standings.get('Card Acme Extra')?.available).toBe(4_500_000);
   });
 
-  it('computes utilisation against the goal amount', () => {
-    expect(creditUtilization(account({ balance: -45, creditLimit: 50 }))).toBe(90);
-    expect(creditUtilization(account({ balance: -45 }))).toBeNull();
+  it("uses the account's own limit when no bank sets one", () => {
+    expect(standings.get('Card Solo')).toEqual({
+      limit: 2_000_000,
+      owed: 1_500_000,
+      available: 500_000,
+      utilization: 75,
+      sharedWith: [],
+    });
+  });
+
+  it('does not count money paid in ahead as extra room', () => {
+    expect(standings.get('Card Ahead')).toMatchObject({ owed: 0, available: 1_000_000, utilization: 0 });
+  });
+
+  it('gives no standing to a card without a limit or to other accounts', () => {
+    expect(standings.has('Card Nolimit')).toBe(false);
+    expect(standings.has('Bank')).toBe(false);
   });
 });
 

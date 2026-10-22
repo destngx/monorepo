@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AccountGroup } from '$lib/accounts';
+  import type { AccountGroup, CreditStanding } from '$lib/accounts';
   import type { Account, TrendPoint } from '$lib/api/types';
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
@@ -13,12 +13,14 @@
     /** Group total in VND. */
     total: number;
     histories: Record<string, TrendPoint[]>;
+    /** Card accounts' credit standings; null while the card set-up loads. */
+    credits: Map<string, CreditStanding> | null;
     ontoggle: () => void;
     onedit: AccountHandler;
     ondelete: AccountHandler;
   }
 
-  let { group, accounts, open, total, histories, ontoggle, onedit, ondelete }: Props = $props();
+  let { group, accounts, open, total, histories, credits, ontoggle, onedit, ondelete }: Props = $props();
 </script>
 
 <section class="glass mt-4">
@@ -40,7 +42,13 @@
   {#if open}
     <ul class="divide-y divide-slate-900/5 border-t border-slate-900/5 dark:divide-white/5 dark:border-white/5">
       {#each accounts as account (account.name)}
-        <AccountRow {account} history={histories[account.name] ?? []} {onedit} {ondelete} />
+        <AccountRow
+          {account}
+          history={histories[account.name] ?? []}
+          credit={credits ? (credits.get(account.name) ?? null) : undefined}
+          {onedit}
+          {ondelete}
+        />
       {/each}
     </ul>
   {/if}

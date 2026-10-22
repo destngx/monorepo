@@ -1,4 +1,4 @@
-import type { Account, AccountType, TrendPoint } from './api/types';
+import type { Account, AccountType, CardBankReport, TrendPoint } from './api/types';
 import type { IconName } from './components/Icon.svelte';
 
 export interface AccountGroup {
@@ -52,15 +52,71 @@ export function noteAmount(note: string | null): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-/** Credit remaining: the numeric note if present, else |balance| (WM-DASH-3). */
-export function creditRemaining(account: Account): number {
-  return noteAmount(account.note) ?? Math.abs(account.balance);
+/** A credit limit and the card accounts that draw on it. */
+export interface CreditLine {
+  limit: number;
+  accounts: string[];
 }
 
-/** Credit utilisation in percent from |balance| / creditLimit (WM-ACC-3). */
-export function creditUtilization(account: Account): number | null {
-  if (!account.creditLimit) return null;
-  return (Math.abs(account.balance) / account.creditLimit) * 100;
+/**
+ * Each card account's credit line: its bank's limit, shared by every card
+ * account the bank's cards bill to (WM-CARD-16), else the account's own
+ * limit (Accounts C). Accounts with neither have no line.
+ */
+export function creditLines(reports: CardBankReport[], accounts: Account[]): Map<string, CreditLine> {
+  const cards = new Map(accounts.filter(isCreditAccount).map((account) => [account.name, account]));
+  const lines = new Map<string, CreditLine>();
+  for (const bank of reports) {
+    const names = [...new Set(bank.cards.map((card) => card.accountName))].filter((name) => cards.has(name));
+    if (bank.limit <= 0 || !names.length) continue;
+    const line = { limit: bank.limit, accounts: names };
+    for (const name of names) lines.set(name, line);
+  }
+  for (const account of cards.values()) {
+    if (!lines.has(account.name) && (account.creditLimit ?? 0) > 0) {
+      lines.set(account.name, { limit: account.creditLimit!, accounts: [account.name] });
+    }
+  }
+  return lines;
+}
+
+/** What the line's accounts owe; money paid in ahead is not extra room, as on the Cards page. */
+function owedOn(line: CreditLine, balances: Map<string, number>): number {
+  return line.accounts.reduce((sum, name) => sum + Math.max(0, -(balances.get(name) ?? 0)), 0);
+}
+
+/** The limit less what the line's accounts owe. */
+export function creditLeft(line: CreditLine, balances: Map<string, number>): number {
+  return line.limit - owedOn(line, balances);
+}
+
+/** A card account's place on its credit line (WM-ACC-3). */
+export interface CreditStanding {
+  limit: number;
+  /** What every account on the line owes. */
+  owed: number;
+  available: number;
+  /** owed / limit, in percent. */
+  utilization: number;
+  /** The other card accounts drawing on the same limit. */
+  sharedWith: string[];
+}
+
+/** Each card account with a credit line, by name, from the accounts' balances. */
+export function creditStandings(accounts: Account[], lines: Map<string, CreditLine>): Map<string, CreditStanding> {
+  const balances = new Map(accounts.map((account) => [account.name, account.balance]));
+  const standings = new Map<string, CreditStanding>();
+  for (const [name, line] of lines) {
+    const owed = owedOn(line, balances);
+    standings.set(name, {
+      limit: line.limit,
+      owed,
+      available: line.limit - owed,
+      utilization: (owed / line.limit) * 100,
+      sharedWith: line.accounts.filter((other) => other !== name),
+    });
+  }
+  return standings;
 }
 
 export function accountIcon(type: AccountType): IconName {

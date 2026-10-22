@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { defer, settled, type Settled, type Streamed } from '$lib/api/load';
-import type { Account, DashboardSummary } from '$lib/api/types';
+import type { Account, CardBankReport, DashboardSummary } from '$lib/api/types';
 import { MASK } from '$lib/format';
 import { mask } from '$lib/state/mask.svelte';
 
@@ -33,6 +33,7 @@ const pendingData = () => ({
   histories: never(),
   summary: never<DashboardSummary>(),
   allocation: never(),
+  cards: never<CardBankReport[]>(),
 });
 
 const flush = async () => {
@@ -130,5 +131,63 @@ describe('Accounts page', () => {
     expect(calls.map((call) => call.name)).toEqual(['deleteAccount']);
     expect(confirm.getAttribute('aria-busy')).toBe('true');
     expect(confirm.textContent).toContain('Deleting…');
+  });
+
+  describe('credit card rows', () => {
+    const card = (name: string, balance: number, extra: Partial<Account> = {}): Account => ({
+      ...account(name, balance),
+      type: 'negative active use',
+      ...extra,
+    });
+    const accounts = [
+      card('Card Acme', -300_000, { note: 'Còn 9.000.000' }),
+      card('Card Acme Extra', -200_000),
+      card('Card Noted', -100_000, { note: 'Còn 700.000' }),
+      card('Card Bare', -400_000),
+    ];
+    const reports = [
+      {
+        limit: 5_000_000,
+        cards: [
+          { accountName: 'Card Acme', keyword: 'platinum' },
+          { accountName: 'Card Acme Extra', keyword: 'gold' },
+        ],
+      },
+    ] as unknown as CardBankReport[];
+    const row = (name: string) =>
+      (screen.getByText(name, { selector: 'p' }).closest('li')?.textContent ?? '').replace(/\s+/g, ' ');
+
+    it('Given a bank limit shared by two card accounts When the cards load Then each row shows the limit less what both owe', async () => {
+      mask.toggle();
+      render(AccountsPage, {
+        data: { ...pendingData(), accounts: settled(accounts), cards: settled(reports) } as never,
+      });
+      await flush();
+
+      expect(row('Card Acme')).toContain('Available 4.500.000 ₫ of 5.000.000 ₫');
+      expect(row('Card Acme')).toContain('Limit shared with Card Acme Extra');
+      expect(row('Card Acme')).not.toContain('9.000.000');
+      expect(row('Card Acme Extra')).toContain('Available 4.500.000 ₫ of 5.000.000 ₫');
+    });
+
+    it('Given a card with no limit When the cards load Then it shows the note amount, or no Available instead of the debt', async () => {
+      mask.toggle();
+      render(AccountsPage, {
+        data: { ...pendingData(), accounts: settled(accounts), cards: settled(reports) } as never,
+      });
+      await flush();
+
+      expect(row('Card Noted')).toContain('Available 700.000 ₫, from the note');
+      expect(row('Card Bare')).not.toContain('Available');
+    });
+
+    it('Given the card set-up is still loading When the accounts show Then no card row shows an Available amount yet', async () => {
+      mask.toggle();
+      render(AccountsPage, { data: { ...pendingData(), accounts: settled(accounts) } as never });
+      await flush();
+
+      expect(row('Card Acme')).not.toContain('Available');
+      expect(row('Card Noted')).not.toContain('Available');
+    });
   });
 });

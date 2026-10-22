@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { accountIcon, creditRemaining, creditUtilization, isCreditAccount } from '$lib/accounts';
+  import { accountIcon, isCreditAccount, noteAmount, type CreditStanding } from '$lib/accounts';
   import type { Account, TrendPoint } from '$lib/api/types';
   import Sparkline from '$lib/charts/Sparkline.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -14,13 +14,18 @@
     account: Account;
     /** Balance history, oldest first. */
     history: TrendPoint[];
+    /**
+     * A card account's credit line: its standing, null when it has no limit
+     * (the note's amount is shown instead), undefined while it loads.
+     */
+    credit?: CreditStanding | null;
     onedit: AccountHandler;
     ondelete: AccountHandler;
   }
 
-  let { account, history, onedit, ondelete }: Props = $props();
+  let { account, history, credit, onedit, ondelete }: Props = $props();
 
-  const utilization = $derived(isCreditAccount(account) ? creditUtilization(account) : null);
+  const noted = $derived(isCreditAccount(account) && credit === null ? noteAmount(account.note) : null);
   const recent = $derived(history.slice(-60));
 </script>
 
@@ -51,18 +56,21 @@
         Cleared <Money value={account.clearedBalance} />
       </p>
     {/if}
-    {#if isCreditAccount(account)}
-      <p class="muted text-xs">Available <Money value={creditRemaining(account)} /></p>
-    {/if}
-    {#if utilization !== null}
+    {#if credit}
+      <p class="muted text-xs">Available <Money value={credit.available} /> of <Money value={credit.limit} /></p>
       <div class="mt-1 flex items-center gap-2">
         <ProgressBar
-          percent={utilization}
-          color={utilization > 80 ? 'bg-orange-500' : 'bg-emerald-500'}
+          percent={credit.utilization}
+          color={credit.utilization > 80 ? 'bg-orange-500' : 'bg-emerald-500'}
           label="Utilisation"
         />
-        <span class="muted text-xs">{formatPercent(utilization, 0)}</span>
+        <span class="muted text-xs">{formatPercent(credit.utilization, 0)}</span>
       </div>
+      {#if credit.sharedWith.length}
+        <p class="muted text-xs">Limit shared with {credit.sharedWith.join(', ')}</p>
+      {/if}
+    {:else if noted !== null}
+      <p class="muted text-xs">Available <Money value={noted} />, from the note</p>
     {/if}
   </div>
   <div class="flex justify-end">

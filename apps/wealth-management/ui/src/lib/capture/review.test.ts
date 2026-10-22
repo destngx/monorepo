@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { creditLines } from '$lib/accounts';
 import type { Account, CaptureResult, CaptureSuggestion, CardBankReport } from '$lib/api/types';
 import {
   applyCategorySuggestion,
   cardNameOptions,
   cardTagOptions,
-  creditLines,
   fillCardTag,
   nonCardTags,
   pickCardTag,
