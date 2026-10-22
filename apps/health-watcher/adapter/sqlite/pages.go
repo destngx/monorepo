@@ -15,8 +15,8 @@ const pageColumns = `id, file_id, number, method, text, confidence, width, heigh
 
 func scanPage(scan func(...any) error) (domain.Page, error) {
 	var p domain.Page
-	var method, linesJSON, maskStatus, reasonsJSON, boxesJSON, manualJSON, autoJSON, maskText, maskSHA string
-	var barcodesJSON sql.NullString
+	var method, linesJSON, maskStatus, reasonsJSON, boxesJSON, manualJSON, maskText, maskSHA string
+	var barcodesJSON, autoJSON sql.NullString
 	var maskLines int
 	if err := scan(&p.ID, &p.FileID, &p.Number, &method, &p.Text, &p.Confidence, &p.Width, &p.Height, &p.ImageSHA, &linesJSON,
 		&barcodesJSON, &maskStatus, &reasonsJSON, &boxesJSON, &manualJSON, &autoJSON, &maskLines, &maskText, &maskSHA); err != nil {
@@ -38,8 +38,13 @@ func scanPage(scan func(...any) error) (domain.Page, error) {
 		for _, d := range []struct {
 			raw string
 			out any
-		}{{reasonsJSON, &m.Reasons}, {boxesJSON, &m.Boxes}, {manualJSON, &m.Manual}, {autoJSON, &m.Auto}} {
+		}{{reasonsJSON, &m.Reasons}, {boxesJSON, &m.Boxes}, {manualJSON, &m.Manual}} {
 			if err := json.Unmarshal([]byte(d.raw), d.out); err != nil {
+				return p, fmt.Errorf("decode page mask: %w", err)
+			}
+		}
+		if autoJSON.Valid {
+			if err := json.Unmarshal([]byte(autoJSON.String), &m.Auto); err != nil {
 				return p, fmt.Errorf("decode page mask: %w", err)
 			}
 		}
@@ -112,7 +117,7 @@ func (r repos) SavePages(ctx context.Context, tenantID, fileID string, pages []d
 			ON CONFLICT (file_id, number) DO UPDATE SET method = excluded.method, text = excluded.text,
 				confidence = excluded.confidence, width = excluded.width, height = excluded.height, image_sha = excluded.image_sha,
 				lines_json = excluded.lines_json, barcodes_json = excluded.barcodes_json, mask_status = '', mask_reasons_json = '[]',
-				mask_boxes_json = '[]', mask_manual_json = '[]', mask_auto_json = '[]', mask_lines = 0, mask_text = '', mask_image_sha = ''`,
+				mask_boxes_json = '[]', mask_manual_json = '[]', mask_auto_json = NULL, mask_lines = 0, mask_text = '', mask_image_sha = ''`,
 			p.ID, tenantID, fileID, p.Number, string(p.Method), p.Text, p.Confidence, p.Width, p.Height, p.ImageSHA, lines, barcodes,
 			formatTime(p.CreatedAt))
 		if err := exec(res, err, "page"); err != nil {

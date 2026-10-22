@@ -33,6 +33,9 @@ func (in *Inbox) Item(ctx context.Context, sc domain.Scope, itemID string) (Item
 	if err := in.withProgress(ctx, sc.TenantID, &item); err != nil {
 		return ItemDetail{}, err
 	}
+	if err := in.numberOldMasks(ctx, sc.TenantID, item); err != nil {
+		return ItemDetail{}, err
+	}
 	d := ItemDetail{Item: item, Pages: []domain.Page{}, AIEnabled: in.Pipeline != nil && in.Pipeline.AIEnabled()}
 	for _, f := range item.Files {
 		pages, err := in.Store.PagesOf(ctx, sc.TenantID, f.ID)
@@ -48,6 +51,36 @@ func (in *Inbox) Item(ctx context.Context, sc domain.Scope, itemID string) (Item
 		return ItemDetail{}, err
 	}
 	return d, nil
+}
+
+// numberOldMasks masks again the pages of an unfiled item that were
+// masked before boxes were numbered, so the review page can show the
+// numbers. The rules are the same, so what is sent doesn't change.
+func (in *Inbox) numberOldMasks(ctx context.Context, tenantID string, item domain.InboxItem) error {
+	if in.Pipeline == nil || item.Status != domain.InboxNew {
+		return nil
+	}
+	pages, _, err := in.Pipeline.itemPages(ctx, tenantID, item)
+	if err != nil {
+		return err
+	}
+	var names []string
+	for _, ip := range pages {
+		if ip.page.Mask == nil || ip.page.Mask.Auto != nil {
+			continue
+		}
+		if names == nil {
+			people, err := in.Store.People(ctx, tenantID)
+			if err != nil {
+				return err
+			}
+			names = peopleNames(people)
+		}
+		if _, err := in.Pipeline.maskPage(ctx, tenantID, ip, names); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // newItem returns an unfiled item, or a conflict when it is filed.

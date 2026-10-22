@@ -149,7 +149,8 @@ type PageMask struct {
 	Reasons []string   `json:"reasons"`
 	Boxes   []Quad     `json:"boxes"`
 	// Auto are the boxes the rules found, numbered in this order on the
-	// review page, including the ones a person turned off.
+	// review page, including the ones a person turned off. It is nil for a
+	// mask made before boxes were numbered.
 	Auto        []MaskBox `json:"auto"`
 	Manual      []Quad    `json:"manual"`
 	MaskedLines int       `json:"maskedLines"`

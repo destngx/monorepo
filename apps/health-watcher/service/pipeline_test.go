@@ -457,6 +457,24 @@ func TestGivenARuleBoxTurnedOffWhenSavedThenThePageIsRemaskedAndKeepsItThroughLa
 	}
 }
 
+func TestGivenAPageMaskedBeforeBoxesWereNumberedWhenTheItemOpensThenItIsMaskedAgainWithNumbers(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	e.person(sc, "Nguyễn Văn Mẫu")
+	d := e.uploadRead(sc, "lab")
+	if _, err := e.store.DB().ExecContext(e.ctx, `UPDATE pages SET mask_auto_json = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	if m, err := e.store.Page(e.ctx, sc.TenantID, d.Pages[0].ID); err != nil || m.Mask.Auto != nil {
+		t.Fatalf("old mask = %+v, %v", m.Mask, err)
+	}
+
+	m := e.item(sc, d.Item.ID).Pages[0].Mask
+	if len(m.Auto) == 0 || m.Auto[0].Key != "line:2" || m.Status != d.Pages[0].Mask.Status {
+		t.Fatalf("mask = %+v", m)
+	}
+}
+
 func TestGivenTwoItemsFromOneVisitWhenGroupedThenTheyFileAsOneVisit(t *testing.T) {
 	e := newEnv(t)
 	sc := e.setup()
