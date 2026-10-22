@@ -8,7 +8,7 @@ const form = createRawSnippet(() => ({
   render: () => '<form><label>Name <input id="name" /></label><input id="note" /></form>',
 }));
 
-function renderModal(props: { dismissible?: boolean; busy?: boolean } = {}) {
+function renderModal(props: { dismissible?: boolean; busy?: boolean; confirmClose?: string } = {}) {
   const onclose = vi.fn();
   render(Modal, { open: true, title: 'Example', onclose, children: body, ...props });
   const dialog = screen.getByRole('dialog', { hidden: true });
@@ -73,5 +73,31 @@ describe('Modal', () => {
     await fireEvent.pointerDown(dialog);
     await fireEvent.click(dialog);
     expect(onclose).not.toHaveBeenCalled();
+  });
+
+  it('lets Escape close it natively when nothing needs confirming', () => {
+    const { dialog } = renderModal();
+    const escape = new Event('cancel', { cancelable: true });
+    dialog.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(false);
+  });
+
+  it('asks before closing when it has unsaved work, and stays open on Cancel', async () => {
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal('confirm', confirm);
+    const { onclose, dialog } = renderModal({ confirmClose: 'Discard the photos?' });
+
+    dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    await fireEvent.pointerDown(dialog);
+    await fireEvent.click(dialog);
+    await fireEvent.click(screen.getByRole('button', { name: 'Close', hidden: true }));
+    expect(confirm).toHaveBeenCalledTimes(3);
+    expect(confirm).toHaveBeenCalledWith('Discard the photos?');
+    expect(onclose).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    await fireEvent.click(screen.getByRole('button', { name: 'Close', hidden: true }));
+    expect(onclose).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
   });
 });

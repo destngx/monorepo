@@ -15,10 +15,26 @@
     dismissible?: boolean;
     /** True while the dialog's action runs: it cannot be closed until the action ends. */
     busy?: boolean;
+    /** Asked before Escape, the backdrop or the close button closes it; closing waits for OK. */
+    confirmClose?: string;
   }
 
-  let { open, title, onclose, children, footer, wide = false, dismissible = true, busy = false }: Props = $props();
+  let {
+    open,
+    title,
+    onclose,
+    children,
+    footer,
+    wide = false,
+    dismissible = true,
+    busy = false,
+    confirmClose,
+  }: Props = $props();
   const closable = $derived(dismissible && !busy);
+
+  function requestClose() {
+    if (!confirmClose || confirm(confirmClose)) onclose();
+  }
   const FIRST_FIELD =
     '[data-autofocus], [data-modal-body] :is(input:not([type="hidden"]), select, textarea):not(:disabled)';
 
@@ -51,11 +67,13 @@
   onclick={(event) => {
     // The panel fills the dialog edge to edge, so only the backdrop targets the dialog itself.
     // Escape is the keyboard way to dismiss.
-    if (closable && pressedBackdrop && event.target === dialog) onclose();
+    if (closable && pressedBackdrop && event.target === dialog) requestClose();
     pressedBackdrop = false;
   }}
   oncancel={(event) => {
-    if (!closable) event.preventDefault();
+    // With a confirmation, Escape closes through requestClose so Cancel can stop it.
+    if (!closable || confirmClose) event.preventDefault();
+    if (closable && confirmClose) requestClose();
   }}
 >
   {#if open}
@@ -69,7 +87,7 @@
             aria-label="Close"
             title="Close"
             disabled={busy}
-            onclick={onclose}
+            onclick={requestClose}
           >
             <Icon name="x" size={16} />
           </button>
