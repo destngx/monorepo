@@ -21,9 +21,6 @@ export default [
       '**/__generated__/**',
       '**/*.d.ts',
       '**/*.svelte.d.ts',
-      // Legacy/reference surfaces not in active scope
-      'apps/cloudinary-photos-app/**',
-      'libs/cloudinary-photos-app/**',
     ],
   },
   // JavaScript base

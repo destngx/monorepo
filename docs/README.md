@@ -8,6 +8,11 @@
 - [Wealth Management](./wealth-management/README.md)
 - [Health Watcher](./health-watcher/README.md)
 - [Portfolio Landpage: Writing Content](./portfolio-landpage/writing-content.md)
+- [Cloudinary Photos App (archived)](./cloudinary-photos-app/README.md)
+
+## Self-hosted
+
+- [Immich photo server plan](./immich/README.md)
 
 ## Web Crawler
 

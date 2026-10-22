@@ -1,5 +1,3 @@
 # Retired projects: kept in the tree but excluded from the Nx graph (no lint/test/build).
-apps/cloudinary-photos-app
-libs/cloudinary-photos-app
 apps/wealth-management-legacy
 libs/wealth-management-legacy
