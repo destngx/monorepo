@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { AIUsageGauge } from '@libs/svelte-ai-usage';
+  import { AIUsageGauge } from '@libs/ui-kit';
   import { formatReset, leftColor } from '$lib/aiUsage';
   import { aiUsage } from '$lib/state/aiUsage.svelte';
   import { session } from '$lib/state/session.svelte';

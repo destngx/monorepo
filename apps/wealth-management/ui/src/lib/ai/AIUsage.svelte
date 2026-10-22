@@ -4,7 +4,7 @@
   import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatCompact, formatDate, formatDateTime, formatPercent } from '$lib/format';
-  import { resetsIn, windowLabel } from '@libs/svelte-ai-usage';
+  import { resetsIn, windowLabel } from '@libs/ui-kit';
   import { usageColor } from './usage';
   import { aiUsage } from './usage.svelte';
 

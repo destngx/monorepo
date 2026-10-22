@@ -35,3 +35,6 @@ export * from './load/load';
 export * from './load/deferred.svelte';
 export * from './status';
 export * from './format';
+
+export { default as AIUsageGauge } from './ai-usage/AIUsageGauge.svelte';
+export * from './ai-usage/usage';

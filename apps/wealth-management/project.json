@@ -2,7 +2,7 @@
   "name": "wealth-management",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
-  "implicitDependencies": ["svelte-ai-usage"],
+  "implicitDependencies": ["ui-kit"],
   "sourceRoot": "apps/wealth-management",
   "tags": ["type:app", "app:wealth-management", "scope:backend", "scope:frontend", "lang:go", "lang:typescript"],
   "targets": {

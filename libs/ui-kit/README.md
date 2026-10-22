@@ -1,6 +1,6 @@
 # ui-kit
 
-The shared theme, components and loading helpers of the web UIs, built to the rules in [docs/ui/README.md](../../docs/ui/README.md). It started from health-watcher's look, with wealth-management's loading stack and modal behaviour. No app uses it yet; health-watcher and wealth-management still have their own copies.
+The shared theme, components and loading helpers of the web UIs, built to the rules in [docs/ui/README.md](../../docs/ui/README.md). It started from health-watcher's look, with wealth-management's loading stack and modal behaviour. Health-watcher and wealth-management use only its AI usage gauge so far; for everything else they still have their own copies.
 
 ## What is in it
 
@@ -10,6 +10,7 @@ The shared theme, components and loading helpers of the web UIs, built to the ru
 | Components  | `Aurora`, `Badge`, `Button`, `Card`, `CopyField`, `EmptyState`, `Field`, `FoldToggle`, `Icon`, `MenuButton`, `Modal`, `PageTitle`, `Spinner`, `ThemeToggle`, `Toasts`.            |
 | Loading     | `defer`, `createLoader`, `classifyFailure`, `settle`, `settled`, `track`; `Deferred`, `LoadError`, `NavProgress`, `Loading` and the `Skeleton*` shapes.                           |
 | State       | `toasts`, `action()`, `createTheme(key)`, `applyTheme`, `themeScript(key)`.                                                                                                       |
+| AI usage    | `AIUsageGauge` and its helpers (`leftColorScale`, `resetsIn`, `windowLabel` and others): the quota that ai-gateway reports.                                                       |
 | Helpers     | `STATUS` and `usageTone` (`status.ts`); `formatDate`, `formatDateTime`, `todayISO`, `formatSize`, `MISSING` (`format.ts`).                                                        |
 
 ## Using it in an app
@@ -49,6 +50,22 @@ The paths below are for a UI at `apps/<app>/ui`.
 8. Add `"implicitDependencies": ["ui-kit"]` to the app's `project.json`, so Nx reruns the app's UI targets when this library changes.
 
 `Deferred`'s default Retry calls `invalidateAll` from `$app/navigation`, so the library works only inside a SvelteKit app. Its tests use a stub (`src/test/app-navigation.ts`).
+
+## The AI usage gauge
+
+The menu bar gauge of the AI quota that ai-gateway reports. The outer ring shows the weekly window and the inner ring the 5-hour window; a tap opens the details. An app that keeps its own `layout.css` (HW and WM today) needs only the alias, `@source '../../../../../libs/ui-kit/src/ai-usage';` and the `panel`, `muted`, `link`, `tabular` and `icon-btn` utilities. Render it with the app's quota state and theme:
+
+```svelte
+<AIUsageGauge
+  source={aiUsage}
+  leftColor={leftColorScale({ lightness: 0.7, chroma: 0.17, emptyHue: 25, fullHue: 150 })}
+  formatReset={formatDateTime}
+  errorClass="text-rose-600 dark:text-rose-400"
+  settingsHref="{base}/settings"
+/>
+```
+
+`source` is any object with `usage`, `error`, `loadedAt` and `load()`, plus an optional `enabled`. The gauge loads it on mount and every 5 minutes while the tab is visible.
 
 ## Targets
 

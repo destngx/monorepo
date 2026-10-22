@@ -17,7 +17,7 @@ const config = {
     // Built as an SPA and served by the Go engine (see apps/wealth-management/adapter/fiber/ui.go).
     adapter: adapter({ fallback: 'index.html' }),
     paths: { base: '/ui' },
-    alias: { '@libs/svelte-ai-usage': '../../../libs/svelte-ai-usage/src/index.ts' },
+    alias: { '@libs/ui-kit': '../../../libs/ui-kit/src/index.ts' },
   },
 };
 

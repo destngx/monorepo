@@ -1,8 +1,8 @@
-import { leftColorScale } from '@libs/svelte-ai-usage';
+import { leftColorScale } from '@libs/ui-kit';
 import { STATUS } from '$lib/status';
 
 // Presentation of the OpenAI quota reported by the ai-gateway (WM-SET-4); the
-// rest is shared with health-watcher in @libs/svelte-ai-usage.
+// rest is shared with health-watcher in @libs/ui-kit.
 
 /** Fill colour: amber from 70% used, rose from 90%. */
 export function usageColor(usedPercent: number): string {

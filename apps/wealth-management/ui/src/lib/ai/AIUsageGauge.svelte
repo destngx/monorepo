@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { AIUsageGauge } from '@libs/svelte-ai-usage';
+  import { AIUsageGauge } from '@libs/ui-kit';
   import { formatDateTime } from '$lib/format';
   import { leftColor } from './usage';
   import { aiUsage } from './usage.svelte';

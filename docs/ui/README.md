@@ -81,7 +81,7 @@ It also makes every `overflow-x-auto` a containing block (`position: relative`),
 
 Base rules use `:where()` so any utility on a component wins.
 
-`theme.css` defines these utilities with `@utility`. An app that keeps its own `layout.css` (HW and WM today) defines them with the same names and meaning. `libs/svelte-ai-usage` depends on `panel`, `muted`, `link`, `tabular` and `icon-btn`.
+`theme.css` defines these utilities with `@utility`. An app that keeps its own `layout.css` (HW and WM today) defines them with the same names and meaning. The AI usage gauge in `libs/ui-kit` uses `panel`, `muted`, `link`, `tabular` and `icon-btn`, so an app with its own `layout.css` needs at least those.
 
 | Utility        | Meaning                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -141,7 +141,7 @@ These components are in `libs/ui-kit`; import them from `@libs/ui-kit`. HW and W
 | `Icon`, `Spinner` | `Icon` is `aria-hidden`; a button carries the label.                                                                                                                                                                                                                                                                                                                                                                     |
 | `Aurora`          | Mount it once; the app sets its colours with `--aurora-1` to `--aurora-4` and `--dot`.                                                                                                                                                                                                                                                                                                                                   |
 | `MenuButton` (HW) | `aria-haspopup`, `aria-expanded`, `role="menu"`; arrow keys move, Escape and an outside click close.                                                                                                                                                                                                                                                                                                                     |
-| `AIUsageGauge`    | From `libs/svelte-ai-usage`, through the `@libs/svelte-ai-usage` alias. Add `@source` for the lib to `layout.css` and `implicitDependencies: ["svelte-ai-usage"]` to `project.json`.                                                                                                                                                                                                                                     |
+| `AIUsageGauge`    | The AI quota gauge: weekly window on the outer ring, 5-hour window on the inner one. HW and WM already import it from `@libs/ui-kit`, with `@source` for `libs/ui-kit/src/ai-usage` in their `layout.css`.                                                                                                                                                                                                               |
 
 ### Loading
 
