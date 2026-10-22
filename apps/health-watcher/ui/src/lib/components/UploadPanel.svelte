@@ -115,7 +115,7 @@
 </script>
 
 <section
-  class="panel border-2 border-dashed p-5 transition-colors {dragging ? 'border-accent-600 bg-accent-500/5' : ''}"
+  class="panel-strong border-dashed p-5 transition-colors {dragging ? 'border-accent-600 bg-accent-500/5' : ''}"
   aria-label="Upload"
   ondragover={(e) => {
     e.preventDefault();

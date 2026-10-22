@@ -18,7 +18,7 @@
   {#each toasts.items as toast (toast.id)}
     <div
       role={toast.kind === 'error' ? 'alert' : 'status'}
-      class="panel pointer-events-auto flex items-start gap-3 border-l-8 px-4 py-3 text-sm motion-safe:animate-[toast-in_160ms_ease-out] {tones[
+      class="panel-strong pointer-events-auto flex items-start gap-3 border-l-8 px-4 py-3 text-sm motion-safe:animate-[toast-in_160ms_ease-out] {tones[
         toast.kind
       ]}"
       data-kind={toast.kind}

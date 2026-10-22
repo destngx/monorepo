@@ -6,51 +6,54 @@
 /* Dark mode follows the .dark class set from the theme setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Neo-brutalism with quiet luxury: warm ivory paper, charcoal ink, solid
-   2px edges and hard offset shadows, one deep green accent, serif headings.
-   Colors are named by role; change a palette here and every page follows. */
+/* Refined brutalism: about 75% quiet luxury, 25% neo-brutalism. Ivory and
+   ink, a muted olive accent, oxide only for errors; editorial serif
+   headlines over a clean sans. Quiet surfaces are paper with a thin stone
+   line; the 2px ink edge and the hard shadow are kept for featured things
+   (buttons, modals, the upload zone, a card under the pointer). Colors are
+   named by role; change a palette here and every page follows. */
 @theme {
-  --font-sans: 'Avenir Next', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Playfair Display Variable', 'Iowan Old Style', Georgia, serif;
 
-  /* Warm neutrals: paper at the light end, ink at the dark end. */
-  --color-ink-50: #f8f5ee;
-  --color-ink-100: #efe9dd;
-  --color-ink-200: #e0d8c8;
-  --color-ink-300: #c9bfac;
-  --color-ink-400: #a59b88;
-  --color-ink-500: #7f7767;
-  --color-ink-600: #5f594d;
-  --color-ink-700: #464137;
-  --color-ink-800: #2f2c26;
-  --color-ink-900: #1f1d19;
-  --color-ink-950: #141310;
+  /* Warm neutrals: paper (50), ivory (100) and stone (200) at the light end, ink (900) at the dark end. */
+  --color-ink-50: #fffcf6;
+  --color-ink-100: #f4f0e8;
+  --color-ink-200: #d8d0c3;
+  --color-ink-300: #bdb4a5;
+  --color-ink-400: #9a9183;
+  --color-ink-500: #767064;
+  --color-ink-600: #59544a;
+  --color-ink-700: #403c35;
+  --color-ink-800: #2a2824;
+  --color-ink-900: #191916;
+  --color-ink-950: #0f0f0d;
 
-  /* Deep forest green: actions, links, what is selected. */
-  --color-accent-50: #eef3ee;
-  --color-accent-100: #dce6dc;
-  --color-accent-200: #b9cdba;
-  --color-accent-300: #93b296;
-  --color-accent-400: #6a8f70;
-  --color-accent-500: #4a704f;
-  --color-accent-600: #34573a;
-  --color-accent-700: #28452d;
-  --color-accent-800: #1e3522;
-  --color-accent-900: #152619;
-  --color-accent-950: #0d170f;
+  /* Muted olive: links, what is selected, quiet emphasis. */
+  --color-accent-50: #f4f4ec;
+  --color-accent-100: #e8e9d8;
+  --color-accent-200: #d2d4b5;
+  --color-accent-300: #b6b98c;
+  --color-accent-400: #969a6a;
+  --color-accent-500: #777b50;
+  --color-accent-600: #5f6340;
+  --color-accent-700: #4a4d32;
+  --color-accent-800: #383a26;
+  --color-accent-900: #26281a;
+  --color-accent-950: #17180f;
 
-  /* Oxblood: errors and destructive actions. */
-  --color-danger-50: #f8eeec;
-  --color-danger-100: #f0dad6;
-  --color-danger-200: #e2b5ad;
-  --color-danger-300: #cf8b80;
-  --color-danger-400: #b66252;
-  --color-danger-500: #984737;
-  --color-danger-600: #7b3629;
-  --color-danger-700: #612a20;
-  --color-danger-800: #482019;
-  --color-danger-900: #331612;
-  --color-danger-950: #1f0d0a;
+  /* Oxide: errors and destructive actions, nothing else. */
+  --color-danger-50: #f8ede9;
+  --color-danger-100: #f0d9d1;
+  --color-danger-200: #e1b3a4;
+  --color-danger-300: #cd8771;
+  --color-danger-400: #ba6a51;
+  --color-danger-500: #a64f38;
+  --color-danger-600: #8a402d;
+  --color-danger-700: #6e3324;
+  --color-danger-800: #53271c;
+  --color-danger-900: #3a1b13;
+  --color-danger-950: #22100b;
 
   /* Brass: warnings and things that wait for a person. */
   --color-warn-50: #faf4e6;
@@ -82,41 +85,46 @@
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-edge: var(--edge);
+  --color-rule: var(--rule);
 
   --shadow-brut: 4px 4px 0 0 var(--shade);
   --shadow-brut-sm: 2px 2px 0 0 var(--shade);
 
-  /* Small, square corners: rounded-xl and rounded-2xl stay boxy everywhere. */
-  --radius-lg: 0.25rem;
-  --radius-xl: 0.3125rem;
-  --radius-2xl: 0.375rem;
+  /* Square corners: rounded-lg, -xl and -2xl are square everywhere. Inputs
+     keep a 2px radius of their own. */
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
 }
 
 @layer base {
   :root {
     --canvas: var(--color-ink-100);
     --surface: var(--color-ink-50);
+    --rule: var(--color-ink-200);
     --edge: var(--color-ink-900);
     --shade: var(--color-ink-900);
-    /* The Aurora background: faint theme colours and a halftone dot. */
-    --aurora-1: color-mix(in srgb, var(--color-accent-500) 35%, transparent);
-    --aurora-2: color-mix(in srgb, var(--color-warn-400) 30%, transparent);
-    --aurora-3: color-mix(in srgb, var(--color-info-400) 28%, transparent);
-    --aurora-4: color-mix(in srgb, var(--color-danger-400) 18%, transparent);
-    --dot: color-mix(in srgb, var(--color-ink-900) 10%, transparent);
+    /* The Aurora background: faint olive, stone and a trace of oxide under a
+       halftone dot. */
+    --aurora-1: color-mix(in srgb, var(--color-accent-500) 30%, transparent);
+    --aurora-2: color-mix(in srgb, var(--color-ink-300) 40%, transparent);
+    --aurora-3: color-mix(in srgb, var(--color-accent-300) 28%, transparent);
+    --aurora-4: color-mix(in srgb, var(--color-danger-400) 12%, transparent);
+    --dot: color-mix(in srgb, var(--color-ink-900) 9%, transparent);
   }
-  /* In the dark the edge is a soft taupe and the shadow a deep brown, so
+  /* In the dark the edge is a soft stone and the shadow a deep brown, so
      the blocks stay quiet. */
   .dark {
     --canvas: var(--color-ink-950);
     --surface: var(--color-ink-900);
-    --edge: var(--color-ink-400);
+    --rule: var(--color-ink-800);
+    --edge: var(--color-ink-300);
     --shade: var(--color-ink-700);
-    --aurora-1: color-mix(in srgb, var(--color-accent-500) 26%, transparent);
-    --aurora-2: color-mix(in srgb, var(--color-warn-500) 18%, transparent);
-    --aurora-3: color-mix(in srgb, var(--color-info-500) 22%, transparent);
-    --aurora-4: color-mix(in srgb, var(--color-danger-500) 12%, transparent);
-    --dot: color-mix(in srgb, var(--color-ink-100) 7%, transparent);
+    --aurora-1: color-mix(in srgb, var(--color-accent-500) 24%, transparent);
+    --aurora-2: color-mix(in srgb, var(--color-ink-600) 30%, transparent);
+    --aurora-3: color-mix(in srgb, var(--color-accent-700) 30%, transparent);
+    --aurora-4: color-mix(in srgb, var(--color-danger-600) 10%, transparent);
+    --dot: color-mix(in srgb, var(--color-ink-100) 6%, transparent);
   }
 
   html {
@@ -131,15 +139,16 @@
   h2,
   h3 {
     font-family: var(--font-display);
+    font-weight: 500;
     letter-spacing: -0.01em;
   }
 
   ::selection {
-    @apply bg-warn-200 text-ink-950;
+    @apply bg-accent-200 text-ink-950;
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-accent-600 dark:outline-accent-300;
+    @apply outline-2 outline-offset-2 outline-ink-900 dark:outline-ink-100;
   }
 
   /* Interaction feedback for every page (same rules as wealth-management).
@@ -171,7 +180,7 @@
   }
   /* Table body rows highlight under the pointer. */
   :where(tbody > tr) {
-    @apply transition-colors hover:bg-warn-100/50 dark:hover:bg-ink-50/[0.04];
+    @apply transition-colors hover:bg-ink-100 dark:hover:bg-ink-50/[0.04];
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -189,72 +198,80 @@
 
 /* Shared component styles; @utility makes them usable with variants and @apply. */
 
-/* A card: paper on the canvas, a solid edge and a hard shadow. */
+/* A quiet surface: paper on the ivory canvas with a thin stone line. */
 @utility panel {
-  @apply rounded-2xl border-2 border-edge bg-surface shadow-brut;
+  @apply border border-rule bg-surface;
+}
+
+/* A featured surface: the 2px ink edge and a hard shadow. Modals, the
+   login card, notifications, the upload zone. */
+@utility panel-strong {
+  @apply border-2 border-edge bg-surface shadow-brut;
 }
 
 /* Buttons sit on a small hard shadow, lift a pixel on hover and press flat
    into their shadow. */
 @utility btn {
-  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-edge px-3.5 py-2 text-sm font-semibold tracking-wide shadow-brut-sm transition duration-150 ease-out select-none hover:-translate-x-px hover:-translate-y-px hover:shadow-brut focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-0 disabled:hover:shadow-brut-sm aria-busy:cursor-progress aria-disabled:cursor-not-allowed motion-reduce:hover:translate-0 motion-reduce:active:translate-0;
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 border-2 border-edge px-4 py-2 text-sm font-semibold tracking-wide shadow-brut-sm transition duration-150 ease-out select-none hover:-translate-x-px hover:-translate-y-px hover:shadow-brut focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-0 disabled:hover:shadow-brut-sm aria-busy:cursor-progress aria-disabled:cursor-not-allowed motion-reduce:hover:translate-0 motion-reduce:active:translate-0 dark:focus-visible:outline-ink-100;
 }
+/* The main action: solid ink, the highest contrast on the page. */
 @utility btn-primary {
-  @apply btn bg-accent-700 text-ink-50 hover:bg-accent-600 active:bg-accent-800 disabled:hover:bg-accent-700 dark:bg-accent-300 dark:text-ink-950 dark:hover:bg-accent-200;
+  @apply btn bg-ink-900 text-ink-50 hover:bg-ink-800 active:bg-ink-950 disabled:hover:bg-ink-900 dark:bg-ink-100 dark:text-ink-950 dark:hover:bg-ink-50;
 }
 /* A quiet button: no edge until the pointer is on it. */
 @utility btn-ghost {
-  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-transparent px-3.5 py-2 text-sm font-medium text-ink-700 transition duration-150 ease-out select-none hover:border-edge hover:bg-surface hover:text-ink-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:bg-ink-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-transparent disabled:hover:bg-transparent aria-busy:cursor-progress dark:text-ink-200 dark:hover:text-ink-50 dark:active:bg-ink-800;
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 border-2 border-transparent px-3.5 py-2 text-sm font-medium text-ink-700 transition duration-150 ease-out select-none hover:border-edge hover:bg-surface hover:text-ink-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900 active:bg-ink-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-transparent disabled:hover:bg-transparent aria-busy:cursor-progress dark:text-ink-200 dark:hover:text-ink-50 dark:focus-visible:outline-ink-100 dark:active:bg-ink-800;
 }
 @utility btn-danger {
-  @apply btn bg-danger-600 text-ink-50 hover:bg-danger-500 active:bg-danger-700 disabled:hover:bg-danger-600;
+  @apply btn bg-danger-500 text-ink-50 hover:bg-danger-600 active:bg-danger-700 disabled:hover:bg-danger-500;
 }
 
 @utility field {
-  @apply w-full rounded-lg border-2 border-edge bg-surface px-3 py-2 text-sm text-ink-900 transition-[box-shadow,background-color] duration-150 placeholder:text-ink-400 focus:shadow-brut-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger-600 dark:text-ink-100;
+  @apply w-full rounded-[2px] border border-ink-400 bg-surface px-3 py-2 text-sm text-ink-900 transition-[border-color,box-shadow] duration-150 placeholder:text-ink-400 hover:border-ink-600 focus:border-edge focus:shadow-brut-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger-500 dark:border-ink-600 dark:text-ink-100 dark:hover:border-ink-400;
 }
-/* Form labels: small capitals with wide spacing. */
+/* Form labels: compact uppercase metadata. */
 @utility label {
   @apply mb-1.5 block text-[0.6875rem] font-semibold tracking-[0.12em] text-ink-600 uppercase dark:text-ink-400;
 }
 
 /* A section heading: the display serif. */
 @utility heading {
-  @apply font-display text-lg font-semibold text-ink-800 dark:text-ink-100;
+  @apply font-display text-xl font-medium text-ink-900 dark:text-ink-50;
 }
 
-/* A small capital line above a heading or a group, in brass. */
+/* Compact uppercase metadata above a heading or a group, in olive. */
 @utility eyebrow {
-  @apply text-[0.6875rem] font-semibold tracking-[0.14em] text-warn-700 uppercase dark:text-warn-300;
+  @apply text-[0.6875rem] font-semibold tracking-[0.16em] text-accent-700 uppercase dark:text-accent-300;
 }
 
 /* A status tag: a small square label with a thin edge in its own color. */
 @utility tag {
-  @apply inline-flex w-fit items-center gap-1.5 rounded-sm border border-current/35 px-2 py-0.5 text-xs font-semibold tracking-wide;
+  @apply inline-flex w-fit items-center gap-1.5 border border-current/40 px-2 py-0.5 text-[0.6875rem] font-semibold tracking-[0.08em] uppercase;
 }
 
 @utility muted {
   @apply text-ink-500 dark:text-ink-400;
 }
 
-/* A text link: accent with an underline that thickens on hover. */
+/* A text link: ink with an olive underline that thickens on hover. */
 @utility link {
-  @apply cursor-pointer text-accent-700 underline decoration-1 underline-offset-3 transition-colors hover:decoration-2 dark:text-accent-300;
+  @apply cursor-pointer text-ink-900 underline decoration-accent-500 decoration-1 underline-offset-3 transition-colors hover:decoration-2 dark:text-ink-50 dark:decoration-accent-300;
 }
 
-/* A card or tile that is clickable as a whole: lift on hover, press flat. */
+/* A card or tile that is clickable as a whole: quiet until the pointer is
+   on it, then the ink edge and a hard shadow; it presses flat. */
 @utility interactive {
-  @apply cursor-pointer transition duration-150 ease-out hover:-translate-x-px hover:-translate-y-px hover:shadow-[6px_6px_0_0_var(--shade)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:translate-0.5 active:shadow-none motion-reduce:hover:translate-0;
+  @apply cursor-pointer transition duration-150 ease-out hover:-translate-x-px hover:-translate-y-px hover:border-edge hover:shadow-brut focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900 active:translate-0.5 active:shadow-none motion-reduce:hover:translate-0 dark:focus-visible:outline-ink-100;
 }
 
 /* A table row or list item that opens something. */
 @utility row-link {
-  @apply cursor-pointer transition-colors hover:bg-warn-100/60 active:bg-warn-100 dark:hover:bg-ink-50/[0.06];
+  @apply cursor-pointer transition-colors hover:bg-ink-100 active:bg-ink-200 dark:hover:bg-ink-50/[0.06];
 }
 
 /* Skeleton placeholder shape (lib/components/skeleton). */
 @utility skeleton {
-  @apply rounded-md bg-ink-900/[0.07] motion-safe:animate-pulse dark:bg-ink-50/[0.08];
+  @apply bg-ink-900/[0.07] motion-safe:animate-pulse dark:bg-ink-50/[0.08];
 }
 
 @utility tabular {
@@ -263,5 +280,5 @@
 
 /* Small icon buttons, such as the chat message toolbar. */
 @utility icon-btn {
-  @apply inline-grid size-7 cursor-pointer place-items-center rounded-lg border-2 border-transparent text-ink-600 transition duration-150 hover:border-edge hover:bg-surface hover:text-ink-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:bg-ink-200 dark:text-ink-300 dark:hover:text-ink-50 dark:active:bg-ink-800;
+  @apply inline-grid size-7 cursor-pointer place-items-center border-2 border-transparent text-ink-600 transition duration-150 hover:border-edge hover:bg-surface hover:text-ink-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900 active:bg-ink-200 dark:text-ink-300 dark:hover:text-ink-50 dark:focus-visible:outline-ink-100 dark:active:bg-ink-800;
 }

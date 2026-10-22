@@ -25,7 +25,9 @@
 
 <dialog
   bind:this={dialog}
-  class="panel m-auto w-[calc(100%-2rem)] p-0 text-inherit backdrop:bg-ink-950/50 {wide ? 'max-w-3xl' : 'max-w-lg'}"
+  class="panel-strong m-auto w-[calc(100%-2rem)] p-0 text-inherit backdrop:bg-ink-950/50 {wide
+    ? 'max-w-3xl'
+    : 'max-w-lg'}"
   {onclose}
   oncancel={(event) => {
     if (!dismissible) event.preventDefault();

@@ -4,7 +4,7 @@
   "start_url": "/ui/",
   "scope": "/ui/",
   "display": "standalone",
-  "background_color": "#efe9dd",
-  "theme_color": "#efe9dd",
+  "background_color": "#f4f0e8",
+  "theme_color": "#f4f0e8",
   "icons": [{ "src": "/ui/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
 }
