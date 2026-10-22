@@ -159,7 +159,8 @@ All of it is in `libs/ui-kit`. An app whose API errors need more than the defaul
 
 - A status is never shown by colour alone. Pair it with an icon and a label, and give the label to screen readers (`sr-only` "Good:").
 - Use the one status scale, `STATUS` in `libs/ui-kit` (`good`, `warning`, `serious`, `critical`, `info`, `neutral`, each with icon, label and classes). It is built on the `good`, `warn`, `danger`, `info` and `ink` tokens.
-- Chart series colours come from one `lib/charts/palette.ts` in a fixed order, each checked against both theme surfaces with the dataviz skill's palette validator. Do not write a hex colour in a chart. Tell estimated or secondary series apart by dash and marker shape as well as colour.
+- Charts are hand-written SVG. `libs/ui-kit` has the geometry (`extent`, `scale`, `ticks`, `toDay`, `dateTicks`, `linePoints`, `linePath`, `areaPath`, `arcPath`, `slices`, `radarPoints`), `leavesReadout` for hover readouts that stay open after a tap, and the small charts `Sparkline`, `Donut`, `Ring` and `Radar`. A chart tied to one app's data or formatting (an axis that masks amounts, a metric's reference bands) stays in that app and is built on the same geometry.
+- Series colours come from `PALETTE` in `libs/ui-kit` in a fixed order, with `PRIMARY` for a chart's one series and `NEUTRAL` for context such as a cap. The palette passes the dataviz skill's validator on both apps' light and dark surfaces. An app's own colour sets (income and expense, flagged results) go in its `lib/charts/palette.ts`, each checked as a set on that app's surfaces with the same validator. Do not write a hex colour in a chart. Tell estimated or secondary series apart by dash and marker shape as well as colour.
 
 ## 8. Motion
 

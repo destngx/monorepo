@@ -1,9 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import type { Allocation } from '$lib/api/types';
-  import Donut from '$lib/charts/Donut.svelte';
+  import { Card, Donut } from '@libs/ui-kit';
   import Badge from '$lib/components/Badge.svelte';
-  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatPercent } from '$lib/format';
   import { ALLOCATION_COLORS, allocationSlices, allocationStatus } from './allocation';

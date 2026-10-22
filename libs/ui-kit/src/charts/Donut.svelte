@@ -31,7 +31,7 @@
       r={r - thickness / 2}
       fill="none"
       stroke-width={thickness}
-      class="stroke-stone-900/5 dark:stroke-white/5"
+      class="stroke-ink-900/5 dark:stroke-ink-50/5"
     />
     {#each arcs as arc (arc.label)}
       {#if arc.fraction > 0}

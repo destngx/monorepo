@@ -1,7 +1,16 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { track, Card, Deferred, EmptyState, Icon, SkeletonCard, SkeletonChart, SkeletonStat } from '@libs/ui-kit';
-  import Donut from '$lib/charts/Donut.svelte';
+  import {
+    track,
+    Card,
+    Deferred,
+    EmptyState,
+    Icon,
+    SkeletonCard,
+    SkeletonChart,
+    SkeletonStat,
+    Donut,
+  } from '@libs/ui-kit';
   import { PALETTE } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';

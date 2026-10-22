@@ -2,8 +2,7 @@
   import Masked from '$lib/components/Masked.svelte';
   import { formatCompact, formatDate } from '$lib/format';
   import { mask } from '$lib/state/mask.svelte';
-  import { extent, linePath, scale, ticks } from './geometry';
-  import { leavesReadout } from './hover';
+  import { extent, linePath, scale, ticks, leavesReadout } from '@libs/ui-kit';
   import MaskedAxis from './MaskedAxis.svelte';
   import { PRIMARY } from './palette';
 

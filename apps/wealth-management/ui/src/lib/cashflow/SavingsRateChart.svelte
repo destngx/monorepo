@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { CashFlow, SavingsTarget } from '$lib/api/types';
-  import { ticks, scale } from '$lib/charts/geometry';
-  import { leavesReadout } from '$lib/charts/hover';
+  import { ticks, scale, leavesReadout } from '@libs/ui-kit';
   import { PRIMARY } from '$lib/charts/palette';
   import Masked from '$lib/components/Masked.svelte';
   import { formatCompact, formatMonth, formatPercent } from '$lib/format';

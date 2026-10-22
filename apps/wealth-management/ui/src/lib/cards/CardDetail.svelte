@@ -3,11 +3,10 @@
   import { api } from '$lib/api/endpoints';
   import BarChart from '$lib/charts/BarChart.svelte';
   import { BESIDE_FLOWS, EXPENSE, INCOME, NEUTRAL } from '$lib/charts/palette';
-  import Ring from '$lib/charts/Ring.svelte';
+  import { Card, Ring } from '@libs/ui-kit';
   import type { CardBankReport, CardReport } from '$lib/api/types';
   import { capsLeft, cardPeriodCap, cumulative, formatMccs, MCC_STATUS, RECONCILIATION, UTILIZATION } from './cards';
   import Badge from '$lib/components/Badge.svelte';
-  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';

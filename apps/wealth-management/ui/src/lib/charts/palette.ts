@@ -1,23 +1,9 @@
-// Series colours shared by the charts, in a fixed order: muted navy, bronze, steel, rose, violet,
-// olive, pine, mauve. The eight pass the dataviz palette check (lightness band, chroma floor,
-// CVD and normal-vision separation of neighbours, 3:1 contrast) on both theme surfaces, #fdfbf7
-// and #1c1916 (--color-surface in routes/layout.css). The ninth is a neutral for the rest.
-export const PALETTE = [
-  '#376daf',
-  '#bc822e',
-  '#2590b2',
-  '#b7535e',
-  '#7a5da9',
-  '#869638',
-  '#017c5d',
-  '#c576a4',
-  '#78716c',
-];
+// The series order (PALETTE), PRIMARY and NEUTRAL come from ui-kit; the domain pairs below are
+// validated on this app's surfaces, #fdfbf7 and #1c1916 (--color-surface in routes/layout.css).
+import { NEUTRAL, PRIMARY } from '@libs/ui-kit';
 
-// A chart's one series when it has a single one.
-export const PRIMARY = '#376daf';
-// A reference line or a series that is context, not data (a cap, a limit).
-export const NEUTRAL = '#a8a29e';
+export { NEUTRAL, PALETTE, PRIMARY } from '@libs/ui-kit';
+
 // A third series beside INCOME and EXPENSE (the card cashback estimate); the three pass as a set.
 export const BESIDE_FLOWS = '#7a5da9';
 

@@ -38,10 +38,10 @@
 {#if axes.length >= 3}
   <svg viewBox="0 0 {size} {size}" class="h-auto w-full max-w-[320px]" role="img" aria-label={label}>
     {#each rings as ring (ring)}
-      <polygon points={polygon(axes.map(() => ring))} fill="none" class="stroke-stone-900/10 dark:stroke-white/10" />
+      <polygon points={polygon(axes.map(() => ring))} fill="none" class="stroke-ink-900/10 dark:stroke-ink-50/10" />
     {/each}
     {#each outer as [x, y], i (i)}
-      <line x1={c} y1={c} x2={x} y2={y} class="stroke-stone-900/10 dark:stroke-white/10" />
+      <line x1={c} y1={c} x2={x} y2={y} class="stroke-ink-900/10 dark:stroke-ink-50/10" />
     {/each}
     <polygon
       points={polygon(axes.map((a) => a.fraction))}
@@ -57,7 +57,7 @@
         {y}
         dy="0.32em"
         text-anchor={Math.abs(x - c) < 4 ? 'middle' : x > c ? 'start' : 'end'}
-        class="fill-stone-600 text-[11px] dark:fill-stone-300">{axes[i].label}</text
+        class="fill-ink-600 text-[11px] dark:fill-ink-300">{axes[i].label}</text
       >
     {/each}
   </svg>

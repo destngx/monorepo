@@ -1,17 +1,18 @@
 # ui-kit
 
-The shared theme, components and loading helpers of the web UIs, built to the rules in [docs/ui/README.md](../../docs/ui/README.md). It started from health-watcher's look, with wealth-management's loading stack and modal behaviour. Health-watcher uses its theme, components and state. Wealth-management uses the components, state and loading stack with its own `layout.css`, which maps the role names onto its palette.
+The shared theme, components and loading helpers of the web UIs, built to the rules in [docs/ui/README.md](../../docs/ui/README.md). It started from health-watcher's look, with wealth-management's loading stack, modal behaviour and small charts. Health-watcher uses its theme, components and state. Wealth-management uses the components, state and loading stack with its own `layout.css`, which maps the role names onto its palette.
 
 ## What is in it
 
-| Part        | Contents                                                                                                                                                                          |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `theme.css` | Tokens (`ink`, `accent`, `good`, `warn`, `danger`, `info`, surfaces, shadows, fonts), the base layer, and every shared utility (`panel`, `btn-*`, `field`, `tag`, `hit-area`, …). |
-| Components  | `Aurora`, `Badge`, `Button`, `Card`, `CopyField`, `EmptyState`, `Field`, `FoldToggle`, `Icon`, `MenuButton`, `Modal`, `PageTitle`, `Spinner`, `ThemeToggle`, `Toasts`.            |
-| Loading     | `defer`, `createLoader`, `classifyFailure`, `settle`, `settled`, `track`; `Deferred`, `LoadError`, `NavProgress`, `Loading` and the `Skeleton*` shapes.                           |
-| State       | `toasts`, `action()`, `createTheme(key)`, `applyTheme`, `themeScript(key)`.                                                                                                       |
-| AI usage    | `AIUsageGauge` and its helpers (`leftColorScale`, `resetsIn`, `windowLabel` and others): the quota that ai-gateway reports.                                                       |
-| Helpers     | `STATUS` and `usageTone` (`status.ts`); `formatDate`, `formatDateTime`, `todayISO`, `formatSize`, `MISSING` (`format.ts`).                                                        |
+| Part        | Contents                                                                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `theme.css` | Tokens (`ink`, `accent`, `good`, `warn`, `danger`, `info`, surfaces, shadows, fonts), the base layer, and every shared utility (`panel`, `btn-*`, `field`, `tag`, `hit-area`, …).                      |
+| Components  | `Aurora`, `Badge`, `Button`, `Card`, `CopyField`, `EmptyState`, `Field`, `FoldToggle`, `Icon`, `MenuButton`, `Modal`, `PageTitle`, `Spinner`, `ThemeToggle`, `Toasts`.                                 |
+| Loading     | `defer`, `createLoader`, `classifyFailure`, `settle`, `settled`, `track`; `Deferred`, `LoadError`, `NavProgress`, `Loading` and the `Skeleton*` shapes.                                                |
+| State       | `toasts`, `action()`, `createTheme(key)`, `applyTheme`, `themeScript(key)`.                                                                                                                            |
+| Charts      | `Sparkline`, `Donut`, `Ring`, `Radar`; the SVG geometry (`extent`, `scale`, `ticks`, `linePoints`, `linePath`, `arcPath`, …), `leavesReadout`, and the series colours `PALETTE`, `PRIMARY`, `NEUTRAL`. |
+| AI usage    | `AIUsageGauge` and its helpers (`leftColorScale`, `resetsIn`, `windowLabel` and others): the quota that ai-gateway reports.                                                                            |
+| Helpers     | `STATUS` and `usageTone` (`status.ts`); `formatDate`, `formatDateTime`, `todayISO`, `formatSize`, `MISSING` (`format.ts`).                                                                             |
 
 ## Using it in an app
 

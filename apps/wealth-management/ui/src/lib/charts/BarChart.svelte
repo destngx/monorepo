@@ -2,8 +2,7 @@
   import Masked from '$lib/components/Masked.svelte';
   import { formatCompact, MASK } from '$lib/format';
   import { mask } from '$lib/state/mask.svelte';
-  import { extent, scale, ticks } from './geometry';
-  import { leavesReadout } from './hover';
+  import { extent, scale, ticks, leavesReadout } from '@libs/ui-kit';
   import MaskedAxis from './MaskedAxis.svelte';
 
   interface Series {
@@ -30,7 +29,7 @@
   // Stacked bars scale to each column's total; parts are never negative.
   const totals = $derived(labels.map((_, i) => series.reduce((sum, s) => sum + Math.max(0, s.values[i] ?? 0), 0)));
   const all = $derived(stacked ? totals : series.flatMap((s) => s.values));
-  const yExtent = $derived(extent(all, true));
+  const yExtent = $derived(extent(all, { includeZero: true }));
   const yTicks = $derived(ticks(yExtent));
   const y = $derived(scale(yExtent, [height - pad.bottom, pad.top]));
   const band = $derived((width - pad.left - pad.right) / Math.max(labels.length, 1));

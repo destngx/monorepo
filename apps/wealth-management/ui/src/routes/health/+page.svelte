@@ -1,12 +1,10 @@
 <script lang="ts">
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
-  import { track, Button, Card, Deferred, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
+  import { track, Button, Card, Deferred, Icon, SkeletonCard, SkeletonStat, Radar, Ring } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { FinancialHealth, HealthComponent } from '$lib/api/types';
   import BarChart from '$lib/charts/BarChart.svelte';
-  import Radar from '$lib/charts/Radar.svelte';
   import { NOMINAL, REAL } from '$lib/charts/palette';
-  import Ring from '$lib/charts/Ring.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';

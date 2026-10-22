@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatDate, formatSignedPercent } from '$lib/format';
-  import { extent, linePath, scale, ticks } from './geometry';
+  import { extent, linePath, scale, ticks } from '@libs/ui-kit';
 
   // Several percent-change series on one percent axis, placed by date so series with different
   // trading days line up. A legend names each series; the hover readout gives every value.
@@ -19,7 +19,7 @@
   const drawn = $derived(series.filter((s) => s.points.length > 1));
   const allPoints = $derived(drawn.flatMap((s) => s.points));
   const xExtent = $derived(extent(allPoints.map((p) => time(p.date))));
-  const yExtent = $derived(extent([0, ...allPoints.map((p) => p.value)], true));
+  const yExtent = $derived(extent([0, ...allPoints.map((p) => p.value)], { includeZero: true }));
   const yTicks = $derived(ticks(yExtent));
   const x = $derived(scale(xExtent, [pad.left, width - pad.right]));
   const y = $derived(scale(yExtent, [height - pad.bottom, pad.top]));

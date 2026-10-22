@@ -3,7 +3,7 @@
   import FlagTag from '$lib/components/FlagTag.svelte';
   import { formatDate } from '$lib/format';
   import { formatNumber, pointRange, pointSource, pointValue } from '$lib/metrics';
-  import { dateTicks, extent, fromDay, linePath, scale, ticks, toDay } from './geometry';
+  import { dateTicks, extent, fromDay, linePath, scale, ticks, toDay } from '@libs/ui-kit';
   import { FLAGGED, SERIES } from './palette';
 
   // One metric over time (HW-MET-3): values in the canonical unit on a time
@@ -37,11 +37,11 @@
   const yExtent = $derived(
     extent(
       numeric.flatMap((p) => [p.value as number, p.refLow, p.refHigh].filter((v): v is number => v !== undefined)),
-      0.08,
+      { pad: 0.08 },
     ),
   );
   const y = $derived(scale(yExtent, [plot.bottom, plot.top]));
-  const yTicks = $derived(ticks(yExtent));
+  const yTicks = $derived(ticks(yExtent, 5));
   const xTicks = $derived(dateTicks(xDomain[0], xDomain[1], numeric.length > 1 ? (width < 480 ? 2 : 4) : 1));
   const coords = $derived(numeric.map((p, i) => [x(days[i]), y(p.value as number)] as [number, number]));
 

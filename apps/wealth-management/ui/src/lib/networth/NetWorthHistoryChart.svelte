@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { NetWorthMilestone, NetWorthPoint } from '$lib/api/types';
-  import { extent, scale, ticks } from '$lib/charts/geometry';
-  import { leavesReadout } from '$lib/charts/hover';
+  import { extent, scale, ticks, leavesReadout } from '@libs/ui-kit';
   import MaskedAxis from '$lib/charts/MaskedAxis.svelte';
   import { NET_WORTH } from '$lib/charts/palette';
   import Money from '$lib/components/Money.svelte';

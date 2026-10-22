@@ -1,10 +1,9 @@
 <script lang="ts">
   import type { BudgetLine, SpendingWindows, Transaction } from '$lib/api/types';
   import BarChart from '$lib/charts/BarChart.svelte';
-  import Donut from '$lib/charts/Donut.svelte';
+  import { Modal, SkeletonChart, SkeletonTable, Donut } from '@libs/ui-kit';
   import { DAY_TO_DAY, EXPENSE, INCOME, SPLIT_SECOND, SPLIT_SHARE } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
-  import { Modal, SkeletonChart, SkeletonTable } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatDate, formatMonth, formatPercent, todayISO } from '$lib/format';
   import { STATUS } from '$lib/status';

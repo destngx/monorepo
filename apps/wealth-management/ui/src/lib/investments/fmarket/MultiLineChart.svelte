@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { extent, linePath, scale, ticks } from '$lib/charts/geometry';
+  import { extent, linePath, scale, ticks } from '@libs/ui-kit';
   import MaskedAxis from '$lib/charts/MaskedAxis.svelte';
   import Masked from '$lib/components/Masked.svelte';
   import { formatDate } from '$lib/format';

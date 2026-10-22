@@ -36,5 +36,13 @@ export * from './load/deferred.svelte';
 export * from './status';
 export * from './format';
 
+export { default as Donut } from './charts/Donut.svelte';
+export { default as Radar } from './charts/Radar.svelte';
+export { default as Ring } from './charts/Ring.svelte';
+export { default as Sparkline } from './charts/Sparkline.svelte';
+export * from './charts/geometry';
+export * from './charts/hover';
+export * from './charts/palette';
+
 export { default as AIUsageGauge } from './ai-usage/AIUsageGauge.svelte';
 export * from './ai-usage/usage';
