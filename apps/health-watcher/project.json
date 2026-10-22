@@ -24,7 +24,7 @@
     "serve-api": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "go run .",
+        "command": "go run github.com/air-verse/air@v1.67.4 -c .air.toml",
         "cwd": "apps/health-watcher"
       },
       "cache": false

@@ -1,0 +1,23 @@
+# Rebuilds and restarts the engine when Go code or a migration changes
+# (`nx run health-watcher:serve-api`). The UI reloads through vite dev.
+root = "."
+tmp_dir = "tmp/air"
+
+[build]
+cmd = "go build -o ./tmp/air/health-watcher ."
+entrypoint = "./tmp/air/health-watcher"
+include_ext = ["go", "sql"]
+exclude_dir = ["tmp", "ui", "dist"]
+exclude_regex = ["_test\\.go"]
+delay = 200
+stop_on_error = true
+# The engine stops its workers and closes SQLite on SIGINT; the server
+# shutdown allows 10s.
+send_interrupt = true
+kill_delay = "12s"
+
+[log]
+time = true
+
+[screen]
+clear_on_rebuild = true

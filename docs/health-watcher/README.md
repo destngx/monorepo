@@ -8,6 +8,7 @@ Phases 1 to 3 are built: accounts, families (tenants) with roles and invites, pe
 
 ```sh
 pnpm exec nx run health-watcher:serve   # engine on :9191 and the UI dev server on :5174
+# The engine restarts when Go code or a migration changes (air, .air.toml); the UI reloads through vite.
 # The dev server proxies /api to http://127.0.0.1:9191; set HW_DEV_ENGINE when the engine listens elsewhere.
 pnpm exec nx run health-watcher:start   # production: builds the UI, the engine serves it at http://127.0.0.1:9191/ui
 ```
