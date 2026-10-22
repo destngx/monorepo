@@ -92,6 +92,13 @@ func (s *Records) DeletePerson(ctx context.Context, sc domain.Scope, id string) 
 		if p.VisitCount > 0 {
 			return domain.Conflict("%s has %d visits; delete or move them first", p.DisplayName, p.VisitCount)
 		}
+		typed, err := r.CountTypedObservations(ctx, sc.TenantID, id)
+		if err != nil {
+			return err
+		}
+		if typed > 0 {
+			return domain.Conflict("%s has %d typed-in measurements; delete them first", p.DisplayName, typed)
+		}
 		return r.DeletePerson(ctx, sc.TenantID, id)
 	})
 }

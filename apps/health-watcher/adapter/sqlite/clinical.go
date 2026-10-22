@@ -276,3 +276,41 @@ func (r repos) AnalyteLinks(ctx context.Context, tenantID, providerID string) (m
 	}
 	return out, rows.Err()
 }
+
+func (r repos) ObservationsOfPerson(ctx context.Context, tenantID, personID string) ([]domain.PersonObservation, error) {
+	rows, err := r.q.QueryContext(ctx, `SELECT o.id, o.status, COALESCE(o.item_id, ''), COALESCE(o.document_id, ''), COALESCE(o.person_id, ''),
+			COALESCE(o.page_id, ''), COALESCE(pg.number, 0), o.analyte, o.metric_code, o.value, o.value_num, o.unit, o.ref_text, o.ref_low,
+			o.ref_high, o.flag, o.sample_date, o.confidence, o.created_at, o.updated_at, COALESCE(d.visit_id, ''), COALESCE(pr.name, '')
+		FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id
+			LEFT JOIN documents d ON d.id = o.document_id
+			LEFT JOIN visits v ON v.id = d.visit_id
+			LEFT JOIN providers pr ON pr.id = v.provider_id
+		WHERE o.tenant_id = ? AND o.person_id = ? AND o.status = 'approved'
+		ORDER BY o.sample_date, o.created_at, o.position, o.id`, tenantID, personID)
+	if err != nil {
+		return nil, fmt.Errorf("list person observations: %w", err)
+	}
+	defer rows.Close()
+	out := []domain.PersonObservation{}
+	for rows.Next() {
+		var po domain.PersonObservation
+		var visitID, provider string
+		o, err := scanObservation(func(dest ...any) error { return rows.Scan(append(dest, &visitID, &provider)...) })
+		if err != nil {
+			return nil, fmt.Errorf("scan person observation: %w", err)
+		}
+		po.Observation, po.VisitID, po.Provider = o, visitID, provider
+		out = append(out, po)
+	}
+	return out, rows.Err()
+}
+
+func (r repos) CountTypedObservations(ctx context.Context, tenantID, personID string) (int, error) {
+	var n int
+	err := r.q.QueryRowContext(ctx, `SELECT COUNT(*) FROM observations
+		WHERE tenant_id = ? AND person_id = ? AND status = 'approved' AND document_id IS NULL`, tenantID, personID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count typed observations: %w", err)
+	}
+	return n, nil
+}

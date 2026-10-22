@@ -126,6 +126,25 @@ func (s *server) clinicalRoutes(r fiber.Router) {
 	})
 }
 
+// metricRoutes are a person's metrics dashboard, trends and typed-in
+// vitals (HW-MET-2..5).
+func (s *server) metricRoutes(r fiber.Router) {
+	r.Get("/people/:id/metrics", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Clinical.PersonMetrics(c.UserContext(), scope(c), c.Params("id")))
+	})
+	r.Get("/people/:id/metrics/:code", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Clinical.PersonMetric(c.UserContext(), scope(c), c.Params("id"), c.Params("code")))
+	})
+	r.Post("/people/:id/measurements", func(c *fiber.Ctx) error {
+		var in domain.MeasurementInput
+		if err := parseJSON(c, &in); err != nil {
+			return respond(c, s.log, err)
+		}
+		o, err := s.svc.Clinical.AddMeasurements(c.UserContext(), scope(c), c.Params("id"), in)
+		return s.created(c, o, err)
+	})
+}
+
 // pageImage serves a page's rendered JPEG, or with ?masked=1 the masked
 // copy the AI provider saw, after the tenant check and never cached.
 func (s *server) pageImage(c *fiber.Ctx) error {

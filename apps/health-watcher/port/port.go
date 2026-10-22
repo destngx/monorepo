@@ -271,6 +271,12 @@ type ClinicalRepo interface {
 	// person; a draft with no sample date gets sampleDate. Rejected rows
 	// are deleted.
 	ApproveItemDrafts(ctx context.Context, tenantID, itemID, documentID, personID, sampleDate string, at time.Time) error
+	// ObservationsOfPerson lists a person's approved observations, oldest
+	// sample first, with the visit and place each came from (HW-MET-3).
+	ObservationsOfPerson(ctx context.Context, tenantID, personID string) ([]domain.PersonObservation, error)
+	// CountTypedObservations counts a person's approved observations typed
+	// in without a document (HW-MET-2).
+	CountTypedObservations(ctx context.Context, tenantID, personID string) (int, error)
 	AddAudit(ctx context.Context, tenantID string, e domain.AuditEntry) error
 	AuditOf(ctx context.Context, tenantID string, entity domain.AuditEntity, entityID string) ([]domain.AuditEntry, error)
 }

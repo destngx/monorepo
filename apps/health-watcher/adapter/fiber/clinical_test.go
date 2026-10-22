@@ -205,3 +205,33 @@ func TestGivenAFiledDocumentWhenAnExamFindingIsAddedThenItsSectionIsKept(t *test
 		t.Fatalf("finding = %s", body)
 	}
 }
+
+func TestGivenTypedVitalsWhenUsingTheMetricRoutesThenTheOverviewAndTrendShowThem(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	base := "/api/tenants/" + h.tenant + "/people/" + h.firstPerson()
+
+	resp, body := h.json(http.MethodPost, base+"/measurements", map[string]any{"date": "2025-02-03",
+		"values": []map[string]string{{"metricCode": "weight", "value": "60"}, {"metricCode": "height", "value": "1.6", "unit": "m"}}})
+	wantStatus(t, resp, body, http.StatusCreated, "")
+	resp, body = h.json(http.MethodPost, base+"/measurements", map[string]any{"date": "2025-02-03",
+		"values": []map[string]string{{"metricCode": "glucose", "value": "5"}}})
+	wantStatus(t, resp, body, http.StatusBadRequest, "VALIDATION")
+
+	resp, body = h.json(http.MethodGet, base+"/metrics", nil)
+	wantStatus(t, resp, body, http.StatusOK, "")
+	var ov service.MetricsOverview
+	_ = json.Unmarshal(body, &ov)
+	if len(ov.Groups) != 1 || len(ov.Groups[0].Items) != 3 || ov.Groups[0].Items[2].Metric.Code != "bmi" {
+		t.Fatalf("overview = %s", body)
+	}
+	resp, body = h.json(http.MethodGet, base+"/metrics/height", nil)
+	wantStatus(t, resp, body, http.StatusOK, "")
+	var trend service.MetricTrend
+	_ = json.Unmarshal(body, &trend)
+	if len(trend.Points) != 1 || *trend.Points[0].Value != 160 || trend.Points[0].Printed != "1.6" || trend.Points[0].Source != domain.SourceTyped {
+		t.Fatalf("trend = %s", body)
+	}
+	resp, body = h.json(http.MethodGet, base+"/metrics/nope", nil)
+	wantStatus(t, resp, body, http.StatusNotFound, "")
+}

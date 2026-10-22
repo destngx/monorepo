@@ -443,6 +443,8 @@ export interface Metric {
   nameVi: string;
   category: MetricCategory;
   unit: string;
+  /** Units the engine converts from: canonical = value × factor + offset. */
+  conversions?: { from: string; factor: number; offset?: number }[];
   aliases: string[] | null;
   urine?: boolean;
 }
@@ -545,4 +547,64 @@ export interface CaptureLink {
   url: string;
   qr: string;
   expiresAt: string;
+}
+
+/** Where a trend point came from: a filed paper, typed in without one, or computed (BMI). */
+export type PointSource = 'paper' | 'typed' | 'computed';
+
+/**
+ * One value on a person's trend (HW-MET-3). `value` and the range are in the
+ * metric's canonical unit; `value` is missing for a text result or a unit
+ * the engine can't convert. The range and flag are the paper's own (HW-MET-5).
+ */
+export interface TrendPoint {
+  observationId?: string;
+  documentId?: string;
+  visitId?: string;
+  provider?: string;
+  date: string;
+  value?: number;
+  printed: string;
+  printedUnit?: string;
+  refLow?: number;
+  refHigh?: number;
+  refText?: string;
+  flag?: string;
+  source: PointSource;
+}
+
+/** One metric on a person's overview (HW-MET-4). */
+export interface OverviewItem {
+  metric: Metric;
+  latest: TrendPoint;
+  previous?: TrendPoint;
+  /** Latest minus previous, in the canonical unit, when both are numbers. */
+  change?: number;
+  count: number;
+  /** Up to the last 12 numeric points, oldest first. */
+  recent: TrendPoint[];
+}
+
+export interface OverviewGroup {
+  category: MetricCategory;
+  items: OverviewItem[];
+}
+
+export interface MetricsOverview {
+  person: Person;
+  groups: OverviewGroup[];
+  /** Approved results not linked to a catalog metric yet. */
+  unlinked: number;
+}
+
+export interface MetricTrend {
+  person: Person;
+  metric: Metric;
+  points: TrendPoint[];
+}
+
+/** Vitals typed in for one day without a paper (HW-MET-2). An empty unit is the metric's own. */
+export interface MeasurementInput {
+  date: string;
+  values: { metricCode: string; value: string; unit?: string }[];
 }

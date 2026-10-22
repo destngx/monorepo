@@ -87,6 +87,7 @@ func New(svc Services, opts Options) *fiber.App {
 	s.reviewRoutes(tenant)
 	s.inboxRoutes(tenant)
 	s.clinicalRoutes(tenant)
+	s.metricRoutes(tenant)
 
 	api.Use(func(c *fiber.Ctx) error { return fiber.ErrNotFound })
 	if opts.UIBuildDir != "" {

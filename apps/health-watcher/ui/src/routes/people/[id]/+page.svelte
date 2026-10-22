@@ -6,6 +6,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import PageTitle from '$lib/components/PageTitle.svelte';
+  import PersonTabs from '$lib/components/PersonTabs.svelte';
   import VisitFormModal from '$lib/components/VisitFormModal.svelte';
   import { ageOn, formatDate, options, todayISO, visitTypeLabels } from '$lib/format';
   import { session } from '$lib/state/session.svelte';
@@ -47,6 +48,8 @@
     {/if}
   {/snippet}
 </PageTitle>
+
+<PersonTabs personId={data.person.id} current="timeline" />
 
 <section class="panel mb-5 grid gap-3 p-4 sm:grid-cols-4">
   <div>

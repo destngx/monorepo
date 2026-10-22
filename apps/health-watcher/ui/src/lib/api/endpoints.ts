@@ -18,7 +18,10 @@ import type {
   InboxGroup,
   InboxItem,
   ItemDetail,
+  MeasurementInput,
   Metric,
+  MetricsOverview,
+  MetricTrend,
   Observation,
   ObservationInput,
   Page,
@@ -182,6 +185,12 @@ export function tenantApi(tenantId: string) {
     findingHistory: (id: string) => request<AuditEntry[]>(`${t}/findings/${id}/history`),
     search: (q: string, fetch?: Fetch) => request<SearchResult>(`${t}/search`, { query: { q }, fetch }),
     metrics: (fetch?: Fetch) => request<Metric[]>(`${t}/metrics`, { fetch }),
+    personMetrics: (personId: string, fetch?: Fetch) =>
+      request<MetricsOverview>(`${t}/people/${personId}/metrics`, { fetch }),
+    personMetric: (personId: string, code: string, fetch?: Fetch) =>
+      request<MetricTrend>(`${t}/people/${personId}/metrics/${encodeURIComponent(code)}`, { fetch }),
+    addMeasurements: (personId: string, body: MeasurementInput) =>
+      request<Observation[]>(`${t}/people/${personId}/measurements`, { method: 'POST', body }),
   };
 }
 
