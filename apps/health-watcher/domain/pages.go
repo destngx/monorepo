@@ -158,6 +158,8 @@ type PageMask struct {
 	// page and in the viewer.
 	Text     string `json:"text"`
 	ImageSHA string `json:"-"`
+	// Version is the MaskRulesVersion the mask was made with.
+	Version int `json:"-"`
 }
 
 // OffKeys lists the keys of the rule boxes a person turned off.

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -491,7 +492,12 @@ func (p *Pipeline) maskPage(ctx context.Context, tenantID string, ip itemPage, p
 		in.Checked = pg.Mask.Status == domain.MaskChecked
 	}
 	res := domain.MaskPage(in)
-	m := domain.PageMask{Status: res.Status, Reasons: res.Reasons, Boxes: res.Boxes, Auto: res.Auto, Manual: in.Manual,
+	// A checked page whose mask changes, after new rules or a new person,
+	// must be checked again.
+	if in.Checked && (res.Text != pg.Mask.Text || !slices.Equal(res.Boxes, pg.Mask.Boxes)) {
+		res.Status = domain.MaskNeedsCheck
+	}
+	m := domain.PageMask{Version: domain.MaskRulesVersion, Status: res.Status, Reasons: res.Reasons, Boxes: res.Boxes, Auto: res.Auto, Manual: in.Manual,
 		Text: res.Text}
 	for _, masked := range res.Masked {
 		if masked {

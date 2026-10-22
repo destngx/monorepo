@@ -311,3 +311,47 @@ func TestGivenABarcodeBoxTurnedOffWhenMaskingThenItIsNotBlackedOut(t *testing.T)
 		t.Fatalf("boxes = %+v", res.Boxes)
 	}
 }
+
+func TestGivenDecimalResultsAndRangesWhenMaskingThenTheyAreNotTakenForIDNumbers(t *testing.T) {
+	for _, clinical := range []string{
+		"5 Creatinin máu (Cobas 8000) 82.05 (62.00-106.00) umol/L",
+		"(62.00-106.00)",
+		"Tỷ trọng 1.015 (1.005-1.030)",
+	} {
+		if _, _, personal := personalLine(clinical, nil); personal {
+			t.Errorf("%q masked", clinical)
+		}
+	}
+	for _, id := range []string{"0900.000.000", "0900 000 000", "DN4790000000000", "Mã: 079-085-000-123"} {
+		if !hasLongDigits(id) {
+			t.Errorf("%q kept", id)
+		}
+	}
+	if got := hideNumbers("Glucose 6.4 gọi 0900.000.000"); got != "Glucose 6.4 gọi "+MaskPlaceholder {
+		t.Fatalf("hidden = %q", got)
+	}
+}
+
+func TestGivenALineTurnedOffInsideALongerRowWhenMaskingThenTheRulesRunOnTheRestOfTheRow(t *testing.T) {
+	lines := []Line{
+		row("Họ tên: NGUYỄN VĂN MẪU", 0.1, 0.10, 0.5),
+		row("Khoa Xét nghiệm", 0.1, 0.20, 0.3),
+		row("ĐT: 028 0000 0000", 0.5, 0.20, 0.3),
+		row("Mã BN: 24-000123", 0.1, 0.25, 0.3),
+	}
+	in := readyInput(lines)
+	in.Off = []string{"line:2"}
+	in.Text = strings.Join([]string{
+		"Họ tên: NGUYỄN VĂN MẪU",
+		"Khoa Xét nghiệm ĐT: 028 0000 0000 Glucose 6.4",
+		"Mã BN: 24-000123 ĐT: 028 0000 0000",
+	}, "\n")
+	want := strings.Join([]string{
+		MaskPlaceholder,
+		"Khoa Xét nghiệm ĐT: 028 0000 0000 Glucose 6.4",
+		MaskPlaceholder + " ĐT: 028 0000 0000",
+	}, "\n")
+	if got := MaskPage(in).Text; got != want {
+		t.Fatalf("masked text:\n%s\nwant:\n%s", got, want)
+	}
+}

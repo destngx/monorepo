@@ -11,6 +11,10 @@ import (
 // MaskPlaceholder replaces a personal line in text sent to the AI provider.
 const MaskPlaceholder = "[ẩn]"
 
+// MaskRulesVersion goes up when the masking rules change, so pages masked
+// with older rules are masked again.
+const MaskRulesVersion = 2
+
 // personalLabel is a label printed before personal data on Vietnamese and
 // English medical papers. Labels that also occur in ordinary sentences
 // count only when a colon follows them (`Bệnh nhân: ...`); BS and Dr also
@@ -58,11 +62,65 @@ var personalLabels = func() []personalLabel {
 }()
 
 var (
-	// Long digit runs, possibly split by single spaces, dots or dashes: ID,
-	// insurance card and phone numbers.
-	longDigits = regexp.MustCompile(`\d(?:[ .\-]?\d){8,}`)
-	email      = regexp.MustCompile(`[^\s@]+@[^\s@]+\.[A-Za-z]{2,}`)
+	// digitRun finds runs of digits split by single spaces, dots or dashes;
+	// longDigitRuns keeps the ID, insurance card and phone numbers.
+	digitRun = regexp.MustCompile(`\d(?:[ .\-]?\d){8,}`)
+	email    = regexp.MustCompile(`[^\s@]+@[^\s@]+\.[A-Za-z]{2,}`)
 )
+
+// minLongDigits is the digit count of the shortest ID or phone number.
+const minLongDigits = 9
+
+// longDigitRuns returns the byte spans of long digit runs: ID, insurance
+// card and phone numbers. A dot followed by fewer than three digits is a
+// decimal point, not a separator, so results and reference ranges such as
+// `62.00-106.00` don't count.
+func longDigitRuns(s string) [][2]int {
+	var out [][2]int
+	for _, m := range digitRun.FindAllStringIndex(s, -1) {
+		start := m[0]
+		for k := m[0]; k <= m[1]; k++ {
+			if k < m[1] && (s[k] != '.' || digitsAt(s[k+1:m[1]]) >= 3) {
+				continue
+			}
+			if countDigits(s[start:k]) >= minLongDigits {
+				out = append(out, [2]int{start, k})
+			}
+			start = k + 1
+		}
+	}
+	return out
+}
+
+func countDigits(s string) int {
+	n := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			n++
+		}
+	}
+	return n
+}
+
+// digitsAt counts the digits at the start of s.
+func digitsAt(s string) int {
+	n := 0
+	for n < len(s) && s[n] >= '0' && s[n] <= '9' {
+		n++
+	}
+	return n
+}
+
+func hasLongDigits(s string) bool { return len(longDigitRuns(s)) > 0 }
+
+// hideNumbers replaces long digit runs and e-mail addresses.
+func hideNumbers(s string) string {
+	runs := longDigitRuns(s)
+	for i := len(runs) - 1; i >= 0; i-- {
+		s = s[:runs[i][0]] + MaskPlaceholder + s[runs[i][1]:]
+	}
+	return email.ReplaceAllString(s, MaskPlaceholder)
+}
 
 // token is a folded word and the span of the original text it came from.
 type token struct {
@@ -171,7 +229,7 @@ func personalLine(line string, names [][]string) (labelMatch, bool, bool) {
 	if hasName(line, names) {
 		return labelMatch{label: personalLabel{name: true}}, false, true
 	}
-	return labelMatch{}, false, longDigits.MatchString(line) || email.MatchString(line)
+	return labelMatch{}, false, hasLongDigits(line) || email.MatchString(line)
 }
 
 // MaskInput is one page as the OCR tool read it, plus what the engine knows
@@ -243,7 +301,7 @@ func MaskPage(in MaskInput) MaskResult {
 		pad = 0.05
 	}
 	res.Auto = []MaskBox{}
-	kept := map[string]bool{}
+	off := make([]bool, len(in.Lines))
 	for i, l := range in.Lines {
 		if !res.Masked[i] {
 			continue
@@ -252,8 +310,7 @@ func MaskPage(in MaskInput) MaskResult {
 		b.Off = slices.Contains(in.Off, b.Key)
 		res.Auto = append(res.Auto, b)
 		if b.Off {
-			res.Masked[i] = false
-			kept[rowKey(l.Text)] = true
+			res.Masked[i], off[i] = false, true
 		} else {
 			res.Boxes = append(res.Boxes, b.Quad)
 		}
@@ -267,7 +324,7 @@ func MaskPage(in MaskInput) MaskResult {
 		}
 	}
 	res.Boxes = append(res.Boxes, in.Manual...)
-	res.Text = maskText(in.Text, in.Lines, res.Masked, kept, names, &nameFound)
+	res.Text = maskText(in.Text, in.Lines, res.Masked, off, names, &nameFound)
 
 	if !in.HasImage {
 		res.Reasons = append(res.Reasons, ReasonNoImage)
@@ -337,66 +394,125 @@ func blurryTop(lines []Line) bool {
 // maskText replaces personal lines in the page text. It applies the line
 // rules to each line of the text itself (a label line with no value masks
 // the next line too), replaces the masked OCR lines wherever they appear,
-// then removes long digit runs and e-mail addresses anywhere. Rows that
-// match a line a person turned off stay as they are. If a masked line
-// still shows after that, it falls back to the OCR lines in order.
-func maskText(text string, lines []Line, masked []bool, kept map[string]bool, names [][]string, nameFound *bool) string {
+// then removes long digit runs and e-mail addresses anywhere. The lines a
+// person turned off (off) stay as they are, and the rules run on the rest
+// of their row. If a masked line still shows after that, it falls back to
+// the OCR lines in order.
+func maskText(text string, lines []Line, masked, off []bool, names [][]string, nameFound *bool) string {
 	if strings.TrimSpace(text) == "" {
-		return linesText(lines, masked, kept)
+		return linesText(lines, masked, off)
+	}
+	var kept []string
+	for i, l := range lines {
+		if off[i] && strings.TrimSpace(l.Text) != "" {
+			kept = append(kept, strings.TrimSpace(l.Text))
+		}
 	}
 	rows := strings.Split(text, "\n")
-	keep := make([]bool, len(rows))
+	parts := make([][]part, len(rows))
 	for i, row := range rows {
-		keep[i] = kept[rowKey(row)]
+		parts[i] = splitKept(row, kept)
 	}
-	hide := make([]bool, len(rows))
-	for i, row := range rows {
-		if keep[i] {
-			continue
+	hideRow := func(j int) {
+		for k := range parts[j] {
+			parts[j][k].hidden = !parts[j][k].kept
 		}
-		m, labeled, personal := personalLine(row, names)
-		if !personal {
-			continue
-		}
-		hide[i] = true
-		*nameFound = *nameFound || m.label.name
-		if labeled && m.empty {
-			for j := i + 1; j < len(rows); j++ {
-				if strings.TrimSpace(rows[j]) != "" {
-					hide[j] = !keep[j]
-					break
+	}
+	for i := range rows {
+		for k, p := range parts[i] {
+			if p.kept {
+				continue
+			}
+			m, labeled, personal := personalLine(p.text, names)
+			if !personal {
+				continue
+			}
+			parts[i][k].hidden = true
+			*nameFound = *nameFound || m.label.name
+			if labeled && m.empty && k == len(parts[i])-1 {
+				for j := i + 1; j < len(rows); j++ {
+					if strings.TrimSpace(rows[j]) != "" {
+						hideRow(j)
+						break
+					}
 				}
 			}
 		}
 	}
 	var checked []string
 	for i := range rows {
-		switch {
-		case hide[i]:
-			rows[i] = MaskPlaceholder
-		case !keep[i]:
-			rows[i] = scrubRow(rows[i], lines, masked)
+		var b strings.Builder
+		for _, p := range parts[i] {
+			switch {
+			case p.kept:
+				b.WriteString(p.text)
+			case p.hidden:
+				lead := p.text[:len(p.text)-len(strings.TrimLeft(p.text, " \t"))]
+				trail := p.text[len(strings.TrimRight(p.text, " \t")):]
+				if strings.TrimSpace(p.text) == "" {
+					lead, trail = p.text, ""
+				}
+				b.WriteString(lead + MaskPlaceholder + trail)
+			default:
+				t := scrubPart(p.text, lines, masked)
+				b.WriteString(t)
+				checked = append(checked, t)
+			}
 		}
-		if !keep[i] {
-			checked = append(checked, rows[i])
-		}
+		rows[i] = b.String()
 	}
 	if leaks(strings.Join(checked, "\n"), lines, masked, names) {
-		return linesText(lines, masked, kept)
+		return linesText(lines, masked, off)
 	}
 	return collapsePlaceholders(rows)
 }
 
-// scrubRow replaces the masked OCR lines, long digit runs and e-mail
-// addresses in a row of text.
-func scrubRow(row string, lines []Line, masked []bool) string {
-	for i, l := range lines {
-		if masked[i] && strings.TrimSpace(l.Text) != "" {
-			row = strings.ReplaceAll(row, l.Text, MaskPlaceholder)
+// part is a piece of a row of text. Kept parts are lines a person turned
+// off; hidden parts become the placeholder.
+type part struct {
+	text   string
+	kept   bool
+	hidden bool
+}
+
+// splitKept splits a row at the lines a person turned off. A row that is
+// one of those lines, ignoring spacing, is kept whole.
+func splitKept(row string, kept []string) []part {
+	for _, k := range kept {
+		if rowKey(row) == rowKey(k) {
+			return []part{{text: row, kept: true}}
 		}
 	}
-	row = longDigits.ReplaceAllString(row, MaskPlaceholder)
-	return email.ReplaceAllString(row, MaskPlaceholder)
+	out := []part{}
+	for row != "" {
+		at, n := -1, 0
+		for _, k := range kept {
+			if i := strings.Index(row, k); i >= 0 && (at < 0 || i < at || (i == at && len(k) > n)) {
+				at, n = i, len(k)
+			}
+		}
+		if at < 0 {
+			out = append(out, part{text: row})
+			break
+		}
+		if at > 0 {
+			out = append(out, part{text: row[:at]})
+		}
+		out = append(out, part{text: row[at : at+n], kept: true})
+		row = row[at+n:]
+	}
+	return out
+}
+
+// scrubPart replaces the masked OCR lines, long digit runs and e-mail
+// addresses in a piece of text.
+func scrubPart(text string, lines []Line, masked []bool) string {
+	for i, l := range lines {
+		if masked[i] && strings.TrimSpace(l.Text) != "" {
+			text = strings.ReplaceAll(text, l.Text, MaskPlaceholder)
+		}
+	}
+	return hideNumbers(text)
 }
 
 // rowKey compares a row of text with an OCR line, ignoring spacing.
@@ -425,17 +541,16 @@ func leaks(out string, lines []Line, masked []bool, names [][]string) bool {
 	return false
 }
 
-func linesText(lines []Line, masked []bool, kept map[string]bool) string {
+func linesText(lines []Line, masked, off []bool) string {
 	rows := make([]string, len(lines))
 	for i, l := range lines {
 		switch {
 		case masked[i]:
 			rows[i] = MaskPlaceholder
-		case kept[rowKey(l.Text)]:
+		case off[i]:
 			rows[i] = l.Text
 		default:
-			rows[i] = longDigits.ReplaceAllString(l.Text, MaskPlaceholder)
-			rows[i] = email.ReplaceAllString(rows[i], MaskPlaceholder)
+			rows[i] = hideNumbers(l.Text)
 		}
 	}
 	return collapsePlaceholders(rows)

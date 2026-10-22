@@ -33,7 +33,7 @@ func (in *Inbox) Item(ctx context.Context, sc domain.Scope, itemID string) (Item
 	if err := in.withProgress(ctx, sc.TenantID, &item); err != nil {
 		return ItemDetail{}, err
 	}
-	if err := in.numberOldMasks(ctx, sc.TenantID, item); err != nil {
+	if err := in.refreshStaleMasks(ctx, sc.TenantID, item); err != nil {
 		return ItemDetail{}, err
 	}
 	d := ItemDetail{Item: item, Pages: []domain.Page{}, AIEnabled: in.Pipeline != nil && in.Pipeline.AIEnabled()}
@@ -53,10 +53,9 @@ func (in *Inbox) Item(ctx context.Context, sc domain.Scope, itemID string) (Item
 	return d, nil
 }
 
-// numberOldMasks masks again the pages of an unfiled item that were
-// masked before boxes were numbered, so the review page can show the
-// numbers. The rules are the same, so what is sent doesn't change.
-func (in *Inbox) numberOldMasks(ctx context.Context, tenantID string, item domain.InboxItem) error {
+// refreshStaleMasks masks again the pages of an unfiled item that were
+// masked with older rules, so the review page shows what would be sent now.
+func (in *Inbox) refreshStaleMasks(ctx context.Context, tenantID string, item domain.InboxItem) error {
 	if in.Pipeline == nil || item.Status != domain.InboxNew {
 		return nil
 	}
@@ -66,7 +65,7 @@ func (in *Inbox) numberOldMasks(ctx context.Context, tenantID string, item domai
 	}
 	var names []string
 	for _, ip := range pages {
-		if ip.page.Mask == nil || ip.page.Mask.Auto != nil {
+		if ip.page.Mask == nil || ip.page.Mask.Version >= domain.MaskRulesVersion {
 			continue
 		}
 		if names == nil {

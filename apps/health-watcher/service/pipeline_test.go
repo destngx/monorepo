@@ -462,7 +462,7 @@ func TestGivenAPageMaskedBeforeBoxesWereNumberedWhenTheItemOpensThenItIsMaskedAg
 	sc := e.setup()
 	e.person(sc, "Nguyễn Văn Mẫu")
 	d := e.uploadRead(sc, "lab")
-	if _, err := e.store.DB().ExecContext(e.ctx, `UPDATE pages SET mask_auto_json = NULL`); err != nil {
+	if _, err := e.store.DB().ExecContext(e.ctx, `UPDATE pages SET mask_auto_json = NULL, mask_version = 0`); err != nil {
 		t.Fatal(err)
 	}
 	if m, err := e.store.Page(e.ctx, sc.TenantID, d.Pages[0].ID); err != nil || m.Mask.Auto != nil {
@@ -472,6 +472,28 @@ func TestGivenAPageMaskedBeforeBoxesWereNumberedWhenTheItemOpensThenItIsMaskedAg
 	m := e.item(sc, d.Item.ID).Pages[0].Mask
 	if len(m.Auto) == 0 || m.Auto[0].Key != "line:2" || m.Status != d.Pages[0].Mask.Status {
 		t.Fatalf("mask = %+v", m)
+	}
+}
+
+func TestGivenACheckedPageMaskedWithOlderRulesWhenTheItemOpensThenItNeedsACheckOnlyIfTheMaskChanged(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	e.person(sc, "Nguyễn Văn Mẫu")
+	d := e.uploadRead(sc, "lab")
+	stale := func(text string) {
+		t.Helper()
+		if _, err := e.store.DB().ExecContext(e.ctx, `UPDATE pages SET mask_status = 'checked', mask_version = 0, mask_text = ?`, text); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	stale(d.Pages[0].Mask.Text)
+	if m := e.item(sc, d.Item.ID).Pages[0].Mask; m.Status != domain.MaskChecked || m.Version != domain.MaskRulesVersion {
+		t.Fatalf("unchanged mask = %s v%d", m.Status, m.Version)
+	}
+	stale("older masked text")
+	if m := e.item(sc, d.Item.ID).Pages[0].Mask; m.Status != domain.MaskNeedsCheck || m.Text != d.Pages[0].Mask.Text {
+		t.Fatalf("changed mask = %s %q", m.Status, m.Text)
 	}
 }
 
