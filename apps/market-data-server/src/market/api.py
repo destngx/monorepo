@@ -129,6 +129,17 @@ async def bank_rates(
     return envelope(await market.bank_rates(skip_cache, tenor_months=tenor_months, max_tenor_months=max_tenor_months), response)
 
 
+@router.get("/flexible-savings")
+async def flexible_savings(response: Response, skip_cache: bool = SkipCache, market: MarketService = Depends(get_market_service)):
+    """
+    Withdraw-any-time products of wallets (Zalopay Số dư sinh lời, MoMo Túi
+    Thần Tài) with their terms: what backs the money, when money moved in
+    starts earning, the longest stated withdrawal. Every provider is asked;
+    `failed` lists those that failed with no last-good copy.
+    """
+    return envelope(await market.flexible_savings(skip_cache), response)
+
+
 @router.get("/funds")
 async def funds(
     response: Response,

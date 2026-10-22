@@ -104,7 +104,13 @@ const idleCashSummary = "Idle cash check (ROADMAP R6, D34), for the bills and ho
 	"account note (\"earn rate 4%\", \"lãi 4%\", \"rate 4.5%\"; else 0) and the idle part assumed in each. currentRate: " +
 	"weighted over those parts. best: the best instant-access rate only, a no-term deposit (access no_term, withdraw " +
 	"any time) or a 1-month deposit (access one_month, rolls monthly; early withdrawal pays the no-term rate), with " +
-	"accessLabel; longer terms and rates without a tenor are never used (null with ratesIssue). ladder (1-month best " +
+	"accessLabel, or a flexible savings product (access flexible: an e-wallet earning balance with product, productId, " +
+	"backing deposit or business_cooperation, earningStarts); longer terms and rates without a tenor are never used " +
+	"(null with ratesIssue). options: every place compared, best first; productsIssue names providers that could not be " +
+	"read. An account linked to a product (idleCash.accountProducts) has product and productId and earns its live rate. " +
+	"moves (idle part to best, when worth_moving), emergency.moves and switches (a linked account's day-to-day money to a " +
+	"better flexible product) price each move: extraPerMonth, extraPerYear, today and bestDay (daysWithoutInterest, " +
+	"interestLost, paybackDays), worstCaseExtraDays and steps. ladder (1-month best " +
 	"only): parts (2-3, each at least 10.000.000 VND), partAmount, spacingDays. extraPerYear = idle x (best - current) " +
 	"/ 100, 0 when not positive. verdict: worth_moving (gap >= 0.5 points and extra >= 200.000 VND a year), " +
 	"not_worth_it, nothing_idle or no_rate, with reasons. emergency: the emergency accounts (never idle), balance, " +
@@ -112,8 +118,26 @@ const idleCashSummary = "Idle cash check (ROADMAP R6, D34), for the bills and ho
 	"settings (names and the etag to change them) and unknown names; issues names marked accounts that are ignored. " +
 	"Advice is about rate only: goal money stays pooled."
 
+// accountProductSummary documents linking an account to a product (D41).
+const accountProductSummary = "Links an account to the flexible savings product it holds (D41), e.g. an e-wallet " +
+	"earning balance: product is a product id from GET /api/market/flexible-savings (such as zalopay:so-du-sinh-loi), " +
+	"saved in idleCash.accountProducts in the app-managed Preferences tab (a JSON object of account name to product id; " +
+	"the tab is created on first use and no other tab is written). The idle cash check then uses the product's live " +
+	"rate as the account's current rate and compares its day-to-day money with other flexible products. A blank " +
+	"product unlinks it, also for a name that is no longer an account. Returns the preferences read back. 400 without " +
+	"account or etag or for a bad product id, 404 when linking an unknown account, 409 when the setting changed since " +
+	"its etag was read."
+
 func registerBillsWriteRoutes(api RouteRegistrar, h *DatabaseHandler, guard WriteGuard) {
 	bills := api.Group("/bills", "bills")
+	bills.Post("/idle-cash/account-products", guard.Wrap(h.SetAccountProduct), RouteMeta{
+		Summary: accountProductSummary,
+		RequestBody: jsonBody(map[string]any{
+			"account": map[string]any{"type": "string", "description": "Account name as in the Accounts tab."},
+			"product": map[string]any{"type": "string", "description": "Product id from GET /api/market/flexible-savings; blank unlinks."},
+			"etag":    map[string]any{"type": "string", "description": "emergency.settings.accountProducts.etag from GET /api/bills/idle-cash (or idleCash.accountProducts.etag from GET /api/preferences); may be sent as If-Match instead."},
+		}, "account"),
+	})
 	bills.Post("/idle-cash/emergency-accounts", guard.Wrap(h.SetEmergencyAccount), RouteMeta{
 		Summary: emergencyAccountSummary,
 		RequestBody: jsonBody(map[string]any{
@@ -206,6 +230,15 @@ func (h *DatabaseHandler) SetAccountMinimumBalance(c *fiber.Ctx) error {
 	}
 	body.ETag = etagFrom(c, body.ETag)
 	return h.respond(c)(h.databaseService.SetAccountMinimumBalance(body))
+}
+
+func (h *DatabaseHandler) SetAccountProduct(c *fiber.Ctx) error {
+	var body domain.AccountProductInput
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	body.ETag = etagFrom(c, body.ETag)
+	return h.respond(c)(h.databaseService.SetAccountProduct(body))
 }
 
 func (h *DatabaseHandler) SetEmergencyAccount(c *fiber.Ctx) error {

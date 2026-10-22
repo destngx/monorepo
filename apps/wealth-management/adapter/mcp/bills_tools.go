@@ -54,6 +54,20 @@ func (s *Server) billsWriteTools() []tool {
 			},
 		},
 		{
+			definition: definition("LinkAccountProduct", "Links an account to the flexible savings product it holds (an e-wallet earning balance such as Zalopay Số dư sinh lời or MoMo Túi Thần Tài): product is an id from GetFlexibleSavings (e.g. zalopay:so-du-sinh-loi), saved in idleCash.accountProducts in the Preferences tab (created on first use). GetIdleCash then uses the product's live rate as the account's current rate and suggests switching its day-to-day money when another flexible product pays materially more. A blank product unlinks it, also for a name that is no longer an account. etag is emergency.settings.accountProducts.etag from GetIdleCash (or idleCash.accountProducts.etag from GetPreferences); fails with a conflict when the setting changed since.", object(map[string]any{
+				"account": stringSchema,
+				"product": map[string]any{"type": "string", "description": "Product id; blank unlinks."},
+				"etag":    stringSchema,
+			}, "account", "etag")),
+			handler: func(_ context.Context, arguments json.RawMessage) (any, error) {
+				var input domain.AccountProductInput
+				if err := decodeValidated(arguments, &input); err != nil {
+					return nil, err
+				}
+				return db.SetAccountProduct(input)
+			},
+		},
+		{
 			definition: definition("SetAccountMinimumBalance", "Sets or removes an account's minimum balance to keep, e.g. the average monthly balance a bank asks for a reward: minimum (VND) and an optional note are saved in accounts.minimumBalance in the Preferences tab (created on first use). That money is never counted as ready to spend or idle, and GetBills tracks the month-to-date average against it (safeToSpend.minimumBalances). null or 0 removes the minimum, also for a name that is no longer an account. etag is safeToSpend.minimumBalance.etag from GetBills or GetSafeToSpend (or accountMinimums.etag from GetPreferences); fails with a conflict when the setting changed since.", object(map[string]any{
 				"account": stringSchema,
 				"minimum": map[string]any{"type": []string{"number", "null"}, "minimum": 0, "description": "VND to keep; null or 0 removes it."},

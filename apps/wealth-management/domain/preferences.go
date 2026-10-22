@@ -44,6 +44,9 @@ const (
 	// keep in it, e.g. for a bank reward on the average monthly balance
 	// (D35): that money is never ready to spend nor idle.
 	PrefAccountsMinimumBalance PreferenceKey = "accounts.minimumBalance"
+	// PrefIdleCashAccountProducts links an account to the flexible savings
+	// product it holds (D41): its current rate is the product's live rate.
+	PrefIdleCashAccountProducts PreferenceKey = "idleCash.accountProducts"
 )
 
 // PreferenceKind is the type of a key's value (column B).
@@ -59,6 +62,9 @@ const (
 	// {"minimum": VND, "note": text}, e.g.
 	// {"Bank A":{"minimum":5000000,"note":"monthly reward"}}; blank is none.
 	PreferenceAccountMinimums PreferenceKind = "accountMinimums"
+	// PreferenceAccountProducts is a JSON object of account name to
+	// product ID, e.g. {"Zalopay":"zalopay:so-du-sinh-loi"}; blank is none.
+	PreferenceAccountProducts PreferenceKind = "accountProducts"
 )
 
 const (
@@ -100,11 +106,13 @@ var PreferenceSpecs = []PreferenceSpec{
 	{Key: PrefSafeToSpendNotReadyAccounts, Kind: PreferenceAccountNames, Note: "Accounts not ready to use (slow to withdraw), left out of safe to spend; a JSON list of account names"},
 	{Key: PrefIdleCashDayToDayFloat, Kind: PreferenceNumber, Min: 0, Max: maxDayToDayFloat, Note: "Day-to-day money (VND) kept ready in everyday accounts before any cash counts as idle; blank = the spending buffer (spending buffer months x average monthly expense)"},
 	{Key: PrefIdleCashEmergencyAccounts, Kind: PreferenceAccountNames, Note: "Emergency fund accounts: they cover the emergency fund target first and are never idle; a JSON list of account names"},
+	{Key: PrefIdleCashAccountProducts, Kind: PreferenceAccountProducts, Note: "Accounts that hold a flexible savings product (an e-wallet earning balance): their current rate is the product's live rate; a JSON object such as {\"Zalopay\":\"zalopay:so-du-sinh-loi\"}"},
 	{Key: PrefAccountsMinimumBalance, Kind: PreferenceAccountMinimums, Max: maxAccountMinimum, Note: "Minimum balance (VND) to keep per account, e.g. for a bank reward on the average monthly balance; never ready to spend nor idle; a JSON object such as {\"Bank A\":{\"minimum\":5000000,\"note\":\"monthly reward\"}}"},
 }
 
 // PreferenceKeyNames lists the number keys, for the schemas of
-// POST /api/preferences; account lists and minimums are set per account.
+// POST /api/preferences; account lists, products and minimums are set per
+// account.
 func PreferenceKeyNames() []string {
 	keys := make([]string, 0, len(PreferenceSpecs))
 	for _, spec := range PreferenceSpecs {
@@ -199,6 +207,8 @@ type IdleCashSettings struct {
 	EmergencyAccounts []string `json:"emergencyAccounts"`
 	// ETag fingerprints the saved emergency accounts (also when unset).
 	ETag string `json:"etag"`
+	// AccountProducts link accounts to flexible savings products (D41).
+	AccountProducts AccountProductSettings `json:"accountProducts"`
 }
 
 // AccountMinimum is the balance to keep in one account (D35).
@@ -242,6 +252,8 @@ type PreferenceEntry struct {
 	Names []string `json:"names,omitempty"`
 	// Minimums are the per-account minimums of accounts.minimumBalance.
 	Minimums []AccountMinimum `json:"minimums,omitempty"`
+	// Products are the account links of idleCash.accountProducts.
+	Products []AccountProduct `json:"products,omitempty"`
 	Note     string           `json:"note"`
 	Row      int              `json:"row"`
 	// ETag fingerprints column B as read; empty on a row not yet written.
@@ -315,6 +327,18 @@ func ParsePreferences(rows [][]string, firstRow int) Preferences {
 			prefs.Entries = append(prefs.Entries, entry)
 			continue
 		}
+		if spec.Kind == PreferenceAccountProducts {
+			links, problems, err := ParseAccountProducts(cell(row, 1))
+			if err != nil {
+				prefs.Issues = append(prefs.Issues, fmt.Sprintf("Preferences row %d: %s %v; no account is linked", sheetRow, key, err))
+			}
+			for _, problem := range problems {
+				prefs.Issues = append(prefs.Issues, fmt.Sprintf("Preferences row %d: %s %s; that account is ignored", sheetRow, key, problem))
+			}
+			entry.Products = links
+			prefs.Entries = append(prefs.Entries, entry)
+			continue
+		}
 		if spec.Kind == PreferenceAccountNames {
 			names, err := ParseAccountNames(cell(row, 1))
 			if err != nil {
@@ -351,6 +375,13 @@ func (p *Preferences) resolve() {
 	p.IdleCash = IdleCashSettings{EmergencyAccounts: emergency, ETag: emergencyETag}
 	if value, ok := p.Value(PrefIdleCashDayToDayFloat); ok {
 		p.IdleCash.DayToDayFloat = &value
+	}
+	p.IdleCash.AccountProducts = AccountProductSettings{Accounts: []AccountProduct{}, ETag: preferenceETag("")}
+	if entry, ok := p.entry(PrefIdleCashAccountProducts); ok {
+		p.IdleCash.AccountProducts.Accounts = append(p.IdleCash.AccountProducts.Accounts, entry.Products...)
+		if entry.ETag != "" {
+			p.IdleCash.AccountProducts.ETag = entry.ETag
+		}
 	}
 	p.AccountMinimums = AccountMinimumSettings{Accounts: []AccountMinimum{}, ETag: preferenceETag("")}
 	if entry, ok := p.entry(PrefAccountsMinimumBalance); ok {
@@ -619,6 +650,7 @@ var accountListRoute = map[PreferenceKey]string{
 	PrefSafeToSpendNotReadyAccounts: "POST /api/bills/safe-to-spend/accounts (MCP SetAccountReadyToUse)",
 	PrefIdleCashEmergencyAccounts:   "POST /api/bills/idle-cash/emergency-accounts (MCP SetEmergencyAccount)",
 	PrefAccountsMinimumBalance:      "POST /api/bills/safe-to-spend/minimum-balance (MCP SetAccountMinimumBalance)",
+	PrefIdleCashAccountProducts:     "POST /api/bills/idle-cash/account-products (MCP LinkAccountProduct)",
 }
 
 func (u PreferencesUpdate) touchesTargets() bool {

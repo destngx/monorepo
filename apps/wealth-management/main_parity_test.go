@@ -63,6 +63,7 @@ var routeTools = map[string]string{
 	"POST /api/bills/safe-to-spend/accounts":        "SetAccountReadyToUse",
 	"POST /api/bills/idle-cash/emergency-accounts":  "SetEmergencyAccount",
 	"POST /api/bills/safe-to-spend/minimum-balance": "SetAccountMinimumBalance",
+	"POST /api/bills/idle-cash/account-products":    "LinkAccountProduct",
 	"POST /api/bills/items/:id/status":              "SetRecurringItemStatus",
 	"POST /api/bills/suggestions/confirm":           "ConfirmRecurringSuggestion",
 
@@ -81,6 +82,7 @@ var routeTools = map[string]string{
 	"GET /api/market/price-series":                        "GetPriceSeries",
 	"GET /api/market/candles":                             "GetMarketCandles",
 	"GET /api/market/bank-rates":                          "GetBankRates",
+	"GET /api/market/flexible-savings":                    "GetFlexibleSavings",
 	"GET /api/market/pulse":                               "GetMarketPulse",
 	"GET /api/market/analysis":                            "GetMarketAnalysis",
 	"GET /api/investments/valuation":                      "GetInvestmentValuation",

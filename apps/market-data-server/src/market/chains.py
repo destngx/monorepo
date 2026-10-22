@@ -42,6 +42,9 @@ class Chains:
     # Rates by tenor first; fmarket's one headline rate per bank (no tenor)
     # is the last fallback and is skipped by tenor filters.
     bank_rates: List[str] = field(default_factory=lambda: ["cafef", "simplize", "fmarket"])
+    # Not a chain: every listed source answers for its own products
+    # (Zalopay's earning balance is not a fallback for another wallet's).
+    flexible_savings: List[str] = field(default_factory=lambda: ["zalopay", "momo"])
     # Fund NAVs, gold products and fmarket's rate histories.
     funds: List[str] = field(default_factory=lambda: ["fmarket"])
 
@@ -75,4 +78,6 @@ class MarketTTL:
     CANDLES = 300
     # Banks change rates at most daily, at any time of day.
     BANK_RATES = 6 * 3600
+    # Providers edit a published product rate by hand, a few times a year.
+    FLEXIBLE_SAVINGS = 6 * 3600
     FUNDS = 60

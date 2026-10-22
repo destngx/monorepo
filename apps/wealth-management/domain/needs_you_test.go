@@ -408,3 +408,35 @@ func TestGivenTwoAccountsAtRiskWhenBuildingThenTheItemCountsThem(t *testing.T) {
 		t.Fatalf("item = %+v", item)
 	}
 }
+
+func TestGivenABetterWalletProductWhenBuildingThenTheSwitchIsANamelessInfoItem(t *testing.T) {
+	idle := ComputeIdleCash(productInput())
+
+	item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, IdleCash: &idle}), NeedsYouWalletSwitch)
+	if item.Status != NeedsYouInfo || item.Route != "/bills" || item.ImpactVND == nil || *item.ImpactVND != idle.Switches[0].ExtraPerYear {
+		t.Fatalf("item = %+v", item)
+	}
+	if !strings.Contains(item.Detail, "Wallet Z Earn pays 4.5% now; Wallet M Earn pays 6%") || !strings.Contains(item.Detail, "not a bank deposit") {
+		t.Fatalf("detail = %q", item.Detail)
+	}
+	// "Wallet Z Earn" is the product; the account is "Wallet Z" alone.
+	if strings.Contains(strings.ReplaceAll(item.Headline+item.Detail, "Wallet Z Earn", ""), "Wallet Z") {
+		t.Fatalf("no account names in the inbox: %+v", item)
+	}
+
+	idle.Switches = nil
+	if _, ok := walletSwitchFinding(idle); ok {
+		t.Fatal("no switch, no finding")
+	}
+}
+
+func TestGivenTheBestPlaceIsNotADepositWhenTheEmergencyFundCouldEarnMoreThenTheItemSaysSo(t *testing.T) {
+	input := productInput()
+	input.Settings.EmergencyAccounts = []string{"Wallet Z"}
+	idle := ComputeIdleCash(input)
+
+	item := findItem(t, BuildNeedsYou(NeedsYouInputs{Today: homeToday, IdleCash: &idle}), NeedsYouEmergencyFundRate)
+	if !strings.Contains(item.Detail, "Wallet M Earn is not a bank deposit") {
+		t.Fatalf("detail = %q", item.Detail)
+	}
+}

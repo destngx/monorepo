@@ -60,6 +60,7 @@ type Database struct {
 	ReadinessChanges    []domain.AccountReadinessInput
 	EmergencyChanges    []domain.EmergencyAccountInput
 	MinimumChanges      []domain.AccountMinimumInput
+	ProductChanges      []domain.AccountProductInput
 	NatureUpdates       []domain.CategoryNatureUpdate
 	DefinitionUpdates   []domain.CategoryDefinitionUpdate
 	GoalSetups          int
@@ -384,6 +385,26 @@ func (f *Database) SetAccountMinimumBalance(input domain.AccountMinimumInput) (d
 	return readBack, nil
 }
 
+// SetAccountProduct applies the change with the domain rules (ETag
+// checked) and keeps the result as if written and read back.
+func (f *Database) SetAccountProduct(input domain.AccountProductInput) (domain.Preferences, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.Err != nil {
+		return domain.Preferences{}, f.Err
+	}
+	next, err := domain.ApplyAccountProduct(f.preferences(), input)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	readBack, err := f.keepReadBack(next)
+	if err != nil {
+		return domain.Preferences{}, err
+	}
+	f.ProductChanges = append(f.ProductChanges, input)
+	return readBack, nil
+}
+
 // keepReadBack writes the entries as tab rows and keeps them parsed back,
 // so rows and ETags look as the sheet would give them. Callers hold mu.
 func (f *Database) keepReadBack(next domain.Preferences) (domain.Preferences, error) {
@@ -400,6 +421,12 @@ func (f *Database) keepReadBack(next domain.Preferences) (domain.Preferences, er
 			value = encoded
 		case spec.Kind == domain.PreferenceAccountMinimums:
 			encoded, err := domain.EncodeAccountMinimums(entry.Minimums)
+			if err != nil {
+				return domain.Preferences{}, err
+			}
+			value = encoded
+		case spec.Kind == domain.PreferenceAccountProducts:
+			encoded, err := domain.EncodeAccountProducts(entry.Products)
 			if err != nil {
 				return domain.Preferences{}, err
 			}

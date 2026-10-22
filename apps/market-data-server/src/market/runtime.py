@@ -9,9 +9,11 @@ from ..sources.cafef import CafefSource
 from ..sources.coingecko import CoinGeckoSource
 from ..sources.currencyapi import CurrencyApiSource
 from ..sources.fmarket import FmarketSource
+from ..sources.momo import MomoSource
 from ..sources.simplize import SimplizeSource
 from ..sources.vnstock import VnstockSource
 from ..sources.yahoo import YahooSource
+from ..sources.zalopay import ZalopaySource
 from .chains import load_chains
 from .service import MarketService
 from .store import LastGoodStore
@@ -22,7 +24,7 @@ _SERVICE: Optional[MarketService] = None
 
 
 def build_market_service() -> MarketService:
-    sources = [VnstockSource(), FmarketSource(), YahooSource(), CoinGeckoSource(), CurrencyApiSource(), CafefSource(), SimplizeSource(), AlgolabSource()]
+    sources = [VnstockSource(), FmarketSource(), YahooSource(), CoinGeckoSource(), CurrencyApiSource(), CafefSource(), SimplizeSource(), ZalopaySource(), MomoSource(), AlgolabSource()]
     store = LastGoodStore()
     logger.info("✓ Market sources: %s; last-good store at %s", ", ".join(s.name for s in sources), store.path)
     return MarketService({s.name: s for s in sources}, chains=load_chains(), cache=get_cache_manager(), last_good=store)

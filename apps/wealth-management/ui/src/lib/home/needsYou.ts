@@ -24,6 +24,7 @@ export const KIND_ICON: Record<NeedsYouKind, IconName> = {
   recommendation: 'lightbulb',
   'idle-cash': 'investments',
   'emergency-fund-rate': 'investments',
+  'wallet-switch': 'investments',
   'month-close': 'check',
 };
 
@@ -35,6 +36,7 @@ export function itemAmount(item: NeedsYouItem): { value: number; unit: string } 
       return item.amountVnd === null ? null : { value: item.amountVnd, unit: 'a month' };
     case 'idle-cash':
     case 'emergency-fund-rate':
+    case 'wallet-switch':
     case 'recommendation':
       return item.impactVnd === null ? null : { value: item.impactVnd, unit: 'a year' };
     default:

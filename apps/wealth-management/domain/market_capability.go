@@ -1,5 +1,7 @@
 package domain
 
+import "strings"
+
 type TickerType string
 
 const (
@@ -91,4 +93,64 @@ type BankRate struct {
 type BankRates struct {
 	Rates  []BankRate  `json:"rates"`
 	Source *DataSource `json:"source,omitempty"`
+}
+
+// What holds the money of a flexible savings product.
+const (
+	// SavingsBackingDeposit: a bank deposit; the rate is interest.
+	SavingsBackingDeposit = "deposit"
+	// SavingsBackingBusinessCooperation: a business cooperation contract
+	// with a company that invests the money (MoMo Túi Thần Tài); the rate
+	// is the company's promise and the money is not a deposit.
+	SavingsBackingBusinessCooperation = "business_cooperation"
+)
+
+// EarningStartsNextWorkingDay: money moved in Monday to Thursday starts
+// earning the next day, Friday to Sunday the next Monday, before a public
+// holiday the first working day after it.
+const EarningStartsNextWorkingDay = "next_working_day"
+
+// FlexibleSaving is a product that pays interest on money that can be spent
+// or withdrawn at any time, such as an e-wallet's earning balance, as the
+// market data server reads it from the provider's page. ID links an account
+// to it (idleCash.accountProducts). WithdrawalMaxWorkingHours is the
+// longest a withdrawal takes as the provider states it (nil: none stated).
+// AsOf and Stale say when the server read the page and whether that read
+// is an old copy kept because the page failed since.
+type FlexibleSaving struct {
+	ID                        string  `json:"id"`
+	Provider                  string  `json:"provider"`
+	Product                   string  `json:"product"`
+	Rate                      float64 `json:"rate"`
+	Backing                   string  `json:"backing"`
+	EarningStarts             string  `json:"earningStarts"`
+	WithdrawalMaxWorkingHours *int    `json:"withdrawalMaxWorkingHours,omitempty"`
+	Currency                  string  `json:"currency,omitempty"`
+	UpdatedAt                 string  `json:"updatedAt,omitempty"`
+	URL                       string  `json:"url"`
+	AsOf                      string  `json:"asOf,omitempty"`
+	Stale                     bool    `json:"stale,omitempty"`
+}
+
+// Name is "Zalopay Số dư sinh lời".
+func (p FlexibleSaving) Name() string {
+	return strings.TrimSpace(p.Provider + " " + p.Product)
+}
+
+// FlexibleSavings is every provider's flexible savings products; Failed
+// names the providers that could not be read (each "provider: reason").
+type FlexibleSavings struct {
+	Products []FlexibleSaving `json:"products"`
+	Failed   []string         `json:"failed"`
+	Source   *DataSource      `json:"source,omitempty"`
+}
+
+// Product returns the product with the ID, ignoring case.
+func (s FlexibleSavings) Product(id string) (FlexibleSaving, bool) {
+	for _, product := range s.Products {
+		if strings.EqualFold(product.ID, strings.TrimSpace(id)) {
+			return product, true
+		}
+	}
+	return FlexibleSaving{}, false
 }

@@ -1,12 +1,13 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import MaskedText from '$lib/components/MaskedText.svelte';
-  import type { IdleCash } from '$lib/api/types';
+  import type { DepositRate, IdleCash } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import Card from '$lib/components/Card.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import { STATUS } from '$lib/status';
+  import AccountProducts from './AccountProducts.svelte';
   import DayToDayFloatField from './DayToDayFloatField.svelte';
   import EmergencyAccounts from './EmergencyAccounts.svelte';
   import {
@@ -18,6 +19,7 @@
     idleAccounts,
     keepLiquidLines,
     keepReady,
+    place,
     rateLabel,
     sentence,
   } from './idleCash';
@@ -33,6 +35,19 @@
   const lines = $derived(keepLiquidLines(idle));
   const holding = $derived(idleAccounts(idle));
   const c = $derived(idle.components);
+  const hasMoves = $derived(idle.moves.length > 0 || idle.switches.length > 0 || idle.emergency.moves.length > 0);
+  const moveGroups = $derived([
+    { title: 'Idle cash', moves: idle.moves },
+    { title: 'Switch your wallet balance', moves: idle.switches },
+    { title: 'Emergency fund', moves: idle.emergency.moves },
+  ]);
+  // The accounts whose rate is this product's live rate.
+  const ownProducts = (option: DepositRate) =>
+    option.productId
+      ? [...idle.accounts, ...idle.emergency.accounts]
+          .filter((account) => account.productId === option.productId)
+          .map((account) => account.name)
+      : [];
   const months = $derived(c.bufferMonths === 1 ? '1 month' : `${Number(c.bufferMonths.toFixed(1))} months`);
 </script>
 
@@ -55,13 +70,13 @@
         Keep <strong><Money value={keepReady(idle)} /></strong> ready in your everyday accounts. The other
         <strong><Money value={idle.idle} /></strong> could earn about
         <strong><Money value={idle.extraPerYear} /></strong>
-        a year more in {depositKind(idle.best)} at {idle.best.bank} (<span class="tabular"
-          >{rateLabel(idle.best.rate)}</span
-        >, {depositTerms(idle.best)}). It stays reachable.
+        a year more in {place(idle.best)} (<span class="tabular">{rateLabel(idle.best.rate)}</span>, {depositTerms(
+          idle.best,
+        )}). It stays reachable.
       {:else if idle.best}
         About <strong><Money value={idle.idle} /></strong> sits idle at
         <strong class="tabular">{rateLabel(idle.currentRate)}</strong>, already at or above the best instant-access rate
-        (<span class="tabular">{rateLabel(idle.best.rate)}</span>, {depositKind(idle.best)} at {idle.best.bank}).
+        (<span class="tabular">{rateLabel(idle.best.rate)}</span>, {place(idle.best)}).
       {:else}
         About <strong><Money value={idle.idle} /></strong> sits idle at
         <strong class="tabular">{rateLabel(idle.currentRate)}</strong>; there is no instant-access rate (no-term or
@@ -76,6 +91,8 @@
           always close to hand. An early withdrawal earns the no-term rate.
         {:else if idle.best.access === 'one_month'}
           One 1-month deposit is enough at this size; it rolls monthly and can be withdrawn early at the no-term rate.
+        {:else if idle.best.access === 'flexible'}
+          An earning balance can be spent or withdrawn any time, so no ladder is needed.
         {:else}
           A no-term deposit can be withdrawn any time, so no ladder is needed.
         {/if}
@@ -108,10 +125,10 @@
           <Icon name={STATUS.info.icon} size={14} />
           <span
             >Your emergency accounts earn <span class="tabular">{rateLabel(idle.emergency.currentRate)}</span>.
-            {sentence(depositKind(idle.best))} at {idle.best.bank} (<span class="tabular"
-              >{rateLabel(idle.best.rate)}</span
-            >, {depositTerms(idle.best)}) would earn about <Money value={idle.emergency.extraPerYear} /> a year more and keep
-            it within reach. Move it only if the new place is as quick to reach in an emergency.</span
+            {sentence(place(idle.best))} (<span class="tabular">{rateLabel(idle.best.rate)}</span>, {depositTerms(
+              idle.best,
+            )}) would earn about <Money value={idle.emergency.extraPerYear} /> a year more and keep it within reach. Move
+            it only if the new place is as quick to reach in an emergency.</span
           >
         </p>
       {/if}
@@ -129,6 +146,88 @@
     </ul>
   {/if}
 
+  {#if idle.options.length}
+    <section class="mt-4 text-sm" aria-labelledby="idle-options-title" data-testid="idle-options">
+      <h3 id="idle-options-title" class="text-xs font-semibold tracking-wide uppercase">
+        Compare instant-access places
+      </h3>
+      <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+        {#each idle.options as option, index (option.productId ?? `${option.bank}-${option.access}`)}
+          {@const own = ownProducts(option)}
+          <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
+            <span class="min-w-0">
+              <strong>{sentence(place(option))}</strong><span class="muted">, {depositTerms(option)}</span>
+              {#if option.url}
+                <a class="link text-xs" href={option.url} target="_blank" rel="noopener noreferrer"
+                  >Open<span class="sr-only"> {place(option)} (new tab)</span></a
+                >
+              {/if}
+            </span>
+            <span class="flex flex-wrap items-center gap-1.5">
+              {#if index === 0}<Badge status="good">Best</Badge>{/if}
+              {#if own.length}<Badge tone="blue">Used by {own.join(', ')}</Badge>{/if}
+              {#if option.backing === 'business_cooperation'}<Badge status="warning">not a bank deposit</Badge>{/if}
+              {#if option.stale}<Badge status="warning">stale</Badge>{/if}
+              <span class="tabular font-medium">{rateLabel(option.rate)}</span>
+            </span>
+          </li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  {#if hasMoves}
+    <section class="mt-4 text-sm" aria-labelledby="idle-moves-title" data-testid="idle-moves">
+      <h3 id="idle-moves-title" class="text-xs font-semibold tracking-wide uppercase">How to move</h3>
+      {#each moveGroups as group (group.title)}
+        {#if group.moves.length}
+          <h4 class="mt-2 text-xs font-medium">{group.title}</h4>
+          <ul class="mt-1 space-y-3">
+            {#each group.moves as move (move.from + move.to)}
+              <li data-testid="idle-move">
+                <p>
+                  <strong>{move.from}</strong> ({rateLabel(move.fromRate)}) to <strong>{move.to}</strong> ({rateLabel(
+                    move.toRate,
+                  )}): <Money value={move.amount} />,
+                  <span class="tabular">{Number(move.rateGapPoints.toFixed(2))}</span>
+                  points more, about <Money value={move.extraPerMonth} /> a month and <Money
+                    value={move.extraPerYear}
+                  /> a year.
+                </p>
+                <p class="mt-0.5">
+                  Moving today ({move.today.weekday}): {move.today.daysWithoutInterest}
+                  {move.today.daysWithoutInterest === 1 ? 'day' : 'days'} without interest, about
+                  <Money value={move.today.interestLost} /> lost.
+                </p>
+                <p class="mt-0.5">
+                  Best day, {move.bestDay.weekday}
+                  {move.bestDay.date}: {move.bestDay.daysWithoutInterest}
+                  {move.bestDay.daysWithoutInterest === 1 ? 'day' : 'days'}, <Money value={move.bestDay.interestLost} />
+                  lost, earned back in {move.bestDay.paybackDays}
+                  {move.bestDay.paybackDays === 1 ? 'day' : 'days'}.
+                </p>
+                {#if move.worstCaseExtraDays > 0}
+                  <p class="mt-0.5 flex items-start gap-1 {STATUS.warning.ink}">
+                    <Icon name={STATUS.warning.icon} size={14} />
+                    <span
+                      >Worst case the money is in transit {move.worstCaseExtraDays}
+                      {move.worstCaseExtraDays === 1 ? 'day' : 'days'} longer.</span
+                    >
+                  </p>
+                {/if}
+                <ol class="mt-1 list-decimal space-y-0.5 pl-5">
+                  {#each move.steps as step (step)}
+                    <li><MaskedText text={step} /></li>
+                  {/each}
+                </ol>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      {/each}
+    </section>
+  {/if}
+
   <div class="mt-4 grid gap-4 sm:grid-cols-2">
     <DayToDayFloatField
       saved={idle.emergency.settings.dayToDayFloat}
@@ -137,6 +236,7 @@
       onsaved={() => invalidateAll()}
     />
     <EmergencyAccounts {idle} />
+    <AccountProducts {idle} />
   </div>
 
   <details class="mt-3 text-sm">
@@ -179,7 +279,8 @@
         {#each holding as account (account.name)}
           <li class="flex justify-between gap-2">
             <span
-              >{account.name}, {rateLabel(account.rate)}{#if !account.rateFromNote}
+              >{account.name}, {rateLabel(account.rate)}{#if account.product}
+                <span class="muted">(live rate of {account.product})</span>{:else if !account.rateFromNote}
                 <span class="muted">(no rate in the note)</span>{/if}</span
             >
             <Money value={account.idle} />
@@ -202,6 +303,8 @@
     {/if}
     <p class="muted mt-2 text-xs">{idle.keepLiquidRule}</p>
     <p class="muted mt-1 text-xs">{idle.rateRule}</p>
+    <p class="muted mt-1 text-xs">{idle.productRule}</p>
+    {#if idle.productsIssue}<p class="muted mt-1 text-xs">{idle.productsIssue}</p>{/if}
     <p class="muted mt-1 text-xs">
       {idle.thresholdRule} This is about the rate only: goal money stays pooled, it does not need its own account.
     </p>

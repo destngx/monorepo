@@ -24,8 +24,37 @@ const navigation = vi.hoisted(() => ({ invalidateAll: vi.fn(() => Promise.resolv
 vi.mock('$app/navigation', () => navigation);
 vi.mock('$app/paths', () => ({ base: '/ui' }));
 
+import type { DepositRate, SavingsMove } from '$lib/api/types';
 import IdleCashCard from './IdleCashCard.svelte';
 import { idleCash } from './idleCash.testdata';
+
+const wallet: DepositRate = {
+  bank: 'Wallet Z',
+  product: 'Earning Z',
+  productId: 'wallet-z:earning',
+  tenor: 'flexible',
+  access: 'flexible',
+  backing: 'business_cooperation',
+  rate: 5.8,
+  url: 'https://wallet-z.example/earning',
+  basis: 'Live rate.',
+};
+
+const move = (overrides: Partial<SavingsMove> = {}): SavingsMove => ({
+  from: 'Account A',
+  fromRate: 0,
+  amount: 50_000_000,
+  to: 'Wallet Z Earning Z',
+  toRate: 5.8,
+  rateGapPoints: 5.8,
+  extraPerMonth: 241_000,
+  extraPerYear: 2_900_000,
+  today: { date: '2026-10-23', weekday: 'Friday', daysWithoutInterest: 3, interestLost: 24_000, paybackDays: 3 },
+  bestDay: { date: '2026-10-26', weekday: 'Monday', daysWithoutInterest: 1, interestLost: 8_000, paybackDays: 1 },
+  worstCaseExtraDays: 2,
+  steps: ['Move 50.000.000 VND on Monday.', 'Keep the rest ready.'],
+  ...overrides,
+});
 
 const headline = () => screen.getByTestId('idle-headline').textContent?.replace(/\s+/g, ' ') ?? '';
 const text = (id: string) => screen.getByTestId(id).textContent?.replace(/\s+/g, ' ') ?? '';
@@ -195,5 +224,107 @@ describe('IdleCashCard', () => {
     await fireEvent.input(input, { target: { value: 'abc' } });
     expect(screen.getByRole('alert').textContent).toContain('whole VND');
     expect(screen.getByRole('button', { name: 'Save float' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('Given wallet products When shown Then the places are compared and a non-deposit is marked', () => {
+    const idle = idleCash();
+    const accounts = [
+      { ...idle.accounts[0], productId: wallet.productId, product: 'Earning Z' },
+      ...idle.accounts.slice(1),
+    ];
+    render(IdleCashCard, { idle: idleCash({ options: [wallet, idle.best!], best: wallet, accounts }) });
+
+    const options = text('idle-options');
+    expect(options).toContain('Compare instant-access places');
+    expect(options).toContain('Wallet Z Earning Z, spend or withdraw any time; not a bank deposit');
+    expect(options).toContain('A 1-month deposit at Bank X');
+    expect(options).toContain('Best');
+    expect(options).toContain('Used by Account A');
+    expect(options).toContain('not a bank deposit');
+    const link = screen.getByRole('link', { name: /Wallet Z Earning Z/ });
+    expect(link.getAttribute('href')).toBe('https://wallet-z.example/earning');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+    expect(headline()).toContain('in Wallet Z Earning Z (5.8%, spend or withdraw any time; not a bank deposit)');
+    expect(screen.getByText('(live rate of Earning Z)')).toBeTruthy();
+  });
+
+  it('Given a move plan When shown Then today is set against the best day, with the steps masked', () => {
+    render(IdleCashCard, { idle: idleCash({ moves: [move()] }) });
+
+    const plan = text('idle-moves');
+    expect(plan).toContain('Idle cash');
+    expect(plan).toContain('Account A (0%) to Wallet Z Earning Z (5.8%)');
+    expect(plan).toContain('Moving today (Friday): 3 days without interest');
+    expect(plan).toContain('Best day, Monday 2026-10-26: 1 day');
+    expect(plan).toContain('earned back in 1 day');
+    expect(plan).toContain('2 days longer');
+    expect(plan).toContain(`Move ${MASK} on Monday.`);
+    expect(plan).not.toMatch(/50\.000\.000/);
+  });
+
+  it('Given switches and emergency moves When shown Then each has its group; none shows nothing', () => {
+    const idle = idleCash();
+    const { unmount } = render(IdleCashCard, {
+      idle: {
+        ...idleCash({ switches: [move({ worstCaseExtraDays: 0 })] }),
+        emergency: { ...idle.emergency, moves: [move()] },
+      },
+    });
+    const plan = text('idle-moves');
+    expect(plan).toContain('Switch your wallet balance');
+    expect(plan).toContain('Emergency fund');
+    expect(plan).not.toContain('Idle cash');
+    unmount();
+    render(IdleCashCard, { idle });
+    expect(screen.queryByTestId('idle-moves')).toBeNull();
+  });
+
+  it('Given an account link When the product changes Then it is sent with the products ETag and the page reloads', async () => {
+    answers.set('setAccountProduct', () => Promise.resolve({}));
+    render(IdleCashCard, { idle: idleCash({ options: [wallet] }) });
+
+    const select = screen.getByLabelText<HTMLSelectElement>('Account A');
+    expect(select.value).toBe('');
+    await fireEvent.change(select, { target: { value: 'wallet-z:earning' } });
+    await flush();
+
+    expect(calls.find((call) => call.name === 'setAccountProduct')?.args).toEqual([
+      { account: 'Account A', product: 'wallet-z:earning', etag: 'etag-products' },
+    ]);
+    expect(navigation.invalidateAll).toHaveBeenCalled();
+  });
+
+  it('Given a link to an unknown account When Unlink is clicked Then the product is cleared', async () => {
+    answers.set('setAccountProduct', () => Promise.resolve({}));
+    const idle = idleCash({ options: [wallet] });
+    idle.emergency.settings.accountProducts = {
+      accounts: [
+        { account: 'account a', product: 'wallet-z:earning' },
+        { account: 'Gone Account', product: 'wallet-z:earning' },
+      ],
+      etag: 'etag-products',
+    };
+    render(IdleCashCard, { idle });
+
+    expect(screen.getByLabelText<HTMLSelectElement>('Account A').value).toBe('wallet-z:earning');
+    await fireEvent.click(screen.getByRole('button', { name: 'Unlink Gone Account' }));
+    await flush();
+    expect(calls.find((call) => call.name === 'setAccountProduct')?.args).toEqual([
+      { account: 'Gone Account', product: '', etag: 'etag-products' },
+    ]);
+  });
+
+  it('Given a link to a product not listed today When rendering Then the link still shows, marked unavailable', () => {
+    const idle = idleCash({ options: [] });
+    idle.emergency.settings.accountProducts = {
+      accounts: [{ account: 'Account A', product: 'wallet-z:earning' }],
+      etag: 'etag-products',
+    };
+    render(IdleCashCard, { idle });
+
+    const select = screen.getByLabelText<HTMLSelectElement>('Account A');
+    expect(select.value).toBe('wallet-z:earning');
+    expect(select.selectedOptions[0].textContent).toContain('rate unavailable today');
   });
 });

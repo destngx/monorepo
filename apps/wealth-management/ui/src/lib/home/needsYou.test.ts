@@ -54,6 +54,10 @@ describe('itemAmount', () => {
     expect(
       itemAmount(needsYouItem({ kind: 'emergency-fund-rate', amountVnd: 20_000_000, impactVnd: 300_000 })),
     ).toEqual({ value: 300_000, unit: 'a year' });
+    expect(itemAmount(needsYouItem({ kind: 'wallet-switch', amountVnd: 60_000_000, impactVnd: 360_000 }))).toEqual({
+      value: 360_000,
+      unit: 'a year',
+    });
     expect(itemAmount(needsYouItem({ kind: 'recommendation', amountVnd: null, impactVnd: null }))).toBeNull();
     expect(itemAmount(needsYouItem({ kind: 'drafts', amountVnd: null }))).toBeNull();
   });

@@ -38,16 +38,19 @@ type AnalyticsService interface {
 	// and safe-to-spend until the next income (WM-BILL-2..6).
 	Bills(forceFresh bool) (domain.Bills, error)
 	// IdleCash compares ready money beyond the day-to-day float and what
-	// must stay liquid with the best instant-access deposit rate, no-term
-	// or 1-month (ROADMAP R6, WM-CASH-1..5, D34). A missing
-	// or failing rate source is reported in the result, not as an error.
+	// must stay liquid with the best instant-access place: a no-term or
+	// 1-month deposit or a flexible savings product (ROADMAP R6,
+	// WM-CASH-1..10, D34, D41), and plans the moves. A missing or failing
+	// rate source is reported in the result, not as an error.
 	IdleCash(ctx context.Context, forceFresh bool) (domain.IdleCash, error)
 	// AccountHistories back-calculates daily balances per account (WM-ACC-3).
 	AccountHistories(days int, forceFresh bool) (map[string][]domain.TrendPoint, error)
 }
 
 // BankRateSource gives the published bank savings rates (the one
-// bank-rates list, ROADMAP C5).
+// bank-rates list, ROADMAP C5) and the flexible savings products (D41),
+// the instant-access places idle cash compares with.
 type BankRateSource interface {
 	GetBankInterestRate(ctx context.Context) (domain.BankRates, error)
+	GetFlexibleSavings(ctx context.Context) (domain.FlexibleSavings, error)
 }

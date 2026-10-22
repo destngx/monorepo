@@ -6,7 +6,6 @@ JSON API; the table is the Next.js page props embedded in the page as
 source does not say whether a rate is online or at the counter.
 """
 
-import json
 import os
 import re
 from datetime import datetime, timezone
@@ -17,12 +16,12 @@ import httpx
 from ...market.candles import ICT
 from ...market.models import NO_TERM, BankRate
 from ..http import new_client, request_text
+from ..nextjs import page_props
 from ..rates import months, percent
 
 DEFAULT_BASE_URL = "https://simplize.vn"
 PAGE_PATH = "/lai-suat-ngan-hang"
 
-_NEXT_DATA = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 # maturity1m, maturity12m, ...
 _MATURITY = re.compile(r"^maturity(\d+)m$")
 SAVING_RATE = "saving_rate"
@@ -49,19 +48,8 @@ class SimplizeSource:
         await self.get_bank_rates()
         return "ok"
 
-    async def _page_props(self) -> Any:
-        html = await request_text(self._client, self.name, PAGE_PATH)
-        found = _NEXT_DATA.search(html)
-        if not found:
-            raise ValueError("simplize: the rate page has no __NEXT_DATA__ block")
-        try:
-            data = json.loads(found.group(1))
-        except ValueError as e:
-            raise ValueError(f"simplize: decode __NEXT_DATA__: {e}") from e
-        return ((data.get("props") or {}).get("pageProps") or {}) if isinstance(data, dict) else {}
-
     async def get_bank_rates(self) -> List[BankRate]:
-        rows = (await self._page_props()).get("interestRate")
+        rows = page_props(await request_text(self._client, self.name, PAGE_PATH), self.name).get("interestRate")
         rates = []
         for row in rows if isinstance(rows, list) else []:
             if not isinstance(row, dict) or row.get("instrumentType", SAVING_RATE) != SAVING_RATE:

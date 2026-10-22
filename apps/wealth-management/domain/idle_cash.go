@@ -17,7 +17,8 @@ import (
 
 // Idle cash check (ROADMAP R6, WM-CASH-1..5, D34): ready money beyond the
 // day-to-day float and what must stay liquid, compared only with options
-// that keep the money within reach (no-term or 1-month deposits). The
+// that keep the money within reach (no-term or 1-month deposits, and
+// flexible savings products such as e-wallet earning balances, D41). The
 // advice is about rate only; goal money stays pooled (D31), so it never
 // suggests dedicated goal accounts. Emergency accounts hold the emergency
 // fund: they cover its target first and are never idle. An account's
@@ -84,6 +85,17 @@ const idleCashRateBasis = "A proxy: the best no-term or 1-month savings rate pub
 	"(longer terms and rates without a tenor are never used, so the money stays within reach). Check the bank's own " +
 	"terms before moving money."
 
+// flexibleRateBasis labels a flexible savings product's rate.
+const flexibleRateBasis = "The rate the provider publishes on its product page today, read by the market data server. " +
+	"Check the terms in the app before moving money."
+
+// IdleCashProductRule documents linked accounts and the switch check.
+const IdleCashProductRule = "An account linked to a flexible savings product (idleCash.accountProducts, e.g. an e-wallet " +
+	"earning balance) earns the product's live published rate instead of a note rate. Its day-to-day money (the part " +
+	"not idle) is compared only with other flexible products, which stay as spendable; a switch is suggested on the " +
+	"same thresholds. A move loses the interest of the days the money earns nothing: from the day it leaves until the " +
+	"new place starts paying (the next working day for Zalopay and MoMo, so moving on a Friday costs 3 days)."
+
 // IdleCashComponents is the math:
 // Idle = max(0, ReadyMoney - KeepLiquid - DayToDayFloat).
 type IdleCashComponents struct {
@@ -128,7 +140,11 @@ type IdleCashAccount struct {
 	Reserved     float64 `json:"reserved"`
 	Rate         float64 `json:"rate"`
 	RateFromNote bool    `json:"rateFromNote"`
-	Idle         float64 `json:"idle"`
+	// Product is the linked flexible savings product's name when the rate
+	// is its live rate (D41).
+	Product   string  `json:"product,omitempty"`
+	ProductID string  `json:"productId,omitempty"`
+	Idle      float64 `json:"idle"`
 }
 
 // IdleCashLadder splits the idle cash into rolling 1-month deposits opened
@@ -157,6 +173,9 @@ type IdleCashEmergency struct {
 	// BetterRate: the best instant-access rate beats the emergency
 	// accounts by the materiality thresholds.
 	BetterRate bool `json:"betterRate"`
+	// Moves plan moving each emergency account's money to Best when
+	// BetterRate (WM-CASH-9).
+	Moves []SavingsMove `json:"moves"`
 	// Settings are the saved names with the ETag a change must send.
 	Settings IdleCashSettings `json:"settings"`
 	// Unknown are marked names that match no account (ignored).
@@ -175,16 +194,28 @@ type IdleCash struct {
 	Emergency IdleCashEmergency `json:"emergency"`
 	// CurrentRate is the idle cash's weighted rate, percent a year.
 	CurrentRate float64 `json:"currentRate"`
-	// Best is the best instant-access rate (no-term or 1-month, a proxy);
-	// nil when none is published.
-	Best       *DepositRate `json:"best"`
-	RatesIssue string       `json:"ratesIssue,omitempty"`
+	// Best is the best instant-access rate (no-term or 1-month, a proxy, or
+	// a flexible savings product); nil when none is published.
+	Best *DepositRate `json:"best"`
+	// Options are the instant-access places compared, best first: the best
+	// bank no-term and 1-month rates and every flexible savings product.
+	Options    []DepositRate `json:"options"`
+	RatesIssue string        `json:"ratesIssue,omitempty"`
+	// ProductsIssue says why flexible savings products are missing or
+	// partial (a provider's page could not be read).
+	ProductsIssue string `json:"productsIssue,omitempty"`
 	// Ladder is set when Best is a 1-month deposit and the idle cash is
 	// big enough to split.
 	Ladder        *IdleCashLadder `json:"ladder"`
 	RateGapPoints float64         `json:"rateGapPoints"`
 	// ExtraPerYear = Idle x (best - current) / 100 when positive, else 0.
-	ExtraPerYear   float64         `json:"extraPerYear"`
+	ExtraPerYear float64 `json:"extraPerYear"`
+	// Moves plan moving the idle part of each account to Best when the
+	// verdict is worth_moving (WM-CASH-9).
+	Moves []SavingsMove `json:"moves"`
+	// Switches plan moving the day-to-day money of an account linked to a
+	// product to a better flexible product (WM-CASH-10).
+	Switches       []SavingsMove   `json:"switches"`
 	Verdict        IdleCashVerdict `json:"verdict"`
 	Reasons        []string        `json:"reasons"`
 	Issues         []string        `json:"issues"`
@@ -193,20 +224,25 @@ type IdleCash struct {
 	KeepLiquidRule string          `json:"keepLiquidRule"`
 	RateRule       string          `json:"rateRule"`
 	ThresholdRule  string          `json:"thresholdRule"`
+	ProductRule    string          `json:"productRule"`
 }
 
 // IdleCashInput is what ComputeIdleCash needs. Plan may be nil (no goal
 // plan: no goal set-aside, float or emergency fund kept). The accounts
 // marked not ready come from Bills.SafeToSpend.Readiness (D33). Rates are
 // the published bank rates; RatesIssue says why they are missing.
+// Products are the flexible savings products; ProductsIssue says why they
+// are missing or partial.
 type IdleCashInput struct {
-	Accounts   []Account
-	Bills      Bills
-	Plan       *GoalPlan
-	Settings   IdleCashSettings
-	Rates      []BankRate
-	RatesIssue string
-	Today      time.Time
+	Accounts      []Account
+	Bills         Bills
+	Plan          *GoalPlan
+	Settings      IdleCashSettings
+	Rates         []BankRate
+	RatesIssue    string
+	Products      []FlexibleSaving
+	ProductsIssue string
+	Today         time.Time
 }
 
 // ComputeIdleCash finds the idle cash, its current rate and what the best
@@ -218,12 +254,17 @@ func ComputeIdleCash(input IdleCashInput) IdleCash {
 		Excluded:       []ExcludedAccount{},
 		Reasons:        []string{},
 		Issues:         []string{},
+		Options:        []DepositRate{},
+		Moves:          []SavingsMove{},
+		Switches:       []SavingsMove{},
 		RatesIssue:     input.RatesIssue,
+		ProductsIssue:  input.ProductsIssue,
 		MinRateGap:     IdleCashMinRateGapPoints,
 		MinExtra:       IdleCashMinExtraPerYear,
 		KeepLiquidRule: IdleCashKeepLiquidRule,
 		RateRule:       IdleCashRateRule,
 		ThresholdRule:  IdleCashThresholdRule,
+		ProductRule:    IdleCashProductRule,
 	}
 	idle.sortAccounts(input)
 	idle.Components = idleComponents(input, idle.Accounts, idle.Emergency.Balance)
@@ -242,18 +283,119 @@ func ComputeIdleCash(input IdleCashInput) IdleCash {
 		idle.CurrentRate = round2(earning / idle.Idle)
 	}
 
-	if rate, ok := InstantAccessRateFromBankRates(input.Rates); ok {
-		rate.Basis = idleCashRateBasis
+	idle.Options = instantAccessOptions(input)
+	if len(idle.Options) > 0 {
+		rate := idle.Options[0]
 		idle.Best = &rate
 		idle.RateGapPoints = round2(rate.Rate - idle.CurrentRate)
 		idle.ExtraPerYear = math.Max(0, math.Round(idle.Idle*(rate.Rate-idle.CurrentRate)/100))
 		idle.Ladder = idleLadder(idle.Idle, rate)
 		idle.Emergency.compare(rate)
-	} else {
+	}
+	if _, ok := InstantAccessRateFromBankRates(input.Rates); !ok && idle.RatesIssue == "" {
 		idle.RatesIssue = noInstantRateIssue(input)
 	}
 	idle.Verdict, idle.Reasons = idleVerdict(idle)
+	idle.planMoves(input)
 	return idle
+}
+
+// instantAccessOptions are the places compared, best first: the best bank
+// no-term rate, the best bank 1-month rate and every flexible savings
+// product. A tie goes to a deposit, then to quicker access (no-term, a
+// product, 1-month).
+func instantAccessOptions(input IdleCashInput) []DepositRate {
+	options := []DepositRate{}
+	// 0 is a no-term deposit.
+	for _, months := range []int{0, 1} {
+		if rate, ok := InstantAccessRateFromBankRates(onlyTenor(input.Rates, months)); ok {
+			rate.Basis = idleCashRateBasis
+			options = append(options, rate)
+		}
+	}
+	for _, product := range input.Products {
+		if product.Rate > 0 && product.Rate < accountRateCeiling {
+			rate := FlexibleDepositRate(product)
+			rate.Basis = flexibleRateBasis
+			options = append(options, rate)
+		}
+	}
+	rank := map[DepositAccess]int{DepositNoTerm: 0, DepositFlexible: 1, DepositOneMonth: 2}
+	slices.SortStableFunc(options, func(a, b DepositRate) int {
+		switch {
+		case a.Rate != b.Rate:
+			return cmpFloat(b.Rate, a.Rate)
+		case (a.Backing == SavingsBackingBusinessCooperation) != (b.Backing == SavingsBackingBusinessCooperation):
+			if a.Backing == SavingsBackingBusinessCooperation {
+				return 1
+			}
+			return -1
+		}
+		return rank[a.Access] - rank[b.Access]
+	})
+	return options
+}
+
+// onlyTenor keeps the bank rates of one tenor in months.
+func onlyTenor(rates []BankRate, months int) []BankRate {
+	return slices.DeleteFunc(slices.Clone(rates), func(rate BankRate) bool {
+		tenor, ok := bankRateMonths(rate)
+		return !ok || tenor != months
+	})
+}
+
+// planMoves plans moving the idle part to Best (worth_moving), the
+// emergency accounts to Best (BetterRate) and the day-to-day money of
+// linked accounts to a better flexible product.
+func (idle *IdleCash) planMoves(input IdleCashInput) {
+	products := map[string]FlexibleSaving{}
+	for _, product := range input.Products {
+		products[strings.ToLower(product.ID)] = product
+	}
+	plan := func(account IdleCashAccount, amount float64, to DepositRate) (SavingsMove, bool) {
+		if account.ProductID != "" && strings.EqualFold(account.ProductID, to.ProductID) {
+			return SavingsMove{}, false
+		}
+		in := savingsMoveInput{From: account.Name, FromRate: account.Rate, Amount: amount, To: to, Today: input.Today}
+		if product, ok := products[strings.ToLower(account.ProductID)]; ok {
+			in.FromProduct = &product
+		}
+		return planSavingsMove(in)
+	}
+	if idle.Best != nil && idle.Verdict == IdleCashWorthMoving {
+		for _, account := range idle.Accounts {
+			if move, ok := plan(account, account.Idle, *idle.Best); ok {
+				idle.Moves = append(idle.Moves, move)
+			}
+		}
+	}
+	if idle.Best != nil && idle.Emergency.BetterRate {
+		for _, account := range idle.Emergency.Accounts {
+			if move, ok := plan(account, account.available(), *idle.Best); ok {
+				idle.Emergency.Moves = append(idle.Emergency.Moves, move)
+			}
+		}
+	}
+	for _, account := range idle.Accounts {
+		if account.ProductID == "" {
+			continue
+		}
+		var best *DepositRate
+		for i := range idle.Options {
+			option := idle.Options[i]
+			if option.Access == DepositFlexible && !strings.EqualFold(option.ProductID, account.ProductID) {
+				best = &option
+				break
+			}
+		}
+		if best == nil {
+			continue
+		}
+		move, ok := plan(account, account.available()-account.Idle, *best)
+		if ok && move.RateGapPoints >= IdleCashMinRateGapPoints && move.ExtraPerYear >= IdleCashMinExtraPerYear {
+			idle.Switches = append(idle.Switches, move)
+		}
+	}
 }
 
 // sortAccounts splits the accounts into everyday ready money (the
@@ -265,8 +407,11 @@ func (idle *IdleCash) sortAccounts(input IdleCashInput) {
 	}
 	emergencyNames := input.Settings.EmergencyAccounts
 	idle.Emergency = IdleCashEmergency{
-		Accounts: []IdleCashAccount{}, Unknown: []string{},
-		Settings: IdleCashSettings{DayToDayFloat: input.Settings.DayToDayFloat, EmergencyAccounts: append([]string{}, emergencyNames...), ETag: input.Settings.ETag},
+		Accounts: []IdleCashAccount{}, Unknown: []string{}, Moves: []SavingsMove{},
+		Settings: IdleCashSettings{
+			DayToDayFloat: input.Settings.DayToDayFloat, EmergencyAccounts: append([]string{}, emergencyNames...), ETag: input.Settings.ETag,
+			AccountProducts: AccountProductSettings{Accounts: append([]AccountProduct{}, input.Settings.AccountProducts.Accounts...), ETag: input.Settings.AccountProducts.ETag},
+		},
 	}
 	// An emergency account is set aside whatever its not-ready mark.
 	notReady := slices.DeleteFunc(slices.Clone(input.Bills.SafeToSpend.Readiness.NotReadyAccounts), func(name string) bool { return marked(emergencyNames, name) })
@@ -278,9 +423,10 @@ func (idle *IdleCash) sortAccounts(input IdleCashInput) {
 	for _, account := range input.Accounts {
 		byName[strings.ToLower(strings.TrimSpace(account.Name))] = account
 	}
+	productOf := idle.linkedProducts(input, byName)
 	for _, spendable := range ready.ReadyAccounts {
 		if !marked(emergencyNames, spendable.Name) {
-			idle.Accounts = append(idle.Accounts, accountWithRate(byName[strings.ToLower(strings.TrimSpace(spendable.Name))], minimums))
+			idle.Accounts = append(idle.Accounts, accountWithRate(byName[strings.ToLower(strings.TrimSpace(spendable.Name))], minimums, productOf(spendable.Name)))
 		}
 	}
 	sortByRate(idle.Accounts)
@@ -296,7 +442,7 @@ func (idle *IdleCash) sortAccounts(input IdleCashInput) {
 		case !isReadyType(account):
 			idle.Issues = append(idle.Issues, fmt.Sprintf("%s is marked as an emergency account but is not a bank, cash, active or rarely used account; it is ignored.", account.Name))
 		default:
-			entry := accountWithRate(account, minimums)
+			entry := accountWithRate(account, minimums, productOf(account.Name))
 			idle.Emergency.Accounts = append(idle.Emergency.Accounts, entry)
 			idle.Emergency.Balance += entry.available()
 		}
@@ -311,6 +457,34 @@ func (idle *IdleCash) sortAccounts(input IdleCashInput) {
 	}
 }
 
+// linkedProducts resolves idleCash.accountProducts: the returned lookup
+// gives an account's linked product, nil when it has none or the product is
+// not listed today (then the note rate stands and an issue says why).
+func (idle *IdleCash) linkedProducts(input IdleCashInput, byName map[string]Account) func(string) *FlexibleSaving {
+	linked := map[string]*FlexibleSaving{}
+	for _, link := range input.Settings.AccountProducts.Accounts {
+		if _, ok := byName[strings.ToLower(strings.TrimSpace(link.Account))]; !ok {
+			idle.Issues = append(idle.Issues, fmt.Sprintf("Preferences: %s links %q, which is not an account (renamed or deleted?); it is ignored. Unlink it to remove it.", PrefIdleCashAccountProducts, link.Account))
+			continue
+		}
+		index := slices.IndexFunc(input.Products, func(p FlexibleSaving) bool { return strings.EqualFold(p.ID, link.Product) })
+		if index < 0 {
+			reason := "the market data server does not list it today"
+			if input.ProductsIssue != "" {
+				reason = input.ProductsIssue
+			}
+			idle.Issues = append(idle.Issues, fmt.Sprintf("%s is linked to %s but its live rate is unavailable (%s); the rate in its note is used.", link.Account, link.Product, reason))
+			continue
+		}
+		product := input.Products[index]
+		if product.Stale {
+			idle.Issues = append(idle.Issues, fmt.Sprintf("%s's rate for %s is the last one read (%s); the provider's page could not be read since.", product.Name(), link.Account, product.AsOf))
+		}
+		linked[strings.ToLower(strings.TrimSpace(link.Account))] = &product
+	}
+	return func(name string) *FlexibleSaving { return linked[strings.ToLower(strings.TrimSpace(name))] }
+}
+
 // isReadyType: the account types that can be ready money.
 func isReadyType(account Account) bool {
 	switch account.Type {
@@ -320,9 +494,12 @@ func isReadyType(account Account) bool {
 	return false
 }
 
-func accountWithRate(account Account, minimums AccountMinimumSettings) IdleCashAccount {
+func accountWithRate(account Account, minimums AccountMinimumSettings, product *FlexibleSaving) IdleCashAccount {
 	entry := IdleCashAccount{Name: account.Name, Balance: account.Balance}
-	if account.Note != nil {
+	switch {
+	case product != nil:
+		entry.Rate, entry.Product, entry.ProductID = product.Rate, product.Name(), product.ID
+	case account.Note != nil:
 		entry.Rate, entry.RateFromNote = AccountRateFromNote(*account.Note)
 	}
 	if minimum, ok := minimums.For(account.Name); ok {
@@ -443,21 +620,40 @@ func formatRate(rate float64) string {
 }
 
 // InstantAccessTerms is how the best instant-access option behaves, for
-// prose: "rolls monthly; withdraw early at the no-term rate" or
-// "withdraw any time".
+// prose: "rolls monthly; withdraw early at the no-term rate", "withdraw
+// any time" or, for a product that is not a deposit, "spend or withdraw
+// any time; not a bank deposit".
 func (rate DepositRate) InstantAccessTerms() string {
-	if rate.Access == DepositOneMonth {
+	switch {
+	case rate.Access == DepositOneMonth:
 		return "rolls monthly; withdraw early at the no-term rate"
+	case rate.Access == DepositFlexible && rate.Backing == SavingsBackingBusinessCooperation:
+		return "spend or withdraw any time; not a bank deposit"
+	case rate.Access == DepositFlexible:
+		return "spend or withdraw any time"
 	}
 	return "withdraw any time"
 }
 
-// InstantAccessKind is "a 1-month deposit" or "a no-term deposit".
+// InstantAccessKind is "a 1-month deposit", "a no-term deposit" or "an
+// earning balance".
 func (rate DepositRate) InstantAccessKind() string {
-	if rate.Access == DepositOneMonth {
+	switch rate.Access {
+	case DepositOneMonth:
 		return "a 1-month deposit"
+	case DepositFlexible:
+		return "an earning balance"
 	}
 	return "a no-term deposit"
+}
+
+// Place names where the money would go: "a no-term deposit at Bank A",
+// "Zalopay Số dư sinh lời".
+func (rate DepositRate) Place() string {
+	if rate.Access == DepositFlexible {
+		return strings.TrimSpace(rate.Bank + " " + rate.Product)
+	}
+	return rate.InstantAccessKind() + " at " + rate.Bank
 }
 
 func idleVerdict(idle IdleCash) (IdleCashVerdict, []string) {
@@ -465,12 +661,12 @@ func idleVerdict(idle IdleCash) (IdleCashVerdict, []string) {
 		return IdleCashNothingIdle, []string{"The day-to-day float and what must stay liquid cover all ready money, so nothing is idle."}
 	}
 	if idle.Best == nil {
-		return IdleCashNoRate, []string{"No instant-access rate (no-term or 1-month deposit) to compare with: " + idle.RatesIssue + "."}
+		return IdleCashNoRate, []string{"No instant-access rate (no-term or 1-month deposit, or a flexible savings product) to compare with: " + idle.RatesIssue + "."}
 	}
 	reasons := []string{}
 	if idle.RateGapPoints < IdleCashMinRateGapPoints {
-		reasons = append(reasons, fmt.Sprintf("The best instant-access rate (%s%%, %s at %s) is only %.2f points above the current rate (%.2f%%), under the %.1f-point threshold.",
-			formatRate(idle.Best.Rate), strings.TrimPrefix(idle.Best.InstantAccessKind(), "a "), idle.Best.Bank, idle.RateGapPoints, idle.CurrentRate, IdleCashMinRateGapPoints))
+		reasons = append(reasons, fmt.Sprintf("The best instant-access rate (%s%%, %s) is only %.2f points above the current rate (%.2f%%), under the %.1f-point threshold.",
+			formatRate(idle.Best.Rate), strings.TrimPrefix(idle.Best.Place(), "a "), idle.RateGapPoints, idle.CurrentRate, IdleCashMinRateGapPoints))
 	}
 	if idle.ExtraPerYear < IdleCashMinExtraPerYear {
 		reasons = append(reasons, fmt.Sprintf("It would add about %s VND a year, under the %s VND threshold.",
@@ -479,8 +675,8 @@ func idleVerdict(idle IdleCash) (IdleCashVerdict, []string) {
 	if len(reasons) > 0 {
 		return IdleCashNotWorthIt, reasons
 	}
-	return IdleCashWorthMoving, []string{fmt.Sprintf("About %s VND above the day-to-day float is idle at %.2f%%; %s at %s (%s%%, %s) would add about %s VND a year and stays reachable.",
-		groupThousands(idle.Idle), idle.CurrentRate, idle.Best.InstantAccessKind(), idle.Best.Bank, formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms(), groupThousands(idle.ExtraPerYear))}
+	return IdleCashWorthMoving, []string{fmt.Sprintf("About %s VND above the day-to-day float is idle at %.2f%%; %s (%s%%, %s) would add about %s VND a year and stays reachable.",
+		groupThousands(idle.Idle), idle.CurrentRate, idle.Best.Place(), formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms(), groupThousands(idle.ExtraPerYear))}
 }
 
 // accountRatePattern reads a rate from a note folded by foldAccents.

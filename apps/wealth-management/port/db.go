@@ -115,6 +115,12 @@ type DatabaseService interface {
 	// ErrNotFound when setting one on an unknown account, ErrConflict when
 	// the setting changed.
 	SetAccountMinimumBalance(input domain.AccountMinimumInput) (domain.Preferences, error)
+	// SetAccountProduct links an account to the flexible savings product it
+	// holds (D41) in the idleCash.accountProducts row; a blank product
+	// unlinks it. ErrValidation without an account or ETag or for a bad
+	// product ID, ErrNotFound when linking an unknown account, ErrConflict
+	// when the setting changed.
+	SetAccountProduct(input domain.AccountProductInput) (domain.Preferences, error)
 	// ListCardConfig returns the card programmes, banks, cards held and
 	// merchant MCCs from the Programs, ProgramRules, Banks, Cards and
 	// Merchants tabs (WM-CARD-3); a missing tab contributes no rows.

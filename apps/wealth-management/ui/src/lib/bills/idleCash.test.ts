@@ -7,6 +7,8 @@ import {
   keepLiquidLines,
   keepReady,
   parseFloatDraft,
+  place,
+  sameAccount,
   rateLabel,
 } from './idleCash';
 import { idleCash } from './idleCash.testdata';
@@ -55,6 +57,30 @@ describe('idle cash helpers', () => {
     const noTerm = { ...best, access: 'no_term' as const, tenor: 'no-term', tenorMonths: 0 };
     expect(depositKind(noTerm)).toBe('a no-term deposit');
     expect(depositTerms(noTerm)).toBe('withdraw any time');
+  });
+
+  it('Given a flexible product When wording it Then the place is the provider and product, and risk is stated', () => {
+    const wallet = {
+      ...idleCash().best!,
+      bank: 'Wallet Z',
+      product: 'Earning Z',
+      access: 'flexible' as const,
+      backing: 'deposit' as const,
+    };
+    expect(depositKind(wallet)).toBe('an earning balance');
+    expect(place(wallet)).toBe('Wallet Z Earning Z');
+    expect(place({ ...wallet, product: undefined })).toBe('Wallet Z');
+    expect(depositTerms(wallet)).toBe('spend or withdraw any time');
+    expect(depositTerms({ ...wallet, backing: 'business_cooperation' })).toBe(
+      'spend or withdraw any time; not a bank deposit',
+    );
+    expect(place(idleCash().best!)).toBe('a 1-month deposit at Bank X');
+  });
+
+  it('matches account names ignoring case and spaces', () => {
+    expect(sameAccount(' Wallet Z ', 'wallet z')).toBe(true);
+    expect(sameAccount('WalletZ', 'Wallet Z')).toBe(false);
+    expect(sameAccount('Wallet Z', 'Wallet Y')).toBe(false);
   });
 
   it('keeps only the accounts holding idle cash', () => {

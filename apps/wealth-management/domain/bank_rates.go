@@ -18,13 +18,28 @@ const (
 	// DepositOneMonth: a 1-month term deposit that rolls over monthly; an
 	// early withdrawal earns the no-term rate.
 	DepositOneMonth DepositAccess = "one_month"
+	// DepositFlexible: a flexible savings product such as an e-wallet's
+	// earning balance, spendable and withdrawable any time (D41).
+	DepositFlexible DepositAccess = "flexible"
 )
 
 // Labels of the instant-access kinds.
 const (
 	DepositNoTermLabel   = "no-term, withdraw any time"
 	DepositOneMonthLabel = "1-month term, rolls monthly; early withdrawal pays the no-term rate"
+	DepositFlexibleLabel = "earning balance, spend or withdraw any time"
 )
+
+// FlexibleDepositRate is a flexible savings product as an instant-access
+// option.
+func FlexibleDepositRate(product FlexibleSaving) DepositRate {
+	return DepositRate{
+		Bank: product.Provider, Product: product.Product, ProductID: product.ID, Rate: product.Rate,
+		Access: DepositFlexible, AccessLabel: DepositFlexibleLabel, UpdatedAt: product.UpdatedAt,
+		Backing: product.Backing, EarningStarts: product.EarningStarts, WithdrawalMaxWorkingHours: product.WithdrawalMaxWorkingHours,
+		URL: product.URL, Stale: product.Stale,
+	}
+}
 
 var tenorDigits = regexp.MustCompile(`(\d+)`)
 

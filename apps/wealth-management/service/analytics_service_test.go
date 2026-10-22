@@ -5,6 +5,7 @@ import (
 	"apps/wealth-management/internal/fakes"
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 )
@@ -438,5 +439,25 @@ func TestGivenAMinimumBalanceInPreferencesWhenComputingBillsAndIdleCashThenTheRe
 	idle, err := analytics.IdleCash(context.Background(), false)
 	if err != nil || idle.Components.ReadyMoney != 15_000_000 || idle.Components.MinimumReserved != 5_000_000 {
 		t.Fatalf("idle = %+v err %v", idle.Components, err)
+	}
+}
+
+func TestGivenALinkedWalletWhenCheckingIdleCashThenProductsAreComparedAndFailuresReported(t *testing.T) {
+	prefs := domain.ParsePreferences([][]string{{"idleCash.accountProducts", `{"Wallet":"fake:wallet"}`}}, 2)
+	db := &fakes.Database{
+		Accounts:    []domain.Account{{Name: "Bank", Type: domain.AccountTypeBank, Balance: 50_000_000}, {Name: "Wallet", Type: domain.AccountTypeActiveUse, Balance: 20_000_000}},
+		Preferences: &prefs,
+	}
+	market := &fakes.Market{}
+	idle, err := NewAnalyticsService(db, func() time.Time { return fixedNow }, WithBankRates(market)).IdleCash(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wallet := idle.Accounts[slices.IndexFunc(idle.Accounts, func(a domain.IdleCashAccount) bool { return a.Name == "Wallet" })]
+	if wallet.Rate != 4 || wallet.ProductID != "fake:wallet" || idle.ProductsIssue != "" {
+		t.Fatalf("wallet = %+v, issue %q", wallet, idle.ProductsIssue)
+	}
+	if !slices.ContainsFunc(idle.Options, func(o domain.DepositRate) bool { return o.ProductID == "fake:wallet" }) {
+		t.Fatalf("options = %+v", idle.Options)
 	}
 }

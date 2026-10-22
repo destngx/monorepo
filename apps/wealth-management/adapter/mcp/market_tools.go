@@ -83,6 +83,8 @@ func (s *Server) marketTools() []tool {
 			}),
 		marketTool("GetBankRates", "Returns current bank deposit interest rates.", nil,
 			func(ctx context.Context, _ marketArgs) (any, error) { return market.GetBankInterestRate(ctx) }),
+		marketTool("GetFlexibleSavings", "Returns flexible savings products (e-wallet earning balances such as Zalopay Số dư sinh lời and MoMo Túi Thần Tài) with their live published rates and terms: id (for LinkAccountProduct), backing (deposit, or business_cooperation: not a bank deposit), earningStarts (next_working_day: money moved in Friday to Sunday starts earning Monday), withdrawalMaxWorkingHours; failed lists providers that could not be read.", nil,
+			func(ctx context.Context, _ marketArgs) (any, error) { return market.GetFlexibleSavings(ctx) }),
 		{
 			definition: definition("GetMarketCandles", "OHLCV bars for a VN equity, index, FX pair, gold or VIX, with the provider that served them and any fallback reason.", object(map[string]any{
 				"symbol":    map[string]any{"type": "string", "description": "Ticker symbol, e.g. FPT or VNINDEX."},

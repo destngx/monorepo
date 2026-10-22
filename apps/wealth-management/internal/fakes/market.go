@@ -64,6 +64,20 @@ func (f *Market) GetBankInterestRate(ctx context.Context) (domain.BankRates, err
 	return domain.BankRates{Rates: fakeBankRates(), Source: &domain.DataSource{Provider: "fake"}}, f.Err
 }
 
+func (f *Market) GetFlexibleSavings(ctx context.Context) (domain.FlexibleSavings, error) {
+	f.record(ctx, MarketCall{Kind: "flexible-savings"})
+	return domain.FlexibleSavings{Products: fakeFlexibleSavings(), Failed: []string{}, Source: &domain.DataSource{Provider: "fake"}}, f.Err
+}
+
+// fakeFlexibleSavings is one invented wallet product paying from the next
+// working day, below the fake 1-month rate.
+func fakeFlexibleSavings() []domain.FlexibleSaving {
+	return []domain.FlexibleSaving{{
+		ID: "fake:wallet", Provider: "Test Wallet", Product: "Earn", Rate: 4, Backing: domain.SavingsBackingDeposit,
+		EarningStarts: domain.EarningStartsNextWorkingDay, Currency: "VND", URL: "https://wallet.example/earn",
+	}}
+}
+
 // fakeBankRates is the market server's tenored shape: a no-term, a
 // 1-month and a 12-month rate of one invented bank.
 func fakeBankRates() []domain.BankRate {

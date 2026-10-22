@@ -14,10 +14,12 @@ from src.sources.coingecko import CoinGeckoSource
 from src.sources.currencyapi import CurrencyApiSource
 from src.sources.fmarket import FmarketSource
 from src.sources.http import StatusError
+from src.sources.momo import MomoSource
 from src.sources.simplize import SimplizeSource
 from src.sources.vnstock import VnstockSource
 from src.sources.yahoo import YahooSource
 from src.sources.yahoo.provider import yahoo_symbol
+from src.sources.zalopay import ZalopaySource
 
 pytestmark = pytest.mark.anyio
 
@@ -464,6 +466,99 @@ class TestSimplize:
         source, _ = self.source(lambda r: httpx.Response(503))
         with pytest.raises(StatusError, match="503"):
             await source.get_bank_rates()
+
+
+def zalopay_detail(*titles, updated_at="2026-01-19T07:40:06.000Z"):
+    """Shaped like zalopay's pageProps.service_detail (a Strapi entry)."""
+    return {
+        "service_detail": {
+            "slug": "so-du-sinh-loi",
+            "updated_at": updated_at,
+            "items": [
+                {"__component": "shared.column-point", "content": [{"id": i, "title": t, "description": "..."} for i, t in enumerate(titles)]},
+                {"__component": "shared.tabs", "tabs": [{"title": "Nguyên tắc tính lời", "steps": []}]},
+            ],
+            "SEO": {"title": "Dịch vụ Số dư sinh lời 9.9%/năm | Zalopay"},
+        }
+    }
+
+
+class TestZalopay:
+    def source(self, handler):
+        upstream = Upstream(handler)
+        return ZalopaySource(base_url="https://zalopay.test", transport=upstream.transport), upstream
+
+    async def test_reads_the_feature_line_not_the_seo_title(self):
+        source, upstream = self.source(lambda r: next_page(zalopay_detail("Sinh lời 4.5% từ khoản chi tiêu hằng tháng", "An toàn bảo mật")))
+        [product] = await source.get_flexible_savings()
+        assert upstream.requests[0].url.path == "/dich-vu/so-du-sinh-loi"
+        assert product.to_json() == {
+            "id": "zalopay:so-du-sinh-loi", "provider": "Zalopay", "product": "Số dư sinh lời", "rate": 4.5,
+            "backing": "deposit", "earningStarts": "next_working_day", "withdrawalMaxWorkingHours": None,
+            "currency": "VND", "updatedAt": "2026-01-19", "url": "https://zalopay.test/dich-vu/so-du-sinh-loi",
+        }  # fmt: skip
+
+    async def test_an_update_time_without_an_offset_is_utc(self):
+        # 20:30 UTC on the 20th is the 21st in Vietnam, whatever the host's timezone.
+        source, _ = self.source(lambda r: next_page(zalopay_detail("Sinh lời 4.5% mỗi năm", updated_at="2026-10-20T20:30:00")))
+        assert (await source.get_flexible_savings())[0].updated_at == "2026-10-21"
+
+    async def test_a_comma_decimal_is_read(self):
+        source, _ = self.source(lambda r: next_page(zalopay_detail("Sinh lời 4,25% mỗi năm")))
+        assert (await source.get_flexible_savings())[0].rate == 4.25
+
+    async def test_a_reworded_page_fails(self):
+        source, _ = self.source(lambda r: next_page(zalopay_detail("Lãi hấp dẫn mỗi ngày")))
+        with pytest.raises(ValueError, match="states no rate"):
+            await source.get_flexible_savings()
+
+    async def test_disagreeing_rates_fail(self):
+        source, _ = self.source(lambda r: next_page(zalopay_detail("Sinh lời 4.5% mỗi năm", "Sinh lời 5% cho khách mới")))
+        with pytest.raises(ValueError, match="several rates: 4.5%, 5%"):
+            await source.get_flexible_savings()
+
+    async def test_a_page_without_the_entry_fails(self):
+        source, _ = self.source(lambda r: next_page({"main_service": {}}))
+        with pytest.raises(ValueError, match="service_detail"):
+            await source.get_flexible_savings()
+
+
+def momo_blocks(*contents):
+    """Shaped like momo's pageProps.dataServiceListBlock; the copy is invented."""
+    return {"dataServiceListBlock": {"Data": [{"Id": i, "Content": c, "Data": {"Items": []}} for i, c in enumerate(contents)]}}
+
+
+class TestMomo:
+    def source(self, handler):
+        upstream = Upstream(handler)
+        return MomoSource(base_url="https://momo.test", transport=upstream.transport), upstream
+
+    async def test_reads_the_rate_from_escaped_and_decomposed_prose(self):
+        # The FAQ copy is entity-escaped HTML with a combining accent ("cố" as "c&#244;" + U+0301).
+        faq = "&lt;p&gt;r&#250;t tiền kh&#244;ng bị ảnh hưởng tỷ suất sinh lời c&#244;\u0301 định 4%/năm&lt;/p&gt;"
+        page = momo_blocks("<li>Tiền lời nhận về mỗi ngày, đến 4%/năm.</li>", faq, "<p>Chỉ từ 20.000đ</p>")
+        source, upstream = self.source(lambda r: next_page(page))
+        [product] = await source.get_flexible_savings()
+        assert upstream.requests[0].url.path == "/tui-than-tai"
+        assert product.to_json() == {
+            "id": "momo:tui-than-tai", "provider": "MoMo", "product": "Túi Thần Tài", "rate": 4.0,
+            "backing": "business_cooperation", "earningStarts": "next_working_day", "withdrawalMaxWorkingHours": 16,
+            "currency": "VND", "updatedAt": None, "url": "https://momo.test/tui-than-tai",
+        }  # fmt: skip
+
+    async def test_statements_that_disagree_fail(self):
+        page = momo_blocks("Tiền lời nhận về mỗi ngày, đến 4%/năm.", "tỷ suất sinh lời lên đến 4,5%/năm")
+        source, _ = self.source(lambda r: next_page(page))
+        with pytest.raises(ValueError, match="several rates"):
+            await source.get_flexible_savings()
+
+    async def test_a_page_without_blocks_or_rate_fails(self):
+        source, _ = self.source(lambda r: next_page({}))
+        with pytest.raises(ValueError, match="no content blocks"):
+            await source.get_flexible_savings()
+        source, _ = self.source(lambda r: next_page(momo_blocks("Sinh lời hấp dẫn")))
+        with pytest.raises(ValueError, match="states no rate"):
+            await source.get_flexible_savings()
 
 
 class TestVnstock:

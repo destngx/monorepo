@@ -114,7 +114,7 @@ export interface FundCashFlow {
 
 /** Today's best published rate, a labelled proxy for the whole period. */
 /** How quickly an instant-access comparison can be reached (idle cash, D34). */
-export type DepositAccess = 'no_term' | 'one_month';
+export type DepositAccess = 'no_term' | 'one_month' | 'flexible';
 
 export interface DepositRate {
   bank: string;
@@ -131,6 +131,17 @@ export interface DepositRate {
   rate: number;
   updatedAt?: string;
   basis: string;
+  /** Set on a flexible savings product (an e-wallet earning balance); `bank` is then its provider. */
+  product?: string;
+  /** "zalopay:so-du-sinh-loi". */
+  productId?: string;
+  /** business_cooperation is not a bank deposit and carries financial risk. */
+  backing?: 'deposit' | 'business_cooperation';
+  /** Absent = pays from the same day. */
+  earningStarts?: 'next_working_day';
+  withdrawalMaxWorkingHours?: number;
+  url?: string;
+  stale?: boolean;
 }
 
 export type VsDeposit = 'ahead' | 'behind' | 'even';

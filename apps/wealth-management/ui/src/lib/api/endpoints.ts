@@ -5,6 +5,8 @@ import type {
   AccountReadinessInput,
   ApiTokenStatus,
   EmergencyAccountInput,
+  AccountProductInput,
+  FlexibleSavings,
   AccountMinimumInput,
   AIProviderUsage,
   Allocation,
@@ -204,6 +206,9 @@ export const api = {
   /** Marks an account as an emergency fund account or not for idle cash (D34); 409 when the setting changed. */
   setEmergencyAccount: (input: EmergencyAccountInput) =>
     request<Preferences>('/bills/idle-cash/emergency-accounts', { method: 'POST', body: input }),
+  /** Links an account to a flexible savings product, or unlinks it (empty product), for idle cash; 409 when the setting changed. */
+  setAccountProduct: (input: AccountProductInput) =>
+    request<Preferences>('/bills/idle-cash/account-products', { method: 'POST', body: input }),
   /** Sets or removes (null or 0) an account's minimum balance to keep (D35); 409 when the setting changed. */
   setAccountMinimum: (input: AccountMinimumInput) =>
     request<Preferences>('/bills/safe-to-spend/minimum-balance', { method: 'POST', body: input }),
@@ -275,6 +280,7 @@ export const api = {
   exchangeRate: (from: string, to: string, fetch?: Fetch) =>
     request<ExchangeRate>('/market/exchange-rate', { fetch, query: { from, to } }),
   bankRates: (fetch?: Fetch) => request<BankRates>('/market/bank-rates', { fetch }),
+  flexibleSavings: (fetch?: Fetch) => request<FlexibleSavings>('/market/flexible-savings', { fetch }),
   marketPulse: (timeframe: Timeframe, options?: ReadOptions) =>
     read<MarketPulse>('/market/pulse', options, { timeframe }),
   marketAnalysis: (symbol: string, timeframe: Timeframe, options?: ReadOptions) =>

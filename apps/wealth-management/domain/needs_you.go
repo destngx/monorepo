@@ -48,7 +48,10 @@ const (
 	// NeedsYouEmergencyFundRate: the emergency accounts earn materially
 	// less than the best instant-access rate (D34).
 	NeedsYouEmergencyFundRate NeedsYouKind = "emergency-fund-rate"
-	NeedsYouMonthClose        NeedsYouKind = "month-close"
+	// NeedsYouWalletSwitch: another wallet earning balance pays materially
+	// more than the linked one (D41).
+	NeedsYouWalletSwitch NeedsYouKind = "wallet-switch"
+	NeedsYouMonthClose   NeedsYouKind = "month-close"
 	// NeedsYouMinimumBalance: an account with a minimum balance to keep is
 	// projected below its minimum average this month (D35).
 	NeedsYouMinimumBalance NeedsYouKind = "minimum-balance"
@@ -58,7 +61,7 @@ const (
 var needsYouKindOrder = []NeedsYouKind{
 	NeedsYouBillOverdue, NeedsYouShortBeforePayday, NeedsYouCardDue, NeedsYouTightBeforePayday, NeedsYouMinimumBalance, NeedsYouBudgetOverPace, NeedsYouMonthClose, NeedsYouDrafts, NeedsYouLentOverdue,
 	NeedsYouGoalPlanShort, NeedsYouGoalBehind, NeedsYouRebalance, NeedsYouUncategorized, NeedsYouRecommendation,
-	NeedsYouIdleCash, NeedsYouEmergencyFundRate,
+	NeedsYouIdleCash, NeedsYouEmergencyFundRate, NeedsYouWalletSwitch,
 }
 
 // NeedsYouStatus is the shared status token of an item (UI status scale).
@@ -544,6 +547,7 @@ var ruleKinds = map[string]struct {
 	RuleGoalPlanShort:     {NeedsYouGoalPlanShort, NeedsYouWarning},
 	RuleIdleCash:          {NeedsYouIdleCash, NeedsYouInfo},
 	RuleEmergencyFundRate: {NeedsYouEmergencyFundRate, NeedsYouInfo},
+	RuleWalletSwitch:      {NeedsYouWalletSwitch, NeedsYouInfo},
 }
 
 func ruleItem(finding RuleFinding, recommendationID string) NeedsYouItem {

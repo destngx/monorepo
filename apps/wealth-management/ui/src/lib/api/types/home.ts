@@ -16,6 +16,7 @@ export type NeedsYouKind =
   | 'recommendation'
   | 'idle-cash'
   | 'emergency-fund-rate'
+  | 'wallet-switch'
   | 'month-close';
 
 /** Shared status token names (lib/status.ts). */

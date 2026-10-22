@@ -7,7 +7,7 @@ adapters without it. Adapters only translate: no caching, no fallback.
 from datetime import datetime
 from typing import Any, List, Protocol, runtime_checkable
 
-from ..market.models import BankRate, CandleSeries, ExchangeRate, PriceSeries, SeriesType, Ticker, TickerType
+from ..market.models import BankRate, CandleSeries, ExchangeRate, FlexibleSaving, PriceSeries, SeriesType, Ticker, TickerType
 
 
 @runtime_checkable
@@ -37,6 +37,12 @@ class BankRateSource(Source, Protocol):
     async def get_bank_rates(self) -> List[BankRate]: ...
 
 
+class FlexibleSavingsSource(Source, Protocol):
+    async def get_flexible_savings(self) -> List[FlexibleSaving]:
+        """The provider's own withdraw-any-time products; each source is a different provider, not a fallback."""
+        ...
+
+
 class CandleSource(Source, Protocol):
     async def get_candles(self, symbol: str, timeframe: Any, start: datetime, end: datetime) -> CandleSeries:
         """Bars of one source timeframe (1h, 1d or 1w) between start and end inclusive."""
@@ -49,6 +55,7 @@ CAPABILITIES = {
     "fx": "get_exchange_rate",
     "series": "get_price_series",
     "bank_rates": "get_bank_rates",
+    "flexible_savings": "get_flexible_savings",
     "candles": "get_candles",
     "funds": "get_funds",
 }

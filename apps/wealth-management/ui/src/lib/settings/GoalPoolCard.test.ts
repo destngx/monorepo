@@ -8,7 +8,7 @@ const prefs = (dayToDayFloat: number | null): Preferences => ({
   allocationTargets: null,
   goalPool: { emergencyMonths: 6, spendingBufferMonths: 1 },
   safeToSpend: { notReadyAccounts: [], etag: 'e1' },
-  idleCash: { dayToDayFloat, emergencyAccounts: [], etag: 'e2' },
+  idleCash: { dayToDayFloat, emergencyAccounts: [], accountProducts: { accounts: [], etag: 'e4' }, etag: 'e2' },
   accountMinimums: { accounts: [], etag: 'e3' },
   entries: [],
   issues: [],

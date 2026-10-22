@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 )
@@ -19,6 +20,9 @@ const (
 	// RuleEmergencyFundRate: the emergency accounts earn materially less
 	// than the best instant-access rate (D34).
 	RuleEmergencyFundRate = "emergency-fund-rate"
+	// RuleWalletSwitch: an account linked to a wallet earning balance would
+	// earn materially more in another one (D41), e.g. after a rate cut.
+	RuleWalletSwitch = "wallet-switch"
 
 	// LentOverdueDays: money lent open longer than this is worth chasing.
 	LentOverdueDays = 90
@@ -94,7 +98,49 @@ func EvaluateRecommendationRules(in RuleInputs) ([]string, []RuleFinding) {
 			findings = append(findings, finding)
 		}
 	}
+	// A switch is judged only between flexible products, so it needs one.
+	if in.IdleCash != nil && slices.ContainsFunc(in.IdleCash.Options, func(o DepositRate) bool { return o.Access == DepositFlexible }) {
+		evaluated = append(evaluated, RuleWalletSwitch)
+		if finding, ok := walletSwitchFinding(*in.IdleCash); ok {
+			findings = append(findings, finding)
+		}
+	}
 	return evaluated, findings
+}
+
+// walletSwitchFinding: the day-to-day money in accounts linked to a wallet
+// earning balance would earn materially more in another one (D41,
+// WM-CASH-10). The action is the first switch's plan, named by product
+// only (the inbox carries no account names); the impact is every switch's
+// extra a year.
+func walletSwitchFinding(idle IdleCash) (RuleFinding, bool) {
+	if len(idle.Switches) == 0 {
+		return RuleFinding{}, false
+	}
+	extra, amount := 0.0, 0.0
+	for _, move := range idle.Switches {
+		extra += move.ExtraPerYear
+		amount += move.Amount
+	}
+	first := idle.Switches[0]
+	action := fmt.Sprintf("%s pays %s%% now; %s pays %s%%. Moving %s of day-to-day money would earn about %s a month more. "+
+		"Move on %s %s: the money earns nothing for %s (about %s), earned back in %s.",
+		first.FromProduct, formatRate(first.FromRate), first.To, formatRate(first.ToRate), FormatVND(first.Amount), FormatVND(first.ExtraPerMonth),
+		first.BestDay.Weekday, first.BestDay.Date, plural(first.BestDay.DaysWithoutInterest, "day", "days"), FormatVND(first.BestDay.InterestLost),
+		plural(first.BestDay.PaybackDays, "day", "days"))
+	if first.ToBacking == SavingsBackingBusinessCooperation {
+		action += " " + first.To + " is not a bank deposit."
+	}
+	return RuleFinding{
+		Rule:      RuleWalletSwitch,
+		Title:     "Another wallet earning balance pays more",
+		Action:    action,
+		ImpactVND: &extra,
+		AmountVND: vndAmount(amount),
+		Evidence: fmt.Sprintf("%s at %s%% vs %s at %s%%; best day to move %s %s (%s without interest)", first.FromProduct, formatRate(first.FromRate),
+			first.To, formatRate(first.ToRate), first.BestDay.Weekday, first.BestDay.Date, plural(first.BestDay.DaysWithoutInterest, "day", "days")),
+		Page: "/bills",
+	}, true
 }
 
 // idleCashFinding: the idle part above the day-to-day float would earn
@@ -106,8 +152,8 @@ func idleCashFinding(idle IdleCash) (RuleFinding, bool) {
 	}
 	extra := math.Round(idle.ExtraPerYear)
 	keep := math.Max(0, idle.Components.ReadyMoney-idle.Idle)
-	action := fmt.Sprintf("Keep %s ready in your everyday accounts. The other %s could earn about %s a year more in %s at %s (%s%%, %s)",
-		FormatVND(keep), FormatVND(idle.Idle), FormatVND(extra), idle.Best.InstantAccessKind(), idle.Best.Bank, formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms())
+	action := fmt.Sprintf("Keep %s ready in your everyday accounts. The other %s could earn about %s a year more in %s (%s%%, %s)",
+		FormatVND(keep), FormatVND(idle.Idle), FormatVND(extra), idle.Best.Place(), formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms())
 	if ladder := idle.Ladder; ladder != nil {
 		action += fmt.Sprintf(", for example split into %d parts of about %s opened %d days apart, so one matures every %d days",
 			ladder.Parts, FormatVND(ladder.PartAmount), ladder.SpacingDays, ladder.SpacingDays)
@@ -120,7 +166,7 @@ func idleCashFinding(idle IdleCash) (RuleFinding, bool) {
 		ImpactVND: &extra,
 		AmountVND: vndAmount(idle.Idle),
 		Evidence: fmt.Sprintf("%s idle above the day-to-day float (%s) and what stays liquid; earning %s%% now vs %s%% best instant-access: %s",
-			FormatVND(idle.Idle), FormatVND(idle.Components.DayToDayFloat), formatRate(idle.CurrentRate), formatRate(idle.Best.Rate), strings.TrimPrefix(idle.Best.InstantAccessKind(), "a ")),
+			FormatVND(idle.Idle), FormatVND(idle.Components.DayToDayFloat), formatRate(idle.CurrentRate), formatRate(idle.Best.Rate), strings.TrimPrefix(idle.Best.Place(), "a ")),
 		Page: "/bills",
 	}, true
 }
@@ -134,7 +180,13 @@ func emergencyFundRateFinding(idle IdleCash) (RuleFinding, bool) {
 		return RuleFinding{}, false
 	}
 	extra := math.Round(e.ExtraPerYear)
-	kind := idle.Best.InstantAccessKind()
+	place := idle.Best.Place()
+	// Emergency money is where the risk of a product that is not a deposit
+	// matters most, so the item says it.
+	risk := ""
+	if idle.Best.Backing == SavingsBackingBusinessCooperation {
+		risk = " " + place + " is not a bank deposit: it is a business cooperation contract with financial risk."
+	}
 	holding := 0
 	for _, account := range e.Accounts {
 		if account.Balance > 0 {
@@ -144,14 +196,14 @@ func emergencyFundRateFinding(idle IdleCash) (RuleFinding, bool) {
 	return RuleFinding{
 		Rule:  RuleEmergencyFundRate,
 		Title: "Your emergency fund could earn more and stay within reach",
-		Action: fmt.Sprintf("Your emergency fund (%s in %s) earns %s%%. %s at %s (%s%%, %s) would earn about %s a year more and keep it within reach. "+
-			"Move it only if the new place is as quick to reach in an emergency.",
+		Action: fmt.Sprintf("Your emergency fund (%s in %s) earns %s%%. %s (%s%%, %s) would earn about %s a year more and keep it within reach. "+
+			"Move it only if the new place is as quick to reach in an emergency.%s",
 			FormatVND(e.Balance), plural(holding, "emergency account", "emergency accounts"), formatRate(e.CurrentRate),
-			strings.ToUpper(kind[:1])+kind[1:], idle.Best.Bank, formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms(), FormatVND(extra)),
+			strings.ToUpper(place[:1])+place[1:], formatRate(idle.Best.Rate), idle.Best.InstantAccessTerms(), FormatVND(extra), risk),
 		ImpactVND: &extra,
 		AmountVND: vndAmount(e.Balance),
 		Evidence: fmt.Sprintf("emergency accounts earn %s%% vs %s%% best instant-access: %s", formatRate(e.CurrentRate), formatRate(idle.Best.Rate),
-			strings.TrimPrefix(kind, "a ")),
+			strings.TrimPrefix(place, "a ")),
 		Page: "/bills",
 	}, true
 }

@@ -38,8 +38,14 @@ export const idleCash = (overrides: Partial<IdleCash> = {}): IdleCash => ({
     rateGapPoints: 1.5,
     extraPerYear: 300_000,
     betterRate: true,
-    settings: { dayToDayFloat: null, emergencyAccounts: ['Rainy Day Account'], etag: 'etag-1' },
+    settings: {
+      dayToDayFloat: null,
+      emergencyAccounts: ['Rainy Day Account'],
+      accountProducts: { accounts: [], etag: 'etag-products' },
+      etag: 'etag-1',
+    },
     unknown: [],
+    moves: [],
   },
   currentRate: 0.22,
   best: {
@@ -51,6 +57,9 @@ export const idleCash = (overrides: Partial<IdleCash> = {}): IdleCash => ({
     rate: 5.5,
     basis: 'A proxy: the best no-term or 1-month savings rate published today.',
   },
+  options: [],
+  moves: [],
+  switches: [],
   ladder: { parts: 3, partAmount: 30_000_000, spacingDays: 10 },
   rateGapPoints: 5.28,
   extraPerYear: 4_752_000,
@@ -61,6 +70,7 @@ export const idleCash = (overrides: Partial<IdleCash> = {}): IdleCash => ({
   minExtraPerYear: 200_000,
   keepLiquidRule: 'Kept liquid: bills, card payments, goal set-aside and the emergency fund.',
   rateRule: 'Rates come from the account note.',
+  productRule: 'A linked account earns the live rate of its wallet product.',
   thresholdRule: 'Worth moving from 0.5 points and 200.000 VND a year.',
   ...overrides,
 });

@@ -388,3 +388,38 @@ func TestGivenAnAccountWhenSettingItsMinimumBalanceThenOnlyItsSettingRowIsWritte
 		t.Fatalf("updates %+v", client.updates)
 	}
 }
+
+func TestGivenAnAccountWhenLinkingItToAProductThenOnlyItsSettingRowIsWritten(t *testing.T) {
+	client := newFakeSheetClient()
+	seedAccounts(client)
+	client.titles = []string{preferencesSheet}
+	client.ranges[preferencesRange] = [][]string{{"idleCash.emergencyAccounts", `["Bank"]`, "note"}}
+	svc := newTestDBService(t, client, newFakeCache())
+	current, err := svc.ListPreferences(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	etag := current.IdleCash.AccountProducts.ETag
+	if _, err := svc.SetAccountProduct(domain.AccountProductInput{Account: "Wallet W", Product: "zalopay:so-du-sinh-loi", ETag: etag}); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("an unknown account cannot be linked: %v", err)
+	}
+	if _, err := svc.SetAccountProduct(domain.AccountProductInput{Account: "bank", Product: "zalopay:so-du-sinh-loi", ETag: current.IdleCash.ETag}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("the emergency etag is not the product etag: %v", err)
+	}
+	if len(client.updates) != 0 || len(client.appends) != 0 {
+		t.Fatalf("nothing may be written: %+v %+v", client.updates, client.appends)
+	}
+	saved, err := svc.SetAccountProduct(domain.AccountProductInput{Account: "Bank", Product: "zalopay:so-du-sinh-loi", ETag: etag})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(client.updates) != 0 || len(client.appends) != 1 {
+		t.Fatalf("updates %+v appends %+v", client.updates, client.appends)
+	}
+	if row := client.appends[0].rows[0]; row[0] != "idleCash.accountProducts" || row[1] != `{"Bank":"zalopay:so-du-sinh-loi"}` || row[2] == "" {
+		t.Fatalf("row %v", row)
+	}
+	if !saved.TabExists {
+		t.Fatalf("saved = %+v", saved)
+	}
+}

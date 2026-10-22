@@ -17,6 +17,7 @@ func RegisterMarketRoutes(api RouteRegistrar, market *MarketHandler, providers *
 	marketAPI.Get("/price-series", market.GetPriceSeries, RouteMeta{Summary: "Historical price points for a symbol and series type.", QueryParams: []RouteParameter{skipCacheParam(), QueryParam("symbol", "string", "Ticker symbol."), QueryParam("type", "string", "Series type.")}})
 	marketAPI.Get("/candles", market.GetCandles, RouteMeta{Summary: "OHLCV bars for a VN equity or index with the provider that served them and any fallback reason.", QueryParams: []RouteParameter{skipCacheParam(), QueryParam("symbol", "string", "Ticker symbol, e.g. FPT or VNINDEX."), QueryParam("timeframe", "string", "1h, 4h, 1d or 1w.", "1d"), QueryParam("days", "integer", "Lookback in days; defaults to enough history for EMA200.")}})
 	marketAPI.Get("/bank-rates", market.GetBankInterestRate, RouteMeta{Summary: "Published bank savings rates.", QueryParams: []RouteParameter{skipCacheParam()}})
+	marketAPI.Get("/flexible-savings", market.GetFlexibleSavings, RouteMeta{Summary: "Flexible savings products (e-wallet earning balances such as Zalopay Số dư sinh lời and MoMo Túi Thần Tài) with their live published rates and terms: id (for idleCash.accountProducts), backing (deposit or business_cooperation), earningStarts, withdrawalMaxWorkingHours; failed lists providers that could not be read.", QueryParams: []RouteParameter{skipCacheParam()}})
 }
 
 // RegisterFmarketRoutes exposes the fmarket explorer actions over HTTP

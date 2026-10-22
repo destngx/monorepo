@@ -4,13 +4,13 @@ This document defines the core standards for `market-data-server` (Python), form
 
 ## 🐍 Architecture: FastAPI & Market Data
 
-The server is the single market-data API for the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api, CafeF and Simplize bank rates, and the Algolab MCP as the last fallback; TCBS MCP is planned), the chains between them, caching and last-good copies; see [MARKET_PLATFORM.md](./MARKET_PLATFORM.md). Consumers such as wealth-management must not implement their own market layer: WM's only market adapter is `adapter/market/marketdata`, a client of `/api/v2`. It runs on a private local machine, so it has no API auth.
+The server is the single market-data API for the monorepo. It owns every source (vnstock, fmarket, Yahoo Finance, CoinGecko, currency-api, CafeF and Simplize bank rates, Zalopay and MoMo flexible savings, and the Algolab MCP as the last fallback; TCBS MCP is planned), the chains between them, caching and last-good copies; see [MARKET_PLATFORM.md](./MARKET_PLATFORM.md). Consumers such as wealth-management must not implement their own market layer: WM's only market adapter is `adapter/market/marketdata`, a client of `/api/v2`. It runs on a private local machine, so it has no API auth.
 
 ### 🗺️ Layout
 
 - `src/modules/*`: `/api/v1`, thin vnstock wrappers (listings, finance, company, stocks, health).
 - `src/market/`: `/api/v2`. `api.py` (routes, envelope, v2 error shape), `service.py` (input validation, cache, last-good fallback), `router.py` (chains), `chains.py` (default chains, `MARKET_CHAINS`, TTLs), `store.py` (last-good SQLite at `MARKET_DB_PATH`), `candles.py` (cleaning and aggregation in ICT), `models.py`, `symbols.py`, `errors.py`.
-- `src/sources/<name>/provider.py`: one class per source. A source implements only the capabilities it has (`get_ticker`, `get_exchange_rate`, `get_price_series`, `get_candles`, `get_bank_rates`, fund and gold methods) plus `health()` and `aclose()`. `src/sources/http.py` has the shared httpx client and `request_json`; `src/sources/mcp.py` is the minimal MCP (Streamable HTTP) client used by MCP sources such as `algolab`. Algolab prices stocks in VND, so the adapter divides by 1000 to match the other sources; tests fake the MCP server in `tests/test_market_algolab.py`.
+- `src/sources/<name>/provider.py`: one class per source. A source implements only the capabilities it has (`get_ticker`, `get_exchange_rate`, `get_price_series`, `get_candles`, `get_bank_rates`, `get_flexible_savings`, fund and gold methods) plus `health()` and `aclose()`. `src/sources/http.py` has the shared httpx client and `request_json`; `src/sources/nextjs.py` reads the `__NEXT_DATA__` page props of the sources that scrape Next.js pages (simplize, zalopay, momo), and `src/sources/rates.py` has `stated_rate` for a rate written in page prose; `src/sources/mcp.py` is the minimal MCP (Streamable HTTP) client used by MCP sources such as `algolab`. Algolab prices stocks in VND, so the adapter divides by 1000 to match the other sources; tests fake the MCP server in `tests/test_market_algolab.py`.
 
 ### 📁 Stack & Tooling
 
@@ -32,6 +32,7 @@ The server is the single market-data API for the monorepo. It owns every source 
 
 - Sources raise `Unsupported` for a request they do not cover (the router skips them), `NotFound` when they know the item does not exist, and any other exception for a failure. Never return an empty or zero value instead of raising: the router only falls back on exceptions.
 - When nothing answers, the router raises `UpstreamError` (502) if any source failed, else `NotFound` (404), else `ValidationError` (400). Only `UpstreamError` serves the last-good copy (`stale=true`, `X-Data-Stale`).
+- Flexible savings is the one capability that is not a chain: `MarketService.flexible_savings` asks every source in `flexible_savings` on its own (own cache key and last-good copy) and lists the failures in `failed`.
 - Validate input in `MarketService` before routing. Add a capability by implementing the method on its sources, a chain entry in `chains.py` and a route in `api.py` that returns `envelope(...)`.
 - Fund and gold endpoints return fmarket's raw `data`, because consumers parse fmarket fields.
 - A fallback must never change units or instrument. Sources return VN stocks, ETFs and warrants in thousands of VND and indices in points, scaling in the adapter if the upstream differs; add the source to `tests/test_market_units.py`. Exchange rates set `basis` (`RateBasis`).

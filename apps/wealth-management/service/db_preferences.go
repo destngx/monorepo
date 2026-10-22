@@ -110,6 +110,19 @@ func (s *dbService) SetAccountMinimumBalance(input domain.AccountMinimumInput) (
 	})
 }
 
+// SetAccountProduct links one account to a flexible savings product, or
+// unlinks it (D41), in the idleCash.accountProducts row, the same way:
+// re-read under the write lock, ErrConflict on a stale ETag, the account
+// must exist to be linked (not to be unlinked).
+func (s *dbService) SetAccountProduct(input domain.AccountProductInput) (domain.Preferences, error) {
+	if err := input.Validate(); err != nil {
+		return domain.Preferences{}, err
+	}
+	return s.markAccount(domain.PrefIdleCashAccountProducts, input.Account, !input.Removes(), func(current domain.Preferences) (domain.Preferences, error) {
+		return domain.ApplyAccountProduct(current, input)
+	})
+}
+
 // markAccount writes one per-account key: an account being added to the
 // list must exist; apply computes the next preferences from the tab
 // re-read under the write lock.
@@ -196,6 +209,8 @@ func preferenceCell(entry domain.PreferenceEntry) (any, error) {
 		return domain.EncodeAccountNames(entry.Names)
 	case domain.PreferenceAccountMinimums:
 		return domain.EncodeAccountMinimums(entry.Minimums)
+	case domain.PreferenceAccountProducts:
+		return domain.EncodeAccountProducts(entry.Products)
 	}
 	if entry.Value == nil {
 		return "", nil

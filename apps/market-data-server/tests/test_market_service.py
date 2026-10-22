@@ -8,7 +8,7 @@ from src.main import app
 from src.market.candles import Timeframe
 from src.market.chains import Chains, MarketTTL
 from src.market.errors import NotFound, Unsupported, UpstreamError, ValidationError
-from src.market.models import BankRate, Candle, CandleSeries, ExchangeRate, RateChannel, Ticker, utc_iso
+from src.market.models import BankRate, Candle, CandleSeries, EarningStart, ExchangeRate, FlexibleSaving, RateChannel, SavingsBacking, Ticker, utc_iso
 from src.market.router import Router
 from src.market.runtime import get_market_service
 from src.market.service import MarketService
@@ -310,6 +310,61 @@ class TestBankRates:
         assert cafef.calls == []
 
 
+def product(provider, rate):
+    return FlexibleSaving(
+        id=f"{provider.lower()}:p", provider=provider, product="P", rate=rate, backing=SavingsBacking.DEPOSIT,
+        earning_starts=EarningStart.NEXT_WORKING_DAY, url=f"https://{provider.lower()}.test/p",
+    )  # fmt: skip
+
+
+class TestFlexibleSavings:
+    async def test_every_source_answers_for_its_own_products(self):
+        zalopay = FakeSource("zalopay", get_flexible_savings=[product("Zalopay", 4.5)])
+        momo = FakeSource("momo", get_flexible_savings=[product("MoMo", 4.0)])
+        answer = await service(zalopay, momo).flexible_savings()
+        assert [(p["provider"], p["rate"], p["stale"], p["asOf"]) for p in answer.data["products"]] == [
+            ("Zalopay", 4.5, False, utc_iso(NOW)),
+            ("MoMo", 4.0, False, utc_iso(NOW)),
+        ]
+        assert (answer.provider, answer.data["failed"], answer.stale) == ("zalopay, momo", [], False)
+
+    async def test_a_failing_source_is_listed_not_fatal(self):
+        zalopay = FakeSource("zalopay", get_flexible_savings=ValueError("page changed"))
+        momo = FakeSource("momo", get_flexible_savings=[product("MoMo", 4.0)])
+        answer = await service(zalopay, momo).flexible_savings()
+        assert [p["provider"] for p in answer.data["products"]] == ["MoMo"]
+        assert answer.data["failed"] == ["get flexible savings from zalopay failed: zalopay: page changed"]
+        assert answer.provider == "momo"
+
+    async def test_a_failing_source_serves_its_own_last_good_copy(self, store):
+        answers = iter([[product("Zalopay", 4.5)], RuntimeError("down")])
+        zalopay = FakeSource("zalopay", get_flexible_savings=lambda: next(answers))
+        momo = FakeSource("momo", get_flexible_savings=[product("MoMo", 4.0)])
+        market = service(zalopay, momo, store=store)
+        await market.flexible_savings()
+        answer = await market.flexible_savings(skip_cache=True)
+        assert [(p["provider"], p["stale"]) for p in answer.data["products"]] == [("Zalopay", True), ("MoMo", False)]
+        assert (answer.stale, answer.data["failed"]) == (True, [])
+
+    async def test_every_source_failing_is_an_upstream_error(self):
+        zalopay = FakeSource("zalopay", get_flexible_savings=RuntimeError("down"))
+        momo = FakeSource("momo", get_flexible_savings=RuntimeError("timeout"))
+        with pytest.raises(UpstreamError, match="zalopay: down.*momo: timeout"):
+            await service(zalopay, momo).flexible_savings()
+
+    async def test_each_source_is_cached_apart(self):
+        zalopay = FakeSource("zalopay", get_flexible_savings=lambda: [product("Zalopay", 4.5)])
+        momo = FakeSource("momo", get_flexible_savings=lambda: [product("MoMo", 4.0)])
+        market = service(zalopay, momo, cache=CacheManager(enabled=False))
+        await market.flexible_savings()
+        assert (await market.flexible_savings()).cached is True
+        assert (len(zalopay.calls), len(momo.calls)) == (1, 1)
+
+    async def test_no_configured_source_is_a_validation_error(self):
+        with pytest.raises(ValidationError):
+            await service(chains=Chains(flexible_savings=[])).flexible_savings()
+
+
 class TestApi:
     @pytest.fixture
     def client(self, store):
@@ -317,8 +372,9 @@ class TestApi:
             FakeSource("vnstock", get_ticker=RuntimeError("quota"), get_candles=lambda *a: hourly_series("vnstock")),
             FakeSource("fmarket", get_ticker=lambda *a: ticker("fmarket"), get_issuers=[{"id": 1}]),
             FakeSource("cafef", get_bank_rates=tenor_rates((0, 0.2), (1, 3.9), (12, 6.1))),
+            FakeSource("zalopay", get_flexible_savings=[product("Zalopay", 4.5)]),
         ]
-        market = service(*sources, store=store)
+        market = service(*sources, store=store, chains=Chains(flexible_savings=["zalopay"]))
         app.dependency_overrides[get_market_service] = lambda: market
         yield TestClient(app), sources
         app.dependency_overrides.clear()
@@ -367,6 +423,7 @@ class TestApi:
             {"name": "vnstock", "capabilities": ["ticker", "candles"]},
             {"name": "fmarket", "capabilities": ["ticker"]},
             {"name": "cafef", "capabilities": ["bank_rates"]},
+            {"name": "zalopay", "capabilities": ["flexible_savings"]},
         ]
         assert http.get("/api/v2/providers/vnstock/health").json() == {"data": {"provider": "vnstock", "status": "ok"}}
 
@@ -382,3 +439,17 @@ class TestApi:
         for params in ({"tenor_months": "one"}, {"tenor_months": -1}, {"tenor_months": 1, "max_tenor_months": 3}):
             bad = http.get("/api/v2/bank-rates", params=params)
             assert bad.status_code == 400 and bad.json()["error"]["code"] == "validation"
+
+    def test_flexible_savings(self, client):
+        body = client[0].get("/api/v2/flexible-savings").json()
+        assert body["meta"]["provider"] == "zalopay"
+        assert body["data"] == {
+            "products": [
+                {
+                    "id": "zalopay:p", "provider": "Zalopay", "product": "P", "rate": 4.5, "backing": "deposit",
+                    "earningStarts": "next_working_day", "currency": "VND", "url": "https://zalopay.test/p",
+                    "asOf": utc_iso(NOW), "stale": False,
+                }
+            ],
+            "failed": [],
+        }  # fmt: skip

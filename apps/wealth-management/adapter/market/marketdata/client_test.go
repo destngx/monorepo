@@ -356,3 +356,32 @@ func TestGivenTenoredBankRatesWhenReadingThemThenTenorMonthsInstantAccessAndChan
 		t.Fatal("an untenored row must keep TenorMonths absent, not 0 (no-term)")
 	}
 }
+
+func TestGivenFlexibleSavingsWhenReadingThemThenTermsFailuresAndSourceAreKept(t *testing.T) {
+	client, requests := fakeServer(t, func(*http.Request) (int, any) {
+		return 200, answer(map[string]any{
+			"products": []any{map[string]any{
+				"id": "wallet:earn", "provider": "Wallet", "product": "Earn", "rate": 4.5, "backing": "deposit",
+				"earningStarts": "next_working_day", "withdrawalMaxWorkingHours": 16, "currency": "VND", "url": "https://wallet.example/earn",
+				"asOf": "2026-10-22T02:00:00Z", "stale": true,
+			}},
+			"failed": []any{"get flexible savings from other failed: other: down"},
+		}, map[string]any{"provider": "wallet"})
+	})
+	savings, err := client.GetFlexibleSavings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if (*requests)[0].URL.Path != "/api/v2/flexible-savings" {
+		t.Fatalf("request = %s", (*requests)[0].URL)
+	}
+	hours := 16
+	want := domain.FlexibleSaving{
+		ID: "wallet:earn", Provider: "Wallet", Product: "Earn", Rate: 4.5, Backing: domain.SavingsBackingDeposit,
+		EarningStarts: domain.EarningStartsNextWorkingDay, WithdrawalMaxWorkingHours: &hours, Currency: "VND", URL: "https://wallet.example/earn",
+		AsOf: "2026-10-22T02:00:00Z", Stale: true,
+	}
+	if len(savings.Products) != 1 || !reflect.DeepEqual(savings.Products[0], want) || len(savings.Failed) != 1 || savings.Source == nil || savings.Source.Provider != "wallet" {
+		t.Fatalf("savings = %#v", savings)
+	}
+}

@@ -118,6 +118,7 @@ type fakeMarketService struct {
 	exchangeRate    domain.ExchangeRate
 	priceSeries     domain.PriceSeries
 	bankRates       domain.BankRates
+	flexibleSavings domain.FlexibleSavings
 	health          domain.MarketProviderHealth
 	err             error
 	lastBypassCache bool
@@ -147,6 +148,10 @@ func (f *fakeMarketService) GetPriceSeries(_ context.Context, _ string, _ domain
 
 func (f *fakeMarketService) GetBankInterestRate(_ context.Context) (domain.BankRates, error) {
 	return f.bankRates, f.err
+}
+
+func (f *fakeMarketService) GetFlexibleSavings(_ context.Context) (domain.FlexibleSavings, error) {
+	return f.flexibleSavings, f.err
 }
 
 func (f *fakeMarketService) GetCandles(_ context.Context, symbol string, timeframe domain.Timeframe, days int) (domain.CandleSeries, error) {
@@ -227,6 +232,9 @@ func TestGivenServiceErrorsWhenMarketEndpointsCalledThenMapsStatus(t *testing.T)
 		}, ""},
 		{http.MethodGet, "/api/market/bank-rates", func(app *fiber.App, m *fakeMarketService, _ *fakeFmarketService, log *logger.Logger) {
 			app.Get("/api/market/bank-rates", NewMarketHandler(m, log).GetBankInterestRate)
+		}, ""},
+		{http.MethodGet, "/api/market/flexible-savings", func(app *fiber.App, m *fakeMarketService, _ *fakeFmarketService, log *logger.Logger) {
+			app.Get("/api/market/flexible-savings", NewMarketHandler(m, log).GetFlexibleSavings)
 		}, ""},
 		{http.MethodPost, "/api/fmarket/action", func(app *fiber.App, m *fakeMarketService, f *fakeFmarketService, log *logger.Logger) {
 			app.Post("/api/fmarket/action", NewFmarketHandler(f, m, log).Action)

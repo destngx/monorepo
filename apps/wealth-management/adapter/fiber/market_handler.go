@@ -77,6 +77,15 @@ func (h *MarketHandler) GetBankInterestRate(c *fiber.Ctx) error {
 	return c.JSON(rates)
 }
 
+// GetFlexibleSavings serves the flexible savings products (D41).
+func (h *MarketHandler) GetFlexibleSavings(c *fiber.Ctx) error {
+	savings, err := h.service.GetFlexibleSavings(withBypassCache(c))
+	if err != nil {
+		return upstreamError(c, h.log, "market_handler: get flexible savings", err)
+	}
+	return c.JSON(savings)
+}
+
 // GetCandles serves OHLCV bars with their data source (WM-INV-14/15).
 func (h *MarketHandler) GetCandles(c *fiber.Ctx) error {
 	symbol := strings.TrimSpace(c.Query("symbol"))

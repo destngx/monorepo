@@ -150,6 +150,62 @@ class BankRate:
         }
 
 
+class SavingsBacking(str, Enum):
+    """What holds the money, which decides what the rate promises."""
+
+    # A bank deposit: the rate is interest, paid as published.
+    DEPOSIT = "deposit"
+    # A business cooperation contract with a company that invests the money
+    # (MoMo Túi Thần Tài with Finsight): the rate is the company's promise,
+    # not deposit interest, and the money is not deposit-insured.
+    BUSINESS_COOPERATION = "business_cooperation"
+
+
+class EarningStart(str, Enum):
+    """When money moved in starts earning."""
+
+    # The working day after the money arrives: Monday to Thursday the next
+    # day, Friday to Sunday the next Monday, a public holiday after it.
+    NEXT_WORKING_DAY = "next_working_day"
+
+
+@dataclass
+class FlexibleSaving:
+    """
+    A product that pays interest on money that can be spent or withdrawn at
+    any time, such as an e-wallet's earning balance. `rate` is percent a
+    year as the provider publishes it; `updated_at` is the day the provider
+    last edited the page, when it says. `withdrawal_max_working_hours` is
+    the longest a withdrawal takes as the provider states it (None: the
+    provider promises none beyond "any time").
+    """
+
+    id: str
+    provider: str
+    product: str
+    rate: float
+    backing: SavingsBacking
+    earning_starts: EarningStart
+    url: str
+    currency: str = "VND"
+    updated_at: Optional[str] = None
+    withdrawal_max_working_hours: Optional[int] = None
+
+    def to_json(self) -> dict:
+        return {
+            "id": self.id,
+            "provider": self.provider,
+            "product": self.product,
+            "rate": self.rate,
+            "backing": self.backing.value,
+            "earningStarts": self.earning_starts.value,
+            "withdrawalMaxWorkingHours": self.withdrawal_max_working_hours,
+            "currency": self.currency,
+            "updatedAt": self.updated_at,
+            "url": self.url,
+        }
+
+
 @dataclass
 class Candle:
     """One OHLCV bar; `time` is the bar's open time, timezone-aware."""

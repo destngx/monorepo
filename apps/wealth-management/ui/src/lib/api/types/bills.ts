@@ -368,6 +368,9 @@ export interface IdleCashAccount {
   rate: number;
   rateFromNote: boolean;
   idle: number;
+  /** The linked product's display name, set when the rate is its live rate. */
+  product?: string;
+  productId?: string;
 }
 
 /** Rolling 1-month deposits opened spacingDays apart. */
@@ -375,6 +378,37 @@ export interface IdleCashLadder {
   parts: number;
   partAmount: number;
   spacingDays: number;
+}
+
+/** One day to start a move: money in transit earns nothing. */
+export interface SavingsMoveDay {
+  date: string;
+  weekday: string;
+  daysWithoutInterest: number;
+  interestLost: number;
+  /** Days until the extra interest earns back the interest lost. */
+  paybackDays: number;
+}
+
+/** Moving money from an account to a better instant-access place, with the best day to do it. */
+export interface SavingsMove {
+  from: string;
+  fromRate: number;
+  fromProduct?: string;
+  amount: number;
+  /** Already a place phrase. */
+  to: string;
+  toRate: number;
+  /** The new place's backing when it is a flexible product. */
+  toBacking?: 'deposit' | 'business_cooperation';
+  rateGapPoints: number;
+  extraPerMonth: number;
+  extraPerYear: number;
+  today: SavingsMoveDay;
+  bestDay: SavingsMoveDay;
+  worstCaseExtraDays: number;
+  /** Ordered strategy sentences; they contain VND amounts. */
+  steps: string[];
 }
 
 /** The emergency fund held in emergency accounts (D34). */
@@ -391,6 +425,8 @@ export interface IdleCashEmergency {
   settings: IdleCashSettings;
   /** Marked names that are no longer accounts (ignored). */
   unknown: string[];
+  /** Emergency accounts to the best place, when betterRate. */
+  moves: SavingsMove[];
 }
 
 /** GET /api/bills/idle-cash */
@@ -408,6 +444,14 @@ export interface IdleCash {
   /** The best instant-access rate (no-term or 1-month), a proxy; null when none is published. */
   best: DepositRate | null;
   ratesIssue?: string;
+  /** Every instant-access place compared, best first. */
+  options: DepositRate[];
+  /** The idle part of each account to the best place, only when the verdict is worth_moving. */
+  moves: SavingsMove[];
+  /** A linked wallet account's day-to-day money to a better wallet product. */
+  switches: SavingsMove[];
+  /** Why products are missing or partial. */
+  productsIssue?: string;
   /** Set when best is a 1-month deposit and the idle cash is big enough to split. */
   ladder: IdleCashLadder | null;
   rateGapPoints: number;
@@ -419,6 +463,7 @@ export interface IdleCash {
   minExtraPerYear: number;
   keepLiquidRule: string;
   rateRule: string;
+  productRule: string;
   thresholdRule: string;
 }
 
@@ -426,5 +471,12 @@ export interface IdleCash {
 export interface EmergencyAccountInput {
   account: string;
   emergency: boolean;
+  etag: string;
+}
+
+/** POST /api/bills/idle-cash/account-products body; an empty product unlinks. */
+export interface AccountProductInput {
+  account: string;
+  product: string;
   etag: string;
 }

@@ -4,6 +4,7 @@ cache the answer, keep a last-good copy, and serve that copy (marked stale)
 when every provider fails.
 """
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -13,7 +14,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 from ..cache import CacheConfig, CacheManager
 from .candles import ICT, MAX_LOOKBACK_DAYS, Timeframe, aggregate_candles, clean_candles
 from .chains import Chains, MarketTTL
-from .errors import NotFound, Unsupported, UpstreamError, ValidationError
+from .errors import MarketError, NotFound, Unsupported, UpstreamError, ValidationError
 from .models import MAX_TENOR_MONTHS, NO_TERM, BankRate, CandleSeries, ExchangeRate, SeriesType, TickerType, to_json, utc_iso
 from .router import Router
 from .store import LastGoodStore
@@ -230,6 +231,52 @@ class MarketService:
             return chosen
 
         return await self._routed(key, MarketTTL.BANK_RATES, "get bank interest rates", self.chains.bank_rates, "get_bank_rates", call, skip_cache)
+
+    async def flexible_savings(self, skip_cache: bool = False) -> Answer:
+        """
+        Every listed provider's withdraw-any-time products. The list is not a
+        chain: each source is asked (and cached, and kept last-good) on its
+        own, because one provider's product is no stand-in for another's.
+        Each product carries `asOf` and `stale` from its source's answer;
+        `failed` lists the sources that failed with no last-good copy. Only
+        when every source fails is the whole answer an error.
+        """
+        names = self.chains.flexible_savings
+        if not names:
+            raise ValidationError("no provider configured for flexible savings")
+
+        async def one(name: str) -> Answer:
+            return await self._routed(
+                f"flexible_savings:{name.lower()}",
+                MarketTTL.FLEXIBLE_SAVINGS,
+                f"get flexible savings from {name}",
+                [name],
+                "get_flexible_savings",
+                lambda source: source.get_flexible_savings(),
+                skip_cache,
+            )
+
+        answers = await asyncio.gather(*(one(name) for name in names), return_exceptions=True)
+        products, failed, served = [], [], []
+        for name, answer in zip(names, answers):
+            if isinstance(answer, MarketError):
+                failed.append(str(answer))
+                continue
+            if isinstance(answer, BaseException):
+                raise answer
+            served.append(answer)
+            products.extend({**product, "asOf": answer.as_of, "stale": answer.stale} for product in answer.data)
+        if not served:
+            raise UpstreamError(f"every flexible savings source failed: {'; '.join(failed)}")
+        # The oldest read, so the answer never looks fresher than its parts.
+        times = [answer.as_of for answer in served if answer.as_of]
+        return Answer(
+            data={"products": products, "failed": failed},
+            provider=", ".join(answer.provider for answer in served),
+            cached=all(answer.cached for answer in served),
+            stale=any(answer.stale for answer in served),
+            as_of=min(times) if times else None,
+        )
 
     async def candles(
         self,

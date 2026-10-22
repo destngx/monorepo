@@ -51,13 +51,24 @@ type DepositRate struct {
 	Tenor       string `json:"tenor"`
 	TenorMonths *int   `json:"tenorMonths,omitempty"`
 	Channel     string `json:"channel,omitempty"`
-	// Access is set for an instant-access comparison (idle cash): no_term
-	// or one_month, with AccessLabel saying what it means.
+	// Access is set for an instant-access comparison (idle cash): no_term,
+	// one_month or flexible, with AccessLabel saying what it means.
 	Access      DepositAccess `json:"access,omitempty"`
 	AccessLabel string        `json:"accessLabel,omitempty"`
 	Rate        float64       `json:"rate"` // percent a year
 	UpdatedAt   string        `json:"updatedAt,omitempty"`
 	Basis       string        `json:"basis"`
+	// A flexible savings product (Access flexible) also has its product,
+	// ID, backing, when money moved in starts earning, the longest stated
+	// withdrawal, its page and whether the rate is an old copy. Bank is the
+	// provider then.
+	Product                   string `json:"product,omitempty"`
+	ProductID                 string `json:"productId,omitempty"`
+	Backing                   string `json:"backing,omitempty"`
+	EarningStarts             string `json:"earningStarts,omitempty"`
+	WithdrawalMaxWorkingHours *int   `json:"withdrawalMaxWorkingHours,omitempty"`
+	URL                       string `json:"url,omitempty"`
+	Stale                     bool   `json:"stale,omitempty"`
 }
 
 // Comparison with the deposit.

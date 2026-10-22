@@ -1,7 +1,9 @@
 package domain
 
 import (
+	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -448,5 +450,147 @@ func TestGivenAMinimumOnAnEmergencyAccountWhenCheckingIdleCashThenOnlyTheBalance
 	idle := ComputeIdleCash(input)
 	if idle.Emergency.Balance != 25_000_000 || idle.Components.EmergencyCovered != 25_000_000 || idle.Emergency.Accounts[0].Reserved != 15_000_000 {
 		t.Fatalf("emergency = %+v, components = %+v", idle.Emergency, idle.Components)
+	}
+}
+
+// productInput adds a 30M wallet account linked to product "z" (4.5%) and
+// a second product "m" (6%, not a deposit) to the idle input.
+func productInput() IdleCashInput {
+	input := idleInput()
+	input.Accounts = append(input.Accounts, Account{Name: "Wallet Z", Type: AccountTypeActiveUse, Balance: 30_000_000, Note: note("lãi 1%")})
+	momo := nextWorkingDayProduct("m", 6, true)
+	momo.Backing = SavingsBackingBusinessCooperation
+	input.Products = []FlexibleSaving{nextWorkingDayProduct("z", 4.5, false), momo}
+	input.Settings.AccountProducts = AccountProductSettings{Accounts: []AccountProduct{{Account: "wallet z", Product: "z"}}}
+	return input
+}
+
+func TestGivenAnAccountLinkedToAProductWhenCheckingIdleCashThenItEarnsTheLiveRate(t *testing.T) {
+	idle := ComputeIdleCash(productInput())
+
+	index := slices.IndexFunc(idle.Accounts, func(a IdleCashAccount) bool { return a.Name == "Wallet Z" })
+	if index < 0 {
+		t.Fatalf("accounts = %+v", idle.Accounts)
+	}
+	if account := idle.Accounts[index]; account.Rate != 4.5 || account.RateFromNote || account.Product != "Wallet Z Earn" || account.ProductID != "z" {
+		t.Fatalf("linked account = %+v", account)
+	}
+	if len(idle.Issues) != 0 {
+		t.Fatalf("issues = %q", idle.Issues)
+	}
+}
+
+func TestGivenBankRatesAndProductsWhenCheckingIdleCashThenEveryOptionIsRankedBestFirst(t *testing.T) {
+	idle := ComputeIdleCash(productInput())
+
+	got := []string{}
+	for _, option := range idle.Options {
+		got = append(got, fmt.Sprintf("%s %s %s", option.Access, option.Bank, formatRate(option.Rate)))
+	}
+	want := []string{"flexible Wallet M 6", "one_month Bank X 5.5", "no_term Bank Y 4.8", "flexible Wallet Z 4.5"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("options = %q, want %q", got, want)
+	}
+	if idle.Best == nil || idle.Best.ProductID != "m" || idle.Best.Place() != "Wallet M Earn" {
+		t.Fatalf("best = %+v", idle.Best)
+	}
+}
+
+func TestGivenATieWhenRankingThenADepositBeatsAProductThatIsNot(t *testing.T) {
+	input := productInput()
+	input.Products[1].Rate = 5.5
+	idle := ComputeIdleCash(input)
+	if idle.Best == nil || idle.Best.Access != DepositOneMonth {
+		t.Fatalf("best = %+v", idle.Best)
+	}
+}
+
+func TestGivenIdleMoneyWorthMovingWhenCheckingThenEachAccountHoldingItGetsAMovePlan(t *testing.T) {
+	idle := ComputeIdleCash(productInput())
+	if idle.Verdict != IdleCashWorthMoving || len(idle.Moves) == 0 {
+		t.Fatalf("verdict %s, moves %+v", idle.Verdict, idle.Moves)
+	}
+	moved := 0.0
+	for _, move := range idle.Moves {
+		if move.To != "Wallet M Earn" || move.ToRate != 6 {
+			t.Fatalf("move = %+v", move)
+		}
+		moved += move.Amount
+	}
+	if moved != idle.Idle {
+		t.Fatalf("moves cover %v of %v idle", moved, idle.Idle)
+	}
+}
+
+func TestGivenABetterWalletProductWhenCheckingThenTheLinkedAccountsDayToDayMoneySwitches(t *testing.T) {
+	idle := ComputeIdleCash(productInput())
+	if len(idle.Switches) != 1 {
+		t.Fatalf("switches = %+v", idle.Switches)
+	}
+	account := idle.Accounts[slices.IndexFunc(idle.Accounts, func(a IdleCashAccount) bool { return a.Name == "Wallet Z" })]
+	switched := idle.Switches[0]
+	if switched.From != "Wallet Z" || switched.To != "Wallet M Earn" || switched.Amount != account.Balance-account.Idle || switched.RateGapPoints != 1.5 {
+		t.Fatalf("switch = %+v (account %+v)", switched, account)
+	}
+}
+
+func TestGivenTheLinkedProductIsBestWhenCheckingThenItIsNeverSwitchedToItself(t *testing.T) {
+	input := productInput()
+	input.Products = input.Products[:1]
+	idle := ComputeIdleCash(input)
+	if len(idle.Switches) != 0 {
+		t.Fatalf("switches = %+v", idle.Switches)
+	}
+	for _, move := range idle.Moves {
+		if move.From == "Wallet Z" {
+			t.Fatalf("moved the product's own money to a bank: %+v", move)
+		}
+	}
+}
+
+func TestGivenALinkedProductThatIsMissingWhenCheckingThenTheNoteRateStandsWithAnIssue(t *testing.T) {
+	input := productInput()
+	input.Products, input.ProductsIssue = nil, "zalopay: page changed"
+	idle := ComputeIdleCash(input)
+
+	account := idle.Accounts[slices.IndexFunc(idle.Accounts, func(a IdleCashAccount) bool { return a.Name == "Wallet Z" })]
+	if account.Rate != 1 || !account.RateFromNote || account.ProductID != "" {
+		t.Fatalf("account = %+v", account)
+	}
+	if !slices.ContainsFunc(idle.Issues, func(s string) bool { return strings.Contains(s, "zalopay: page changed") }) {
+		t.Fatalf("issues = %q", idle.Issues)
+	}
+	if idle.ProductsIssue != "zalopay: page changed" {
+		t.Fatalf("products issue = %q", idle.ProductsIssue)
+	}
+}
+
+func TestGivenAStaleProductRateWhenCheckingThenAnIssueSaysSo(t *testing.T) {
+	input := productInput()
+	input.Products[0].Stale, input.Products[0].AsOf = true, "2026-10-15T01:00:00Z"
+	idle := ComputeIdleCash(input)
+	if !slices.ContainsFunc(idle.Issues, func(s string) bool { return strings.Contains(s, "last one read (2026-10-15T01:00:00Z)") }) {
+		t.Fatalf("issues = %q", idle.Issues)
+	}
+}
+
+func TestGivenOnlyProductsWhenBankRatesFailThenTheyAreStillCompared(t *testing.T) {
+	input := productInput()
+	input.Rates, input.RatesIssue = nil, "bank rates unavailable: down"
+	idle := ComputeIdleCash(input)
+	if idle.Best == nil || idle.Best.ProductID != "m" || idle.RatesIssue != "bank rates unavailable: down" {
+		t.Fatalf("best = %+v, rates issue %q", idle.Best, idle.RatesIssue)
+	}
+}
+
+func TestGivenAnEmergencyAccountBeatenWhenCheckingThenItGetsAMovePlan(t *testing.T) {
+	input := productInput()
+	input.Settings.EmergencyAccounts = []string{"Wallet Z"}
+	idle := ComputeIdleCash(input)
+	if !idle.Emergency.BetterRate || len(idle.Emergency.Moves) != 1 || idle.Emergency.Moves[0].From != "Wallet Z" {
+		t.Fatalf("emergency = %+v", idle.Emergency)
+	}
+	if len(idle.Switches) != 0 {
+		t.Fatalf("an emergency account is not day-to-day money: %+v", idle.Switches)
 	}
 }

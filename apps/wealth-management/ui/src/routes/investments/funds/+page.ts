@@ -12,7 +12,7 @@ import {
 import type { Streamed } from '$lib/api/load';
 import type { PageLoad } from './$types';
 
-// Every fmarket list and the bank rates stream in on their own: the tabs and
+// Every fmarket list, the bank rates and the wallet earning balances stream in on their own: the tabs and
 // fund-type filters show at once, and one failing list holds only its table.
 export const load: PageLoad = ({ fetch }) => {
   const funds = {} as Record<FundType, Streamed<Sourced<FundSummary[]>>>;
@@ -21,5 +21,9 @@ export const load: PageLoad = ({ fetch }) => {
       sourced(await api.fmarket<unknown>('getProductsFilterNav', fundListParams(key), { fetch }), parseFundList),
     );
   }
-  return { funds, bankRates: defer(() => api.bankRates(fetch)) };
+  return {
+    funds,
+    bankRates: defer(() => api.bankRates(fetch)),
+    flexibleSavings: defer(() => api.flexibleSavings(fetch)),
+  };
 };

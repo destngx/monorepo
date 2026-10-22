@@ -41,6 +41,8 @@ export interface IdleCashSettings {
   /** VND; null = the spending buffer. */
   dayToDayFloat: number | null;
   emergencyAccounts: string[];
+  /** Accounts linked to a flexible savings product; their current rate is the product's live rate. */
+  accountProducts: { accounts: { account: string; product: string }[]; etag: string };
   etag: string;
 }
 

@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -390,10 +392,28 @@ func (s *analyticsService) IdleCash(ctx context.Context, forceFresh bool) (domai
 	input := domain.IdleCashInput{Accounts: accounts, Bills: bills, Plan: &plan, Settings: prefs.IdleCash, Today: s.today()}
 	if s.rates == nil {
 		input.RatesIssue = "bank rates unavailable: the market data server is not configured"
-	} else if rates, err := s.rates.GetBankInterestRate(ctx); err != nil {
-		input.RatesIssue = "bank rates unavailable: " + err.Error()
-	} else {
-		input.Rates = rates.Rates
+		input.ProductsIssue = "flexible savings unavailable: the market data server is not configured"
+		return domain.ComputeIdleCash(input), nil
 	}
+	var group sync.WaitGroup
+	group.Go(func() {
+		if rates, err := s.rates.GetBankInterestRate(ctx); err != nil {
+			input.RatesIssue = "bank rates unavailable: " + err.Error()
+		} else {
+			input.Rates = rates.Rates
+		}
+	})
+	group.Go(func() {
+		savings, err := s.rates.GetFlexibleSavings(ctx)
+		switch {
+		case err != nil:
+			input.ProductsIssue = "flexible savings unavailable: " + err.Error()
+		case len(savings.Failed) > 0:
+			input.Products, input.ProductsIssue = savings.Products, "some flexible savings could not be read: "+strings.Join(savings.Failed, "; ")
+		default:
+			input.Products = savings.Products
+		}
+	})
+	group.Wait()
 	return domain.ComputeIdleCash(input), nil
 }

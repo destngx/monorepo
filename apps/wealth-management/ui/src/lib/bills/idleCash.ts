@@ -48,9 +48,17 @@ export function keepReady(idle: IdleCash): number {
   return Math.max(0, idle.components.readyMoney - idle.idle);
 }
 
-/** "a 1-month deposit" or "a no-term deposit". */
+/** "a 1-month deposit", "a no-term deposit" or "an earning balance". */
 export function depositKind(best: DepositRate): string {
+  if (best.access === 'flexible') return 'an earning balance';
   return best.access === 'one_month' ? 'a 1-month deposit' : 'a no-term deposit';
+}
+
+/** Where the money would go: "Zalopay Số dư sinh lời" or "a no-term deposit at Bank X". */
+export function place(rate: DepositRate): string {
+  return rate.access === 'flexible'
+    ? `${rate.bank} ${rate.product ?? ''}`.trim()
+    : `${depositKind(rate)} at ${rate.bank}`;
 }
 
 /** Capitalises the first letter, to start a sentence. */
@@ -60,8 +68,17 @@ export function sentence(text: string): string {
 
 /** How the instant-access option behaves, for the parentheses after its rate. */
 export function depositTerms(best: DepositRate): string {
-  return best.access === 'one_month' ? 'rolls monthly; withdraw early at the no-term rate' : 'withdraw any time';
+  if (best.access === 'one_month') return 'rolls monthly; withdraw early at the no-term rate';
+  if (best.access === 'flexible') {
+    return best.backing === 'business_cooperation'
+      ? 'spend or withdraw any time; not a bank deposit'
+      : 'spend or withdraw any time';
+  }
+  return 'withdraw any time';
 }
+
+/** Whether the saved link names the account, ignoring case and surrounding spaces (as the engine does). */
+export const sameAccount = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /** The accounts assumed to hold the idle cash (lowest rate first). */
 export function idleAccounts(idle: IdleCash) {

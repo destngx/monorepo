@@ -64,6 +64,23 @@ func (c *Client) GetBankInterestRate(ctx context.Context) (domain.BankRates, err
 	return domain.BankRates{Rates: rates, Source: meta.source()}, nil
 }
 
+// GetFlexibleSavings returns the flexible savings products; a provider the
+// server could not read is listed in Failed.
+func (c *Client) GetFlexibleSavings(ctx context.Context) (domain.FlexibleSavings, error) {
+	savings, meta, err := get[domain.FlexibleSavings](ctx, c, "/api/v2/flexible-savings", nil)
+	if err != nil {
+		return domain.FlexibleSavings{}, err
+	}
+	if savings.Products == nil {
+		savings.Products = []domain.FlexibleSaving{}
+	}
+	if savings.Failed == nil {
+		savings.Failed = []string{}
+	}
+	savings.Source = meta.source()
+	return savings, nil
+}
+
 // GetCandles returns about lookbackDays of bars ending now; the server
 // builds 4h bars from 1h bars. Source lists the sources that failed before
 // the one that answered (WM-INV-15).
