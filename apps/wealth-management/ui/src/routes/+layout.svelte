@@ -15,6 +15,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import SheetsAuthAlert from '$lib/components/SheetsAuthAlert.svelte';
   import AreaTabs from '$lib/components/AreaTabs.svelte';
+  import Aurora from '$lib/components/Aurora.svelte';
   import MobileNav from '$lib/components/MobileNav.svelte';
   import NavProgress from '$lib/components/NavProgress.svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
@@ -127,6 +128,7 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <NavProgress active={!!navigating.to} />
+<Aurora />
 
 <div class="flex min-h-screen">
   <!-- Desktop sidebar -->

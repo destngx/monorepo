@@ -3,8 +3,8 @@
 /* Dark mode follows the .dark class set from the theme setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Neo-brutalism with quiet luxury: flat warm paper, near-black ink edges, hard offset shadows
-   without blur, small radii, serif headings, one muted bronze accent. Surface, edge and shade
+/* Neo-brutalism with quiet luxury: warm paper under the landing page's drifting aurora, near-black
+   ink edges, hard offset shadows without blur, small radii, serif headings, one muted bronze accent. Surface, edge and shade
    switch with the theme (.dark below); status colours keep their own scale (lib/status.ts). */
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -29,6 +29,13 @@
   --color-edge: oklch(0.24 0.012 60);
   --color-shade: oklch(0.24 0.012 60);
 
+  /* The drifting background (lib/components/Aurora.svelte), the portfolio landing page's colours. */
+  --color-aurora-1: rgb(19 140 114 / 0.55);
+  --color-aurora-2: rgb(245 124 172 / 0.55);
+  --color-aurora-3: rgb(5 124 172 / 0.45);
+  --color-aurora-4: rgb(183 253 52 / 0.35);
+  --color-dot: rgb(18 17 16 / 0.14);
+
   --shadow-hard-sm: 2px 2px 0 0 var(--color-shade);
   --shadow-hard: 4px 4px 0 0 var(--color-shade);
   --shadow-hard-lg: 6px 6px 0 0 var(--color-shade);
@@ -51,6 +58,11 @@
     --color-surface: oklch(0.215 0.007 60);
     --color-edge: oklch(0.5 0.012 70);
     --color-shade: oklch(0.08 0.004 60);
+    --color-aurora-1: rgb(19 140 114 / 0.4);
+    --color-aurora-2: rgb(199 10 114 / 0.38);
+    --color-aurora-3: rgb(5 124 172 / 0.35);
+    --color-aurora-4: rgb(183 253 52 / 0.16);
+    --color-dot: rgb(244 239 230 / 0.1);
   }
 
   body {
