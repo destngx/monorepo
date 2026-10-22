@@ -199,18 +199,16 @@
   </Card>
 {/if}
 
-<h2 class="mb-3 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">Pages</h2>
+<h2 class="mb-3 heading">Pages</h2>
 <div class="space-y-5">
   {#each pages as p, i (p.id)}
-    <section class="glass p-4">
+    <section class="panel p-4">
       <header class="mb-3 flex flex-wrap items-center gap-2">
         <span class="font-medium">Page {i + 1}</span>
         {#if p.mask?.status === 'needs_check'}
-          <span class="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-800 dark:text-amber-200"
-            >Needs a check</span
-          >
+          <span class="tag bg-warn-500/15 text-warn-800 dark:text-warn-200">Needs a check</span>
         {:else if p.mask?.status === 'checked'}
-          <span class="rounded-full bg-teal-600/10 px-2 py-0.5 text-xs text-teal-700 dark:text-teal-300">Checked</span>
+          <span class="tag bg-accent-600/10 text-accent-700 dark:text-accent-300">Checked</span>
         {/if}
         {#if p.mask}
           {@const through = (p.mask.auto ?? []).filter((b) => b.off).length}
@@ -225,14 +223,14 @@
             <button
               type="button"
               class="btn-ghost px-2.5 py-1 text-xs {viewOf(p) === 'masked'
-                ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300'
+                ? 'bg-accent-600/10 text-accent-700 dark:text-accent-300'
                 : ''}"
               onclick={() => (view[p.id] = 'masked')}>What the AI sees</button
             >
             <button
               type="button"
               class="btn-ghost px-2.5 py-1 text-xs {viewOf(p) === 'original'
-                ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300'
+                ? 'bg-accent-600/10 text-accent-700 dark:text-accent-300'
                 : ''}"
               onclick={() => {
                 view[p.id] = 'original';
@@ -253,7 +251,7 @@
         </span>
       </header>
       {#if p.mask?.reasons?.length}
-        <ul class="mb-3 list-disc pl-5 text-xs text-amber-800 dark:text-amber-200">
+        <ul class="mb-3 list-disc pl-5 text-xs text-warn-800 dark:text-warn-200">
           {#each p.mask.reasons as r (r)}<li>{r}</li>{/each}
         </ul>
       {/if}
@@ -290,9 +288,9 @@
                     onchange={() => void toggleBox(p, box.key)}
                   />
                   <span
-                    class="mt-0.5 min-w-6 rounded px-1 text-center text-xs font-semibold text-white {box.off
-                      ? 'bg-amber-500'
-                      : 'bg-teal-600'}">{n + 1}</span
+                    class="mt-0.5 min-w-6 rounded px-1 text-center text-xs font-semibold text-ink-50 {box.off
+                      ? 'bg-warn-500'
+                      : 'bg-accent-600'}">{n + 1}</span
                   >
                   <span class={box.off ? 'muted line-through' : ''}
                     >{box.kind === 'barcode' ? 'Barcode or QR code' : box.text}</span
@@ -310,14 +308,14 @@
             >{masked ? 'Text the AI sees (personal lines replaced with [ẩn])' : 'Text read on the Mac'}</summary
           >
           <pre
-            class="mt-2 max-h-80 overflow-auto rounded-xl bg-slate-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{masked
+            class="mt-2 max-h-80 overflow-auto rounded-xl bg-ink-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-ink-50/5">{masked
               ? p.mask?.text
               : p.text}</pre>
         </details>
       {/if}
     </section>
   {:else}
-    <section class="glass">
+    <section class="panel">
       <EmptyState title="No pages yet" detail="The Mac is still reading the files. This page refreshes on its own." />
     </section>
   {/each}

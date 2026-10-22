@@ -50,7 +50,7 @@
 
 <Modal {open} title="Take photos with the iPhone" {onclose}>
   {#if problem}
-    <p class="text-sm text-red-600 dark:text-red-400">{problem}</p>
+    <p class="text-sm text-danger-600 dark:text-danger-400">{problem}</p>
     <p class="muted mt-2 text-xs">
       The iPhone opens this Mac over Tailscale. Open the app here from the Mac's Tailscale address, or ask an engine
       admin to set Host in Engine settings.
@@ -60,13 +60,13 @@
     <div class="grid place-items-center py-10"><Spinner /></div>
   {:else}
     <div class="flex flex-col items-center gap-3 text-center">
-      <img src={link.qr} alt="QR code for the phone camera page" class="size-64 rounded-xl bg-white p-2" />
+      <img src={link.qr} alt="QR code for the phone camera page" class="size-64 rounded-xl bg-ink-50 p-2" />
       <p class="text-sm">Open the iPhone's Camera app and point it at the code. Take each page, then press Send.</p>
       <p class="muted text-xs">
         The link works until {expires} and can only add to this inbox. The iPhone needs Tailscale on.
       </p>
       {#if received}
-        <p class="text-sm font-medium text-teal-700 dark:text-teal-300" role="status">
+        <p class="text-sm font-medium text-accent-700 dark:text-accent-300" role="status">
           {received}
           {received === 1 ? 'item' : 'items'} received from the phone
         </p>

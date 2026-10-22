@@ -75,11 +75,11 @@
 <p class="mb-4 text-sm"><a class="link" href="{base}/settings">← Settings</a></p>
 
 {#if rejected}
-  <p class="glass mb-5 border-red-500/40 p-4 text-sm" role="alert">{rejected}</p>
+  <p class="panel mb-5 border-danger-500/40 p-4 text-sm" role="alert">{rejected}</p>
 {/if}
 
 {#if restart}
-  <p class="glass mb-5 border-amber-500/40 p-4 text-sm" role="status">{restart} Listening on {view.listening} now.</p>
+  <p class="panel mb-5 border-warn-500/40 p-4 text-sm" role="status">{restart} Listening on {view.listening} now.</p>
 {/if}
 
 <form onsubmit={submit} class="grid gap-5 lg:grid-cols-2">
@@ -143,7 +143,8 @@
           title={dirty ? 'Save first; the check uses the saved settings' : undefined}>Check connection</Button
         >
         {#if check}
-          <span class="text-xs {check.ok ? 'text-teal-700 dark:text-teal-300' : 'text-red-600 dark:text-red-400'}"
+          <span
+            class="text-xs {check.ok ? 'text-accent-700 dark:text-accent-300' : 'text-danger-600 dark:text-danger-400'}"
             >{check.message}</span
           >
         {/if}
@@ -168,7 +169,7 @@
         />
       </Field>
       {#if !view.macOcrFound}
-        <p class="text-xs text-red-600 dark:text-red-400">
+        <p class="text-xs text-danger-600 dark:text-danger-400">
           The mac-ocr program is missing. Build it with <code>pnpm exec nx build mac-ocr</code>.
         </p>
       {/if}
@@ -222,7 +223,7 @@
   title="Engine admins"
   subtitle="Admins change these settings and choose other admins. One must remain."
 >
-  <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+  <ul class="divide-y divide-ink-900/5 dark:divide-ink-50/5">
     {#each users as u (u.id)}
       <li class="flex items-center gap-3 py-2">
         <div class="min-w-0 flex-1">

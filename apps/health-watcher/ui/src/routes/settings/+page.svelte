@@ -156,7 +156,7 @@
   </Card>
 
   <Card title="Members">
-    <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+    <ul class="divide-y divide-ink-900/5 dark:divide-ink-50/5">
       {#each data.members as m (m.userId)}
         <li class="flex items-center gap-3 py-2">
           <div class="min-w-0 flex-1">
@@ -202,7 +202,7 @@
       {/if}
       {#if data.invites.length}
         <h3 class="label mt-5">Pending</h3>
-        <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+        <ul class="divide-y divide-ink-900/5 text-sm dark:divide-ink-50/5">
           {#each data.invites as inv (inv.id)}
             <li class="flex items-center justify-between py-2">
               <span>{roleLabels[inv.role]} · expires {formatDate(inv.expiresAt)}</span>
@@ -236,7 +236,7 @@
       {/if}
       {#if data.tokens.length}
         <h3 class="label mt-5">Your tokens in this group</h3>
-        <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+        <ul class="divide-y divide-ink-900/5 text-sm dark:divide-ink-50/5">
           {#each data.tokens as tok (tok.id)}
             <li class="flex items-center justify-between gap-2 py-2">
               <span class="min-w-0">
@@ -295,7 +295,7 @@
       {#each themes as t (t.value)}
         <button
           type="button"
-          class="btn-ghost {theme.value === t.value ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300' : ''}"
+          class="btn-ghost {theme.value === t.value ? 'bg-accent-600/10 text-accent-700 dark:text-accent-300' : ''}"
           aria-pressed={theme.value === t.value}
           onclick={() => theme.set(t.value)}>{t.label}</button
         >

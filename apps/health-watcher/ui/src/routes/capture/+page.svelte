@@ -103,7 +103,7 @@
 
 <main class="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-6">
   <header class="flex items-center gap-2">
-    <span class="grid size-9 place-items-center rounded-xl bg-teal-600 text-white"
+    <span class="grid size-9 place-items-center rounded-xl bg-accent-600 text-ink-50"
       ><Icon name="health" size={18} /></span
     >
     <div>
@@ -113,11 +113,11 @@
   </header>
 
   {#if !token}
-    <section class="glass p-5 text-sm">
+    <section class="panel p-5 text-sm">
       This page opens from the QR code on the Mac: Inbox, <em>Take photos with iPhone</em>.
     </section>
   {:else}
-    <section class="glass flex flex-col gap-3 p-5">
+    <section class="panel flex flex-col gap-3 p-5">
       <button class="btn-primary py-4 text-base" type="button" onclick={() => cameraInput?.click()} disabled={expired}
         ><Icon name="camera" size={20} />Take a photo</button
       >
@@ -128,11 +128,11 @@
     </section>
 
     {#if staged.length}
-      <section class="glass p-4">
+      <section class="panel p-4">
         <div class="grid grid-cols-3 gap-2">
           {#each staged as s, i (s.url)}
             <div
-              class="relative aspect-[3/4] overflow-hidden rounded-xl border border-slate-900/10 dark:border-white/10"
+              class="relative aspect-[3/4] overflow-hidden rounded-xl border border-ink-900/10 dark:border-ink-50/10"
             >
               {#if s.file.type.startsWith('image/') && s.file.type !== 'image/heic'}
                 <img src={s.url} alt="Page {i + 1}" class="size-full object-cover" />
@@ -141,7 +141,7 @@
               {/if}
               <button
                 type="button"
-                class="icon-btn absolute top-1 right-1 size-7 bg-white/90 dark:bg-slate-900/90"
+                class="icon-btn absolute top-1 right-1 size-7 bg-ink-50/90 dark:bg-ink-900/90"
                 aria-label="Remove page {i + 1}"
                 onclick={() => remove(i)}><Icon name="x" size={14} /></button
               >
@@ -164,9 +164,9 @@
 
   {#if message}
     <p
-      class="glass p-4 text-sm {message.tone === 'ok'
-        ? 'text-teal-700 dark:text-teal-300'
-        : 'text-red-600 dark:text-red-400'}"
+      class="panel p-4 text-sm {message.tone === 'ok'
+        ? 'text-accent-700 dark:text-accent-300'
+        : 'text-danger-600 dark:text-danger-400'}"
       role={message.tone === 'ok' ? 'status' : 'alert'}
     >
       {message.text}

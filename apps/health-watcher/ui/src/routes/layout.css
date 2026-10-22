@@ -3,34 +3,129 @@
 /* Dark mode follows the .dark class set from the theme setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Neo-brutalism with quiet luxury: warm ivory paper, charcoal ink, solid
+   2px edges and hard offset shadows, one deep green accent, serif headings.
+   Colors are named by role; change a palette here and every page follows. */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --color-accent: oklch(0.6 0.11 185);
+  --font-sans: 'Avenir Next', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+
+  /* Warm neutrals: paper at the light end, ink at the dark end. */
+  --color-ink-50: #f8f5ee;
+  --color-ink-100: #efe9dd;
+  --color-ink-200: #e0d8c8;
+  --color-ink-300: #c9bfac;
+  --color-ink-400: #a59b88;
+  --color-ink-500: #7f7767;
+  --color-ink-600: #5f594d;
+  --color-ink-700: #464137;
+  --color-ink-800: #2f2c26;
+  --color-ink-900: #1f1d19;
+  --color-ink-950: #141310;
+
+  /* Deep forest green: actions, links, what is selected. */
+  --color-accent-50: #eef3ee;
+  --color-accent-100: #dce6dc;
+  --color-accent-200: #b9cdba;
+  --color-accent-300: #93b296;
+  --color-accent-400: #6a8f70;
+  --color-accent-500: #4a704f;
+  --color-accent-600: #34573a;
+  --color-accent-700: #28452d;
+  --color-accent-800: #1e3522;
+  --color-accent-900: #152619;
+  --color-accent-950: #0d170f;
+
+  /* Oxblood: errors and destructive actions. */
+  --color-danger-50: #f8eeec;
+  --color-danger-100: #f0dad6;
+  --color-danger-200: #e2b5ad;
+  --color-danger-300: #cf8b80;
+  --color-danger-400: #b66252;
+  --color-danger-500: #984737;
+  --color-danger-600: #7b3629;
+  --color-danger-700: #612a20;
+  --color-danger-800: #482019;
+  --color-danger-900: #331612;
+  --color-danger-950: #1f0d0a;
+
+  /* Brass: warnings and things that wait for a person. */
+  --color-warn-50: #faf4e6;
+  --color-warn-100: #f3e6c6;
+  --color-warn-200: #e7cf94;
+  --color-warn-300: #d6b465;
+  --color-warn-400: #c19a45;
+  --color-warn-500: #a17f31;
+  --color-warn-600: #806426;
+  --color-warn-700: #624c1d;
+  --color-warn-800: #473715;
+  --color-warn-900: #31260f;
+  --color-warn-950: #1d1709;
+
+  /* Slate blue: work in progress and neutral notices. */
+  --color-info-50: #eef1f4;
+  --color-info-100: #dce2e9;
+  --color-info-200: #b8c4d2;
+  --color-info-300: #91a3b8;
+  --color-info-400: #6c8099;
+  --color-info-500: #53667e;
+  --color-info-600: #415165;
+  --color-info-700: #33404f;
+  --color-info-800: #26303b;
+  --color-info-900: #1a2129;
+  --color-info-950: #0f1318;
+
+  /* Surfaces and the edge color flip with the theme (see :root and .dark). */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-edge: var(--edge);
+
+  --shadow-brut: 4px 4px 0 0 var(--shade);
+  --shadow-brut-sm: 2px 2px 0 0 var(--shade);
+
+  /* Small, square corners: rounded-xl and rounded-2xl stay boxy everywhere. */
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.3125rem;
+  --radius-2xl: 0.375rem;
 }
 
 @layer base {
+  :root {
+    --canvas: var(--color-ink-100);
+    --surface: var(--color-ink-50);
+    --edge: var(--color-ink-900);
+    --shade: var(--color-ink-900);
+  }
+  /* In the dark the edge is a soft taupe and the shadow a deep brown, so
+     the blocks stay quiet. */
+  .dark {
+    --canvas: var(--color-ink-950);
+    --surface: var(--color-ink-900);
+    --edge: var(--color-ink-400);
+    --shade: var(--color-ink-700);
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
   }
 
   body {
-    @apply min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
-    background-image:
-      radial-gradient(at 0% 0%, oklch(0.88 0.07 185 / 0.55) 0, transparent 45%),
-      radial-gradient(at 100% 0%, oklch(0.88 0.08 175 / 0.45) 0, transparent 40%),
-      radial-gradient(at 100% 100%, oklch(0.9 0.07 50 / 0.35) 0, transparent 45%);
-    background-attachment: fixed;
+    @apply min-h-screen bg-canvas text-ink-900 dark:text-ink-100;
   }
 
-  .dark body {
-    background-image:
-      radial-gradient(at 0% 0%, oklch(0.35 0.08 185 / 0.45) 0, transparent 45%),
-      radial-gradient(at 100% 0%, oklch(0.35 0.09 175 / 0.35) 0, transparent 40%),
-      radial-gradient(at 100% 100%, oklch(0.35 0.1 50 / 0.25) 0, transparent 45%);
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    @apply bg-warn-200 text-ink-950;
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-teal-500;
+    @apply outline-2 outline-offset-2 outline-accent-600 dark:outline-accent-300;
   }
 
   /* Interaction feedback for every page (same rules as wealth-management).
@@ -39,7 +134,7 @@
     cursor: pointer;
   }
   :where(input[type='checkbox'], input[type='radio']) {
-    @apply cursor-pointer accent-teal-600 dark:accent-teal-400;
+    @apply cursor-pointer accent-accent-600 dark:accent-accent-400;
   }
   :where(:disabled, [aria-disabled='true']) {
     cursor: not-allowed;
@@ -58,11 +153,11 @@
   }
   /* Bare links in page text. */
   :where(a:not([class])) {
-    @apply text-teal-600 underline-offset-2 hover:underline dark:text-teal-400;
+    @apply text-accent-700 underline decoration-1 underline-offset-3 hover:decoration-2 dark:text-accent-300;
   }
   /* Table body rows highlight under the pointer. */
   :where(tbody > tr) {
-    @apply transition-colors hover:bg-slate-900/[0.03] dark:hover:bg-white/[0.04];
+    @apply transition-colors hover:bg-warn-100/50 dark:hover:bg-ink-50/[0.04];
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -79,52 +174,73 @@
 }
 
 /* Shared component styles; @utility makes them usable with variants and @apply. */
-@utility glass {
-  @apply rounded-2xl border border-white/60 bg-white/65 shadow-sm shadow-slate-900/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/55;
+
+/* A card: paper on the canvas, a solid edge and a hard shadow. */
+@utility panel {
+  @apply rounded-2xl border-2 border-edge bg-surface shadow-brut;
 }
 
+/* Buttons sit on a small hard shadow, lift a pixel on hover and press flat
+   into their shadow. */
 @utility btn {
-  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition duration-150 ease-out select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 aria-busy:cursor-progress aria-disabled:cursor-not-allowed aria-disabled:active:scale-100 motion-reduce:active:scale-100;
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-edge px-3.5 py-2 text-sm font-semibold tracking-wide shadow-brut-sm transition duration-150 ease-out select-none hover:-translate-x-px hover:-translate-y-px hover:shadow-brut focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-0 disabled:hover:shadow-brut-sm aria-busy:cursor-progress aria-disabled:cursor-not-allowed motion-reduce:hover:translate-0 motion-reduce:active:translate-0;
 }
 @utility btn-primary {
-  @apply btn bg-teal-600 text-white shadow-sm hover:bg-teal-500 hover:shadow-md hover:shadow-teal-600/20 active:bg-teal-700 disabled:hover:bg-teal-600 disabled:hover:shadow-sm;
+  @apply btn bg-accent-700 text-ink-50 hover:bg-accent-600 active:bg-accent-800 disabled:hover:bg-accent-700 dark:bg-accent-300 dark:text-ink-950 dark:hover:bg-accent-200;
 }
+/* A quiet button: no edge until the pointer is on it. */
 @utility btn-ghost {
-  @apply btn text-slate-700 hover:bg-slate-900/[0.06] hover:text-slate-900 active:bg-slate-900/10 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white dark:active:bg-white/15;
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-transparent px-3.5 py-2 text-sm font-medium text-ink-700 transition duration-150 ease-out select-none hover:border-edge hover:bg-surface hover:text-ink-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:bg-ink-200 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-transparent disabled:hover:bg-transparent aria-busy:cursor-progress dark:text-ink-200 dark:hover:text-ink-50 dark:active:bg-ink-800;
 }
 @utility btn-danger {
-  @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-500 active:bg-rose-700 disabled:hover:bg-rose-600;
+  @apply btn bg-danger-600 text-ink-50 hover:bg-danger-500 active:bg-danger-700 disabled:hover:bg-danger-600;
 }
 
 @utility field {
-  @apply w-full rounded-xl border border-slate-300/80 bg-white/80 px-3 py-2 text-sm text-slate-900 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-400 hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-300/80 aria-[invalid=true]:border-rose-500 dark:border-white/15 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:border-white/30 dark:focus:border-teal-400;
+  @apply w-full rounded-lg border-2 border-edge bg-surface px-3 py-2 text-sm text-ink-900 transition-[box-shadow,background-color] duration-150 placeholder:text-ink-400 focus:shadow-brut-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger-600 dark:text-ink-100;
 }
+/* Form labels: small capitals with wide spacing. */
 @utility label {
-  @apply mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400;
+  @apply mb-1.5 block text-[0.6875rem] font-semibold tracking-[0.12em] text-ink-600 uppercase dark:text-ink-400;
+}
+
+/* A section heading: the display serif. */
+@utility heading {
+  @apply font-display text-lg font-semibold text-ink-800 dark:text-ink-100;
+}
+
+/* A small capital line above a heading or a group, in brass. */
+@utility eyebrow {
+  @apply text-[0.6875rem] font-semibold tracking-[0.14em] text-warn-700 uppercase dark:text-warn-300;
+}
+
+/* A status tag: a small square label with a thin edge in its own color. */
+@utility tag {
+  @apply inline-flex w-fit items-center gap-1.5 rounded-sm border border-current/35 px-2 py-0.5 text-xs font-semibold tracking-wide;
 }
 
 @utility muted {
-  @apply text-slate-500 dark:text-slate-400;
+  @apply text-ink-500 dark:text-ink-400;
 }
 
-/* A text link: tint, underline on hover. */
+/* A text link: accent with an underline that thickens on hover. */
 @utility link {
-  @apply cursor-pointer rounded-sm text-teal-600 underline-offset-2 transition-colors hover:text-teal-500 hover:underline dark:text-teal-400 dark:hover:text-teal-300;
+  @apply cursor-pointer text-accent-700 underline decoration-1 underline-offset-3 transition-colors hover:decoration-2 dark:text-accent-300;
 }
 
-/* A card or tile that is clickable as a whole: lift and tint on hover, sink on press. */
+/* A card or tile that is clickable as a whole: lift on hover, press flat. */
 @utility interactive {
-  @apply cursor-pointer transition duration-150 ease-out hover:border-teal-400/40 hover:shadow-md hover:shadow-slate-900/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 active:translate-y-0 active:shadow-sm motion-safe:hover:-translate-y-0.5 dark:hover:border-teal-400/30;
+  @apply cursor-pointer transition duration-150 ease-out hover:-translate-x-px hover:-translate-y-px hover:shadow-[6px_6px_0_0_var(--shade)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:translate-0.5 active:shadow-none motion-reduce:hover:translate-0;
 }
 
 /* A table row or list item that opens something. */
 @utility row-link {
-  @apply cursor-pointer transition-colors hover:bg-teal-500/[0.06] active:bg-teal-500/10 dark:hover:bg-teal-400/10;
+  @apply cursor-pointer transition-colors hover:bg-warn-100/60 active:bg-warn-100 dark:hover:bg-ink-50/[0.06];
 }
 
 /* Skeleton placeholder shape (lib/components/skeleton). */
 @utility skeleton {
-  @apply rounded-md bg-slate-900/[0.07] motion-safe:animate-pulse dark:bg-white/[0.08];
+  @apply rounded-md bg-ink-900/[0.07] motion-safe:animate-pulse dark:bg-ink-50/[0.08];
 }
 
 @utility tabular {
@@ -133,5 +249,5 @@
 
 /* Small icon buttons, such as the chat message toolbar. */
 @utility icon-btn {
-  @apply inline-grid size-7 cursor-pointer place-items-center rounded-lg text-slate-500 transition duration-150 hover:bg-slate-900/[0.07] hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:outline-none active:scale-90 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white;
+  @apply inline-grid size-7 cursor-pointer place-items-center rounded-lg border-2 border-transparent text-ink-600 transition duration-150 hover:border-edge hover:bg-surface hover:text-ink-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 active:bg-ink-200 dark:text-ink-300 dark:hover:text-ink-50 dark:active:bg-ink-800;
 }

@@ -19,9 +19,9 @@
   let { observations, editable, pageNumber, onedit, onstatus, ondelete, onhistory }: Props = $props();
 
   const flagTone: Record<string, string> = {
-    H: 'text-rose-700 dark:text-rose-300',
-    L: 'text-sky-700 dark:text-sky-300',
-    '*': 'text-amber-700 dark:text-amber-300',
+    H: 'text-danger-700 dark:text-danger-300',
+    L: 'text-info-700 dark:text-info-300',
+    '*': 'text-warn-700 dark:text-warn-300',
   };
 </script>
 
@@ -36,7 +36,7 @@
         <th class="py-2 font-medium"><span class="sr-only">Actions</span></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+    <tbody class="divide-y divide-ink-900/5 dark:divide-ink-50/5">
       {#each observations as o (o.id)}
         {@const metric = o.metricCode ? catalog.byCode.get(o.metricCode) : undefined}
         {@const page = pageNumber(o.pageId)}
@@ -46,7 +46,7 @@
             <span class="muted block text-xs">
               {metric ? metric.name : 'Not in the catalog'}{page ? ` · page ${page}` : ''}
               {#if o.status === 'draft' && o.confidence < 70}
-                · <span class="text-amber-700 dark:text-amber-300">check this ({o.confidence}%)</span>
+                · <span class="text-warn-700 dark:text-warn-300">check this ({o.confidence}%)</span>
               {/if}
             </span>
           </td>

@@ -55,12 +55,12 @@
   <Card title="Note" class="mb-5"><p class="text-sm whitespace-pre-wrap">{data.visit.note}</p></Card>
 {/if}
 
-<h2 class="mb-3 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">Documents</h2>
+<h2 class="mb-3 heading">Documents</h2>
 <div class="space-y-4">
   {#each documents as doc (doc.id)}
-    <section class="glass p-4">
+    <section class="panel p-4">
       <header class="flex flex-wrap items-center gap-3">
-        <span class="grid size-9 place-items-center rounded-xl bg-teal-600/10 text-teal-700 dark:text-teal-300"
+        <span class="grid size-9 place-items-center rounded-xl bg-accent-600/10 text-accent-700 dark:text-accent-300"
           ><Icon name="file" size={18} /></span
         >
         <div class="min-w-0 flex-1">
@@ -101,7 +101,7 @@
       {/if}
     </section>
   {:else}
-    <section class="glass">
+    <section class="panel">
       <EmptyState title="No documents" detail="Upload files in the inbox and file them under this visit." />
     </section>
   {/each}

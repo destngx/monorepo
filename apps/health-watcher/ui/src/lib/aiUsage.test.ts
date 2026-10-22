@@ -16,8 +16,8 @@ describe('AI quota presentation', () => {
   });
 
   it('Given what is left, when coloured, then full is green and empty is red', () => {
-    expect(leftColor(100)).toBe('oklch(0.7 0.17 150.0)');
-    expect(leftColor(0)).toBe('oklch(0.7 0.17 25.0)');
+    expect(leftColor(100)).toBe('oklch(0.58 0.09 145.0)');
+    expect(leftColor(0)).toBe('oklch(0.58 0.09 30.0)');
   });
 
   it('Given a reset time, when counted from now, then it reads in days, hours or minutes', () => {

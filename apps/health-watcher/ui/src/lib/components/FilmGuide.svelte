@@ -4,7 +4,7 @@
   let { open = false }: { open?: boolean } = $props();
 </script>
 
-<details class="rounded-xl bg-slate-900/5 px-3 py-2 text-left text-sm dark:bg-white/5" {open}>
+<details class="rounded-xl bg-ink-900/5 px-3 py-2 text-left text-sm dark:bg-ink-50/5" {open}>
   <summary class="cursor-pointer font-medium">How to photograph an X-ray or CT film</summary>
   <ol class="muted mt-2 list-decimal space-y-1 pl-5">
     <li>Hold the film against a bright window, or a laptop or TV screen showing a white page at full brightness.</li>

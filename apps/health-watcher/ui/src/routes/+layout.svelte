@@ -61,18 +61,20 @@
 
 {#if shell}
   <div class="mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-24 sm:px-6 lg:pb-8">
-    <header class="glass sticky top-3 z-30 mt-3 flex items-center gap-3 px-3 py-2">
+    <header class="panel sticky top-3 z-30 mt-3 flex items-center gap-3 px-3 py-2">
       <a href="{base}/" class="flex items-center gap-2 font-semibold tracking-tight">
-        <span class="grid size-8 place-items-center rounded-xl bg-teal-600 text-white"
+        <span class="grid size-8 place-items-center rounded-xl bg-accent-600 text-ink-50"
           ><Icon name="activity" size={18} /></span
         >
-        <span class="hidden sm:inline">Health Watcher</span>
+        <span class="hidden font-display text-lg tracking-normal sm:inline">Health Watcher</span>
       </a>
       <nav class="ml-4 hidden items-center gap-1 lg:flex" aria-label="Main">
         {#each nav as item (item.href)}
           <a
             href="{base}{item.href}"
-            class="btn-ghost px-3 py-1.5 {active(item.href) ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300' : ''}"
+            class="btn-ghost px-3 py-1.5 {active(item.href)
+              ? 'border-edge bg-ink-900 text-ink-50 hover:bg-ink-900 hover:text-ink-50 dark:bg-ink-100 dark:text-ink-950 dark:hover:bg-ink-100 dark:hover:text-ink-950'
+              : ''}"
             aria-current={active(item.href) ? 'page' : undefined}
           >
             <Icon name={item.icon} size={16} />{item.label}
@@ -124,11 +126,11 @@
       </div>
     </header>
 
-    <main class="mt-5 flex-1">
+    <main class="mt-8 flex-1">
       {#if session.tenantId}
         {@render children()}
       {:else}
-        <div class="glass mx-auto max-w-lg p-6 text-center">
+        <div class="panel mx-auto max-w-lg p-6 text-center">
           <p class="font-medium">You are not in any family or group yet.</p>
           <p class="muted mt-1 text-sm">Open an invite link, or create a group in Settings.</p>
           <a class="btn-primary mt-4" href="{base}/settings">Settings</a>
@@ -137,15 +139,15 @@
     </main>
 
     <nav
-      class="glass fixed inset-x-2 bottom-2 z-30 grid grid-cols-4 px-1 py-1.5 lg:hidden"
+      class="panel fixed inset-x-2 bottom-2 z-30 grid grid-cols-4 px-1 py-1.5 lg:hidden"
       style="padding-bottom: max(0.375rem, env(safe-area-inset-bottom))"
       aria-label="Main"
     >
       {#each nav as item (item.href)}
         <a
           href="{base}{item.href}"
-          class="flex flex-col items-center gap-0.5 rounded-xl py-1 text-xs {active(item.href)
-            ? 'text-teal-700 dark:text-teal-300'
+          class="mx-1 flex flex-col items-center gap-0.5 rounded-lg py-1 text-xs {active(item.href)
+            ? 'bg-ink-900 font-semibold text-ink-50 dark:bg-ink-100 dark:text-ink-950'
             : 'muted'}"
           aria-current={active(item.href) ? 'page' : undefined}
         >

@@ -49,7 +49,7 @@
       ? 'Nothing found.'
       : `${data.result.hits.length}${data.result.hits.length === 50 ? '+' : ''} results`}
   </p>
-  <ol class="glass divide-y divide-slate-900/5 dark:divide-white/5">
+  <ol class="panel divide-y divide-ink-900/5 dark:divide-ink-50/5">
     {#each data.result.hits as hit, i (i)}
       <li>
         <a href="{base}{hitHref(hit)}" class="row-link block px-4 py-3">
@@ -64,7 +64,7 @@
           </span>
           <span class="mt-1 block text-sm break-words">
             {#each hit.snippet ?? [] as part, j (j)}{#if part.match}<mark
-                  class="rounded bg-amber-300/60 px-0.5 text-inherit dark:bg-amber-400/30">{part.text}</mark
+                  class="rounded bg-warn-300/60 px-0.5 text-inherit dark:bg-warn-400/30">{part.text}</mark
                 >{:else}{part.text}{/if}{/each}
           </span>
         </a>

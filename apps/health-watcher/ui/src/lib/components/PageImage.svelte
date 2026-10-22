@@ -61,12 +61,13 @@
   {@const width = font * (0.35 + 0.6 * String(n).length)}
   <g class="pointer-events-none" transform="translate({at.x}, {Math.max(0, at.y - font * 1.15)})">
     <rect {width} height={font * 1.15} rx={font * 0.25} class={fill} />
-    <text x={width / 2} y={font * 0.85} font-size={font} text-anchor="middle" class="fill-white font-semibold">{n}</text
+    <text x={width / 2} y={font * 0.85} font-size={font} text-anchor="middle" class="fill-ink-50 font-semibold"
+      >{n}</text
     >
   </g>
 {/snippet}
 
-<div class="overflow-auto rounded-xl border border-slate-900/10 bg-white dark:border-white/10">
+<div class="overflow-auto rounded-xl border border-ink-900/10 bg-ink-50 dark:border-ink-50/10">
   {#if page.hasImage}
     <div class="relative" style="width: {zoom * 100}%">
       <img
@@ -94,7 +95,7 @@
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <polygon
               points={quadPoints(box.quad, w, h)}
-              class="{box.off ? 'fill-amber-400/20 stroke-amber-500' : 'fill-transparent stroke-teal-500'} {ontoggle
+              class="{box.off ? 'fill-warn-400/20 stroke-warn-500' : 'fill-transparent stroke-accent-500'} {ontoggle
                 ? 'pointer-events-auto cursor-pointer'
                 : 'pointer-events-none'}"
               stroke-width={stroke}
@@ -105,13 +106,13 @@
               onpointerdown={(e) => e.stopPropagation()}
               onclick={() => ontoggle?.(box.key)}
             />
-            {@render number(i + 1, box.quad, box.off ? 'fill-amber-500' : 'fill-teal-600')}
+            {@render number(i + 1, box.quad, box.off ? 'fill-warn-500' : 'fill-accent-600')}
           {/each}
           {#each boxes as box, i (i)}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <polygon
               points={quadPoints(box, w, h)}
-              class="fill-rose-500/30 stroke-rose-600 {drawing ? 'cursor-pointer' : 'pointer-events-none'}"
+              class="fill-danger-500/30 stroke-danger-600 {drawing ? 'cursor-pointer' : 'pointer-events-none'}"
               stroke-width={stroke}
               role="button"
               tabindex="-1"
@@ -119,14 +120,10 @@
               onpointerdown={(e) => e.stopPropagation()}
               onclick={() => drawing && onboxes?.(boxes.filter((_, j) => j !== i))}
             />
-            {@render number(auto.length + i + 1, box, 'fill-rose-600')}
+            {@render number(auto.length + i + 1, box, 'fill-danger-600')}
           {/each}
           {#if preview}
-            <polygon
-              points={quadPoints(preview, w, h)}
-              class="fill-slate-900/40 stroke-slate-900"
-              stroke-width={stroke}
-            />
+            <polygon points={quadPoints(preview, w, h)} class="fill-ink-900/40 stroke-ink-900" stroke-width={stroke} />
           {/if}
         </svg>
       {/if}

@@ -17,7 +17,7 @@
   let { findings, editable, pageNumber, onedit, onstatus, ondelete, onhistory }: Props = $props();
 </script>
 
-<ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+<ul class="divide-y divide-ink-900/5 dark:divide-ink-50/5">
   {#each findings as f (f.id)}
     {@const page = pageNumber(f.pageId)}
     <li class="flex items-start gap-3 py-2 {f.status === 'rejected' ? 'opacity-50' : ''}">
@@ -25,7 +25,7 @@
         <p class="muted text-xs">
           {findingKindLabels[f.kind]}{f.icd10 ? ` · ${f.icd10}` : ''}{page ? ` · page ${page}` : ''}
           {#if f.status === 'draft' && f.confidence < 70}
-            · <span class="text-amber-700 dark:text-amber-300">check this ({f.confidence}%)</span>
+            · <span class="text-warn-700 dark:text-warn-300">check this ({f.confidence}%)</span>
           {/if}
         </p>
         <p class="text-sm whitespace-pre-wrap {f.status === 'rejected' ? 'line-through' : ''}">{f.text}</p>

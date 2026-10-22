@@ -94,7 +94,7 @@
         </Field>
       </div>
       {#if kind === 'imaging_film'}
-        <p class="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+        <p class="rounded-xl bg-warn-500/10 px-3 py-2 text-xs text-warn-800 dark:text-warn-200">
           Film photos are stored and shown only. File the written radiology report too; it's the part that can be
           searched and read.
         </p>
@@ -104,10 +104,10 @@
       <fieldset>
         <legend class="label">Visit</legend>
         <div class="flex gap-2">
-          <label class="btn-ghost {mode === 'new' ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300' : ''}">
+          <label class="btn-ghost {mode === 'new' ? 'bg-accent-600/10 text-accent-700 dark:text-accent-300' : ''}">
             <input class="sr-only" type="radio" bind:group={mode} value="new" />New visit
           </label>
-          <label class="btn-ghost {mode === 'existing' ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300' : ''}">
+          <label class="btn-ghost {mode === 'existing' ? 'bg-accent-600/10 text-accent-700 dark:text-accent-300' : ''}">
             <input class="sr-only" type="radio" bind:group={mode} value="existing" />Existing visit
           </label>
         </div>

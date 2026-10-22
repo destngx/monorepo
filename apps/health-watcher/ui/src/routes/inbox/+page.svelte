@@ -64,12 +64,12 @@
 {/if}
 
 {#if data.groups.length > 0}
-  <h2 class="mt-8 mb-3 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">
+  <h2 class="mt-8 mb-3 heading">
     Suggested visits ({data.groups.length})
   </h2>
   <div class="space-y-3">
     {#each data.groups as g (`${g.personId}-${g.date}-${g.providerName}`)}
-      <section class="glass flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+      <section class="panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
         <div class="min-w-0 flex-1">
           <p class="font-medium">
             {personName.get(g.personId) ?? 'Someone'} · {formatDate(g.date)}
@@ -89,13 +89,13 @@
   </div>
 {/if}
 
-<h2 class="mt-8 mb-3 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">
+<h2 class="mt-8 mb-3 heading">
   Waiting to be filed ({data.items.length})
 </h2>
 <div class="space-y-3">
   {#each data.items as item (item.id)}
     {@const status = states.get(item.id)}
-    <section class="glass flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+    <section class="panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
       <div class="grid w-full grid-cols-4 gap-2 sm:w-64 sm:shrink-0">
         {#each item.files.slice(0, 4) as f (f.id)}<FilePreview file={f} compact />{/each}
       </div>
@@ -121,7 +121,7 @@
       </div>
     </section>
   {:else}
-    <section class="glass"><EmptyState title="The inbox is empty" detail="Uploaded files show up here." /></section>
+    <section class="panel"><EmptyState title="The inbox is empty" detail="Uploaded files show up here." /></section>
   {/each}
 </div>
 

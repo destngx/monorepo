@@ -21,8 +21,8 @@
 </PageTitle>
 
 {#if data.inboxCount > 0}
-  <a href="{base}/inbox" class="glass interactive mb-5 flex items-center gap-3 p-4">
-    <span class="grid size-10 place-items-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300"
+  <a href="{base}/inbox" class="panel interactive mb-5 flex items-center gap-3 p-4">
+    <span class="grid size-10 place-items-center rounded-xl bg-warn-500/15 text-warn-700 dark:text-warn-300"
       ><Icon name="inbox" /></span
     >
     <span class="flex-1">
@@ -38,9 +38,9 @@
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {#each data.people as p (p.id)}
     {@const age = ageOn(p.birthDate, today)}
-    <a href="{base}/people/{p.id}" class="glass interactive flex items-center gap-4 p-4">
+    <a href="{base}/people/{p.id}" class="panel interactive flex items-center gap-4 p-4">
       <span
-        class="grid size-12 shrink-0 place-items-center rounded-2xl bg-teal-600/10 text-lg font-semibold text-teal-700 dark:text-teal-300"
+        class="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent-600/10 text-lg font-semibold text-accent-700 dark:text-accent-300"
       >
         {p.displayName.slice(0, 1).toUpperCase()}
       </span>
@@ -59,7 +59,7 @@
   {#if session.canEdit}
     <a
       href="{base}/people"
-      class="glass interactive flex items-center justify-center gap-2 p-4 text-sm text-teal-700 dark:text-teal-300"
+      class="panel interactive flex items-center justify-center gap-2 p-4 text-sm text-accent-700 dark:text-accent-300"
     >
       <Icon name="plus" size={16} />Add a person
     </a>

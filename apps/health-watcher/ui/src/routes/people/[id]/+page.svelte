@@ -48,7 +48,7 @@
   {/snippet}
 </PageTitle>
 
-<section class="glass mb-5 grid gap-3 p-4 sm:grid-cols-4">
+<section class="panel mb-5 grid gap-3 p-4 sm:grid-cols-4">
   <div>
     <label class="label" for="f-type">Type</label>
     <select
@@ -96,8 +96,8 @@
 </section>
 
 {#each years as group (group.year)}
-  <h2 class="muted mt-6 mb-2 text-sm font-semibold tracking-wide">{group.year}</h2>
-  <ol class="glass divide-y divide-slate-900/5 dark:divide-white/5">
+  <h2 class="eyebrow mt-6 mb-2">{group.year}</h2>
+  <ol class="panel divide-y divide-ink-900/5 dark:divide-ink-50/5">
     {#each group.visits as v (v.id)}
       <li>
         <a href="{base}/visits/{v.id}" class="row-link flex items-center gap-4 px-4 py-3">
@@ -110,7 +110,7 @@
           </span>
           {#if v.flaggedCount > 0}
             <span
-              class="flex shrink-0 items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-xs text-rose-700 dark:text-rose-300"
+              class="tag shrink-0 bg-danger-500/10 text-danger-700 dark:text-danger-300"
               title="{v.flaggedCount} values flagged high or low"><Icon name="alert" size={12} />{v.flaggedCount}</span
             >
           {/if}
@@ -122,7 +122,7 @@
     {/each}
   </ol>
 {:else}
-  <section class="glass">
+  <section class="panel">
     <EmptyState
       title={filtered ? 'No visits match these filters' : 'No visits yet'}
       detail={filtered ? 'Clear a filter to see more.' : 'Upload a result in the inbox, or add a visit by hand.'}

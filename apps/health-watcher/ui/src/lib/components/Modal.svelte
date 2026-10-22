@@ -25,9 +25,7 @@
 
 <dialog
   bind:this={dialog}
-  class="glass m-auto w-[calc(100%-2rem)] p-0 text-inherit backdrop:bg-slate-950/40 backdrop:backdrop-blur-sm {wide
-    ? 'max-w-3xl'
-    : 'max-w-lg'}"
+  class="panel m-auto w-[calc(100%-2rem)] p-0 text-inherit backdrop:bg-ink-950/50 {wide ? 'max-w-3xl' : 'max-w-lg'}"
   {onclose}
   oncancel={(event) => {
     if (!dismissible) event.preventDefault();
@@ -35,8 +33,8 @@
 >
   {#if open}
     <div class="flex max-h-[85vh] flex-col">
-      <header class="flex items-center justify-between border-b border-slate-900/10 px-5 py-4 dark:border-white/10">
-        <h2 class="font-semibold">{title}</h2>
+      <header class="flex items-center justify-between border-b-2 border-edge px-5 py-4">
+        <h2 class="heading text-xl">{title}</h2>
         {#if dismissible}
           <button type="button" class="icon-btn size-8" aria-label="Close" title="Close" onclick={onclose}>
             <Icon name="x" size={16} />
@@ -45,7 +43,7 @@
       </header>
       <div class="overflow-y-auto px-5 py-4">{@render children()}</div>
       {#if footer}
-        <footer class="flex justify-end gap-2 border-t border-slate-900/10 px-5 py-3 dark:border-white/10">
+        <footer class="flex justify-end gap-2 border-t-2 border-edge px-5 py-3">
           {@render footer()}
         </footer>
       {/if}

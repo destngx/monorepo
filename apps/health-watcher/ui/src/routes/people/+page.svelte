@@ -33,7 +33,7 @@
   {/snippet}
 </PageTitle>
 
-<section class="glass divide-y divide-slate-900/5 dark:divide-white/5">
+<section class="panel divide-y divide-ink-900/5 dark:divide-ink-50/5">
   {#each data.people as p (p.id)}
     <div class="flex items-center gap-3 px-4 py-3">
       <a href="{base}/people/{p.id}" class="min-w-0 flex-1">

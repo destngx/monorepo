@@ -180,7 +180,7 @@
 
   <div class="space-y-4">
     <div class="flex items-center gap-3">
-      <h2 class="text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">Pages</h2>
+      <h2 class="heading">Pages</h2>
       {#if pages.some((p) => p.hasImage)}
         <label class="muted ml-auto flex items-center gap-2 text-xs">
           Zoom
@@ -189,7 +189,7 @@
       {/if}
     </div>
     {#each pages as p, i (p.id)}
-      <section id="page-{p.id}" class="glass scroll-mt-24 p-3">
+      <section id="page-{p.id}" class="panel scroll-mt-24 p-3">
         <header class="mb-2 flex items-center gap-2">
           <span class="text-sm font-medium">Page {i + 1}</span>
           <span class="ml-auto flex gap-1">
@@ -197,7 +197,7 @@
               <button
                 type="button"
                 class="btn-ghost px-2.5 py-1 text-xs {masked[p.id]
-                  ? 'bg-teal-600/10 text-teal-700 dark:text-teal-300'
+                  ? 'bg-accent-600/10 text-accent-700 dark:text-accent-300'
                   : ''}"
                 aria-pressed={!!masked[p.id]}
                 onclick={() => (masked[p.id] = !masked[p.id])}>Masked</button
@@ -214,7 +214,7 @@
         </header>
         {#if showText[p.id]}
           <pre
-            class="max-h-[70vh] overflow-auto rounded-xl bg-slate-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{masked[
+            class="max-h-[70vh] overflow-auto rounded-xl bg-ink-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-ink-50/5">{masked[
               p.id
             ] && p.mask
               ? p.mask.text

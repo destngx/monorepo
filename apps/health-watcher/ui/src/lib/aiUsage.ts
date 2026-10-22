@@ -14,10 +14,10 @@ export function leftPercent(window: Pick<AIUsageWindow, 'usedPercent'>): number 
   return Number.isFinite(left) ? Math.min(100, Math.max(0, left)) : 0;
 }
 
-/** Green (all left) to red (none left) through amber, in OKLCH so the lightness stays even. */
+/** Forest green (all left) to oxblood (none left) through brass, muted to match the theme, in OKLCH so the lightness stays even. */
 export function leftColor(left: number): string {
   const share = Math.min(100, Math.max(0, left)) / 100;
-  return `oklch(0.7 0.17 ${(25 + share * 125).toFixed(1)})`;
+  return `oklch(0.58 0.09 ${(30 + share * 115).toFixed(1)})`;
 }
 
 /** "in 2d 3h", "in 45m", "due now"; empty when unknown. */

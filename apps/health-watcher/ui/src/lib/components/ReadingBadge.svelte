@@ -6,19 +6,16 @@
   let { status, showDetail = false }: { status: ReadingState; showDetail?: boolean } = $props();
 
   const tones = {
-    neutral: 'bg-slate-500/10 text-slate-700 dark:text-slate-300',
-    busy: 'bg-sky-500/10 text-sky-800 dark:text-sky-200',
-    warn: 'bg-amber-500/15 text-amber-800 dark:text-amber-200',
-    ok: 'bg-teal-600/10 text-teal-700 dark:text-teal-300',
-    error: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+    neutral: 'bg-ink-500/10 text-ink-700 dark:text-ink-300',
+    busy: 'bg-info-500/10 text-info-800 dark:text-info-200',
+    warn: 'bg-warn-500/15 text-warn-800 dark:text-warn-200',
+    ok: 'bg-accent-600/10 text-accent-700 dark:text-accent-300',
+    error: 'bg-danger-500/10 text-danger-700 dark:text-danger-300',
   };
 </script>
 
 <span class="inline-flex max-w-full flex-col gap-1">
-  <span
-    class="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium {tones[status.tone]}"
-    title={showDetail ? undefined : status.detail || undefined}
-  >
+  <span class="tag {tones[status.tone]}" title={showDetail ? undefined : status.detail || undefined}>
     {#if status.tone === 'busy'}<Spinner size={12} />{/if}{status.label}
   </span>
   {#if showDetail && status.detail}

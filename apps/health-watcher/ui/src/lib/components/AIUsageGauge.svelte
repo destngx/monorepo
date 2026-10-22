@@ -57,7 +57,7 @@
     {href}
     role={href ? undefined : 'img'}
     tabindex={href ? undefined : 0}
-    class="group relative grid size-9 place-items-center rounded-xl hover:bg-slate-900/5 dark:hover:bg-white/5"
+    class="group relative grid size-9 place-items-center rounded-xl hover:bg-ink-900/5 dark:hover:bg-ink-50/5"
     aria-label={summary}
   >
     <svg viewBox="0 0 32 32" class="size-7 -rotate-90" aria-hidden="true">
@@ -106,14 +106,14 @@
 
     <!-- Details on hover and keyboard focus -->
     <div
-      class="glass pointer-events-none absolute top-full right-0 z-40 mt-2 hidden w-72 p-3 text-left text-xs group-hover:block group-focus-visible:block"
+      class="panel pointer-events-none absolute top-full right-0 z-40 mt-2 hidden w-72 p-3 text-left text-xs group-hover:block group-focus-visible:block"
       aria-hidden="true"
     >
       <p class="mb-2 font-semibold">
         AI quota left{#if aiUsage.usage?.provider}&nbsp;({aiUsage.usage.provider}){/if}
       </p>
       {#if unavailable}
-        <p class="text-rose-600 dark:text-rose-400">Unavailable: {aiUsage.error}</p>
+        <p class="text-danger-600 dark:text-danger-400">Unavailable: {aiUsage.error}</p>
       {:else}
         <ul class="space-y-2">
           {#each rings as ring (ring.key)}

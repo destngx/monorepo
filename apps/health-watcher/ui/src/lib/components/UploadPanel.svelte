@@ -115,9 +115,7 @@
 </script>
 
 <section
-  class="glass border-2 border-dashed p-5 transition-colors {dragging
-    ? 'border-teal-500 bg-teal-500/5'
-    : 'border-transparent'}"
+  class="panel border-2 border-dashed p-5 transition-colors {dragging ? 'border-accent-600 bg-accent-500/5' : ''}"
   aria-label="Upload"
   ondragover={(e) => {
     e.preventDefault();
@@ -131,7 +129,7 @@
   }}
 >
   <div class="flex flex-col items-center gap-3 text-center">
-    <span class="grid size-12 place-items-center rounded-2xl bg-teal-600/10 text-teal-700 dark:text-teal-300"
+    <span class="grid size-12 place-items-center rounded-2xl bg-accent-600/10 text-accent-700 dark:text-accent-300"
       ><Icon name="upload" size={24} /></span
     >
     <div>
@@ -189,11 +187,11 @@
   />
 
   {#if staged.length}
-    <div class="mt-5 border-t border-slate-900/10 pt-4 dark:border-white/10">
+    <div class="mt-5 border-t border-ink-900/10 pt-4 dark:border-ink-50/10">
       <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
         {#each staged as s, i (s.url)}
           <div
-            class="relative aspect-[3/4] overflow-hidden rounded-xl border border-slate-900/10 bg-white/70 dark:border-white/10 dark:bg-slate-900/50"
+            class="relative aspect-[3/4] overflow-hidden rounded-xl border border-ink-900/10 bg-ink-50/70 dark:border-ink-50/10 dark:bg-ink-900/50"
           >
             {#if s.file.type.startsWith('image/') && s.file.type !== 'image/heic'}
               <img src={s.url} alt={s.file.name} class="size-full object-cover" />
@@ -203,12 +201,11 @@
               </span>
             {/if}
             {#if oneItem && staged.length > 1}
-              <span class="absolute top-1 left-1 rounded-md bg-slate-900/70 px-1.5 text-[11px] text-white">{i + 1}</span
-              >
+              <span class="absolute top-1 left-1 rounded-md bg-ink-900/70 px-1.5 text-[11px] text-ink-50">{i + 1}</span>
             {/if}
             <button
               type="button"
-              class="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-slate-900/70 text-white"
+              class="absolute top-1 right-1 grid size-6 place-items-center rounded-full bg-ink-900/70 text-ink-50"
               aria-label="Remove {s.file.name}"
               onclick={() => remove(i)}><Icon name="x" size={12} /></button
             >
@@ -216,7 +213,7 @@
         {/each}
         <button
           type="button"
-          class="muted grid aspect-[3/4] place-items-center rounded-xl border border-dashed border-slate-400/60 text-xs"
+          class="muted grid aspect-[3/4] place-items-center rounded-xl border border-dashed border-ink-400/60 text-xs"
           onclick={() => cameraInput?.click()}
         >
           <span class="flex flex-col items-center gap-1"><Icon name="plus" size={18} />Add page</span>
