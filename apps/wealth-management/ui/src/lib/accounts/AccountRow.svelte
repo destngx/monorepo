@@ -12,7 +12,7 @@
 
   interface Props {
     account: Account;
-    /** Balance history, oldest first. */
+    /** Balance history, oldest first: the page loads 12 months and the sparkline shows all of it. */
     history: TrendPoint[];
     /**
      * A card account's credit line: its standing, null when it has no limit
@@ -26,11 +26,10 @@
   let { account, history, credit, onedit, ondelete }: Props = $props();
 
   const noted = $derived(isCreditAccount(account) && credit === null ? noteAmount(account.note) : null);
-  const recent = $derived(history.slice(-60));
 </script>
 
 <li
-  class="grid items-center transition-colors hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.03] gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_8rem_12rem_auto]"
+  class="grid items-center transition-colors hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.03] gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_10rem_12rem_auto] lg:grid-cols-[minmax(0,1fr)_18rem_12rem_auto]"
 >
   <div class="flex min-w-0 items-center gap-3">
     <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900/5 dark:bg-white/5"
@@ -47,7 +46,13 @@
     </div>
   </div>
   <div class="hidden sm:block">
-    <Sparkline values={recent.map((p) => p.value)} width={128} height={32} label="{account.name} 60-day balance" />
+    <Sparkline
+      values={history.map((p) => p.value)}
+      width={288}
+      height={32}
+      fluid
+      label="{account.name} balance, last 12 months"
+    />
   </div>
   <div class="text-right">
     <Money value={account.balance} class="font-medium" />

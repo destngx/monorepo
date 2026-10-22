@@ -133,6 +133,27 @@ describe('Accounts page', () => {
     expect(confirm.textContent).toContain('Deleting…');
   });
 
+  it('Given a year of balance history When an account row shows Then its sparkline fills the column and spans 12 months', async () => {
+    const year = Array.from({ length: 366 }, (_, day) => ({
+      date: `2025-10-${String((day % 28) + 1).padStart(2, '0')}`,
+      value: 100_000 + day * 1_000,
+    }));
+    render(AccountsPage, {
+      data: {
+        ...pendingData(),
+        accounts: settled([account('Wallet', 466_000)]),
+        histories: settled({ Wallet: year }),
+      } as never,
+    });
+    await flush();
+
+    const spark = screen.getByRole('img', { name: 'Wallet balance, last 12 months' });
+    expect(spark.getAttribute('width')).toBe('100%');
+    expect(spark.getAttribute('preserveAspectRatio')).toBe('none');
+    const line = spark.querySelectorAll('path')[1];
+    expect(line.getAttribute('d')?.match(/[ML]/g)).toHaveLength(366);
+  });
+
   describe('credit card rows', () => {
     const card = (name: string, balance: number, extra: Partial<Account> = {}): Account => ({
       ...account(name, balance),

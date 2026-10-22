@@ -2,7 +2,7 @@ import { api } from '$lib/api/endpoints';
 import { defer } from '$lib/api/load';
 import type { PageLoad } from './$types';
 
-// 366 days covers the 12-month balance history (WM-ACC-8); sparklines use the last 60.
+// 366 days covers the 12-month balance history (WM-ACC-8) and each account's sparkline (WM-ACC-3).
 const HISTORY_DAYS = 366;
 
 // Every request streams into its own section: the header and New account show
