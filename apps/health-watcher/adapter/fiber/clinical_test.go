@@ -161,3 +161,47 @@ func TestGivenAFiledDocumentWithoutValuesWhenUnfiledThenItsItemIsBackInTheInbox(
 	resp, body = h.json(http.MethodPost, base+"/documents/"+filed.Document.ID+"/unfile", nil)
 	wantStatus(t, resp, body, http.StatusNotFound, CodeNotFound)
 }
+
+func TestGivenAnUnfiledItemWhenFilesAreAddedThenTheItemHoldsThemAll(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	base := "/api/tenants/" + h.tenant
+	buf, ct := multipartBody(t, "files", map[string][]byte{"report.pdf": []byte("%PDF-1.7 synthetic report")}, nil)
+	req := httptest.NewRequest(http.MethodPost, base+"/inbox", buf)
+	req.Header.Set("Content-Type", ct)
+	resp, body := h.do(req)
+	wantStatus(t, resp, body, http.StatusAccepted, "")
+	var up service.UploadResponse
+	_ = json.Unmarshal(body, &up)
+
+	buf, ct = multipartBody(t, "files", map[string][]byte{"xray.pdf": []byte("%PDF-1.7 synthetic x-ray")}, nil)
+	req = httptest.NewRequest(http.MethodPost, base+"/inbox/"+up.Items[0].ID+"/files", buf)
+	req.Header.Set("Content-Type", ct)
+	resp, body = h.do(req)
+	wantStatus(t, resp, body, http.StatusAccepted, "")
+	var added service.UploadResponse
+	_ = json.Unmarshal(body, &added)
+	if len(added.Items) != 1 || len(added.Items[0].Files) != 2 || added.Items[0].Files[1].OriginalName != "xray.pdf" {
+		t.Fatalf("added = %s", body)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, base+"/inbox/"+up.Items[0].ID+"/files", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json")
+	resp, body = h.do(req)
+	wantStatus(t, resp, body, http.StatusBadRequest, CodeValidation)
+}
+
+func TestGivenAFiledDocumentWhenAnExamFindingIsAddedThenItsSectionIsKept(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	_, filed := h.fileOne(h.firstPerson())
+
+	resp, body := h.json(http.MethodPost, "/api/tenants/"+h.tenant+"/documents/"+filed.Document.ID+"/findings",
+		map[string]string{"kind": "exam", "section": "Khám Mắt", "text": "Không kính MP: 1/10.\nCó kính MP: 10/10."})
+	wantStatus(t, resp, body, http.StatusCreated, "")
+	var f domain.Finding
+	_ = json.Unmarshal(body, &f)
+	if f.Kind != "exam" || f.Section != "Khám Mắt" || f.Text != "Không kính MP: 1/10.\nCó kính MP: 10/10." {
+		t.Fatalf("finding = %s", body)
+	}
+}

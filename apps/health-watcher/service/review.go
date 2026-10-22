@@ -121,6 +121,8 @@ func (in *Inbox) SendReading(ctx context.Context, sc domain.Scope, itemID string
 	if !ready {
 		return domain.Conflict("the pages are still being read on the Mac")
 	}
+	// Only pages with text are sent; a film photo stays out (D5).
+	pages = slices.DeleteFunc(pages, func(ip itemPage) bool { return !domain.Readable(ip.page.Text) })
 	for _, ip := range pages {
 		if !ip.page.HasImage {
 			return domain.Conflict("page %d has no image; rebuild mac-ocr so it can render pages, then retry", ip.page.Number)

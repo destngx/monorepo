@@ -355,3 +355,31 @@ func TestGivenALineTurnedOffInsideALongerRowWhenMaskingThenTheRulesRunOnTheRestO
 		t.Fatalf("masked text:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+func TestGivenANameWrittenUnderASignHerePromptWhenMaskingThenTheSignatureAreaIsHidden(t *testing.T) {
+	lines := []Line{
+		row("Người đề nghị khám sức khỏe", 0.58, 0.33, 0.25),
+		row("(Ký và ghi rõ họ, tên)", 0.62, 0.35, 0.17),
+		row("mk", 0.66, 0.39, 0.05),
+		row("- Chiều cao: 173 cm", 0.05, 0.42, 0.3),
+		row("Nguyễn Văn Mẫu", 0.56, 0.45, 0.29),
+		row("Nội khoa: Tuần hoàn bình thường", 0.6, 0.62, 0.3),
+	}
+	in := readyInput(lines)
+	in.Text = joinTexts(lines)
+	res := MaskPage(in)
+	if got := maskedTexts(in, res); !slices.Equal(got, []string{"(Ký và ghi rõ họ, tên)", "mk", "Nguyễn Văn Mẫu"}) {
+		t.Fatalf("masked = %q", got)
+	}
+	if strings.Contains(res.Text, "Mẫu") || !strings.Contains(res.Text, "Chiều cao: 173 cm") {
+		t.Fatalf("text = %q", res.Text)
+	}
+}
+
+func joinTexts(lines []Line) string {
+	texts := make([]string, len(lines))
+	for i, l := range lines {
+		texts[i] = l.Text
+	}
+	return strings.Join(texts, "\n")
+}

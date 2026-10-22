@@ -23,7 +23,9 @@
     <li class="flex items-start gap-3 py-2 {f.status === 'rejected' ? 'opacity-50' : ''}">
       <div class="min-w-0 flex-1">
         <p class="muted text-xs">
-          {findingKindLabels[f.kind]}{f.icd10 ? ` · ${f.icd10}` : ''}{page ? ` · page ${page}` : ''}
+          {findingKindLabels[f.kind]}{f.section ? ` · ${f.section}` : ''}{f.icd10 ? ` · ${f.icd10}` : ''}{page
+            ? ` · page ${page}`
+            : ''}
           {#if f.status === 'draft' && f.confidence < 70}
             · <span class="text-warn-700 dark:text-warn-300">check this ({f.confidence}%)</span>
           {/if}

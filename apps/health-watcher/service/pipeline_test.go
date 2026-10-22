@@ -105,6 +105,8 @@ type fakeReader struct {
 	out   *domain.ReadingOutput
 	err   error
 	calls [][]port.ReadPage
+	// during runs once, while the first page set is being read.
+	during func()
 }
 
 func labReading() domain.ReadingOutput {
@@ -119,6 +121,11 @@ func labReading() domain.ReadingOutput {
 
 func (f *fakeReader) Read(_ context.Context, pages []port.ReadPage) (port.ReadResult, error) {
 	f.calls = append(f.calls, pages)
+	if f.during != nil {
+		during := f.during
+		f.during = nil
+		during()
+	}
 	if f.err != nil {
 		return port.ReadResult{}, f.err
 	}

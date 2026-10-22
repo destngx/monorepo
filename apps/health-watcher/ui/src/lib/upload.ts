@@ -16,6 +16,18 @@ const ACCEPTED_TYPES = new Set([
 /** The file picker's accept list. */
 export const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/*';
 
+/** The toast after adding files to an item, from the engine's answer. */
+export function addedMessage(files: { duplicate: boolean }[]): string {
+  const added = files.filter((f) => !f.duplicate).length;
+  const dups = files.length - added;
+  if (!added)
+    return dups === 1 ? 'That file is already stored, nothing added' : 'Those files are already stored, nothing added';
+  return (
+    `${added} ${added === 1 ? 'file' : 'files'} added; the item is read again with them` +
+    (dups ? `. ${dups} already stored, skipped` : '')
+  );
+}
+
 export interface Picked {
   accepted: File[];
   /** Names left out, with why. */

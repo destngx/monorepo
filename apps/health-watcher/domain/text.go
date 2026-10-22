@@ -37,3 +37,15 @@ func FoldKey(s string) string {
 func CleanText(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
+
+// CleanLines cleans each line of s like CleanText and drops blank lines,
+// so a report's description keeps one line per printed line.
+func CleanLines(s string) string {
+	var out []string
+	for l := range strings.Lines(s) {
+		if l = CleanText(l); l != "" {
+			out = append(out, l)
+		}
+	}
+	return strings.Join(out, "\n")
+}

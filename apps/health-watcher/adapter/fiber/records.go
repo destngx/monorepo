@@ -111,6 +111,17 @@ func (s *server) inboxRoutes(r fiber.Router) {
 		}
 		return s.list(c)(s.svc.Inbox.File(c.UserContext(), scope(c), c.Params("id"), in))
 	})
+	r.Post("/inbox/:id/files", func(c *fiber.Ctx) error {
+		files, err := uploadedFiles(c)
+		if err != nil {
+			return respond(c, s.log, err)
+		}
+		resp, err := s.svc.Inbox.AddFiles(c.UserContext(), scope(c), c.Params("id"), files)
+		if err != nil {
+			return respond(c, s.log, err)
+		}
+		return c.Status(fiber.StatusAccepted).JSON(resp)
+	})
 	r.Post("/inbox/:id/discard", func(c *fiber.Ctx) error {
 		return s.noContent(c, s.svc.Inbox.Discard(c.UserContext(), scope(c), c.Params("id")))
 	})
@@ -137,18 +148,13 @@ func (s *server) upload(c *fiber.Ctx, sc domain.Scope, source domain.InboxSource
 	if err := sc.RequireUpload(); err != nil {
 		return respond(c, s.log, err)
 	}
+	files, err := uploadedFiles(c)
+	if err != nil {
+		return respond(c, s.log, err)
+	}
 	form, err := c.MultipartForm()
 	if err != nil {
-		return respond(c, s.log, domain.Invalid("send the files as multipart/form-data"))
-	}
-	headers := append(form.File["files"], form.File["file"]...)
-	files := make([]domain.Upload, 0, len(headers))
-	for _, h := range headers {
-		data, err := readPart(h)
-		if err != nil {
-			return respond(c, s.log, err)
-		}
-		files = append(files, domain.Upload{Name: h.Filename, Data: data})
+		return respond(c, s.log, err)
 	}
 	req := service.UploadRequest{Source: source, Files: files, Note: first(form.Value["note"]), OneItem: first(form.Value["oneItem"]) == "true",
 		PersonID: first(form.Value["personId"])}
@@ -157,6 +163,25 @@ func (s *server) upload(c *fiber.Ctx, sc domain.Scope, source domain.InboxSource
 		return respond(c, s.log, err)
 	}
 	return c.Status(fiber.StatusAccepted).JSON(resp)
+}
+
+// uploadedFiles reads the `files` parts of a multipart body (the Shortcut
+// may also send `file`).
+func uploadedFiles(c *fiber.Ctx) ([]domain.Upload, error) {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return nil, domain.Invalid("send the files as multipart/form-data")
+	}
+	headers := append(form.File["files"], form.File["file"]...)
+	files := make([]domain.Upload, 0, len(headers))
+	for _, h := range headers {
+		data, err := readPart(h)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, domain.Upload{Name: h.Filename, Data: data})
+	}
+	return files, nil
 }
 
 func readPart(h *multipart.FileHeader) ([]byte, error) {

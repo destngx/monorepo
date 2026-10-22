@@ -129,6 +129,12 @@ export function tenantApi(tenantId: string) {
       if (options.personId) form.set('personId', options.personId);
       return request<UploadResponse>(`${t}/inbox`, { method: 'POST', body: form });
     },
+    /** Adds files to an unfiled item; it is read again with them. */
+    addFiles: (itemId: string, files: File[]) => {
+      const form = new FormData();
+      for (const file of files) form.append('files', file, file.name);
+      return request<UploadResponse>(`${t}/inbox/${itemId}/files`, { method: 'POST', body: form });
+    },
     file: (itemId: string, body: FileInput) => request<Filed>(`${t}/inbox/${itemId}/file`, { method: 'POST', body }),
     discard: (itemId: string) => request<void>(`${t}/inbox/${itemId}/discard`, { method: 'POST' }),
     item: (itemId: string, fetch?: Fetch) => request<ItemDetail>(`${t}/inbox/${itemId}`, { fetch }),

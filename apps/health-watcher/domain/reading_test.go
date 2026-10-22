@@ -119,3 +119,31 @@ func TestGivenAnICD10CodeWithOCRMisreadsWhenCleaningThenDigitsAreRestored(t *tes
 		t.Fatalf("findings = %+v", fs)
 	}
 }
+
+func TestGivenACheckupReadingWhenCleaningFindingsThenExamsAdviceAndTheFullImagingReportAreKept(t *testing.T) {
+	out := ReadingOutput{Findings: []ReadingFinding{
+		{Page: 1, Kind: "imaging_report", Section: "Chụp X quang tim phổi thẳng",
+			Text: "MÔ TẢ HÌNH ẢNH\n• Phổi phải:  đồng nhất.\n\nKẾT LUẬN\nHình ảnh X quang tim phổi hiện tại không thấy bất thường.", Confidence: 90},
+		{Page: 2, Kind: "exam", Section: "Khám Tai mũi họng", Text: "Viêm amydan mạn", Confidence: 85},
+		{Page: 2, Kind: "advice", Text: "Khám định kỳ chuyên khoa Mắt, tai mũi họng.", Confidence: 85},
+	}}
+	fs, pages, _ := out.CleanFindings(2)
+	if len(fs) != 3 || fs[0].Kind != "imaging_report" || fs[1].Kind != "exam" || fs[2].Kind != "advice" {
+		t.Fatalf("findings = %+v", fs)
+	}
+	if fs[0].Section != "Chụp X quang tim phổi thẳng" || !strings.Contains(fs[0].Text, "• Phổi phải: đồng nhất.\nKẾT LUẬN\n") {
+		t.Fatalf("imaging report = %+v", fs[0])
+	}
+	if fs[1].Section != "Khám Tai mũi họng" || pages[1] != 2 {
+		t.Fatalf("exam = %+v, page %d", fs[1], pages[1])
+	}
+}
+
+func TestGivenPageTextWhenCheckingReadableThenOnlyPagesWithEnoughTextAreSent(t *testing.T) {
+	if Readable("R  L\n 2026 ") {
+		t.Fatal("a film photo's few letters count as readable")
+	}
+	if !Readable("KẾT QUẢ CHỤP X-QUANG\nKẾT LUẬN: không thấy bất thường") {
+		t.Fatal("a report page is not readable")
+	}
+}

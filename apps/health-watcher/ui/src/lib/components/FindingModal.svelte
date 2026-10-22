@@ -5,7 +5,12 @@
   import Field from './Field.svelte';
   import Modal from './Modal.svelte';
 
-  // Adds or edits one finding: a diagnosis, prescription line, procedure or note.
+  // Adds or edits one finding: a diagnosis, exam result, prescription line,
+  // imaging report, advice or note.
+  const sectionHints: Partial<Record<FindingInput['kind'], string>> = {
+    exam: 'The specialty or body system, e.g. Khám Mắt.',
+    imaging_report: 'The study, e.g. Chụp X quang tim phổi thẳng.',
+  };
   interface Props {
     value: FindingInput | null;
     title: string;
@@ -17,6 +22,7 @@
   let { value, title, pages, onsave, onclose }: Props = $props();
   let form = $state<FindingInput>({
     kind: 'diagnosis',
+    section: '',
     text: '',
     icd10: '',
     drug: '',
@@ -60,8 +66,15 @@
         </Field>
       {/if}
     </div>
+    <Field
+      id="fd-section"
+      label="Section"
+      hint={sectionHints[form.kind] ?? 'The heading it was written under, if any.'}
+    >
+      <input id="fd-section" class="field" bind:value={form.section} maxlength="120" />
+    </Field>
     <Field id="fd-text" label="Text">
-      <textarea id="fd-text" class="field min-h-20" bind:value={form.text} required maxlength="2000"></textarea>
+      <textarea id="fd-text" class="field min-h-20" bind:value={form.text} required maxlength="4000"></textarea>
     </Field>
     {#if form.kind === 'prescription'}
       <div class="grid grid-cols-2 gap-4">

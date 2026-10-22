@@ -23,3 +23,9 @@ func TestGivenTextWithExtraWhitespaceWhenCleaningThenSpacesCollapse(t *testing.T
 		t.Fatalf("CleanText = %q", got)
 	}
 }
+
+func TestGivenMultiLineTextWhenCleaningLinesThenEachLineIsCleanedAndBlankLinesGo(t *testing.T) {
+	if got := CleanLines("  MÔ TẢ   HÌNH ẢNH \r\n\n • Phổi  phải: đồng nhất.\n\t\nKẾT LUẬN\n"); got != "MÔ TẢ HÌNH ẢNH\n• Phổi phải: đồng nhất.\nKẾT LUẬN" {
+		t.Fatalf("CleanLines = %q", got)
+	}
+}

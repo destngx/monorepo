@@ -71,6 +71,7 @@
   });
   const blankFinding = (): FindingInput => ({
     kind: 'diagnosis',
+    section: '',
     text: '',
     icd10: '',
     drug: '',

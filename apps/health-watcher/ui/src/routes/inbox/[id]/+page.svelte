@@ -17,7 +17,10 @@
   import { toggleOff } from '$lib/boxes';
   import { documentKindLabels, formatDate } from '$lib/format';
   import { findingInput, observationInput, readingState } from '$lib/reading';
+  import { action } from '$lib/state/action.svelte';
   import { session } from '$lib/state/session.svelte';
+  import { toasts } from '$lib/state/toasts.svelte';
+  import { ACCEPT, addedMessage, pickFiles } from '$lib/upload';
 
   // Reviews one inbox item before filing (HW-READ-4, HW-AI-7): the pages
   // and their masked copies, the reading's status and its drafts.
@@ -46,6 +49,21 @@
   let toggling = $state<string | null>(null);
   let editingObs = $state<Observation | null>(null);
   let editingFinding = $state<Finding | null>(null);
+  let addInput = $state<HTMLInputElement>();
+
+  // More files for the same paper, such as its X-ray image or a page that
+  // came later. The whole item is read again with them.
+  const addFiles = action(
+    async (files: File[]) => {
+      const { accepted, skipped } = pickFiles(files);
+      if (skipped.length) toasts.push('warning', `Skipped: ${skipped.join(', ')}`);
+      if (!accepted.length) return;
+      const resp = await session.api.addFiles(item.id, accepted);
+      toasts.success(addedMessage(resp.files));
+      await invalidateAll();
+    },
+    { errorContext: 'Could not add the files' },
+  );
 
   // While the Mac or the AI is reading, refresh every few seconds.
   $effect(() => {
@@ -126,6 +144,13 @@
       {#if item.documentId}<a class="btn-primary" href="{base}/documents/{item.documentId}">Open the document</a>{/if}
     {:else if session.canEdit}
       <Button variant="primary" icon="check" onclick={() => (filing = true)}>File</Button>
+      <Button
+        icon="plus"
+        busy={addFiles.busy}
+        busyText="Adding…"
+        title="Add more files to this paper, such as its X-ray image"
+        onclick={() => addInput?.click()}>Add files</Button
+      >
       <Button icon="trash" errorContext="Could not discard" onclick={discard}>Discard</Button>
     {/if}
   {/snippet}
@@ -205,7 +230,12 @@
     <section class="panel p-4">
       <header class="mb-3 flex flex-wrap items-center gap-2">
         <span class="font-medium">Page {i + 1}</span>
-        {#if p.mask?.status === 'needs_check'}
+        {#if !p.mask && reading && ['done', 'needs_check'].includes(reading.status)}
+          <span
+            class="tag bg-ink-900/5 dark:bg-ink-50/10"
+            title="Film photos and blank pages are kept but never read by AI">Not sent: too little text</span
+          >
+        {:else if p.mask?.status === 'needs_check'}
           <span class="tag bg-warn-500/15 text-warn-800 dark:text-warn-200">Needs a check</span>
         {:else if p.mask?.status === 'checked'}
           <span class="tag bg-accent-600/10 text-accent-700 dark:text-accent-300">Checked</span>
@@ -321,6 +351,18 @@
   {/each}
 </div>
 
+<input
+  bind:this={addInput}
+  class="hidden"
+  type="file"
+  multiple
+  accept={ACCEPT}
+  onchange={(e) => {
+    const files = [...(e.currentTarget.files ?? [])];
+    if (files.length) void addFiles.run(files);
+    e.currentTarget.value = '';
+  }}
+/>
 <FileItemModal
   item={filing ? item : null}
   people={data.people}

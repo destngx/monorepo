@@ -63,9 +63,11 @@ export const providerKindLabels: Record<ProviderKind, string> = {
 
 export const findingKindLabels: Record<FindingKind, string> = {
   diagnosis: 'Diagnosis',
+  exam: 'Exam result',
   prescription: 'Prescription',
   procedure: 'Procedure',
   imaging_report: 'Imaging report',
+  advice: "Doctor's advice",
   allergy: 'Allergy',
   vaccination: 'Vaccination',
   note: 'Note',

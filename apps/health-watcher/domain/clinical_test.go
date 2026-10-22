@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -84,5 +85,18 @@ func TestGivenAFindingInputWhenValidatingThenDrugFieldsStayOnPrescriptionsOnly(t
 	}
 	if _, err := (FindingInput{Kind: "surgery", Text: "x"}).Validate(); !errors.Is(err, ErrValidation) {
 		t.Fatalf("unknown kind accepted: %v", err)
+	}
+}
+
+func TestGivenAnExamOrAdviceFindingWhenValidatingThenSectionAndLinesAreKept(t *testing.T) {
+	in, err := FindingInput{Kind: "exam", Section: "  Khám   Mắt ", Text: "Không kính MP: 1/10.\n  Có kính MP: 10/10. "}.Validate()
+	if err != nil || in.Section != "Khám Mắt" || in.Text != "Không kính MP: 1/10.\nCó kính MP: 10/10." {
+		t.Fatalf("exam = %+v, %v", in, err)
+	}
+	if _, err := (FindingInput{Kind: "advice", Text: "Khám định kỳ chuyên khoa Mắt."}).Validate(); err != nil {
+		t.Fatalf("advice refused: %v", err)
+	}
+	if _, err := (FindingInput{Kind: "exam", Section: strings.Repeat("a", 121), Text: "x"}).Validate(); !errors.Is(err, ErrValidation) {
+		t.Fatalf("long section accepted: %v", err)
 	}
 }

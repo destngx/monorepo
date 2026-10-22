@@ -16,6 +16,7 @@
     sampleDate: 'Sample date',
     metricCode: 'Catalog entry',
     kind: 'Kind',
+    section: 'Section',
     text: 'Text',
     icd10: 'ICD-10',
     drug: 'Medicine',

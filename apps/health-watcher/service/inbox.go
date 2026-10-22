@@ -117,10 +117,8 @@ func cleanName(name string) string {
 	return base
 }
 
-// Upload stores a batch. A file the tenant already has is reported as a
-// duplicate and left out of the new items (HW-IMP-1). The whole batch is
-// checked first; file bytes are written next, then every row in one
-// transaction, so a failure leaves no half-stored batch behind.
+// Upload stores a batch as new items. A file the tenant already has is
+// reported as a duplicate and left out of the new items (HW-IMP-1).
 func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest) (UploadResponse, error) {
 	if err := sc.RequireUpload(); err != nil {
 		return UploadResponse{}, err
@@ -135,58 +133,9 @@ func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest)
 			return UploadResponse{}, err
 		}
 	}
-	files := make([]domain.StoredFile, len(req.Files))
-	for i, up := range req.Files {
-		mime, err := domain.SniffMIME(up.Data)
-		if err != nil {
-			return UploadResponse{}, domain.Invalid("%s: only PDF, JPEG, PNG, WebP and HEIC files are accepted", displayName(up.Name))
-		}
-		sum := sha256.Sum256(up.Data)
-		files[i] = domain.StoredFile{ID: NewID(), SHA256: hex.EncodeToString(sum[:]), MIME: mime, Size: int64(len(up.Data)),
-			OriginalName: cleanName(up.Name), CreatedAt: in.Clock()}
-	}
-	in.FileLock.Lock()
-	defer in.FileLock.Unlock()
-	// Put is idempotent and cheap for bytes already on disk, so every file
-	// is written; under the lock no release can remove them before commit.
-	var written []string
-	for i, f := range files {
-		if err := in.Files.Put(ctx, f.SHA256, req.Files[i].Data); err != nil {
-			return UploadResponse{}, errors.Join(err, in.dropOrphans(ctx, written))
-		}
-		written = append(written, f.SHA256)
-	}
-
 	var resp UploadResponse
-	err := in.Store.InTx(ctx, func(r port.Repos) error {
-		resp = UploadResponse{Items: []domain.InboxItem{}, Files: []domain.UploadResult{}}
-		var newIDs []string
-		seen := map[string]domain.StoredFile{}
-		for i, f := range files {
-			if first, ok := seen[f.SHA256]; ok {
-				resp.Files = append(resp.Files, domain.UploadResult{Name: cleanName(req.Files[i].Name), File: first, Duplicate: true})
-				continue
-			}
-			existing, err := r.FileBySHA(ctx, sc.TenantID, f.SHA256)
-			switch {
-			case err == nil:
-				resp.Files = append(resp.Files, domain.UploadResult{Name: f.OriginalName, File: existing, Duplicate: true})
-				seen[f.SHA256] = existing
-				continue
-			case !errors.Is(err, domain.ErrNotFound):
-				return err
-			}
-			if err := r.CreateFile(ctx, sc.TenantID, f); err != nil {
-				return err
-			}
-			// Every new file is read in the background (HW-READ-1).
-			if err := r.EnqueueJob(ctx, domain.Job{ID: NewID(), TenantID: sc.TenantID, Kind: domain.JobOCR, SubjectID: f.ID}, in.Clock()); err != nil {
-				return err
-			}
-			seen[f.SHA256] = f
-			resp.Files = append(resp.Files, domain.UploadResult{Name: f.OriginalName, File: f})
-			newIDs = append(newIDs, f.ID)
-		}
+	results, err := in.storeFiles(ctx, sc, req.Files, func(r port.Repos, newIDs []string) error {
+		resp.Items = []domain.InboxItem{}
 		groups := [][]string{}
 		if req.OneItem && len(newIDs) > 0 {
 			groups = append(groups, newIDs)
@@ -210,12 +159,141 @@ func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest)
 		return nil
 	})
 	if err != nil {
-		return UploadResponse{}, errors.Join(err, in.dropOrphans(ctx, written))
+		return UploadResponse{}, err
+	}
+	resp.Files = results
+	return resp, nil
+}
+
+// AddFiles adds files to an unfiled item (HW-IMP-10), after the ones it has, such as
+// the X-ray image or a page that came later. The item is read again once
+// the new files have pages; a reading turned off by a person stays off.
+func (in *Inbox) AddFiles(ctx context.Context, sc domain.Scope, itemID string, uploads []domain.Upload) (UploadResponse, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return UploadResponse{}, err
+	}
+	if err := in.checkBatch(UploadRequest{Files: uploads}); err != nil {
+		return UploadResponse{}, err
+	}
+	var resp UploadResponse
+	results, err := in.storeFiles(ctx, sc, uploads, func(r port.Repos, newIDs []string) error {
+		item, err := r.InboxItem(ctx, sc.TenantID, itemID)
+		if err != nil {
+			return err
+		}
+		if item.Status != domain.InboxNew {
+			return domain.Conflict("this item is already %s", item.Status)
+		}
+		if len(item.Files)+len(newIDs) > domain.MaxFilesPerItem {
+			return domain.Invalid("an item holds at most %d files", domain.MaxFilesPerItem)
+		}
+		if len(newIDs) > 0 {
+			if err := r.AddInboxFiles(ctx, sc.TenantID, itemID, newIDs); err != nil {
+				return err
+			}
+			if err := in.readingWaits(ctx, r, sc.TenantID, itemID); err != nil {
+				return err
+			}
+		}
+		stored, err := r.InboxItem(ctx, sc.TenantID, itemID)
+		resp.Items = []domain.InboxItem{stored}
+		return err
+	})
+	if err != nil {
+		return UploadResponse{}, err
+	}
+	resp.Files = results
+	return resp, nil
+}
+
+// readingWaits marks an item's reading as waiting for the OCR of new files,
+// unless a person turned it off.
+func (in *Inbox) readingWaits(ctx context.Context, r port.Repos, tenantID, itemID string) error {
+	rd, err := r.Reading(ctx, tenantID, itemID)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return nil
+	case err != nil:
+		return err
+	case skippedByUser(rd):
+		return nil
+	}
+	rd.Status, rd.Reason, rd.Error, rd.UpdatedAt = domain.ReadingWaiting, "", "", in.Clock()
+	return r.SaveReading(ctx, tenantID, rd)
+}
+
+func skippedByUser(rd domain.Reading) bool {
+	return rd.Status == domain.ReadingSkipped && rd.Reason == domain.SkipByUser
+}
+
+// storeFiles stores a batch of uploads and queues OCR for each new one. A
+// file the tenant already has is reported as a duplicate and left out of
+// newIDs (HW-IMP-1). place puts the new files in items inside the same
+// transaction. File bytes are written first, then every row, so a failure
+// leaves no half-stored batch behind.
+func (in *Inbox) storeFiles(ctx context.Context, sc domain.Scope, uploads []domain.Upload,
+	place func(r port.Repos, newIDs []string) error) ([]domain.UploadResult, error) {
+	files := make([]domain.StoredFile, len(uploads))
+	for i, up := range uploads {
+		mime, err := domain.SniffMIME(up.Data)
+		if err != nil {
+			return nil, domain.Invalid("%s: only PDF, JPEG, PNG, WebP and HEIC files are accepted", displayName(up.Name))
+		}
+		sum := sha256.Sum256(up.Data)
+		files[i] = domain.StoredFile{ID: NewID(), SHA256: hex.EncodeToString(sum[:]), MIME: mime, Size: int64(len(up.Data)),
+			OriginalName: cleanName(up.Name), CreatedAt: in.Clock()}
+	}
+	in.FileLock.Lock()
+	defer in.FileLock.Unlock()
+	// Put is idempotent and cheap for bytes already on disk, so every file
+	// is written; under the lock no release can remove them before commit.
+	var written []string
+	for i, f := range files {
+		if err := in.Files.Put(ctx, f.SHA256, uploads[i].Data); err != nil {
+			return nil, errors.Join(err, in.dropOrphans(ctx, written))
+		}
+		written = append(written, f.SHA256)
+	}
+
+	var results []domain.UploadResult
+	err := in.Store.InTx(ctx, func(r port.Repos) error {
+		results = []domain.UploadResult{}
+		var newIDs []string
+		seen := map[string]domain.StoredFile{}
+		for i, f := range files {
+			if first, ok := seen[f.SHA256]; ok {
+				results = append(results, domain.UploadResult{Name: cleanName(uploads[i].Name), File: first, Duplicate: true})
+				continue
+			}
+			existing, err := r.FileBySHA(ctx, sc.TenantID, f.SHA256)
+			switch {
+			case err == nil:
+				results = append(results, domain.UploadResult{Name: f.OriginalName, File: existing, Duplicate: true})
+				seen[f.SHA256] = existing
+				continue
+			case !errors.Is(err, domain.ErrNotFound):
+				return err
+			}
+			if err := r.CreateFile(ctx, sc.TenantID, f); err != nil {
+				return err
+			}
+			// Every new file is read in the background (HW-READ-1).
+			if err := r.EnqueueJob(ctx, domain.Job{ID: NewID(), TenantID: sc.TenantID, Kind: domain.JobOCR, SubjectID: f.ID}, in.Clock()); err != nil {
+				return err
+			}
+			seen[f.SHA256] = f
+			results = append(results, domain.UploadResult{Name: f.OriginalName, File: f})
+			newIDs = append(newIDs, f.ID)
+		}
+		return place(r, newIDs)
+	})
+	if err != nil {
+		return nil, errors.Join(err, in.dropOrphans(ctx, written))
 	}
 	if in.Pipeline != nil {
 		in.Pipeline.Wake()
 	}
-	return resp, nil
+	return results, nil
 }
 
 // dropOrphans deletes written bytes that no tenant references. The caller

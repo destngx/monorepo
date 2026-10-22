@@ -87,6 +87,7 @@ export function observationInput(o: Observation): ObservationInput {
 export function findingInput(f: Finding): FindingInput {
   return {
     kind: f.kind,
+    section: f.section ?? '',
     text: f.text,
     icd10: f.icd10 ?? '',
     drug: f.drug ?? '',

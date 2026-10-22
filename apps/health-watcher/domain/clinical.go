@@ -151,8 +151,10 @@ func ParseFlag(s string) (string, error) {
 // FindingKind is the kind of a finding (HW-REC-4).
 type FindingKind string
 
-// FindingKinds lists every finding kind in display order.
-var FindingKinds = []FindingKind{"diagnosis", "prescription", "procedure", "imaging_report", "allergy", "vaccination", "note"}
+// FindingKinds lists every finding kind in display order. An exam is one
+// specialty's or body system's examination result and comment; advice is
+// what the doctor tells the patient to do next.
+var FindingKinds = []FindingKind{"diagnosis", "exam", "prescription", "procedure", "imaging_report", "advice", "allergy", "vaccination", "note"}
 
 // ParseFindingKind validates a finding kind; empty means note.
 func ParseFindingKind(s string) (FindingKind, error) {
@@ -167,8 +169,9 @@ func ParseFindingKind(s string) (FindingKind, error) {
 	return "", Invalid("unknown finding kind %q", s)
 }
 
-// Finding is a diagnosis, prescription, procedure, imaging report,
-// allergy, vaccination or note as written on a paper (HW-REC-4).
+// Finding is a diagnosis, exam result, prescription, procedure, imaging
+// report, advice, allergy, vaccination or note as written on a paper
+// (HW-REC-4).
 type Finding struct {
 	ID         string       `json:"id"`
 	Status     RecordStatus `json:"status"`
@@ -178,20 +181,24 @@ type Finding struct {
 	PageID     string       `json:"pageId,omitempty"`
 	PageNumber int          `json:"pageNumber,omitempty"`
 	Kind       FindingKind  `json:"kind"`
-	Text       string       `json:"text"`
-	ICD10      string       `json:"icd10,omitempty"`
-	Drug       string       `json:"drug,omitempty"`
-	Dose       string       `json:"dose,omitempty"`
-	Frequency  string       `json:"frequency,omitempty"`
-	Duration   string       `json:"duration,omitempty"`
-	Confidence int          `json:"confidence"`
-	CreatedAt  time.Time    `json:"createdAt"`
-	UpdatedAt  time.Time    `json:"updatedAt"`
+	// Section is the heading the finding was written under: the specialty
+	// or body system of an exam, the study of an imaging report.
+	Section    string    `json:"section,omitempty"`
+	Text       string    `json:"text"`
+	ICD10      string    `json:"icd10,omitempty"`
+	Drug       string    `json:"drug,omitempty"`
+	Dose       string    `json:"dose,omitempty"`
+	Frequency  string    `json:"frequency,omitempty"`
+	Duration   string    `json:"duration,omitempty"`
+	Confidence int       `json:"confidence"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 // FindingInput is a new or changed finding.
 type FindingInput struct {
 	Kind      string `json:"kind"`
+	Section   string `json:"section"`
 	Text      string `json:"text"`
 	ICD10     string `json:"icd10"`
 	Drug      string `json:"drug"`
@@ -239,7 +246,8 @@ func (in FindingInput) Validate() (FindingInput, error) {
 		return in, err
 	}
 	in.Kind = string(kind)
-	in.Text = strings.TrimSpace(in.Text)
+	in.Section = CleanText(in.Section)
+	in.Text = CleanLines(in.Text)
 	in.ICD10 = strings.ToUpper(strings.TrimSpace(in.ICD10))
 	in.Drug, in.Dose, in.Frequency, in.Duration = CleanText(in.Drug), CleanText(in.Dose), CleanText(in.Frequency), CleanText(in.Duration)
 	if kind != "prescription" {
@@ -250,6 +258,9 @@ func (in FindingInput) Validate() (FindingInput, error) {
 	}
 	if utf8.RuneCountInString(in.Text) > 4000 {
 		return in, Invalid("text is longer than 4000 characters")
+	}
+	if utf8.RuneCountInString(in.Section) > 120 {
+		return in, Invalid("section is longer than 120 characters")
 	}
 	for name, v := range map[string]string{"drug": in.Drug, "dose": in.Dose, "frequency": in.Frequency, "duration": in.Duration} {
 		if utf8.RuneCountInString(v) > 200 {

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -32,8 +33,22 @@ const (
 	SkipByUser = "Reading was turned off for this item."
 )
 
-// MinReadableChars is the least OCR text an item needs before it is sent.
+// MinReadableChars is the least OCR text a page needs before it is sent.
 const MinReadableChars = 30
+
+// Readable reports whether a page has enough text to send. A film photo or
+// a blank page has almost none, and is never sent (D5).
+func Readable(text string) bool {
+	n := 0
+	for _, r := range text {
+		if !unicode.IsSpace(r) {
+			if n++; n >= MinReadableChars {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // MaxReadPages bounds the pages sent in one reading.
 const MaxReadPages = 20
@@ -92,6 +107,7 @@ type ReadingObservation struct {
 type ReadingFinding struct {
 	Page       int    `json:"page"`
 	Kind       string `json:"kind"`
+	Section    string `json:"section"`
 	Text       string `json:"text"`
 	ICD10      string `json:"icd10"`
 	Drug       string `json:"drug"`
@@ -118,6 +134,15 @@ func clampConfidence(c int) int { return max(0, min(100, c)) }
 
 func cut(s string, n int) string {
 	s = CleanText(s)
+	if utf8.RuneCountInString(s) > n {
+		return string([]rune(s)[:n])
+	}
+	return s
+}
+
+// cutLines is cut for multi-line text: each line cleaned, blank lines dropped.
+func cutLines(s string, n int) string {
+	s = CleanLines(s)
 	if utf8.RuneCountInString(s) > n {
 		return string([]rune(s)[:n])
 	}
@@ -241,12 +266,12 @@ func (o ReadingOutput) CleanFindings(pageCount int) ([]FindingInput, []int, []in
 		if len(ins) == MaxReadFindings {
 			break
 		}
-		in := FindingInput{Kind: r.Kind, Text: r.Text, ICD10: r.ICD10, Drug: r.Drug, Dose: r.Dose, Frequency: r.Frequency, Duration: r.Duration}
+		in := FindingInput{Kind: r.Kind, Section: cut(r.Section, 120), Text: r.Text, ICD10: r.ICD10, Drug: r.Drug, Dose: r.Dose, Frequency: r.Frequency, Duration: r.Duration}
 		if _, err := ParseFindingKind(in.Kind); err != nil {
 			in.Kind = "note"
 		}
 		in.ICD10 = CleanICD10(in.ICD10)
-		in.Text = cut(in.Text, 4000)
+		in.Text = cutLines(in.Text, 4000)
 		in.Drug, in.Dose, in.Frequency, in.Duration = cut(in.Drug, 200), cut(in.Dose, 200), cut(in.Frequency, 200), cut(in.Duration, 200)
 		v, err := in.Validate()
 		if err != nil {

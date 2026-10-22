@@ -321,7 +321,14 @@ func (p *Pipeline) runOCR(ctx context.Context, job domain.Job) error {
 		return err
 	}
 	for _, itemID := range items {
-		if err := p.ScheduleReading(ctx, job.TenantID, itemID, false); err != nil {
+		// A reading made before this file was added to the item is out of
+		// date. A queued one has not run yet, so it reads every file.
+		rd, err := p.Store.Reading(ctx, job.TenantID, itemID)
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return err
+		}
+		stale := err == nil && rd.Status != domain.ReadingQueued && !skippedByUser(rd)
+		if err := p.ScheduleReading(ctx, job.TenantID, itemID, stale); err != nil {
 			return err
 		}
 	}
@@ -583,13 +590,17 @@ func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
 	if !ready {
 		return save(domain.ReadingWaiting, "")
 	}
-	chars := 0
+	// Pages with almost no text, such as a film photo, are kept with the
+	// item but never sent (D5).
 	texts := make([]string, len(pages))
+	var readable []itemPage
 	for i, ip := range pages {
 		texts[i] = ip.page.Text
-		chars += utf8.RuneCountInString(strings.Join(strings.Fields(ip.page.Text), ""))
+		if domain.Readable(ip.page.Text) {
+			readable = append(readable, ip)
+		}
 	}
-	if chars < domain.MinReadableChars {
+	if len(readable) == 0 {
 		return save(domain.ReadingSkipped, domain.SkipNoText)
 	}
 
@@ -603,7 +614,7 @@ func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
 		personID = domain.MatchPerson(texts, people)
 	}
 
-	send := pages[:min(len(pages), domain.MaxReadPages)]
+	send := readable[:min(len(readable), domain.MaxReadPages)]
 	masks := make([]domain.PageMask, len(send))
 	var reasons []string
 	for i, ip := range send {
@@ -634,7 +645,7 @@ func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
 	if err != nil {
 		return err
 	}
-	return p.storeReading(ctx, tenantID, item, rd, send, personID, res, len(pages) > len(send))
+	return p.storeReading(ctx, tenantID, item, rd, send, personID, res, len(readable) > len(send))
 }
 
 // storeReading turns the provider's answer into the item's proposal and
@@ -653,7 +664,9 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 		if err != nil {
 			return ignoreGone(err)
 		}
-		if current.Status != domain.InboxNew {
+		// Filed, discarded, or given more files while the provider was
+		// reading: the new files are read with the others.
+		if current.Status != domain.InboxNew || !sameFiles(current.Files, item.Files) {
 			return nil
 		}
 		links, err := providerLinks(ctx, r, tenantID, proposal.ProviderName)
@@ -689,6 +702,10 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 	})
 }
 
+func sameFiles(a, b []domain.StoredFile) bool {
+	return slices.EqualFunc(a, b, func(x, y domain.StoredFile) bool { return x.ID == y.ID })
+}
+
 // providerLinks returns the analyte links remembered for a provider name,
 // or the links for papers without a provider (HW-READ-5).
 func providerLinks(ctx context.Context, r port.Repos, tenantID, providerName string) (map[string]string, error) {
@@ -715,6 +732,6 @@ func observationFrom(in domain.ObservationInput, now time.Time) domain.Observati
 }
 
 func findingFrom(in domain.FindingInput, now time.Time) domain.Finding {
-	return domain.Finding{Kind: domain.FindingKind(in.Kind), Text: in.Text, ICD10: in.ICD10, Drug: in.Drug, Dose: in.Dose,
+	return domain.Finding{Kind: domain.FindingKind(in.Kind), Section: in.Section, Text: in.Text, ICD10: in.ICD10, Drug: in.Drug, Dose: in.Dose,
 		Frequency: in.Frequency, Duration: in.Duration, PageID: in.PageID, CreatedAt: now, UpdatedAt: now}
 }

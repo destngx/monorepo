@@ -13,7 +13,7 @@ const MaskPlaceholder = "[ẩn]"
 
 // MaskRulesVersion goes up when the masking rules change, so pages masked
 // with older rules are masked again.
-const MaskRulesVersion = 2
+const MaskRulesVersion = 3
 
 // personalLabel is a label printed before personal data on Vietnamese and
 // English medical papers. Labels that also occur in ordinary sentences
@@ -26,6 +26,9 @@ type personalLabel struct {
 	// name marks a label for the patient's name; finding one means the
 	// header was read (HW-AI-7).
 	name bool
+	// signature marks a sign-here prompt such as `(Ký và ghi rõ họ tên)`:
+	// the name is written below it, past the space left for the signature.
+	signature bool
 }
 
 var personalLabels = func() []personalLabel {
@@ -52,6 +55,8 @@ var personalLabels = func() []personalLabel {
 		{"nguoi lay mau", l{needColon: true}}, {"nguoi thuc hien", l{needColon: true}},
 		{"ky thuat vien", l{needColon: true}}, {"ktv", l{needColon: true, allowDot: true}},
 		{"nguoi nha", l{needColon: true}}, {"nguoi giam ho", l{needColon: true}},
+		{"ghi ro ho ten", l{signature: true}}, {"ghi ro ho va ten", l{signature: true}}, {"ky ho ten", l{signature: true}},
+		{"ky ten", l{signature: true}}, {"ky va ho ten", l{signature: true}}, {"signature", l{signature: true}},
 	}
 	out := make([]personalLabel, len(raw))
 	for i, r := range raw {
@@ -291,6 +296,11 @@ func MaskPage(in MaskInput) MaskResult {
 				res.Masked[j] = true
 			}
 		}
+		if labeled && m.label.signature {
+			for _, j := range signedName(in.Lines, i) {
+				res.Masked[j] = true
+			}
+		}
 	}
 
 	// Vision boxes hug the glyphs, so they grow by 30% of the line height on
@@ -377,6 +387,26 @@ func valueLine(lines []Line, i int) int {
 		return right
 	}
 	return below
+}
+
+// signedName finds the lines under a sign-here prompt that may hold the
+// signer's name: every line in its column that starts within eight line
+// heights below it. The signature in between often reads as stray letters,
+// so the first line below is not enough.
+func signedName(lines []Line, i int) []int {
+	lx0, ly0, lx1, ly1 := lines[i].Quad.Bounds()
+	lh := ly1 - ly0
+	var out []int
+	for j, l := range lines {
+		if j == i {
+			continue
+		}
+		x0, y0, x1, _ := l.Quad.Bounds()
+		if y0 >= ly1-0.2*lh && y0-ly1 <= 8*lh && x1 > lx0 && x0 < lx1 {
+			out = append(out, j)
+		}
+	}
+	return out
 }
 
 // blurryTop reports a line Vision was unsure of in the top third of the page,

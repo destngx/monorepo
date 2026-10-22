@@ -389,6 +389,19 @@ func (r repos) CreateInboxItem(ctx context.Context, tenantID string, item domain
 	return nil
 }
 
+func (r repos) AddInboxFiles(ctx context.Context, tenantID, itemID string, fileIDs []string) error {
+	for _, fileID := range fileIDs {
+		res, err := r.q.ExecContext(ctx, `INSERT INTO inbox_files (item_id, position, file_id)
+			SELECT i.id, (SELECT COALESCE(MAX(position), -1) + 1 FROM inbox_files WHERE item_id = i.id), f.id
+			FROM inbox_items i JOIN files f ON f.tenant_id = i.tenant_id AND f.id = ?
+			WHERE i.tenant_id = ? AND i.id = ?`, fileID, tenantID, itemID)
+		if err := affected(res, err, "file"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 const inboxSelect = `SELECT id, status, source, note, uploaded_by, COALESCE(document_id, ''), COALESCE(person_id, ''), created_at
 	FROM inbox_items`
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAccepted, pickFiles, MAX_FILES } from './upload';
+import { addedMessage, isAccepted, pickFiles, MAX_FILES } from './upload';
 
 function file(name: string, type: string, size = 10): File {
   return new File([new Uint8Array(size)], name, { type });
@@ -31,5 +31,21 @@ describe('pickFiles', () => {
     const { accepted, skipped } = pickFiles([file('a.jpg', 'image/jpeg'), file('b.jpg', 'image/jpeg')], staged);
     expect(accepted).toHaveLength(1);
     expect(skipped[0]).toContain('b.jpg');
+  });
+});
+
+describe('addedMessage', () => {
+  it('counts the files added and the ones already stored', () => {
+    expect(addedMessage([{ duplicate: false }, { duplicate: false }, { duplicate: true }])).toBe(
+      '2 files added; the item is read again with them. 1 already stored, skipped',
+    );
+    expect(addedMessage([{ duplicate: false }])).toBe('1 file added; the item is read again with them');
+  });
+
+  it('says nothing was added when every file is already stored', () => {
+    expect(addedMessage([{ duplicate: true }])).toBe('That file is already stored, nothing added');
+    expect(addedMessage([{ duplicate: true }, { duplicate: true }])).toBe(
+      'Those files are already stored, nothing added',
+    );
   });
 });

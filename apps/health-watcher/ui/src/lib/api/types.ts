@@ -304,7 +304,15 @@ export interface ObservationInput {
 }
 
 export type FindingKind =
-  'diagnosis' | 'prescription' | 'procedure' | 'imaging_report' | 'allergy' | 'vaccination' | 'note';
+  | 'diagnosis'
+  | 'exam'
+  | 'prescription'
+  | 'procedure'
+  | 'imaging_report'
+  | 'advice'
+  | 'allergy'
+  | 'vaccination'
+  | 'note';
 
 export interface Finding {
   id: string;
@@ -315,6 +323,7 @@ export interface Finding {
   pageId?: string;
   pageNumber?: number;
   kind: FindingKind;
+  section?: string;
   text: string;
   icd10?: string;
   drug?: string;
@@ -328,6 +337,7 @@ export interface Finding {
 
 export interface FindingInput {
   kind: FindingKind;
+  section: string;
   text: string;
   icd10: string;
   drug: string;

@@ -164,6 +164,8 @@ type FileRepo interface {
 type InboxRepo interface {
 	// CreateInboxItem stores an item with its files and the item's PersonID.
 	CreateInboxItem(ctx context.Context, tenantID string, item domain.InboxItem, fileIDs []string) error
+	// AddInboxFiles adds files to an item, after the ones it has.
+	AddInboxFiles(ctx context.Context, tenantID, itemID string, fileIDs []string) error
 	InboxItem(ctx context.Context, tenantID, id string) (domain.InboxItem, error)
 	InboxItems(ctx context.Context, tenantID string, status domain.InboxStatus) ([]domain.InboxItem, error)
 	// SetInboxStatus moves an unfiled item to status; an item that is no

@@ -53,7 +53,7 @@ func (r repos) indexVisit(ctx context.Context, tenantID, visitID string) error {
 
 // findingText is what a finding is found by.
 func findingText(f domain.Finding) string {
-	return strings.TrimSpace(strings.Join([]string{f.Text, f.Drug, f.Dose, f.ICD10}, "\n"))
+	return strings.TrimSpace(strings.Join([]string{f.Text, f.Drug, f.Dose, f.ICD10, f.Section}, "\n"))
 }
 
 func (r repos) indexFinding(ctx context.Context, tenantID string, f domain.Finding) error {
@@ -246,9 +246,9 @@ func (r repos) RebuildSearchIndex(ctx context.Context, version string) (bool, er
 	}); err != nil {
 		return false, err
 	}
-	if err := collect(domain.SearchFinding, `SELECT tenant_id, id, text, drug, dose, icd10 FROM findings WHERE status = 'approved'`,
+	if err := collect(domain.SearchFinding, `SELECT tenant_id, id, text, drug, dose, icd10, section FROM findings WHERE status = 'approved'`,
 		func(c []string) string {
-			return findingText(domain.Finding{Text: c[0], Drug: c[1], Dose: c[2], ICD10: c[3]})
+			return findingText(domain.Finding{Text: c[0], Drug: c[1], Dose: c[2], ICD10: c[3], Section: c[4]})
 		}); err != nil {
 		return false, err
 	}

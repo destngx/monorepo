@@ -109,9 +109,16 @@ describe('record inputs', () => {
   });
   it('fills blank finding fields', () => {
     expect(findingInput({ kind: 'diagnosis', text: 'Flu' } as never)).toMatchObject({
+      section: '',
       icd10: '',
       drug: '',
       pageId: '',
+    });
+  });
+  it('keeps the section of an exam result, so a status change does not drop it', () => {
+    expect(findingInput({ kind: 'exam', section: 'Khám Mắt', text: 'MP: 10/10' } as never)).toMatchObject({
+      kind: 'exam',
+      section: 'Khám Mắt',
     });
   });
 });
