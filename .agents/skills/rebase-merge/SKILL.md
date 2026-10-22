@@ -75,6 +75,18 @@ Branch: `$ARGUMENTS`, or the current branch when empty.
 6. **Clean up.** Only after the merge is verified and the deploy (if any) is good. Run from the primary checkout,
    never from inside the worktree being removed:
 
+   First stop the processes your own runs left in the worktree, or `gwf rm` skips it and prints
+   `in use by: node (pid …)`. The usual one is the Nx daemon, which every `nx run` in the worktree starts and
+   leaves running. Also stop dev servers or test engines you started there. `ps -o pid,command -p <pid>` shows
+   what a pid is. Stop only processes running from this worktree's path, never the user's servers in the primary
+   checkout:
+
+   ```sh
+   (cd <worktree> && pnpm exec nx daemon --stop)
+   ```
+
+   Then remove it:
+
    ```sh
    cd <primary checkout>
    gwf rm -y -D <branch>               # removes the worktree, deletes the branch with -d, prunes
