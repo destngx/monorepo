@@ -15,9 +15,9 @@
     {#each rows as rate, i (i)}
       <li class="grid grid-cols-[7.5rem_1fr_3.5rem] items-center gap-3 text-sm sm:grid-cols-[10rem_1fr_4rem]">
         <span class="truncate" title={rate.bank}>{rate.bank}{rate.tenor ? ` · ${rate.tenor}` : ''}</span>
-        <span class="h-3 overflow-hidden rounded-full bg-slate-900/5 dark:bg-white/5">
+        <span class="h-3 overflow-hidden rounded-sm bg-stone-900/5 dark:bg-white/5">
           <span
-            class="block h-full rounded-full {i === 0 ? 'bg-emerald-500' : 'bg-indigo-500/80'}"
+            class="block h-full rounded-sm {i === 0 ? 'bg-emerald-500' : 'bg-accent-500/80'}"
             style:width="{max ? (rate.rate / max) * 100 : 0}%"
           ></span>
         </span>

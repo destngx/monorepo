@@ -67,7 +67,7 @@
 
 <PageHeader title="Settings" />
 
-<div class="grid gap-6 md:grid-cols-[11rem_minmax(0,1fr)]">
+<div class="grid grid-cols-1 gap-6 md:grid-cols-[11rem_minmax(0,1fr)]">
   <nav
     aria-label="Settings sections"
     class="-mx-1 flex gap-1 overflow-x-auto px-1 md:sticky md:top-4 md:flex-col md:self-start"
@@ -78,8 +78,8 @@
         aria-current={section.id === active ? 'page' : undefined}
         class="flex shrink-0 items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium whitespace-nowrap transition active:scale-[0.98] motion-reduce:active:scale-100 {section.id ===
         active
-          ? 'bg-indigo-600/10 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300'
-          : 'text-slate-600 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/5'}"
+          ? 'bg-accent-600/10 text-accent-700 dark:bg-accent-400/15 dark:text-accent-300'
+          : 'text-stone-600 hover:bg-stone-900/5 dark:text-stone-300 dark:hover:bg-white/5'}"
       >
         {section.label}
         {#if changed.has(section.id)}

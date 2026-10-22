@@ -13,15 +13,15 @@
 
 <PageHeader title="Research" subtitle="Markets, news and ideas, aimed at what you hold" />
 
-<ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Research tools">
+<ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Research tools">
   {#each tools as tool (tool.href)}
     <li>
       <a
         href="{base}{tool.href}"
-        class="glass interactive group flex h-full items-start gap-3 p-5 hover:bg-white/75 dark:hover:bg-slate-900/70"
+        class="panel interactive group flex h-full items-start gap-3 p-5 hover:bg-white/75 dark:hover:bg-stone-900/70"
       >
         <span
-          class="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-600/10 text-indigo-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white dark:bg-indigo-400/15 dark:text-indigo-300 dark:group-hover:bg-indigo-500"
+          class="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-600/10 text-accent-700 transition-colors group-hover:bg-accent-600 group-hover:text-white dark:bg-accent-400/15 dark:text-accent-300 dark:group-hover:bg-accent-500"
         >
           <Icon name={tool.icon} />
         </span>

@@ -106,7 +106,7 @@
     >
   {/snippet}
   {#if health}
-    <ul class="-my-2 divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+    <ul class="-my-2 divide-y divide-stone-900/5 text-sm dark:divide-white/5">
       {#each health.checks as check (check.name)}
         <li class="flex items-start justify-between gap-3 py-2">
           <div class="min-w-0">

@@ -151,7 +151,7 @@
       <h3 id="idle-options-title" class="text-xs font-semibold tracking-wide uppercase">
         Compare instant-access places
       </h3>
-      <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+      <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
         {#each idle.options as option, index (option.productId ?? `${option.bank}-${option.access}`)}
           {@const own = ownProducts(option)}
           <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
@@ -228,7 +228,7 @@
     </section>
   {/if}
 
-  <div class="mt-4 grid gap-4 sm:grid-cols-2">
+  <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
     <DayToDayFloatField
       saved={idle.emergency.settings.dayToDayFloat}
       effective={c.dayToDayFloat}
@@ -254,8 +254,8 @@
         <dt>{line.label}</dt>
         <dd class="text-right">− <Money value={line.amount} /></dd>
       {/each}
-      <dt class="border-t border-slate-900/10 pt-1 font-semibold dark:border-white/10">Idle</dt>
-      <dd class="border-t border-slate-900/10 pt-1 text-right font-semibold dark:border-white/10">
+      <dt class="border-t border-stone-900/10 pt-1 font-semibold dark:border-white/10">Idle</dt>
+      <dd class="border-t border-stone-900/10 pt-1 text-right font-semibold dark:border-white/10">
         <Money value={idle.idle} />
       </dd>
     </dl>

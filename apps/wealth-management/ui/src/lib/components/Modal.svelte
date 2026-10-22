@@ -41,7 +41,7 @@
 
 <dialog
   bind:this={dialog}
-  class="glass m-auto w-[calc(100%-2rem)] p-0 text-inherit backdrop:bg-slate-950/40 backdrop:backdrop-blur-sm {wide
+  class="panel m-auto w-[calc(100%-2rem)] p-0 text-inherit shadow-hard-lg backdrop:bg-stone-950/45 {wide
     ? 'max-w-3xl'
     : 'max-w-lg'}"
   {onclose}
@@ -58,8 +58,8 @@
 >
   {#if open}
     <div class="flex max-h-[85vh] flex-col">
-      <header class="flex items-center justify-between border-b border-slate-900/10 px-5 py-4 dark:border-white/10">
-        <h2 class="font-semibold">{title}</h2>
+      <header class="flex items-center justify-between border-b-[1.5px] border-edge px-5 py-4">
+        <h2 class="font-serif text-lg font-semibold">{title}</h2>
         {#if dismissible}
           <button
             type="button"
@@ -75,7 +75,7 @@
       </header>
       <div class="overflow-y-auto px-5 py-4" data-modal-body>{@render children()}</div>
       {#if footer}
-        <footer class="flex justify-end gap-2 border-t border-slate-900/10 px-5 py-3 dark:border-white/10">
+        <footer class="flex justify-end gap-2 border-t-[1.5px] border-edge px-5 py-3">
           {@render footer()}
         </footer>
       {/if}

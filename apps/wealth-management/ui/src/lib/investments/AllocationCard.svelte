@@ -109,7 +109,7 @@
   {/if}
 
   {#if editing}
-    <form class="mb-4 grid gap-3 sm:grid-cols-4 sm:items-end" onsubmit={submit}>
+    <form class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end" onsubmit={submit}>
       {#each TARGET_CLASSES as targetClass (targetClass.key)}
         <div>
           <label class="label" for="target-{targetClass.key}">{targetClass.label} (%)</label>
@@ -155,7 +155,7 @@
           <th class="px-5 py-2">Status</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each allocation.lines as line (line.class)}
           {@const lineState = lineStatus(line.status)}
           <tr>

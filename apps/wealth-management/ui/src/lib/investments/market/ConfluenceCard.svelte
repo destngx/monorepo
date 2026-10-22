@@ -34,9 +34,9 @@
           <th class="px-5 py-2">Source</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each confluence.views as view (view.timeframe)}
-          <tr class={view.error ? 'opacity-60' : view.timeframe === timeframe ? 'bg-indigo-500/5' : ''}>
+          <tr class={view.error ? 'opacity-60' : view.timeframe === timeframe ? 'bg-accent-500/5' : ''}>
             <td class="px-5 py-2 font-medium">{timeframeOnly(view.timeframe)}</td>
             {#if view.error}
               <td class="px-5 py-2 text-xs text-rose-700 dark:text-rose-300" colspan="4">

@@ -35,7 +35,7 @@
     <a
       href="{base}/close?month={month}"
       class="btn-ghost rounded-md px-2 py-0.5 text-sm font-normal {month === shown
-        ? 'bg-indigo-500/15 font-semibold text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300'
+        ? 'bg-accent-500/15 font-semibold text-accent-700 hover:bg-accent-500/20 dark:text-accent-300'
         : 'muted'}"
       aria-current={month === shown ? 'page' : undefined}>{formatMonth(month)}</a
     >

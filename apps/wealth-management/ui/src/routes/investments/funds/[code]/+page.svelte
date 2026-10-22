@@ -141,7 +141,7 @@
       {#if periods.length}
         <div class="mt-4 flex flex-wrap gap-2">
           {#each periods as period (period.label)}
-            <span class="rounded-xl bg-slate-900/5 px-2.5 py-1 text-xs dark:bg-white/5">
+            <span class="rounded-xl bg-stone-900/5 px-2.5 py-1 text-xs dark:bg-white/5">
               <span class="muted">{period.label}</span>
               <span class="tabular font-medium {tone(period.value)}">{formatSignedPercent(period.value, 2)}</span>
             </span>
@@ -150,7 +150,7 @@
       {/if}
     </Card>
 
-    <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card title="Overview">
         {#if fund.description}<p class="mb-4 text-sm leading-relaxed">{fund.description}</p>{/if}
         <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -193,11 +193,11 @@
 
     <Card title="Fees" subtitle="Percent of the transaction value" class="mt-4">
       {#if feeGroups.length}
-        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {#each feeGroups as group (group.type)}
             <div>
               <h3 class="mb-2 text-xs font-semibold tracking-wide uppercase">{group.label}</h3>
-              <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+              <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
                 {#each group.rows as fee, i (i)}
                   <li class="flex justify-between gap-3 py-1.5">
                     <span>
@@ -217,7 +217,7 @@
       {/if}
     </Card>
 
-    <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card title="Top 10 holdings" subtitle={fund.holdingsAsOf ? `As of ${fund.holdingsAsOf}` : undefined}>
         {#if fund.topHoldings.length}
           <ul class="space-y-2 text-sm">
@@ -225,9 +225,9 @@
               <li class="grid grid-cols-[4.5rem_1fr_3.5rem] items-center gap-3">
                 <span class="font-medium">{holding.code}</span>
                 <span class="min-w-0">
-                  <span class="block h-2 overflow-hidden rounded-full bg-slate-900/5 dark:bg-white/5">
+                  <span class="block h-2 overflow-hidden rounded-sm bg-stone-900/5 dark:bg-white/5">
                     <span
-                      class="block h-full rounded-full bg-indigo-500/80"
+                      class="block h-full rounded-sm bg-accent-500/80"
                       style:width="{Math.min((holding.percent / fund.topHoldings[0].percent) * 100, 100)}%"
                     ></span>
                   </span>
@@ -267,9 +267,9 @@
         {/if}
         {#if fund.industries.length}
           <h3 class="mt-6 mb-2 text-xs font-semibold tracking-wide uppercase">By industry</h3>
-          <ul class="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+          <ul class="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
             {#each fund.industries as share, i (i)}
-              <li class="flex justify-between gap-3 border-b border-slate-900/5 py-1 dark:border-white/5">
+              <li class="flex justify-between gap-3 border-b border-stone-900/5 py-1 dark:border-white/5">
                 <span class="truncate">{share.label}</span>
                 <span class="tabular">{formatPercent(share.percent, 2)}</span>
               </li>
@@ -287,7 +287,7 @@
         {/each}
       </div>
       <SkeletonCard title="NAV history" lines={1} chart={220} class="mt-4" />
-      <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SkeletonCard title="Overview" lines={5} />
         <SkeletonCard title="Minimums" lines={3} />
       </div>

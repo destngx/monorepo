@@ -33,19 +33,19 @@
 </script>
 
 <div
-  class="field flex flex-wrap items-center gap-1.5 py-1.5 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/25"
+  class="field flex flex-wrap items-center gap-1.5 py-1.5 focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/25"
 >
   {#each fixed as { tag, title } (tag)}
-    <span class="rounded-full bg-slate-900/5 px-2 py-0.5 text-xs dark:bg-white/10" {title}>{tag}</span>
+    <span class="rounded-md bg-stone-900/5 px-2 py-0.5 text-xs dark:bg-white/10" {title}>{tag}</span>
   {/each}
   {#each selected as tag (tag)}
     <span
-      class="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-xs text-indigo-700 dark:text-indigo-300"
+      class="inline-flex items-center gap-1 rounded-md bg-accent-500/15 px-2 py-0.5 text-xs text-accent-700 dark:text-accent-300"
     >
       {tag}
       <button
         type="button"
-        class="hit-area -mr-1 grid size-4 place-items-center rounded-full hover:bg-indigo-500/25 active:bg-indigo-500/35"
+        class="hit-area -mr-1 grid size-4 place-items-center rounded-full hover:bg-accent-500/25 active:bg-accent-500/35"
         aria-label="Remove {tag}"
         title="Remove {tag}"
         onclick={() => remove(tag)}>×</button
@@ -72,7 +72,7 @@
     {#each suggestions as tag (tag)}
       <button
         type="button"
-        class="rounded-full bg-slate-900/5 px-2 py-0.5 text-xs hover:bg-slate-900/10 active:bg-slate-900/15 dark:bg-white/10 dark:hover:bg-white/15"
+        class="rounded-md bg-stone-900/5 px-2 py-0.5 text-xs hover:bg-stone-900/10 active:bg-stone-900/15 dark:bg-white/10 dark:hover:bg-white/15"
         onclick={() => add(tag)}>{tag}</button
       >
     {/each}

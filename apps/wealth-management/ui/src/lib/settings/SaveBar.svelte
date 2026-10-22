@@ -11,7 +11,7 @@
 
 {#if form.view && (form.changeCount > 0 || restartRequired || form.saveError)}
   <div
-    class="glass sticky bottom-4 z-10 mt-6 flex flex-wrap items-center justify-end gap-3 p-3"
+    class="panel sticky bottom-4 z-10 mt-6 flex flex-wrap items-center justify-end gap-3 p-3"
     role="region"
     aria-label="Pending settings"
   >

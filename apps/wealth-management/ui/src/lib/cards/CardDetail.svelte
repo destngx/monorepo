@@ -2,6 +2,7 @@
   import AIExplain from '$lib/ai/AIExplain.svelte';
   import { api } from '$lib/api/endpoints';
   import BarChart from '$lib/charts/BarChart.svelte';
+  import { BESIDE_FLOWS, EXPENSE, INCOME, NEUTRAL } from '$lib/charts/palette';
   import Ring from '$lib/charts/Ring.svelte';
   import type { CardBankReport, CardReport } from '$lib/api/types';
   import { capsLeft, cardPeriodCap, cumulative, formatMccs, MCC_STATUS, RECONCILIATION, UTILIZATION } from './cards';
@@ -54,15 +55,15 @@
   );
   const cap = $derived(cardPeriodCap(card));
   const barSeries = $derived([
-    { name: 'Refund', color: '#10b981', values: yearHistory.map((m) => m.refund) },
-    { name: 'Missed', color: '#f97316', values: yearHistory.map((m) => m.missed) },
-    { name: 'Estimated', color: '#6366f1', values: yearHistory.map((m) => m.cashback.total) },
-    ...(cap === null ? [] : [{ name: 'Period cap', color: '#94a3b8', values: yearHistory.map(() => cap) }]),
+    { name: 'Refund', color: INCOME, values: yearHistory.map((m) => m.refund) },
+    { name: 'Missed', color: EXPENSE, values: yearHistory.map((m) => m.missed) },
+    { name: 'Estimated', color: BESIDE_FLOWS, values: yearHistory.map((m) => m.cashback.total) },
+    ...(cap === null ? [] : [{ name: 'Period cap', color: NEUTRAL, values: yearHistory.map(() => cap) }]),
   ]);
   const cumulativeSeries = $derived([
-    { name: 'Refund YTD', color: '#10b981', values: cumulative(yearHistory.map((m) => m.refund)) },
-    { name: 'Estimated YTD', color: '#6366f1', values: cumulative(yearHistory.map((m) => m.cashback.total)) },
-    ...(cap === null ? [] : [{ name: 'Cap YTD', color: '#94a3b8', values: cumulative(yearHistory.map(() => cap)) }]),
+    { name: 'Refund YTD', color: INCOME, values: cumulative(yearHistory.map((m) => m.refund)) },
+    { name: 'Estimated YTD', color: BESIDE_FLOWS, values: cumulative(yearHistory.map((m) => m.cashback.total)) },
+    ...(cap === null ? [] : [{ name: 'Cap YTD', color: NEUTRAL, values: cumulative(yearHistory.map(() => cap)) }]),
   ]);
 
   const ytd = $derived(
@@ -79,7 +80,7 @@
   const periodLabel = $derived(card.capPeriod === 'month' ? 'calendar month' : 'statement cycle');
 </script>
 
-<div class="grid gap-4 lg:grid-cols-3">
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
   <!-- WM-CARD-16: the limit is the bank's, shared by its cards -->
   <Card title="{bank.name} limit" subtitle="Shared by the bank's cards">
     <div class="flex items-center gap-5">
@@ -230,15 +231,15 @@
   <Stat label="Lifetime fees" value={card.lifetimeFees} />
 </div>
 
-<div class="mt-6 mb-4 flex gap-1 rounded-xl bg-slate-900/5 p-1 text-sm dark:bg-white/5" role="tablist">
+<div class="mt-6 mb-4 flex gap-1 rounded-xl bg-stone-900/5 p-1 text-sm dark:bg-white/5" role="tablist">
   {#each tabs as [value, label] (value)}
     <button
       type="button"
       role="tab"
       aria-selected={activeTab === value}
       class="flex-1 rounded-lg px-3 py-1.5 {activeTab === value
-        ? 'bg-white font-medium shadow-sm dark:bg-slate-700'
-        : 'muted hover:bg-white/60 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white'}"
+        ? 'font-medium bg-stone-900 text-stone-50 dark:bg-stone-100 dark:text-stone-900'
+        : 'muted hover:bg-white/60 hover:text-stone-900 dark:hover:bg-white/10 dark:hover:text-white'}"
       onclick={() => (tab = value as Tab)}>{label}</button
     >
   {/each}
@@ -247,7 +248,7 @@
 {#if activeTab === 'period'}
   {#if standing.rules.length}
     <Card title="Cashback by rule" class="mb-4">
-      <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+      <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
         {#each standing.rules as rule (rule.name)}
           <li class="flex flex-wrap items-center justify-between gap-3 py-2">
             <span
@@ -268,7 +269,7 @@
   {/if}
   <Card title="Transactions this period" subtitle="{card.transactions.length} transactions">
     {#if card.transactions.length}
-      <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+      <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
         {#each card.transactions as { transaction: tx, mcc, rule, cashback } (tx.id)}
           <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
             <div>
@@ -358,7 +359,7 @@
             ></tr
           ></thead
         >
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each [...yearHistory].reverse() as m (m.month)}
             <tr>
               <td class="px-5 py-2"
@@ -400,7 +401,7 @@
             ><th class="py-2 text-right">Min period spend</th><th class="py-2 text-right">Cap</th></tr
           ></thead
         >
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each card.rules as rule (rule.name)}
             <tr>
               <td class="py-2"

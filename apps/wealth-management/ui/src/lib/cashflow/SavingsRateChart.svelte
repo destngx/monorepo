@@ -2,6 +2,7 @@
   import type { CashFlow, SavingsTarget } from '$lib/api/types';
   import { ticks, scale } from '$lib/charts/geometry';
   import { leavesReadout } from '$lib/charts/hover';
+  import { PRIMARY } from '$lib/charts/palette';
   import Masked from '$lib/components/Masked.svelte';
   import { formatCompact, formatMonth, formatPercent } from '$lib/format';
   import { SAVINGS_RATE_LIMIT, savingsRateDomain } from './yearly';
@@ -16,7 +17,7 @@
   // WM-DASH-8: each month's savings rate against the healthy band and the target.
   let { months, monthsElapsed, target, height = 200 }: Props = $props();
 
-  const BAR = '#6366f1';
+  const BAR = PRIMARY;
   const width = 640;
   const pad = { top: 12, right: 8, bottom: 24, left: 40 };
 
@@ -57,9 +58,9 @@
         x2={width - pad.right}
         y1={y(tick)}
         y2={y(tick)}
-        class={tick === 0 ? 'stroke-slate-900/30 dark:stroke-white/30' : 'stroke-slate-900/10 dark:stroke-white/10'}
+        class={tick === 0 ? 'stroke-stone-900/30 dark:stroke-white/30' : 'stroke-stone-900/10 dark:stroke-white/10'}
       />
-      <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-slate-500 text-[11px]">{tick}%</text>
+      <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-stone-500 text-[11px]">{tick}%</text>
     {/each}
     <line
       x1={pad.left}
@@ -96,7 +97,7 @@
               x={center}
               y={rate > 0 ? pad.top - 2 : height - pad.bottom + 10}
               text-anchor="middle"
-              class="fill-slate-500 text-[10px]">{rate > 0 ? '▲' : '▼'}</text
+              class="fill-stone-500 text-[10px]">{rate > 0 ? '▲' : '▼'}</text
             >
           {/if}
         {/if}
@@ -104,7 +105,7 @@
           x={center}
           y={height - 6}
           text-anchor="middle"
-          class="text-[11px] {i < monthsElapsed ? 'fill-slate-500' : 'fill-slate-400/50'}"
+          class="text-[11px] {i < monthsElapsed ? 'fill-stone-500' : 'fill-stone-400/50'}"
           >{formatMonth(month.month, true)}</text
         >
       </g>

@@ -5,6 +5,7 @@
   import { extent, linePath, scale, ticks } from './geometry';
   import { leavesReadout } from './hover';
   import MaskedAxis from './MaskedAxis.svelte';
+  import { PRIMARY } from './palette';
 
   interface Props {
     points: { date: string; value: number }[];
@@ -58,8 +59,8 @@
     <svg viewBox="0 0 {width} {height}" class="block h-auto w-full" role="img" aria-label={label}>
       <defs>
         <linearGradient id="line-fill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3" />
-          <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+          <stop offset="0%" stop-color={PRIMARY} stop-opacity="0.3" />
+          <stop offset="100%" stop-color={PRIMARY} stop-opacity="0" />
         </linearGradient>
       </defs>
       {#each yTicks as tick (tick)}
@@ -68,9 +69,9 @@
           x2={width - pad.right}
           y1={y(tick)}
           y2={y(tick)}
-          class="stroke-slate-900/10 dark:stroke-white/10"
+          class="stroke-stone-900/10 dark:stroke-white/10"
         />
-        <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-slate-500 text-[11px]"
+        <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-stone-500 text-[11px]"
           >{mask.revealed ? formatCompact(tick) : '•••'}</text
         >
       {/each}
@@ -79,21 +80,21 @@
           x={x(index)}
           y={height - 6}
           text-anchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
-          class="fill-slate-500 text-[11px]">{formatDate(points[index].date)}</text
+          class="fill-stone-500 text-[11px]">{formatDate(points[index].date)}</text
         >
       {/each}
       <path d={area} fill="url(#line-fill)" />
-      <path d={linePath(coords)} fill="none" stroke="#6366f1" stroke-width="2" stroke-linejoin="round" />
+      <path d={linePath(coords)} fill="none" stroke={PRIMARY} stroke-width="2" stroke-linejoin="round" />
       {#if hover !== null}
         <line
           x1={coords[hover][0]}
           x2={coords[hover][0]}
           y1={pad.top}
           y2={height - pad.bottom}
-          class="stroke-slate-400/60"
+          class="stroke-stone-400/60"
           stroke-dasharray="3 3"
         />
-        <circle cx={coords[hover][0]} cy={coords[hover][1]} r="4" fill="#6366f1" />
+        <circle cx={coords[hover][0]} cy={coords[hover][1]} r="4" fill={PRIMARY} />
       {/if}
     </svg>
     <MaskedAxis {width} {height} {pad} />
@@ -102,7 +103,7 @@
          the pointer resting on it holds the hovered point. -->
       <div
         role="presentation"
-        class="absolute -translate-x-1/2 -translate-y-1/2 text-xs font-medium whitespace-nowrap text-slate-700 dark:text-slate-200"
+        class="absolute -translate-x-1/2 -translate-y-1/2 text-xs font-medium whitespace-nowrap text-stone-700 dark:text-stone-200"
         style:left="{(Math.min(Math.max(coords[hover][0], pad.left + 60), width - 70) / width) * 100}%"
         style:top="{(pad.top / height) * 100}%"
         data-testid="line-readout"

@@ -48,15 +48,15 @@
 
   const pill = (active: boolean) =>
     active
-      ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-800 dark:text-indigo-300'
-      : 'muted hover:bg-white/60 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white';
+      ? 'bg-stone-900 text-stone-50 dark:bg-stone-100 dark:text-stone-900'
+      : 'muted hover:bg-white/60 hover:text-stone-900 dark:hover:bg-white/10 dark:hover:text-white';
 </script>
 
 <PageHeader title="Fmarket" subtitle="Open-ended funds, bank savings rates, gold and USD from fmarket.vn" />
 
 <!-- WM-INV-10 -->
 <div
-  class="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-slate-900/5 p-1 sm:inline-flex dark:bg-white/5"
+  class="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-stone-900/5 p-1 sm:inline-flex dark:bg-white/5"
   role="tablist"
 >
   {#each tabs as t (t.key)}
@@ -77,7 +77,7 @@
     {#snippet actions()}
       {#if funds.value?.source}<SourceBadge source={funds.value.source} />{/if}
       <div
-        class="flex flex-wrap gap-0.5 rounded-xl bg-slate-900/5 p-0.5 dark:bg-white/5"
+        class="flex flex-wrap gap-0.5 rounded-xl bg-stone-900/5 p-0.5 dark:bg-white/5"
         role="group"
         aria-label="Fund type"
       >
@@ -122,7 +122,7 @@
     {/snippet}
     <Deferred data={data.flexibleSavings} label="wallet earning balances">
       {#snippet children(savings)}
-        <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5" data-testid="flexible-savings">
+        <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5" data-testid="flexible-savings">
           {#each savings.products as product (product.id)}
             <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
               <span class="min-w-0">

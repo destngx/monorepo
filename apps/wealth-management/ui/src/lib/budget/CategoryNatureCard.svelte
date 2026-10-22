@@ -43,15 +43,15 @@
   subtitle="Fixed and essential are needs, flexible is wants. Lending categories hold money lent and repaid: they leave income and expense and feed Money lent. Define a category to say what belongs in it; split tags show a share of its spend."
 >
   {#if groups.length}
-    <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
       {#each groups as group (group.label)}
         <div>
           <h3 class="label">{group.label}</h3>
-          <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+          <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
             {#each group.categories as category (category.name)}
               {@const id = `nature-${group.label}-${category.name}`}
               <li class="flex items-center justify-between gap-3 py-1.5">
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                   <label for={id} class="block truncate">{category.name}</label>
                   {#if category.definition || category.splitTags?.length}
                     <p class="muted truncate text-xs" title={category.definition}>
@@ -69,7 +69,7 @@
                 >
                 <select
                   {id}
-                  class="field w-36 py-1 text-xs"
+                  class="field w-32 shrink-0 py-1 text-xs sm:w-36"
                   value={pending[category.name] ?? natureChoice(category)}
                   disabled={saving === category.name}
                   onchange={(event) => save(category, event.currentTarget.value as NatureChoice)}

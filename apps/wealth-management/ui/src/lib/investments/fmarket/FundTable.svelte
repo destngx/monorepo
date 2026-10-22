@@ -34,8 +34,8 @@
             <th class="px-5 py-2 {column.align}" aria-sort={sortKey === column.key ? 'descending' : 'none'}>
               <button
                 type="button"
-                class="rounded uppercase hover:text-slate-900 dark:hover:text-white {sortKey === column.key
-                  ? 'text-indigo-600 dark:text-indigo-300'
+                class="rounded uppercase hover:text-stone-900 dark:hover:text-white {sortKey === column.key
+                  ? 'text-accent-600 dark:text-accent-300'
                   : ''}"
                 onclick={() => (sortKey = column.key)}>{column.label}</button
               >
@@ -44,7 +44,7 @@
           <th class="px-5 py-2 text-right">Updated</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each rows as fund (fund.id)}
           <!-- The whole row opens the fund: the link covers it (WM-UI-18). -->
           <tr class="row-link relative">
@@ -61,11 +61,11 @@
                     loading="lazy"
                   />
                 {:else}
-                  <span class="size-8 shrink-0 rounded-lg bg-slate-900/5 dark:bg-white/10"></span>
+                  <span class="size-8 shrink-0 rounded-lg bg-stone-900/5 dark:bg-white/10"></span>
                 {/if}
                 <span class="min-w-0">
                   <span
-                    class="block font-medium text-indigo-600 underline-offset-2 group-hover:underline dark:text-indigo-300"
+                    class="block font-medium text-accent-600 underline-offset-2 group-hover:underline dark:text-accent-300"
                     >{fund.code}</span
                   >
                   <span class="muted block max-w-[9rem] truncate sm:max-w-[22rem] text-xs" title={fund.name}

@@ -104,7 +104,7 @@
   {/snippet}
 </PageHeader>
 
-<div class="glass mb-4 p-4">
+<div class="panel mb-4 p-4">
   <form class="flex flex-wrap items-end gap-2" onsubmit={submit}>
     <div class="min-w-48 flex-1 sm:max-w-xs">
       <label class="label" for="ticker-symbol">Symbol</label>
@@ -127,9 +127,9 @@
     {#each PULSE_SYMBOLS as pick (pick)}
       <button
         type="button"
-        class="rounded-full px-2.5 py-0.5 text-xs font-medium transition active:scale-95 {pick === symbol
-          ? 'bg-indigo-600 text-white hover:bg-indigo-500'
-          : 'bg-slate-900/5 text-slate-700 hover:bg-slate-900/10 hover:text-slate-900 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/15 dark:hover:text-white'}"
+        class="rounded-md px-2.5 py-0.5 text-xs font-medium transition active:scale-95 {pick === symbol
+          ? 'bg-stone-900 text-stone-50 dark:bg-stone-100 dark:text-stone-900'
+          : 'bg-stone-900/5 text-stone-700 hover:bg-stone-900/10 hover:text-stone-900 dark:bg-white/10 dark:text-stone-300 dark:hover:bg-white/15 dark:hover:text-white'}"
         aria-pressed={pick === symbol}
         onclick={() => navigate(pick, timeframe)}>{pick}</button
       >
@@ -138,7 +138,7 @@
 </div>
 
 {#if !symbol}
-  <div class="glass">
+  <div class="panel">
     <EmptyState title="Pick a ticker" detail="Enter a symbol or choose one of the market pulse instruments above." />
   </div>
 {:else}
@@ -146,7 +146,7 @@
     {#snippet children(current)}
       {@const technicals = current.technicals}
       <!-- Header -->
-      <div class="glass mb-4 flex flex-wrap items-end justify-between gap-4 p-5">
+      <div class="panel mb-4 flex flex-wrap items-end justify-between gap-4 p-5">
         <div>
           <p class="muted text-xs font-medium tracking-wide uppercase">{TIMEFRAME_LABELS[current.timeframe]} view</p>
           <h2 class="mt-1 text-2xl font-semibold tracking-tight">{current.symbol}</h2>
@@ -174,7 +174,7 @@
 
       <RuleBasedNote class="mb-4" />
 
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <!-- WM-INV-12 -->
         <TechnicalsCard {technicals} class="lg:col-span-2" />
 
@@ -215,11 +215,11 @@
     {/snippet}
     {#snippet skeleton()}
       <div class="space-y-4">
-        <section class="glass p-5" aria-label={symbol}>
+        <section class="panel p-5" aria-label={symbol}>
           <h2 class="text-2xl font-semibold tracking-tight">{symbol}</h2>
           <SkeletonText lines={2} label="the {symbol} analysis" class="mt-3 max-w-sm" />
         </section>
-        <div class="grid gap-4 lg:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <SkeletonCard title="Technicals" lines={4} chart={160} class="lg:col-span-2" />
           <SkeletonCard title="Levels" lines={6} />
         </div>

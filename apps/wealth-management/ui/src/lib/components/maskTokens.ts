@@ -16,8 +16,8 @@ export const MASK_TOKEN_TITLE = 'Show amounts';
 
 /** Hover, pressed and focus-visible feedback shared by every token. */
 export const MASK_TOKEN_CLASS =
-  'tabular -mx-0.5 cursor-pointer rounded px-0.5 whitespace-nowrap transition-colors hover:bg-slate-900/10 ' +
-  'active:bg-slate-900/20 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ' +
+  'tabular -mx-0.5 cursor-pointer rounded px-0.5 whitespace-nowrap transition-colors hover:bg-stone-900/10 ' +
+  'active:bg-stone-900/20 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none ' +
   'dark:hover:bg-white/15 dark:active:bg-white/25';
 
 /** Marks a token in rendered HTML, for the delegated click handler. */

@@ -86,8 +86,8 @@
   </dl>
 
   {#if !compact}
-    <div class="mt-4 rounded-xl border border-slate-900/10 p-3 dark:border-white/10">
-      <p class="text-xs font-semibold tracking-wide text-slate-600 uppercase dark:text-slate-400">Signal</p>
+    <div class="mt-4 rounded-xl border border-stone-900/10 p-3 dark:border-white/10">
+      <p class="text-xs font-semibold tracking-wide text-stone-600 uppercase dark:text-stone-400">Signal</p>
       <dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
         <div>
           <dt class="muted text-xs">Entry</dt>

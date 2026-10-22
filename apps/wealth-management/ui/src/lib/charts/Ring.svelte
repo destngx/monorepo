@@ -26,7 +26,7 @@
       r={r - thickness / 2}
       fill="none"
       stroke-width={thickness}
-      class="stroke-slate-900/10 dark:stroke-white/10"
+      class="stroke-stone-900/10 dark:stroke-white/10"
     />
     {#if end > 0}
       <path d={arcPath(r, r, r, r - thickness, 0, end)} fill={color} />

@@ -114,12 +114,12 @@
   {#snippet actions()}
     <TimeframeSwitcher bind:value={() => timeframe, setTimeframe} />
     <label
-      class="glass inline-flex items-center gap-2 px-3 py-1.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-indigo-500/40 hover:border-indigo-400/40"
+      class="panel inline-flex items-center gap-2 px-3 py-1.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-accent-500/40 hover:border-accent-400/40"
     >
       <Icon name="clock" size={16} class="muted" />
       <span class="sr-only">Auto-refresh</span>
       <select
-        class="cursor-pointer bg-transparent text-sm focus:outline-none dark:bg-slate-900"
+        class="cursor-pointer bg-transparent text-sm focus:outline-none dark:bg-stone-900"
         value={String(interval)}
         onchange={(event) => chooseInterval(event.currentTarget.value)}
         aria-label="Auto-refresh interval"
@@ -155,13 +155,13 @@
 
       <AssetsTable quotes={current.assets} {timeframe} />
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Capital flow and scenario" subtitle="What the moves above suggest">
           <div class="flex flex-wrap items-center gap-2">
             <Badge tone={flowTone[current.capitalFlow.signal]}>{current.capitalFlow.signal}</Badge>
             <span class="text-sm">{current.capitalFlow.summary}</span>
           </div>
-          <div class="mt-4 rounded-xl border border-slate-900/10 p-3 dark:border-white/10">
+          <div class="mt-4 rounded-xl border border-stone-900/10 p-3 dark:border-white/10">
             <p class="flex flex-wrap items-center gap-2">
               <span class="font-semibold">{current.scenario.name}</span>
               <Badge tone="violet">{current.scenario.regime}</Badge>
@@ -182,7 +182,7 @@
         </Card>
       </div>
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-2">
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {#if current.index}
           <TechnicalsCard
             technicals={current.index}
@@ -221,11 +221,11 @@
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {#each { length: 5 }, i (i)}<SkeletonStat label="top mover {i + 1}" />{/each}
       </div>
-      <section class="glass p-5" aria-label="Assets">
-        <h2 class="mb-4 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">Assets</h2>
+      <section class="panel p-5" aria-label="Assets">
+        <h2 class="mb-4 text-sm font-semibold tracking-wide text-stone-700 dark:text-stone-200">Assets</h2>
         <SkeletonTable rows={8} columns={6} label="asset quotes" />
       </section>
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SkeletonCard title="Capital flow and scenario" lines={3} />
         <SkeletonCard title="Sentiment" lines={2} chart={80} />
       </div>

@@ -96,7 +96,7 @@
         </PageHeadline>
         {#if report.projection}
           {@const projection = report.projection}
-          <section class="glass p-5" aria-labelledby="projection-title">
+          <section class="panel p-5" aria-labelledby="projection-title">
             <p class="muted text-xs font-medium uppercase">If the year keeps this pace</p>
             <h2 id="projection-title" class="mt-1 text-lg font-semibold">
               <Money value={projection.cashFlow} signed tone /> by December
@@ -163,7 +163,7 @@
         </Card>
         {#if report.spikes.length}
           <Card title="Unusual months" subtitle="Spending well above a typical month">
-            <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+            <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
               {#each report.spikes as spike (spike.month)}
                 <li class="py-2.5 first:pt-0 last:pb-0">
                   <p class="flex items-baseline justify-between gap-2">
@@ -191,7 +191,7 @@
         <div class="-mx-5 overflow-x-auto">
           <table class="w-full min-w-[36rem] text-sm">
             <thead>
-              <tr class="muted border-b border-slate-900/10 text-left text-xs uppercase dark:border-white/10">
+              <tr class="muted border-b border-stone-900/10 text-left text-xs uppercase dark:border-white/10">
                 <th class="px-5 py-2 font-medium">Month</th>
                 <th class="px-5 py-2 text-right font-medium">Income</th>
                 <th class="px-5 py-2 text-right font-medium">Expense</th>
@@ -199,7 +199,7 @@
                 <th class="px-5 py-2 text-right font-medium">Savings rate</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+            <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
               {#each report.months as month, i (month.month)}
                 {#if i < report.monthsElapsed}
                   <tr>
@@ -219,7 +219,7 @@
                 {/if}
               {/each}
             </tbody>
-            <tfoot class="border-t border-slate-900/10 font-medium dark:border-white/10">
+            <tfoot class="border-t border-stone-900/10 font-medium dark:border-white/10">
               <tr>
                 <td class="px-5 py-2">Total</td>
                 <td class="px-5 py-2 text-right"><Money value={report.total.income} /></td>
@@ -241,14 +241,14 @@
 
       <Card title="By category" subtitle="Each category per month, largest first" class="mt-4">
         {#snippet actions()}
-          <div class="flex rounded-xl bg-slate-900/5 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Breakdown">
+          <div class="flex rounded-xl bg-stone-900/5 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Breakdown">
             {#each [['expense', 'Expense'], ['income', 'Income']] as [value, text] (value)}
               <button
                 type="button"
                 aria-pressed={breakdown === value}
                 class="rounded-lg px-2.5 py-1 {breakdown === value
-                  ? 'bg-white shadow-sm dark:bg-slate-700'
-                  : 'muted hover:bg-white/60 hover:text-slate-900 dark:hover:bg-white/10 dark:hover:text-white'}"
+                  ? 'bg-stone-900 text-stone-50 dark:bg-stone-100 dark:text-stone-900'
+                  : 'muted hover:bg-white/60 hover:text-stone-900 dark:hover:bg-white/10 dark:hover:text-white'}"
                 onclick={() => (breakdown = value as 'expense' | 'income')}>{text}</button
               >
             {/each}

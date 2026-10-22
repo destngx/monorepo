@@ -89,7 +89,7 @@ export function changeDirection(value: number | null | undefined): Direction | n
 const directionText: Record<Direction, string> = {
   up: 'text-emerald-600 dark:text-emerald-400',
   down: 'text-rose-600 dark:text-rose-400',
-  flat: 'text-slate-500 dark:text-slate-400',
+  flat: 'text-stone-500 dark:text-stone-400',
 };
 
 /** Text colour of a percent change. */

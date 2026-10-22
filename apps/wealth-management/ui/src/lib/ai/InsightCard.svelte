@@ -51,7 +51,7 @@
         {@const status = severityStatus(section.severity)}
         <li class="flex gap-3 rounded-xl border p-3 {status.box}">
           <Icon name={insightIcon[section.icon]} size={18} class="mt-0.5" />
-          <div class="min-w-0 text-slate-800 dark:text-slate-200">
+          <div class="min-w-0 text-stone-800 dark:text-stone-200">
             <p class="text-sm font-semibold">
               <span class="sr-only">{status.label}:</span><MaskedText text={section.title} />
             </p>
@@ -61,7 +61,7 @@
       {/each}
     </ul>
     {#if insight.actionItems.length}
-      <h3 class="mt-4 mb-2 text-xs font-semibold tracking-wide text-slate-600 uppercase dark:text-slate-400">
+      <h3 class="mt-4 mb-2 text-xs font-semibold tracking-wide text-stone-600 uppercase dark:text-stone-400">
         Next steps
       </h3>
       <ul class="space-y-1 text-sm">

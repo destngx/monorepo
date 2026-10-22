@@ -23,7 +23,7 @@
   const headline = $derived(closeHeadline(close));
 </script>
 
-<section class="glass mb-4 border-l-4 p-5 {STATUS[headline.tone].edge}" aria-labelledby="close-headline">
+<section class="panel mb-4 border-l-4 p-5 {STATUS[headline.tone].edge}" aria-labelledby="close-headline">
   <h2 id="close-headline" class="text-lg font-semibold" data-testid="close-headline">{headline.text}</h2>
   <p class="muted mt-1 text-sm">
     {close.monthEnded
@@ -32,12 +32,12 @@
   </p>
 </section>
 
-<ol class="glass divide-y divide-slate-900/5 dark:divide-white/5" aria-label="Checklist">
+<ol class="panel divide-y divide-stone-900/5 dark:divide-white/5" aria-label="Checklist">
   {#each close.items as item (item.key)}
     {@const state = CLOSE_STATE[item.state]}
     {@const link = closeLink(item.key, close.month)}
     <li
-      class="flex flex-wrap items-start justify-between gap-3 p-4 transition-colors hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.03]"
+      class="flex flex-wrap items-start justify-between gap-3 p-4 transition-colors hover:bg-stone-900/[0.02] dark:hover:bg-white/[0.03]"
       data-item={item.key}
     >
       <div class="min-w-0 flex-1">

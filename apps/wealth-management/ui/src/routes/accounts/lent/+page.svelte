@@ -76,9 +76,9 @@
         </Card>
 
         {#if groups.settled.length}
-          <details class="glass mt-4 p-5">
+          <details class="panel mt-4 p-5">
             <summary
-              class="cursor-pointer rounded-md text-sm font-semibold tracking-wide text-slate-700 transition-colors hover:text-indigo-600 dark:text-slate-200 dark:hover:text-indigo-300"
+              class="cursor-pointer rounded-md text-sm font-semibold tracking-wide text-stone-700 transition-colors hover:text-accent-600 dark:text-stone-200 dark:hover:text-accent-300"
             >
               Settled ({groups.settled.length})
             </summary>
@@ -116,7 +116,7 @@
           <th class="px-5 py-2"><span class="sr-only">History</span></th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each people as person, index (`${group}-${index}`)}
           {@const key = `${group}-${index}`}
           <tr>
@@ -165,7 +165,7 @@
           </tr>
           {#if expanded === key}
             <tr>
-              <td colspan="8" class="bg-slate-900/[0.02] px-5 py-3 dark:bg-white/[0.02]">
+              <td colspan="8" class="bg-stone-900/[0.02] px-5 py-3 dark:bg-white/[0.02]">
                 <table class="w-full text-xs">
                   <thead>
                     <tr class="muted text-left uppercase">

@@ -24,10 +24,10 @@
   const shares = $derived(report ? countShares(report.counts) : null);
 </script>
 
-<section class="glass p-5" aria-busy={loading}>
+<section class="panel p-5" aria-busy={loading}>
   <header class="mb-3 flex flex-wrap items-start justify-between gap-3">
     <div class="min-w-0">
-      <h2 class="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+      <h2 class="flex flex-wrap items-center gap-2 text-sm font-semibold text-stone-700 dark:text-stone-200">
         {report?.topic ?? topic}
         {#if report}<Badge tone={biasTone[report.bias]}>{report.bias}</Badge>{/if}
       </h2>
@@ -77,14 +77,14 @@
     {@const total = report.counts.positive + report.counts.negative + report.counts.neutral}
     <div class="mb-4">
       <div
-        class="flex h-2 w-full overflow-hidden rounded-full bg-slate-900/10 dark:bg-white/10"
+        class="flex h-2 w-full overflow-hidden rounded-full bg-stone-900/10 dark:bg-white/10"
         role="img"
         aria-label="{report.counts.positive} positive, {report.counts.negative} negative, {report.counts
           .neutral} neutral"
       >
         <div class="bg-emerald-500" style:width="{shares.positive}%"></div>
         <div class="bg-rose-500" style:width="{shares.negative}%"></div>
-        <div class="bg-slate-400" style:width="{shares.neutral}%"></div>
+        <div class="bg-stone-400" style:width="{shares.neutral}%"></div>
       </div>
       <p class="mt-1.5 flex flex-wrap gap-x-4 text-xs">
         <span class="text-emerald-700 dark:text-emerald-300">{report.counts.positive} positive</span>
@@ -95,7 +95,7 @@
     </div>
 
     {#if report.articles.length}
-      <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each report.articles as article, i (i)}
           <li class="py-3 first:pt-0 last:pb-0">
             <div class="flex flex-wrap items-start justify-between gap-2">
@@ -116,7 +116,7 @@
             {#if article.snippet}
               <details class="mt-1.5 text-xs">
                 <summary class="muted cursor-pointer select-none">Snippet</summary>
-                <p class="mt-1 whitespace-pre-line text-slate-600 dark:text-slate-300">{article.snippet}</p>
+                <p class="mt-1 whitespace-pre-line text-stone-600 dark:text-stone-300">{article.snippet}</p>
               </details>
             {/if}
           </li>

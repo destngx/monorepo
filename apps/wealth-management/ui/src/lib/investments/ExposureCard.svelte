@@ -52,7 +52,7 @@
             <th class="px-5 py-2 text-right">Today</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each exposure.classes as c (c.class)}
             <tr>
               <td class="px-5 py-2">

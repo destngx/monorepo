@@ -81,7 +81,7 @@
       <p class="muted mt-1 text-xs" role="status">{recordNote(advice.recorded)}</p>
     {/if}
     {#if advice.alerts.length}
-      <ul class="mt-4 grid gap-2 md:grid-cols-2">
+      <ul class="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
         {#each advice.alerts as alert, index (index)}
           {@const status = severityStatus(alert.severity)}
           <li class="rounded-xl border p-3 text-sm {status.box}">
@@ -89,7 +89,7 @@
               <Icon name={status.icon} size={16} class="mt-0.5" /><span class="sr-only">{status.label}:</span>
               <span><MaskedText text={alert.title} />{alert.category ? ` · ${alert.category}` : ''}</span>
             </p>
-            <p class="text-slate-700 dark:text-slate-300"><MaskedText text={alert.message} /></p>
+            <p class="text-stone-700 dark:text-stone-300"><MaskedText text={alert.message} /></p>
           </li>
         {/each}
       </ul>
@@ -119,7 +119,7 @@
               ><th><span class="sr-only">Actions</span></th></tr
             >
           </thead>
-          <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
             {#each advice.suggestedLimits as limit (limit.category)}
               {@const shape = spendShape(limit.trend, limit.pattern)}
               <tr>
@@ -156,7 +156,7 @@
         </table>
       </div>
     {/if}
-    <div class="mt-4 grid gap-4 lg:grid-cols-3">
+    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div class="lg:col-span-2">
         <p class="muted mb-1 text-xs">Projected cash, next 30 days</p>
         <LineChart
@@ -198,7 +198,7 @@
       hint="Limits to raise, lower or keep from your year-to-date and 3-month spending, needs before wants, spikes and a cash projection."
     />
   {/if}
-  <section class="mt-6 border-t border-slate-900/5 pt-4 dark:border-white/5" aria-labelledby="budget-actions">
+  <section class="mt-6 border-t border-stone-900/5 pt-4 dark:border-white/5" aria-labelledby="budget-actions">
     <div class="mb-2 flex items-center justify-between gap-2">
       <h3 id="budget-actions" class="text-sm font-semibold">Actions you're tracking</h3>
       <a class="btn-ghost px-2 text-xs" href="{base}/recommendations?page=%2Fbudget" title="All budget recommendations"

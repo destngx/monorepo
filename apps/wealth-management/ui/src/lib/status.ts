@@ -94,12 +94,12 @@ export const STATUS: Record<StatusTone, StatusToken> = {
   neutral: {
     icon: 'info',
     label: 'No status',
-    ink: 'text-slate-700 dark:text-slate-300',
-    edge: 'border-l-slate-400',
-    box: 'border-slate-400/30 bg-slate-500/5 text-slate-700 dark:text-slate-300',
-    badge: 'bg-slate-900/5 text-slate-700 dark:bg-white/10 dark:text-slate-300',
-    fill: 'bg-slate-400',
-    wash: 'bg-slate-500/10',
+    ink: 'text-stone-700 dark:text-stone-300',
+    edge: 'border-l-stone-400',
+    box: 'border-stone-400/30 bg-stone-500/5 text-stone-700 dark:text-stone-300',
+    badge: 'bg-stone-900/5 text-stone-700 dark:bg-white/10 dark:text-stone-300',
+    fill: 'bg-stone-400',
+    wash: 'bg-stone-500/10',
     chart: '#64748b',
   },
 };

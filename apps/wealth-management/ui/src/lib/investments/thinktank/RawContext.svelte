@@ -17,7 +17,7 @@
 </script>
 
 <div class="space-y-5 text-sm">
-  <div class="grid gap-4 md:grid-cols-3">
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
     <div>
       <h3 class="label">Portfolio totals</h3>
       {#if totals}
@@ -146,14 +146,14 @@
   <div>
     <h3 class="label">Search context sent to the models</h3>
     <pre
-      class="max-h-80 overflow-auto rounded-lg bg-slate-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{context.searchContext ||
+      class="max-h-80 overflow-auto rounded-lg bg-stone-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-white/5">{context.searchContext ||
         '(empty)'}</pre>
   </div>
 
   <details>
     <summary class="label cursor-pointer select-none">Full context JSON</summary>
     {#if mask.revealed}
-      <pre class="mt-1 max-h-96 overflow-auto rounded-lg bg-slate-900/5 p-3 text-xs dark:bg-white/5">{json}</pre>
+      <pre class="mt-1 max-h-96 overflow-auto rounded-lg bg-stone-900/5 p-3 text-xs dark:bg-white/5">{json}</pre>
     {:else}
       <p class="muted mt-1 text-xs">
         Hidden while amounts are masked: it holds balances and transactions.

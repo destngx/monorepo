@@ -61,13 +61,13 @@
     {@const status = band[value.band]}
     <div>
       {#if value.insufficientIncome}
-        <div class="glass mb-4 flex items-start gap-2 border p-3 text-sm {STATUS.warning.box}" role="status">
+        <div class="panel mb-4 flex items-start gap-2 border p-3 text-sm {STATUS.warning.box}" role="status">
           <Icon name={STATUS.warning.icon} size={16} class="mt-0.5" />
           <span>Not enough income history to score savings and debt reliably; those pillars may read low.</span>
         </div>
       {/if}
 
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card title="Health score">
           <div class="flex flex-col items-center gap-3">
             <Ring
@@ -99,7 +99,7 @@
 
       <!-- WM-HEA-3: show the math -->
       <Card title="How the score is built" class="mt-4">
-        <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each value.components as component (component.key)}
             {@const text = pillarText(component, value)}
             {@const open = openMath === component.key}
@@ -122,7 +122,7 @@
                 </div>
               </div>
               {#if open}
-                <div class="mt-2 rounded-xl bg-slate-900/5 p-3 text-sm dark:bg-white/5">
+                <div class="mt-2 rounded-xl bg-stone-900/5 p-3 text-sm dark:bg-white/5">
                   <p class="font-mono text-xs"><MaskedText text={component.formula} /></p>
                   <p class="muted mt-1"><MaskedText text={component.detail} /></p>
                 </div>
@@ -135,7 +135,7 @@
   {/snippet}
   {#snippet skeleton()}
     <div>
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <SkeletonCard title="Health score" chart={170} lines={0} />
         <SkeletonCard title="Pillars" chart={170} lines={0} class="lg:col-span-2" />
       </div>
@@ -164,7 +164,7 @@
     <div>
       {#if projection.length}
         <Card title="Net worth projection" subtitle="Real values are in today's money, after inflation" class="mb-4">
-          <div class="grid items-center gap-4 lg:grid-cols-2">
+          <div class="grid grid-cols-1 items-center gap-4 lg:grid-cols-2">
             <BarChart
               labels={projection.map((row) => `${row.years}y`)}
               series={[
@@ -182,7 +182,7 @@
                   <th class="py-2 text-right">Real</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+              <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
                 {#each projection as row (row.years)}
                   <tr>
                     <td class="py-2">{row.years} years</td>
@@ -196,13 +196,13 @@
         </Card>
       {/if}
 
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Doctor's orders">
           {#if value.recommendations.length}
             <ol class="space-y-3">
               {#each value.recommendations as rec, i (i)}
                 <li class="flex gap-3">
-                  <span class="grid size-6 shrink-0 place-items-center rounded-full bg-indigo-600 text-xs text-white"
+                  <span class="grid size-6 shrink-0 place-items-center rounded-full bg-accent-600 text-xs text-white"
                     >{i + 1}</span
                   >
                   <div>
@@ -224,7 +224,7 @@
   <!-- The score's section above already shows this request's error and Retry. -->
   {#snippet error()}{/snippet}
   {#snippet skeleton()}
-    <div class="grid gap-4 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <SkeletonCard title="Doctor's orders" lines={4} />
       <SkeletonCard title="Asset allocation" chart={140} lines={0} />
     </div>

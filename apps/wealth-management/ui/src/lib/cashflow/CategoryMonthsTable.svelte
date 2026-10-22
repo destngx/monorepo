@@ -30,7 +30,7 @@
   <div class="-mx-5 overflow-x-auto">
     <table class="w-full min-w-[56rem] text-sm">
       <thead>
-        <tr class="muted border-b border-slate-900/10 text-xs uppercase dark:border-white/10">
+        <tr class="muted border-b border-stone-900/10 text-xs uppercase dark:border-white/10">
           <th class="px-5 py-2 text-left font-medium">Category</th>
           {#each months as month, i (i)}
             <th class="px-2 py-2 text-right font-medium {i >= monthsElapsed ? 'opacity-50' : ''}">{month}</th>
@@ -39,7 +39,7 @@
           <th class="px-5 py-2 text-right font-medium">Share</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each rows as row (row.category)}
           <tr>
             <td class="max-w-48 truncate px-5 py-2" title={row.category}>{row.category}</td>
@@ -58,7 +58,7 @@
         {/each}
       </tbody>
       <tfoot>
-        <tr class="border-t border-slate-900/10 font-medium dark:border-white/10">
+        <tr class="border-t border-stone-900/10 font-medium dark:border-white/10">
           <td class="px-5 py-2">Total</td>
           {#each totals as value, i (i)}
             <td class="tabular px-2 py-2 text-right" title={full(value)}><Masked text={cell(value)} /></td>

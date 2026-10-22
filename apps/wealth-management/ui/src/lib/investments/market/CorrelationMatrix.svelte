@@ -26,8 +26,8 @@
               <td
                 class="tabular h-9 min-w-12 rounded-md border border-white/40 text-center dark:border-white/5 {value ===
                 null
-                  ? 'muted bg-slate-900/5 dark:bg-white/5'
-                  : 'text-slate-900 dark:text-slate-50'}"
+                  ? 'muted bg-stone-900/5 dark:bg-white/5'
+                  : 'text-stone-900 dark:text-stone-50'}"
                 style={correlationStyle(value)}
                 title="{row} / {column}: {value === null ? 'not enough shared bars' : formatNumber(value)}"
                 >{value === null ? 'n/a' : formatNumber(value)}</td
@@ -43,7 +43,7 @@
       ><span class="inline-block size-3 rounded" style={correlationStyle(-1)}></span> Moves opposite</span
     >
     <span class="inline-flex items-center gap-1"
-      ><span class="inline-block size-3 rounded bg-slate-900/5 dark:bg-white/5"></span> Unrelated / n/a</span
+      ><span class="inline-block size-3 rounded bg-stone-900/5 dark:bg-white/5"></span> Unrelated / n/a</span
     >
     <span class="inline-flex items-center gap-1"
       ><span class="inline-block size-3 rounded" style={correlationStyle(1)}></span> Moves together</span

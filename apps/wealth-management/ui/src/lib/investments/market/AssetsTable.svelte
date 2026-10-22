@@ -46,7 +46,7 @@
   const momentumClass: Record<PulseQuote['momentum'], string> = {
     fire: 'text-orange-500',
     stable: 'text-sky-600 dark:text-sky-400',
-    sleep: 'text-slate-400',
+    sleep: 'text-stone-400',
   };
   const directionRotation = { up: '', down: 'rotate-180', flat: 'rotate-90' } as const;
 
@@ -83,7 +83,7 @@
             <th class="px-5 py-2">Source</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each assets as quote (quote.symbol)}
             <tr class={quote.error ? 'opacity-60' : ''}>
               <td class="px-5 py-2">
@@ -136,7 +136,7 @@
       <span class="inline-flex items-center gap-1"
         ><Icon name="activity" size={12} class="text-sky-600 dark:text-sky-400" /> Steady</span
       >
-      <span class="inline-flex items-center gap-1"><Icon name="moon" size={12} class="text-slate-400" /> Quiet</span>
+      <span class="inline-flex items-center gap-1"><Icon name="moon" size={12} class="text-stone-400" /> Quiet</span>
       <span class="inline-flex items-center gap-1"
         ><Icon name="alert" size={12} class="text-amber-600" /> Served by a fallback source (hover for details)</span
       >

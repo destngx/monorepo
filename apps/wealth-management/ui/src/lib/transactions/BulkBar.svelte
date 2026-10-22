@@ -28,7 +28,7 @@
 </script>
 
 <div
-  class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-3 py-2 text-sm"
+  class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-accent-500/30 bg-accent-500/5 px-3 py-2 text-sm"
 >
   <span class="font-medium">{count} selected</span>
   <label class="sr-only" for="bulk-category">New category</label>

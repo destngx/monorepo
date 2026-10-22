@@ -99,7 +99,7 @@
   <button
     bind:this={button}
     type="button"
-    class="btn-ghost hit-area px-1.5 text-indigo-600 dark:text-indigo-400"
+    class="btn-ghost hit-area px-1.5 text-accent-600 dark:text-accent-400"
     aria-label={label}
     aria-expanded={open}
     title={label}
@@ -113,7 +113,7 @@
       bind:this={popover}
       {@attach focusOnOpen}
       tabindex="-1"
-      class="glass fixed z-50 overflow-y-auto p-4 text-left text-sm font-normal normal-case shadow-lg outline-none"
+      class="panel fixed z-50 overflow-y-auto p-4 text-left text-sm font-normal normal-case shadow-hard-lg outline-none"
       style={placement}
       role="dialog"
       aria-label={title}

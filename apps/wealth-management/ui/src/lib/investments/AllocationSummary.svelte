@@ -42,7 +42,7 @@
   {:else}
     <p class="muted text-sm">No positive balances to allocate.</p>
   {/if}
-  <a href="{base}/investments" class="mt-3 inline-block text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+  <a href="{base}/investments" class="mt-3 inline-block text-xs text-accent-600 hover:underline dark:text-accent-400"
     >Targets and drift on Investments</a
   >
 </Card>

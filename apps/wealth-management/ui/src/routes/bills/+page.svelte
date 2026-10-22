@@ -223,16 +223,16 @@
           <dt>Fixed costs still to pay</dt>
           <dd class="text-right">− <Money value={safe.fixedCosts} /></dd>
         {/if}
-        <dt class="border-t border-slate-900/10 pt-1 dark:border-white/10">Left after committed</dt>
-        <dd class="border-t border-slate-900/10 pt-1 text-right dark:border-white/10">
+        <dt class="border-t border-stone-900/10 pt-1 dark:border-white/10">Left after committed</dt>
+        <dd class="border-t border-stone-900/10 pt-1 text-right dark:border-white/10">
           <Money value={safe.amount} />
         </dd>
         {#if safe.natureTagged}
           <dt>Essentials for {safe.days} {safe.days === 1 ? 'day' : 'days'}</dt>
           <dd class="text-right">− <Money value={safe.essentials} /></dd>
         {/if}
-        <dt class="border-t border-slate-900/10 pt-1 font-semibold dark:border-white/10">Free to spend</dt>
-        <dd class="border-t border-slate-900/10 pt-1 text-right font-semibold dark:border-white/10">
+        <dt class="border-t border-stone-900/10 pt-1 font-semibold dark:border-white/10">Free to spend</dt>
+        <dd class="border-t border-stone-900/10 pt-1 text-right font-semibold dark:border-white/10">
           <Money value={safe.safeToSpend} />
         </dd>
       </dl>
@@ -278,7 +278,7 @@
         </Card>
       {/if}
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card title="Next 30 days" subtitle="Bills, income and card payments until {formatDate(bills.calendar.to)}">
           <div class="mb-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
             <span>To pay: <Money value={bills.calendar.upcomingOut} /> ({bills.calendar.upcomingCount})</span>
@@ -292,7 +292,7 @@
             {/if}
           </div>
           {#if sections.upcoming.length}
-            <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+            <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
               {#each sections.upcoming as occurrence (occurrence.name + occurrence.expectedDate)}
                 {@render occurrenceRow(occurrence)}
               {/each}
@@ -306,7 +306,7 @@
           {#if sections.earlier.length}
             <details class="mt-3">
               <summary class="link w-fit text-sm font-medium">Earlier this month ({sections.earlier.length})</summary>
-              <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+              <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
                 {#each sections.earlier as occurrence (occurrence.name + occurrence.expectedDate)}
                   {@render occurrenceRow(occurrence)}
                 {/each}
@@ -320,7 +320,7 @@
           subtitle="Found in your transactions. Dismiss keeps a paused row so it is not suggested again."
         >
           {#if bills.suggestions.length}
-            <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+            <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
               {#each bills.suggestions as suggestion (suggestion.key)}
                 {@const confidence = confidenceStatus(suggestion.confidence)}
                 <li class="py-3">
@@ -368,7 +368,7 @@
 
       <Card title="Recurring items" subtitle="Saved in the Recurring tab of your sheet" class="mt-4">
         {#if groups.active.length}
-          <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+          <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
             {#each groups.active as item (item.id)}
               {@render itemRow(item)}
             {/each}
@@ -384,7 +384,7 @@
         {#if groups.paused.length}
           <details class="mt-3">
             <summary class="link w-fit text-sm font-medium">Paused and dismissed ({groups.paused.length})</summary>
-            <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+            <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
               {#each groups.paused as item (item.id)}
                 {@render itemRow(item)}
               {/each}
@@ -395,7 +395,7 @@
     </div>
   {/snippet}
   {#snippet skeleton()}
-    <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <SkeletonCard title="Next 30 days" lines={1} rows={5} />
       <SkeletonCard title="Suggestions" lines={4} />
     </div>

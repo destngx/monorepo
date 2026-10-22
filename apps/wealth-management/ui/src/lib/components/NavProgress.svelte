@@ -25,16 +25,14 @@
 </script>
 
 <div
-  class="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5"
+  class="pointer-events-none fixed inset-x-0 top-0 z-50 h-[3px]"
   data-nav-progress
   data-phase={phase}
   role={phase === 'loading' ? 'progressbar' : undefined}
   aria-label={phase === 'loading' ? 'Loading page' : undefined}
   aria-hidden={phase === 'loading' ? undefined : 'true'}
 >
-  <div
-    class="bar h-full origin-left bg-indigo-500 shadow-[0_0_8px] shadow-indigo-500/60 dark:bg-indigo-400 dark:shadow-indigo-400/60"
-  ></div>
+  <div class="bar h-full origin-left bg-accent-600 dark:bg-accent-300"></div>
 </div>
 
 <style>

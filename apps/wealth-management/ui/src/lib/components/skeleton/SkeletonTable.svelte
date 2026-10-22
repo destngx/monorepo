@@ -13,7 +13,7 @@
 </script>
 
 <Loading {label} class={className}>
-  <div class="divide-y divide-slate-900/5 dark:divide-white/5">
+  <div class="divide-y divide-stone-900/5 dark:divide-white/5">
     <div class="flex gap-4 pb-2">
       {#each { length: columns }, c (c)}<div class="skeleton h-3 flex-1 opacity-60"></div>{/each}
     </div>

@@ -23,12 +23,12 @@
   let { group, accounts, open, total, histories, credits, ontoggle, onedit, ondelete }: Props = $props();
 </script>
 
-<section class="glass mt-4">
+<section class="panel mt-4">
   <!-- The total sits beside the toggle: an amount is its own mask button, never nested in another. -->
   <div class="flex items-center gap-3 pr-5">
     <button
       type="button"
-      class="row-link flex min-w-0 flex-1 items-center gap-2 rounded-2xl px-5 py-4 text-left font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+      class="row-link flex min-w-0 flex-1 items-center gap-2 rounded-2xl px-5 py-4 text-left font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
       aria-expanded={open}
       title={open ? `Collapse ${group.label}` : `Expand ${group.label}`}
       onclick={ontoggle}
@@ -40,7 +40,7 @@
     {#if group.subtotal}<Money value={total} class="font-semibold" />{/if}
   </div>
   {#if open}
-    <ul class="divide-y divide-slate-900/5 border-t border-slate-900/5 dark:divide-white/5 dark:border-white/5">
+    <ul class="divide-y divide-stone-900/5 border-t border-stone-900/5 dark:divide-white/5 dark:border-white/5">
       {#each accounts as account (account.name)}
         <AccountRow
           {account}

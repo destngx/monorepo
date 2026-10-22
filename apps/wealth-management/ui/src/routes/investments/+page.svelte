@@ -101,7 +101,7 @@
 </PageHeader>
 
 {#if issues.length}
-  <div class="glass mb-4 border p-3 text-sm {STATUS.warning.box}" role="status">
+  <div class="panel mb-4 border p-3 text-sm {STATUS.warning.box}" role="status">
     <p class="flex items-center gap-2 font-medium">
       <Icon name={STATUS.warning.icon} size={16} />Some figures are incomplete:
     </p>
@@ -118,7 +118,7 @@
 </Deferred>
 
 <!-- ROADMAP M2 and M4: the crypto view, then gold and USD as protection -->
-<div class="mt-4 grid gap-4 xl:grid-cols-2">
+<div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
   <!-- Crypto comes from the exposure: when that fails, its error shows once, in the exposure card above. -->
   {#if exposure.value || !exposure.failure}
     <Deferred data={parts.exposure} label="crypto">
@@ -216,7 +216,7 @@
 {/if}
 
 <!-- ROADMAP C5: one bank-rates list, on the Fmarket page -->
-<p class="glass mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm" aria-busy={bankRates.pending}>
+<p class="panel mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 text-sm" aria-busy={bankRates.pending}>
   <span class="font-medium">Best savings rate</span>
   {#if bankRates.loading}
     <span class="skeleton inline-block h-3.5 w-48" role="status"><span class="sr-only">Loading bank rates…</span></span>

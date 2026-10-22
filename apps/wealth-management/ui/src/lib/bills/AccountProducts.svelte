@@ -44,7 +44,7 @@
   <p class="muted text-xs">
     Linked wallet products: an account that is a wallet earning balance earns the product's live rate.
   </p>
-  <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+  <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
     {#each names as name (name)}
       <li class="flex items-center justify-between gap-2 py-1.5">
         <label class="min-w-0 truncate" for="account-product-{name}">{name}</label>

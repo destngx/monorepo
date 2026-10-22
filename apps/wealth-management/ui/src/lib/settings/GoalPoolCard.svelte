@@ -71,9 +71,9 @@
         </ul>
       </div>
     {/if}
-    <form class="-my-3 divide-y divide-slate-900/5 dark:divide-white/5" onsubmit={save}>
+    <form class="-my-3 divide-y divide-stone-900/5 dark:divide-white/5" onsubmit={save}>
       {#each GOAL_POOL_FIELDS as field (field.key)}
-        <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+        <div class="grid grid-cols-1 gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
           <div>
             <label class="text-sm font-medium" for="goal-{field.key}">{field.label}</label>
             <p class="muted text-xs">{field.hint}</p>
@@ -102,7 +102,7 @@
         >
       </div>
     </form>
-    <div class="border-t border-slate-900/5 pt-3 dark:border-white/5">
+    <div class="border-t border-stone-900/5 pt-3 dark:border-white/5">
       <p class="text-sm font-medium">Idle cash</p>
       <p class="muted mb-1 text-xs">
         Money kept ready in everyday accounts before any cash counts as idle. Emergency accounts are marked on Bills.

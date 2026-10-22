@@ -39,7 +39,7 @@
 </script>
 
 <Modal {open} title={editing ? `Edit ${editing.name}` : 'New goal'} {onclose} {busy}>
-  <form id="goal-form" class="grid gap-4 sm:grid-cols-2" onsubmit={submit}>
+  <form id="goal-form" class="grid grid-cols-1 gap-4 sm:grid-cols-2" onsubmit={submit}>
     <div class="sm:col-span-2">
       <label class="label" for="goal-name">Name *</label>
       <input

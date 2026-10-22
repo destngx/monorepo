@@ -33,7 +33,7 @@
 </script>
 
 {#if draft}
-  <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+  <div class="grid grid-cols-1 gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
     <div class="min-w-0">
       <label class="text-sm font-medium" for={id} title={setting.key}>{setting.label}</label>
       {#if setting.description}<p class="muted text-xs">{setting.description}</p>{/if}

@@ -80,7 +80,7 @@
               {@const status = severityStatus(section.severity)}
               <li class="flex gap-3 rounded-xl border p-3 {status.box}">
                 <Icon name={insightIcon[section.icon]} size={18} class="mt-0.5" />
-                <div class="min-w-0 text-slate-800 dark:text-slate-200">
+                <div class="min-w-0 text-stone-800 dark:text-stone-200">
                   <p class="text-sm font-semibold">
                     <span class="sr-only">{status.label}:</span><MaskedText text={section.title} />
                   </p>

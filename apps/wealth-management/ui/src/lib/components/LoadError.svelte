@@ -40,7 +40,7 @@
 {:else}
   <div
     role="alert"
-    class="rounded-2xl border p-4 text-sm backdrop-blur-xl {style.box} {className}"
+    class="rounded-xl border-[1.5px] p-4 text-sm {style.box} {className}"
     data-load-error={failure.kind}
   >
     <div class="flex items-start gap-3">

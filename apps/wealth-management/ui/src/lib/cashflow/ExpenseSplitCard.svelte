@@ -60,7 +60,7 @@
         ></div>
       {/each}
     </div>
-    <ul class="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4" data-testid="split-legend">
+    <ul class="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4" data-testid="split-legend">
       {#each groups as group (group.name)}
         <li class="flex items-start gap-2">
           <span class="mt-1 size-2.5 shrink-0 rounded-sm" style:background={group.color}></span>
@@ -84,7 +84,7 @@
         Leaner months are whole months you have already lived, so essentials are lowered, not cut. Below is where it
         comes from; categories rarely dip in the same month, so the lines add up to more than the total.
       </p>
-      <ul class="mt-2 divide-y divide-slate-900/5 text-sm dark:divide-white/5" data-testid="room">
+      <ul class="mt-2 divide-y divide-stone-900/5 text-sm dark:divide-white/5" data-testid="room">
         {#each split.room.slice(0, ROOM_SHOWN) as room (room.category)}
           <li class="flex items-baseline justify-between gap-3 py-2">
             <span>

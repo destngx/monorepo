@@ -35,11 +35,11 @@
 </script>
 
 {#if show}
-  <div role="status" class="glass mb-6 flex items-center gap-3 border border-sky-500/40 p-4 text-sm">
+  <div role="status" class="panel mb-6 flex items-center gap-3 border border-sky-500/40 p-4 text-sm">
     <Icon name="clock" class="text-sky-600 dark:text-sky-400" />
     <p class="flex-1">
       Nothing recorded today yet.
-      <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/transactions?new=1" onclick={dismiss}
+      <a class="text-accent-600 hover:underline dark:text-accent-400" href="{base}/transactions?new=1" onclick={dismiss}
         >Add a transaction</a
       >
     </p>

@@ -54,7 +54,7 @@
           <th class="py-2 text-right">Impact</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each crypto.scenarios as scenario (scenario.fallPct)}
           {@const status = drawdownStatus(scenario)}
           <tr>
@@ -82,7 +82,7 @@
               <th class="px-5 py-2 text-right">24h</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
             {#each crypto.coins as coin (coin.symbol)}
               <tr>
                 <td class="px-5 py-2 font-medium">

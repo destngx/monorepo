@@ -17,7 +17,7 @@
 
 <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
   {#each movers as mover (mover.symbol)}
-    <a href={symbolHref(mover.symbol, timeframe)} class="glass interactive block p-3">
+    <a href={symbolHref(mover.symbol, timeframe)} class="panel interactive block p-3">
       <p class="muted text-xs font-medium tracking-wide uppercase">Top mover</p>
       <p class="mt-1 flex items-baseline justify-between gap-2">
         <span class="font-semibold">{mover.symbol}</span>

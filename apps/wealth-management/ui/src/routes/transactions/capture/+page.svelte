@@ -239,7 +239,7 @@
     <CaptureInbox bind:items bind:preparing {limits} disabled={stage === 'analyzing'} />
 
     {#if stage === 'analyzing'}
-      <div class="mt-4 rounded-xl bg-slate-900/5 p-4 dark:bg-white/5" aria-live="polite">
+      <div class="mt-4 rounded-xl bg-stone-900/5 p-4 dark:bg-white/5" aria-live="polite">
         <p class="flex items-center gap-2 text-sm font-medium">
           <Icon name="sparkles" size={16} class="animate-pulse" />
           {step}…

@@ -37,7 +37,7 @@
   {#if task.status === 'done' && task.value}
     {@const briefing = task.value}
     {#if briefing.alerts.length}
-      <ul class="mb-4 grid gap-2 md:grid-cols-2">
+      <ul class="mb-4 grid grid-cols-1 gap-2 md:grid-cols-2">
         {#each briefing.alerts as alert, index (index)}
           {@const status = severityStatus(alert.severity)}
           <li class="rounded-xl border p-3 text-sm {status.box}">
@@ -46,7 +46,7 @@
                 ><MaskedText text={alert.title} /></span
               >
             </p>
-            <p class="text-slate-700 dark:text-slate-300"><MaskedText text={alert.message} /></p>
+            <p class="text-stone-700 dark:text-stone-300"><MaskedText text={alert.message} /></p>
           </li>
         {/each}
       </ul>
@@ -55,16 +55,16 @@
     {#if briefing.recorded}
       <p class="muted mt-3 text-xs" role="status">
         {recordNote(briefing.recorded)}
-        <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/recommendations"
+        <a class="text-accent-600 hover:underline dark:text-accent-400" href="{base}/recommendations"
           >See recommendations</a
         >
       </p>
     {/if}
     {#if briefing.patterns.length}
       {#snippet patterns()}
-        <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {#each briefing.patterns as pattern, index (index)}
-            <div class="rounded-xl border border-slate-900/10 p-3 dark:border-white/10">
+            <div class="rounded-xl border border-stone-900/10 p-3 dark:border-white/10">
               <p class="muted text-xs font-medium tracking-wide uppercase">
                 {patternLabels[pattern.kind] ?? pattern.kind}
               </p>

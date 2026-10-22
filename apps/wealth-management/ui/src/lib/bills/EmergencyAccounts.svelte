@@ -33,7 +33,7 @@
   <p class="muted text-xs">
     Mark the accounts that hold your emergency fund: they cover its target first and are never called idle.
   </p>
-  <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+  <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
     {#each idle.emergency.accounts as account (account.name)}
       <li class="flex items-center justify-between gap-2 py-1.5">
         <span class="min-w-0 truncate">{account.name}, {rateLabel(account.rate)}</span>

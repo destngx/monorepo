@@ -79,7 +79,7 @@ describe('formatting', () => {
     expect(changeDirection(null)).toBeNull();
     expect(changeClass(1)).toContain('emerald');
     expect(changeClass(-1)).toContain('rose');
-    expect(changeClass(null)).toContain('slate');
+    expect(changeClass(null)).toContain('stone');
   });
 
   it('shows Vietnam wall-clock time', () => {

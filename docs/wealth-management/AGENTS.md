@@ -43,7 +43,10 @@ The frontend follows **Feature-Sliced Design (FSD)** to maintain scalability.
 
 ### 💅 UI & Styling
 
-- **Glassmorphism**: The primary aesthetic theme.
+- **Look** (WM-UI-5): neo-brutalism with quiet luxury. The page is flat warm paper (`bg-canvas`). A raised surface is a `panel`: `bg-surface` with a 1.5px `border-edge` outline and a hard `shadow-hard` offset without blur. Corners are small, because the theme tightens Tailwind's `rounded-*` scale. Page titles, card titles, headlines and modal titles use `font-serif`; labels are small, uppercase and tracked; body text is sans with tabular numbers. Primary buttons and the current tab are ink (`stone-900`, inverted in dark mode). One muted bronze accent (`accent-*`) marks links, focus rings and the current page in the sidebar. Do not add gradients, glass or blur.
+- **Tokens**: `@theme` in `routes/layout.css` holds the colours, shadows, radii and fonts; surface, edge and shade switch under `.dark`. Use `stone-*` for neutrals and `accent-*` for the accent. Status colours keep their own scale in `lib/status.ts`.
+- **Charts**: series colours come from `lib/charts/palette.ts` in a fixed order, each set checked against both theme surfaces with the dataviz palette validator. Do not write a hex colour in a chart.
+- **Phones** (WM-UI-20): every page fits a 390px screen without sideways scrolling. A grid with breakpoint columns starts at `grid-cols-1`. A flex child that holds text gets `min-w-0`. A wide table either scrolls inside its card with `overflow-x-auto` or stacks its rows into cards below `sm`, as `TransactionTable` does. The base styles make every `overflow-x-auto` a containing block, so a table's sr-only text cannot widen the page.
 - **Tailwind CSS**: Used for all styling. Avoid vanilla CSS where possible.
 
 ### ⏳ Loading and feedback (WM-UI-16..19)

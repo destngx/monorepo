@@ -6,7 +6,7 @@ describe('SourceBadge', () => {
   it('names the provider quietly when the first provider answered', () => {
     render(SourceBadge, { source: { provider: 'fmarket', asOf: '2026-10-14T01:00:00Z' }, detail: 'bank sell' });
     const badge = screen.getByText('fmarket · bank sell');
-    expect(badge.className).toContain('text-slate-600');
+    expect(badge.className).toContain('text-stone-600');
     expect(badge.getAttribute('title')).toMatch(/^Served by fmarket \(bank sell\), read /);
   });
 

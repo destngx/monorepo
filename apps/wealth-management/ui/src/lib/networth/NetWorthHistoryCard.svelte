@@ -37,7 +37,7 @@
         <button
           type="button"
           class="btn-ghost rounded-md px-2 py-0.5 text-xs {range === option
-            ? 'bg-indigo-500/15 font-semibold text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300'
+            ? 'bg-accent-500/15 font-semibold text-accent-700 hover:bg-accent-500/20 dark:text-accent-300'
             : 'muted'}"
           title="Show {option === '1Y' ? 'the last year' : 'all time'}"
           aria-pressed={range === option}
@@ -101,7 +101,7 @@
             <th class="py-2 text-right">Market and other</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each [...points].reverse() as point (point.month)}
             <tr>
               <td class="py-2">{formatMonth(point.month)}</td>

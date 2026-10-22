@@ -23,7 +23,7 @@
   <p data-testid="needs-you-text">{headline.text}</p>
 
   {#if inbox.items.length}
-    <ul class="mt-3 divide-y divide-slate-900/5 dark:divide-white/5" aria-label="Needs you">
+    <ul class="mt-3 divide-y divide-stone-900/5 dark:divide-white/5" aria-label="Needs you">
       {#each visible as item (item.id)}
         {@const amount = itemAmount(item)}
         <li data-kind={item.kind} class="flex items-start gap-3 py-2.5">
@@ -31,7 +31,7 @@
             ><Icon name={KIND_ICON[item.kind]} size={16} /></span
           >
           <div class="min-w-0 flex-1">
-            <a href="{base}{item.route}" class="font-medium text-indigo-700 hover:underline dark:text-indigo-300"
+            <a href="{base}{item.route}" class="font-medium text-accent-700 hover:underline dark:text-accent-300"
               ><MaskedText text={item.headline} inLink /></a
             >
             {#if item.detail}<p class="muted text-xs"><MaskedText text={item.detail} /></p>{/if}

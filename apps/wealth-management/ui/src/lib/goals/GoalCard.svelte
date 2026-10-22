@@ -27,7 +27,7 @@
   const status = $derived(paceStatus(goal.pace));
 </script>
 
-<li class="glass p-4 transition-shadow duration-150 hover:shadow-md hover:shadow-slate-900/10">
+<li class="panel p-4">
   <div class="flex items-start justify-between gap-3">
     <div class="min-w-0">
       <p class="truncate font-semibold">

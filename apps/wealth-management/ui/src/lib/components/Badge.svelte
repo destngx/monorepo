@@ -10,7 +10,7 @@
   let { tone = 'neutral', status, children }: { tone?: Tone; status?: StatusTone; children?: Snippet } = $props();
 
   const tones: Record<Tone, string> = {
-    neutral: 'bg-slate-900/5 text-slate-700 dark:bg-white/10 dark:text-slate-300',
+    neutral: 'bg-stone-900/5 text-stone-700 dark:bg-white/10 dark:text-stone-300',
     green: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
     orange: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
     amber: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
@@ -22,7 +22,7 @@
 </script>
 
 <span
-  class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap {token
+  class="inline-flex items-center gap-1 rounded-md border border-current/25 px-2 py-0.5 text-xs font-medium whitespace-nowrap {token
     ? token.badge
     : tones[tone]}"
   data-status={status}

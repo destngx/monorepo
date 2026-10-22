@@ -11,7 +11,7 @@
 
 <svelte:head><title>Error · Wealth</title></svelte:head>
 
-<div class="glass mx-auto mt-10 max-w-xl p-6 text-center">
+<div class="panel mx-auto mt-10 max-w-xl p-6 text-center">
   <Icon name="alert" size={28} class="mx-auto text-orange-500" />
   <h1 class="mt-3 text-lg font-semibold">{page.status === 404 ? 'Page not found' : 'Something went wrong'}</h1>
   <p class="muted mt-2 text-sm break-words">{page.error?.message}</p>

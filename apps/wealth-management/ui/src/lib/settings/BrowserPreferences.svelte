@@ -23,8 +23,8 @@
 </script>
 
 <Card title="This browser" subtitle="Stored only in this browser">
-  <div class="-my-3 divide-y divide-slate-900/5 dark:divide-white/5">
-    <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+  <div class="-my-3 divide-y divide-stone-900/5 dark:divide-white/5">
+    <div class="grid grid-cols-1 gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
       <label class="text-sm font-medium" for="theme">Theme</label>
       <select
         id="theme"
@@ -36,7 +36,7 @@
       </select>
     </div>
 
-    <div class="grid gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
+    <div class="grid grid-cols-1 gap-x-6 gap-y-1.5 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-center">
       <div>
         <label class="text-sm font-medium" for="reminder">Daily entry reminder</label>
         <p class="muted text-xs">A banner when nothing is recorded today.</p>
@@ -45,7 +45,7 @@
         <input
           id="reminder"
           type="checkbox"
-          class="size-4 accent-indigo-600"
+          class="size-4 accent-accent-600"
           checked={entryReminder.enabled.value === 'true'}
           onchange={(event) => setReminder(event.currentTarget.checked)}
         />

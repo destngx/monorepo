@@ -55,7 +55,7 @@
 
 <Modal open={line !== null} title={line?.category ?? ''} {onclose} wide>
   {#if line}
-    <div class="grid items-center gap-6 sm:grid-cols-[auto_1fr]">
+    <div class="grid grid-cols-1 items-center gap-6 sm:grid-cols-[auto_1fr]">
       <Donut
         items={[
           { label: 'Spent', value: line.spent, color: EXPENSE },
@@ -108,7 +108,7 @@
               <th class="py-1.5 text-right font-medium">3 months, a month</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
             {#each line.splits as split (split.tag)}
               <tr>
                 <td class="py-1.5 font-medium">#{split.tag}</td>
@@ -146,7 +146,7 @@
     {#if transactions === null}
       <SkeletonTable rows={4} columns={2} label="transactions" />
     {:else if detailRows.length}
-      <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+      <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
         {#each detailRows as tx (tx.id)}
           {@const tag = rowSplitTag(tx, splitTags)}
           <li class="flex justify-between gap-3 py-2">

@@ -199,7 +199,7 @@
             subtitle="Each change alone closes the gap; lowest priority first"
             class="mt-4"
           >
-            <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+            <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
               {#each check.tradeOffs as tradeOff (tradeOff.goalId)}
                 <li class="flex flex-wrap items-center justify-between gap-2 py-2">
                   <span class="font-medium">{tradeOff.name}</span>
@@ -230,10 +230,10 @@
           </Card>
         {/if}
 
-        <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div>
             {#if groups.active.length}
-              <ul class="grid gap-4 sm:grid-cols-2">
+              <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {#each groups.active as goal, index (goal.id)}
                   <GoalCard
                     {goal}
@@ -252,12 +252,12 @@
 
             {#each [{ label: 'Paused', goals: groups.paused }, { label: 'Done', goals: groups.done }] as section (section.label)}
               {#if section.goals.length}
-                <details class="glass mt-4 p-5">
+                <details class="panel mt-4 p-5">
                   <summary
-                    class="cursor-pointer text-sm font-semibold transition-colors hover:text-indigo-600 dark:hover:text-indigo-300"
+                    class="cursor-pointer text-sm font-semibold transition-colors hover:text-accent-600 dark:hover:text-accent-300"
                     >{section.label} ({section.goals.length})</summary
                   >
-                  <ul class="mt-4 grid gap-4 sm:grid-cols-2">
+                  <ul class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {#each section.goals as goal (goal.id)}
                       <GoalCard {goal} {busy} onedit={() => openEdit(goal)} ondelete={() => (deleting = goal)} />
                     {/each}
@@ -285,8 +285,8 @@
   {#snippet skeleton()}
     <div>
       <SkeletonHeadline question="Am I on track?" label="the goal plan" />
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div class="grid gap-4 sm:grid-cols-2">
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SkeletonCard lines={4} label="goals" />
           <SkeletonCard lines={4} label="goals" />
         </div>

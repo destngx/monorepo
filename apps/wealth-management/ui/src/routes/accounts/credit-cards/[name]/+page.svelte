@@ -54,7 +54,7 @@
   {/snippet}
   {#snippet skeleton()}
     <div>
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <SkeletonCard title="Limit" lines={3} label="the card" />
         <SkeletonCard title="This period" lines={4} label="the card" />
         <SkeletonCard title="Pay by" lines={3} label="the card" />

@@ -9,14 +9,14 @@
 <div class="flex items-center gap-1.5 text-xs" title="{label} {Math.round(percent)}/100">
   <span class="muted w-16 shrink-0">{label}</span>
   <div
-    class="h-1.5 w-16 overflow-hidden rounded-full bg-slate-900/10 dark:bg-white/10"
+    class="h-1.5 w-16 overflow-hidden rounded-full bg-stone-900/10 dark:bg-white/10"
     role="meter"
     aria-label={label}
     aria-valuemin={0}
     aria-valuemax={100}
     aria-valuenow={Math.round(percent)}
   >
-    <div class="h-full rounded-full bg-indigo-500" style:width="{percent}%"></div>
+    <div class="h-full rounded-sm bg-accent-500" style:width="{percent}%"></div>
   </div>
   <span class="tabular w-8 text-right">{Math.round(percent)}%</span>
 </div>

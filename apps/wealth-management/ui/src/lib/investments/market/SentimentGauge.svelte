@@ -14,7 +14,7 @@
     <Badge tone={sentimentTone(score)}>{label}</Badge>
   </div>
   <div
-    class="relative mt-3 h-2.5 rounded-full bg-linear-to-r from-rose-500 via-amber-400 to-emerald-500"
+    class="relative mt-3 h-2.5 rounded-sm bg-linear-to-r from-rose-500 via-amber-400 to-emerald-500"
     role="meter"
     aria-label="Market sentiment"
     aria-valuemin={0}
@@ -23,7 +23,7 @@
     aria-valuetext="{score} - {label}"
   >
     <span
-      class="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-900 shadow dark:border-slate-900 dark:bg-white"
+      class="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-stone-900 shadow dark:border-stone-900 dark:bg-white"
       style="left: {position}%"
     ></span>
   </div>

@@ -46,7 +46,7 @@
   {#if section.latest}
     {#if section.refreshing}
       <span
-        class="pointer-events-none absolute -top-2 right-3 z-10 inline-flex items-center gap-1 rounded-full border border-slate-900/10 bg-white/90 px-2 py-0.5 text-[0.7rem] font-medium text-slate-600 shadow-sm dark:border-white/10 dark:bg-slate-800/90 dark:text-slate-300"
+        class="pointer-events-none absolute -top-2 right-3 z-10 inline-flex items-center gap-1 rounded-md border border-edge bg-surface px-2 py-0.5 text-[0.7rem] font-medium text-stone-600 shadow-hard-sm dark:text-stone-300"
         data-refreshing
       >
         <Spinner size={11} />Refreshing<span class="sr-only"> {label}</span>

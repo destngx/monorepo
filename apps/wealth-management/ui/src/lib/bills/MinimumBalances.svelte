@@ -68,7 +68,7 @@
     reward depends on the whole month's average, so a dip late in the month cannot be made up.
     {#if safe.reserved > 0}Kept back now: <Money value={safe.reserved} />.{/if}
   </p>
-  <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+  <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
     {#each rows as row (row.account)}
       {@const track = row.track}
       <li class="py-1.5" data-testid="minimum-row">

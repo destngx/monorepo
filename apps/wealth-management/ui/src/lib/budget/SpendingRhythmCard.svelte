@@ -37,7 +37,7 @@
   title="How am I spending?"
   subtitle="Today, the last 30 days and the last 3 months, to {formatDate(spending.asOf)}"
 >
-  <div class="grid gap-4 sm:grid-cols-3" data-testid="spending-stats">
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3" data-testid="spending-stats">
     <Stat label="Today" value={spending.today.spent} change={spending.today.changePercent} invert>
       {#snippet hint()}vs a typical day of <Money value={spending.today.typicalDay} />{/snippet}
     </Stat>
@@ -104,7 +104,7 @@
         <button
           type="button"
           class="btn-ghost rounded-md px-2 py-0.5 text-xs {range === option.value
-            ? 'bg-indigo-500/15 font-semibold text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300'
+            ? 'bg-accent-500/15 font-semibold text-accent-700 hover:bg-accent-500/20 dark:text-accent-300'
             : 'muted'}"
           aria-pressed={range === option.value}
           onclick={() => (range = option.value)}>{option.label}</button
@@ -140,7 +140,7 @@
             <th class="py-1.5 text-right font-medium">vs {shown.days} days before</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each shown.categories as category (category.category)}
             <tr>
               <td class="py-1.5">

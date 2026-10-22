@@ -6,7 +6,7 @@
   // the alert, the error page and the dependency banner.
   let { kind, class: className = '' }: { kind: SheetsAuthKind; class?: string } = $props();
 
-  const code = 'rounded bg-slate-900/10 px-1.5 py-0.5 dark:bg-white/10';
+  const code = 'rounded bg-stone-900/10 px-1.5 py-0.5 dark:bg-white/10';
 </script>
 
 {#if kind === 'missing'}

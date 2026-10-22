@@ -53,7 +53,7 @@
   <p class="text-sm text-rose-700 dark:text-rose-300" role="alert">{listError}</p>
 {:else if list === null}
   <div
-    class="h-3 w-2/3 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"
+    class="h-3 w-2/3 animate-pulse rounded bg-stone-900/10 dark:bg-white/10"
     role="status"
     aria-label="Loading"
   ></div>

@@ -3,11 +3,42 @@
 /* Dark mode follows the .dark class set from the theme setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Neo-brutalism with quiet luxury: flat warm paper, near-black ink edges, hard offset shadows
+   without blur, small radii, serif headings, one muted bronze accent. Surface, edge and shade
+   switch with the theme (.dark below); status colours keep their own scale (lib/status.ts). */
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --color-income: oklch(0.7 0.17 155);
-  --color-expense: oklch(0.72 0.17 50);
-  --color-accent: oklch(0.62 0.19 265);
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
+
+  /* Muted bronze: links, focus, the current page, the first chart series. */
+  --color-accent-50: oklch(0.97 0.012 75);
+  --color-accent-100: oklch(0.94 0.022 75);
+  --color-accent-200: oklch(0.88 0.04 72);
+  --color-accent-300: oklch(0.8 0.06 70);
+  --color-accent-400: oklch(0.71 0.075 68);
+  --color-accent-500: oklch(0.62 0.08 65);
+  --color-accent-600: oklch(0.53 0.075 62);
+  --color-accent-700: oklch(0.45 0.065 60);
+  --color-accent-800: oklch(0.37 0.05 58);
+  --color-accent-900: oklch(0.3 0.04 56);
+  --color-accent-950: oklch(0.21 0.03 55);
+
+  /* Page background, raised surfaces, their outlines and hard shadows. */
+  --color-canvas: oklch(0.955 0.012 85);
+  --color-surface: oklch(0.988 0.006 85);
+  --color-edge: oklch(0.24 0.012 60);
+  --color-shade: oklch(0.24 0.012 60);
+
+  --shadow-hard-sm: 2px 2px 0 0 var(--color-shade);
+  --shadow-hard: 4px 4px 0 0 var(--color-shade);
+  --shadow-hard-lg: 6px 6px 0 0 var(--color-shade);
+
+  /* Tighter corners than Tailwind's defaults, so every rounded-* reads crisp. */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.1875rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.5rem;
 }
 
 @layer base {
@@ -15,24 +46,19 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  body {
-    @apply min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
-    background-image:
-      radial-gradient(at 0% 0%, oklch(0.85 0.08 265 / 0.55) 0, transparent 45%),
-      radial-gradient(at 100% 0%, oklch(0.88 0.08 175 / 0.45) 0, transparent 40%),
-      radial-gradient(at 100% 100%, oklch(0.9 0.07 50 / 0.35) 0, transparent 45%);
-    background-attachment: fixed;
+  .dark {
+    --color-canvas: oklch(0.17 0.006 60);
+    --color-surface: oklch(0.215 0.007 60);
+    --color-edge: oklch(0.5 0.012 70);
+    --color-shade: oklch(0.08 0.004 60);
   }
 
-  .dark body {
-    background-image:
-      radial-gradient(at 0% 0%, oklch(0.35 0.12 265 / 0.5) 0, transparent 45%),
-      radial-gradient(at 100% 0%, oklch(0.35 0.09 175 / 0.35) 0, transparent 40%),
-      radial-gradient(at 100% 100%, oklch(0.35 0.1 50 / 0.25) 0, transparent 45%);
+  body {
+    @apply min-h-screen bg-canvas text-stone-900 dark:text-stone-100;
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-indigo-500;
+    @apply outline-2 outline-offset-2 outline-accent-600 dark:outline-accent-300;
   }
 
   /* Interaction feedback for every page (docs/wealth-management/AGENTS.md "Loading and feedback").
@@ -41,7 +67,7 @@
     cursor: pointer;
   }
   :where(input[type='checkbox'], input[type='radio']) {
-    @apply cursor-pointer accent-indigo-600 dark:accent-indigo-400;
+    @apply cursor-pointer accent-stone-900 dark:accent-stone-100;
   }
   :where(:disabled, [aria-disabled='true']) {
     cursor: not-allowed;
@@ -60,11 +86,16 @@
   }
   /* Bare links in page text. */
   :where(a:not([class])) {
-    @apply text-indigo-600 underline-offset-2 hover:underline dark:text-indigo-400;
+    @apply text-accent-700 underline decoration-accent-400/60 underline-offset-4 hover:decoration-current dark:text-accent-300;
+  }
+  /* A horizontal scroller is the containing block of what it scrolls: otherwise an absolute child
+     (a table's sr-only text) escapes the clip and widens the page on phones. */
+  :where(.overflow-x-auto, .overflow-auto, .overflow-x-scroll) {
+    position: relative;
   }
   /* Table body rows highlight under the pointer. */
   :where(tbody > tr) {
-    @apply transition-colors hover:bg-slate-900/[0.03] dark:hover:bg-white/[0.04];
+    @apply transition-colors hover:bg-stone-900/[0.03] dark:hover:bg-white/[0.04];
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -81,52 +112,52 @@
 }
 
 /* Shared component styles; @utility makes them usable with variants and @apply. */
-@utility glass {
-  @apply rounded-2xl border border-white/60 bg-white/65 shadow-sm shadow-slate-900/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/55;
+@utility panel {
+  @apply rounded-xl border-[1.5px] border-edge bg-surface shadow-hard;
 }
 
 @utility btn {
-  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition duration-150 ease-out select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 aria-busy:cursor-progress aria-disabled:cursor-not-allowed aria-disabled:active:scale-100 motion-reduce:active:scale-100;
+  @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border-[1.5px] border-transparent px-3.5 py-2 text-sm font-medium transition duration-150 ease-out select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-progress aria-disabled:cursor-not-allowed dark:focus-visible:outline-accent-300;
 }
 @utility btn-primary {
-  @apply btn bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 hover:shadow-md hover:shadow-indigo-600/20 active:bg-indigo-700 disabled:hover:bg-indigo-600 disabled:hover:shadow-sm;
+  @apply btn border-edge bg-stone-900 text-stone-50 shadow-hard-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-hard active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:translate-none disabled:shadow-hard-sm dark:bg-stone-100 dark:text-stone-900 motion-reduce:translate-none;
 }
 @utility btn-ghost {
-  @apply btn text-slate-700 hover:bg-slate-900/[0.06] hover:text-slate-900 active:bg-slate-900/10 disabled:hover:bg-transparent dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white dark:active:bg-white/15;
+  @apply btn text-stone-700 hover:bg-stone-900/[0.06] hover:text-stone-900 active:bg-stone-900/10 disabled:hover:bg-transparent dark:text-stone-200 dark:hover:bg-white/10 dark:hover:text-white dark:active:bg-white/15;
 }
 @utility btn-danger {
-  @apply btn bg-rose-600 text-white shadow-sm hover:bg-rose-500 active:bg-rose-700 disabled:hover:bg-rose-600;
+  @apply btn border-edge bg-rose-800 text-white shadow-hard-sm hover:-translate-x-px hover:-translate-y-px hover:shadow-hard active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:translate-none disabled:shadow-hard-sm motion-reduce:translate-none;
 }
 
 @utility field {
-  @apply w-full rounded-xl border border-slate-300/80 bg-white/80 px-3 py-2 text-sm text-slate-900 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-slate-400 hover:border-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-300/80 aria-[invalid=true]:border-rose-500 dark:border-white/15 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:border-white/30 dark:focus:border-indigo-400;
+  @apply w-full rounded-lg border-[1.5px] border-stone-900/30 bg-surface px-3 py-2 text-sm text-stone-900 transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-stone-400 hover:border-stone-900/60 focus:border-edge focus:shadow-hard-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-stone-900/30 aria-[invalid=true]:border-rose-700 dark:border-white/25 dark:text-stone-100 dark:hover:border-white/45 dark:focus:border-stone-300;
 }
 @utility label {
-  @apply mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400;
+  @apply mb-1 block text-[0.7rem] font-semibold tracking-[0.08em] text-stone-600 uppercase dark:text-stone-400;
 }
 
 @utility muted {
-  @apply text-slate-500 dark:text-slate-400;
+  @apply text-stone-500 dark:text-stone-400;
 }
 
 /* A text link: tint, underline on hover. */
 @utility link {
-  @apply cursor-pointer rounded-sm text-indigo-600 underline-offset-2 transition-colors hover:text-indigo-500 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300;
+  @apply cursor-pointer rounded-sm text-accent-700 underline decoration-accent-400/60 underline-offset-4 transition-colors hover:decoration-current dark:text-accent-300;
 }
 
-/* A card or tile that is clickable as a whole: lift and tint on hover, sink on press. */
+/* A card or tile that is clickable as a whole: lifts off its shadow on hover, presses flat. */
 @utility interactive {
-  @apply cursor-pointer transition duration-150 ease-out hover:border-indigo-400/40 hover:shadow-md hover:shadow-slate-900/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 active:translate-y-0 active:shadow-sm motion-safe:hover:-translate-y-0.5 dark:hover:border-indigo-400/30;
+  @apply cursor-pointer transition duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 motion-safe:hover:-translate-x-0.5 motion-safe:hover:-translate-y-0.5 hover:shadow-hard-lg active:translate-x-0.5 active:translate-y-0.5 active:shadow-none motion-reduce:active:translate-none dark:focus-visible:outline-accent-300;
 }
 
 /* A table row or list item that opens something. */
 @utility row-link {
-  @apply cursor-pointer transition-colors hover:bg-indigo-500/[0.06] active:bg-indigo-500/10 dark:hover:bg-indigo-400/10;
+  @apply cursor-pointer transition-colors hover:bg-accent-500/[0.08] active:bg-accent-500/15 dark:hover:bg-accent-300/10;
 }
 
 /* Skeleton placeholder shape (lib/components/skeleton). */
 @utility skeleton {
-  @apply rounded-md bg-slate-900/[0.07] motion-safe:animate-pulse dark:bg-white/[0.08];
+  @apply rounded-md bg-stone-900/[0.07] motion-safe:animate-pulse dark:bg-white/[0.08];
 }
 
 @utility tabular {
@@ -140,7 +171,7 @@
   & h4,
   & h5,
   & h6 {
-    @apply mt-3 font-semibold text-slate-800 dark:text-slate-100;
+    @apply mt-3 font-semibold text-stone-800 dark:text-stone-100;
   }
   & ul {
     @apply list-disc space-y-1 pl-5;
@@ -149,35 +180,35 @@
     @apply list-decimal space-y-1 pl-5;
   }
   & code {
-    @apply rounded bg-slate-900/5 px-1 py-0.5 text-[0.85em] dark:bg-white/10;
+    @apply rounded bg-stone-900/5 px-1 py-0.5 text-[0.85em] dark:bg-white/10;
   }
   & pre {
-    @apply overflow-x-auto rounded-lg bg-slate-900/5 p-3 dark:bg-white/10;
+    @apply overflow-x-auto rounded-lg bg-stone-900/5 p-3 dark:bg-white/10;
   }
   & pre code {
     @apply bg-transparent p-0;
   }
   & a {
-    @apply text-indigo-600 underline dark:text-indigo-400;
+    @apply text-accent-700 underline decoration-accent-400/60 underline-offset-4 dark:text-accent-300;
   }
   & hr {
-    @apply border-slate-900/10 dark:border-white/10;
+    @apply border-stone-900/10 dark:border-white/10;
   }
   & .md-table {
-    @apply overflow-x-auto rounded-xl border border-slate-900/10 bg-white/60 dark:border-white/10 dark:bg-slate-900/40;
+    @apply overflow-x-auto rounded-lg border-[1.5px] border-edge bg-surface;
   }
   & table {
     @apply w-full border-collapse text-left;
     font-variant-numeric: tabular-nums;
   }
   & th {
-    @apply bg-slate-900/[0.04] px-3 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-slate-600 uppercase dark:bg-white/5 dark:text-slate-300;
+    @apply bg-stone-900/[0.04] px-3 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-stone-600 uppercase dark:bg-white/5 dark:text-stone-300;
   }
   & td {
-    @apply border-t border-slate-900/5 px-3 py-2 align-top dark:border-white/5;
+    @apply border-t border-stone-900/5 px-3 py-2 align-top dark:border-white/5;
   }
   & tbody tr {
-    @apply transition-colors hover:bg-indigo-500/5;
+    @apply transition-colors hover:bg-accent-500/5;
   }
   & [data-align='right'] {
     @apply text-right whitespace-nowrap;
@@ -194,5 +225,5 @@
 
 /* Small icon buttons, such as the chat message toolbar. */
 @utility icon-btn {
-  @apply hit-area inline-grid size-7 cursor-pointer place-items-center rounded-lg text-slate-500 transition duration-150 hover:bg-slate-900/[0.07] hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:outline-none active:scale-90 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white;
+  @apply hit-area inline-grid size-7 cursor-pointer place-items-center rounded-md text-stone-500 transition duration-150 hover:bg-stone-900/[0.07] hover:text-stone-900 focus-visible:ring-2 focus-visible:ring-accent-600/60 focus-visible:outline-none active:scale-90 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-white;
 }

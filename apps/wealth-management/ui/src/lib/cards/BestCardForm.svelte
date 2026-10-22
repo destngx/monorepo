@@ -48,7 +48,7 @@
   title="Best card for a payment"
   subtitle="What the payment would add to each card's current period, caps and spend tiers included"
 >
-  <form class="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end" onsubmit={submit} novalidate>
+  <form class="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end" onsubmit={submit} novalidate>
     <div>
       <label class="label" for="best-card-payee">Payee</label>
       <input
@@ -95,7 +95,7 @@
           MCC {String(mcc.code).padStart(4, '0')} ({MCC_STATUS[mcc.status].label}).
         {/if}
       </p>
-      <ol class="mt-2 divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+      <ol class="mt-2 divide-y divide-stone-900/5 text-sm dark:divide-white/5">
         {#each suggestions as suggestion, index (suggestion.card)}
           <li class="flex flex-wrap items-center justify-between gap-3 py-2.5">
             <div>

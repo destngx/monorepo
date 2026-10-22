@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { EXPENSE, INCOME } from './palette';
   import { areaPath, linePath, linePoints } from './geometry';
 
   interface Props {
@@ -14,7 +15,7 @@
 
   const points = $derived(linePoints(values, width, height));
   const rising = $derived(values.length < 2 || values[values.length - 1] >= values[0]);
-  const color = $derived(rising ? '#10b981' : '#f97316');
+  const color = $derived(rising ? INCOME : EXPENSE);
   const id = `spark-${Math.random().toString(36).slice(2, 9)}`;
 </script>
 

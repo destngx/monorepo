@@ -53,7 +53,7 @@
               ><th class="px-5 py-2 text-right">Annual fee</th><th class="px-5 py-2 text-right">Net</th></tr
             ></thead
           >
-          <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+          <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
             {#each report.programs as program (program.program)}
               <tr>
                 <td class="px-5 py-2"

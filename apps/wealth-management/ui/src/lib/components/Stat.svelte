@@ -20,9 +20,9 @@
   const good = $derived(change === null || change === undefined ? null : invert ? change < 0 : change > 0);
 </script>
 
-<div class="glass p-4">
-  <p class="muted text-xs font-medium tracking-wide uppercase">{label}</p>
-  <div class="mt-1.5 text-xl font-semibold">
+<div class="panel min-w-0 p-4">
+  <p class="muted text-[0.7rem] font-semibold tracking-[0.12em] uppercase">{label}</p>
+  <div class="mt-1.5 text-xl font-semibold break-words tabular-nums">
     {#if children}{@render children()}{:else}<Money {value} />{/if}
   </div>
   {#if change !== undefined || hint}

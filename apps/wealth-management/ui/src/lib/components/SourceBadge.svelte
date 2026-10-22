@@ -9,7 +9,7 @@
   let { source, detail }: { source?: DataSource; detail?: string } = $props();
 
   const tones: Record<SourceState, string> = {
-    live: 'bg-slate-900/5 text-slate-600 dark:bg-white/10 dark:text-slate-300',
+    live: 'bg-stone-900/5 text-stone-600 dark:bg-white/10 dark:text-stone-300',
     fallback: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
     stale: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
   };
@@ -19,7 +19,9 @@
 
 {#if source && state}
   <span
-    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap {tones[state]}"
+    class="inline-flex max-w-full items-center gap-1 rounded-md border border-current/25 px-2 py-0.5 text-xs font-medium {tones[
+      state
+    ]}"
     title={sourceTitle(source, detail)}
   >
     {#if state === 'fallback'}<Icon name="alert" size={12} />{:else if state === 'stale'}<Icon

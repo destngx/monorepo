@@ -7,7 +7,7 @@
 <!-- Dedicated re-auth or setup instructions for Google credential failures (WM-UI-4). -->
 {#if toasts.sheetsAuthProblem}
   {@const problem = toasts.sheetsAuthProblem}
-  <div role="alert" class="glass mb-6 border border-rose-500/40 p-4">
+  <div role="alert" class="panel mb-6 border border-rose-500/40 p-4">
     <div class="flex items-start gap-3">
       <Icon name="alert" class="mt-0.5 text-rose-600 dark:text-rose-400" />
       <div class="flex-1 text-sm">

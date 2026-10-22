@@ -20,9 +20,9 @@
   const spoken = $derived(label ?? (title && !/^.[A-Z]/.test(title) ? title[0].toLowerCase() + title.slice(1) : title));
 </script>
 
-<section class="glass p-5 {className}" aria-label={title}>
+<section class="panel p-5 {className}" aria-label={title}>
   {#if title}
-    <h2 class="mb-4 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">{title}</h2>
+    <h2 class="mb-4 text-sm font-semibold tracking-wide text-stone-700 dark:text-stone-200">{title}</h2>
   {/if}
   <Loading label={spoken}>
     {#if !title}<div class="skeleton mb-5 h-4 w-1/3"></div>{/if}
@@ -39,7 +39,7 @@
       </div>
     {/if}
     {#if rows}
-      <div class="mt-4 divide-y divide-slate-900/5 dark:divide-white/5">
+      <div class="mt-4 divide-y divide-stone-900/5 dark:divide-white/5">
         {#each { length: rows }, r (r)}
           <div class="flex gap-4 py-2.5">
             <div class="skeleton h-3.5 flex-1"></div>

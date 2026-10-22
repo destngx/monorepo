@@ -29,10 +29,10 @@
 </script>
 
 <li
-  class="grid items-center transition-colors hover:bg-slate-900/[0.02] dark:hover:bg-white/[0.03] gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_10rem_12rem_auto] lg:grid-cols-[minmax(0,1fr)_18rem_12rem_auto]"
+  class="grid grid-cols-1 items-center transition-colors hover:bg-stone-900/[0.02] dark:hover:bg-white/[0.03] gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_10rem_12rem_auto] lg:grid-cols-[minmax(0,1fr)_18rem_12rem_auto]"
 >
   <div class="flex min-w-0 items-center gap-3">
-    <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900/5 dark:bg-white/5"
+    <span class="grid size-9 shrink-0 place-items-center rounded-xl bg-stone-900/5 dark:bg-white/5"
       ><Icon name={accountIcon(account.type)} size={16} /></span
     >
     <div class="min-w-0">

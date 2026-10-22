@@ -38,12 +38,12 @@
 </script>
 
 <li
-  class="rounded-xl border border-slate-900/10 p-3 transition-colors hover:border-slate-900/20 dark:border-white/10 dark:hover:border-white/20"
+  class="rounded-xl border border-stone-900/10 p-3 transition-colors hover:border-stone-900/20 dark:border-white/10 dark:hover:border-white/20"
 >
   <div class="flex flex-wrap items-start justify-between gap-2">
     <div class="min-w-0">
       <p class="text-sm font-semibold"><MaskedText text={item.title} /></p>
-      <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300"><MaskedText text={item.action} /></p>
+      <p class="mt-0.5 text-sm text-stone-700 dark:text-stone-300"><MaskedText text={item.action} /></p>
     </div>
     <div class="flex shrink-0 flex-wrap items-center gap-2 text-sm">
       {#if showStatus}<Badge status={STATUS_TONE[item.status]}>{STATUS_LABEL[item.status]}</Badge>{/if}

@@ -35,10 +35,10 @@
   );
 </script>
 
-<div class="mt-4 grid gap-4 text-sm sm:grid-cols-2" data-testid="ready-money">
+<div class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2" data-testid="ready-money">
   <section aria-labelledby="ready-money-title">
     <h3 id="ready-money-title" class="text-xs font-semibold tracking-wide uppercase">Ready money</h3>
-    <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+    <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
       {#each safe.readyAccounts as account (account.name)}
         <li class="flex items-center justify-between gap-2 py-1.5">
           <span class="min-w-0">
@@ -120,7 +120,7 @@
   </section>
   <section aria-labelledby="due-before-title">
     <h3 id="due-before-title" class="text-xs font-semibold tracking-wide uppercase">{dueLabel}</h3>
-    <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+    <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
       {#each safe.counted as occurrence (occurrence.name + occurrence.expectedDate)}
         <li class="flex justify-between gap-2 py-1.5">
           <span class="min-w-0 truncate"

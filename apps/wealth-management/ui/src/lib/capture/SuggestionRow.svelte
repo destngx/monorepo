@@ -155,7 +155,7 @@
 </script>
 
 <tbody
-  class="border-b border-slate-900/10 align-top dark:border-white/10 {row.selected || row.createdId
+  class="border-b border-stone-900/10 align-top dark:border-white/10 {row.selected || row.createdId
     ? ''
     : 'opacity-60'}"
 >
@@ -276,7 +276,7 @@
   <tr>
     <td></td>
     <td colspan="7" class="px-2 pt-2 pb-3">
-      <div class="grid gap-2 md:grid-cols-[1fr_1fr_12rem]">
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_12rem]">
         <div>
           {#if disabled}
             <p class="text-xs">{row.tx.tags.join(', ') || 'No tags'}</p>
@@ -336,14 +336,14 @@
         {#if suggestion.sourceApp}<Badge>{suggestion.sourceApp}</Badge>{/if}
         {#each suggestion.evidence as evidence (evidence.materialId)}
           {@const item = itemById.get(evidence.materialId)}
-          <span class="inline-flex max-w-md items-center gap-1.5 rounded-lg bg-slate-900/5 px-2 py-1 dark:bg-white/5">
+          <span class="inline-flex max-w-md items-center gap-1.5 rounded-lg bg-stone-900/5 px-2 py-1 dark:bg-white/5">
             {#if item?.previewUrl}
               <a
                 href={item.previewUrl}
                 target="_blank"
                 rel="noreferrer"
                 title="Open {item.name}"
-                class="block rounded transition hover:ring-2 hover:ring-indigo-400/60 active:opacity-80"
+                class="block rounded transition hover:ring-2 hover:ring-accent-400/60 active:opacity-80"
               >
                 <img src={item.previewUrl} alt={item.name} class="h-8 w-8 rounded object-cover object-top" />
               </a>

@@ -56,9 +56,9 @@
             x2={width - pad.right}
             y1={y(tick)}
             y2={y(tick)}
-            class="stroke-slate-900/10 dark:stroke-white/10"
+            class="stroke-stone-900/10 dark:stroke-white/10"
           />
-          <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-slate-500 text-[11px]"
+          <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-stone-500 text-[11px]"
             >{mask.revealed ? formatCompact(tick) : '•••'}</text
           >
         {/each}
@@ -103,7 +103,7 @@
                 </rect>
               {/if}
             {/each}
-            <text x={center} y={height - 6} text-anchor="middle" class="fill-slate-500 text-[11px]">{text}</text>
+            <text x={center} y={height - 6} text-anchor="middle" class="fill-stone-500 text-[11px]">{text}</text>
           </g>
         {/each}
       </svg>

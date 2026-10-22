@@ -28,8 +28,8 @@
       <span class="muted text-xs">({months} of average spending, <Money value={pool.averageMonthlyExpense} />)</span>
     </dt>
     <dd class="text-right">− <Money value={pool.spendingBuffer} /></dd>
-    <dt class="border-t border-slate-900/10 pt-1.5 font-semibold dark:border-white/10">Pool</dt>
-    <dd class="border-t border-slate-900/10 pt-1.5 text-right font-semibold dark:border-white/10">
+    <dt class="border-t border-stone-900/10 pt-1.5 font-semibold dark:border-white/10">Pool</dt>
+    <dd class="border-t border-stone-900/10 pt-1.5 text-right font-semibold dark:border-white/10">
       <Money value={pool.total} />
     </dd>
   </dl>
@@ -49,10 +49,10 @@
   {#if listed.length}
     <details class="mt-4">
       <summary
-        class="cursor-pointer text-xs font-medium transition-colors hover:text-indigo-600 dark:hover:text-indigo-300"
+        class="cursor-pointer text-xs font-medium transition-colors hover:text-accent-600 dark:hover:text-accent-300"
         >Accounts ({listed.length})</summary
       >
-      <ul class="mt-2 divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+      <ul class="mt-2 divide-y divide-stone-900/5 text-sm dark:divide-white/5">
         {#each listed as account (account.name)}
           <li class="flex items-center justify-between gap-3 py-1.5">
             <span class="min-w-0 truncate"

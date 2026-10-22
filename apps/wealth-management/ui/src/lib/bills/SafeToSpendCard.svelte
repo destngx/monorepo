@@ -23,7 +23,7 @@
 
 <Card title="Safe to spend" subtitle="Until {safe.untilIncome ? 'the next income' : 'the end of the next 30 days'}">
   {#snippet actions()}
-    <a href="{base}/bills" class="text-xs text-indigo-600 hover:underline dark:text-indigo-400">Bills</a>
+    <a href="{base}/bills" class="text-xs text-accent-600 hover:underline dark:text-accent-400">Bills</a>
   {/snippet}
   <p class="muted text-xs font-semibold tracking-wide uppercase">Free to spend</p>
   <p class="text-3xl font-semibold tracking-tight" data-testid="safe-amount"><Money value={safe.safeToSpend} /></p>

@@ -27,18 +27,18 @@
   };
 </script>
 
-<ul class="grid gap-3 md:grid-cols-2">
+<ul class="grid grid-cols-1 gap-3 md:grid-cols-2">
   {#each commands as command, i (i)}
     {@const style = styles[command.action] ?? styles.OBSERVE}
     <li class="rounded-xl border p-4 {style.card}">
       <div class="flex flex-wrap items-center gap-2">
-        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold {style.tag}">
+        <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-semibold {style.tag}">
           <Icon name={style.icon} size={12} />
           {command.action}
         </span>
         <span class="font-medium break-words"><MaskedText text={command.target} /></span>
       </div>
-      <p class="mt-2 text-sm text-slate-700 dark:text-slate-300"><MaskedText text={command.rationale} /></p>
+      <p class="mt-2 text-sm text-stone-700 dark:text-stone-300"><MaskedText text={command.rationale} /></p>
     </li>
   {/each}
 </ul>

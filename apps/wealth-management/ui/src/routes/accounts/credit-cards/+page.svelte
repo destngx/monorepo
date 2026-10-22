@@ -143,12 +143,12 @@
             <span class="muted text-xs whitespace-nowrap">{formatPercent(bank.utilization, 0)} used</span>
             <Badge status={use.tone}>{use.label}</Badge>
           </div>
-          <div class="grid gap-3 md:grid-cols-2">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             {#each bankCards as card (card.name)}
               {@const standing = card.standing}
               <a
                 href="{base}/accounts/credit-cards/{encodeURIComponent(card.name)}"
-                class="interactive rounded-xl border border-slate-900/10 p-4 hover:bg-indigo-500/5 dark:border-white/10"
+                class="interactive rounded-xl border border-stone-900/10 p-4 hover:bg-accent-500/5 dark:border-white/10"
               >
                 <div class="flex items-start justify-between gap-3">
                   <div>
@@ -212,7 +212,7 @@
       {/each}
 
       {#if cards.length}
-        <div class="mt-4 grid gap-4 xl:grid-cols-2">
+        <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
           <BestCardForm />
           <ProgramComparison />
         </div>
@@ -240,11 +240,11 @@
                 type="button"
                 aria-pressed={!hidden[card.name]}
                 title={hidden[card.name] ? `Show ${card.name}` : `Hide ${card.name}`}
-                class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs hover:bg-slate-900/[0.05] active:bg-slate-900/10 dark:hover:bg-white/10 {hidden[
+                class="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs hover:bg-stone-900/[0.05] active:bg-stone-900/10 dark:hover:bg-white/10 {hidden[
                   card.name
                 ]
-                  ? 'muted border-slate-900/10 dark:border-white/10'
-                  : 'border-indigo-400'}"
+                  ? 'muted border-stone-900/10 dark:border-white/10'
+                  : 'border-accent-400'}"
                 onclick={() => (hidden[card.name] = !hidden[card.name])}
                 ><span class="size-2.5 rounded-sm" style:background={colorOf(card.name)}></span>{card.name}</button
               >

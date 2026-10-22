@@ -57,7 +57,7 @@
     <p class="muted text-sm">
       Moves part of one category's {formatMonth(month)} limit to another. The total budget stays the same.
     </p>
-    <div class="grid gap-4 sm:grid-cols-2">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div>
         <label class="label" for="move-from">From</label>
         <select id="move-from" class="field" bind:value={draft.from}>

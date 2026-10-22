@@ -92,7 +92,7 @@
       <ExpenseCategoriesCard lines={expenseLines} onselect={(line) => (selected = line)} onedit={openEditor} />
       {#if otherLines.length}
         <Card title="Income, non-budget and lending" class="mt-4">
-          <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+          <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
             {#each otherLines as line (line.category)}
               <li class="flex justify-between gap-3 py-2">
                 <span

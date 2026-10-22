@@ -143,7 +143,7 @@
 <Deferred data={data.summary} label="the balance sheet">
   {#snippet children(summary)}
     {@const sheet = summary.balanceSheet}
-    <div class="grid gap-4 sm:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <Stat label="Total assets" hint={sheet.receivables > 0 ? 'Includes money lent to people' : undefined}
         ><Money value={sheet.assets} /></Stat
       >
@@ -154,7 +154,7 @@
     </div>
   {/snippet}
   {#snippet skeleton()}
-    <div class="grid gap-4 sm:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <SkeletonStat label="total assets" />
       <SkeletonStat label="total liabilities" />
       <SkeletonStat label="net worth" />
@@ -163,7 +163,7 @@
 </Deferred>
 
 <!-- WM-ACC-8: every figure is VND (D25); the allocation is the engine's one allocation (ROADMAP C4). -->
-<div class="mt-4 grid gap-4 lg:grid-cols-3">
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
   <Deferred data={data.allocation} label="the asset allocation">
     {#snippet children(allocation)}<AllocationSummary {allocation} />{/snippet}
     {#snippet skeleton()}<SkeletonCard title="Asset allocation" chart={140} lines={0} />{/snippet}

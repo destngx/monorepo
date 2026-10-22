@@ -47,7 +47,7 @@
 </script>
 
 <Modal {open} {title} {onclose} {busy}>
-  <form id="recurring-form" class="grid gap-4 sm:grid-cols-2" {onsubmit}>
+  <form id="recurring-form" class="grid grid-cols-1 gap-4 sm:grid-cols-2" {onsubmit}>
     <div class="sm:col-span-2">
       <label class="label" for="recurring-name">Name *</label>
       <input id="recurring-name" class="field" bind:value={form.name} required />

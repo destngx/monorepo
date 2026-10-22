@@ -39,10 +39,10 @@
 
 <Card title="Balances after {verb.toLowerCase()}" subtitle="Sheet balance now and with the selected rows." class="mb-4">
   {#if projections.length || checksOnly.length}
-    <ul class="grid gap-2 text-sm sm:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+    <ul class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
       {#each projections as line (line.account)}
         {@const screenshot = checkByAccount.get(line.account)}
-        <li class="rounded-lg bg-slate-900/5 px-3 py-2 dark:bg-white/5">
+        <li class="rounded-lg bg-stone-900/5 px-3 py-2 dark:bg-white/5">
           <div class="flex items-baseline justify-between gap-3">
             <span class="font-medium">{line.account}</span>
             {#if line.credit}
@@ -75,7 +75,7 @@
         </li>
       {/each}
       {#each checksOnly as line (line.account)}
-        <li class="rounded-lg bg-slate-900/5 px-3 py-2 dark:bg-white/5">
+        <li class="rounded-lg bg-stone-900/5 px-3 py-2 dark:bg-white/5">
           <span class="font-medium">{line.account}</span>
           <p class="muted text-xs">Sheet <Money value={line.projected} currency={line.currency} /></p>
           {@render check(line)}

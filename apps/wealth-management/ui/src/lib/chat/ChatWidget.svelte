@@ -38,12 +38,12 @@
 <div class="fixed right-4 bottom-24 z-40 lg:bottom-4 flex flex-col items-end gap-3">
   {#if open}
     <div
-      class="glass flex h-[min(34rem,75vh)] w-[min(24rem,calc(100vw-2rem))] flex-col shadow-xl"
+      class="panel flex h-[min(34rem,75vh)] w-[min(24rem,calc(100vw-2rem))] flex-col shadow-hard-lg"
       role="dialog"
       aria-label="Assistant"
       bind:this={panel}
     >
-      <div class="flex items-center justify-between border-b border-slate-900/10 px-3 py-2 dark:border-white/10">
+      <div class="flex items-center justify-between border-b border-stone-900/10 px-3 py-2 dark:border-white/10">
         <span class="text-sm font-semibold">Assistant</span>
         <div class="flex">
           <a href="{base}/chat" class="btn-ghost px-2" aria-label="Open full page" title="Open full page" onclick={hide}
@@ -63,7 +63,7 @@
   {/if}
   <button
     type="button"
-    class="grid size-12 place-items-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-500 hover:shadow-xl active:scale-95 motion-reduce:active:scale-100"
+    class="grid size-12 place-items-center rounded-lg border-[1.5px] border-edge bg-stone-900 text-accent-200 shadow-hard-sm transition hover:-translate-x-px hover:-translate-y-px hover:shadow-hard active:translate-x-0.5 active:translate-y-0.5 active:shadow-none motion-reduce:translate-none dark:bg-stone-100 dark:text-accent-800"
     title={open ? 'Hide assistant' : 'Ask the assistant'}
     aria-label={open ? 'Hide assistant' : 'Ask the assistant'}
     aria-expanded={open}

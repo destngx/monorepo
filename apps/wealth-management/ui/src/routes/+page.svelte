@@ -81,7 +81,7 @@
 </Deferred>
 
 <!-- WM-HOME-2: the evidence -->
-<div class="mt-4 grid gap-4 lg:grid-cols-3">
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
   <Deferred data={data.safeToSpend} label="safe to spend">
     {#snippet children(value)}<SafeToSpendCard summary={value} />{/snippet}
     {#snippet skeleton()}<SkeletonCard title="Safe to spend" lines={3} />{/snippet}
@@ -111,14 +111,14 @@
         data={history.map((m) => ({ month: m.month, income: m.income, expense: m.expense }))}
       />
     {/if}
-    <div class="flex rounded-xl bg-slate-900/5 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Range">
+    <div class="flex rounded-xl bg-stone-900/5 p-0.5 text-xs dark:bg-white/5" role="group" aria-label="Range">
       {#each [['ytd', 'YTD'], ['6m', '6M'], ['12m', '12M']] as [value, text] (value)}
         <button
           type="button"
           aria-pressed={range === value}
           class="rounded-lg px-2.5 py-1 transition {range === value
-            ? 'bg-white shadow-sm dark:bg-slate-700'
-            : 'muted hover:bg-white/60 hover:text-slate-800 dark:hover:bg-white/10 dark:hover:text-slate-100'}"
+            ? 'bg-stone-900 text-stone-50 dark:bg-stone-100 dark:text-stone-900'
+            : 'muted hover:bg-white/60 hover:text-stone-800 dark:hover:bg-white/10 dark:hover:text-stone-100'}"
           onclick={() => (range = value as Range)}>{text}</button
         >
       {/each}

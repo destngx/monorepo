@@ -16,9 +16,9 @@
   </div>
 {:else if task.status === 'loading'}
   <div class="space-y-2" role="status" aria-label="Generating">
-    <div class="h-3 w-3/4 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-    <div class="h-3 w-full animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
-    <div class="h-3 w-2/3 animate-pulse rounded bg-slate-900/10 dark:bg-white/10"></div>
+    <div class="h-3 w-3/4 animate-pulse rounded bg-stone-900/10 dark:bg-white/10"></div>
+    <div class="h-3 w-full animate-pulse rounded bg-stone-900/10 dark:bg-white/10"></div>
+    <div class="h-3 w-2/3 animate-pulse rounded bg-stone-900/10 dark:bg-white/10"></div>
   </div>
 {:else if task.status === 'error'}
   <div class="flex flex-col items-start gap-2 text-sm" role="alert">
@@ -26,7 +26,7 @@
     {#if task.hint}
       <p class="muted">
         {task.hint}
-        <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/settings">Open settings</a>
+        <a class="text-accent-600 hover:underline dark:text-accent-400" href="{base}/settings">Open settings</a>
       </p>
     {/if}
     <button type="button" class="btn-ghost" onclick={() => task.run(true)}

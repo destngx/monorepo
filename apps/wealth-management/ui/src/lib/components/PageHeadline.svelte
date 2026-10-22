@@ -35,12 +35,12 @@
   const style = $derived(STATUS[tone]);
 </script>
 
-<section class="glass border-l-4 p-5 {style.edge} {className}" aria-labelledby={id} data-status={tone}>
+<section class="panel border-l-[6px] p-5 {style.edge} {className}" aria-labelledby={id} data-status={tone}>
   <div class="flex flex-wrap items-start justify-between gap-2">
-    <p class="muted text-xs font-medium uppercase">{question}</p>
+    <p class="muted text-[0.7rem] font-semibold tracking-[0.12em] uppercase">{question}</p>
     {#if actions}<div class="flex flex-wrap items-center gap-2">{@render actions()}</div>{/if}
   </div>
-  <h2 {id} class="mt-1 flex flex-wrap items-center gap-2 text-lg font-semibold {style.ink}">
+  <h2 {id} class="mt-1 flex flex-wrap items-center gap-2 font-serif text-xl font-semibold {style.ink}">
     <Icon name={style.icon} />
     <span class="sr-only">{style.label}:</span>
     {#if answer}{@render answer()}{:else}{title}{/if}

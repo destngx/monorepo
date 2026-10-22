@@ -110,7 +110,7 @@
     {#each DEFAULT_NEWS_TOPICS as topic (topic)}
       <Button
         icon="newspaper"
-        class="border border-slate-900/10 dark:border-white/10"
+        class="border border-stone-900/10 dark:border-white/10"
         busy={isLoading(topic)}
         disabled={!!unavailable}
         title={isLoading(topic) ? `Scanning ${topic}…` : `Scan ${topic}`}
@@ -149,7 +149,7 @@
 </Card>
 
 {#if cards.length}
-  <div class="mt-4 grid gap-4 xl:grid-cols-2">
+  <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
     {#each cards as card (card.key)}
       <NewsReportCard
         topic={card.topic}

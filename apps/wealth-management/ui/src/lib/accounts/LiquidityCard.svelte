@@ -19,7 +19,7 @@
             ><Money value={tier.value} /> · {formatPercent(tier.percent, 0)}</span
           >
         </div>
-        <ProgressBar percent={tier.percent} color="bg-indigo-500" label="{tier.tier} share" />
+        <ProgressBar percent={tier.percent} color="bg-accent-500" label="{tier.tier} share" />
       </li>
     {/each}
   </ul>

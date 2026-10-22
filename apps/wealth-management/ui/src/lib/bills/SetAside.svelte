@@ -10,11 +10,11 @@
   const basisLabel = (basis: 'budget' | 'average') => (basis === 'budget' ? 'budget' : '6-month average');
 </script>
 
-<div class="mt-4 grid gap-4 text-sm sm:grid-cols-2" data-testid="set-aside">
+<div class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2" data-testid="set-aside">
   {#if safe.natureTagged}
     <section aria-labelledby="fixed-costs-title">
       <h3 id="fixed-costs-title" class="text-xs font-semibold tracking-wide uppercase">Fixed costs still to pay</h3>
-      <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+      <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
         {#each safe.fixed as line (line.category + line.month)}
           <li class="flex justify-between gap-2 py-1.5">
             <span class="min-w-0">
@@ -34,7 +34,7 @@
     </section>
     <section aria-labelledby="essentials-title">
       <h3 id="essentials-title" class="text-xs font-semibold tracking-wide uppercase">Essentials until then</h3>
-      <ul class="mt-1 divide-y divide-slate-900/5 dark:divide-white/5">
+      <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
         {#each safe.essential as line (line.category)}
           <li class="flex justify-between gap-2 py-1.5">
             <span class="min-w-0">

@@ -27,18 +27,17 @@
     return `${base}${target === '/' ? '/' : target}`;
   }
 
-  // Hover tints, a press sinks the item, the current page keeps a solid tint and an edge mark.
+  // Hover tints, a press sinks the item, the current page is an outlined bronze tab on its shadow.
   const linkBase =
-    'relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition duration-150 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none active:scale-[0.98] motion-reduce:active:scale-100';
-  const activeClass =
-    'bg-indigo-600/10 text-indigo-700 shadow-[inset_3px_0_0_var(--color-indigo-500)] hover:bg-indigo-600/15 dark:bg-indigo-400/15 dark:text-indigo-300 dark:hover:bg-indigo-400/20';
+    'relative flex items-center gap-3 rounded-lg border-[1.5px] border-transparent px-3 py-2 text-sm font-medium transition duration-150 focus-visible:ring-2 focus-visible:ring-accent-600 focus-visible:outline-none';
+  const activeClass = 'border-edge! bg-accent-100 text-stone-900 shadow-hard-sm dark:bg-accent-900 dark:text-stone-50';
   const idleClass =
-    'text-slate-600 hover:bg-slate-900/[0.06] hover:text-slate-900 active:bg-slate-900/10 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white dark:active:bg-white/15';
+    'text-stone-600 hover:bg-stone-900/[0.06] hover:text-stone-900 active:bg-stone-900/10 dark:text-stone-300 dark:hover:bg-white/10 dark:hover:text-white dark:active:bg-white/15';
 </script>
 
 {#snippet badge(count: number)}
   <span
-    class="ml-auto rounded-full bg-indigo-600 px-1.5 text-[0.7rem] leading-5 font-semibold text-white tabular-nums dark:bg-indigo-400 dark:text-slate-900"
+    class="ml-auto rounded-md bg-accent-600 px-1.5 text-[0.7rem] leading-5 font-semibold text-white tabular-nums dark:bg-accent-400 dark:text-stone-900"
     >{count}<span class="sr-only"> waiting</span></span
   >
 {/snippet}
@@ -64,8 +63,8 @@
       id={headingId}
       class="mb-1 flex items-center gap-2 px-3 text-[0.7rem] font-semibold tracking-wider uppercase {currentArea?.id ===
       area.id
-        ? 'text-indigo-700 dark:text-indigo-300'
-        : 'text-slate-500 dark:text-slate-400'}"
+        ? 'text-accent-700 dark:text-accent-300'
+        : 'text-stone-500 dark:text-stone-400'}"
     >
       <Icon name={area.icon} size={14} />
       {area.label}
@@ -87,7 +86,7 @@
           {#if item.children && active}
             <ul
               aria-label="{item.label} pages"
-              class="mt-0.5 ml-6 flex flex-col gap-0.5 border-l border-slate-900/10 pl-3 dark:border-white/10"
+              class="mt-0.5 ml-6 flex flex-col gap-0.5 border-l border-stone-900/10 pl-3 dark:border-white/10"
             >
               {#each item.children as child (child.href)}
                 {@const childCurrent = current?.href === child.href}
@@ -96,9 +95,9 @@
                     href={href(child.href)}
                     onclick={onnavigate}
                     aria-current={childCurrent ? 'page' : undefined}
-                    class="flex items-center rounded-lg px-2 py-1.5 text-sm transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none active:bg-slate-900/10 dark:active:bg-white/15 {childCurrent
-                      ? 'font-medium text-indigo-700 dark:text-indigo-300'
-                      : 'text-slate-500 hover:bg-slate-900/[0.04] hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200'}"
+                    class="flex items-center rounded-lg px-2 py-1.5 text-sm transition focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none active:bg-stone-900/10 dark:active:bg-white/15 {childCurrent
+                      ? 'font-medium text-accent-700 dark:text-accent-300'
+                      : 'text-stone-500 hover:bg-stone-900/[0.04] hover:text-stone-800 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200'}"
                   >
                     {child.label}
                     {#if badgeCount(child.badge)}{@render badge(badgeCount(child.badge))}{/if}
@@ -119,7 +118,7 @@
       {#each AREAS as area (area.id)}
         {@const active = currentArea?.id === area.id}
         {@const count = badgeCount(area.badge)}
-        <li class={area.utility ? 'mt-3 border-t border-slate-900/10 pt-3 dark:border-white/10' : ''}>
+        <li class={area.utility ? 'mt-3 border-t border-stone-900/10 pt-3 dark:border-white/10' : ''}>
           <a
             href={href(area.href)}
             onclick={onnavigate}
@@ -131,7 +130,7 @@
             <span class="relative">
               <Icon name={area.icon} />
               {#if count}
-                <span class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
+                <span class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent-600 dark:bg-accent-400"></span>
               {/if}
             </span>
           </a>
@@ -141,7 +140,7 @@
   {:else}
     {#each AREAS as area (area.id)}
       {#if area.utility}
-        <div class="mt-3 border-t border-slate-900/10 pt-3 dark:border-white/10">{@render single(area)}</div>
+        <div class="mt-3 border-t border-stone-900/10 pt-3 dark:border-white/10">{@render single(area)}</div>
       {:else if area.pages.length === 1}
         <div class={area.id === 'home' ? '' : 'mt-3'}>{@render single(area)}</div>
       {:else}

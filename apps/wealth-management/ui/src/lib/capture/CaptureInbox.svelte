@@ -101,8 +101,8 @@
   role="region"
   aria-label="Materials drop zone"
   class="rounded-xl border-2 border-dashed p-5 text-center transition {dragging
-    ? 'border-indigo-500 bg-indigo-500/5'
-    : 'border-slate-900/15 dark:border-white/15'}"
+    ? 'border-accent-500 bg-accent-500/5'
+    : 'border-stone-900/15 dark:border-white/15'}"
   ondragover={(event) => {
     event.preventDefault();
     dragging = !disabled;
@@ -155,12 +155,12 @@
 {#if items.length || preparing}
   <ul class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label="Materials">
     {#each items as item (item.id)}
-      <li class="glass relative overflow-hidden p-2">
+      <li class="panel relative overflow-hidden p-2">
         {#if item.kind === 'image'}
           <img src={item.previewUrl} alt={item.name} class="h-28 w-full rounded-md object-cover object-top" />
         {:else}
           <pre
-            class="h-28 overflow-hidden rounded-md bg-slate-900/5 p-2 text-[10px] whitespace-pre-wrap dark:bg-white/5"><MaskedText
+            class="h-28 overflow-hidden rounded-md bg-stone-900/5 p-2 text-[10px] whitespace-pre-wrap dark:bg-white/5"><MaskedText
               text={item.text}
             /></pre>
         {/if}
@@ -168,7 +168,7 @@
         <p class="muted text-xs">{formatBytes(item.size)}</p>
         <button
           type="button"
-          class="glass absolute top-1 right-1 grid size-7 place-items-center hover:bg-white hover:text-rose-600 active:scale-90 disabled:opacity-50 dark:hover:bg-slate-800"
+          class="panel absolute top-1 right-1 grid size-7 place-items-center hover:bg-white hover:text-rose-600 active:scale-90 disabled:opacity-50 dark:hover:bg-stone-800"
           aria-label="Remove {item.name}"
           title="Remove {item.name}"
           {disabled}
@@ -177,7 +177,7 @@
       </li>
     {/each}
     {#if preparing}
-      <li class="glass muted grid h-40 place-items-center p-2 text-xs">Preparing {preparing} image(s)…</li>
+      <li class="panel muted grid h-40 place-items-center p-2 text-xs">Preparing {preparing} image(s)…</li>
     {/if}
   </ul>
 {/if}

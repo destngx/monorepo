@@ -26,20 +26,20 @@
 <Card title={grouped.group.label} subtitle={grouped.group.description} {actions}>
   {@render intro?.()}
   {#if split.main.length}
-    <div class="-my-3 divide-y divide-slate-900/5 dark:divide-white/5">
+    <div class="-my-3 divide-y divide-stone-900/5 dark:divide-white/5">
       {#each split.main as setting (setting.key)}<SettingField {setting} {form} />{/each}
     </div>
   {/if}
   {#if split.advanced.length}
     <details
-      class="{split.main.length ? 'mt-3 border-t pt-3' : ''} border-slate-900/5 dark:border-white/5"
+      class="{split.main.length ? 'mt-3 border-t pt-3' : ''} border-stone-900/5 dark:border-white/5"
       open={advancedChanged}
     >
       <summary
-        class="muted cursor-pointer text-xs font-medium select-none hover:text-slate-700 dark:hover:text-slate-200"
+        class="muted cursor-pointer text-xs font-medium select-none hover:text-stone-700 dark:hover:text-stone-200"
         >Advanced ({split.advanced.length})</summary
       >
-      <div class="divide-y divide-slate-900/5 dark:divide-white/5">
+      <div class="divide-y divide-stone-900/5 dark:divide-white/5">
         {#each split.advanced as setting (setting.key)}<SettingField {setting} {form} />{/each}
       </div>
     </details>

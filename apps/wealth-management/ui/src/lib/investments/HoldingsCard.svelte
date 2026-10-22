@@ -33,7 +33,7 @@
             <th class="px-5 py-2 text-right">VND</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each rows as holding, i (i)}
             {@const label = holdingSource(holding)}
             <tr>
@@ -73,7 +73,7 @@
           {/each}
         </tbody>
         <tfoot>
-          <tr class="border-t border-slate-900/10 font-semibold dark:border-white/10">
+          <tr class="border-t border-stone-900/10 font-semibold dark:border-white/10">
             <td class="px-5 py-2" colspan="6">Total</td>
             <td class="px-5 py-2 text-right"><Money value={total} /></td>
           </tr>

@@ -34,7 +34,7 @@
         <button
           type="button"
           class="rounded-md px-2 py-0.5 text-xs {range === option
-            ? 'bg-indigo-500/15 font-semibold text-indigo-700 dark:text-indigo-300'
+            ? 'bg-accent-500/15 font-semibold text-accent-700 dark:text-accent-300'
             : 'muted'}"
           aria-pressed={range === option}
           onclick={() => (range = option)}>{option}</button
@@ -71,7 +71,7 @@
             <th class="py-2 text-right">Your cash held in it (1Y)</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-slate-900/5 dark:divide-white/5">
+        <tbody class="divide-y divide-stone-900/5 dark:divide-white/5">
           {#each trends as { trend, color } (trend!.asset)}
             {@const t = trend!}
             {@const quarter = trendChange(t, '3M')}

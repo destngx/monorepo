@@ -237,7 +237,7 @@
   >
     {#if chat.entries.length === 0}
       <div class="flex h-full flex-col items-center justify-center gap-3 py-6 text-center">
-        <span class="grid size-10 place-items-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"
+        <span class="grid size-10 place-items-center rounded-xl bg-accent-600/10 text-accent-600 dark:text-accent-400"
           ><Icon name="sparkles" /></span
         >
         <p class="muted max-w-xs text-sm">Ask about your balances, spending, budget, money lent or goals.</p>
@@ -245,7 +245,7 @@
           {#each suggestions as suggestion (suggestion)}
             <Button
               size="sm"
-              class="border border-slate-900/10 hover:border-indigo-400/50 dark:border-white/10"
+              class="border border-stone-900/10 hover:border-accent-400/50 dark:border-white/10"
               onclick={() => send(suggestion)}>{suggestion}</Button
             >
           {/each}
@@ -260,7 +260,7 @@
             {:else}
               <!-- Amounts the user typed hide with the privacy mask too (WM-UI-2). -->
               <p
-                class="max-w-[85%] rounded-2xl rounded-br-md bg-indigo-600 px-3 py-2 text-sm whitespace-pre-wrap text-white"
+                class="max-w-[85%] rounded-lg rounded-br-sm border-[1.5px] border-edge px-3 py-2 text-sm whitespace-pre-wrap bg-stone-900 text-stone-50 dark:bg-stone-100 dark:text-stone-900"
               >
                 <MaskedText text={entry.content} />
               </p>
@@ -273,7 +273,7 @@
               <div class="flex flex-wrap gap-1.5">
                 {#each entry.tools as tool, toolIndex (toolIndex)}
                   <span
-                    class="inline-flex items-center gap-1 rounded-full bg-slate-900/5 px-2 py-0.5 text-xs dark:bg-white/5 {tool.status ===
+                    class="inline-flex items-center gap-1 rounded-md bg-stone-900/5 px-2 py-0.5 text-xs dark:bg-white/5 {tool.status ===
                     'error'
                       ? 'text-rose-600 dark:text-rose-400'
                       : 'muted'}"
@@ -290,23 +290,23 @@
             {/if}
             {#if entry.content}
               <!-- Markdown turns amounts into mask tokens while masked (WM-UI-15). -->
-              <div class="rounded-2xl rounded-bl-md bg-slate-900/5 px-3 py-2 dark:bg-white/5">
+              <div class="rounded-2xl rounded-bl-md bg-stone-900/5 px-3 py-2 dark:bg-white/5">
                 <Markdown text={entry.content} />
                 {#if index === streamingIndex}
                   <span
-                    class="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
+                    class="mt-1 inline-flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400"
                     role="status"
-                    ><span class="inline-block h-3 w-1.5 rounded-sm bg-indigo-500 motion-safe:animate-pulse"
+                    ><span class="inline-block h-3 w-1.5 rounded-sm bg-accent-500 motion-safe:animate-pulse"
                     ></span>Answering…</span
                   >
                 {/if}
               </div>
             {:else if index === streamingIndex && !entry.error}
               <div class="flex items-center gap-1 px-3 py-3" role="status" aria-label="Assistant is typing">
-                <span class="size-1.5 rounded-full bg-slate-400 motion-safe:animate-bounce"></span>
-                <span class="size-1.5 rounded-full bg-slate-400 [animation-delay:150ms] motion-safe:animate-bounce"
+                <span class="size-1.5 rounded-full bg-stone-400 motion-safe:animate-bounce"></span>
+                <span class="size-1.5 rounded-full bg-stone-400 [animation-delay:150ms] motion-safe:animate-bounce"
                 ></span>
-                <span class="size-1.5 rounded-full bg-slate-400 [animation-delay:300ms] motion-safe:animate-bounce"
+                <span class="size-1.5 rounded-full bg-stone-400 [animation-delay:300ms] motion-safe:animate-bounce"
                 ></span>
                 <span class="muted ml-1.5 text-xs" aria-hidden="true">Thinking…</span>
               </div>
@@ -331,7 +331,7 @@
   </div>
 
   <form
-    class="flex items-end gap-2 border-t border-slate-900/10 pt-3 dark:border-white/10 {compact ? 'px-3 pb-3' : ''}"
+    class="flex items-end gap-2 border-t border-stone-900/10 pt-3 dark:border-white/10 {compact ? 'px-3 pb-3' : ''}"
     onsubmit={(event) => {
       event.preventDefault();
       send(chat.draft);

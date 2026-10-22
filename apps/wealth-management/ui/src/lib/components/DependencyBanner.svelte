@@ -26,12 +26,12 @@
 </script>
 
 {#if health === null}
-  <div role="alert" class="glass mb-6 border border-rose-500/40 p-4 text-sm">
+  <div role="alert" class="panel mb-6 border border-rose-500/40 p-4 text-sm">
     <p class="font-semibold text-rose-700 dark:text-rose-300">The engine is not reachable</p>
     <p class="muted mt-1">Start it with <code>pnpx nx run wealth-management:serve</code> and reload.</p>
   </div>
 {:else if problems.length}
-  <div role="status" class="glass mb-6 border border-amber-500/40 p-4 text-sm">
+  <div role="status" class="panel mb-6 border border-amber-500/40 p-4 text-sm">
     <p class="font-semibold text-amber-700 dark:text-amber-300">
       {sheetsMissing ? 'Google Sheets is unavailable, so ledger data cannot load.' : 'Some services are degraded.'}
     </p>
@@ -41,7 +41,7 @@
       {/each}
     </ul>
     {#if sheetsAuth}<SheetsAuthSteps kind={sheetsAuth} class="mt-2" />{/if}
-    <a class="mt-2 inline-block text-indigo-600 hover:underline dark:text-indigo-400" href="{base}/settings"
+    <a class="mt-2 inline-block text-accent-600 hover:underline dark:text-accent-400" href="{base}/settings"
       >Open settings</a
     >
   </div>

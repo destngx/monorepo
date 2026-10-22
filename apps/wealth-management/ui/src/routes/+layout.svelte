@@ -131,16 +131,19 @@
 <div class="flex min-h-screen">
   <!-- Desktop sidebar -->
   <aside
-    class="glass sticky top-3 m-3 mr-0 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col p-3 transition-[width] lg:flex {collapsed
+    class="panel sticky top-3 m-3 mr-0 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col p-3 transition-[width] lg:flex {collapsed
       ? 'w-[4.25rem]'
       : 'w-60'}"
   >
     <a
       href="{base}/"
-      class="mb-4 flex items-center gap-2 rounded-xl px-2 py-1 font-semibold tracking-tight transition hover:bg-slate-900/[0.04] dark:hover:bg-white/5"
+      class="mb-4 flex items-center gap-2 rounded-xl px-2 py-1 font-semibold tracking-tight transition hover:bg-stone-900/[0.04] dark:hover:bg-white/5"
     >
-      <span class="grid size-8 place-items-center rounded-xl bg-indigo-600 text-sm text-white">₫</span>
-      {#if !collapsed}<span>Wealth</span>{/if}
+      <span
+        class="grid size-8 place-items-center rounded-md border-[1.5px] border-edge bg-stone-900 text-sm font-semibold text-accent-200 dark:bg-stone-100 dark:text-accent-800"
+        >₫</span
+      >
+      {#if !collapsed}<span class="font-serif text-lg">Wealth</span>{/if}
     </a>
     <div class="flex-1 overflow-y-auto"><Sidebar {collapsed} /></div>
     <button
@@ -159,7 +162,7 @@
   <!-- The dialog covers the screen; a click on it outside the sheet is a click on the backdrop. -->
   <dialog
     bind:this={mobileNav}
-    class="m-0 h-full max-h-none w-full max-w-none bg-transparent p-0 text-inherit backdrop:bg-slate-950/40 backdrop:backdrop-blur-sm lg:hidden"
+    class="m-0 h-full max-h-none w-full max-w-none bg-transparent p-0 text-inherit backdrop:bg-stone-950/45 lg:hidden"
     aria-label="All pages"
     onclose={() => (mobileNavOpen = false)}
     onclick={(event) => {
@@ -167,9 +170,9 @@
     }}
   >
     {#if mobileNavOpen}
-      <aside class="glass absolute inset-y-3 left-3 w-64 overflow-y-auto p-3">
+      <aside class="panel absolute inset-y-3 left-3 w-64 overflow-y-auto p-3">
         <div class="mb-2 flex items-center justify-between px-2 py-1">
-          <p class="font-semibold tracking-tight">Wealth</p>
+          <p class="font-serif text-lg font-semibold tracking-tight">Wealth</p>
           <button
             type="button"
             class="btn-ghost px-2"
@@ -186,7 +189,7 @@
   </dialog>
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="glass sticky top-3 z-30 m-3 flex items-center gap-2 px-3 py-2">
+    <header class="panel sticky top-3 z-30 m-3 flex items-center gap-2 px-3 py-2">
       <button
         type="button"
         class="btn-ghost px-2 lg:hidden"
@@ -197,7 +200,7 @@
       >
         <Icon name="menu" />
       </button>
-      <p class="flex-1 truncate font-semibold">{title}</p>
+      <p class="min-w-0 flex-1 truncate font-serif text-lg font-semibold">{title}</p>
       {#if aiReady}<AIUsageGauge />{/if}
       <MaskToggle />
       <ThemeToggle />

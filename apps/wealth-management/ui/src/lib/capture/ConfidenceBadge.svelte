@@ -25,7 +25,7 @@
 
 <button
   type="button"
-  class="rounded-full transition hover:ring-2 hover:ring-indigo-400/60"
+  class="rounded-full transition hover:ring-2 hover:ring-accent-400/60"
   aria-label="Confidence {overall}%: show why"
   title="Why {overall}%?"
   onclick={() => (open = true)}
@@ -34,7 +34,7 @@
 </button>
 
 <Modal {open} title="Confidence {overall}%" onclose={() => (open = false)}>
-  <ul class="divide-y divide-slate-900/5 text-sm dark:divide-white/5">
+  <ul class="divide-y divide-stone-900/5 text-sm dark:divide-white/5">
     {#each reasons as reason, index (reason.text)}
       <li class="flex items-start justify-between gap-4 py-2">
         <span class={reason.effect ? '' : 'muted'}>{reason.text}</span>

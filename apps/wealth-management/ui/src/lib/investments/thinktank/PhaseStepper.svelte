@@ -26,14 +26,14 @@
       case 'error':
         return { icon: 'x', tone: 'border-rose-500/50 text-rose-700 dark:text-rose-300', label: 'Failed' };
       case 'stopped':
-        return { icon: 'stop', tone: 'border-slate-400/50 muted', label: 'Stopped' };
+        return { icon: 'stop', tone: 'border-stone-400/50 muted', label: 'Stopped' };
       default:
-        return { icon: 'clock', tone: 'border-slate-900/10 dark:border-white/10 muted', label: 'Waiting' };
+        return { icon: 'clock', tone: 'border-stone-900/10 dark:border-white/10 muted', label: 'Waiting' };
     }
   }
 </script>
 
-<ol class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="Analysis phases">
+<ol class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4" aria-label="Analysis phases">
   {#each PHASES as { key, label }, i (key)}
     {@const phase = phases[key]}
     {@const view = look(phase)}
@@ -46,7 +46,7 @@
         >
           <Icon name={view.icon} size={14} />
         </span>
-        <span class="text-slate-800 dark:text-slate-100"><span class="muted">{i + 1}.</span> {label}</span>
+        <span class="text-stone-800 dark:text-stone-100"><span class="muted">{i + 1}.</span> {label}</span>
       </p>
       <p class="mt-1 text-xs">{view.label}</p>
       {#if phase.fallback}

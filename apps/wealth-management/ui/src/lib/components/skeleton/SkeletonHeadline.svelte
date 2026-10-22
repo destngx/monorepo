@@ -14,7 +14,7 @@
   let { question, label, stats = 0, class: className = '' }: Props = $props();
 </script>
 
-<section class="glass border-l-4 border-l-slate-300 p-5 dark:border-l-slate-600 {className}" aria-label={question}>
+<section class="panel border-l-4 border-l-stone-300 p-5 dark:border-l-stone-600 {className}" aria-label={question}>
   <p class="muted text-xs font-medium uppercase">{question}</p>
   <Loading label={label ?? 'the answer'} class="mt-2">
     <div class="skeleton h-6 w-2/3 max-w-md"></div>

@@ -233,7 +233,7 @@
     {#snippet children(loaded)}
       {@const captures = (overview ?? loaded).captures}
       {#if captures.length}
-        <ul class="divide-y divide-slate-900/10 text-sm dark:divide-white/10">
+        <ul class="divide-y divide-stone-900/10 text-sm dark:divide-white/10">
           {#each captures as capture (capture.id)}
             <li class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
               <span class="muted w-32 shrink-0 text-xs tabular-nums">{formatDateTime(capture.createdAt)}</span>

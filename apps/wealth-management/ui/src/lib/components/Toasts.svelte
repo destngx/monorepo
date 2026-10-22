@@ -4,10 +4,10 @@
 
   const icons: Record<ToastKind, IconName> = { error: 'alertCircle', warning: 'alert', info: 'info', success: 'check' };
   const tones: Record<ToastKind, string> = {
-    error: 'border-rose-500/40 text-rose-800 dark:text-rose-200',
-    warning: 'border-amber-500/40 text-amber-800 dark:text-amber-200',
-    info: 'border-sky-500/40 text-sky-800 dark:text-sky-200',
-    success: 'border-emerald-500/40 text-emerald-800 dark:text-emerald-200',
+    error: 'border-l-[6px] border-l-rose-600 text-rose-800 dark:text-rose-200',
+    warning: 'border-l-[6px] border-l-amber-500 text-amber-800 dark:text-amber-200',
+    info: 'border-l-[6px] border-l-sky-600 text-sky-800 dark:text-sky-200',
+    success: 'border-l-[6px] border-l-emerald-600 text-emerald-800 dark:text-emerald-200',
   };
 </script>
 
@@ -18,7 +18,7 @@
   {#each toasts.items as toast (toast.id)}
     <div
       role={toast.kind === 'error' ? 'alert' : 'status'}
-      class="glass pointer-events-auto flex items-start gap-3 border px-4 py-3 text-sm shadow-lg motion-safe:animate-[toast-in_160ms_ease-out] {tones[
+      class="panel pointer-events-auto flex items-start gap-3 px-4 py-3 text-sm motion-safe:animate-[toast-in_160ms_ease-out] {tones[
         toast.kind
       ]}"
       data-kind={toast.kind}

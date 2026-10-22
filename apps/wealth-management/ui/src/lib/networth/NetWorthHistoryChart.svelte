@@ -48,9 +48,9 @@
             x2={width - pad.right}
             y1={y(tick)}
             y2={y(tick)}
-            class="stroke-slate-900/10 dark:stroke-white/10"
+            class="stroke-stone-900/10 dark:stroke-white/10"
           />
-          <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-slate-500 text-[11px]"
+          <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-stone-500 text-[11px]"
             >{mask.revealed ? formatCompact(tick) : '•••'}</text
           >
         {/each}
@@ -59,7 +59,7 @@
             x={x(index)}
             y={height - 6}
             text-anchor={index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'}
-            class="fill-slate-500 text-[11px]">{formatMonth(points[index].month)}</text
+            class="fill-stone-500 text-[11px]">{formatMonth(points[index].month)}</text
           >
         {/each}
         {#each segments as segment (segment.from)}
@@ -87,7 +87,7 @@
             {#if milestoneMonths.has(point.month)}
               <path
                 d="M{x(i)},{y(point.netWorth) - 16} l5,5 l-5,5 l-5,-5 z"
-                class="fill-slate-700 dark:fill-slate-200"
+                class="fill-stone-700 dark:fill-stone-200"
                 data-milestone={point.month}
               />
             {/if}
@@ -98,7 +98,7 @@
               stroke={NET_WORTH}
               stroke-width="2"
               fill={point.estimated ? 'transparent' : NET_WORTH}
-              class={point.estimated ? 'fill-white dark:fill-slate-900' : ''}
+              class={point.estimated ? 'fill-white dark:fill-stone-900' : ''}
               data-estimated={point.estimated}
             />
           </g>

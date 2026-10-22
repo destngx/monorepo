@@ -182,7 +182,7 @@
   }
 </script>
 
-<form id="transaction-form" class="grid gap-4 sm:grid-cols-2" onsubmit={submit} novalidate>
+<form id="transaction-form" class="grid grid-cols-1 gap-4 sm:grid-cols-2" onsubmit={submit} novalidate>
   <div>
     <label class="label" for="tx-account">Account *</label>
     <select
@@ -325,7 +325,7 @@
     <input id="tx-ref" class="field" bind:value={form.referenceNumber} />
   </div>
   <label class="mt-6 flex items-center gap-2 text-sm">
-    <input type="checkbox" bind:checked={form.cleared} class="size-4 accent-indigo-600" /> Cleared
+    <input type="checkbox" bind:checked={form.cleared} class="size-4 accent-accent-600" /> Cleared
   </label>
   {#if error}<p role="alert" class="text-sm text-orange-600 sm:col-span-2 dark:text-orange-400">{error}</p>{/if}
   <div class="flex justify-end gap-2 sm:col-span-2">

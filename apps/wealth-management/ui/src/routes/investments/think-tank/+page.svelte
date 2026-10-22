@@ -96,7 +96,7 @@
       <label class="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
-          class="size-4 accent-indigo-600"
+          class="size-4 accent-accent-600"
           bind:checked={includeNews}
           disabled={thinkTank.running}
         />
@@ -220,9 +220,9 @@
 {/if}
 
 {#if run.context}
-  <details class="glass group mt-4 p-5">
+  <details class="panel group mt-4 p-5">
     <summary
-      class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700 select-none dark:text-slate-200"
+      class="flex cursor-pointer items-center gap-2 text-sm font-semibold text-stone-700 select-none dark:text-stone-200"
     >
       <Icon name="chevronRight" size={16} class="transition group-open:rotate-90" />
       Raw context

@@ -7,7 +7,7 @@
 </script>
 
 <Loading {label} class={className}>
-  <div class="flex items-end gap-2 border-b border-slate-900/10 dark:border-white/10" style="height: {height}px">
+  <div class="flex items-end gap-2 border-b border-stone-900/10 dark:border-white/10" style="height: {height}px">
     {#each bars as bar, i (i)}
       <div class="skeleton flex-1 rounded-b-none" style="height: {bar}%"></div>
     {/each}

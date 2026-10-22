@@ -110,9 +110,9 @@
           x2={width - pad.right}
           y1={y(tick)}
           y2={y(tick)}
-          class="stroke-slate-900/10 dark:stroke-white/10"
+          class="stroke-stone-900/10 dark:stroke-white/10"
         />
-        <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-slate-500 text-[11px]"
+        <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-stone-500 text-[11px]"
           >{hidden ? '•••' : format(tick)}</text
         >
       {/each}
@@ -121,7 +121,7 @@
           x={x(index)}
           y={height - 6}
           text-anchor={index === 0 ? 'start' : index === dates.length - 1 ? 'end' : 'middle'}
-          class="fill-slate-500 text-[11px]">{formatDate(dates[index])}</text
+          class="fill-stone-500 text-[11px]">{formatDate(dates[index])}</text
         >
       {/each}
       {#each paths as path (path.name)}
@@ -133,7 +133,7 @@
           x2={x(hover)}
           y1={pad.top}
           y2={height - pad.bottom}
-          class="stroke-slate-400/60"
+          class="stroke-stone-400/60"
           stroke-dasharray="3 3"
         />
         {#each series as s (s.name)}

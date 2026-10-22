@@ -21,7 +21,7 @@
 
 <Card title="Expense categories" subtitle="Click a category for detail" class="mt-4">
   {#if lines.length}
-    <ul class="divide-y divide-slate-900/5 dark:divide-white/5">
+    <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
       {#each lines as line (line.category)}
         <li class="flex items-center gap-3 py-3">
           <button

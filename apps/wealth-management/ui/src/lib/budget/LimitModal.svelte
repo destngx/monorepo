@@ -51,7 +51,7 @@
           type="radio"
           bind:group={scope}
           value="month"
-          class="accent-indigo-600"
+          class="accent-accent-600"
           onchange={() => (value = line?.limit ?? 0)}
         />
         Monthly limit for {formatMonth(month)}</label
@@ -61,7 +61,7 @@
           type="radio"
           bind:group={scope}
           value="year"
-          class="accent-indigo-600"
+          class="accent-accent-600"
           onchange={() => (value = line?.yearlyLimit ?? 0)}
         />
         Yearly limit for {month.slice(0, 4)}</label

@@ -74,14 +74,14 @@
         x2={width - pad.right}
         y1={y(tick)}
         y2={y(tick)}
-        class={tick === 0 ? 'stroke-slate-500/60' : 'stroke-slate-900/10 dark:stroke-white/10'}
+        class={tick === 0 ? 'stroke-stone-500/60' : 'stroke-stone-900/10 dark:stroke-white/10'}
       />
-      <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-slate-500 text-[11px]"
+      <text x={pad.left - 8} y={y(tick)} dy="0.32em" text-anchor="end" class="fill-stone-500 text-[11px]"
         >{formatSignedPercent(tick, 0)}</text
       >
     {/each}
-    <text x={pad.left} y={height - 6} text-anchor="start" class="fill-slate-500 text-[11px]">{formatDate(first)}</text>
-    <text x={width - pad.right} y={height - 6} text-anchor="end" class="fill-slate-500 text-[11px]"
+    <text x={pad.left} y={height - 6} text-anchor="start" class="fill-stone-500 text-[11px]">{formatDate(first)}</text>
+    <text x={width - pad.right} y={height - 6} text-anchor="end" class="fill-stone-500 text-[11px]"
       >{formatDate(last)}</text
     >
     {#each paths as s (s.name)}
@@ -93,13 +93,13 @@
         x2={x(hover)}
         y1={pad.top}
         y2={height - pad.bottom}
-        class="stroke-slate-400/60"
+        class="stroke-stone-400/60"
         stroke-dasharray="3 3"
       />
       {#each readout as r (r.name)}
         <circle cx={x(time(r.point.date))} cy={y(r.point.value)} r="4" fill={r.color} />
       {/each}
-      <text x={pad.left} y={12} class="fill-slate-700 text-[12px] font-medium dark:fill-slate-200">
+      <text x={pad.left} y={12} class="fill-stone-700 text-[12px] font-medium dark:fill-stone-200">
         {formatDate(readout[0]?.point.date)} · {readout
           .map((r) => `${r.name} ${formatSignedPercent(r.point.value)}`)
           .join(' · ')}
