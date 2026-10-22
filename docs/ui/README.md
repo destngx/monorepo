@@ -8,13 +8,13 @@ The shared look and the rules for every web UI in this repo. It comes from three
 | wealth-management (WM), `apps/wealth-management/ui` | Reference for loading states, skeletons and charts.                                        | `apps/wealth-management/ui/src/routes/layout.css` |
 | portfolio-landpage, `apps/portfolio-landpage`       | Source of the family look (Aurora, halftone, ink and paper). Public site, so it is louder. | `apps/portfolio-landpage/src/app.css`             |
 
-A new UI app reads this page first, then copies files from HW and WM as section 12 lists. App docs (for example the WM "UI & Styling" section in `docs/wealth-management/AGENTS.md`) add rules for their own app. They do not override this page.
+A new UI app reads this page first, then builds on [`libs/svelte-ui`](../../libs/svelte-ui/README.md), the shared theme and components, as section 12 lists. App docs (for example the WM "UI & Styling" section in `docs/wealth-management/AGENTS.md`) add rules for their own app. They do not override this page.
 
 ## 1. Stack
 
 - SvelteKit 2 with Svelte 5 runes (runes mode is forced for app code), Tailwind CSS 4 through `@tailwindcss/vite`, TypeScript. Versions come from the root `package.json`; a UI has no `package.json` of its own.
 - An app with a Go engine builds a client-only SPA: `ssr = false`, `adapter-static` with `fallback: 'index.html'` and `paths.base: '/ui'`. The engine serves it at `/ui`, and the dev server proxies `/api` to the engine.
-- No component library (no bits-ui, no shadcn) and no icon package. Components are small Svelte files in `src/lib/components`. Icons are inline 24×24 stroke paths in `Icon.svelte` (Lucide style, `stroke-width` 1.8).
+- No third-party component library (no bits-ui, no shadcn) and no icon package. Shared components live in `libs/svelte-ui`; an app's own components are small Svelte files in `src/lib/components`. Icons are inline 24×24 stroke paths in `Icon.svelte` (Lucide style, `stroke-width` 1.8).
 - Fonts are bundled with `@fontsource` or `@fontsource-variable` and imported in the root layout. Do not name a font in `--font-*` that the app does not import; WM does this with Inter, and machines without Inter fall back to the system font.
 
 ## 2. The look
@@ -44,17 +44,18 @@ A new tool app follows HW: quiet surfaces stay light, and the ink edge and shado
 
 ## 3. Tokens
 
-Tokens live in `@theme` in `src/routes/layout.css`. Name colours by role, never by hue, so a palette change touches one file. Start from HW's file and change the hues.
+The shared tokens live in `@theme` in `libs/svelte-ui/src/theme.css`. An app imports it from `src/routes/layout.css` and overrides only its accent. Name colours by role, never by hue, so a palette change touches one file.
 
 | Token                                 | Role                                                                                       |
 | ------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `ink-50` to `ink-950`                 | Warm neutrals. 50 is paper, 100 ivory, 200 stone, 900 ink.                                 |
 | `accent-50` to `accent-950`           | The app's one accent: links, what is selected, quiet emphasis.                             |
+| `good-*`                              | A good status, nothing else.                                                               |
 | `danger-*`                            | Errors and destructive actions, nothing else.                                              |
 | `warn-*`                              | Warnings and things that wait for a person.                                                |
 | `info-*`                              | Work in progress and neutral notices.                                                      |
 | `canvas`, `surface`, `rule`, `edge`   | Page, raised surface, thin line, ink edge. They point at CSS variables that `.dark` swaps. |
-| `shadow-brut-sm`, `shadow-brut` (HW)  | The 2px and 4px hard shadows in `--shade`.                                                 |
+| `shadow-brut-sm`, `-brut`, `-brut-lg` | The 2px, 4px and 6px hard shadows in `--shade`.                                            |
 | `--aurora-1` to `--aurora-4`, `--dot` | Aurora blobs and the halftone dot, set for light and dark.                                 |
 | `--font-sans`, `--font-display`       | Body sans and heading serif.                                                               |
 
@@ -67,7 +68,7 @@ Rules:
 
 ## 4. Base styles and utilities
 
-Copy HW's `@layer base` block as it is. It gives every page:
+`theme.css` in `libs/svelte-ui` has the base layer (HW's, plus WM's scroller rule). It gives every page:
 
 - pointer cursors on buttons, summaries, selects and checkbox labels; `not-allowed` on disabled; `progress` on `aria-busy`
 - a 150ms ease-out transition on links and buttons, and a 1px press on buttons
@@ -76,11 +77,11 @@ Copy HW's `@layer base` block as it is. It gives every page:
 - a focus ring on `:focus-visible`
 - reduced motion: transitions drop to 0.01ms and the press stops
 
-Also copy WM's rule that makes every `overflow-x-auto` a containing block (`position: relative`), so a table's sr-only text cannot widen the page on phones.
+It also makes every `overflow-x-auto` a containing block (`position: relative`), so a table's sr-only text cannot widen the page on phones.
 
 Base rules use `:where()` so any utility on a component wins.
 
-Every app defines these utilities with `@utility`, with the same names and meaning. `libs/svelte-ai-usage` depends on `panel`, `muted`, `link`, `tabular` and `icon-btn`.
+`theme.css` defines these utilities with `@utility`. An app that keeps its own `layout.css` (HW and WM today) defines them with the same names and meaning. `libs/svelte-ai-usage` depends on `panel`, `muted`, `link`, `tabular` and `icon-btn`.
 
 | Utility        | Meaning                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -128,7 +129,7 @@ Use Tailwind classes for everything else. Write plain CSS only for what Tailwind
 
 ## 7. Components and behaviour
 
-The shared components are copies today, one per app. Keep their props the same in every app, so code and habits move between apps. If you change one, change the others or note why they differ.
+These components are in `libs/svelte-ui`; import them from `@libs/svelte-ui`. HW and WM still have their own copies until they move to the library. Until then, a change to a copy goes into the library too, so the two do not drift.
 
 | Component         | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -138,7 +139,7 @@ The shared components are copies today, one per app. Keep their props the same i
 | `Toasts`          | `error`, `warning`, `info`, `success`, bottom right, above the phone tab bar. Errors are `role="alert"`, others `role="status"`, in an `aria-live="polite"` region.                                                                                                                                                                                                                                                      |
 | `EmptyState`      | `title` and an optional `detail`, centred.                                                                                                                                                                                                                                                                                                                                                                               |
 | `Icon`, `Spinner` | `Icon` is `aria-hidden`; a button carries the label.                                                                                                                                                                                                                                                                                                                                                                     |
-| `Aurora`          | Copy it unchanged; only the CSS variable names differ between apps.                                                                                                                                                                                                                                                                                                                                                      |
+| `Aurora`          | Mount it once; the app sets its colours with `--aurora-1` to `--aurora-4` and `--dot`.                                                                                                                                                                                                                                                                                                                                   |
 | `MenuButton` (HW) | `aria-haspopup`, `aria-expanded`, `role="menu"`; arrow keys move, Escape and an outside click close.                                                                                                                                                                                                                                                                                                                     |
 | `AIUsageGauge`    | From `libs/svelte-ai-usage`, through the `@libs/svelte-ai-usage` alias. Add `@source` for the lib to `layout.css` and `implicitDependencies: ["svelte-ai-usage"]` to `project.json`.                                                                                                                                                                                                                                     |
 
@@ -152,12 +153,12 @@ Use WM's pattern, described in full in `docs/wealth-management/AGENTS.md` under 
 - Skeletons are `role="status"` and `aria-busy`, with "Loading {label}…" for screen readers.
 - Page changes show `NavProgress`: nothing under 150ms, then a top bar.
 
-HW has none of this yet. A new app copies `api/load.ts`, `api/deferred.svelte.ts`, `Deferred`, `LoadError`, `NavProgress` and `components/skeleton` from WM.
+All of it is in `libs/svelte-ui`. HW does not use it yet. An app whose API errors need more than the default rules makes its own `defer` with `createLoader({ classify, onFailure })`; the failure's `hint` is the advice `LoadError` shows.
 
 ### Status and charts
 
 - A status is never shown by colour alone. Pair it with an icon and a label, and give the label to screen readers (`sr-only` "Good:").
-- Use one status scale per app (`lib/status.ts` in WM: `good`, `warning`, `serious`, `critical`, `info`, `neutral`, each with icon, label and classes). Build it on `accent`, `warn`, `danger` and `info` tokens.
+- Use the one status scale, `STATUS` in `libs/svelte-ui` (`good`, `warning`, `serious`, `critical`, `info`, `neutral`, each with icon, label and classes). It is built on the `good`, `warn`, `danger`, `info` and `ink` tokens.
 - Chart series colours come from one `lib/charts/palette.ts` in a fixed order, each checked against both theme surfaces with the dataviz skill's palette validator. Do not write a hex colour in a chart. Tell estimated or secondary series apart by dash and marker shape as well as colour.
 
 ## 8. Motion
@@ -197,11 +198,9 @@ HW has none of this yet. A new app copies `api/load.ts`, `api/deferred.svelte.ts
 ## 12. Starting a new UI app
 
 1. Create the SvelteKit app under `apps/<app>/ui` with the same `svelte.config.js` and `vite.config.mjs` shape as HW.
-2. Copy HW's `routes/layout.css`. Pick a new accent hue, rebuild `accent-*`, and adjust the Aurora mix. Keep the token and utility names.
-3. Import the fonts with `@fontsource-variable` in the root layout.
-4. Copy the theme script in `app.html` and `state/theme.svelte.ts`, with the key `<app>.theme`.
-5. Copy `Aurora`, `Button`, `state/action.svelte.ts`, `Modal`, `Toasts`, `state/toasts.svelte.ts`, `Card`, `EmptyState`, `Icon`, `Spinner` and the page title component from HW.
-6. Copy the loading files from WM (section 7, Loading).
-7. Build the shell from section 6 and check every page at 390px in both themes.
-8. Add `lib/format.ts` and `lib/status.ts` with tests before the first page that needs them.
-9. Add the app's own UI rules to its docs and link back here.
+2. Wire up `libs/svelte-ui` as its README describes: the alias, the `theme.css` import, the fonts, `createTheme('<app>.theme')` with the first-paint script, and `implicitDependencies`.
+3. Pick a new accent hue, set all eleven `accent-*` steps in the app's `@theme`, and adjust the Aurora mix. Keep the token and utility names.
+4. Mount `Aurora`, `Toasts` and `NavProgress` in the root layout, and use `defer` with `<Deferred>` for every slow section.
+5. Build the shell from section 6 and check every page at 390px in both themes.
+6. Put app-only formatters (money, labels) in the app's `lib/format.ts`, with tests, next to the shared ones from the library.
+7. Add the app's own UI rules to its docs and link back here. If a component would help another app, add it to the library instead.

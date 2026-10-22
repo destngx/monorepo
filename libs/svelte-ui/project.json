@@ -1,0 +1,30 @@
+{
+  "name": "svelte-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/svelte-ui/src",
+  "projectType": "library",
+  "tags": ["type:lib", "scope:frontend", "lang:typescript"],
+  "targets": {
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec svelte-check --tsconfig ./tsconfig.json",
+        "cwd": "libs/svelte-ui"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec eslint --concurrency auto .",
+        "cwd": "libs/svelte-ui"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run",
+        "cwd": "libs/svelte-ui"
+      }
+    }
+  }
+}
