@@ -383,3 +383,46 @@ func joinTexts(lines []Line) string {
 	}
 	return strings.Join(texts, "\n")
 }
+
+func TestGivenAManualBoxOverALineWhenMaskingThenTheTextHidesThatLineToo(t *testing.T) {
+	lines := []Line{
+		row("Phòng khám Mẫu", 0.1, 0.10, 0.3),
+		row("Ghi chú: gọi lại sau 3 ngày", 0.1, 0.20, 0.4),
+		row("Glucose 5.0 mmol/L", 0.1, 0.30, 0.4),
+	}
+	in := readyInput(lines)
+	in.Text = "Phòng khám Mẫu\nGhi chú: gọi lại sau 3 ngày\nGlucose 5.0 mmol/L"
+	// The box covers the end of the line, not its label.
+	in.Manual = []Quad{RectQuad(0.25, 0.195, 0.25, 0.03)}
+	res := MaskPage(in)
+	if res.Text != "Phòng khám Mẫu\n"+MaskPlaceholder+"\nGlucose 5.0 mmol/L" {
+		t.Fatalf("masked text = %q", res.Text)
+	}
+	if len(res.Auto) != 0 || len(res.Boxes) != 1 {
+		t.Fatalf("auto = %+v, boxes = %+v", res.Auto, res.Boxes)
+	}
+}
+
+func TestGivenAManualBoxThatOnlyGrazesALineWhenMaskingThenTheLineStays(t *testing.T) {
+	lines := []Line{row("Glucose 5.0 mmol/L", 0.1, 0.30, 0.4), row("Ure 4.1 mmol/L", 0.1, 0.40, 0.4)}
+	in := readyInput(lines)
+	in.Text = "Glucose 5.0 mmol/L\nUre 4.1 mmol/L"
+	// The bottom edge of a box over the line above touches this one.
+	in.Manual = []Quad{RectQuad(0.1, 0.25, 0.4, 0.054)}
+	res := MaskPage(in)
+	if res.Text != in.Text {
+		t.Fatalf("masked text = %q", res.Text)
+	}
+}
+
+func TestGivenAManualBoxOverALineTurnedOffWhenMaskingThenTheLineIsHiddenAgain(t *testing.T) {
+	lines := []Line{row("Họ tên: NGUYỄN VĂN MẪU", 0.1, 0.2, 0.5), row("Glucose 5.0", 0.1, 0.4, 0.3)}
+	in := readyInput(lines)
+	in.Text = "Họ tên: NGUYỄN VĂN MẪU\nGlucose 5.0"
+	in.Off = []string{"line:0"}
+	in.Manual = []Quad{RectQuad(0.1, 0.195, 0.5, 0.03)}
+	res := MaskPage(in)
+	if res.Text != MaskPlaceholder+"\nGlucose 5.0" {
+		t.Fatalf("masked text = %q", res.Text)
+	}
+}

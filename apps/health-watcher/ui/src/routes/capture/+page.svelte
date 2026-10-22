@@ -8,6 +8,7 @@
     stageFromPhone,
     takeCaptureToken,
   } from '$lib/capture';
+  import { holdDevReload } from '$lib/devReload';
   import { draftStore, idbBackend } from '$lib/drafts';
   import Icon from '$lib/components/Icon.svelte';
   import QueueThumbs from '$lib/components/QueueThumbs.svelte';
@@ -17,10 +18,9 @@
 
   // The phone end of a capture link (HW-IMP-9): no sign-in, only a camera
   // and a short-lived token that adds to one inbox, or to one item when the
-  // link was made on an item's page (HW-IMP-10). Each photo starts
-  // uploading as soon as it is taken (HW-IMP-11), so Send is quick. Photos
-  // also wait in a draft, so a reload while the camera is open loses
-  // nothing; the Mac knows the ones it already has.
+  // link was made on an item's page (HW-IMP-10). Photos stay on the phone
+  // until Send, which uploads them with a bar each (HW-IMP-11). They also
+  // wait in a draft, so a reload while the camera is open loses nothing.
   const draftKey = () => (toItem ? 'capture-item' : 'capture');
   const drafts = draftStore(idbBackend());
 
@@ -44,6 +44,7 @@
   });
 
   onMount(() => {
+    const release = holdDevReload();
     token = takeCaptureToken(location.hash, location.pathname, sessionStorage, (url) =>
       history.replaceState(history.state, '', url),
     );
@@ -73,7 +74,10 @@
         message = { tone: 'error', text: `Could not bring back earlier photos: ${String(error)}` };
       })
       .finally(() => (ready = true));
-    return () => queue.clear();
+    return () => {
+      release();
+      queue.clear();
+    };
   });
 
   $effect(() => {
@@ -95,11 +99,25 @@
   }
 
   async function send() {
-    if (!token || !queue.ready || sending) return;
+    if (!token || !queue.entries.length || sending) return;
     sending = true;
     message = null;
-    const ids = queue.fileIds;
     try {
+      await queue.upload();
+      if (queue.failed) {
+        const n = queue.failed;
+        message = {
+          tone: 'error',
+          text: `${n} ${n === 1 ? 'photo' : 'photos'} did not reach the Mac. Press Send to try again.`,
+        };
+        return;
+      }
+      const ids = queue.fileIds;
+      if (!ids.length) {
+        message = { tone: 'ok', text: 'These photos are already stored on the Mac.' };
+        queue.clear();
+        return;
+      }
       const res = await sendFromPhone(token, ids, oneItem && !toItem);
       message = {
         tone: 'ok',
@@ -118,10 +136,9 @@
   const uploaded = $derived(queue.entries.reduce((sum, e) => sum + e.file.size * e.progress, 0));
   const sendLabel = $derived.by(() => {
     const n = queue.entries.length;
+    if (queue.pending) return `Sending… ${formatSize(uploaded)} of ${formatSize(total)}`;
     if (sending) return 'Sending…';
-    if (queue.pending) return `Uploading… ${formatSize(uploaded)} of ${formatSize(total)}`;
-    if (queue.failed) return `${queue.failed} ${queue.failed === 1 ? 'photo' : 'photos'} failed: retry or remove`;
-    if (!queue.fileIds.length) return 'Nothing new to send';
+    if (queue.failed) return `Send again (${queue.failed} failed)`;
     return `Send ${n} ${n === 1 ? 'page' : 'pages'} (${formatSize(total)})`;
   });
 </script>
@@ -170,10 +187,10 @@
           class="btn-primary mt-4 w-full"
           type="button"
           onclick={() => void send()}
-          disabled={sending || expired || !queue.ready}
-          aria-busy={sending || queue.pending > 0}>{sendLabel}</button
+          disabled={sending || expired}
+          aria-busy={sending}>{sendLabel}</button
         >
-        <p class="muted mt-2 text-xs">Each photo goes to the Mac as soon as it is taken; Send files them.</p>
+        <p class="muted mt-2 text-xs">The photos stay on this phone until you press Send.</p>
       </section>
     {/if}
   {/if}

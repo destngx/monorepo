@@ -49,7 +49,8 @@
   const missingImage = $derived(pages.some((p) => !p.hasImage));
 
   let filing = $state(false);
-  const folds = new Folds();
+  // Pages start folded, except one waiting for its mask to be checked.
+  const folds = new Folds({ startOpen: (id) => pages.find((p) => p.id === id)?.mask?.status === 'needs_check' });
   const pageIds = $derived(pages.map((p) => p.id));
   let view = $state<Record<string, 'masked' | 'original'>>({});
   let drawing = $state<string | null>(null);

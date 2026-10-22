@@ -415,6 +415,17 @@ func TestGivenDrawnBoxesWhenSavedThenThePageIsRemaskedAndNeedsACheckAgain(t *tes
 	if _, err := e.inbox.SetPageBoxes(e.ctx, sc, d.Item.ID, d.Pages[0].ID, []domain.Quad{{{X: 2, Y: 0}}}); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("bad box = %v", err)
 	}
+	if pg.Mask.Text != before.Text {
+		t.Fatalf("a box over no text changed the masked text: %q", pg.Mask.Text)
+	}
+
+	// A box over the diagnosis hides it in the text sent to AI too.
+	if pg, err = e.inbox.SetPageBoxes(e.ctx, sc, d.Item.ID, d.Pages[0].ID, []domain.Quad{domain.RectQuad(0.3, 0.198, 0.4, 0.024)}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(pg.Mask.Text, "Chẩn đoán") || !strings.Contains(pg.Mask.Text, "Glucose") {
+		t.Fatalf("masked text = %q", pg.Mask.Text)
+	}
 	img, err := e.records.OpenPageImage(e.ctx, sc, pg.ID, true)
 	if err != nil {
 		t.Fatal(err)

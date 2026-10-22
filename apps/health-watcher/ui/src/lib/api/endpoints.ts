@@ -139,7 +139,7 @@ export function tenantApi(tenantId: string) {
       if (options.personId) form.set('personId', options.personId);
       return request<UploadResponse>(`${t}/inbox`, { method: 'POST', body: form });
     },
-    /** Sends one photo ahead of Send, with upload progress (HW-IMP-11). */
+    /** Uploads one photo for Send, with its progress (HW-IMP-11). */
     stage: async (file: File, onProgress: (fraction: number) => void) => {
       const form = new FormData();
       form.append('files', file, file.name);

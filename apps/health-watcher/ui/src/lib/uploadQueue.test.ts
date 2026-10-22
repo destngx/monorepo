@@ -27,12 +27,16 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 const opts = { makeURL: (f: File) => `blob:${f.name}`, revokeURL: () => undefined };
 
 describe('UploadQueue', () => {
-  it('uploads two at a time as photos arrive and is ready when all are up', async () => {
+  it('keeps photos on the phone until upload, then sends two at a time', async () => {
     const m = manual();
     const q = new UploadQueue(m.stage, opts);
     q.add([photo(1), photo(2), photo(3)]);
+    expect(m.calls).toHaveLength(0);
+    expect(q.pending).toBe(0);
+
+    const done = q.upload();
     expect(m.calls.map((c) => c.name)).toEqual(['IMG_1.jpg', 'IMG_2.jpg']);
-    expect(q.ready).toBe(false);
+    expect(q.pending).toBe(3);
 
     m.calls[0].progress(0.5);
     expect(q.entries[0].progress).toBe(0.5);
@@ -42,36 +46,46 @@ describe('UploadQueue', () => {
 
     m.calls[1].done('f2');
     m.calls[2].done('f3', true);
-    await tick();
+    await done;
     expect(q.fileIds).toEqual(['f1', 'f2']);
     expect(q.duplicates).toBe(1);
-    expect(q.ready).toBe(true);
+    expect(q.pending).toBe(0);
   });
 
-  it('holds Send while a photo failed, and retries it', async () => {
+  it('sends only the failed photos again on the next upload', async () => {
     const m = manual();
     const q = new UploadQueue(m.stage, opts);
-    q.add([photo(1)]);
-    m.calls[0].fail('The Mac did not answer');
-    await tick();
-    expect(q.entries[0].state).toBe('failed');
-    expect(q.entries[0].error).toBe('The Mac did not answer');
-    expect(q.ready).toBe(false);
+    q.add([photo(1), photo(2)]);
+    const first = q.upload();
+    m.calls[0].done('f1');
+    m.calls[1].fail('The Mac did not answer');
+    await first;
+    expect(q.entries[1].state).toBe('failed');
+    expect(q.entries[1].error).toBe('The Mac did not answer');
+    expect(q.failed).toBe(1);
 
-    q.retry(q.entries[0].key);
-    expect(m.calls).toHaveLength(2);
-    m.calls[1].done('f1');
-    await tick();
-    expect(q.ready).toBe(true);
+    const again = q.upload();
+    expect(m.calls.map((c) => c.name)).toEqual(['IMG_1.jpg', 'IMG_2.jpg', 'IMG_2.jpg']);
+    m.calls[2].done('f2');
+    await again;
+    expect(q.failed).toBe(0);
+    expect(q.fileIds).toEqual(['f1', 'f2']);
+  });
+
+  it('finishes at once when there is nothing to send', async () => {
+    const q = new UploadQueue(manual().stage, opts);
+    await q.upload();
+    expect(q.pending).toBe(0);
   });
 
   it('drops a removed photo from what Send names', async () => {
     const m = manual();
     const q = new UploadQueue(m.stage, opts);
     q.add([photo(1), photo(2)]);
+    const done = q.upload();
     m.calls[0].done('f1');
     m.calls[1].done('f2');
-    await tick();
+    await done;
     q.remove(q.entries[0].key);
     expect(q.fileIds).toEqual(['f2']);
   });

@@ -52,7 +52,14 @@
   );
 </script>
 
-<Modal {open} title={itemId ? 'Add photos with the iPhone' : 'Take photos with the iPhone'} {onclose}>
+<Modal
+  {open}
+  title={itemId ? 'Add photos with the iPhone' : 'Take photos with the iPhone'}
+  {onclose}
+  confirmClose={link
+    ? `Close the QR code? An iPhone that has not opened it yet will not be able to send photos. One that already opened it can still send until ${expires}.`
+    : undefined}
+>
   {#if problem}
     <p class="text-sm text-danger-600 dark:text-danger-400">{problem}</p>
     <p class="muted mt-2 text-xs">

@@ -1,14 +1,15 @@
 /**
- * The phone's send-ahead queue (HW-IMP-11): each photo starts uploading as
- * soon as it is taken, a few at a time, so Send only has to name the files
- * already on the Mac. Each photo has its own progress.
+ * The phone camera's photos (HW-IMP-11). They stay on the phone until Send,
+ * which uploads them a few at a time, each with its own progress, then names
+ * the files now on the Mac. A failed photo is sent again on the next Send.
  */
 export type StageFn = (
   file: File,
   onProgress: (fraction: number) => void,
 ) => Promise<{ fileId: string; duplicate: boolean }>;
 
-export type EntryState = 'waiting' | 'sending' | 'sent' | 'duplicate' | 'failed';
+/** waiting: on the phone only; queued: Send pressed, its turn to upload is coming. */
+export type EntryState = 'waiting' | 'queued' | 'sending' | 'sent' | 'duplicate' | 'failed';
 
 export interface QueueEntry {
   key: number;
@@ -28,6 +29,7 @@ export class UploadQueue {
   readonly #makeURL: (f: File) => string;
   readonly #revokeURL: (url: string) => void;
   #next = 0;
+  #waiters: (() => void)[] = [];
 
   constructor(
     stage: StageFn,
@@ -43,16 +45,20 @@ export class UploadQueue {
     for (const file of files) {
       this.entries.push({ key: this.#next++, file, url: this.#makeURL(file), state: 'waiting', progress: 0 });
     }
-    this.#pump();
   }
 
-  retry(key: number): void {
-    const e = this.entries.find((x) => x.key === key);
-    if (!e || e.state !== 'failed') return;
-    e.state = 'waiting';
-    e.progress = 0;
-    e.error = undefined;
+  /** Uploads the photos not on the Mac yet, failed ones again; resolves when none is left uploading. */
+  upload(): Promise<void> {
+    for (const e of this.entries) {
+      if (e.state !== 'failed') continue;
+      e.state = 'waiting';
+      e.progress = 0;
+      e.error = undefined;
+    }
+    for (const e of this.entries) if (e.state === 'waiting') e.state = 'queued';
+    const done = new Promise<void>((resolve) => this.#waiters.push(resolve));
     this.#pump();
+    return done;
   }
 
   remove(key: number): void {
@@ -67,9 +73,9 @@ export class UploadQueue {
     this.entries = [];
   }
 
-  /** Photos still waiting or uploading. */
+  /** Photos Send is still uploading. */
   get pending(): number {
-    return this.entries.filter((e) => e.state === 'waiting' || e.state === 'sending').length;
+    return this.entries.filter((e) => e.state === 'queued' || e.state === 'sending').length;
   }
 
   get failed(): number {
@@ -85,19 +91,15 @@ export class UploadQueue {
     return this.entries.filter((e) => e.state === 'duplicate').length;
   }
 
-  /** Send may go once every photo is up, none failed and one is new. */
-  get ready(): boolean {
-    return this.pending === 0 && this.failed === 0 && this.fileIds.length > 0;
-  }
-
   #pump(): void {
     let running = this.entries.filter((e) => e.state === 'sending').length;
     for (const e of this.entries) {
-      if (running >= this.#limit) return;
-      if (e.state !== 'waiting') continue;
+      if (running >= this.#limit) break;
+      if (e.state !== 'queued') continue;
       running++;
       void this.#run(e);
     }
+    if (this.pending === 0) for (const resolve of this.#waiters.splice(0)) resolve();
   }
 
   async #run(e: QueueEntry): Promise<void> {

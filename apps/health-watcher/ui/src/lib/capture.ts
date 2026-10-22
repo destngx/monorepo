@@ -55,8 +55,8 @@ export function sentMessage(res: { added: number; files: number; duplicates: num
 }
 
 /**
- * Sends one photo ahead with the link's token, without cookies, while the
- * person takes the next (HW-IMP-11).
+ * Uploads one photo for Send with the link's token, without cookies, with
+ * its progress (HW-IMP-11).
  */
 export async function stageFromPhone(
   token: string,

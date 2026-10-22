@@ -2,8 +2,9 @@
   import type { UploadQueue } from '$lib/uploadQueue.svelte';
   import Icon from './Icon.svelte';
 
-  // The photos of a send-ahead queue (HW-IMP-11), each with its own upload
-  // bar, a tick once it is on the Mac, and Retry when it failed.
+  // The photos waiting for Send (HW-IMP-11). Once Send is pressed each shows
+  // its own upload bar, a tick once it is on the Mac, and Failed when it did
+  // not get there; the next Send tries it again.
   let { queue, disabled = false }: { queue: UploadQueue; disabled?: boolean } = $props();
 </script>
 
@@ -11,7 +12,11 @@
   {#each queue.entries as e, i (e.key)}
     <div class="relative aspect-[3/4] overflow-hidden rounded-xl border border-ink-900/10 dark:border-ink-50/10">
       {#if e.file.type.startsWith('image/') && e.file.type !== 'image/heic'}
-        <img src={e.url} alt="Photo {i + 1}" class="size-full object-cover {e.state === 'sent' ? '' : 'opacity-70'}" />
+        <img
+          src={e.url}
+          alt="Photo {i + 1}"
+          class="size-full object-cover {e.state === 'waiting' || e.state === 'sent' ? '' : 'opacity-70'}"
+        />
       {:else}
         <div class="grid size-full place-items-center p-2 text-center text-xs break-all">{e.file.name}</div>
       {/if}
@@ -32,13 +37,11 @@
           >Already stored</span
         >
       {:else if e.state === 'failed'}
-        <button
-          type="button"
-          class="absolute inset-x-1 bottom-1 rounded bg-danger-600 px-1 py-0.5 text-[11px] font-medium text-ink-50"
-          title={e.error}
-          onclick={() => queue.retry(e.key)}>Retry</button
+        <span
+          class="absolute inset-x-1 bottom-1 rounded bg-danger-600 px-1 py-0.5 text-center text-[11px] font-medium text-ink-50"
+          title={e.error}>Failed</span
         >
-      {:else}
+      {:else if e.state !== 'waiting'}
         <div
           class="absolute inset-x-1 bottom-1 h-1.5 overflow-hidden rounded-full bg-ink-900/20"
           role="progressbar"

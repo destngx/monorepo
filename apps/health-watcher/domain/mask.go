@@ -13,7 +13,7 @@ const MaskPlaceholder = "[ẩn]"
 
 // MaskRulesVersion goes up when the masking rules change, so pages masked
 // with older rules are masked again.
-const MaskRulesVersion = 3
+const MaskRulesVersion = 4
 
 // personalLabel is a label printed before personal data on Vietnamese and
 // English medical papers. Labels that also occur in ordinary sentences
@@ -334,6 +334,14 @@ func MaskPage(in MaskInput) MaskResult {
 		}
 	}
 	res.Boxes = append(res.Boxes, in.Manual...)
+	// A line under a box a person drew is hidden in the text too, even one
+	// whose rule box they turned off: the text must not send what the image
+	// hides.
+	for i, l := range in.Lines {
+		if slices.ContainsFunc(in.Manual, func(q Quad) bool { return covers(q, l.Quad, in.Width, in.Height) }) {
+			res.Masked[i], off[i] = true, false
+		}
+	}
 	res.Text = maskText(in.Text, in.Lines, res.Masked, off, names, &nameFound)
 
 	if !in.HasImage {
@@ -621,4 +629,21 @@ func MatchPerson(texts []string, people []Person) string {
 		}
 	}
 	return found
+}
+
+// covers reports whether box b hides some of line l: it spans at least half
+// the line's height and at least one character of it, taken as the line's
+// height in pixels. A box over the line above that grazes this one does not
+// count. Both use their axis-aligned bounds.
+func covers(b, l Quad, width, height int) bool {
+	bx0, by0, bx1, by1 := b.Bounds()
+	lx0, ly0, lx1, ly1 := l.Bounds()
+	w, h := float64(width), float64(height)
+	if width <= 0 || height <= 0 {
+		w, h = 1, 1
+	}
+	lineH := (ly1 - ly0) * h
+	overlapY := (math.Min(by1, ly1) - math.Max(by0, ly0)) * h
+	overlapX := (math.Min(bx1, lx1) - math.Max(bx0, lx0)) * w
+	return lineH > 0 && overlapY >= lineH/2 && overlapX >= math.Min(lineH, (lx1-lx0)*w)
 }
