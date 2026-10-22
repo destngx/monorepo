@@ -36,6 +36,11 @@ definitions:
       role:
         type: string
     type: object
+  anthropic.OutputConfig:
+    properties:
+      effort:
+        type: string
+    type: object
   anthropic.Request:
     properties:
       max_tokens:
@@ -45,6 +50,12 @@ definitions:
           $ref: '#/definitions/anthropic.Message'
         type: array
       model:
+        type: string
+      output_config:
+        $ref: '#/definitions/anthropic.OutputConfig'
+      reasoning_effort:
+        description: Claude Code sends effort through output_config.effort, not the
+          OpenAI-style reasoning_effort field.
         type: string
       stop_sequences:
         items:
@@ -98,6 +109,10 @@ definitions:
     type: object
   anthropic.Usage:
     properties:
+      cache_creation_input_tokens:
+        type: integer
+      cache_read_input_tokens:
+        type: integer
       input_tokens:
         type: integer
       output_tokens:
@@ -106,6 +121,8 @@ definitions:
   domain.ChatDelta:
     properties:
       content:
+        type: string
+      reasoning_content:
         type: string
       role:
         type: string
@@ -128,6 +145,10 @@ definitions:
         type: string
       "n":
         type: integer
+      prompt_cache_key:
+        type: string
+      prompt_cache_options:
+        $ref: '#/definitions/domain.PromptCacheOptions'
       reasoning_effort:
         type: string
       stop: {}
@@ -173,6 +194,11 @@ definitions:
       message:
         $ref: '#/definitions/domain.Message'
     type: object
+  domain.CompletionTokensDetails:
+    properties:
+      reasoning_tokens:
+        type: integer
+    type: object
   domain.EmbeddingData:
     properties:
       embedding:
@@ -205,6 +231,15 @@ definitions:
       usage:
         $ref: '#/definitions/domain.Usage'
     type: object
+  domain.FailoverRecord:
+    properties:
+      fallback:
+        type: string
+      primary:
+        type: string
+      reason:
+        type: string
+    type: object
   domain.FunctionCall:
     properties:
       arguments:
@@ -232,6 +267,8 @@ definitions:
   domain.Message:
     properties:
       content:
+        type: string
+      reasoning_content:
         type: string
       role:
         description: '"system" | "user" | "assistant" | "tool"'
@@ -274,6 +311,18 @@ definitions:
       uptime_secs:
         type: integer
     type: object
+  domain.PromptCacheOptions:
+    properties:
+      mode:
+        type: string
+    type: object
+  domain.PromptTokensDetails:
+    properties:
+      cache_write_tokens:
+        type: integer
+      cached_tokens:
+        type: integer
+    type: object
   domain.RequestSnapshot:
     properties:
       completion_tokens:
@@ -282,6 +331,8 @@ definitions:
         type: integer
       error:
         type: string
+      failover:
+        $ref: '#/definitions/domain.FailoverRecord'
       model:
         type: string
       prompt_tokens:
@@ -296,6 +347,16 @@ definitions:
         type: string
       total_tokens:
         type: integer
+    type: object
+  domain.ResponsesRequest:
+    properties:
+      model:
+        type: string
+      stream:
+        type: boolean
+    type: object
+  domain.ResponsesResponse:
+    additionalProperties: {}
     type: object
   domain.RouteStats:
     properties:
@@ -391,8 +452,12 @@ definitions:
     properties:
       completion_tokens:
         type: integer
+      completion_tokens_details:
+        $ref: '#/definitions/domain.CompletionTokensDetails'
       prompt_tokens:
         type: integer
+      prompt_tokens_details:
+        $ref: '#/definitions/domain.PromptTokensDetails'
       total_tokens:
         type: integer
     type: object
@@ -626,6 +691,32 @@ paths:
       summary: List models
       tags:
       - models
+  /v1/responses:
+    post:
+      consumes:
+      - application/json
+      description: Native Responses API endpoint.
+      parameters:
+      - description: Responses Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ResponsesRequest'
+      - description: Provider name override
+        in: header
+        name: X-AI-Provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.ResponsesResponse'
+      summary: Responses
+      tags:
+      - responses
   /v1/usage:
     get:
       description: Get usage statistics for a specific provider.

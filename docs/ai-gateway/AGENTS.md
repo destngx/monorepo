@@ -33,3 +33,9 @@ We maintain a strict **no hardcoded strings** policy in application logic.
 - Implement the `Provider` interface located in the `domain` layer.
 - Ensure all provider-specific constants follow the naming conventions.
 - Map external errors to internal `domain` error types where possible.
+
+## API docs (Swagger)
+
+- `apps/ai-gateway/docs/` holds the swag output that `/docs/` serves. Never edit it by hand, and prettier ignores it.
+- After adding or changing a handler annotation (`@Router`, `@Param`, ...) or a request/response type, run `pnpx nx run ai-gateway:swagger` and commit the regenerated files in the same change.
+- `TestSwaggerDocsUpToDate` (part of `nx test ai-gateway`) regenerates the spec and fails when the committed files differ from it.

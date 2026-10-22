@@ -333,6 +333,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/responses": {
+            "post": {
+                "description": "Native Responses API endpoint.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "responses"
+                ],
+                "summary": "Responses",
+                "parameters": [
+                    {
+                        "description": "Responses Request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ResponsesRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Provider name override",
+                        "name": "X-AI-Provider",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ResponsesResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/usage": {
             "get": {
                 "description": "Get usage statistics for a specific provider.",
@@ -410,6 +450,14 @@ const docTemplate = `{
                 }
             }
         },
+        "anthropic.OutputConfig": {
+            "type": "object",
+            "properties": {
+                "effort": {
+                    "type": "string"
+                }
+            }
+        },
         "anthropic.Request": {
             "type": "object",
             "properties": {
@@ -423,6 +471,13 @@ const docTemplate = `{
                     }
                 },
                 "model": {
+                    "type": "string"
+                },
+                "output_config": {
+                    "$ref": "#/definitions/anthropic.OutputConfig"
+                },
+                "reasoning_effort": {
+                    "description": "Claude Code sends effort through output_config.effort, not the OpenAI-style reasoning_effort field.",
                     "type": "string"
                 },
                 "stop_sequences": {
@@ -502,6 +557,12 @@ const docTemplate = `{
         "anthropic.Usage": {
             "type": "object",
             "properties": {
+                "cache_creation_input_tokens": {
+                    "type": "integer"
+                },
+                "cache_read_input_tokens": {
+                    "type": "integer"
+                },
                 "input_tokens": {
                     "type": "integer"
                 },
@@ -514,6 +575,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "content": {
+                    "type": "string"
+                },
+                "reasoning_content": {
                     "type": "string"
                 },
                 "role": {
@@ -547,6 +611,12 @@ const docTemplate = `{
                 },
                 "n": {
                     "type": "integer"
+                },
+                "prompt_cache_key": {
+                    "type": "string"
+                },
+                "prompt_cache_options": {
+                    "$ref": "#/definitions/domain.PromptCacheOptions"
                 },
                 "reasoning_effort": {
                     "type": "string"
@@ -616,6 +686,14 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.CompletionTokensDetails": {
+            "type": "object",
+            "properties": {
+                "reasoning_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.EmbeddingData": {
             "type": "object",
             "properties": {
@@ -665,6 +743,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.FailoverRecord": {
+            "type": "object",
+            "properties": {
+                "fallback": {
+                    "type": "string"
+                },
+                "primary": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.FunctionCall": {
             "type": "object",
             "properties": {
@@ -706,6 +798,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "content": {
+                    "type": "string"
+                },
+                "reasoning_content": {
                     "type": "string"
                 },
                 "role": {
@@ -770,6 +865,25 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.PromptCacheOptions": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.PromptTokensDetails": {
+            "type": "object",
+            "properties": {
+                "cache_write_tokens": {
+                    "type": "integer"
+                },
+                "cached_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.RequestSnapshot": {
             "type": "object",
             "properties": {
@@ -781,6 +895,9 @@ const docTemplate = `{
                 },
                 "error": {
                     "type": "string"
+                },
+                "failover": {
+                    "$ref": "#/definitions/domain.FailoverRecord"
                 },
                 "model": {
                     "type": "string"
@@ -804,6 +921,21 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "domain.ResponsesRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "stream": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "domain.ResponsesResponse": {
+            "type": "object",
+            "additionalProperties": {}
         },
         "domain.RouteStats": {
             "type": "object",
@@ -949,8 +1081,14 @@ const docTemplate = `{
                 "completion_tokens": {
                     "type": "integer"
                 },
+                "completion_tokens_details": {
+                    "$ref": "#/definitions/domain.CompletionTokensDetails"
+                },
                 "prompt_tokens": {
                     "type": "integer"
+                },
+                "prompt_tokens_details": {
+                    "$ref": "#/definitions/domain.PromptTokensDetails"
                 },
                 "total_tokens": {
                     "type": "integer"

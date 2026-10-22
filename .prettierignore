@@ -5,3 +5,4 @@ coverage
 pnpm-lock.yaml
 apps/cloudinary-photos-app
 libs/cloudinary-photos-app
+apps/ai-gateway/docs

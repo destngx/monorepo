@@ -8,12 +8,19 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "go run github.com/swaggo/swag/cmd/swag init && mkdir -p dist && go build -o dist/ai-gateway main.go",
+        "command": "mkdir -p dist && go build -o dist/ai-gateway main.go",
         "cwd": "apps/ai-gateway"
       },
       "cache": true,
       "inputs": ["default", "^default"],
       "outputs": ["{projectRoot}/dist"]
+    },
+    "swagger": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run github.com/swaggo/swag/cmd/swag init",
+        "cwd": "apps/ai-gateway"
+      }
     },
     "serve": {
       "executor": "nx:run-commands",
