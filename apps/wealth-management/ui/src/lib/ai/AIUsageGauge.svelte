@@ -70,7 +70,9 @@
 </script>
 
 {#if visible}
-  <div class="relative" bind:this={root}>
+  <!-- Below sm the details hang from the header's right edge (the sticky header is their containing
+       block), since the gauge sits mid-header and a panel under it would run off the screen. -->
+  <div class="sm:relative" bind:this={root}>
     <button
       type="button"
       class="icon-btn size-9"
@@ -127,7 +129,7 @@
     {#if open}
       <div
         id={panelId}
-        class="panel absolute top-full right-0 z-40 mt-2 w-72 max-w-[calc(100vw-2rem)] p-3 text-left text-xs"
+        class="panel absolute top-full right-0 z-40 mt-2 w-72 max-w-[calc(100vw-1.5rem)] p-3 text-left text-xs"
       >
         <p class="mb-2 font-semibold">
           AI quota left{#if aiUsage.usage?.provider}&nbsp;({aiUsage.usage.provider}){/if}
