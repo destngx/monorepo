@@ -6,6 +6,7 @@
   import { setUnauthorizedHandler } from '$lib/api/client';
   import { auth } from '$lib/api/endpoints';
   import AIUsageGauge from '$lib/components/AIUsageGauge.svelte';
+  import Aurora from '$lib/components/Aurora.svelte';
   import Icon, { type IconName } from '$lib/components/Icon.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
   import { session } from '$lib/state/session.svelte';
@@ -58,6 +59,8 @@
 </script>
 
 <svelte:head><title>Health Watcher</title></svelte:head>
+
+<Aurora />
 
 {#if shell}
   <div class="mx-auto flex min-h-screen max-w-6xl flex-col px-3 pb-24 sm:px-6 lg:pb-8">
