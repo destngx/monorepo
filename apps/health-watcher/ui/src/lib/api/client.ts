@@ -1,3 +1,5 @@
+import { postForm } from '../xhr';
+
 /** Machine-readable error codes of the engine's error envelope. */
 export type ErrorCode =
   'VALIDATION' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT' | 'RATE_LIMITED' | 'TOO_LARGE' | 'INTERNAL';
@@ -92,6 +94,23 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/** POSTs a form with upload progress, with the session's cookie and CSRF token. */
+export async function uploadForm<T>(path: string, form: FormData, onProgress?: (fraction: number) => void): Promise<T> {
+  const res = await postForm(buildPath(path), form, {
+    headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+    withCredentials: true,
+    onProgress,
+  });
+  if (res.status < 200 || res.status >= 300) {
+    if (res.status === 401) onUnauthorized?.();
+    const message =
+      typeof res.body.error === 'string' && res.body.error ? res.body.error : `Upload failed (${res.status})`;
+    const code = typeof res.body.code === 'string' ? (res.body.code as ErrorCode) : undefined;
+    throw new ApiError(res.status, message, code, path);
+  }
+  return res.body as T;
 }
 
 /** The URL of a stored file, for <img> and <iframe>; the cookie authorises it. */

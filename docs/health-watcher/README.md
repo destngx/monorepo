@@ -67,6 +67,7 @@ Encryption at rest relies on FileVault (D1). Back up both the database and `file
 
 - **Browser**: Inbox page. Drop files or a whole folder, or pick them. On a phone, _Take photos_ opens the camera; take each page, then tick _pages of one document_.
 - **iPhone camera from the Mac**: Inbox, _Take photos with iPhone_ shows a QR code. Point the iPhone's Camera app at it, take each page on the page that opens, then press Send. The link needs no sign-in, adds only to that inbox, and expires after 15 minutes. The iPhone reaches the Mac over Tailscale: set Host in Engine settings to the Mac's Tailscale address, or open the app on the Mac at that address. The link uses the port the Mac's browser is on, so it opens the UI dev server (`:5174`) during `serve` and the engine (`:9191`) with `start`.
+- On the phone camera pages, each photo uploads as soon as it is taken, with its own progress bar; Send then only files them, so it is quick. Photos never sent are deleted from the Mac after a day.
 - Files waiting to be sent are kept in the browser until sent, so a page that reloads while the camera is open (iOS does this) loses nothing. On the phone, use the engine's own address (`:9191/ui`, from `start`) rather than the dev server on `:5174`, which reloads the page whenever its connection drops.
 - **iPhone share sheet**: a Shortcut posts scans and PDFs to the inbox with a personal upload token. See [\_setup/iphone-shortcut.md](./_setup/iphone-shortcut.md).
 - Every upload lands in the inbox first. _File_ puts it under an existing or new visit for a person.

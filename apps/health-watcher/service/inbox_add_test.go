@@ -9,7 +9,7 @@ import (
 
 func (e *env) addFiles(sc domain.Scope, itemID string, files ...domain.Upload) UploadResponse {
 	e.t.Helper()
-	resp, err := e.inbox.AddFiles(e.ctx, sc, itemID, files)
+	resp, err := e.inbox.AddFiles(e.ctx, sc, itemID, files, nil)
 	if err != nil {
 		e.t.Fatalf("add files: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestGivenAnItemWhenAddingFilesThenDuplicatesSkippedReadingsAndFiledItemsAre
 	if err := e.inbox.Discard(e.ctx, sc, d.Item.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.inbox.AddFiles(e.ctx, sc, d.Item.ID, []domain.Upload{pdf("lab-3")}); !errors.Is(err, domain.ErrConflict) {
+	if _, err := e.inbox.AddFiles(e.ctx, sc, d.Item.ID, []domain.Upload{pdf("lab-3")}, nil); !errors.Is(err, domain.ErrConflict) {
 		t.Fatalf("add to a discarded item = %v", err)
 	}
 }

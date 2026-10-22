@@ -1,4 +1,4 @@
-import { request } from './client';
+import { request, uploadForm } from './client';
 import type {
   AICheck,
   AIUsageView,
@@ -37,6 +37,7 @@ import type {
   Tenant,
   User,
   UploadResponse,
+  UploadResult,
   UploadToken,
   Visit,
   VisitFilter,
@@ -123,18 +124,30 @@ export function tenantApi(tenantId: string) {
     unfileDocument: (id: string) => request<{ itemId: string }>(`${t}/documents/${id}/unfile`, { method: 'POST' }),
 
     inbox: (fetch?: Fetch) => request<InboxItem[]>(`${t}/inbox`, { fetch }),
-    upload: (files: File[], options: { oneItem?: boolean; note?: string; personId?: string } = {}) => {
+    upload: (
+      files: File[],
+      options: { oneItem?: boolean; note?: string; personId?: string; fileIds?: string[] } = {},
+    ) => {
       const form = new FormData();
       for (const file of files) form.append('files', file, file.name);
+      for (const id of options.fileIds ?? []) form.append('fileId', id);
       if (options.oneItem) form.set('oneItem', 'true');
       if (options.note) form.set('note', options.note);
       if (options.personId) form.set('personId', options.personId);
       return request<UploadResponse>(`${t}/inbox`, { method: 'POST', body: form });
     },
-    /** Adds files to an unfiled item; it is read again with them. */
-    addFiles: (itemId: string, files: File[]) => {
+    /** Sends one photo ahead of Send, with upload progress (HW-IMP-11). */
+    stage: async (file: File, onProgress: (fraction: number) => void) => {
+      const form = new FormData();
+      form.append('files', file, file.name);
+      const res = await uploadForm<{ files: UploadResult[] }>(`${t}/uploads`, form, onProgress);
+      return { fileId: res.files[0].file.id, duplicate: res.files[0].duplicate };
+    },
+    /** Adds files, or files sent ahead by id, to an unfiled item; it is read again with them. */
+    addFiles: (itemId: string, files: File[], fileIds: string[] = []) => {
       const form = new FormData();
       for (const file of files) form.append('files', file, file.name);
+      for (const id of fileIds) form.append('fileId', id);
       return request<UploadResponse>(`${t}/inbox/${itemId}/files`, { method: 'POST', body: form });
     },
     file: (itemId: string, body: FileInput) => request<Filed>(`${t}/inbox/${itemId}/file`, { method: 'POST', body }),

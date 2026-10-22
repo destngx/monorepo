@@ -340,7 +340,9 @@ func (r repos) FileInUse(ctx context.Context, tenantID, id string) (bool, error)
 		) OR EXISTS (
 			SELECT 1 FROM inbox_files inf JOIN inbox_items i ON i.id = inf.item_id
 			WHERE i.tenant_id = ? AND inf.file_id = ? AND i.status = 'new'
-		)`, tenantID, id, tenantID, id).Scan(&used)
+		) OR EXISTS (
+			SELECT 1 FROM staged_files WHERE tenant_id = ? AND file_id = ?
+		)`, tenantID, id, tenantID, id, tenantID, id).Scan(&used)
 	if err != nil {
 		return false, fmt.Errorf("check file use: %w", err)
 	}

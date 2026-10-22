@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"path/filepath"
+	"slices"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"apps/health-watcher/domain"
@@ -62,6 +64,9 @@ type UploadRequest struct {
 	OneItem bool
 	// PersonID is the backlog person every new item belongs to (HW-IMP-6).
 	PersonID string
+	// FileIDs are files the same user staged ahead of Send (HW-IMP-11);
+	// they join the new items after the uploaded ones.
+	FileIDs []string
 }
 
 // UploadResponse lists the items created and what happened to each file.
@@ -71,10 +76,10 @@ type UploadResponse struct {
 }
 
 func (in *Inbox) checkBatch(req UploadRequest) error {
-	if len(req.Files) == 0 {
+	if len(req.Files)+len(req.FileIDs) == 0 {
 		return domain.Invalid("no files received")
 	}
-	if len(req.Files) > domain.MaxFilesPerItem {
+	if len(req.Files)+len(req.FileIDs) > domain.MaxFilesPerItem {
 		return domain.Invalid("at most %d files per upload", domain.MaxFilesPerItem)
 	}
 	if utf8.RuneCountInString(req.Note) > domain.MaxNoteLength {
@@ -137,7 +142,10 @@ func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest)
 		}
 	}
 	var resp UploadResponse
-	results, err := in.storeFiles(ctx, sc, req.Files, func(r port.Repos, newIDs []string) error {
+	results, err := in.storeFiles(ctx, sc, req.Files, req.FileIDs, func(r port.Repos, newIDs []string) error {
+		if err := r.UnstageFiles(ctx, sc.TenantID, newIDs); err != nil {
+			return err
+		}
 		resp.Items = []domain.InboxItem{}
 		groups := [][]string{}
 		if req.OneItem && len(newIDs) > 0 {
@@ -165,21 +173,24 @@ func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest)
 		return UploadResponse{}, err
 	}
 	resp.Files = results
-	return resp, nil
+	return resp, in.readStaged(ctx, sc.TenantID, resp.Items, req.FileIDs)
 }
 
 // AddFiles adds files to an unfiled item (HW-IMP-10), after the ones it has, such as
 // the X-ray image or a page that came later. The item is read again once
 // the new files have pages; a reading turned off by a person stays off.
-func (in *Inbox) AddFiles(ctx context.Context, sc domain.Scope, itemID string, uploads []domain.Upload) (UploadResponse, error) {
+func (in *Inbox) AddFiles(ctx context.Context, sc domain.Scope, itemID string, uploads []domain.Upload, fileIDs []string) (UploadResponse, error) {
 	if err := sc.RequireAddTo(itemID); err != nil {
 		return UploadResponse{}, err
 	}
-	if err := in.checkBatch(UploadRequest{Files: uploads}); err != nil {
+	if err := in.checkBatch(UploadRequest{Files: uploads, FileIDs: fileIDs}); err != nil {
 		return UploadResponse{}, err
 	}
 	var resp UploadResponse
-	results, err := in.storeFiles(ctx, sc, uploads, func(r port.Repos, newIDs []string) error {
+	results, err := in.storeFiles(ctx, sc, uploads, fileIDs, func(r port.Repos, newIDs []string) error {
+		if err := r.UnstageFiles(ctx, sc.TenantID, newIDs); err != nil {
+			return err
+		}
 		item, err := r.InboxItem(ctx, sc.TenantID, itemID)
 		if err != nil {
 			return err
@@ -206,7 +217,73 @@ func (in *Inbox) AddFiles(ctx context.Context, sc domain.Scope, itemID string, u
 		return UploadResponse{}, err
 	}
 	resp.Files = results
-	return resp, nil
+	return resp, in.readStaged(ctx, sc.TenantID, resp.Items, fileIDs)
+}
+
+// StagedLifetime is how long a file sent ahead waits for Send.
+const StagedLifetime = 24 * time.Hour
+
+// Stage stores files a phone sends ahead, one photo at a time while the
+// person takes the next (HW-IMP-11). Their text is read at once; Send then
+// puts them in an item by id. A file the user staged before comes back as
+// it was, so a page reload can send it again.
+func (in *Inbox) Stage(ctx context.Context, sc domain.Scope, uploads []domain.Upload) ([]domain.UploadResult, error) {
+	if err := sc.RequireUpload(); err != nil {
+		return nil, err
+	}
+	if err := in.checkBatch(UploadRequest{Files: uploads}); err != nil {
+		return nil, err
+	}
+	if err := in.DropStaged(ctx); err != nil {
+		return nil, err
+	}
+	return in.storeFiles(ctx, sc, uploads, nil, func(r port.Repos, newIDs []string) error {
+		for _, id := range newIDs {
+			if err := r.StageFile(ctx, sc.TenantID, sc.UserID, id, in.Clock()); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// DropStaged deletes the files staged longer than StagedLifetime and never
+// sent, with their pages.
+func (in *Inbox) DropStaged(ctx context.Context) error {
+	old, err := in.Store.StagedBefore(ctx, in.Clock().Add(-StagedLifetime))
+	if err != nil {
+		return err
+	}
+	for _, tf := range old {
+		if err := in.Store.UnstageFiles(ctx, tf.TenantID, []string{tf.FileID}); err != nil {
+			return err
+		}
+		f, err := in.Store.File(ctx, tf.TenantID, tf.FileID)
+		if errors.Is(err, domain.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := releaseFiles(ctx, in.Deps, tf.TenantID, []domain.StoredFile{f}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// readStaged starts reading the items that got staged files: their OCR may
+// be done already, so no OCR job will start it.
+func (in *Inbox) readStaged(ctx context.Context, tenantID string, items []domain.InboxItem, staged []string) error {
+	if len(staged) == 0 || in.Pipeline == nil {
+		return nil
+	}
+	for _, item := range items {
+		if err := in.Pipeline.ScheduleReading(ctx, tenantID, item.ID, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // readingWaits marks an item's reading as waiting for the OCR of new files,
@@ -234,7 +311,7 @@ func skippedByUser(rd domain.Reading) bool {
 // newIDs (HW-IMP-1). place puts the new files in items inside the same
 // transaction. File bytes are written first, then every row, so a failure
 // leaves no half-stored batch behind.
-func (in *Inbox) storeFiles(ctx context.Context, sc domain.Scope, uploads []domain.Upload,
+func (in *Inbox) storeFiles(ctx context.Context, sc domain.Scope, uploads []domain.Upload, staged []string,
 	place func(r port.Repos, newIDs []string) error) ([]domain.UploadResult, error) {
 	files := make([]domain.StoredFile, len(uploads))
 	for i, up := range uploads {
@@ -269,7 +346,19 @@ func (in *Inbox) storeFiles(ctx context.Context, sc domain.Scope, uploads []doma
 				continue
 			}
 			existing, err := r.FileBySHA(ctx, sc.TenantID, f.SHA256)
+			mine := false
+			if err == nil {
+				if mine, err = r.StagedBy(ctx, sc.TenantID, sc.UserID, existing.ID); err != nil {
+					return err
+				}
+			}
 			switch {
+			case mine:
+				// Sent ahead by this user: not a duplicate, but not stored twice.
+				results = append(results, domain.UploadResult{Name: f.OriginalName, File: existing})
+				seen[f.SHA256] = existing
+				newIDs = append(newIDs, existing.ID)
+				continue
 			case err == nil:
 				results = append(results, domain.UploadResult{Name: f.OriginalName, File: existing, Duplicate: true})
 				seen[f.SHA256] = existing
@@ -287,6 +376,19 @@ func (in *Inbox) storeFiles(ctx context.Context, sc domain.Scope, uploads []doma
 			seen[f.SHA256] = f
 			results = append(results, domain.UploadResult{Name: f.OriginalName, File: f})
 			newIDs = append(newIDs, f.ID)
+		}
+		for _, id := range staged {
+			if slices.Contains(newIDs, id) {
+				continue
+			}
+			ok, err := r.StagedBy(ctx, sc.TenantID, sc.UserID, id)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return domain.Invalid("a photo sent ahead is gone; it may be over a day old, so take it again")
+			}
+			newIDs = append(newIDs, id)
 		}
 		return place(r, newIDs)
 	})

@@ -87,6 +87,18 @@
     { errorContext: 'Could not add the files' },
   );
 
+  // Photos the phone camera already sent ahead (HW-IMP-11), added by id.
+  const addPhotos = action(
+    async (fileIds: string[]) => {
+      await session.api.addFiles(item.id, [], fileIds);
+      toasts.success(
+        `${fileIds.length} ${fileIds.length === 1 ? 'photo' : 'photos'} added; the item is read again with them`,
+      );
+      await invalidateAll();
+    },
+    { errorContext: 'Could not add the photos' },
+  );
+
   // While the Mac or the AI is reading, refresh every few seconds.
   $effect(() => {
     if (status.tone !== 'busy' && !(status.tone === 'warn' && !needsCheck)) return;
@@ -173,7 +185,7 @@
 </PageTitle>
 
 {#if editable}
-  <ItemCamera bind:this={camera} itemId={item.id} busy={addFiles.busy} onsend={(files) => addFiles.run(files)} />
+  <ItemCamera bind:this={camera} itemId={item.id} busy={addPhotos.busy} onsend={(ids) => addPhotos.run(ids)} />
 {/if}
 
 <Card title="Reading" class="mb-5">

@@ -118,11 +118,11 @@ func TestGivenACaptureLinkMadeOnAnItemWhenThePhoneSendsThenThePhotosJoinThatItem
 		t.Fatalf("scope = %+v, %v", phone, err)
 	}
 
-	resp, err := e.inbox.AddFiles(e.ctx, phone, d.Item.ID, []domain.Upload{pdf("xray")})
+	resp, err := e.inbox.AddFiles(e.ctx, phone, d.Item.ID, []domain.Upload{pdf("xray")}, nil)
 	if err != nil || len(resp.Items[0].Files) != 2 {
 		t.Fatalf("add = %+v, %v", resp, err)
 	}
-	if _, err := e.inbox.AddFiles(e.ctx, phone, other.ID, []domain.Upload{pdf("x2")}); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := e.inbox.AddFiles(e.ctx, phone, other.ID, []domain.Upload{pdf("x2")}, nil); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("added to another item: %v", err)
 	}
 	if _, err := e.inbox.Upload(e.ctx, phone, UploadRequest{Source: domain.SourcePhone, Files: []domain.Upload{pdf("x3")}}); !errors.Is(err, domain.ErrForbidden) {

@@ -111,6 +111,9 @@ func (s *server) inboxRoutes(r fiber.Router) {
 		}
 		return s.list(c)(s.svc.Inbox.File(c.UserContext(), scope(c), c.Params("id"), in))
 	})
+	r.Post("/uploads", func(c *fiber.Ctx) error {
+		return s.stage(c, scope(c))
+	})
 	r.Post("/inbox/:id/files", func(c *fiber.Ctx) error {
 		return s.addFiles(c, scope(c), c.Params("id"))
 	})
@@ -136,6 +139,29 @@ func (s *server) tokenUpload(c *fiber.Ctx) error {
 	return s.upload(c, sc, source)
 }
 
+// tokenStage is the phone's send-ahead endpoint with a capture link
+// (HW-IMP-11).
+func (s *server) tokenStage(c *fiber.Ctx) error {
+	sc, err := s.svc.Accounts.UploadScope(c.UserContext(), bearer(c))
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	return s.stage(c, sc)
+}
+
+// stage stores files sent ahead of Send; the answer lists each file's id.
+func (s *server) stage(c *fiber.Ctx, sc domain.Scope) error {
+	files, err := uploadedFiles(c)
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	results, err := s.svc.Inbox.Stage(c.UserContext(), sc, files)
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"files": results})
+}
+
 // captureTarget tells the phone capture page where its link adds photos:
 // a new inbox item, or the one item the link was made on (HW-IMP-10).
 func (s *server) captureTarget(c *fiber.Ctx) error {
@@ -152,7 +178,11 @@ func (s *server) addFiles(c *fiber.Ctx, sc domain.Scope, itemID string) error {
 	if err != nil {
 		return respond(c, s.log, err)
 	}
-	resp, err := s.svc.Inbox.AddFiles(c.UserContext(), sc, itemID, files)
+	form, err := c.MultipartForm()
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	resp, err := s.svc.Inbox.AddFiles(c.UserContext(), sc, itemID, files, form.Value["fileId"])
 	if err != nil {
 		return respond(c, s.log, err)
 	}
@@ -175,7 +205,7 @@ func (s *server) upload(c *fiber.Ctx, sc domain.Scope, source domain.InboxSource
 		return respond(c, s.log, err)
 	}
 	req := service.UploadRequest{Source: source, Files: files, Note: first(form.Value["note"]), OneItem: first(form.Value["oneItem"]) == "true",
-		PersonID: first(form.Value["personId"])}
+		PersonID: first(form.Value["personId"]), FileIDs: form.Value["fileId"]}
 	resp, err := s.svc.Inbox.Upload(c.UserContext(), sc, req)
 	if err != nil {
 		return respond(c, s.log, err)

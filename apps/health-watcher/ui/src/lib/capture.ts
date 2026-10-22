@@ -1,3 +1,5 @@
+import { postForm } from './xhr';
+
 /** The phone capture page's link handling and upload (HW-IMP-9). */
 
 const TOKEN_KEY = 'hw.capture.token';
@@ -52,16 +54,47 @@ export function sentMessage(res: { added: number; files: number; duplicates: num
   return `Sent: ${res.added} ${res.added === 1 ? 'item' : 'items'} in the inbox on the Mac${dup}.`;
 }
 
-/** Sends the photos to the inbox with the link's token, without cookies. */
+/**
+ * Sends one photo ahead with the link's token, without cookies, while the
+ * person takes the next (HW-IMP-11).
+ */
+export async function stageFromPhone(
+  token: string,
+  file: File,
+  onProgress: (fraction: number) => void,
+  xhr?: () => XMLHttpRequest,
+): Promise<{ fileId: string; duplicate: boolean }> {
+  const form = new FormData();
+  form.append('files', file, file.name);
+  const res = await postForm('/api/uploads', form, {
+    headers: { Authorization: `Bearer ${token}` },
+    withCredentials: false,
+    onProgress,
+    xhr,
+  }).catch((error: unknown) => {
+    throw new CaptureError(`The Mac did not answer. Check that Tailscale is on. (${String(error)})`, false);
+  });
+  if (res.status === 401) throw new CaptureError('This link has expired. Make a new QR code on the Mac.', true);
+  if (res.status < 200 || res.status >= 300) {
+    throw new CaptureError(
+      typeof res.body.error === 'string' ? res.body.error : `Upload failed (${res.status})`,
+      false,
+    );
+  }
+  const [first] = res.body.files as { file: { id: string }; duplicate: boolean }[];
+  return { fileId: first.file.id, duplicate: first.duplicate };
+}
+
+/** Files the photos sent ahead, by id, with the link's token, without cookies. */
 export async function sendFromPhone(
   token: string,
-  files: File[],
+  fileIds: string[],
   oneItem: boolean,
   fetchFn: typeof fetch = fetch,
 ): Promise<{ added: number; files: number; duplicates: number }> {
   const form = new FormData();
-  for (const f of files) form.append('files', f, f.name);
-  if (oneItem && files.length > 1) form.set('oneItem', 'true');
+  for (const id of fileIds) form.append('fileId', id);
+  if (oneItem && fileIds.length > 1) form.set('oneItem', 'true');
   let resp: Response;
   try {
     resp = await fetchFn('/api/inbox', {

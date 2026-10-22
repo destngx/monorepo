@@ -84,3 +84,45 @@ func TestGivenACaptureLinkMadeOnAnItemWhenThePhoneSendsThenThePhotosJoinTheItem(
 		t.Fatalf("inbox = %s", body)
 	}
 }
+
+func TestGivenACaptureLinkWhenThePhoneSendsPhotosAheadThenSendFilesThemByID(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	resp, body := h.json(http.MethodPost, "/api/tenants/"+h.tenant+"/capture", map[string]string{"origin": "http://100.64.0.7:9191"})
+	wantStatus(t, resp, body, http.StatusCreated, "")
+	var link service.CaptureLink
+	_ = json.Unmarshal(body, &link)
+	_, raw, _ := strings.Cut(link.URL, "#")
+	phone := &harness{t: t, app: h.app, svc: h.svc}
+
+	buf, ct := multipartBody(t, "files", map[string][]byte{"IMG_0001.jpg": []byte("%PDF-1.7 synthetic photo")}, nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/uploads", buf)
+	req.Header.Set("Content-Type", ct)
+	req.Header.Set("Authorization", "Bearer "+raw)
+	resp, body = phone.do(req)
+	wantStatus(t, resp, body, http.StatusAccepted, "")
+	var staged struct {
+		Files []struct {
+			File struct {
+				ID string `json:"id"`
+			} `json:"file"`
+			Duplicate bool `json:"duplicate"`
+		} `json:"files"`
+	}
+	_ = json.Unmarshal(body, &staged)
+	if len(staged.Files) != 1 || staged.Files[0].File.ID == "" || staged.Files[0].Duplicate {
+		t.Fatalf("staged = %s", body)
+	}
+
+	buf, ct = multipartBody(t, "files", nil, map[string]string{"fileId": staged.Files[0].File.ID})
+	req = httptest.NewRequest(http.MethodPost, "/api/inbox", buf)
+	req.Header.Set("Content-Type", ct)
+	req.Header.Set("Authorization", "Bearer "+raw)
+	resp, body = phone.do(req)
+	wantStatus(t, resp, body, http.StatusAccepted, "")
+	var sent service.UploadResponse
+	_ = json.Unmarshal(body, &sent)
+	if len(sent.Items) != 1 || len(sent.Items[0].Files) != 1 || sent.Items[0].Source != "phone" {
+		t.Fatalf("sent = %s", body)
+	}
+}

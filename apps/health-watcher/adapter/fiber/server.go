@@ -75,6 +75,7 @@ func New(svc Services, opts Options) *fiber.App {
 	// The iPhone Shortcut posts here with an upload token (HW-IMP-4).
 	api.Post("/inbox", s.tokenUpload)
 	api.Get("/capture", s.captureTarget)
+	api.Post("/uploads", s.tokenStage)
 
 	signedIn := api.Group("", s.requireSession, s.requireCSRF)
 	s.accountRoutes(signedIn)

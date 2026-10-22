@@ -1,25 +1,30 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { CaptureError, captureTarget, sendFromPhone, sentMessage, takeCaptureToken } from '$lib/capture';
+  import {
+    CaptureError,
+    captureTarget,
+    sendFromPhone,
+    sentMessage,
+    stageFromPhone,
+    takeCaptureToken,
+  } from '$lib/capture';
   import { draftStore, idbBackend } from '$lib/drafts';
   import Icon from '$lib/components/Icon.svelte';
+  import QueueThumbs from '$lib/components/QueueThumbs.svelte';
   import { formatSize } from '$lib/format';
+  import { UploadQueue } from '$lib/uploadQueue.svelte';
   import { ACCEPT, pickFiles } from '$lib/upload';
 
   // The phone end of a capture link (HW-IMP-9): no sign-in, only a camera
   // and a short-lived token that adds to one inbox, or to one item when the
-  // link was made on an item's page (HW-IMP-10). Photos wait in a draft, so
-  // a reload while the camera is open loses nothing.
-  interface Staged {
-    file: File;
-    url: string;
-  }
-
+  // link was made on an item's page (HW-IMP-10). Each photo starts
+  // uploading as soon as it is taken (HW-IMP-11), so Send is quick. Photos
+  // also wait in a draft, so a reload while the camera is open loses
+  // nothing; the Mac knows the ones it already has.
   const draftKey = () => (toItem ? 'capture-item' : 'capture');
   const drafts = draftStore(idbBackend());
 
   let token = $state<string | null>(null);
-  let staged = $state<Staged[]>([]);
   let oneItem = $state(true);
   let toItem = $state(false);
   let ready = $state(false);
@@ -28,6 +33,15 @@
   let expired = $state(false);
   let cameraInput: HTMLInputElement | undefined = $state();
   let filesInput: HTMLInputElement | undefined = $state();
+
+  const queue = new UploadQueue(async (file, progress) => {
+    try {
+      return await stageFromPhone(token ?? '', file, progress);
+    } catch (error) {
+      if (error instanceof CaptureError && error.expired) expired = true;
+      throw error;
+    }
+  });
 
   onMount(() => {
     token = takeCaptureToken(location.hash, location.pathname, sessionStorage, (url) =>
@@ -51,22 +65,20 @@
       })
       .then((d) => {
         if (d) {
-          staged = d.files.map((file) => ({ file, url: URL.createObjectURL(file) }));
           oneItem = d.oneItem;
+          if (!expired) queue.add(d.files);
         }
       })
       .catch((error: unknown) => {
         message = { tone: 'error', text: `Could not bring back earlier photos: ${String(error)}` };
       })
       .finally(() => (ready = true));
-    return () => {
-      for (const s of staged) URL.revokeObjectURL(s.url);
-    };
+    return () => queue.clear();
   });
 
   $effect(() => {
     if (!ready) return;
-    const draft = { files: staged.map((s) => s.file), oneItem, note: '', personId: '' };
+    const draft = { files: queue.entries.map((e) => e.file), oneItem, note: '', personId: '' };
     drafts.save(draftKey(), draft).catch((error: unknown) => {
       message = { tone: 'error', text: `Could not keep the photos for later: ${String(error)}` };
     });
@@ -76,30 +88,24 @@
     if (!files) return;
     const { accepted, skipped } = pickFiles(
       files,
-      staged.map((s) => s.file),
+      queue.entries.map((e) => e.file),
     );
-    staged = [...staged, ...accepted.map((file) => ({ file, url: URL.createObjectURL(file) }))];
+    queue.add(accepted);
     message = skipped.length ? { tone: 'error', text: `Skipped: ${skipped.join(', ')}` } : null;
   }
 
-  function remove(i: number) {
-    URL.revokeObjectURL(staged[i].url);
-    staged = staged.filter((_, j) => j !== i);
-  }
-
   async function send() {
-    if (!token || !staged.length || sending) return;
+    if (!token || !queue.ready || sending) return;
     sending = true;
     message = null;
+    const ids = queue.fileIds;
     try {
-      const res = await sendFromPhone(
-        token,
-        staged.map((s) => s.file),
-        oneItem && !toItem,
-      );
-      for (const s of staged) URL.revokeObjectURL(s.url);
-      staged = [];
-      message = { tone: 'ok', text: sentMessage(res, toItem) };
+      const res = await sendFromPhone(token, ids, oneItem && !toItem);
+      message = {
+        tone: 'ok',
+        text: sentMessage({ added: res.added, files: ids.length, duplicates: queue.duplicates }, toItem),
+      };
+      queue.clear();
     } catch (error) {
       expired = error instanceof CaptureError && error.expired;
       message = { tone: 'error', text: error instanceof Error ? error.message : String(error) };
@@ -108,7 +114,16 @@
     }
   }
 
-  const total = $derived(staged.reduce((sum, s) => sum + s.file.size, 0));
+  const total = $derived(queue.entries.reduce((sum, e) => sum + e.file.size, 0));
+  const uploaded = $derived(queue.entries.reduce((sum, e) => sum + e.file.size * e.progress, 0));
+  const sendLabel = $derived.by(() => {
+    const n = queue.entries.length;
+    if (sending) return 'Sending…';
+    if (queue.pending) return `Uploading… ${formatSize(uploaded)} of ${formatSize(total)}`;
+    if (queue.failed) return `${queue.failed} ${queue.failed === 1 ? 'photo' : 'photos'} failed: retry or remove`;
+    if (!queue.fileIds.length) return 'Nothing new to send';
+    return `Send ${n} ${n === 1 ? 'page' : 'pages'} (${formatSize(total)})`;
+  });
 </script>
 
 <svelte:head><title>Phone camera · Health Watcher</title></svelte:head>
@@ -143,37 +158,22 @@
       <p class="muted text-xs">One photo per page. Lay the paper flat in good light.</p>
     </section>
 
-    {#if staged.length}
+    {#if queue.entries.length}
       <section class="panel p-4">
-        <div class="grid grid-cols-3 gap-2">
-          {#each staged as s, i (s.url)}
-            <div
-              class="relative aspect-[3/4] overflow-hidden rounded-xl border border-ink-900/10 dark:border-ink-50/10"
-            >
-              {#if s.file.type.startsWith('image/') && s.file.type !== 'image/heic'}
-                <img src={s.url} alt="Page {i + 1}" class="size-full object-cover" />
-              {:else}
-                <div class="grid size-full place-items-center p-2 text-center text-xs break-all">{s.file.name}</div>
-              {/if}
-              <button
-                type="button"
-                class="icon-btn absolute top-1 right-1 size-7 bg-ink-50/90 dark:bg-ink-900/90"
-                aria-label="Remove page {i + 1}"
-                onclick={() => remove(i)}><Icon name="x" size={14} /></button
-              >
-            </div>
-          {/each}
-        </div>
-        {#if staged.length > 1 && !toItem}
+        <QueueThumbs {queue} disabled={sending} />
+        {#if queue.entries.length > 1 && !toItem}
           <label class="mt-3 flex items-center gap-2 text-sm">
             <input type="checkbox" bind:checked={oneItem} /> These are pages of one paper
           </label>
         {/if}
-        <button class="btn-primary mt-4 w-full" type="button" onclick={() => void send()} disabled={sending || expired}>
-          {sending
-            ? 'Sending…'
-            : `Send ${staged.length} ${staged.length === 1 ? 'page' : 'pages'} (${formatSize(total)})`}
-        </button>
+        <button
+          class="btn-primary mt-4 w-full"
+          type="button"
+          onclick={() => void send()}
+          disabled={sending || expired || !queue.ready}
+          aria-busy={sending || queue.pending > 0}>{sendLabel}</button
+        >
+        <p class="muted mt-2 text-xs">Each photo goes to the Mac as soon as it is taken; Send files them.</p>
       </section>
     {/if}
   {/if}

@@ -32,6 +32,7 @@ type Repos interface {
 	FileRepo
 	InboxRepo
 	PageRepo
+	StagedRepo
 	JobRepo
 	ReadingRepo
 	ClinicalRepo
@@ -200,6 +201,18 @@ type PageRepo interface {
 	PageImageSHAs(ctx context.Context, tenantID, fileID string) ([]string, error)
 	// FilesWithoutPages lists files with no pages and no OCR job, oldest first.
 	FilesWithoutPages(ctx context.Context) ([]TenantFile, error)
+}
+
+// StagedRepo holds the files a phone sent ahead of Send (HW-IMP-11).
+type StagedRepo interface {
+	// StageFile marks a file as sent ahead by a user; staging it again is a no-op.
+	StageFile(ctx context.Context, tenantID, userID, fileID string, at time.Time) error
+	// StagedBy reports whether the user staged the file and has not sent it yet.
+	StagedBy(ctx context.Context, tenantID, userID, fileID string) (bool, error)
+	// UnstageFiles drops the staging rows of files that went into an item.
+	UnstageFiles(ctx context.Context, tenantID string, fileIDs []string) error
+	// StagedBefore lists the files staged before a time and never sent.
+	StagedBefore(ctx context.Context, before time.Time) ([]TenantFile, error)
 }
 
 // JobRepo is the background work queue (§11 Workers, HW-READ-6).
