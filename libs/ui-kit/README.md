@@ -1,4 +1,4 @@
-# svelte-ui
+# ui-kit
 
 The shared theme, components and loading helpers of the web UIs, built to the rules in [docs/ui/README.md](../../docs/ui/README.md). It started from health-watcher's look, with wealth-management's loading stack and modal behaviour. No app uses it yet; health-watcher and wealth-management still have their own copies.
 
@@ -18,12 +18,12 @@ The paths below are for a UI at `apps/<app>/ui`.
 
 1. Add the alias in `svelte.config.js`:
    ```js
-   kit: { alias: { '@libs/svelte-ui': '../../../libs/svelte-ui/src/index.ts' } }
+   kit: { alias: { '@libs/ui-kit': '../../../libs/ui-kit/src/index.ts' } }
    ```
 2. Import the theme in `src/routes/layout.css`, right after Tailwind, and give the app its own accent. The theme's `@source` already lets Tailwind scan this library.
    ```css
    @import 'tailwindcss';
-   @import '../../../../../libs/svelte-ui/src/theme.css';
+   @import '../../../../../libs/ui-kit/src/theme.css';
 
    @theme {
      --color-accent-50: oklch(0.97 0.012 250);
@@ -34,22 +34,22 @@ The paths below are for a UI at `apps/<app>/ui`.
 3. Import the fonts in the root `+layout.svelte`: `@fontsource-variable/inter` and `@fontsource-variable/playfair-display`.
 4. Make the theme setting once, in `src/lib/state/theme.svelte.ts`:
    ```ts
-   import { createTheme } from '@libs/svelte-ui';
+   import { createTheme } from '@libs/ui-kit';
    export const theme = createTheme('<app>.theme');
    ```
    Call `theme.watchSystem()` in the root layout's `onMount` and return its result. Put the output of `themeScript('<app>.theme')` in a `<script>` in the `<head>` of `app.html`, so the page never flashes light.
 5. Mount `<Aurora />`, `<Toasts />` and `<NavProgress active={!!navigating.to} />` once in the root layout.
 6. Make the app's loader in `src/lib/api/load.ts` when its API errors need more than the default rules, and use its `defer` in every load function:
    ```ts
-   import { createLoader } from '@libs/svelte-ui';
+   import { createLoader } from '@libs/ui-kit';
    export const { defer, classify } = createLoader({ classify: myClassify, onFailure: raiseAlert });
    ```
    Pass the same `classify` to `<Deferred>` if a page hands it raw promises. The default classifier reads `status` and `code` from any `Error`, which matches the engines' `ApiError`.
 7. If the app shows some errors in its own way (wealth-management's Google Sheets re-auth alert), call `toasts.setErrorToast(...)` once at start-up.
-8. Add `"implicitDependencies": ["svelte-ui"]` to the app's `project.json`, so Nx reruns the app's UI targets when this library changes.
+8. Add `"implicitDependencies": ["ui-kit"]` to the app's `project.json`, so Nx reruns the app's UI targets when this library changes.
 
 `Deferred`'s default Retry calls `invalidateAll` from `$app/navigation`, so the library works only inside a SvelteKit app. Its tests use a stub (`src/test/app-navigation.ts`).
 
 ## Targets
 
-`pnpm exec nx run svelte-ui:test`, `:check` and `:lint`. `theme.test.ts` compiles `theme.css` with Tailwind and checks that every utility exists and that an app's accent overrides the default.
+`pnpm exec nx run ui-kit:test`, `:check` and `:lint`. `theme.test.ts` compiles `theme.css` with Tailwind and checks that every utility exists and that an app's accent overrides the default.

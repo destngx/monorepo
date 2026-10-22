@@ -2,7 +2,7 @@
    right after Tailwind, then overrides the accent in its own @theme:
 
      @import 'tailwindcss';
-     @import '<path to>/libs/svelte-ui/src/theme.css';
+     @import '<path to>/libs/ui-kit/src/theme.css';
      @theme { --color-accent-50: ...; ... --color-accent-950: ...; }
 
    Later @theme values win, so only the hues an app changes need repeating. */
