@@ -2,8 +2,6 @@ import { api } from '$lib/api/endpoints';
 import type { AIProviderUsage } from '$lib/api/types';
 import { onAIRequestDone } from './activity';
 
-/** How often the menu bar gauge refreshes the quota while the tab is visible. */
-export const AI_USAGE_REFRESH_MS = 5 * 60 * 1000;
 /** Quiet time after the last AI request before the quota is refetched, so a burst refetches once. */
 export const AI_USAGE_SETTLE_MS = 1000;
 

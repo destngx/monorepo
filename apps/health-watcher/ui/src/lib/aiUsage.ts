@@ -1,43 +1,10 @@
-import type { AIUsageWindow } from './api/types';
+import { leftColorScale } from '@libs/svelte-ai-usage';
 
-// Presentation of the AI provider's quota that ai-gateway reports (HW-OPS-10).
+// Presentation of the AI provider's quota that ai-gateway reports (HW-OPS-10);
+// the rest is shared with wealth-management in @libs/svelte-ai-usage.
 
-const windowLabels: Record<string, string> = { '5h': '5-hour window', weekly: 'Weekly window' };
-
-export function windowLabel(window: Pick<AIUsageWindow, 'name'>): string {
-  return windowLabels[window.name] ?? window.name;
-}
-
-/** Share of the window still available, 0-100. */
-export function leftPercent(window: Pick<AIUsageWindow, 'usedPercent'>): number {
-  const left = 100 - window.usedPercent;
-  return Number.isFinite(left) ? Math.min(100, Math.max(0, left)) : 0;
-}
-
-/** Forest green (all left) to oxblood (none left) through brass, muted to match the theme, in OKLCH so the lightness stays even. */
-export function leftColor(left: number): string {
-  const share = Math.min(100, Math.max(0, left)) / 100;
-  return `oklch(0.58 0.09 ${(30 + share * 115).toFixed(1)})`;
-}
-
-/** "in 2d 3h", "in 45m", "due now"; empty when unknown. */
-export function resetsIn(resetsAt: string | undefined, now = new Date()): string {
-  if (!resetsAt) return '';
-  const at = new Date(resetsAt).getTime();
-  if (Number.isNaN(at)) return '';
-  const minutes = Math.ceil((at - now.getTime()) / 60_000);
-  if (minutes <= 0) return 'due now';
-  const days = Math.floor(minutes / 1440);
-  const hours = Math.floor((minutes % 1440) / 60);
-  const rest = minutes % 60;
-  const parts =
-    days > 0
-      ? [`${days}d`, hours > 0 ? `${hours}h` : '']
-      : hours > 0
-        ? [`${hours}h`, rest > 0 ? `${rest}m` : '']
-        : [`${rest}m`];
-  return `in ${parts.filter(Boolean).join(' ')}`;
-}
+/** Forest green (all left) to oxblood (none left) through brass, muted to match the theme. */
+export const leftColor = leftColorScale({ lightness: 0.58, chroma: 0.09, emptyHue: 30, fullHue: 145 });
 
 const resetFormat = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Asia/Ho_Chi_Minh',
@@ -52,15 +19,4 @@ const resetFormat = new Intl.DateTimeFormat('en-GB', {
 export function formatReset(resetsAt: string): string {
   const at = new Date(resetsAt);
   return Number.isNaN(at.getTime()) ? '' : resetFormat.format(at).replace(',', '');
-}
-
-/** The weekly and 5-hour windows the gauge shows; null when absent. */
-export function gaugeWindows(windows: AIUsageWindow[]): {
-  weekly: AIUsageWindow | null;
-  fiveHour: AIUsageWindow | null;
-} {
-  return {
-    weekly: windows.find((w) => w.name === 'weekly') ?? null,
-    fiveHour: windows.find((w) => w.name === '5h') ?? null,
-  };
 }

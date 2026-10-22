@@ -4,7 +4,8 @@
   import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatCompact, formatDate, formatDateTime, formatPercent } from '$lib/format';
-  import { resetsIn, usageColor, windowLabel } from './usage';
+  import { resetsIn, windowLabel } from '@libs/svelte-ai-usage';
+  import { usageColor } from './usage';
   import { aiUsage } from './usage.svelte';
 
   // OpenAI quota through the ai-gateway GET /v1/usage (WM-SET-4).

@@ -2,6 +2,7 @@
   "name": "health-watcher",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
+  "implicitDependencies": ["svelte-ai-usage"],
   "sourceRoot": "apps/health-watcher",
   "tags": ["type:app", "app:health-watcher", "scope:backend", "scope:frontend", "lang:go", "lang:typescript"],
   "targets": {

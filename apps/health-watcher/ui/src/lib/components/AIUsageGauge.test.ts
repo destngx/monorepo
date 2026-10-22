@@ -50,22 +50,15 @@ describe('AIUsageGauge', () => {
     expect(screen.getByRole('link', { name: 'AI settings' }).getAttribute('href')).toBe('/ui/settings/engine');
   });
 
-  it('Given the details are open, when Escape is pressed or the page is tapped elsewhere, then they close', async () => {
+  it('Given a member who is not an admin, when the details open, then there is no settings link', async () => {
     signIn(false);
     answer({ enabled: true, usage: { provider: 'openai', windows: [{ name: 'weekly', usedPercent: 10 }] } });
 
     render(AIUsageGauge);
-    const gauge = await screen.findByRole('button', { name: 'AI quota left: Weekly window 90%' });
+    await fireEvent.click(await screen.findByRole('button', { name: 'AI quota left: Weekly window 90%' }));
 
-    await fireEvent.click(gauge);
     expect(screen.getByText('90% left')).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'AI settings' })).toBeNull();
-    await fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByText('90% left')).toBeNull();
-
-    await fireEvent.click(gauge);
-    await fireEvent.pointerDown(document.body);
-    expect(screen.queryByText('90% left')).toBeNull();
   });
 
   it('Given the gateway fails, when shown, then the gauge says why', async () => {

@@ -17,6 +17,7 @@ const config = {
     // Built as an SPA and served by the Go engine (see apps/health-watcher/adapter/fiber/ui.go).
     adapter: adapter({ fallback: 'index.html' }),
     paths: { base: '/ui' },
+    alias: { '@libs/svelte-ai-usage': '../../../libs/svelte-ai-usage/src/index.ts' },
   },
 };
 

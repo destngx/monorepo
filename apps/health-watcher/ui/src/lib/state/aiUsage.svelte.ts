@@ -1,9 +1,6 @@
 import { engine } from '$lib/api/endpoints';
 import type { AIUsage } from '$lib/api/types';
 
-/** How often the menu bar gauge refreshes the quota while the tab is visible. */
-export const AI_USAGE_REFRESH_MS = 5 * 60 * 1000;
-
 // The AI provider's quota for the menu bar gauge (HW-OPS-10).
 class AIUsageState {
   /** False while AI reading is off, or before the first answer. */

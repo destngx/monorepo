@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Shared components outside this app (the AI quota gauge). */
+@source '../../../../../libs/svelte-ai-usage/src';
+
 /* Dark mode follows the .dark class set from the theme setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 

@@ -36,26 +36,6 @@ describe('AIUsageGauge (WM-SET-4)', () => {
     expect(screen.getByRole('link', { name: 'AI settings' }).getAttribute('href')).toBe('/ui/settings');
   });
 
-  it('Given the details are open, when Escape is pressed, the page is tapped elsewhere or the gauge again, then they close', async () => {
-    answer({ provider: 'openai', windows: [{ name: 'weekly', usedPercent: 10 }] });
-
-    render(AIUsageGauge);
-    const gauge = await screen.findByRole('button', { name: /^AI quota left: Weekly window 90\s?%$/ });
-
-    await fireEvent.click(gauge);
-    expect(screen.getByText(/90\s?% left/)).toBeTruthy();
-    await fireEvent.keyDown(window, { key: 'Escape' });
-    expect(screen.queryByText(/90\s?% left/)).toBeNull();
-
-    await fireEvent.click(gauge);
-    await fireEvent.pointerDown(document.body);
-    expect(screen.queryByText(/90\s?% left/)).toBeNull();
-
-    await fireEvent.click(gauge);
-    await fireEvent.click(gauge);
-    expect(screen.queryByText(/90\s?% left/)).toBeNull();
-  });
-
   it('Given the quota cannot be read, when tapped, then the details say why', async () => {
     vi.spyOn(api, 'aiUsage').mockRejectedValue(new Error('gateway down'));
 
