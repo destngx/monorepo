@@ -456,6 +456,13 @@ func (r repos) SetInboxStatus(ctx context.Context, tenantID, id string, status d
 	return affected(res, err, "inbox item")
 }
 
+func (r repos) UnfileDocument(ctx context.Context, tenantID, documentID string) (string, error) {
+	var id string
+	err := r.q.QueryRowContext(ctx, `UPDATE inbox_items SET status = 'new', document_id = NULL
+		WHERE tenant_id = ? AND document_id = ? AND status = 'filed' RETURNING id`, tenantID, documentID).Scan(&id)
+	return id, one(err, "inbox item")
+}
+
 func (r repos) NewItemsWithFile(ctx context.Context, tenantID, fileID string) ([]string, error) {
 	rows, err := r.q.QueryContext(ctx, `SELECT i.id FROM inbox_items i JOIN inbox_files inf ON inf.item_id = i.id
 		WHERE i.tenant_id = ? AND inf.file_id = ? AND i.status = 'new' ORDER BY i.created_at`, tenantID, fileID)

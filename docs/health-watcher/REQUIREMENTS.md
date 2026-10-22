@@ -1,6 +1,7 @@
 # Health Watcher: App Requirements
 
-> **Status**: Phases 1 to 3 built, revision 8 - 2026-10-22
+> **Status**: Phases 1 to 3 built, revision 9 - 2026-10-22
+> **Revision 9 changes**: HW-READ-8 moves a filed document without values back to the inbox, so a document filed before its AI reading can still be read.
 > **Revision 8 changes**: HW-AI-7 numbers each mask box on the review page, and a person can turn off a box that hides a result; decimal reference ranges are no longer taken for ID numbers.
 > **Revision 7 changes**: HW-OPS-10 AI quota gauge in the menu bar; HW-READ-6 sends items read while AI was off once it is turned on.
 > **Revision 6 changes**: HW-IMP-9 phone capture by QR code from the Mac, and staged files survive a reload; HW-AI-7 masked text shown next to the original.
@@ -118,6 +119,7 @@ The goal is to get the bookshelf into the app with as little effort as possible,
 | HW-READ-5 | **Units and analyte matching**: on reading, each analyte name is matched to the metric catalog by its known names in Vietnamese and English (`Glucose`, `Đường huyết`, `GLU`). An unmatched analyte stays as written and can be linked to a catalog entry by hand. The link is remembered for that provider.                                                                                                                                                                                                                                                                                        | ✅ B   |
 | HW-READ-6 | **Retries**: provider failures retry with backoff (1, 5, 30 minutes, then 6 hours), up to 5 attempts, then the item is marked failed with the error and a _Retry_ button. With AI not configured, items stay at OCR-only and can still be filed by hand; when an admin turns AI on, every unfiled item whose reading is off is sent, with no _Retry_ needed.                                                                                                                                                                                                                                        | ✅ B   |
 | HW-READ-7 | **Manual entry**: a visit, document metadata, observations and findings can all be entered by hand, without AI.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | ✅ B   |
+| HW-READ-8 | **Back to inbox**: a filed document with no values or findings has a _Back to inbox_ button. Its item returns to the inbox with its files and masks, the empty document is removed and the visit stays, so the item is read with AI and filed again. An item read while AI was off is sent as soon as it returns. A document with values is refused, so no approved record is lost; film photos (D5) have no button.                                                                                                                                                                                | ✅ B   |
 
 ---
 
@@ -203,7 +205,7 @@ The review is for reference only. Every screen that shows AI output says so, and
 | ----- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | 1     | Engine and UI skeleton, accounts, tenants, people, upload to inbox, file store, manual filing, timeline | HW-TEN-1..6, HW-AUTH-1..5, HW-REC-1..2, HW-IMP-1..3, HW-OPS-1..3,5,6 |
 | 2     | Local OCR, page images, search, document viewer, iPhone Shortcut, phone camera                          | HW-READ-1..2, HW-FIND-1..3, HW-IMP-4..5,7,8                          |
-| 3     | AI reading, drafts and approval, metric catalog, observations and findings, backlog mode                | HW-READ-3..7, HW-REC-3..6, HW-MET-1, HW-IMP-6                        |
+| 3     | AI reading, drafts and approval, metric catalog, observations and findings, backlog mode                | HW-READ-3..8, HW-REC-3..6, HW-MET-1, HW-IMP-6                        |
 | 4     | Trend charts and overview                                                                               | HW-MET-2..5                                                          |
 | 5     | AI review, backup, export                                                                               | HW-AI-1..7, HW-OPS-4, HW-OPS-7                                       |
 

@@ -599,3 +599,66 @@ func TestGivenItemsReadWhileAIWasOffWhenAIIsTurnedOnThenOpenItemsAreSentForReadi
 		t.Fatalf("reads = %d, want only the open item", len(e.reader.calls))
 	}
 }
+
+func TestGivenADocumentFiledWhileAIWasOffWhenUnfiledThenItIsReadAndFiledAgain(t *testing.T) {
+	e := newEnv(t)
+	e.pipeline.Reader = nil
+	sc := e.setup()
+	person := e.person(sc, "Nguyễn Văn Mẫu")
+	doc := e.filedLab(sc, person, "lab")
+	if len(doc.Observations) != 0 {
+		t.Fatalf("observations = %d, want none without AI", len(doc.Observations))
+	}
+	e.pipeline.Configure(e.ocr, e.reader, 1)
+	e.drain()
+	if len(e.reader.calls) != 0 {
+		t.Fatalf("reads = %d, a filed item is not read", len(e.reader.calls))
+	}
+
+	itemID, err := e.inbox.Unfile(e.ctx, sc, doc.Document.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.drain()
+
+	if _, err := e.clinical.Document(e.ctx, sc, doc.Document.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("document after unfile = %v", err)
+	}
+	visit, err := e.records.Visit(e.ctx, sc, doc.Visit.ID)
+	if err != nil || visit.DocumentCount != 0 {
+		t.Fatalf("visit = %+v, %v", visit, err)
+	}
+	d := e.item(sc, itemID)
+	if d.Item.Status != domain.InboxNew || len(d.Item.Files) != 1 || len(d.Pages) != 1 {
+		t.Fatalf("item = %+v", d)
+	}
+	if rd := readingOf(t, d); rd.Status != domain.ReadingDone || len(d.Observations) == 0 {
+		t.Fatalf("reading = %+v, drafts = %d", rd, len(d.Observations))
+	}
+
+	filed, err := e.inbox.File(e.ctx, sc, itemID, domain.FileInput{Kind: "lab_result", VisitID: visit.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := e.clinical.Document(e.ctx, sc, filed.Document.ID)
+	if err != nil || len(again.Observations) != len(d.Observations) {
+		t.Fatalf("filed again = %+v, %v", again, err)
+	}
+}
+
+func TestGivenADocumentWithValuesWhenUnfiledThenItIsRefused(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	doc := e.filedLab(sc, e.person(sc, "Nguyễn Văn Mẫu"), "lab")
+
+	if _, err := e.inbox.Unfile(e.ctx, sc, doc.Document.ID); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("unfile = %v", err)
+	}
+	if after, err := e.clinical.Document(e.ctx, sc, doc.Document.ID); err != nil || len(after.Observations) != len(doc.Observations) {
+		t.Fatalf("document = %+v, %v", after, err)
+	}
+	viewer := e.join(sc, "viewer@example.test", "viewer")
+	if _, err := e.inbox.Unfile(e.ctx, viewer, doc.Document.ID); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("viewer unfile = %v", err)
+	}
+}

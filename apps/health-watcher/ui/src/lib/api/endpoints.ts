@@ -118,6 +118,7 @@ export function tenantApi(tenantId: string) {
     updateVisit: (id: string, body: VisitInput) => request<Visit>(`${t}/visits/${id}`, { method: 'PATCH', body }),
     deleteVisit: (id: string) => request<void>(`${t}/visits/${id}`, { method: 'DELETE' }),
     deleteDocument: (id: string) => request<void>(`${t}/documents/${id}`, { method: 'DELETE' }),
+    unfileDocument: (id: string) => request<{ itemId: string }>(`${t}/documents/${id}/unfile`, { method: 'POST' }),
 
     inbox: (fetch?: Fetch) => request<InboxItem[]>(`${t}/inbox`, { fetch }),
     upload: (files: File[], options: { oneItem?: boolean; note?: string; personId?: string } = {}) => {

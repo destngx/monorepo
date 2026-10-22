@@ -169,6 +169,9 @@ type InboxRepo interface {
 	// SetInboxStatus moves an unfiled item to status; an item that is no
 	// longer new is domain.ErrNotFound, so two moves can't both win.
 	SetInboxStatus(ctx context.Context, tenantID, id string, status domain.InboxStatus, documentID string) error
+	// UnfileDocument moves the item filed as a document back to new and
+	// returns its ID; a document no item was filed as is domain.ErrNotFound.
+	UnfileDocument(ctx context.Context, tenantID, documentID string) (string, error)
 	// NewItemsWithFile lists the unfiled items holding a file.
 	NewItemsWithFile(ctx context.Context, tenantID, fileID string) ([]string, error)
 	// OCRProgress counts the item's files with pages and with failed OCR jobs.

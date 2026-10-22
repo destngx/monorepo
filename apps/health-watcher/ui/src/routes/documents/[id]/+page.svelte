@@ -31,6 +31,14 @@
   const pageIndex = $derived(new Map(pages.map((p, i) => [p.id, i + 1])));
   const pageNumber = (id: string | undefined) => (id ? pageIndex.get(id) : undefined);
   const editable = $derived(session.canEdit);
+  // Only a document without values goes back to the inbox (HW-READ-8);
+  // films are never read with AI (D5).
+  const unfilable = $derived(
+    editable &&
+      doc.kind !== 'imaging_film' &&
+      data.detail.observations.length === 0 &&
+      data.detail.findings.length === 0,
+  );
   // Search results link here with ?page= to open that page.
   const focusPage = $derived(appPage.url.searchParams.get('page'));
   const filesWithoutPages = $derived(doc.files.filter((f) => !pages.some((p) => p.fileId === f.id)));
@@ -113,6 +121,13 @@
     await session.api.deleteDocument(doc.id);
     await goto(`${base}/visits/${visit.id}`);
   }
+
+  async function unfile() {
+    const question = 'Move this document back to the inbox to read it with AI? Its visit stays for filing it again.';
+    if (!confirm(question)) return;
+    const { itemId } = await session.api.unfileDocument(doc.id);
+    await goto(`${base}/inbox/${itemId}`);
+  }
 </script>
 
 <a class="link mb-3 inline-flex items-center gap-1 text-sm" href="{base}/visits/{visit.id}">
@@ -135,6 +150,9 @@
           editingDoc = true;
         }}>Edit</Button
       >
+      {#if unfilable}
+        <Button icon="inbox" errorContext="Could not move it back" onclick={unfile}>Back to inbox</Button>
+      {/if}
       <Button icon="trash" errorContext="Could not delete" onclick={deleteDoc}>Delete</Button>
     {/if}
   {/snippet}

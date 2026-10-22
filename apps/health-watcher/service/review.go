@@ -198,6 +198,48 @@ func (in *Inbox) RetryReading(ctx context.Context, sc domain.Scope, itemID strin
 	return in.Pipeline.ScheduleReading(ctx, sc.TenantID, itemID, true)
 }
 
+// Unfile moves a filed document's item back to the inbox, so it can be
+// read with AI and filed again (HW-READ-8). The document goes; its visit
+// and files stay. A document with values or findings is refused, so no
+// approved record is lost. An item read while AI was off is sent now.
+func (in *Inbox) Unfile(ctx context.Context, sc domain.Scope, documentID string) (string, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return "", err
+	}
+	var itemID string
+	err := in.Store.InTx(ctx, func(r port.Repos) error {
+		if _, err := r.Document(ctx, sc.TenantID, documentID); err != nil {
+			return err
+		}
+		obs, err := r.ObservationsOfDocument(ctx, sc.TenantID, documentID)
+		if err != nil {
+			return err
+		}
+		finds, err := r.FindingsOfDocument(ctx, sc.TenantID, documentID)
+		if err != nil {
+			return err
+		}
+		if len(obs) > 0 || len(finds) > 0 {
+			return domain.Conflict("this document has %d values and %d findings; delete them first", len(obs), len(finds))
+		}
+		itemID, err = r.UnfileDocument(ctx, sc.TenantID, documentID)
+		if errors.Is(err, domain.ErrNotFound) {
+			return domain.Conflict("this document was not filed from the inbox")
+		}
+		if err != nil {
+			return err
+		}
+		return r.DeleteDocument(ctx, sc.TenantID, documentID)
+	})
+	if err != nil {
+		return "", err
+	}
+	if in.Pipeline == nil {
+		return itemID, nil
+	}
+	return itemID, in.Pipeline.ScheduleReading(ctx, sc.TenantID, itemID, false)
+}
+
 // MaxManualBoxes bounds the boxes a person draws on one page.
 const MaxManualBoxes = 50
 

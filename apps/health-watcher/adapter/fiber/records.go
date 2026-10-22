@@ -69,6 +69,10 @@ func (s *server) recordRoutes(r fiber.Router) {
 	r.Delete("/documents/:id", func(c *fiber.Ctx) error {
 		return s.noContent(c, s.svc.Records.DeleteDocument(c.UserContext(), scope(c), c.Params("id")))
 	})
+	r.Post("/documents/:id/unfile", func(c *fiber.Ctx) error {
+		itemID, err := s.svc.Inbox.Unfile(c.UserContext(), scope(c), c.Params("id"))
+		return s.list(c)(fiber.Map{"itemId": itemID}, err)
+	})
 	r.Get("/files/:id", s.file)
 }
 

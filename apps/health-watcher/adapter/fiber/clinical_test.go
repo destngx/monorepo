@@ -137,3 +137,27 @@ func TestGivenAnUnknownBacklogPersonWhenUploadingThenItIsRejected(t *testing.T) 
 	resp, body := h.do(req)
 	wantStatus(t, resp, body, http.StatusBadRequest, CodeValidation)
 }
+
+func TestGivenAFiledDocumentWithoutValuesWhenUnfiledThenItsItemIsBackInTheInbox(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	up, filed := h.fileOne(h.firstPerson())
+	base := "/api/tenants/" + h.tenant
+
+	resp, body := h.json(http.MethodPost, base+"/documents/"+filed.Document.ID+"/unfile", nil)
+	wantStatus(t, resp, body, http.StatusOK, "")
+	var out struct{ ItemID string }
+	_ = json.Unmarshal(body, &out)
+	if out.ItemID != up.Items[0].ID {
+		t.Fatalf("unfile = %s", body)
+	}
+	resp, body = h.json(http.MethodGet, base+"/inbox/"+out.ItemID, nil)
+	wantStatus(t, resp, body, http.StatusOK, "")
+	var detail service.ItemDetail
+	_ = json.Unmarshal(body, &detail)
+	if detail.Item.Status != domain.InboxNew {
+		t.Fatalf("item = %s", body)
+	}
+	resp, body = h.json(http.MethodPost, base+"/documents/"+filed.Document.ID+"/unfile", nil)
+	wantStatus(t, resp, body, http.StatusNotFound, CodeNotFound)
+}

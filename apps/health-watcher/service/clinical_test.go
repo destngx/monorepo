@@ -213,10 +213,11 @@ func TestGivenTwoTenantsWhenOneReachesForTheOthersReadingsThenEverythingIsNotFou
 	pageID, obsID, findID := doc.Pages[0].ID, doc.Observations[0].ID, doc.Findings[0].ID
 
 	checks := map[string]error{
-		"item":  func() error { _, err := e.inbox.Item(e.ctx, b, item.Item.ID); return err }(),
-		"send":  e.inbox.SendReading(e.ctx, b, item.Item.ID),
-		"skip":  e.inbox.SkipReading(e.ctx, b, item.Item.ID),
-		"retry": e.inbox.RetryReading(e.ctx, b, item.Item.ID),
+		"item":   func() error { _, err := e.inbox.Item(e.ctx, b, item.Item.ID); return err }(),
+		"send":   e.inbox.SendReading(e.ctx, b, item.Item.ID),
+		"skip":   e.inbox.SkipReading(e.ctx, b, item.Item.ID),
+		"retry":  e.inbox.RetryReading(e.ctx, b, item.Item.ID),
+		"unfile": func() error { _, err := e.inbox.Unfile(e.ctx, b, doc.Document.ID); return err }(),
 		"boxes": func() error {
 			_, err := e.inbox.SetPageBoxes(e.ctx, b, item.Item.ID, item.Pages[0].ID, nil)
 			return err
