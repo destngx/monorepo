@@ -6,6 +6,8 @@
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FileItemModal from '$lib/components/FileItemModal.svelte';
+  import FoldToggle from '$lib/components/FoldToggle.svelte';
+  import { Folds } from '$lib/folds.svelte';
   import FindingList from '$lib/components/FindingList.svelte';
   import FindingModal from '$lib/components/FindingModal.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -47,6 +49,8 @@
   const missingImage = $derived(pages.some((p) => !p.hasImage));
 
   let filing = $state(false);
+  const folds = new Folds();
+  const pageIds = $derived(pages.map((p) => p.id));
   let view = $state<Record<string, 'masked' | 'original'>>({});
   let drawing = $state<string | null>(null);
   let toggling = $state<string | null>(null);
@@ -240,11 +244,24 @@
   </Card>
 {/if}
 
-<h2 class="mb-3 heading">Pages</h2>
+<div class="mb-3 flex items-center gap-3">
+  <h2 class="heading">Pages</h2>
+  {#if pages.length > 1}
+    <button type="button" class="btn-ghost px-2.5 py-1 text-xs" onclick={() => folds.toggleAll(pageIds)}
+      >{folds.allFolded(pageIds) ? 'Expand all' : 'Fold all'}</button
+    >
+  {/if}
+</div>
 <div class="space-y-5">
   {#each pages as p, i (p.id)}
     <section class="panel p-4">
-      <header class="mb-3 flex flex-wrap items-center gap-2">
+      <header class="flex flex-wrap items-center gap-2 {folds.isOpen(p.id) ? 'mb-3' : ''}">
+        <FoldToggle
+          open={folds.isOpen(p.id)}
+          label="page {i + 1}"
+          controls="page-body-{p.id}"
+          ontoggle={() => folds.toggle(p.id)}
+        />
         <span class="font-medium">Page {i + 1}</span>
         {#if !p.mask && reading && ['done', 'needs_check'].includes(reading.status)}
           <span
@@ -264,7 +281,7 @@
               : ''}</span
           >
         {/if}
-        <span class="ml-auto flex gap-1">
+        <span class="ml-auto flex gap-1 {folds.isOpen(p.id) ? '' : 'hidden'}">
           {#if p.mask}
             <button
               type="button"
@@ -296,68 +313,72 @@
           {/if}
         </span>
       </header>
-      {#if p.mask?.reasons?.length}
-        <ul class="mb-3 list-disc pl-5 text-xs text-warn-800 dark:text-warn-200">
-          {#each p.mask.reasons as r (r)}<li>{r}</li>{/each}
-        </ul>
-      {/if}
-      {#if drawing === p.id}
-        <p class="muted mb-2 text-xs">Drag to add a black box. Click a red box to remove it.</p>
-      {/if}
-      <PageImage
-        page={p}
-        masked={viewOf(p) === 'masked'}
-        drawing={drawing === p.id}
-        boxes={p.mask?.manual ?? []}
-        onboxes={(boxes) => void setBoxes(p, boxes)}
-        auto={p.mask?.auto ?? []}
-        ontoggle={canMask(p) && toggling === null ? (key) => void toggleBox(p, key) : undefined}
-      />
-      {#if viewOf(p) === 'masked' && p.mask?.auto?.length}
-        <details class="mt-3" open={canMask(p)}>
-          <summary class="muted cursor-pointer text-xs">Numbered boxes ({p.mask.auto.length})</summary>
-          {#if canMask(p)}
-            <p class="muted mt-2 text-xs">
-              Untick a box that hides a result or another line the AI needs. That line is then sent in the image and the
-              text.
-            </p>
+      {#if folds.isOpen(p.id)}
+        <div id="page-body-{p.id}">
+          {#if p.mask?.reasons?.length}
+            <ul class="mb-3 list-disc pl-5 text-xs text-warn-800 dark:text-warn-200">
+              {#each p.mask.reasons as r (r)}<li>{r}</li>{/each}
+            </ul>
           {/if}
-          <ul class="mt-2 max-h-72 space-y-1 overflow-auto text-sm">
-            {#each p.mask.auto as box, n (box.key)}
-              <li>
-                <label class="flex items-start gap-2 {canMask(p) ? 'cursor-pointer' : ''}">
-                  <input
-                    type="checkbox"
-                    class="mt-1"
-                    checked={!box.off}
-                    disabled={!canMask(p) || toggling !== null}
-                    onchange={() => void toggleBox(p, box.key)}
-                  />
-                  <span
-                    class="mt-0.5 min-w-6 rounded px-1 text-center text-xs font-semibold text-ink-50 {box.off
-                      ? 'bg-warn-500'
-                      : 'bg-accent-600'}">{n + 1}</span
-                  >
-                  <span class={box.off ? 'muted line-through' : ''}
-                    >{box.kind === 'barcode' ? 'Barcode or QR code' : box.text}</span
-                  >
-                </label>
-              </li>
-            {/each}
-          </ul>
-        </details>
-      {/if}
-      {#if p.text}
-        {@const masked = viewOf(p) === 'masked' && p.mask}
-        <details class="mt-3">
-          <summary class="muted cursor-pointer text-xs"
-            >{masked ? 'Text the AI sees (personal lines replaced with [ẩn])' : 'Text read on the Mac'}</summary
-          >
-          <pre
-            class="mt-2 max-h-80 overflow-auto rounded-xl bg-ink-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-ink-50/5">{masked
-              ? p.mask?.text
-              : p.text}</pre>
-        </details>
+          {#if drawing === p.id}
+            <p class="muted mb-2 text-xs">Drag to add a black box. Click a red box to remove it.</p>
+          {/if}
+          <PageImage
+            page={p}
+            masked={viewOf(p) === 'masked'}
+            drawing={drawing === p.id}
+            boxes={p.mask?.manual ?? []}
+            onboxes={(boxes) => void setBoxes(p, boxes)}
+            auto={p.mask?.auto ?? []}
+            ontoggle={canMask(p) && toggling === null ? (key) => void toggleBox(p, key) : undefined}
+          />
+          {#if viewOf(p) === 'masked' && p.mask?.auto?.length}
+            <details class="mt-3" open={canMask(p)}>
+              <summary class="muted cursor-pointer text-xs">Numbered boxes ({p.mask.auto.length})</summary>
+              {#if canMask(p)}
+                <p class="muted mt-2 text-xs">
+                  Untick a box that hides a result or another line the AI needs. That line is then sent in the image and
+                  the text.
+                </p>
+              {/if}
+              <ul class="mt-2 max-h-72 space-y-1 overflow-auto text-sm">
+                {#each p.mask.auto as box, n (box.key)}
+                  <li>
+                    <label class="flex items-start gap-2 {canMask(p) ? 'cursor-pointer' : ''}">
+                      <input
+                        type="checkbox"
+                        class="mt-1"
+                        checked={!box.off}
+                        disabled={!canMask(p) || toggling !== null}
+                        onchange={() => void toggleBox(p, box.key)}
+                      />
+                      <span
+                        class="mt-0.5 min-w-6 rounded px-1 text-center text-xs font-semibold text-ink-50 {box.off
+                          ? 'bg-warn-500'
+                          : 'bg-accent-600'}">{n + 1}</span
+                      >
+                      <span class={box.off ? 'muted line-through' : ''}
+                        >{box.kind === 'barcode' ? 'Barcode or QR code' : box.text}</span
+                      >
+                    </label>
+                  </li>
+                {/each}
+              </ul>
+            </details>
+          {/if}
+          {#if p.text}
+            {@const masked = viewOf(p) === 'masked' && p.mask}
+            <details class="mt-3">
+              <summary class="muted cursor-pointer text-xs"
+                >{masked ? 'Text the AI sees (personal lines replaced with [ẩn])' : 'Text read on the Mac'}</summary
+              >
+              <pre
+                class="mt-2 max-h-80 overflow-auto rounded-xl bg-ink-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-ink-50/5">{masked
+                  ? p.mask?.text
+                  : p.text}</pre>
+            </details>
+          {/if}
+        </div>
       {/if}
     </section>
   {:else}

@@ -6,6 +6,8 @@
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
+  import FoldToggle from '$lib/components/FoldToggle.svelte';
+  import { Folds } from '$lib/folds.svelte';
   import FindingList from '$lib/components/FindingList.svelte';
   import FindingModal from '$lib/components/FindingModal.svelte';
   import HistoryModal from '$lib/components/HistoryModal.svelte';
@@ -44,6 +46,8 @@
   const filesWithoutPages = $derived(doc.files.filter((f) => !pages.some((p) => p.fileId === f.id)));
 
   let zoom = $state(1);
+  const folds = new Folds();
+  const pageIds = $derived(pages.map((p) => p.id));
   let showText = $state<Record<string, boolean>>({});
   // Per page: the original, or the masked copy the AI was sent (HW-AI-7).
   let masked = $state<Record<string, boolean>>({});
@@ -56,6 +60,7 @@
 
   $effect(() => {
     if (!focusPage) return;
+    folds.open(focusPage);
     document.getElementById(`page-${focusPage}`)?.scrollIntoView({ block: 'start' });
   });
 
@@ -200,6 +205,11 @@
   <div class="space-y-4">
     <div class="flex items-center gap-3">
       <h2 class="heading">Pages</h2>
+      {#if pages.length > 1}
+        <button type="button" class="btn-ghost px-2.5 py-1 text-xs" onclick={() => folds.toggleAll(pageIds)}
+          >{folds.allFolded(pageIds) ? 'Expand all' : 'Fold all'}</button
+        >
+      {/if}
       {#if pages.some((p) => p.hasImage)}
         <label class="muted ml-auto flex items-center gap-2 text-xs">
           Zoom
@@ -209,9 +219,15 @@
     </div>
     {#each pages as p, i (p.id)}
       <section id="page-{p.id}" class="panel scroll-mt-24 p-3">
-        <header class="mb-2 flex items-center gap-2">
+        <header class="flex items-center gap-2 {folds.isOpen(p.id) ? 'mb-2' : ''}">
+          <FoldToggle
+            open={folds.isOpen(p.id)}
+            label="page {i + 1}"
+            controls="page-body-{p.id}"
+            ontoggle={() => folds.toggle(p.id)}
+          />
           <span class="text-sm font-medium">Page {i + 1}</span>
-          <span class="ml-auto flex gap-1">
+          <span class="ml-auto flex gap-1 {folds.isOpen(p.id) ? '' : 'hidden'}">
             {#if p.mask}
               <button
                 type="button"
@@ -231,15 +247,18 @@
             {/if}
           </span>
         </header>
-        {#if showText[p.id]}
+        {#if !folds.isOpen(p.id)}
+          <!-- Folded: the header alone. -->
+        {:else if showText[p.id]}
           <pre
+            id="page-body-{p.id}"
             class="max-h-[70vh] overflow-auto rounded-xl bg-ink-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-ink-50/5">{masked[
               p.id
             ] && p.mask
               ? p.mask.text
               : p.text}</pre>
         {:else}
-          <PageImage page={p} {zoom} masked={!!masked[p.id] && !!p.mask} />
+          <div id="page-body-{p.id}"><PageImage page={p} {zoom} masked={!!masked[p.id] && !!p.mask} /></div>
         {/if}
       </section>
     {/each}
