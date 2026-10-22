@@ -192,7 +192,11 @@
 
   <Card title="Network" subtitle="Listening on {view.listening}. Changes apply after a restart.">
     <div class="grid gap-3 sm:grid-cols-[1fr_8rem]">
-      <Field id="host" label="Host" hint="127.0.0.1, or the Mac's Tailscale address to reach it from a phone.">
+      <Field
+        id="host"
+        label="Host"
+        hint="127.0.0.1, or the Mac's Tailscale address to reach it from a phone. The engine always answers on 127.0.0.1 too."
+      >
         <input id="host" class="field font-mono text-xs" bind:value={form.host} autocomplete="off" required />
       </Field>
       <Field id="port" label="Port">

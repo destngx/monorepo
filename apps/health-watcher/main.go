@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,6 +17,7 @@ import (
 	"apps/health-watcher/domain"
 	"apps/health-watcher/internal/app"
 	"apps/health-watcher/internal/config"
+	"apps/health-watcher/internal/multilisten"
 )
 
 func main() {
@@ -76,8 +78,9 @@ func run(log *slog.Logger) error {
 	server := engine.HTTP(log)
 	errs := make(chan error, 1)
 	go func() { errs <- server.Listener(ln) }()
-	addr := ln.Addr().String()
-	log.Info("engine listening", "addr", "http://"+addr, "ui", "http://"+addr+"/ui", "data", cfg.DataDir)
+	for _, a := range listenAddrs(ln) {
+		log.Info("engine listening", "addr", "http://"+a, "ui", "http://"+a+"/ui", "data", cfg.DataDir)
+	}
 
 	select {
 	case err := <-errs:
@@ -91,37 +94,81 @@ func run(log *slog.Logger) error {
 	return nil
 }
 
-// listenRetries are the waits between tries of the saved address, about
-// 30 seconds in all: at boot the Tailscale address can appear after the
-// engine starts, and a previous engine may still hold the port.
+// listenRetries are the waits between tries of an address, about 30
+// seconds in all: at boot the Tailscale address can appear after the engine
+// starts, and a previous engine may still hold the port.
 var listenRetries = []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 15 * time.Second}
 
-// listen opens the saved address. When that keeps failing it falls back to
-// the default, so the Engine settings page stays reachable on the Mac.
+// listen opens the saved address. A host other than loopback, such as the
+// Mac's Tailscale address, is opened next to 127.0.0.1 on the same port, so
+// the browser on the Mac and the UI dev server keep working. When the saved
+// address keeps failing the engine falls back to the default, so the Engine
+// settings page stays reachable on the Mac.
 func listen(ctx context.Context, engine *app.Engine, log *slog.Logger) (net.Listener, error) {
 	saved, fallback := engine.Settings.Current(), domain.DefaultSettings()
-	ln, err := net.Listen("tcp", saved.Addr())
-	for _, wait := range listenRetries {
-		if err == nil || saved.Addr() == fallback.Addr() {
-			return ln, err
+	host := netip.MustParseAddr(saved.Host)
+	local := saved.Addr()
+	if !host.IsLoopback() && !host.IsUnspecified() {
+		local = netip.AddrPortFrom(netip.MustParseAddr(fallback.Host), uint16(saved.Port)).String()
+	}
+	ln, err := listenRetrying(ctx, local, local != fallback.Addr(), log)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
 		}
-		log.Warn("cannot listen on the saved address yet; trying again", "addr", saved.Addr(), "error", err, "wait", wait.String())
+		log.Error("cannot listen on the saved address; using the default until it is fixed on the Engine settings page",
+			"addr", local, "error", err)
+		if ln, err = net.Listen("tcp", fallback.Addr()); err != nil {
+			return nil, fmt.Errorf("listen on %s: %w", fallback.Addr(), err)
+		}
+		engine.Settings.StartedOn(fallback.Host, fallback.Port)
+		return ln, nil
+	}
+	if local == saved.Addr() {
+		return ln, nil
+	}
+	extra, err := listenRetrying(ctx, saved.Addr(), true, log)
+	if err != nil {
+		if ctx.Err() != nil {
+			_ = ln.Close()
+			return nil, ctx.Err()
+		}
+		log.Error("cannot listen on the saved host; the engine answers on this Mac only until it is fixed on the Engine settings page",
+			"addr", saved.Addr(), "error", err)
+		engine.Settings.StartedOn(fallback.Host, saved.Port)
+		return ln, nil
+	}
+	return multilisten.New(ln, extra), nil
+}
+
+// listenRetrying opens addr, trying again after each of listenRetries when
+// retry is set.
+func listenRetrying(ctx context.Context, addr string, retry bool, log *slog.Logger) (net.Listener, error) {
+	ln, err := net.Listen("tcp", addr)
+	if err == nil || !retry {
+		return ln, err
+	}
+	for _, wait := range listenRetries {
+		log.Warn("cannot listen on the saved address yet; trying again", "addr", addr, "error", err, "wait", wait.String())
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(wait):
 		}
-		ln, err = net.Listen("tcp", saved.Addr())
+		if ln, err = net.Listen("tcp", addr); err == nil {
+			return ln, nil
+		}
 	}
-	if err == nil {
-		return ln, nil
+	return nil, err
+}
+
+func listenAddrs(ln net.Listener) []string {
+	if m, ok := ln.(*multilisten.Listener); ok {
+		var out []string
+		for _, a := range m.Addrs() {
+			out = append(out, a.String())
+		}
+		return out
 	}
-	log.Error("cannot listen on the saved address; using the default until it is fixed on the Engine settings page",
-		"addr", saved.Addr(), "error", err)
-	ln, err = net.Listen("tcp", fallback.Addr())
-	if err != nil {
-		return nil, fmt.Errorf("listen on %s: %w", fallback.Addr(), err)
-	}
-	engine.Settings.StartedOn(fallback.Host, fallback.Port)
-	return ln, nil
+	return []string{ln.Addr().String()}
 }

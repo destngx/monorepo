@@ -21,23 +21,23 @@ On the first start the engine writes a one-time setup code to `setup-code` in th
 
 Settings live in the database, not in environment variables. An engine admin edits them at **Settings → Engine settings** (`/ui/settings/engine`). The account that ran first-time setup is the first admin and can make other accounts admins; one admin always remains. The settings apply to every family on the Mac.
 
-| Setting                 | Default                                  | Applies           | Meaning                                                                                                                           |
-| ----------------------- | ---------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| AI address              | empty                                    | at once           | OpenAI Responses API base, e.g. `http://localhost:8080/v1` for ai-gateway. Empty turns AI reading off; OCR and search still work. |
-| API key                 | empty                                    | at once           | Bearer token for the provider, if it needs one. Never shown again after saving.                                                   |
-| Time limit per reading  | 180 s                                    | at once           | 5 to 1800 seconds.                                                                                                                |
-| mac-ocr program         | `../mac-ocr/bin/mac-ocr` from the engine | at once           | A full path to a program named `mac-ocr`; empty uses the build next to the engine.                                                |
-| Background jobs at once | 2                                        | at once           | OCR and AI readings, 1 to 8.                                                                                                      |
-| Largest file            | 50 MB                                    | at once           | Up to 1024 MB.                                                                                                                    |
-| Largest upload          | 200 MB                                   | restart if raised | Up to 4096 MB, at least the largest file.                                                                                         |
-| Host                    | `127.0.0.1`                              | restart           | An address of this Mac. Use its Tailscale address to reach it from a phone.                                                       |
-| Port                    | `9191`                                   | restart           | 1024 to 65535.                                                                                                                    |
+| Setting                 | Default                                  | Applies           | Meaning                                                                                                                              |
+| ----------------------- | ---------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| AI address              | empty                                    | at once           | OpenAI Responses API base, e.g. `http://localhost:8080/v1` for ai-gateway. Empty turns AI reading off; OCR and search still work.    |
+| API key                 | empty                                    | at once           | Bearer token for the provider, if it needs one. Never shown again after saving.                                                      |
+| Time limit per reading  | 180 s                                    | at once           | 5 to 1800 seconds.                                                                                                                   |
+| mac-ocr program         | `../mac-ocr/bin/mac-ocr` from the engine | at once           | A full path to a program named `mac-ocr`; empty uses the build next to the engine.                                                   |
+| Background jobs at once | 2                                        | at once           | OCR and AI readings, 1 to 8.                                                                                                         |
+| Largest file            | 50 MB                                    | at once           | Up to 1024 MB.                                                                                                                       |
+| Largest upload          | 200 MB                                   | restart if raised | Up to 4096 MB, at least the largest file.                                                                                            |
+| Host                    | `127.0.0.1`                              | restart           | An address of this Mac. Use its Tailscale address to reach it from a phone; the engine also answers on `127.0.0.1` on the same port. |
+| Port                    | `9191`                                   | restart           | 1024 to 65535.                                                                                                                       |
 
 Items read while AI reading was off are sent as soon as an admin sets the AI address; no _Retry_ is needed. With AI on, the menu bar shows the quota left on a two-ring gauge (outer ring weekly, inner ring 5 hours); hover it for the percentages and reset times.
 
 The model is always `gpt-6-luna` at low reasoning effort (D6); it is not a setting. _Check connection_ sends a small request with the saved AI settings and no health data.
 
-If the engine cannot listen on the saved host and port for about 30 seconds, for example because Tailscale is down, it starts on `127.0.0.1:9191` and logs why, so the page stays reachable on the Mac. A saved value that fails the checks, for example after editing the database by hand, keeps its default; the page names it until the next save.
+If the engine cannot listen on the saved host and port for about 30 seconds, for example because Tailscale is down, it starts on `127.0.0.1:9191` and logs why; if only the Tailscale address fails, it keeps answering on `127.0.0.1`, so the page stays reachable on the Mac. A saved value that fails the checks, for example after editing the database by hand, keeps its default; the page names it until the next save.
 
 The only environment variable left is `HW_DATA_DIR`, the data folder (default `~/Library/Application Support/health-watcher`), because the database lives in it. Upgrading from the environment-variable setup: on the first start with an empty settings table, the engine imports the retired variables it finds (`HOST`, `PORT`, `AI_BASE_URL`, `AI_API_KEY` and the rest) once. After that it logs a warning for each one still set; they do nothing.
 
@@ -66,7 +66,7 @@ Encryption at rest relies on FileVault (D1). Back up both the database and `file
 ## 5. Getting papers in
 
 - **Browser**: Inbox page. Drop files or a whole folder, or pick them. On a phone, _Take photos_ opens the camera; take each page, then tick _pages of one document_.
-- **iPhone camera from the Mac**: Inbox, _Take photos with iPhone_ shows a QR code. Point the iPhone's Camera app at it, take each page on the page that opens, then press Send. The link needs no sign-in, adds only to that inbox, and expires after 15 minutes. The iPhone reaches the Mac over Tailscale: open the app on the Mac at its Tailscale address, or set Host in Engine settings to it.
+- **iPhone camera from the Mac**: Inbox, _Take photos with iPhone_ shows a QR code. Point the iPhone's Camera app at it, take each page on the page that opens, then press Send. The link needs no sign-in, adds only to that inbox, and expires after 15 minutes. The iPhone reaches the Mac over Tailscale: set Host in Engine settings to the Mac's Tailscale address, or open the app on the Mac at that address. The link uses the port the Mac's browser is on, so it opens the UI dev server (`:5174`) during `serve` and the engine (`:9191`) with `start`.
 - Files waiting to be sent are kept in the browser until sent, so a page that reloads while the camera is open (iOS does this) loses nothing. On the phone, use the engine's own address (`:9191/ui`, from `start`) rather than the dev server on `:5174`, which reloads the page whenever its connection drops.
 - **iPhone share sheet**: a Shortcut posts scans and PDFs to the inbox with a personal upload token. See [\_setup/iphone-shortcut.md](./_setup/iphone-shortcut.md).
 - Every upload lands in the inbox first. _File_ puts it under an existing or new visit for a person.

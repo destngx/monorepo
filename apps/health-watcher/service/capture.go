@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,9 +23,9 @@ const CaptureLifetime = 15 * time.Minute
 type Capture struct {
 	Deps
 	QR port.QRCoder
-	// Listening is the engine's address now. It is the link's address when
-	// the browser on the Mac uses a loopback address, which a phone cannot
-	// open.
+	// Listening is the engine's address now. When the browser on the Mac
+	// uses a loopback address, which a phone cannot open, the link uses this
+	// host with the browser's port.
 	Listening func() (host string, port int)
 }
 
@@ -71,26 +72,33 @@ func (c *Capture) Start(ctx context.Context, s domain.Scope, origin string) (Cap
 }
 
 // phoneBase is the scheme and host a phone can open: the browser's own when
-// it is not a loopback address, otherwise the engine's.
+// it is not a loopback address, otherwise the engine's host with the
+// browser's port, so the phone opens the same server: the engine, or the UI
+// dev server, which listens on every address.
 func (c *Capture) phoneBase(origin string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(origin))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.Trim(u.Path, "/") != "" {
 		return "", domain.Invalid("origin must be the app's address, such as http://100.64.0.7:9191")
 	}
-	if !loopback(u.Hostname()) {
+	if !unreachable(u.Hostname()) {
 		return u.Scheme + "://" + u.Host, nil
 	}
 	host, port := c.Listening()
-	if !loopback(host) {
-		return "http://" + netip.AddrPortFrom(netip.MustParseAddr(host), uint16(port)).String(), nil
+	if p, err := strconv.Atoi(u.Port()); err == nil && p > 0 && p <= 65535 {
+		port = p
+	}
+	if !unreachable(host) {
+		return u.Scheme + "://" + netip.AddrPortFrom(netip.MustParseAddr(host), uint16(port)).String(), nil
 	}
 	return "", domain.Conflict("the phone cannot reach this Mac at %s; an engine admin sets Host in Engine settings to the Mac's Tailscale address and restarts the engine", host)
 }
 
-func loopback(host string) bool {
+// unreachable reports a host a phone cannot open: a loopback address, or
+// the unspecified address an engine listening everywhere reports.
+func unreachable(host string) bool {
 	if strings.EqualFold(host, "localhost") {
 		return true
 	}
 	a, err := netip.ParseAddr(host)
-	return err == nil && a.IsLoopback()
+	return err == nil && (a.IsLoopback() || a.IsUnspecified())
 }

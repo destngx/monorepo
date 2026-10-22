@@ -70,9 +70,21 @@ func TestGivenTheAppOpenedOnTheMacItselfWhenStartingACaptureThenTheEngineAddress
 		t.Fatalf("a loopback-only engine made a link: %v", err)
 	}
 	e.engine.StartedOn("100.64.0.7", 9191)
-	link, err := e.capture.Start(e.ctx, sc, "http://localhost:5174")
-	if err != nil || !strings.HasPrefix(link.URL, "http://100.64.0.7:9191/ui/capture#") {
-		t.Fatalf("link = %+v, %v", link, err)
+	// The phone opens the same server the Mac's browser uses: the engine,
+	// or the UI dev server, which listens on every address.
+	for origin, want := range map[string]string{
+		"http://127.0.0.1:9191": "http://100.64.0.7:9191/ui/capture#",
+		"http://localhost:5174": "http://100.64.0.7:5174/ui/capture#",
+		"http://localhost":      "http://100.64.0.7:9191/ui/capture#",
+	} {
+		link, err := e.capture.Start(e.ctx, sc, origin)
+		if err != nil || !strings.HasPrefix(link.URL, want) {
+			t.Errorf("%s: link = %+v, %v", origin, link, err)
+		}
+	}
+	e.engine.StartedOn("0.0.0.0", 9191)
+	if _, err := e.capture.Start(e.ctx, sc, "http://127.0.0.1:9191"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("a link to 0.0.0.0: %v", err)
 	}
 	for _, bad := range []string{"", "javascript:alert(1)", "http://100.64.0.7/ui/inbox", "ftp://100.64.0.7"} {
 		if _, err := e.capture.Start(e.ctx, sc, bad); !errors.Is(err, domain.ErrValidation) {
