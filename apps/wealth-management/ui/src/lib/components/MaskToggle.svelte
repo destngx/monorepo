@@ -1,6 +1,6 @@
 <script lang="ts">
   import { mask } from '$lib/state/mask.svelte';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 </script>
 
 <button

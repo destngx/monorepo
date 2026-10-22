@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { InvestmentAction, InvestmentCommand } from '$lib/api/types';
-  import Icon, { type IconName } from '$lib/components/Icon.svelte';
+  import { Icon, type IconName } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
 
   // Executable commands of the actions phase (WM-INV-18). They are advice

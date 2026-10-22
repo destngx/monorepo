@@ -2,8 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { Category } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Button, Modal } from '@libs/ui-kit';
   import { toasts } from '$lib/state/toasts.svelte';
   import { parseSplitTags } from './natures';
 

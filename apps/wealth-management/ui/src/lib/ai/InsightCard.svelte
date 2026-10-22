@@ -1,8 +1,7 @@
 <script lang="ts">
   import MaskedText from '$lib/components/MaskedText.svelte';
   import type { Insight } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Card, Icon } from '@libs/ui-kit';
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
   import { insightIcon, severityStatus } from './severity';

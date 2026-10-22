@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SeasonalityBucket } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import { formatPercent, formatSignedPercent } from '$lib/format';
   import { changeClass, formatNumber, groupSeasonality, rankMark } from '../market';
 

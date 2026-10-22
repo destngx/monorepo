@@ -81,7 +81,7 @@ It also makes every `overflow-x-auto` a containing block (`position: relative`),
 
 Base rules use `:where()` so any utility on a component wins.
 
-`theme.css` defines these utilities with `@utility`. An app that keeps its own `layout.css` (WM today) defines them with the same names and meaning. The AI usage gauge in `libs/ui-kit` uses `panel`, `muted`, `link`, `tabular` and `icon-btn`, so an app with its own `layout.css` needs at least those.
+`theme.css` defines these utilities with `@utility`. An app that keeps its own look in its own `layout.css` (WM) defines them with the same names and meaning, and maps ui-kit's role names (`ink`, `danger`, `warn`, `info`, `good`, `shadow-brut*`) onto its palette. The AI usage gauge in `libs/ui-kit` uses `panel`, `muted`, `link`, `tabular` and `icon-btn`, so an app with its own `layout.css` needs at least those.
 
 | Utility        | Meaning                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -129,7 +129,7 @@ Use Tailwind classes for everything else. Write plain CSS only for what Tailwind
 
 ## 7. Components and behaviour
 
-These components are in `libs/ui-kit`; import them from `@libs/ui-kit`. HW uses them all; WM still has its own copies until it moves to the library. Until then, a change to a WM copy goes into the library too, so the two do not drift.
+These components are in `libs/ui-kit`; import them from `@libs/ui-kit`. HW and WM both use them. WM keeps its own `Badge`, `PageHeader`, `ThemeToggle` and `status.ts`, which use its own hues and settings store.
 
 | Component         | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

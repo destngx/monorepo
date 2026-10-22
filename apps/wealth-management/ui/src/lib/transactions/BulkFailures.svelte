@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import type { BulkFailure } from './entry';
 
   interface Props {

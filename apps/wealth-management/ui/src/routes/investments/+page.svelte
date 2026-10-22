@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Deferred, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import { defer, settled, type Streamed } from '$lib/api/load';
   import type {
@@ -11,13 +11,8 @@
     PortfolioSection,
     PortfolioValuation,
   } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate, formatPercent } from '$lib/format';

@@ -2,10 +2,7 @@
   import { api } from '$lib/api/endpoints';
   import type { Allocation, AllocationTargets } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Button, Card, Icon, Modal } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatPercent } from '$lib/format';
   import { STATUS } from '$lib/status';

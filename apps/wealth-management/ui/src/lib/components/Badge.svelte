@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { STATUS, type StatusTone } from '$lib/status';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 
   // `tone` is a plain hue for categories and tags. A status uses `status`, which adds the status icon
   // and falls back to the status label, so it never reads by colour alone. The green / amber / red /

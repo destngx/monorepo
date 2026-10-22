@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import type { EngineSettingsForm } from './engine.svelte';
   import type { GroupedSettings } from './form';
   import { splitAdvanced } from './sections';

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { RiskStats } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import { formatDate, formatPercent, formatSignedPercent } from '$lib/format';
   import { changeClass, formatPrice } from '../market';
 

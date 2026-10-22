@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DashboardSummary } from '$lib/api/types';
   import Sparkline from '$lib/charts/Sparkline.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { trendDelta, vndToUsd } from '$lib/dashboard';

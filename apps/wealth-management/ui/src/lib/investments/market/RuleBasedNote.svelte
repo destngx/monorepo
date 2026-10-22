@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 
   // The one disclaimer a market page shows for its rule-based readings; cards do not repeat it.
   let { class: className = '' }: { class?: string } = $props();

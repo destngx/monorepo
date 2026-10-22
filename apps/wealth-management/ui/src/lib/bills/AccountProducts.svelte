@@ -2,8 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { IdleCash } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import { action } from '$lib/state/action.svelte';
+  import { Button, action } from '@libs/ui-kit';
   import { place, rateLabel, sameAccount } from './idleCash';
 
   // Linked wallet products (D41): an account that is a wallet earning balance

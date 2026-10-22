@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import { entryReminder, theme, type Theme } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { parseReminderHour } from '$lib/transactions/reminder';

@@ -1,6 +1,6 @@
 <script lang="ts">
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Card, Deferred, EmptyState, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { CardBankReport } from '$lib/api/types';
   import { base } from '$app/paths';
@@ -18,15 +18,10 @@
   import ProgramComparison from '$lib/cards/ProgramComparison.svelte';
   import { PALETTE } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import Stat from '$lib/components/Stat.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import MultiLineChart from '$lib/investments/fmarket/MultiLineChart.svelte';
   import { formatCompact, formatDate, formatMoney, formatPercent } from '$lib/format';
   import Masked from '$lib/components/Masked.svelte';

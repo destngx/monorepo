@@ -1,11 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import type { Tracked } from '$lib/api/deferred.svelte';
+  import { type Tracked, Card, Icon, LoadError, Spinner } from '@libs/ui-kit';
   import type { AIStatus } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import LoadError from '$lib/components/LoadError.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
 
   // Whether a research page's AI flow can run, above its controls: a quiet
   // "Checking AI" line while the status streams in (the controls stay usable),

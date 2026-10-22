@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import { page } from '$app/state';
   import { pendingDrafts } from '$lib/state/drafts.svelte';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import { AREAS, areaFor, isPageActive, pageFor, type NavArea, type NavPage } from './nav';
 
   // Grouped navigation (ROADMAP P1, WM-UI-11): Home, the four areas with

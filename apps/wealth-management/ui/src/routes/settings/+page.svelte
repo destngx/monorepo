@@ -5,11 +5,8 @@
   import { page } from '$app/state';
   import { onMount } from 'svelte';
   import AIStatusCard from '$lib/ai/AIStatusCard.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import LoadError from '$lib/components/LoadError.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Button, LoadError, Modal, SkeletonCard } from '@libs/ui-kit';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
   import ApiTokenCard from '$lib/settings/ApiTokenCard.svelte';
   import BrowserPreferences from '$lib/settings/BrowserPreferences.svelte';
   import ConnectionsSection from '$lib/settings/ConnectionsSection.svelte';

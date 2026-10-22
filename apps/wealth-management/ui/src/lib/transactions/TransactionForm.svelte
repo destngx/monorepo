@@ -2,7 +2,7 @@
   import { api } from '$lib/api/endpoints';
   import { withSplitTag } from '$lib/budget/natures';
   import type { Account, Category, CategorySuggestion, Transaction, TransactionInput } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
+  import { Button } from '@libs/ui-kit';
   import { todayISO } from '$lib/format';
   import { cardChoices, chosenCard, mccTag, ownTags, settleCardTags, withCard, type BilledCard } from './cards';
   import TagPicker from './TagPicker.svelte';

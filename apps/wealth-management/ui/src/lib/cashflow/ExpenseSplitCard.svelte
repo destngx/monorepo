@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { CashFlow, CategoryNature, ExpenseSplit } from '$lib/api/types';
   import { ESSENTIAL, FIXED, FLEXIBLE, UNTAGGED } from '$lib/charts/palette';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Card, Icon } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatPercent } from '$lib/format';
   import { STATUS } from '$lib/status';

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { toasts } from '$lib/state/toasts.svelte';
-  import Icon from './Icon.svelte';
+  import { sheetsAuth } from '$lib/state/toasts.svelte';
+  import { Icon } from '@libs/ui-kit';
   import SheetsAuthSteps from './SheetsAuthSteps.svelte';
 </script>
 
 <!-- Dedicated re-auth or setup instructions for Google credential failures (WM-UI-4). -->
-{#if toasts.sheetsAuthProblem}
-  {@const problem = toasts.sheetsAuthProblem}
+{#if sheetsAuth.problem}
+  {@const problem = sheetsAuth.problem}
   <div role="alert" class="panel mb-6 border border-rose-500/40 p-4">
     <div class="flex items-start gap-3">
       <Icon name="alert" class="mt-0.5 text-rose-600 dark:text-rose-400" />
@@ -22,7 +22,7 @@
         class="icon-btn"
         aria-label="Dismiss"
         title="Dismiss"
-        onclick={() => (toasts.sheetsAuthProblem = null)}
+        onclick={() => (sheetsAuth.problem = null)}
       >
         <Icon name="x" size={16} />
       </button>

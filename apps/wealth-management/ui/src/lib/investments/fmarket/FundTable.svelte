@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import { EmptyState } from '@libs/ui-kit';
   import { formatDate, formatSignedPercent } from '$lib/format';
   import { sortFunds, type FundSort, type FundSummary } from '../fmarket';
 

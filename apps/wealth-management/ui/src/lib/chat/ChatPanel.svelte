@@ -1,11 +1,8 @@
 <script lang="ts">
   import Markdown from '$lib/ai/Markdown.svelte';
   import type { ChatPageContext } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Icon, Modal, Spinner } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
-  import Modal from '$lib/components/Modal.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { tick } from 'svelte';
   import { chat } from './chat.svelte';

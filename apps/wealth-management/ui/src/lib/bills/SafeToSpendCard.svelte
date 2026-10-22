@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import type { BillsSummary } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
   import { safeToSpendBadge } from './bills';

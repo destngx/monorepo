@@ -1,4 +1,4 @@
-import type { IconName } from '$lib/components/Icon.svelte';
+import { type IconName } from '@libs/ui-kit';
 import type { InsightIcon, InsightSeverity } from '$lib/api/types';
 import { STATUS, type StatusToken, type StatusTone } from '$lib/status';
 

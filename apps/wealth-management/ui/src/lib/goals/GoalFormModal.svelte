@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { SubmitHandler } from '$lib/accounts/handlers';
   import type { GoalProgress } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Button, Modal } from '@libs/ui-kit';
   import { looksLikeEmergencyFund, type GoalForm } from './goals';
 
   interface Props {

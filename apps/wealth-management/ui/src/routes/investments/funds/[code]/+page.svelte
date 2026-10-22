@@ -1,17 +1,10 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Card, Deferred, EmptyState, Icon, SkeletonCard, SkeletonChart, SkeletonStat } from '@libs/ui-kit';
   import Donut from '$lib/charts/Donut.svelte';
   import { PALETTE } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonChart from '$lib/components/skeleton/SkeletonChart.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate, formatPercent, formatSignedPercent, formatVND, todayISO } from '$lib/format';

@@ -3,8 +3,7 @@
   import { api } from '$lib/api/endpoints';
   import type { Account, CaptureField, Category } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Icon } from '@libs/ui-kit';
   import { maskText } from '$lib/ai/moneyMask';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import PageHeader from '$lib/components/PageHeader.svelte';
 </script>
 

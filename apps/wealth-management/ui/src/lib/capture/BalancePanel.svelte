@@ -1,6 +1,6 @@
 <script lang="ts">
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import type { BalanceProjection, Reconciliation } from './review';
 

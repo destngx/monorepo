@@ -2,8 +2,7 @@
   import { api } from '$lib/api/endpoints';
   import type { CardSuggestion } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Button, Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { MCC_STATUS, parseCardPayment } from './cards';
 

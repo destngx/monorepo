@@ -2,9 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { Category } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Card, EmptyState, Icon } from '@libs/ui-kit';
   import CategoryDefinitionModal from './CategoryDefinitionModal.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { groupCategories, NATURE_OPTIONS, natureChoice, type NatureChoice } from './natures';

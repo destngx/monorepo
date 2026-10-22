@@ -1,6 +1,5 @@
 <script lang="ts">
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Icon } from '@libs/ui-kit';
   import type { EngineSettingsForm } from './engine.svelte';
 
   // Shown while there is something to save or apply; changes can span tabs.

@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import type { NeedsYou } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
   import { formatDate } from '$lib/format';

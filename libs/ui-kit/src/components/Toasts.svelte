@@ -7,7 +7,7 @@
     error: 'border-l-danger-600 text-danger-800 dark:border-l-danger-400 dark:text-danger-200',
     warning: 'border-l-warn-500 text-warn-800 dark:border-l-warn-400 dark:text-warn-200',
     info: 'border-l-info-500 text-info-800 dark:border-l-info-400 dark:text-info-200',
-    success: 'border-l-accent-600 text-accent-800 dark:border-l-accent-400 dark:text-accent-200',
+    success: 'border-l-good-600 text-good-800 dark:border-l-good-400 dark:text-good-200',
   };
 </script>
 

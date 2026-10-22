@@ -4,8 +4,7 @@
   import { ApiError } from '$lib/api/client';
   import { api } from '$lib/api/endpoints';
   import type { Account, CaptureResult, Category, TransactionBatchResult, TransactionInput } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Button, Card } from '@libs/ui-kit';
   import { toasts } from '$lib/state/toasts.svelte';
   import type { InboxItem } from './materials';
   import {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { sync } from '$lib/state/sync.svelte';
-  import Button from './Button.svelte';
+  import { Button } from '@libs/ui-kit';
 
   // Ticks once a second so the countdown stays live.
   let now = $state(Date.now());

@@ -1,6 +1,6 @@
 <script lang="ts">
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Card, Deferred, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { FinancialHealth, HealthComponent } from '$lib/api/types';
   import BarChart from '$lib/charts/BarChart.svelte';
@@ -8,15 +8,9 @@
   import { NOMINAL, REAL } from '$lib/charts/palette';
   import Ring from '$lib/charts/Ring.svelte';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatPercent } from '$lib/format';
   import AllocationSummary from '$lib/investments/AllocationSummary.svelte';

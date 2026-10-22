@@ -1,21 +1,24 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import { track } from '$lib/api/deferred.svelte';
+  import {
+    track,
+    Button,
+    Card,
+    Deferred,
+    EmptyState,
+    Icon,
+    Modal,
+    SkeletonCard,
+    SkeletonHeadline,
+    SkeletonStat,
+    action,
+  } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { GoalInput, GoalPlan, GoalProgress } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
-  import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonHeadline from '$lib/components/skeleton/SkeletonHeadline.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatMonth } from '$lib/format';
   import GoalCard from '$lib/goals/GoalCard.svelte';
@@ -30,7 +33,6 @@
     verdictStatus,
   } from '$lib/goals/goals';
   import PoolCard from '$lib/goals/PoolCard.svelte';
-  import { action } from '$lib/state/action.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { STATUS } from '$lib/status';
 

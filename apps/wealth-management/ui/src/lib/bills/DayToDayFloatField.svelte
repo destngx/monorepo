@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/api/endpoints';
   import type { Preferences } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
+  import { Button } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { STATUS } from '$lib/status';
   import { parseFloatDraft } from './idleCash';

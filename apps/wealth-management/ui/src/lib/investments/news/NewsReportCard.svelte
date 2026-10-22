@@ -1,10 +1,7 @@
 <script lang="ts">
   import type { NewsReport } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
+  import { Button, Icon, SkeletonText, Spinner } from '@libs/ui-kit';
   import { biasTone, countShares, formatTimestamp, sentimentTone, sourceHost } from '../news';
   import ScoreBar from './ScoreBar.svelte';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { LiquidityTier } from '$lib/accounts';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatPercent } from '$lib/format';

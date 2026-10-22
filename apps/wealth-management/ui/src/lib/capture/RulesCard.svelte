@@ -1,7 +1,6 @@
 <script lang="ts">
-  import Button from '$lib/components/Button.svelte';
+  import { Button, Card } from '@libs/ui-kit';
   import type { CaptureRule } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
   import { ruleKey } from './review';
 
   // Learned rules (WM-CAP-11): offered after rows are written.

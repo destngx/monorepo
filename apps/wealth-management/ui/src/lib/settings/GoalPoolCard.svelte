@@ -2,12 +2,8 @@
   import { api } from '$lib/api/endpoints';
   import { classifyFailure, type LoadFailure } from '$lib/api/load';
   import type { Preferences } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
+  import { Button, Card, Icon, LoadError, SkeletonText } from '@libs/ui-kit';
   import DayToDayFloatField from '$lib/bills/DayToDayFloatField.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import LoadError from '$lib/components/LoadError.svelte';
-  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import { STATUS } from '$lib/status';
   import { toasts } from '$lib/state/toasts.svelte';
   import { GOAL_POOL_FIELDS, goalPoolChanges, goalPoolError, type GoalPoolDraft } from './goalPool';

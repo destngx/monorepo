@@ -1,20 +1,13 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Card, Deferred, EmptyState, LoadError, SkeletonCard, SkeletonHeadline, Spinner } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { Recommendation, RecommendationList, RecommendationStatusInput } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import LoadError from '$lib/components/LoadError.svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonHeadline from '$lib/components/skeleton/SkeletonHeadline.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import RecommendationItem from '$lib/recommendations/RecommendationItem.svelte';
   import {
     checksSkipped,

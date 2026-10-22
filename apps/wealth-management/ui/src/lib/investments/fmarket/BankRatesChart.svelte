@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { BankRate } from '$lib/api/types';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import { EmptyState } from '@libs/ui-kit';
   import { formatPercent } from '$lib/format';
 
   let { rates }: { rates: BankRate[] } = $props();

@@ -1,5 +1,5 @@
 import type { Account, AccountType, CardBankReport, TrendPoint } from './api/types';
-import type { IconName } from './components/Icon.svelte';
+import { type IconName } from '@libs/ui-kit';
 
 export interface AccountGroup {
   key: string;

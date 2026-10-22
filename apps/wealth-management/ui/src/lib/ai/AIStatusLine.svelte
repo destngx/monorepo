@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import type { AITask } from './task.svelte';
 
   // Shared idle / loading / error states of an AI card.

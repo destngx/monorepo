@@ -6,9 +6,7 @@
   import Markdown from '$lib/ai/Markdown.svelte';
   import { insightIcon, severityStatus } from '$lib/ai/severity';
   import { AITask } from '$lib/ai/task.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Card, Icon } from '@libs/ui-kit';
   import OpenRecommendations from './OpenRecommendations.svelte';
   import { recordNote } from './recommendations';
 

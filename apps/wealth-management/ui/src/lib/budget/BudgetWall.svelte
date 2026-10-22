@@ -2,13 +2,8 @@
   import { ApiError } from '$lib/api/client';
   import { api } from '$lib/api/endpoints';
   import type { BudgetHistory } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Card, EmptyState, Icon, SkeletonTable, Spinner } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
-  import SkeletonTable from '$lib/components/skeleton/SkeletonTable.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import { formatMonth, formatPercent } from '$lib/format';
   import { STATUS } from '$lib/status';
   import { wallRows, type WallCell } from './history';

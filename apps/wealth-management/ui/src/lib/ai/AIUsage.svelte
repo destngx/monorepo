@@ -1,10 +1,7 @@
 <script lang="ts">
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
+  import { resetsIn, windowLabel, Button, Icon, SkeletonText } from '@libs/ui-kit';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatCompact, formatDate, formatDateTime, formatPercent } from '$lib/format';
-  import { resetsIn, windowLabel } from '@libs/ui-kit';
   import { usageColor } from './usage';
   import { aiUsage } from './usage.svelte';
 

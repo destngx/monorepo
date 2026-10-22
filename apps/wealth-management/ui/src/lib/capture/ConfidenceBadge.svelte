@@ -2,7 +2,7 @@
   import type { CaptureReason } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Modal } from '@libs/ui-kit';
 
   // A suggestion's overall confidence (WM-CAP-26); clicking it lists the
   // reasons behind the number and the reading's notes.

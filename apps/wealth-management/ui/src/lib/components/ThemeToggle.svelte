@@ -1,6 +1,6 @@
 <script lang="ts">
   import { theme, type Theme } from '$lib/state/settings.svelte';
-  import Icon, { type IconName } from './Icon.svelte';
+  import { Icon, type IconName } from '@libs/ui-kit';
 
   const order: Theme[] = ['system', 'light', 'dark'];
   const icons: Record<Theme, IconName> = { system: 'monitor', light: 'sun', dark: 'moon' };

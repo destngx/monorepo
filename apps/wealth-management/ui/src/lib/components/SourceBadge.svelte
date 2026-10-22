@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DataSource } from '$lib/api/types';
   import { sourceLabel, sourceState, sourceTitle, type SourceState } from '$lib/source';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 
   // Where a market figure came from (WM-INV-15). Muted when the first provider
   // answered; amber after a fallback; orange when every provider failed and

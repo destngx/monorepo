@@ -5,10 +5,7 @@
   import { api } from '$lib/api/endpoints';
   import type { SuggestedLimit } from '$lib/api/types';
   import LineChart from '$lib/charts/LineChart.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Card, Icon, Button, Modal } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { DIRECTIONS, natureLabel, spendShape } from '$lib/budget/trend';
   import Badge from '$lib/components/Badge.svelte';

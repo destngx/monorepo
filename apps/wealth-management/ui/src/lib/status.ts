@@ -1,4 +1,4 @@
-import type { IconName } from '$lib/components/Icon.svelte';
+import { type IconName } from '@libs/ui-kit';
 
 /**
  * One status scale for every page. A status is never shown by colour alone:

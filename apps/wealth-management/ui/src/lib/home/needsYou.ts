@@ -1,5 +1,5 @@
 import type { NeedsYou, NeedsYouItem, NeedsYouKind, NeedsYouStatus } from '$lib/api/types';
-import type { IconName } from '$lib/components/Icon.svelte';
+import { type IconName } from '@libs/ui-kit';
 import type { StatusTone } from '$lib/status';
 
 // The home inbox (ROADMAP R5): the engine ranks the items; these helpers

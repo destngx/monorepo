@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import type { ChatPageContext } from '$lib/api/types';
   import { base } from '$app/paths';
   import { tick } from 'svelte';

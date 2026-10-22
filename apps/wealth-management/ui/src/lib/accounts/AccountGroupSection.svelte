@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AccountGroup, CreditStanding } from '$lib/accounts';
   import type { Account, TrendPoint } from '$lib/api/types';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import AccountRow from './AccountRow.svelte';
   import type { AccountHandler } from './handlers';

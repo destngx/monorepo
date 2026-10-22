@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Card, Deferred, EmptyState, Icon, Modal, SkeletonCard, SkeletonHeadline } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { BillItem, BillOccurrence, RecurringSuggestion } from '$lib/api/types';
   import {
@@ -24,17 +24,9 @@
   import ReadyMoney from '$lib/bills/ReadyMoney.svelte';
   import RecurringFormModal from '$lib/bills/RecurringFormModal.svelte';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonHeadline from '$lib/components/skeleton/SkeletonHeadline.svelte';
   import { formatDate } from '$lib/format';
   import { toasts } from '$lib/state/toasts.svelte';
   import { STATUS } from '$lib/status';

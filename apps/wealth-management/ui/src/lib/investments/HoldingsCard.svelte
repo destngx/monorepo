@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { ValuedHolding } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import { Card, EmptyState } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { formatDate } from '$lib/format';

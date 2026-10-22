@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte';
   import type { Technicals } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import { actionTone, formatNumber, formatPrice, rsiTone, trendTone } from '../market';
 
   interface Props {

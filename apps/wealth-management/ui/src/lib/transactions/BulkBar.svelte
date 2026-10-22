@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Category } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
+  import { Button } from '@libs/ui-kit';
 
   // Bulk recategorise (WM-TX-9). Recategorise is busy while `onapply` runs;
   // the page reports per-row results, an unexpected error is toasted here.

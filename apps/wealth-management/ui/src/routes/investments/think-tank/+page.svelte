@@ -2,17 +2,11 @@
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
   import Markdown from '$lib/ai/Markdown.svelte';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Card, EmptyState, Icon, SkeletonText, Spinner } from '@libs/ui-kit';
   import type { ChatPageContext } from '$lib/api/types';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import AIRequirement from '$lib/investments/ai/AIRequirement.svelte';
   import { aiUnavailable } from '$lib/ai/aiStatus';
   import CommandCards from '$lib/investments/thinktank/CommandCards.svelte';

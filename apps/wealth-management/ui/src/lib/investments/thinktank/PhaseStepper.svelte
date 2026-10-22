@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { InvestmentPhase } from '$lib/api/types';
-  import Icon, { type IconName } from '$lib/components/Icon.svelte';
+  import { Icon, type IconName } from '@libs/ui-kit';
   import { PHASES, type PhaseState } from '../thinktank';
 
   // Context → Think tank → Synthesis → Actions (WM-AI-9). A phase that needed

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Card, Deferred, SkeletonCard, SkeletonHeadline } from '@libs/ui-kit';
   import BudgetAdvisor from '$lib/ai/BudgetAdvisor.svelte';
   import type { BudgetLine } from '$lib/api/types';
   import BudgetOverview from '$lib/budget/BudgetOverview.svelte';
@@ -13,13 +13,8 @@
   import ReallocateModal from '$lib/budget/ReallocateModal.svelte';
   import SpendingRhythmCard from '$lib/budget/SpendingRhythmCard.svelte';
   import type { ReallocationDraft } from '$lib/budget/reallocate';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonHeadline from '$lib/components/skeleton/SkeletonHeadline.svelte';
   import { currentMonth, formatMonth, shiftMonth } from '$lib/format';
 
   // The header and month switcher render at once; the report, transactions

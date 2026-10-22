@@ -3,7 +3,7 @@
   import { page } from '$app/state';
   import ChartInsight from '$lib/ai/ChartInsight.svelte';
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Card, Deferred, SkeletonCard, SkeletonHeadline, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { YearlyCashFlow } from '$lib/api/types';
   import CategoryMonthsTable from '$lib/cashflow/CategoryMonthsTable.svelte';
@@ -12,16 +12,10 @@
   import { comparisonSpan, projectionBasis, verdictMessage } from '$lib/cashflow/yearly';
   import BarChart from '$lib/charts/BarChart.svelte';
   import { EXPENSE, INCOME } from '$lib/charts/palette';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
   import Stat from '$lib/components/Stat.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonHeadline from '$lib/components/skeleton/SkeletonHeadline.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import { currentMonth, formatMonth, formatPercent } from '$lib/format';
 
   // The header and year switcher render at once (the year is in the URL);

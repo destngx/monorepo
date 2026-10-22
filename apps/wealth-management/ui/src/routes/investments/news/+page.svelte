@@ -2,14 +2,10 @@
   import { onDestroy } from 'svelte';
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Card, EmptyState, Icon } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import { ApiError } from '$lib/api/client';
   import { DEFAULT_NEWS_TOPICS, type NewsReport } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import AIRequirement from '$lib/investments/ai/AIRequirement.svelte';
   import { aiUnavailable } from '$lib/ai/aiStatus';

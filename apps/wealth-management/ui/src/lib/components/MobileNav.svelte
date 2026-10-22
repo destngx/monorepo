@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import { page } from '$app/state';
   import { pendingDrafts } from '$lib/state/drafts.svelte';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import { PRIMARY_AREAS, areaFor, pageFor } from './nav';
 
   // Phone area bar (ROADMAP P1, WM-UI-12): the five areas plus Assistant,

@@ -3,7 +3,7 @@
   import BarChart from '$lib/charts/BarChart.svelte';
   import { DAY_TO_DAY, FIXED } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate, formatPercent, formatSignedPercent } from '$lib/format';

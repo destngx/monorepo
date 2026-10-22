@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GoalPool, PoolRole } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
 

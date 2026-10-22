@@ -1,7 +1,7 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import { todayISO } from '$lib/format';
   import { entryReminder } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';

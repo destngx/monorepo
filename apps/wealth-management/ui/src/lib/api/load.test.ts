@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { toasts } from '$lib/state/toasts.svelte';
+import { sheetsAuth } from '$lib/state/toasts.svelte';
 import { ApiError } from './client';
 import { classifyFailure, defer, settle } from './load';
 
@@ -55,7 +55,7 @@ describe('classifyFailure', () => {
 
 describe('defer', () => {
   afterEach(() => {
-    toasts.sheetsAuthProblem = null;
+    sheetsAuth.problem = null;
   });
 
   it('Given a request that succeeds When deferred Then it resolves to the value', async () => {
@@ -92,11 +92,11 @@ describe('defer', () => {
 
   it('Given a Sheets credential failure When deferred Then the re-auth alert is raised once for the page', async () => {
     await defer(Promise.reject(new ApiError(401, 'token expired', 'OAUTH_EXPIRED')));
-    expect(toasts.sheetsAuthProblem).toEqual({ message: 'token expired', kind: 'expired' });
+    expect(sheetsAuth.problem).toEqual({ message: 'token expired', kind: 'expired' });
   });
 
   it('Given an optional service failure When deferred Then the re-auth alert stays down', async () => {
     await defer(Promise.reject(new ApiError(503, 'down', 'UNAVAILABLE', '/market')));
-    expect(toasts.sheetsAuthProblem).toBeNull();
+    expect(sheetsAuth.problem).toBeNull();
   });
 });

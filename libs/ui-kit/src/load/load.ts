@@ -72,15 +72,16 @@ export function settled<T>(value: T): Streamed<T> {
   return Promise.resolve({ ok: true, value });
 }
 
-export interface LoaderOptions {
+/** An app's failure: a LoadFailure, possibly with fields of its own (wealth-management adds sheetsAuth). */
+export interface LoaderOptions<F extends LoadFailure = LoadFailure> {
   /** The app's own classifier; defaults to classifyFailure. */
-  classify?: Classify;
+  classify?: (cause: unknown) => F;
   /** Runs for every failure, e.g. to raise an alert the whole page needs. */
-  onFailure?: (failure: LoadFailure, cause: unknown) => void;
+  onFailure?: (failure: F, cause: unknown) => void;
 }
 
-export interface Loader {
-  classify: Classify;
+export interface Loader<F extends LoadFailure = LoadFailure> {
+  classify: (cause: unknown) => F;
   defer: <T>(load: Promise<T> | (() => Promise<T>)) => Streamed<T>;
 }
 
@@ -88,8 +89,9 @@ export interface Loader {
  * A `defer` that uses the app's classifier and failure hook. An app makes one
  * in its `api/load.ts` and uses it in every load function.
  */
-export function createLoader(options: LoaderOptions = {}): Loader {
-  const classify = options.classify ?? classifyFailure;
+export function createLoader<F extends LoadFailure = LoadFailure>(options: LoaderOptions<F> = {}): Loader<F> {
+  // Without an app classifier, F is the plain LoadFailure that classifyFailure returns.
+  const classify = options.classify ?? (classifyFailure as (cause: unknown) => F);
   return {
     classify,
     defer: <T>(load: Promise<T> | (() => Promise<T>)): Streamed<T> => {

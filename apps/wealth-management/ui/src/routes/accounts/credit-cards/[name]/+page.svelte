@@ -1,16 +1,10 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Card, Deferred, EmptyState, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import CardDetail from '$lib/cards/CardDetail.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import { currentMonth, formatDate, formatMonth } from '$lib/format';
 
   // The name is in the URL: the header, back link and AI summary render at

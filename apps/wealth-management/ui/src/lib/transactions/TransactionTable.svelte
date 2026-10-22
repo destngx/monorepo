@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Transaction } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
+  import { Button } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
   import CategoryBadge from './CategoryBadge.svelte';

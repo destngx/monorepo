@@ -1,10 +1,6 @@
 <script lang="ts">
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Button, Card, Deferred, SkeletonText } from '@libs/ui-kit';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
   import AIUsage from './AIUsage.svelte';
   import { loadAIStatus } from './aiStatus';
 

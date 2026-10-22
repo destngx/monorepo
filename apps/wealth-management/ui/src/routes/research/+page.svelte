@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { AREAS } from '$lib/components/nav';
 

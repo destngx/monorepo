@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Technicals } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import { formatDate } from '$lib/format';
   import { formatPrice } from '../market';
 

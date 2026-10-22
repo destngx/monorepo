@@ -1,13 +1,11 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Deferred, SkeletonCard } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import CloseChecklist from '$lib/close/CloseChecklist.svelte';
   import { closeMonths } from '$lib/close/close';
-  import Deferred from '$lib/components/Deferred.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
   import { currentMonth, formatMonth, shiftMonth } from '$lib/format';
   import { toasts } from '$lib/state/toasts.svelte';
 

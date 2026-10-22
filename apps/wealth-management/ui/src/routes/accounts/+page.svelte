@@ -15,23 +15,25 @@
   import LiquidityCard from '$lib/accounts/LiquidityCard.svelte';
   import { accountFormFor, emptyAccountForm, type AccountForm } from '$lib/accounts/form';
   import { joinStreamed } from '$lib/accounts/streams';
-  import { track } from '$lib/api/deferred.svelte';
+  import {
+    track,
+    Button,
+    Card,
+    Deferred,
+    EmptyState,
+    Icon,
+    Modal,
+    SkeletonCard,
+    SkeletonStat,
+    action,
+  } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { Account } from '$lib/api/types';
   import LineChart from '$lib/charts/LineChart.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import Modal from '$lib/components/Modal.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import AllocationSummary from '$lib/investments/AllocationSummary.svelte';
-  import { action } from '$lib/state/action.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
 
   // The header and its actions render at once; the balance sheet, the

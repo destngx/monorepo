@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { GoalProgress } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
+  import { Button } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';

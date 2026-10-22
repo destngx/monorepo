@@ -2,8 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api/endpoints';
   import type { ApiTokenStatus } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Button, Card } from '@libs/ui-kit';
   import { apiToken } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { apiTokenProblem, generateApiToken } from './apiToken';

@@ -2,8 +2,7 @@
   import { base } from '$app/paths';
   import { adjustmentHref } from '$lib/accounts';
   import { ACCOUNT_TYPES, type Account } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Button, Modal } from '@libs/ui-kit';
   import type { AccountForm } from './form';
   import type { SubmitHandler } from './handlers';
 

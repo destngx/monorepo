@@ -2,8 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { IdleCash } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Icon } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { STATUS } from '$lib/status';
   import { rateLabel } from './idleCash';

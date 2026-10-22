@@ -1,8 +1,7 @@
 <script lang="ts">
-  import Button from '$lib/components/Button.svelte';
+  import { Button, Icon } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import type { CaptureLimits } from '$lib/api/types';
-  import Icon from '$lib/components/Icon.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import {
     batchUsage,

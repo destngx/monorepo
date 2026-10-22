@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { DashboardSummary } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { expensePaceView, sameDaysHint, savingsRateTile } from '$lib/dashboard-month';
   import { formatDate, formatMonth, formatPercent, formatSignedPercent } from '$lib/format';

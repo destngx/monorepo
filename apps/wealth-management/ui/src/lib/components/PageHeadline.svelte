@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { STATUS, type StatusTone } from '$lib/status';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 
   // The page hierarchy (ROADMAP P2): every page leads with one headline answer
   // to its question, then the evidence (children), then the detail below it.

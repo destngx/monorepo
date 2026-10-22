@@ -6,10 +6,7 @@
   import type { DependencyStatus, SheetInfo } from '$lib/api/types';
   import { classifyFailure, type LoadFailure } from '$lib/api/load';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import LoadError from '$lib/components/LoadError.svelte';
-  import SkeletonText from '$lib/components/skeleton/SkeletonText.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Button, LoadError, SkeletonText, Card } from '@libs/ui-kit';
   import { engineHealth } from '$lib/state/health.svelte';
   import { sync } from '$lib/state/sync.svelte';
   import type { StatusTone } from '$lib/status';

@@ -3,7 +3,7 @@
   import { base } from '$app/paths';
   import type { Recommendation, RecommendationStatusInput } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Button from '$lib/components/Button.svelte';
+  import { Button } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
   import { SNOOZE_DAYS, sourceLabel, STATUS_LABEL, STATUS_TONE } from './recommendations';

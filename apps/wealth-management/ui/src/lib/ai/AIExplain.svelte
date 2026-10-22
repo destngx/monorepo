@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
   import { AITask } from './task.svelte';

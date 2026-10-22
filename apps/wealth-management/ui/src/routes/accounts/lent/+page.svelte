@@ -2,15 +2,10 @@
   import { base } from '$app/paths';
   import type { MoneyLentPerson } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Card, Deferred, EmptyState, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import Masked from '$lib/components/Masked.svelte';
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonCard from '$lib/components/skeleton/SkeletonCard.svelte';
-  import SkeletonStat from '$lib/components/skeleton/SkeletonStat.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate } from '$lib/format';
   import { ageTone, balanceStatus, formatAge, repayStatus, splitPeople } from '$lib/lending/lending';

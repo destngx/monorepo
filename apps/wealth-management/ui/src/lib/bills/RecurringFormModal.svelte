@@ -1,9 +1,8 @@
 <script lang="ts">
-  import Button from '$lib/components/Button.svelte';
+  import { Button, Modal } from '@libs/ui-kit';
   import type { SubmitHandler } from '$lib/accounts/handlers';
   import type { Category } from '$lib/api/types';
   import { groupCategories } from '$lib/budget/natures';
-  import Modal from '$lib/components/Modal.svelte';
   import { KIND_LABELS, MAX_GRACE_DAYS, type RecurringForm } from './bills';
 
   interface Props {

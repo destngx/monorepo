@@ -1,8 +1,7 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
   import { page } from '$app/state';
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Icon } from '@libs/ui-kit';
   import SheetsAuthSteps from '$lib/components/SheetsAuthSteps.svelte';
 
   // Errors from older loaders carry only authProblem; treat them as expired.

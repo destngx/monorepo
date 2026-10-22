@@ -1,4 +1,4 @@
-import type { IconName } from './Icon.svelte';
+import { type IconName } from '@libs/ui-kit';
 
 // Five-area navigation (ROADMAP P1, WM-UI-10..13). Every page route belongs
 // to exactly one area; URLs are unchanged, so an area's pages may sit under

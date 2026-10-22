@@ -2,8 +2,7 @@
   import MaskedText from '$lib/components/MaskedText.svelte';
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Card, Icon } from '@libs/ui-kit';
   import AIStatusLine from './AIStatusLine.svelte';
   import Markdown from './Markdown.svelte';
   import { severityStatus } from './severity';

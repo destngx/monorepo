@@ -1,13 +1,9 @@
 <script lang="ts">
-  import { track } from '$lib/api/deferred.svelte';
+  import { track, Card, Deferred, SkeletonChart, Spinner } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import { defer } from '$lib/api/load';
   import { PALETTE } from '$lib/charts/palette';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
-  import SkeletonChart from '$lib/components/skeleton/SkeletonChart.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { sourceOf } from '$lib/source';
   import { formatDate, formatSignedPercent, formatVND, todayISO } from '$lib/format';

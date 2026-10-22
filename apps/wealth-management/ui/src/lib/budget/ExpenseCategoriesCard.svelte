@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { BudgetLine } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Card, EmptyState, Icon } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
   import { formatDate } from '$lib/format';

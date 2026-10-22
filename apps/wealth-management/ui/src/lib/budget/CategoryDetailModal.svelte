@@ -4,10 +4,8 @@
   import Donut from '$lib/charts/Donut.svelte';
   import { DAY_TO_DAY, EXPENSE, INCOME, SPLIT_SECOND, SPLIT_SHARE } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
-  import Modal from '$lib/components/Modal.svelte';
+  import { Modal, SkeletonChart, SkeletonTable } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
-  import SkeletonChart from '$lib/components/skeleton/SkeletonChart.svelte';
-  import SkeletonTable from '$lib/components/skeleton/SkeletonTable.svelte';
   import { formatDate, formatMonth, formatPercent, todayISO } from '$lib/format';
   import { STATUS } from '$lib/status';
   import { categoryTransactions, dailySplitSpend, detailEnd, rowSplitTag, splitSeries } from './detail';

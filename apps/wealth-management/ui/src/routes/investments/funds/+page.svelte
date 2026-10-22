@@ -1,15 +1,10 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { track, type Tracked } from '$lib/api/deferred.svelte';
+  import { track, type Tracked, Card, Deferred, SkeletonChart, SkeletonTable, Spinner } from '@libs/ui-kit';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Deferred from '$lib/components/Deferred.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
-  import SkeletonChart from '$lib/components/skeleton/SkeletonChart.svelte';
-  import SkeletonTable from '$lib/components/skeleton/SkeletonTable.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
-  import Spinner from '$lib/components/Spinner.svelte';
   import { rateLabel } from '$lib/bills/idleCash';
   import { STATUS } from '$lib/status';
   import { FUND_TYPES, type FundSummary, type FundType, type Sourced } from '$lib/investments/fmarket';

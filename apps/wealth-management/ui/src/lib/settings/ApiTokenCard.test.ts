@@ -3,14 +3,15 @@ import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const endpoints = vi.hoisted(() => ({ apiTokenStatus: vi.fn(), setApiToken: vi.fn() }));
-const toastMock = vi.hoisted(() => ({ push: vi.fn(), error: vi.fn(), info: vi.fn(), success: vi.fn() }));
 vi.mock('$lib/api/endpoints', () => ({ api: endpoints }));
-vi.mock('$lib/state/toasts.svelte', () => ({ toasts: toastMock }));
 
+import { toasts } from '@libs/ui-kit';
 import { apiToken } from '$lib/state/settings.svelte';
 import ApiTokenCard from './ApiTokenCard.svelte';
 
 const oldToken = 'o'.repeat(32);
+// The shared toasts are what Button and the card report to.
+const success = vi.spyOn(toasts, 'success');
 
 async function settle() {
   for (let i = 0; i < 5; i++) await tick();
@@ -23,6 +24,7 @@ const setOnEngine = () => screen.getByRole('button', { name: 'Set on engine' });
 describe('ApiTokenCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    toasts.items = [];
     apiToken.value = '';
   });
 
@@ -47,7 +49,7 @@ describe('ApiTokenCard', () => {
 
     expect(endpoints.setApiToken).toHaveBeenCalledWith(generated);
     expect(apiToken.value).toBe(generated);
-    expect(toastMock.success).toHaveBeenCalledWith('API token set on the engine and saved in this browser.');
+    expect(success).toHaveBeenCalledWith('API token set on the engine and saved in this browser.');
     expect(screen.getByRole('status').textContent).toMatch(/requires a token/);
   });
 
@@ -63,7 +65,7 @@ describe('ApiTokenCard', () => {
     await settle();
 
     expect(apiToken.value).toBe(oldToken);
-    expect(toastMock.success).not.toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
   });
 
   it('Given a short token When typing Then it explains the rule and cannot be set', async () => {
@@ -98,6 +100,6 @@ describe('ApiTokenCard', () => {
 
     expect(apiToken.value).toBe(oldToken);
     expect(endpoints.setApiToken).not.toHaveBeenCalled();
-    expect(toastMock.success).toHaveBeenCalledWith('API token saved in this browser.');
+    expect(success).toHaveBeenCalledWith('API token saved in this browser.');
   });
 });

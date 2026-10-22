@@ -14,12 +14,12 @@
 
 <section class="panel p-5 {className}">
   {#if title || actions}
-    <header class="mb-4 flex items-start justify-between gap-3">
-      <div>
+    <header class="mb-4 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+      <div class="min-w-0">
         {#if title}<h2 class="heading">{title}</h2>{/if}
         {#if subtitle}<p class="muted mt-0.5 text-xs">{subtitle}</p>{/if}
       </div>
-      {#if actions}<div class="flex items-center gap-2">{@render actions()}</div>{/if}
+      {#if actions}<div class="flex flex-wrap items-center gap-2">{@render actions()}</div>{/if}
     </header>
   {/if}
   {@render children()}

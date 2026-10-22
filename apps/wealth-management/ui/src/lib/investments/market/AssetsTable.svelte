@@ -1,8 +1,6 @@
 <script lang="ts">
   import type { PulseQuote, Timeframe } from '$lib/api/types';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon, { type IconName } from '$lib/components/Icon.svelte';
+  import { Card, EmptyState, Icon, type IconName } from '@libs/ui-kit';
   import { formatSignedPercent } from '$lib/format';
   import {
     TIMEFRAME_LABELS,

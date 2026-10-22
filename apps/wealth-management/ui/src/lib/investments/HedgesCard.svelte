@@ -2,7 +2,7 @@
   import type { Hedges } from '$lib/api/types';
   import { GOLD, USD } from '$lib/charts/palette';
   import TrendLines from '$lib/charts/TrendLines.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { formatDate, formatPercent, formatSignedPercent } from '$lib/format';

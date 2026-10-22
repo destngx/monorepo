@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { Confluence, Timeframe } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Card, Icon } from '@libs/ui-kit';
   import { TIMEFRAME_LABELS, formatNumber, formatPrice, pairTone, rsiTone, trendTone } from '../market';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
 

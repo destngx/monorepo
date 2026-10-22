@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { CryptoExposure } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import SourceBadge from '$lib/components/SourceBadge.svelte';
   import { formatPercent, formatSignedPercent } from '$lib/format';

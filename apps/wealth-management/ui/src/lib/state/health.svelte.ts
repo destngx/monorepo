@@ -1,6 +1,6 @@
 import type { Settled } from '$lib/api/load';
 import type { EngineHealth } from '$lib/api/types';
-import { toasts } from './toasts.svelte';
+import { sheetsAuth } from './toasts.svelte';
 
 /**
  * Engine health (WM-OPS-6) as loaded in the background by the root layout:
@@ -33,7 +33,7 @@ class EngineHealthState {
    */
   report(settled: Settled<EngineHealth> | null): void {
     this.settled = settled;
-    if (this.ready('sheets')) toasts.sheetsAuthProblem = null;
+    if (this.ready('sheets')) sheetsAuth.problem = null;
   }
 
   ready(name: string): boolean {

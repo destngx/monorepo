@@ -2,8 +2,7 @@
   import { accountIcon, isCreditAccount, noteAmount, type CreditStanding } from '$lib/accounts';
   import type { Account, TrendPoint } from '$lib/api/types';
   import Sparkline from '$lib/charts/Sparkline.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Button, Icon } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
