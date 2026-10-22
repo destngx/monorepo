@@ -33,3 +33,4 @@ Multiple agent sessions work in this repo concurrently. Never do feature work in
 - **No NPM/Yarn/bun**: Use `pnpm` exclusively in this workspace.
 - **No Error Swallowing**: Always handle or wrap errors properly.
 - **Check Docs First**: Review the corresponding `docs/*/AGENTS.md` before implementing architectural changes.
+- **UI work**: Read `docs/ui/README.md` before building or restyling any web UI. A new UI app follows its section 12.

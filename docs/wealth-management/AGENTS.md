@@ -43,6 +43,8 @@ The frontend follows **Feature-Sliced Design (FSD)** to maintain scalability.
 
 ### 💅 UI & Styling
 
+The shared rules for every UI app are in [docs/ui/README.md](../ui/README.md). This section adds what is specific to WM.
+
 - **Look** (WM-UI-5): neo-brutalism with quiet luxury. The page is flat warm paper (`bg-canvas`). A raised surface is a `panel`: `bg-surface` with a 1.5px `border-edge` outline and a hard `shadow-hard` offset without blur. Corners are small, because the theme tightens Tailwind's `rounded-*` scale. Page titles, card titles, headlines and modal titles use `font-serif`; labels are small, uppercase and tracked; body text is sans with tabular numbers. Primary buttons and the current tab are ink (`stone-900`, inverted in dark mode). One muted bronze accent (`accent-*`) marks links, focus rings and the current page in the sidebar. Behind everything is the portfolio landing page's background (`Aurora`, mounted once in the root layout): four blurred colour blobs that drift, under a halftone dot screen, still under reduced motion. Do not add other gradients, glass or blur.
 - **Tokens**: `@theme` in `routes/layout.css` holds the colours, shadows, radii and fonts; surface, edge and shade switch under `.dark`. Use `stone-*` for neutrals and `accent-*` for the accent. Status colours keep their own scale in `lib/status.ts`.
 - **Charts**: series colours come from `lib/charts/palette.ts` in a fixed order, each set checked against both theme surfaces with the dataviz palette validator. Do not write a hex colour in a chart.

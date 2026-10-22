@@ -1,5 +1,9 @@
 # Monorepo Documentation Index
 
+## Shared
+
+- [UI style guide](./ui/README.md): look, tokens, components and copy rules for every web UI
+
 ## Applications
 
 - [AI Gateway](./ai-gateway/README.md)
