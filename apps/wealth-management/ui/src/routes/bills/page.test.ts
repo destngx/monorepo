@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defer, settled, type Settled, type Streamed } from '$lib/api/load';
-import type { Bills, RecurringSuggestion } from '$lib/api/types';
+import type { Bills, Category, RecurringSuggestion } from '$lib/api/types';
 import { mask } from '$lib/state/mask.svelte';
 
 // Every engine call stays pending unless a test settles it.
@@ -164,6 +164,20 @@ const bills: Bills = {
 };
 
 describe('Bills page', () => {
+  beforeEach(() => {
+    // jsdom has no modal dialogs; the Modal only needs them to toggle.
+    if (!('showModal' in HTMLDialogElement.prototype)) {
+      Object.assign(HTMLDialogElement.prototype, {
+        showModal(this: HTMLDialogElement) {
+          this.open = true;
+        },
+        close(this: HTMLDialogElement) {
+          this.open = false;
+        },
+      });
+    }
+  });
+
   afterEach(() => {
     mask.hide();
     calls.length = 0;
@@ -373,5 +387,66 @@ describe('Bills page', () => {
     await flush();
     const sent = calls.find((call) => call.name === 'setAccountReady');
     expect(sent?.args).toEqual([{ account: 'Old Broker', ready: true, etag: 'etag-1' }]);
+  });
+
+  const categories: Category[] = [
+    { name: 'Utilities', type: 'expense' },
+    { name: 'Rent', type: 'expense' },
+    { name: 'Salary', type: 'income' },
+  ];
+
+  it('Given the categories have loaded When New item opens Then Category is a list from the Categories tab, by type', async () => {
+    render(BillsPage, {
+      data: { engine: never(), bills: never(), idleCash: never(), categories: settled(categories) } as never,
+    });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'New item' }));
+    await flush();
+
+    const select = screen.getByLabelText<HTMLSelectElement>('Category');
+    expect(select.tagName).toBe('SELECT');
+    expect(select.value).toBe('');
+    const groups = [...select.querySelectorAll('optgroup')].map((group) => ({
+      label: group.label,
+      options: [...group.querySelectorAll('option')].map((option) => option.value),
+    }));
+    expect(groups).toEqual([
+      { label: 'Expense', options: ['Rent', 'Utilities'] },
+      { label: 'Income', options: ['Salary'] },
+    ]);
+  });
+
+  it('Given a suggestion whose category is not in the Categories tab When Edit opens Then that category stays chosen', async () => {
+    render(BillsPage, {
+      data: { engine: never(), bills: settled(bills), idleCash: never(), categories: settled(categories) } as never,
+    });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await flush();
+
+    const select = screen.getByLabelText<HTMLSelectElement>('Category');
+    expect(select.value).toBe('Health');
+    expect(select.selectedOptions[0]?.textContent).toBe('Health (not in Categories)');
+  });
+
+  it('Given the categories fail to load When New item opens Then the list says why and No category still works', async () => {
+    render(BillsPage, {
+      data: {
+        engine: never(),
+        bills: never(),
+        idleCash: never(),
+        categories: defer(Promise.reject(new Error('Categories tab missing'))),
+      } as never,
+    });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'New item' }));
+    await flush();
+
+    const select = screen.getByLabelText<HTMLSelectElement>('Category');
+    expect(select.value).toBe('');
+    expect(screen.getByText(/Could not load the categories: Categories tab missing/)).toBeTruthy();
   });
 });

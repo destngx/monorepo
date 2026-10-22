@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { track } from '$lib/api/deferred.svelte';
   import { api } from '$lib/api/endpoints';
   import type { BillItem, BillOccurrence, RecurringSuggestion } from '$lib/api/types';
   import {
@@ -41,6 +42,7 @@
   // The header and New item render at once; the bills report and the idle
   // cash check stream in. A save refreshes them with the old figures shown.
   let { data } = $props();
+  const categories = track(() => data.categories);
   // The action running (one at a time), so only its button spins and the others wait.
   let pending = $state<string | null>(null);
   const busy = $derived(pending !== null);
@@ -441,6 +443,9 @@
   open={formOpen}
   title={formTitle}
   bind:form
+  categories={categories.value ?? []}
+  categoriesLoading={categories.loading}
+  categoriesError={categories.failure?.message ?? null}
   busy={isPending('form')}
   error={formError}
   submitLabel={editing ? 'Save' : 'Add'}

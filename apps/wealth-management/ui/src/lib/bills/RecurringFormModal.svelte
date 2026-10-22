@@ -1,6 +1,8 @@
 <script lang="ts">
   import Button from '$lib/components/Button.svelte';
   import type { SubmitHandler } from '$lib/accounts/handlers';
+  import type { Category } from '$lib/api/types';
+  import { groupCategories } from '$lib/budget/natures';
   import Modal from '$lib/components/Modal.svelte';
   import { KIND_LABELS, type RecurringForm } from './bills';
 
@@ -8,6 +10,10 @@
     open: boolean;
     title: string;
     form: RecurringForm;
+    /** The Categories tab, for the Category list; empty while it loads. */
+    categories: Category[];
+    categoriesLoading?: boolean;
+    categoriesError?: string | null;
     busy: boolean;
     /** Why the last submit was refused, shown above the buttons. */
     error?: string | null;
@@ -16,9 +22,27 @@
     onsubmit: SubmitHandler;
   }
 
-  let { open, title, form = $bindable(), busy, error = null, submitLabel, onclose, onsubmit }: Props = $props();
+  let {
+    open,
+    title,
+    form = $bindable(),
+    categories,
+    categoriesLoading = false,
+    categoriesError = null,
+    busy,
+    error = null,
+    submitLabel,
+    onclose,
+    onsubmit,
+  }: Props = $props();
 
   const isCard = $derived(form.kind === 'card');
+  const categoryGroups = $derived(groupCategories(categories));
+  // A saved or suggested category missing from the list (renamed, or the list
+  // has not loaded) stays a choice, so opening the form does not clear it.
+  const unlistedCategory = $derived(
+    form.category && !categories.some((category) => category.name === form.category) ? form.category : null,
+  );
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 </script>
 
@@ -100,7 +124,31 @@
       </div>
       <div>
         <label class="label" for="recurring-category">Category</label>
-        <input id="recurring-category" class="field" bind:value={form.category} />
+        <select
+          id="recurring-category"
+          class="field"
+          bind:value={form.category}
+          aria-describedby={categoriesLoading || categoriesError ? 'recurring-category-hint' : undefined}
+        >
+          <option value="">No category</option>
+          {#if unlistedCategory}
+            <option value={unlistedCategory}>{unlistedCategory} (not in Categories)</option>
+          {/if}
+          {#each categoryGroups as group (group.label)}
+            <optgroup label={group.label}>
+              {#each group.categories as category (category.name)}
+                <option value={category.name}>{category.name}</option>
+              {/each}
+            </optgroup>
+          {/each}
+        </select>
+        {#if categoriesError}
+          <p id="recurring-category-hint" class="muted mt-1 text-xs">
+            Could not load the categories: {categoriesError}
+          </p>
+        {:else if categoriesLoading}
+          <p id="recurring-category-hint" class="muted mt-1 text-xs">Loading the categories…</p>
+        {/if}
       </div>
       <div>
         <label class="label" for="recurring-account">Account</label>
