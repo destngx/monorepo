@@ -4,7 +4,7 @@
   import type { Category } from '$lib/api/types';
   import { groupCategories } from '$lib/budget/natures';
   import Modal from '$lib/components/Modal.svelte';
-  import { KIND_LABELS, type RecurringForm } from './bills';
+  import { KIND_LABELS, MAX_GRACE_DAYS, type RecurringForm } from './bills';
 
   interface Props {
     open: boolean;
@@ -102,6 +102,22 @@
           required
         />
         <p id="recurring-day-hint" class="muted mt-1 text-xs">31 means the last day in shorter months.</p>
+      </div>
+      <div>
+        <label class="label" for="recurring-grace">Grace days</label>
+        <input
+          id="recurring-grace"
+          type="number"
+          min="0"
+          max={MAX_GRACE_DAYS}
+          step="1"
+          class="field"
+          bind:value={form.graceDays}
+          aria-describedby="recurring-grace-hint"
+        />
+        <p id="recurring-grace-hint" class="muted mt-1 text-xs">
+          How late it can be paid before it counts as overdue, such as 14 for rent paid a week or two late.
+        </p>
       </div>
       {#if form.frequency !== 'monthly'}
         <div>

@@ -13,10 +13,10 @@ import (
 
 const (
 	recurringSheet    = "Recurring"
-	recurringRange    = "'Recurring'!A2:K"
+	recurringRange    = "'Recurring'!A2:L"
 	recurringAnchor   = "'Recurring'!A2:A"
 	recurringFirstRow = 2
-	recurringColumns  = 11 // A-K
+	recurringColumns  = 12 // A-L
 
 	cacheKeyRecurring        = "recurring:items"
 	cacheKeyRecurringPattern = "recurring:*"
@@ -24,7 +24,7 @@ const (
 	dismissedSuggestionNote = "Dismissed suggestion"
 )
 
-var recurringHeader = []any{"Name", "Kind", "Amount", "Frequency", "Day", "Month", "Account", "Category", "Match", "Status", "Note"}
+var recurringHeader = []any{"Name", "Kind", "Amount", "Frequency", "Day", "Month", "Account", "Category", "Match", "Status", "Note", "Grace days"}
 
 func (s *dbService) ReadRecurring(forceFresh bool) (domain.RecurringSheet, error) {
 	return cachedRead(s, cacheKeyRecurring, sheetDataTTL, forceFresh, s.readRecurring)
@@ -112,7 +112,7 @@ func (s *dbService) ConfirmRecurringSuggestion(input domain.RecurringConfirmInpu
 	return domain.RecurringItem{}, fmt.Errorf("%w: %q is not a current suggestion; reload and retry", domain.ErrNotFound, input.Key)
 }
 
-// UpdateRecurring replaces columns A-K of a row that still matches the ETag.
+// UpdateRecurring replaces columns A-L of a row that still matches the ETag.
 func (s *dbService) UpdateRecurring(id string, input domain.RecurringUpdateInput) (domain.RecurringItem, error) {
 	if err := input.Validate(); err != nil {
 		return domain.RecurringItem{}, err
@@ -150,7 +150,7 @@ func (s *dbService) SetRecurringStatus(id string, input domain.RecurringStatusIn
 	return s.readRecurringRow(row)
 }
 
-// DeleteRecurring clears columns A-K; other item IDs do not shift.
+// DeleteRecurring clears columns A-L; other item IDs do not shift.
 func (s *dbService) DeleteRecurring(id string, etag string) error {
 	if err := requireETag(etag); err != nil {
 		return err
@@ -226,10 +226,10 @@ func (s *dbService) readRecurringRow(row int) (domain.RecurringItem, error) {
 	return item, nil
 }
 
-// recurringRowValues renders columns A-K for USER_ENTERED. Text that Sheets
+// recurringRowValues renders columns A-L for USER_ENTERED. Text that Sheets
 // would read as a formula is written as plain text.
 func recurringRowValues(input domain.RecurringInput) []any {
-	amount, day, month := any(""), any(""), any("")
+	amount, day, month, grace := any(""), any(""), any(""), any("")
 	if input.Amount != nil {
 		amount = *input.Amount
 	}
@@ -239,9 +239,12 @@ func recurringRowValues(input domain.RecurringInput) []any {
 	if input.Month > 0 {
 		month = input.Month
 	}
+	if input.GraceDays > 0 {
+		grace = input.GraceDays
+	}
 	return []any{
 		textCell(input.Name), string(input.Kind), amount, string(input.Frequency), day, month,
-		textCell(input.Account), textCell(input.Category), textCell(input.Match), string(input.Status), textCell(input.Note),
+		textCell(input.Account), textCell(input.Category), textCell(input.Match), string(input.Status), textCell(input.Note), grace,
 	}
 }
 
@@ -288,11 +291,12 @@ func mapRecurringRow(row []string, sheetRow int) (domain.RecurringItem, string, 
 	}
 	day, dayProblem := wholeCell(cellAt(row, 4), "day")
 	month, monthProblem := wholeCell(cellAt(row, 5), "month")
-	problems = appendIf(appendIf(problems, dayProblem), monthProblem)
+	grace, graceProblem := wholeCell(cellAt(row, 11), "grace days")
+	problems = appendIf(appendIf(appendIf(problems, dayProblem), monthProblem), graceProblem)
 	input := domain.RecurringInput{
 		Name: name, Kind: domain.RecurringKind(cellAt(row, 1)), Amount: amount, Frequency: domain.RecurringFrequency(cellAt(row, 3)),
 		Day: day, Month: month, Account: cellAt(row, 6), Category: cellAt(row, 7), Match: cellAt(row, 8),
-		Status: domain.RecurringStatus(cellAt(row, 9)), Note: cellAt(row, 10),
+		Status: domain.RecurringStatus(cellAt(row, 9)), Note: cellAt(row, 10), GraceDays: grace,
 	}.Normalized()
 	if !ok && input.Kind != domain.RecurringCard {
 		placeholder := 1.0 // the amount problem is already reported
@@ -305,7 +309,7 @@ func mapRecurringRow(row []string, sheetRow int) (domain.RecurringItem, string, 
 	return domain.RecurringItem{
 		ID: recurringID(sheetRow), Row: sheetRow, Name: input.Name, Kind: input.Kind, Amount: input.Amount,
 		Frequency: input.Frequency, Day: input.Day, Month: input.Month, Account: input.Account, Category: input.Category,
-		Match: input.Match, Status: input.Status, Note: input.Note, ETag: rowETag(row, recurringColumns),
+		Match: input.Match, Status: input.Status, Note: input.Note, GraceDays: input.GraceDays, ETag: rowETag(row, recurringColumns),
 	}, "", true
 }
 
@@ -342,5 +346,5 @@ func parseRecurringID(id string) (int, error) {
 }
 
 func recurringRowRange(row int) string {
-	return fmt.Sprintf("'%s'!A%d:K%d", recurringSheet, row, row)
+	return fmt.Sprintf("'%s'!A%d:L%d", recurringSheet, row, row)
 }

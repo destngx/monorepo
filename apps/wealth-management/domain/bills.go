@@ -29,9 +29,11 @@ type BillStatus string
 const (
 	// BillPaid: a matching transaction settled it (received, for income).
 	BillPaid BillStatus = "paid"
-	// BillDue: not paid yet and its date is today or later.
+	// BillDue: not paid yet and its date is today or later, or it is late
+	// but within the item's grace days (GraceUntil).
 	BillDue BillStatus = "due"
-	// BillOverdue: not paid and its date has passed (late, for income).
+	// BillOverdue: not paid and its date (and grace) has passed (late, for
+	// income).
 	BillOverdue BillStatus = "overdue"
 )
 
@@ -64,9 +66,12 @@ type BillOccurrence struct {
 	ExpectedAmount float64       `json:"expectedAmount"`
 	Status         BillStatus    `json:"status"`
 	// DaysUntil is negative once the date has passed.
-	DaysUntil int    `json:"daysUntil"`
-	Account   string `json:"account,omitempty"`
-	Note      string `json:"note,omitempty"`
+	DaysUntil int `json:"daysUntil"`
+	// GraceUntil is the last day an unpaid occurrence is still due, when
+	// its item has grace days (D42).
+	GraceUntil string `json:"graceUntil,omitempty"`
+	Account    string `json:"account,omitempty"`
+	Note       string `json:"note,omitempty"`
 	// PaidAmount is the total of the matching transactions (for a card,
 	// the repayments since the statement closed).
 	PaidAmount float64     `json:"paidAmount"`
@@ -347,9 +352,7 @@ func ComputeBills(input BillsInput) Bills {
 
 	occurrences := []BillOccurrence{}
 	for _, item := range active {
-		for _, date := range item.occurrencesBetween(monthStart, calendarEnd) {
-			occurrences = append(occurrences, occurrenceOf(item, date, input.Transactions, today))
-		}
+		occurrences = append(occurrences, item.occurrencesFrom(monthStart, calendarEnd, input.Transactions, today)...)
 	}
 	for _, card := range cards {
 		if expected, _ := time.Parse(time.DateOnly, card.ExpectedDate); !expected.After(calendarEnd) {
@@ -398,6 +401,21 @@ func describeItem(item RecurringItem, transactions []Transaction, today time.Tim
 	return described
 }
 
+// occurrencesFrom settles the item's occurrences from monthStart to to,
+// and carries over last month's unpaid ones whose grace reaches into this
+// month, so rent paid late stays on the calendar and in safe-to-spend.
+func (item RecurringItem) occurrencesFrom(monthStart, to time.Time, transactions []Transaction, today time.Time) []BillOccurrence {
+	occurrences := []BillOccurrence{}
+	for _, date := range item.occurrencesBetween(monthStart.AddDate(0, 0, -item.GraceDays), to) {
+		occurrence := occurrenceOf(item, date, transactions, today)
+		if date.Before(monthStart) && occurrence.Status == BillPaid {
+			continue
+		}
+		occurrences = append(occurrences, occurrence)
+	}
+	return occurrences
+}
+
 func parseDay(value string) time.Time {
 	date, _ := time.Parse(time.DateOnly, value)
 	return date
@@ -419,6 +437,9 @@ func occurrenceOf(item RecurringItem, date time.Time, transactions []Transaction
 		ExpectedDate: date.Format(time.DateOnly), ExpectedAmount: expected,
 		DaysUntil: daysBetween(today, date), Account: item.Account, Note: item.Note,
 	}
+	if item.GraceDays > 0 {
+		occurrence.GraceUntil = item.graceEnd(date).Format(time.DateOnly)
+	}
 	start, end := item.cycleWindow(date)
 	for _, t := range transactions {
 		if t.Date.Before(start) || !t.Date.Before(end) || t.Date.After(today) || !item.Matches(t) {
@@ -434,7 +455,7 @@ func occurrenceOf(item RecurringItem, date time.Time, transactions []Transaction
 	switch {
 	case len(occurrence.Matches) > 0:
 		occurrence.Status = BillPaid
-	case date.Before(today):
+	case item.graceEnd(date).Before(today):
 		occurrence.Status = BillOverdue
 	default:
 		occurrence.Status = BillDue
@@ -606,7 +627,8 @@ func summarizeCalendar(occurrences []BillOccurrence, from, to, today time.Time) 
 
 // computeSafeToSpend (WM-BILL-5, D33, D36): horizon = the next unpaid
 // income on or after today, else 30 days. Counted = unpaid outgoing
-// occurrences from the first of this month (overdue ones too) and card
+// occurrences from the first of this month (overdue ones too, and last
+// month's ones still in their grace or past it this month, D42) and card
 // payments due strictly before the income (one due on payday is paid by
 // the wage), or up to and including the 30th day without an income. The
 // fixed costs and essentials are set aside before the free money.
@@ -650,8 +672,7 @@ func computeSafeToSpend(input BillsInput, active []RecurringItem, cards []BillOc
 		if item.Kind.IsIncome() {
 			continue
 		}
-		for _, date := range item.occurrencesBetween(monthStart, lastDay) {
-			occurrence := occurrenceOf(item, date, input.Transactions, today)
+		for _, occurrence := range item.occurrencesFrom(monthStart, lastDay, input.Transactions, today) {
 			if occurrence.Status != BillPaid {
 				result.BillsDue += occurrence.Remaining
 				result.Counted = append(result.Counted, occurrence)

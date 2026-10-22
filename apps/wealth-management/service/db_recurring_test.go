@@ -71,7 +71,7 @@ func TestGivenNoRecurringTabWhenCreatingAnItemThenTheTabIsCreatedAndOnlyItIsWrit
 	client := newFakeSheetClient()
 	client.titles = []string{"Accounts"}
 	client.nextRow = 2
-	client.ranges["'Recurring'!A2:K2"] = [][]string{{"Rent", "bill", "8000000", "monthly", "1", "", "", "Rent", "=Landlord", "active"}}
+	client.ranges["'Recurring'!A2:L2"] = [][]string{{"Rent", "bill", "8000000", "monthly", "1", "", "", "Rent", "=Landlord", "active"}}
 	cache := newFakeCache()
 
 	item, err := newTestDBService(t, client, cache).CreateRecurring(domain.RecurringInput{Name: " Rent ", Kind: "Bill", Amount: ptr(8_000_000.0), Day: 1, Category: "Rent", Match: "=Landlord"})
@@ -103,8 +103,8 @@ func TestGivenNoRecurringTabWhenCreatingAnItemThenTheTabIsCreatedAndOnlyItIsWrit
 func TestGivenARecurringItemWhenUpdatingPausingAndDeletingThenTheETagGuardsTheRow(t *testing.T) {
 	current := []string{"Rent", "bill", "8000000", "monthly", "1", "", "", "Rent", "Landlord", "active"}
 	client := recurringClient(nil)
-	client.ranges["'Recurring'!A4:K4"] = [][]string{current}
-	client.ranges["'Recurring'!A5:K5"] = [][]string{{}}
+	client.ranges["'Recurring'!A4:L4"] = [][]string{current}
+	client.ranges["'Recurring'!A5:L5"] = [][]string{{}}
 	svc := newTestDBService(t, client, newFakeCache())
 	etag := rowETag(current, recurringColumns)
 
@@ -112,7 +112,7 @@ func TestGivenARecurringItemWhenUpdatingPausingAndDeletingThenTheETagGuardsTheRo
 	if _, err := svc.UpdateRecurring("recurring-4", input); err != nil {
 		t.Fatal(err)
 	}
-	if update := client.updates[0]; update.rangeValue != "'Recurring'!A4:K4" || update.values[2] != 9_000_000.0 || update.values[4] != 2 {
+	if update := client.updates[0]; update.rangeValue != "'Recurring'!A4:L4" || update.values[2] != 9_000_000.0 || update.values[4] != 2 {
 		t.Fatalf("update = %+v", update)
 	}
 	if _, err := svc.SetRecurringStatus("recurring-4", domain.RecurringStatusInput{Status: domain.RecurringPaused, ETag: etag}); err != nil {
@@ -131,8 +131,8 @@ func TestGivenARecurringItemWhenUpdatingPausingAndDeletingThenTheETagGuardsTheRo
 	if err := svc.DeleteRecurring("recurring-4", etag); err != nil {
 		t.Fatal(err)
 	}
-	if last := client.updates[len(client.updates)-1]; last.rangeValue != "'Recurring'!A4:K4" || len(last.values) != recurringColumns || last.values[0] != "" {
-		t.Fatalf("delete clears A-K: %+v", last)
+	if last := client.updates[len(client.updates)-1]; last.rangeValue != "'Recurring'!A4:L4" || len(last.values) != recurringColumns || last.values[0] != "" {
+		t.Fatalf("delete clears A-L: %+v", last)
 	}
 	if err := svc.DeleteRecurring("recurring-5", "x"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("blank row: %v", err)
@@ -154,7 +154,7 @@ func TestGivenASuggestionWhenConfirmingThenItIsWrittenAndAnUnknownKeyIsNotFound(
 	}
 	client.ranges[transactionsSheetRange] = rows
 	client.nextRow = 2
-	client.ranges["'Recurring'!A2:K2"] = [][]string{{"Water", "bill", "200000", "monthly", "5", "", "Main Bank", "Utilities", "Water Co", "paused", "Dismissed suggestion"}}
+	client.ranges["'Recurring'!A2:L2"] = [][]string{{"Water", "bill", "200000", "monthly", "5", "", "Main Bank", "Utilities", "Water Co", "paused", "Dismissed suggestion"}}
 	svc := newTestDBService(t, client, newFakeCache())
 
 	if _, err := svc.ConfirmRecurringSuggestion(domain.RecurringConfirmInput{Key: "out|gas co|utilities"}); !errors.Is(err, domain.ErrNotFound) {
@@ -170,5 +170,28 @@ func TestGivenASuggestionWhenConfirmingThenItIsWrittenAndAnUnknownKeyIsNotFound(
 	}
 	if len(client.created) != 1 {
 		t.Fatalf("the tab is created on the first confirm: %v", client.created)
+	}
+}
+
+func TestGivenGraceDaysInColumnLWhenReadingAndWritingThenTheyRoundTrip(t *testing.T) {
+	client := recurringClient([][]string{
+		{"Rent", "bill", "8000000", "monthly", "28", "", "", "", "Landlord", "active", "", "14"},
+		{"Water", "bill", "200000", "monthly", "5", "", "", "", "Water Co", "active", "", "two weeks"},
+		{"Phone", "bill", "200000", "monthly", "20", "", "", "", "Phone Co", "active", "", "30"},
+	})
+	sheet, err := newTestDBService(t, client, newFakeCache()).ReadRecurring(true)
+	if err != nil || len(sheet.Items) != 1 || sheet.Items[0].GraceDays != 14 {
+		t.Fatalf("sheet = %+v %v", sheet, err)
+	}
+	if len(sheet.Issues) != 2 || !strings.Contains(sheet.Issues[0].Message, `grace days "two weeks"`) || !strings.Contains(sheet.Issues[1].Message, "grace days must be from 0 to 21") {
+		t.Fatalf("issues = %+v", sheet.Issues)
+	}
+
+	values := recurringRowValues(domain.RecurringInput{Name: "Rent", Kind: domain.RecurringBill, Amount: ptr(8_000_000.0), Day: 28, Match: "Landlord", GraceDays: 14}.Normalized())
+	if len(values) != recurringColumns || values[11] != 14 {
+		t.Fatalf("row values = %+v", values)
+	}
+	if values := recurringRowValues(domain.RecurringInput{Name: "Rent", Kind: domain.RecurringBill, Amount: ptr(1.0), Day: 1, Match: "x"}); values[11] != "" {
+		t.Fatalf("no grace is a blank cell: %+v", values)
 	}
 }

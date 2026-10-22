@@ -54,6 +54,11 @@ const (
 // RecurringStatuses lists every status.
 var RecurringStatuses = []RecurringStatus{RecurringActive, RecurringPaused}
 
+// MaxGraceDays caps the Grace column (L, D42). A monthly item with grace
+// settles payments from its date + grace + 1 a month back, so a cap of
+// three weeks still lets a payment come a week early.
+const MaxGraceDays = 21
+
 // RecurringItem is one row of the Recurring tab. Amount is nil only on a
 // card row, whose payment is the card's statement.
 type RecurringItem struct {
@@ -74,7 +79,11 @@ type RecurringItem struct {
 	Match    string          `json:"match,omitempty"`
 	Status   RecurringStatus `json:"status"`
 	Note     string          `json:"note,omitempty"`
-	// ETag fingerprints columns A-K as read.
+	// GraceDays is how many days after its date an unpaid occurrence is
+	// still due rather than overdue (D42): rent the user or the landlord
+	// may settle a week or two late. 0 = overdue the day after.
+	GraceDays int `json:"graceDays,omitempty"`
+	// ETag fingerprints columns A-L as read.
 	ETag string `json:"etag"`
 }
 
@@ -107,6 +116,7 @@ type RecurringInput struct {
 	Match     string             `json:"match,omitempty"`
 	Status    RecurringStatus    `json:"status,omitempty"`
 	Note      string             `json:"note,omitempty"`
+	GraceDays int                `json:"graceDays,omitempty"`
 }
 
 // Normalized trims the text fields and fills the defaults.
@@ -166,6 +176,12 @@ func (input RecurringInput) Problems() []string {
 	}
 	if input.Frequency != FrequencyMonthly && (input.Month < 1 || input.Month > 12) {
 		problems = append(problems, "month (1-12) is required for quarterly and yearly items")
+	}
+	switch {
+	case isCard && input.GraceDays != 0:
+		problems = append(problems, "grace days must be blank on card rows (the card's pay-by date applies)")
+	case input.GraceDays < 0 || input.GraceDays > MaxGraceDays:
+		problems = append(problems, fmt.Sprintf("grace days must be from 0 to %d", MaxGraceDays))
 	}
 	if input.Kind != RecurringCard && input.Match == "" && input.Category == "" {
 		problems = append(problems, "match text or a category is needed to recognise payments")
@@ -296,15 +312,27 @@ func (item RecurringItem) occurrencesBetween(from, to time.Time) []time.Time {
 }
 
 // cycleWindow is the span whose matching transactions settle the
-// occurrence due on date: its calendar month for monthly items; the month
-// before to the month after for quarterly and yearly ones, so an early or
-// late payment still counts. Windows of one item never overlap.
+// occurrence due on date: its calendar month for monthly items, or with
+// grace days the month up to the end of its grace, so a payment made late
+// in the next month settles the cycle it was late for; the month before to
+// the month after for quarterly and yearly ones, so an early or late
+// payment still counts. Windows of one item never overlap.
 func (item RecurringItem) cycleWindow(date time.Time) (time.Time, time.Time) {
 	first := time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
-	if item.Frequency == FrequencyMonthly {
+	if item.Frequency != FrequencyMonthly {
+		return first.AddDate(0, -1, 0), first.AddDate(0, 2, 0)
+	}
+	if item.GraceDays <= 0 {
 		return first, first.AddDate(0, 1, 0)
 	}
-	return first.AddDate(0, -1, 0), first.AddDate(0, 2, 0)
+	previous := first.AddDate(0, -1, 0)
+	previous = clampedDate(previous.Year(), previous.Month(), item.Day)
+	return previous.AddDate(0, 0, item.GraceDays+1), date.AddDate(0, 0, item.GraceDays+1)
+}
+
+// graceEnd is the last day an unpaid occurrence due on date is still due.
+func (item RecurringItem) graceEnd(date time.Time) time.Time {
+	return date.AddDate(0, 0, item.GraceDays)
 }
 
 // matchAmountTolerance is how far an amount may stray from the item's

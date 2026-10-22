@@ -200,3 +200,70 @@ describe('minimum balances (D35)', () => {
     ]);
   });
 });
+
+describe('grace days (D42)', () => {
+  it('Given a bill past its date within its grace When labelled Then it is late but not urgent', () => {
+    expect(billStatus(occurrence({ status: 'due', daysUntil: -3, graceUntil: '2026-10-15' }))).toEqual({
+      tone: 'info',
+      label: 'Late, in grace',
+    });
+    expect(billStatus(occurrence({ status: 'overdue', daysUntil: -20 })).label).toBe('Overdue');
+  });
+
+  it('Given a late bill within its grace When splitting the calendar Then it stays in view after the overdue ones', () => {
+    const { earlier, upcoming } = splitCalendar(
+      [
+        occurrence({
+          name: 'Rent',
+          expectedDate: '2026-10-01',
+          status: 'due',
+          daysUntil: -16,
+          graceUntil: '2026-10-15',
+        }),
+        occurrence({ name: 'Internet', expectedDate: '2026-10-10', status: 'overdue' }),
+        occurrence({ name: 'Water', expectedDate: '2026-10-05', status: 'paid' }),
+        occurrence({ name: 'Phone', expectedDate: '2026-10-20' }),
+      ],
+      '2026-10-17',
+    );
+    expect(earlier.map((o) => o.name)).toEqual(['Water']);
+    expect(upcoming.map((o) => o.name)).toEqual(['Internet', 'Rent', 'Phone']);
+  });
+
+  it('Given grace days When describing the schedule Then they are named', () => {
+    expect(scheduleLabel({ kind: 'bill', frequency: 'monthly', day: 28, graceDays: 14 })).toBe(
+      'Monthly, day 28, 14 days grace',
+    );
+    expect(scheduleLabel({ kind: 'bill', frequency: 'yearly', day: 5, month: 11, graceDays: 1 })).toBe(
+      'Yearly, 5 Nov, 1 day grace',
+    );
+  });
+
+  it('Given grace days on the form When building the input Then they round-trip, are checked and dropped on cards', () => {
+    const rent = { ...emptyRecurringForm(), name: 'Rent', amount: 8_000_000, day: 28, match: 'Landlord' };
+    expect(recurringInputFrom({ ...rent, graceDays: 14 }).input?.graceDays).toBe(14);
+    expect(recurringInputFrom({ ...rent, graceDays: 0 }).input?.graceDays).toBeUndefined();
+    expect(recurringInputFrom({ ...rent, graceDays: 22 }).error).toContain('Grace days');
+    expect(recurringInputFrom({ ...rent, graceDays: 1.5 }).error).toContain('Grace days');
+    const card = recurringInputFrom({ ...rent, kind: 'card', account: 'Card Account', graceDays: 5 });
+    expect(card.input?.graceDays).toBeUndefined();
+    const item: BillItem = {
+      id: 'recurring-3',
+      row: 3,
+      name: 'Rent',
+      kind: 'bill',
+      amount: 8_000_000,
+      frequency: 'monthly',
+      day: 28,
+      match: 'Landlord',
+      status: 'active',
+      graceDays: 14,
+      etag: 'x',
+      current: null,
+      lastMatch: null,
+      matchCount: 0,
+    };
+    expect(recurringFormFor(item).graceDays).toBe(14);
+    expect(recurringFormFor({ ...item, graceDays: undefined }).graceDays).toBeNull();
+  });
+});

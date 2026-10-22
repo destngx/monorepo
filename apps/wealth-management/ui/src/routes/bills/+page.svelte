@@ -160,6 +160,8 @@
       <p class="truncate font-medium">{occurrence.name}</p>
       <p class="muted text-xs">
         {formatDate(occurrence.expectedDate)} · {dueLabel(occurrence.daysUntil)} · {KIND_LABELS[occurrence.kind]}
+        {#if occurrence.status === 'due' && occurrence.daysUntil < 0 && occurrence.graceUntil}· no rush until
+          {formatDate(occurrence.graceUntil)}{/if}
         {#if occurrence.estimate}· estimate, can still change{/if}
         {#if occurrence.paidDate}· {occurrence.kind === 'income' ? 'received' : 'paid'}
           {formatDate(occurrence.paidDate)}{/if}

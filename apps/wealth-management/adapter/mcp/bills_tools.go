@@ -22,6 +22,7 @@ func recurringSchema() map[string]any {
 		"match":     map[string]any{"type": "string", "description": "Payee text that marks a transaction as this item."},
 		"status":    map[string]any{"type": "string", "enum": []string{"active", "paused"}},
 		"note":      stringSchema,
+		"graceDays": map[string]any{"type": "integer", "minimum": 0, "maximum": domain.MaxGraceDays, "description": "Days after its date an unpaid occurrence stays due before it is overdue, e.g. 14 for rent that may be paid a week or two late. Default 0; not allowed on card rows."},
 	}
 }
 

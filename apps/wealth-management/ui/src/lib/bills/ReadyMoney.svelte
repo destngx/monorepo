@@ -124,7 +124,8 @@
       {#each safe.counted as occurrence (occurrence.name + occurrence.expectedDate)}
         <li class="flex justify-between gap-2 py-1.5">
           <span class="min-w-0 truncate"
-            >{occurrence.name}, {formatDate(occurrence.expectedDate)}{#if occurrence.status === 'overdue'}, overdue{/if}</span
+            >{occurrence.name}, {formatDate(occurrence.expectedDate)}{#if occurrence.status === 'overdue'}, overdue{:else if occurrence.daysUntil < 0},
+              late{/if}</span
           ><Money value={occurrence.remaining} />
         </li>
       {:else}

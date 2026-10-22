@@ -67,6 +67,9 @@ export const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
   not_ready: 'marked not ready to use (slow to withdraw)',
 };
 
+/** The most grace days an item can have (the engine's MaxGraceDays). */
+export const MAX_GRACE_DAYS = 21;
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export const KIND_LABELS: Record<RecurringKind, string> = {
@@ -90,6 +93,8 @@ export function billStatus(occurrence: Pick<BillOccurrence, 'status' | 'kind' | 
       return isIncome ? { tone: 'warning', label: 'Late' } : { tone: 'serious', label: 'Overdue' };
     case 'due':
       if (isIncome) return { tone: 'info', label: 'Expected' };
+      // Past its date but within its grace days: late, not urgent.
+      if (occurrence.daysUntil < 0) return { tone: 'info', label: 'Late, in grace' };
       return occurrence.daysUntil <= 3 ? { tone: 'warning', label: 'Due soon' } : { tone: 'info', label: 'Due' };
   }
 }
@@ -113,22 +118,24 @@ export function confidenceStatus(confidence: SuggestionConfidence): { tone: Stat
   }
 }
 
-/** "Monthly, day 5", "Yearly, 5 Nov", "Quarterly from Feb, day 15", "Statement, pay by the 29th". */
+/** "Monthly, day 5", "Yearly, 5 Nov", "Quarterly from Feb, day 15", "Statement, pay by the 29th", "…, 14 days grace". */
 export function scheduleLabel(item: {
   kind: RecurringKind;
   frequency: RecurringFrequency;
   day: number;
   month?: number;
+  graceDays?: number;
 }): string {
   if (item.kind === 'card') return 'Card statement, paid by the 29th (28th in February)';
+  const grace = item.graceDays ? `, ${item.graceDays} ${item.graceDays === 1 ? 'day' : 'days'} grace` : '';
   const month = item.month ? MONTHS[item.month - 1] : '';
   switch (item.frequency) {
     case 'yearly':
-      return `Yearly, ${item.day} ${month}`.trim();
+      return `Yearly, ${item.day} ${month}`.trim() + grace;
     case 'quarterly':
-      return `Quarterly from ${month}, day ${item.day}`;
+      return `Quarterly from ${month}, day ${item.day}${grace}`;
     default:
-      return `Monthly, day ${item.day}`;
+      return `Monthly, day ${item.day}${grace}`;
   }
 }
 
@@ -144,8 +151,9 @@ export function suggestionEvidence(suggestion: RecurringSuggestion): string {
 }
 
 /**
- * Calendar rows still needing attention (overdue ones first, then from today on) and the rest of this
- * month so far, so an overdue bill is never tucked away with the settled ones.
+ * Calendar rows still needing attention (overdue ones first, then late ones within their grace, then
+ * from today on) and the rest of this month so far, so an unpaid bill is never tucked away with the
+ * settled ones.
  */
 export function splitCalendar(
   occurrences: BillOccurrence[],
@@ -153,9 +161,10 @@ export function splitCalendar(
 ): { earlier: BillOccurrence[]; upcoming: BillOccurrence[] } {
   const isPast = (occurrence: BillOccurrence) => occurrence.expectedDate < asOf;
   return {
-    earlier: occurrences.filter((occurrence) => isPast(occurrence) && occurrence.status !== 'overdue'),
+    earlier: occurrences.filter((occurrence) => isPast(occurrence) && occurrence.status === 'paid'),
     upcoming: [
       ...occurrences.filter((occurrence) => isPast(occurrence) && occurrence.status === 'overdue'),
+      ...occurrences.filter((occurrence) => isPast(occurrence) && occurrence.status === 'due'),
       ...occurrences.filter((occurrence) => !isPast(occurrence)),
     ],
   };
@@ -182,6 +191,7 @@ export interface RecurringForm {
   match: string;
   status: RecurringStatus;
   note: string;
+  graceDays: number | null;
 }
 
 export function emptyRecurringForm(): RecurringForm {
@@ -197,6 +207,7 @@ export function emptyRecurringForm(): RecurringForm {
     match: '',
     status: 'active',
     note: '',
+    graceDays: null,
   };
 }
 
@@ -213,6 +224,7 @@ export function recurringFormFor(item: BillItem): RecurringForm {
     match: item.match ?? '',
     status: item.status,
     note: item.note ?? '',
+    graceDays: item.graceDays || null,
   };
 }
 
@@ -229,6 +241,7 @@ export function recurringFormFromSuggestion(suggestion: RecurringSuggestion): Re
     match: suggestion.match,
     status: 'active',
     note: '',
+    graceDays: null,
   };
 }
 
@@ -243,6 +256,12 @@ export function recurringInputFrom(form: RecurringForm): { input?: RecurringInpu
     return { error: 'Day must be a day of the month (1-31).' };
   if (form.frequency !== 'monthly' && (form.month === null || form.month < 1 || form.month > 12))
     return { error: 'Pick the month for a quarterly or yearly item.' };
+  if (
+    !isCard &&
+    form.graceDays !== null &&
+    (form.graceDays < 0 || form.graceDays > MAX_GRACE_DAYS || !Number.isInteger(form.graceDays))
+  )
+    return { error: `Grace days must be a whole number from 0 to ${MAX_GRACE_DAYS}.` };
   if (!isCard && !form.match.trim() && !form.category.trim())
     return { error: 'Add match text or a category so payments can be recognised.' };
   return {
@@ -258,6 +277,7 @@ export function recurringInputFrom(form: RecurringForm): { input?: RecurringInpu
       match: form.match.trim() || undefined,
       status: form.status,
       note: form.note.trim() || undefined,
+      graceDays: isCard ? undefined : form.graceDays || undefined,
     },
   };
 }

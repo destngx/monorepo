@@ -27,6 +27,8 @@ export interface RecurringItem {
   match?: string;
   status: RecurringStatus;
   note?: string;
+  /** Days after its date an unpaid occurrence stays due before it is overdue (D42). */
+  graceDays?: number;
   etag: string;
 }
 
@@ -49,6 +51,8 @@ export interface BillOccurrence {
   expectedAmount: number;
   status: BillStatus;
   daysUntil: number;
+  /** yyyy-mm-dd: the last day an unpaid occurrence is still due, when its item has grace days. */
+  graceUntil?: string;
   account?: string;
   note?: string;
   paidAmount: number;
@@ -312,6 +316,7 @@ export interface RecurringInput {
   match?: string;
   status?: RecurringStatus;
   note?: string;
+  graceDays?: number;
 }
 
 /** POST /api/bills/suggestions/confirm body: blank fields keep the suggested values. */

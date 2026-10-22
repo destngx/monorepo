@@ -59,13 +59,15 @@ type minimumContext struct {
 }
 
 type billContext struct {
-	Name     string               `json:"name"`
-	Kind     domain.RecurringKind `json:"kind"`
-	Date     string               `json:"date"`
-	Amount   float64              `json:"amount"`
-	Status   domain.BillStatus    `json:"status"`
-	Paid     float64              `json:"paid,omitempty"`
-	Estimate bool                 `json:"estimate,omitempty"`
+	Name   string               `json:"name"`
+	Kind   domain.RecurringKind `json:"kind"`
+	Date   string               `json:"date"`
+	Amount float64              `json:"amount"`
+	Status domain.BillStatus    `json:"status"`
+	// GraceUntil: a due bill past its date is late but not overdue until then.
+	GraceUntil string  `json:"graceUntil,omitempty"`
+	Paid       float64 `json:"paid,omitempty"`
+	Estimate   bool    `json:"estimate,omitempty"`
 }
 
 type suggestionContext struct {
@@ -83,6 +85,7 @@ type recurringItemFacts struct {
 	Amount    *float64                  `json:"amount"`
 	Frequency domain.RecurringFrequency `json:"frequency"`
 	Day       int                       `json:"day,omitempty"`
+	GraceDays int                       `json:"graceDays,omitempty"`
 	Status    domain.RecurringStatus    `json:"status"`
 	NextDate  string                    `json:"nextDate,omitempty"`
 }
@@ -93,7 +96,9 @@ const safeToSpendRule = "Ready money splits into three tiers until the next inco
 	"(groceries, transport), not for wants (tightBy: what is left does not cover them); freeToSpend = readyMoney - " +
 	"committed - essentials, floored at 0, the only money for wants (freePerDay a day). Answer 'can I afford X' against " +
 	"freeToSpend, never readyMoney; an essential purchase may use essentials. Bills and card payments count when unpaid " +
-	"and due before the next income (overdue ones too); one due on payday is paid by that wage and not counted. Without " +
+	"and due before the next income (overdue ones too); one due on payday is paid by that wage and not counted. A bill " +
+	"with graceDays (such as rent the user or the landlord may settle a week or two late) is still due, not overdue, " +
+	"until its graceUntil date: mention it as late but never as urgent. Without " +
 	"an expected income the window is the next 30 days, inclusive. Goal money is not subtracted. readyMoney counts " +
 	"each account above its minimum balance to keep only (reserved is what is kept back; a hard reserve, since a bank " +
 	"reward on the month's average cannot be made up late). With natureTagged false nothing is set aside for fixed " +
@@ -122,7 +127,7 @@ func (s *Service) billsContext(bills domain.Bills) billsContext {
 	}
 	for _, o := range bills.Calendar.Occurrences {
 		out.Calendar = append(out.Calendar, billContext{
-			Name: s.masker.Mask(o.Name), Kind: o.Kind, Date: o.ExpectedDate, Amount: o.ExpectedAmount, Status: o.Status, Paid: o.PaidAmount, Estimate: o.Estimate,
+			Name: s.masker.Mask(o.Name), Kind: o.Kind, Date: o.ExpectedDate, Amount: o.ExpectedAmount, Status: o.Status, GraceUntil: o.GraceUntil, Paid: o.PaidAmount, Estimate: o.Estimate,
 		})
 	}
 	for _, suggestion := range bills.Suggestions {
@@ -132,7 +137,7 @@ func (s *Service) billsContext(bills domain.Bills) billsContext {
 	}
 	for _, item := range bills.Items {
 		out.Items = append(out.Items, recurringItemFacts{
-			Name: s.masker.Mask(item.Name), Kind: item.Kind, Amount: item.Amount, Frequency: item.Frequency, Day: item.Day, Status: item.Status, NextDate: item.NextDate,
+			Name: s.masker.Mask(item.Name), Kind: item.Kind, Amount: item.Amount, Frequency: item.Frequency, Day: item.Day, GraceDays: item.GraceDays, Status: item.Status, NextDate: item.NextDate,
 		})
 	}
 	return out
