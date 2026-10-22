@@ -2,12 +2,8 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import type { HealthDocument } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import { Button, Card, EmptyState, Icon, PageTitle } from '@libs/ui-kit';
   import FilePreview from '$lib/components/FilePreview.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
   import VisitFormModal from '$lib/components/VisitFormModal.svelte';
   import { documentKindLabels, formatDate, providerKindLabels, visitTypeLabels } from '$lib/format';
   import { session } from '$lib/state/session.svelte';

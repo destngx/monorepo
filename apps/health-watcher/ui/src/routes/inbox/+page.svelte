@@ -2,11 +2,9 @@
   import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import type { InboxGroup, InboxItem } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import { Button, EmptyState, PageTitle } from '@libs/ui-kit';
   import FileItemModal from '$lib/components/FileItemModal.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
   import ReadingBadge from '$lib/components/ReadingBadge.svelte';
   import UploadPanel from '$lib/components/UploadPanel.svelte';
   import { formatDate, visitTypeLabels } from '$lib/format';

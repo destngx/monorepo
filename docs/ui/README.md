@@ -81,7 +81,7 @@ It also makes every `overflow-x-auto` a containing block (`position: relative`),
 
 Base rules use `:where()` so any utility on a component wins.
 
-`theme.css` defines these utilities with `@utility`. An app that keeps its own `layout.css` (HW and WM today) defines them with the same names and meaning. The AI usage gauge in `libs/ui-kit` uses `panel`, `muted`, `link`, `tabular` and `icon-btn`, so an app with its own `layout.css` needs at least those.
+`theme.css` defines these utilities with `@utility`. An app that keeps its own `layout.css` (WM today) defines them with the same names and meaning. The AI usage gauge in `libs/ui-kit` uses `panel`, `muted`, `link`, `tabular` and `icon-btn`, so an app with its own `layout.css` needs at least those.
 
 | Utility        | Meaning                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -129,7 +129,7 @@ Use Tailwind classes for everything else. Write plain CSS only for what Tailwind
 
 ## 7. Components and behaviour
 
-These components are in `libs/ui-kit`; import them from `@libs/ui-kit`. HW and WM still have their own copies until they move to the library. Until then, a change to a copy goes into the library too, so the two do not drift.
+These components are in `libs/ui-kit`; import them from `@libs/ui-kit`. HW uses them all; WM still has its own copies until it moves to the library. Until then, a change to a WM copy goes into the library too, so the two do not drift.
 
 | Component         | Behaviour                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -153,7 +153,7 @@ Use WM's pattern, described in full in `docs/wealth-management/AGENTS.md` under 
 - Skeletons are `role="status"` and `aria-busy`, with "Loading {label}…" for screen readers.
 - Page changes show `NavProgress`: nothing under 150ms, then a top bar.
 
-All of it is in `libs/ui-kit`. HW does not use it yet. An app whose API errors need more than the default rules makes its own `defer` with `createLoader({ classify, onFailure })`; the failure's `hint` is the advice `LoadError` shows.
+All of it is in `libs/ui-kit`. An app whose API errors need more than the default rules makes its own `defer` with `createLoader({ classify, onFailure })`; the failure's `hint` is the advice `LoadError` shows.
 
 ### Status and charts
 

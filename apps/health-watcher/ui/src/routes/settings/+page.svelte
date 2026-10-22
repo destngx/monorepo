@@ -4,16 +4,10 @@
   import { page } from '$app/state';
   import { auth } from '$lib/api/endpoints';
   import type { CreatedInvite, CreatedUploadToken, Member, Role } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import CopyField from '$lib/components/CopyField.svelte';
-  import Field from '$lib/components/Field.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
+  import { Button, Card, CopyField, Field, PageTitle, action, toasts } from '@libs/ui-kit';
   import { formatDate, roleHints, roleLabels, options } from '$lib/format';
-  import { action } from '$lib/state/action.svelte';
   import { session } from '$lib/state/session.svelte';
   import { theme, type Theme } from '$lib/state/theme.svelte';
-  import { toasts } from '$lib/state/toasts.svelte';
 
   let { data } = $props();
 

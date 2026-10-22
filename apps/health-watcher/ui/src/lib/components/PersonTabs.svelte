@@ -1,6 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import Icon, { type IconName } from './Icon.svelte';
+  import { Icon, type IconName } from '@libs/ui-kit';
 
   // The views of one person: the visit timeline and the metrics dashboard.
   let { personId, current }: { personId: string; current: 'timeline' | 'metrics' } = $props();

@@ -2,13 +2,11 @@
   import { invalidateAll } from '$app/navigation';
   import type { Person, UploadResponse } from '$lib/api/types';
   import { formatSize } from '$lib/format';
-  import { action } from '$lib/state/action.svelte';
+  import { action, toasts, Icon } from '@libs/ui-kit';
   import { session } from '$lib/state/session.svelte';
-  import { toasts } from '$lib/state/toasts.svelte';
   import { draftStore, idbBackend } from '$lib/drafts';
   import { ACCEPT, pickFiles } from '$lib/upload';
   import FilmGuide from './FilmGuide.svelte';
-  import Icon from './Icon.svelte';
   import PhoneCaptureModal from './PhoneCaptureModal.svelte';
 
   // Staging area for uploads (HW-IMP-3, HW-IMP-5): files from the picker, a

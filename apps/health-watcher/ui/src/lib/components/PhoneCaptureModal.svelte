@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { CaptureLink } from '$lib/api/types';
   import { session } from '$lib/state/session.svelte';
-  import CopyField from './CopyField.svelte';
-  import Modal from './Modal.svelte';
-  import Spinner from './Spinner.svelte';
+  import { CopyField, Modal, Spinner } from '@libs/ui-kit';
 
   // The Mac shows a QR code; the iPhone's camera opens it and the page there
   // takes photos straight into this inbox (HW-IMP-9), or into one unfiled

@@ -1,13 +1,11 @@
 <script lang="ts">
   import type { DocumentKind, InboxItem, Person, Provider, Visit, VisitInput } from '$lib/api/types';
   import { documentKindLabels, formatDate, options, visitTypeLabels } from '$lib/format';
-  import { action } from '$lib/state/action.svelte';
+  import { action, Field, Modal } from '@libs/ui-kit';
   import { session } from '$lib/state/session.svelte';
   import { proposalVisit } from '$lib/reading';
-  import Field from './Field.svelte';
   import FilePreview from './FilePreview.svelte';
   import FilmGuide from './FilmGuide.svelte';
-  import Modal from './Modal.svelte';
   import VisitFields from './VisitFields.svelte';
 
   // Files an inbox item as a document under an existing or new visit. The

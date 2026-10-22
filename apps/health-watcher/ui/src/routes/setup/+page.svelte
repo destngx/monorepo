@@ -2,8 +2,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import AuthCard from '$lib/components/AuthCard.svelte';
-  import Field from '$lib/components/Field.svelte';
-  import { action } from '$lib/state/action.svelte';
+  import { Field, action } from '@libs/ui-kit';
   import { session } from '$lib/state/session.svelte';
   import { auth } from '$lib/api/endpoints';
 

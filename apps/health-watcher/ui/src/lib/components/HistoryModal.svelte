@@ -2,7 +2,7 @@
   import type { AuditEntry } from '$lib/api/types';
   import { formatDate } from '$lib/format';
   import { oldRecord } from '$lib/reading';
-  import Modal from './Modal.svelte';
+  import { Modal } from '@libs/ui-kit';
 
   // The earlier versions of an approved record (HW-REC-6).
   let { entries, onclose }: { entries: AuditEntry[] | null; onclose: () => void } = $props();

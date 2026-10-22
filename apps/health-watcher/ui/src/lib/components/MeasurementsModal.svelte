@@ -2,11 +2,9 @@
   import type { Metric } from '$lib/api/types';
   import { todayISO } from '$lib/format';
   import { typedVitals } from '$lib/metrics';
-  import { action } from '$lib/state/action.svelte';
+  import { action, Field, Modal } from '@libs/ui-kit';
   import { catalog } from '$lib/state/catalog.svelte';
   import { session } from '$lib/state/session.svelte';
-  import Field from './Field.svelte';
-  import Modal from './Modal.svelte';
 
   // Vitals typed in for one day without a paper, such as a home blood
   // pressure reading (HW-MET-2). Empty fields are skipped.

@@ -8,11 +8,9 @@
   import { setUnauthorizedHandler } from '$lib/api/client';
   import { auth } from '$lib/api/endpoints';
   import AIUsageGauge from '$lib/components/AIUsageGauge.svelte';
-  import Aurora from '$lib/components/Aurora.svelte';
-  import Icon, { type IconName } from '$lib/components/Icon.svelte';
-  import Toasts from '$lib/components/Toasts.svelte';
+  import { Aurora, Icon, type IconName, Toasts, toasts } from '@libs/ui-kit';
   import { session } from '$lib/state/session.svelte';
-  import { toasts } from '$lib/state/toasts.svelte';
+  import { theme } from '$lib/state/theme.svelte';
   import { isPublicPath } from '$lib/paths';
 
   let { children } = $props();
@@ -30,6 +28,9 @@
   function active(href: string): boolean {
     return href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`);
   }
+
+  // With the system theme, the page follows a later switch between light and dark.
+  $effect(() => theme.watchSystem());
 
   // A request that finds the session gone sends the user back to login.
   $effect(() => {

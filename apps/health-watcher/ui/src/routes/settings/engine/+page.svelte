@@ -4,15 +4,10 @@
   import { base } from '$app/paths';
   import { engine } from '$lib/api/endpoints';
   import type { AICheck, EngineSettingsView, User } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import Field from '$lib/components/Field.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
+  import { Button, Card, Field, PageTitle, action, toasts } from '@libs/ui-kit';
   import { engineForm, isDirty, rejectedNote, restartNote, settingsInput } from '$lib/engine';
   import { formatDate } from '$lib/format';
-  import { action } from '$lib/state/action.svelte';
   import { session } from '$lib/state/session.svelte';
-  import { toasts } from '$lib/state/toasts.svelte';
 
   let { data } = $props();
 

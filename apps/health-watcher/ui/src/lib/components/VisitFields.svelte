@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Person, Provider, VisitInput } from '$lib/api/types';
   import { options, providerKindLabels, todayISO, visitTypeLabels } from '$lib/format';
-  import Field from './Field.svelte';
+  import { Field } from '@libs/ui-kit';
 
   // The fields of a visit, shared by the visit form and inbox filing.
   interface Props {

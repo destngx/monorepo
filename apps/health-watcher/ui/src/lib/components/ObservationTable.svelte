@@ -2,7 +2,7 @@
   import type { Observation, RecordStatus } from '$lib/api/types';
   import { flagLabel, formatDate } from '$lib/format';
   import { catalog } from '$lib/state/catalog.svelte';
-  import Button from './Button.svelte';
+  import { Button } from '@libs/ui-kit';
 
   // Observations as a table. Drafts can be edited, rejected and restored;
   // approved ones edited, deleted and their history shown (HW-READ-4, HW-REC-6).

@@ -3,10 +3,9 @@
   import { draftStore, idbBackend } from '$lib/drafts';
   import { formatSize } from '$lib/format';
   import { session } from '$lib/state/session.svelte';
-  import { toasts } from '$lib/state/toasts.svelte';
+  import { toasts, Button } from '@libs/ui-kit';
   import { UploadQueue } from '$lib/uploadQueue.svelte';
   import { pickFiles } from '$lib/upload';
-  import Button from './Button.svelte';
   import QueueThumbs from './QueueThumbs.svelte';
 
   // The phone camera on an unfiled item (HW-IMP-10). Photos stay on the

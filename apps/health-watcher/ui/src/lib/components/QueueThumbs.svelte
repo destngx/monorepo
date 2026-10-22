@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { UploadQueue } from '$lib/uploadQueue.svelte';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 
   // The photos waiting for Send (HW-IMP-11). Once Send is pressed each shows
   // its own upload bar, a tick once it is on the Mac, and Failed when it did

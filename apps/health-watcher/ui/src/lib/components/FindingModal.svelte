@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { FindingInput, Page } from '$lib/api/types';
   import { findingKindLabels, options } from '$lib/format';
-  import { action } from '$lib/state/action.svelte';
-  import Field from './Field.svelte';
-  import Modal from './Modal.svelte';
+  import { action, Field, Modal } from '@libs/ui-kit';
 
   // Adds or edits one finding: a diagnosis, exam result, prescription line,
   // imaging report, advice or note.

@@ -2,12 +2,9 @@
   import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import Sparkline from '$lib/charts/Sparkline.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import { Button, EmptyState, Icon, PageTitle } from '@libs/ui-kit';
   import FlagTag from '$lib/components/FlagTag.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import MeasurementsModal from '$lib/components/MeasurementsModal.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
   import PersonTabs from '$lib/components/PersonTabs.svelte';
   import { formatDate, metricCategoryLabels } from '$lib/format';
   import { formatChange, pointSource, pointValue } from '$lib/metrics';

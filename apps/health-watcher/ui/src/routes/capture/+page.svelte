@@ -10,7 +10,7 @@
   } from '$lib/capture';
   import { holdDevReload } from '$lib/devReload';
   import { draftStore, idbBackend } from '$lib/drafts';
-  import Icon from '$lib/components/Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
   import QueueThumbs from '$lib/components/QueueThumbs.svelte';
   import { formatSize } from '$lib/format';
   import { UploadQueue } from '$lib/uploadQueue.svelte';

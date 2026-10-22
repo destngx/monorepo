@@ -3,23 +3,17 @@
   import { base } from '$app/paths';
   import { page as appPage } from '$app/state';
   import type { AuditEntry, DocumentKind, Finding, FindingInput, Observation, ObservationInput } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Button, Card, FoldToggle, Icon, Modal, PageTitle, action } from '@libs/ui-kit';
   import FilePreview from '$lib/components/FilePreview.svelte';
-  import FoldToggle from '$lib/components/FoldToggle.svelte';
   import { Folds } from '$lib/folds.svelte';
   import FindingList from '$lib/components/FindingList.svelte';
   import FindingModal from '$lib/components/FindingModal.svelte';
   import HistoryModal from '$lib/components/HistoryModal.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import Modal from '$lib/components/Modal.svelte';
   import ObservationModal from '$lib/components/ObservationModal.svelte';
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
   import { documentKindLabels, formatDate, options, visitTypeLabels } from '$lib/format';
   import { findingInput, observationInput } from '$lib/reading';
-  import { action } from '$lib/state/action.svelte';
   import { session } from '$lib/state/session.svelte';
 
   // The document viewer (HW-FIND-3): page images with zoom and their text,

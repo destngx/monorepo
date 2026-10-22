@@ -1,9 +1,7 @@
 <script lang="ts">
   import type { ObservationInput, Page } from '$lib/api/types';
   import { catalog } from '$lib/state/catalog.svelte';
-  import { action } from '$lib/state/action.svelte';
-  import Field from './Field.svelte';
-  import Modal from './Modal.svelte';
+  import { action, Field, Modal } from '@libs/ui-kit';
 
   // Adds or edits one observation (HW-READ-4, HW-READ-7).
   interface Props {

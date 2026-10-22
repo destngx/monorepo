@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 
   let { title, subtitle, children }: { title: string; subtitle?: string; children: Snippet } = $props();
 </script>

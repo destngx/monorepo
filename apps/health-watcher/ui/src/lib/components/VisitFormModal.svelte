@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { Person, Provider, Visit, VisitInput } from '$lib/api/types';
   import { blankVisit } from '$lib/visits';
-  import { action } from '$lib/state/action.svelte';
+  import { action, Modal } from '@libs/ui-kit';
   import { session } from '$lib/state/session.svelte';
-  import Modal from './Modal.svelte';
   import VisitFields from './VisitFields.svelte';
 
   interface Props {

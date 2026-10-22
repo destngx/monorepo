@@ -4,12 +4,9 @@
   import type { TrendPoint } from '$lib/api/types';
   import { FLAGGED, SERIES } from '$lib/charts/palette';
   import TrendChart from '$lib/charts/TrendChart.svelte';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
+  import { Button, Card, Icon, PageTitle } from '@libs/ui-kit';
   import FlagTag from '$lib/components/FlagTag.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import MeasurementsModal from '$lib/components/MeasurementsModal.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
   import { formatDate } from '$lib/format';
   import { pointRange, pointSource, pointValue, typedVitals } from '$lib/metrics';
   import { session } from '$lib/state/session.svelte';

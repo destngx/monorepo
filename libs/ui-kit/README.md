@@ -1,6 +1,6 @@
 # ui-kit
 
-The shared theme, components and loading helpers of the web UIs, built to the rules in [docs/ui/README.md](../../docs/ui/README.md). It started from health-watcher's look, with wealth-management's loading stack and modal behaviour. Health-watcher and wealth-management use only its AI usage gauge so far; for everything else they still have their own copies.
+The shared theme, components and loading helpers of the web UIs, built to the rules in [docs/ui/README.md](../../docs/ui/README.md). It started from health-watcher's look, with wealth-management's loading stack and modal behaviour. Health-watcher uses its theme, components and state; wealth-management uses only the AI usage gauge so far and keeps its own copies of the rest.
 
 ## What is in it
 
@@ -53,7 +53,7 @@ The paths below are for a UI at `apps/<app>/ui`.
 
 ## The AI usage gauge
 
-The menu bar gauge of the AI quota that ai-gateway reports. The outer ring shows the weekly window and the inner ring the 5-hour window; a tap opens the details. An app that keeps its own `layout.css` (HW and WM today) needs only the alias, `@source '../../../../../libs/ui-kit/src/ai-usage';` and the `panel`, `muted`, `link`, `tabular` and `icon-btn` utilities. Render it with the app's quota state and theme:
+The menu bar gauge of the AI quota that ai-gateway reports. The outer ring shows the weekly window and the inner ring the 5-hour window; a tap opens the details. An app that keeps its own `layout.css` (WM today) needs only the alias, `@source '../../../../../libs/ui-kit/src/ai-usage';` and the `panel`, `muted`, `link`, `tabular` and `icon-btn` utilities. Render it with the app's quota state and theme:
 
 ```svelte
 <AIUsageGauge

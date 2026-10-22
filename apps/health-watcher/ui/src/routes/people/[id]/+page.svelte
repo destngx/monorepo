@@ -2,10 +2,7 @@
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
   import { page } from '$app/state';
-  import Button from '$lib/components/Button.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
+  import { Button, EmptyState, Icon, PageTitle } from '@libs/ui-kit';
   import PersonTabs from '$lib/components/PersonTabs.svelte';
   import VisitFormModal from '$lib/components/VisitFormModal.svelte';
   import { ageOn, formatDate, options, todayISO, visitTypeLabels } from '$lib/format';

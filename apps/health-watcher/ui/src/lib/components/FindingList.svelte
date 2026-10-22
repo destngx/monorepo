@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Finding, RecordStatus } from '$lib/api/types';
   import { findingKindLabels } from '$lib/format';
-  import Button from './Button.svelte';
+  import { Button } from '@libs/ui-kit';
 
   // Findings as a list, with the same actions as ObservationTable.
   interface Props {

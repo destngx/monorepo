@@ -1,7 +1,6 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import Icon from '$lib/components/Icon.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
+  import { Icon, PageTitle } from '@libs/ui-kit';
   import { ageOn, formatDate, todayISO } from '$lib/format';
   import { session } from '$lib/state/session.svelte';
 

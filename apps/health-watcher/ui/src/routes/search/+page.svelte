@@ -1,9 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { base } from '$app/paths';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
+  import { EmptyState, Icon, PageTitle } from '@libs/ui-kit';
   import { formatDate } from '$lib/format';
   import { hitHref, hitTitle } from '$lib/search';
 

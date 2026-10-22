@@ -2,9 +2,7 @@
   import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import type { Person } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
+  import { Button, EmptyState, PageTitle } from '@libs/ui-kit';
   import PersonFormModal from '$lib/components/PersonFormModal.svelte';
   import { formatDate } from '$lib/format';
   import { session } from '$lib/state/session.svelte';

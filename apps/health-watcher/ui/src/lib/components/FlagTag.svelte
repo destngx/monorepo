@@ -1,6 +1,6 @@
 <script lang="ts">
   import { flagLabel } from '$lib/format';
-  import Icon, { type IconName } from './Icon.svelte';
+  import { Icon, type IconName } from '@libs/ui-kit';
 
   // The paper's own flag (HW-MET-5) as an icon and a word, never colour alone.
   let { flag }: { flag?: string } = $props();

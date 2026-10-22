@@ -3,7 +3,7 @@
   import type { StoredFile } from '$lib/api/types';
   import { formatSize, isImage } from '$lib/format';
   import { session } from '$lib/state/session.svelte';
-  import Icon from './Icon.svelte';
+  import { Icon } from '@libs/ui-kit';
 
   // One stored file: an image shown inline, a PDF in the browser's viewer,
   // anything else (HEIC) as a download (HW-FIND-3).

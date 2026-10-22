@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ReadingState } from '$lib/reading';
-  import Spinner from './Spinner.svelte';
+  import { Spinner } from '@libs/ui-kit';
 
   // An inbox item's OCR and AI reading status (HW-READ-6).
   let { status, showDetail = false }: { status: ReadingState; showDetail?: boolean } = $props();

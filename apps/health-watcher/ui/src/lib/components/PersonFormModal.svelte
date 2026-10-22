@@ -1,10 +1,8 @@
 <script lang="ts">
   import type { Member, Person, PersonInput, Sex } from '$lib/api/types';
   import { todayISO } from '$lib/format';
-  import { action } from '$lib/state/action.svelte';
+  import { action, Field, Modal } from '@libs/ui-kit';
   import { session } from '$lib/state/session.svelte';
-  import Field from './Field.svelte';
-  import Modal from './Modal.svelte';
 
   interface Props {
     open: boolean;

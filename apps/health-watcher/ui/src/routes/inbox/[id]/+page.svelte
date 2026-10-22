@@ -2,29 +2,32 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import type { Finding, FindingInput, Observation, ObservationInput, Page, Quad, RecordStatus } from '$lib/api/types';
-  import Button from '$lib/components/Button.svelte';
-  import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  import {
+    Button,
+    Card,
+    EmptyState,
+    FoldToggle,
+    Icon,
+    MenuButton,
+    type MenuItem,
+    PageTitle,
+    action,
+    toasts,
+  } from '@libs/ui-kit';
   import FileItemModal from '$lib/components/FileItemModal.svelte';
-  import FoldToggle from '$lib/components/FoldToggle.svelte';
   import { Folds } from '$lib/folds.svelte';
   import FindingList from '$lib/components/FindingList.svelte';
   import FindingModal from '$lib/components/FindingModal.svelte';
-  import Icon from '$lib/components/Icon.svelte';
   import ItemCamera from '$lib/components/ItemCamera.svelte';
-  import MenuButton, { type MenuItem } from '$lib/components/MenuButton.svelte';
   import ObservationModal from '$lib/components/ObservationModal.svelte';
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
-  import PageTitle from '$lib/components/PageTitle.svelte';
   import PhoneCaptureModal from '$lib/components/PhoneCaptureModal.svelte';
   import ReadingBadge from '$lib/components/ReadingBadge.svelte';
   import { toggleOff } from '$lib/boxes';
   import { documentKindLabels, formatDate } from '$lib/format';
   import { findingInput, observationInput, readingState } from '$lib/reading';
-  import { action } from '$lib/state/action.svelte';
   import { session } from '$lib/state/session.svelte';
-  import { toasts } from '$lib/state/toasts.svelte';
   import { ACCEPT, addedMessage, pickFiles } from '$lib/upload';
 
   // Reviews one inbox item before filing (HW-READ-4, HW-AI-7): the pages

@@ -4,9 +4,8 @@
   import { page } from '$app/state';
   import { auth } from '$lib/api/endpoints';
   import AuthCard from '$lib/components/AuthCard.svelte';
-  import Field from '$lib/components/Field.svelte';
+  import { Field, action } from '@libs/ui-kit';
   import { roleLabels } from '$lib/format';
-  import { action } from '$lib/state/action.svelte';
   import { session } from '$lib/state/session.svelte';
 
   let { data } = $props();
