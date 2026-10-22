@@ -17,6 +17,7 @@ describe('Research area landing', () => {
       '/ui/investments/news',
       '/ui/investments/think-tank',
       '/ui/investments/funds',
+      '/ui/investments/stablecoin',
     ]);
     expect(screen.getByRole('link', { name: /Think Tank.*your holdings/ })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Research' })).toBeTruthy();

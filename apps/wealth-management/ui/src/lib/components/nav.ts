@@ -125,6 +125,12 @@ export const AREAS: NavArea[] = [
         icon: 'layers',
         description: 'Open-ended funds, published bank deposit rates, gold and USD.',
       },
+      {
+        href: '/investments/stablecoin',
+        label: 'Stablecoin Switch',
+        icon: 'calculator',
+        description: 'Whether a higher stablecoin rate elsewhere is worth the conversion fees, and how long to hold.',
+      },
     ],
   },
   {

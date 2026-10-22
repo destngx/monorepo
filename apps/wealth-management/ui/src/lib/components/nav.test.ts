@@ -66,6 +66,7 @@ describe('five-area navigation', () => {
     ['/investments/news', 'research'],
     ['/investments/think-tank', 'research'],
     ['/investments/funds/FUND-A', 'research'],
+    ['/investments/stablecoin', 'research'],
     ['/chat', 'assistant'],
     ['/settings', 'settings'],
   ])('Given %s When resolving the area Then it is %s', (path, area) => {
