@@ -10,6 +10,7 @@
   import FindingModal from '$lib/components/FindingModal.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import ItemCamera from '$lib/components/ItemCamera.svelte';
+  import MenuButton, { type MenuItem } from '$lib/components/MenuButton.svelte';
   import ObservationModal from '$lib/components/ObservationModal.svelte';
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
@@ -54,6 +55,19 @@
   let addInput = $state<HTMLInputElement>();
   let camera = $state<ItemCamera>();
   let phoneOpen = $state(false);
+
+  // More material for the same paper, such as its X-ray: a phone opens its
+  // own camera, a computer shows a QR code for the iPhone.
+  const addItems: MenuItem[] = [
+    { label: 'Add files', icon: 'file', onselect: () => addInput?.click() },
+    { label: 'Take photos', icon: 'camera', class: 'hidden pointer-coarse:flex', onselect: () => camera?.take() },
+    {
+      label: 'Take photos with iPhone',
+      icon: 'camera',
+      class: 'flex pointer-coarse:hidden',
+      onselect: () => (phoneOpen = true),
+    },
+  ];
 
   // More files for the same paper, such as its X-ray image or a page that
   // came later. The whole item is read again with them.
@@ -148,26 +162,7 @@
       {#if item.documentId}<a class="btn-primary" href="{base}/documents/{item.documentId}">Open the document</a>{/if}
     {:else if session.canEdit}
       <Button variant="primary" icon="check" onclick={() => (filing = true)}>File</Button>
-      <!-- A phone opens its own camera; a computer shows a QR code for the phone. -->
-      <Button
-        class="hidden pointer-coarse:inline-flex"
-        icon="camera"
-        title="Photograph more pages of this paper, such as its X-ray film"
-        onclick={() => camera?.take()}>Take photos</Button
-      >
-      <Button
-        class="pointer-coarse:hidden"
-        icon="camera"
-        title="Photograph more pages of this paper with the iPhone, such as its X-ray film"
-        onclick={() => (phoneOpen = true)}>Take photos with iPhone</Button
-      >
-      <Button
-        icon="plus"
-        busy={addFiles.busy}
-        busyText="Adding…"
-        title="Add more files to this paper, such as its X-ray image"
-        onclick={() => addInput?.click()}>Add files</Button
-      >
+      <MenuButton label="Add more" icon="plus" busy={addFiles.busy} busyText="Adding…" items={addItems} />
       <Button icon="trash" errorContext="Could not discard" onclick={discard}>Discard</Button>
     {/if}
   {/snippet}

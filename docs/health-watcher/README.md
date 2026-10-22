@@ -70,7 +70,7 @@ Encryption at rest relies on FileVault (D1). Back up both the database and `file
 - Files waiting to be sent are kept in the browser until sent, so a page that reloads while the camera is open (iOS does this) loses nothing. On the phone, use the engine's own address (`:9191/ui`, from `start`) rather than the dev server on `:5174`, which reloads the page whenever its connection drops.
 - **iPhone share sheet**: a Shortcut posts scans and PDFs to the inbox with a personal upload token. See [\_setup/iphone-shortcut.md](./_setup/iphone-shortcut.md).
 - Every upload lands in the inbox first. _File_ puts it under an existing or new visit for a person.
-- **More files for an item**: on an unfiled item, _Add files_ adds files that belong to the same paper, such as the X-ray image that goes with a report. _Take photos_ (phone) or _Take photos with iPhone_ (QR code on the Mac) add photos the same way. The item is read again with them. A film page with almost no text stays with the document but is never sent to the AI.
+- **More files for an item**: on an unfiled item, the _Add more_ menu adds files or photos that belong to the same paper, such as the X-ray image that goes with a report. It offers _Add files_, plus _Take photos_ on a phone or _Take photos with iPhone_ (a QR code) on the Mac. The item is read again with them. A film page with almost no text stays with the document but is never sent to the AI.
 - **Backlog**: for a pile of one person's old papers, pick the person under _Whose papers_ before uploading. Once read, the inbox suggests one visit per date and provider; _File as one visit_ files the group.
 
 ## 6. Reading
