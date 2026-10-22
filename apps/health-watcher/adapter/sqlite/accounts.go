@@ -310,18 +310,19 @@ func (r repos) CreateUploadToken(ctx context.Context, tok domain.UploadToken, to
 	if tok.ExpiresAt != nil {
 		expires = sql.NullString{String: formatTime(*tok.ExpiresAt), Valid: true}
 	}
-	res, err := r.q.ExecContext(ctx, `INSERT INTO upload_tokens (id, tenant_id, user_id, name, token_hash, created_at, expires_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, tok.ID, tok.TenantID, tok.UserID, tok.Name, tokenHash, formatTime(tok.CreatedAt), expires)
+	res, err := r.q.ExecContext(ctx, `INSERT INTO upload_tokens (id, tenant_id, user_id, name, token_hash, created_at, expires_at, item_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, tok.ID, tok.TenantID, tok.UserID, tok.Name, tokenHash, formatTime(tok.CreatedAt), expires,
+		nullable(tok.ItemID))
 	return exec(res, err, "upload token")
 }
 
-const uploadTokenColumns = `id, tenant_id, user_id, name, created_at, last_used_at, expires_at`
+const uploadTokenColumns = `id, tenant_id, user_id, name, created_at, last_used_at, expires_at, COALESCE(item_id, '')`
 
 func scanUploadToken(scan func(...any) error) (domain.UploadToken, error) {
 	var tok domain.UploadToken
 	var created string
 	var lastUsed, expires sql.NullString
-	if err := scan(&tok.ID, &tok.TenantID, &tok.UserID, &tok.Name, &created, &lastUsed, &expires); err != nil {
+	if err := scan(&tok.ID, &tok.TenantID, &tok.UserID, &tok.Name, &created, &lastUsed, &expires, &tok.ItemID); err != nil {
 		return tok, err
 	}
 	var err error

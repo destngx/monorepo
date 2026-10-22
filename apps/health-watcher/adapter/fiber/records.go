@@ -112,15 +112,7 @@ func (s *server) inboxRoutes(r fiber.Router) {
 		return s.list(c)(s.svc.Inbox.File(c.UserContext(), scope(c), c.Params("id"), in))
 	})
 	r.Post("/inbox/:id/files", func(c *fiber.Ctx) error {
-		files, err := uploadedFiles(c)
-		if err != nil {
-			return respond(c, s.log, err)
-		}
-		resp, err := s.svc.Inbox.AddFiles(c.UserContext(), scope(c), c.Params("id"), files)
-		if err != nil {
-			return respond(c, s.log, err)
-		}
-		return c.Status(fiber.StatusAccepted).JSON(resp)
+		return s.addFiles(c, scope(c), c.Params("id"))
 	})
 	r.Post("/inbox/:id/discard", func(c *fiber.Ctx) error {
 		return s.noContent(c, s.svc.Inbox.Discard(c.UserContext(), scope(c), c.Params("id")))
@@ -138,7 +130,33 @@ func (s *server) tokenUpload(c *fiber.Ctx) error {
 	if sc.Credential == domain.CredentialCaptureLink {
 		source = domain.SourcePhone
 	}
+	if sc.ItemID != "" {
+		return s.addFiles(c, sc, sc.ItemID)
+	}
 	return s.upload(c, sc, source)
+}
+
+// captureTarget tells the phone capture page where its link adds photos:
+// a new inbox item, or the one item the link was made on (HW-IMP-10).
+func (s *server) captureTarget(c *fiber.Ctx) error {
+	sc, err := s.svc.Accounts.UploadScope(c.UserContext(), bearer(c))
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	return c.JSON(fiber.Map{"item": sc.ItemID != ""})
+}
+
+func (s *server) addFiles(c *fiber.Ctx, sc domain.Scope, itemID string) error {
+	files, err := uploadedFiles(c)
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	resp, err := s.svc.Inbox.AddFiles(c.UserContext(), sc, itemID, files)
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	return c.Status(fiber.StatusAccepted).JSON(resp)
 }
 
 // upload reads a multipart body: one or more `files` parts (the Shortcut

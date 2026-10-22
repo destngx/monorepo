@@ -1,25 +1,27 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { CaptureError, sendFromPhone, takeCaptureToken } from '$lib/capture';
+  import { CaptureError, captureTarget, sendFromPhone, sentMessage, takeCaptureToken } from '$lib/capture';
   import { draftStore, idbBackend } from '$lib/drafts';
   import Icon from '$lib/components/Icon.svelte';
   import { formatSize } from '$lib/format';
   import { ACCEPT, pickFiles } from '$lib/upload';
 
   // The phone end of a capture link (HW-IMP-9): no sign-in, only a camera
-  // and a short-lived token that adds to one inbox. Photos wait in a draft,
-  // so a reload while the camera is open loses nothing.
+  // and a short-lived token that adds to one inbox, or to one item when the
+  // link was made on an item's page (HW-IMP-10). Photos wait in a draft, so
+  // a reload while the camera is open loses nothing.
   interface Staged {
     file: File;
     url: string;
   }
 
-  const DRAFT = 'capture';
+  const draftKey = () => (toItem ? 'capture-item' : 'capture');
   const drafts = draftStore(idbBackend());
 
   let token = $state<string | null>(null);
   let staged = $state<Staged[]>([]);
   let oneItem = $state(true);
+  let toItem = $state(false);
   let ready = $state(false);
   let sending = $state(false);
   let message = $state<{ tone: 'ok' | 'error'; text: string } | null>(null);
@@ -31,8 +33,22 @@
     token = takeCaptureToken(location.hash, location.pathname, sessionStorage, (url) =>
       history.replaceState(history.state, '', url),
     );
-    drafts
-      .load(DRAFT)
+    const target = token
+      ? captureTarget(token).catch((error: unknown) => {
+          message = { tone: 'error', text: error instanceof Error ? error.message : String(error) };
+          return { item: false };
+        })
+      : Promise.resolve({ item: false });
+    target
+      .then((t) => {
+        if (t === null) {
+          expired = true;
+          message = { tone: 'error', text: 'This link has expired. Make a new QR code on the Mac.' };
+        } else {
+          toItem = t.item;
+        }
+        return drafts.load(draftKey());
+      })
       .then((d) => {
         if (d) {
           staged = d.files.map((file) => ({ file, url: URL.createObjectURL(file) }));
@@ -51,7 +67,7 @@
   $effect(() => {
     if (!ready) return;
     const draft = { files: staged.map((s) => s.file), oneItem, note: '', personId: '' };
-    drafts.save(DRAFT, draft).catch((error: unknown) => {
+    drafts.save(draftKey(), draft).catch((error: unknown) => {
       message = { tone: 'error', text: `Could not keep the photos for later: ${String(error)}` };
     });
   });
@@ -79,15 +95,11 @@
       const res = await sendFromPhone(
         token,
         staged.map((s) => s.file),
-        oneItem,
+        oneItem && !toItem,
       );
       for (const s of staged) URL.revokeObjectURL(s.url);
       staged = [];
-      const dup = res.duplicates ? `; ${res.duplicates} already stored` : '';
-      message = {
-        tone: 'ok',
-        text: `Sent: ${res.added} ${res.added === 1 ? 'item' : 'items'} in the inbox on the Mac${dup}.`,
-      };
+      message = { tone: 'ok', text: sentMessage(res, toItem) };
     } catch (error) {
       expired = error instanceof CaptureError && error.expired;
       message = { tone: 'error', text: error instanceof Error ? error.message : String(error) };
@@ -108,13 +120,17 @@
     >
     <div>
       <h1 class="font-semibold">Phone camera</h1>
-      <p class="muted text-xs">Photos go to the Health Watcher inbox on the Mac.</p>
+      <p class="muted text-xs">
+        {toItem
+          ? 'Photos are added to one item in the Health Watcher inbox on the Mac.'
+          : 'Photos go to the Health Watcher inbox on the Mac.'}
+      </p>
     </div>
   </header>
 
   {#if !token}
     <section class="panel p-5 text-sm">
-      This page opens from the QR code on the Mac: Inbox, <em>Take photos with iPhone</em>.
+      This page opens from the QR code on the Mac: <em>Take photos with iPhone</em> in the Inbox or on an item.
     </section>
   {:else}
     <section class="panel flex flex-col gap-3 p-5">
@@ -148,7 +164,7 @@
             </div>
           {/each}
         </div>
-        {#if staged.length > 1}
+        {#if staged.length > 1 && !toItem}
           <label class="mt-3 flex items-center gap-2 text-sm">
             <input type="checkbox" bind:checked={oneItem} /> These are pages of one paper
           </label>

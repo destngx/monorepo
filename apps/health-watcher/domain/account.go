@@ -90,6 +90,9 @@ type UploadToken struct {
 	// ExpiresAt is set on the short-lived tokens of a phone capture link;
 	// a Shortcut token has none.
 	ExpiresAt *time.Time `json:"expiresAt"`
+	// ItemID is set on a capture link made on an inbox item: the link adds
+	// files only to that item.
+	ItemID string `json:"itemId,omitempty"`
 }
 
 // Expired reports whether the token is past its expiry at now.

@@ -31,13 +31,34 @@ export class CaptureError extends Error {
   }
 }
 
+/**
+ * Where the link adds photos: one inbox item when it was made on an item's
+ * page (HW-IMP-10), otherwise new inbox items. Null when the link expired.
+ */
+export async function captureTarget(token: string, fetchFn: typeof fetch = fetch): Promise<{ item: boolean } | null> {
+  const resp = await fetchFn('/api/capture', {
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'omit',
+  });
+  if (resp.status === 401) return null;
+  if (!resp.ok) throw new CaptureError(`The Mac did not answer (${resp.status})`, false);
+  return (await resp.json()) as { item: boolean };
+}
+
+/** The message after a send: items made, or files added to the link's item. */
+export function sentMessage(res: { added: number; files: number; duplicates: number }, toItem: boolean): string {
+  const dup = res.duplicates ? `; ${res.duplicates} already stored` : '';
+  if (toItem) return `Sent: ${res.files} ${res.files === 1 ? 'page' : 'pages'} added to the item on the Mac${dup}.`;
+  return `Sent: ${res.added} ${res.added === 1 ? 'item' : 'items'} in the inbox on the Mac${dup}.`;
+}
+
 /** Sends the photos to the inbox with the link's token, without cookies. */
 export async function sendFromPhone(
   token: string,
   files: File[],
   oneItem: boolean,
   fetchFn: typeof fetch = fetch,
-): Promise<{ added: number; duplicates: number }> {
+): Promise<{ added: number; files: number; duplicates: number }> {
   const form = new FormData();
   for (const f of files) form.append('files', f, f.name);
   if (oneItem && files.length > 1) form.set('oneItem', 'true');
@@ -59,5 +80,6 @@ export async function sendFromPhone(
     files?: { duplicate: boolean }[];
   };
   if (!resp.ok) throw new CaptureError(body.error ?? `Upload failed (${resp.status})`, false);
-  return { added: body.items?.length ?? 0, duplicates: body.files?.filter((f) => f.duplicate).length ?? 0 };
+  const duplicates = body.files?.filter((f) => f.duplicate).length ?? 0;
+  return { added: body.items?.length ?? 0, files: (body.files?.length ?? 0) - duplicates, duplicates };
 }

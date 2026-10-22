@@ -173,12 +173,13 @@ func (s *server) tenantRoutes(r fiber.Router) {
 	r.Post("/capture", func(c *fiber.Ctx) error {
 		var in struct {
 			Origin string `json:"origin"`
+			ItemID string `json:"itemId"`
 		}
 		if err := parseJSON(c, &in); err != nil {
 			return respond(c, s.log, err)
 		}
 		c.Set(fiber.HeaderCacheControl, "private, no-store")
-		link, err := s.svc.Capture.Start(c.UserContext(), scope(c), in.Origin)
+		link, err := s.svc.Capture.Start(c.UserContext(), scope(c), in.Origin, in.ItemID)
 		return s.created(c, link, err)
 	})
 }

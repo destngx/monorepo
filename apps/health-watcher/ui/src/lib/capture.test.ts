@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CaptureError, sendFromPhone, takeCaptureToken } from './capture';
+import { CaptureError, captureTarget, sendFromPhone, sentMessage, takeCaptureToken } from './capture';
 
 function storage(): Storage {
   const m = new Map<string, string>();
@@ -40,7 +40,7 @@ describe('sending from the phone', () => {
       ),
     );
     const res = await sendFromPhone('hwu_abc', [photo, photo], true, fetchFn as unknown as typeof fetch);
-    expect(res).toEqual({ added: 1, duplicates: 1 });
+    expect(res).toEqual({ added: 1, files: 1, duplicates: 1 });
     const [url, init] = fetchFn.mock.calls[0];
     expect(url).toBe('/api/inbox');
     expect(init.credentials).toBe('omit');
@@ -67,5 +67,30 @@ describe('sending from the phone', () => {
     expect(err).toBeInstanceOf(CaptureError);
     expect((err as CaptureError).message).toBe('IMG_0001.jpg is larger than 50 MB');
     expect((err as CaptureError).expired).toBe(false);
+  });
+});
+
+describe('the link target', () => {
+  it('given a link made on an item when asked then it says so, with the token and no cookies', async () => {
+    const fetchFn = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(Response.json({ item: true })),
+    );
+    expect(await captureTarget('hwu_abc', fetchFn as unknown as typeof fetch)).toEqual({ item: true });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe('/api/capture');
+    expect(init.credentials).toBe('omit');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer hwu_abc');
+  });
+
+  it('given an expired link when asked then there is no target', async () => {
+    const fetchFn = vi.fn(() => Promise.resolve(Response.json({ error: 'Not signed in.' }, { status: 401 })));
+    expect(await captureTarget('hwu_abc', fetchFn as unknown as typeof fetch)).toBeNull();
+  });
+
+  it('given a send when reporting then an item link counts pages and an inbox link counts items', () => {
+    expect(sentMessage({ added: 1, files: 2, duplicates: 1 }, true)).toBe(
+      'Sent: 2 pages added to the item on the Mac; 1 already stored.',
+    );
+    expect(sentMessage({ added: 2, files: 2, duplicates: 0 }, false)).toBe('Sent: 2 items in the inbox on the Mac.');
   });
 });

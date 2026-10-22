@@ -103,7 +103,9 @@ export function tenantApi(tenantId: string) {
       request<CreatedUploadToken>(`${t}/upload-tokens`, { method: 'POST', body: { name } }),
     revokeUploadToken: (id: string) => request<void>(`${t}/upload-tokens/${id}`, { method: 'DELETE' }),
     /** A QR link that opens the phone camera page for this inbox (HW-IMP-9). */
-    capture: (origin: string) => request<CaptureLink>(`${t}/capture`, { method: 'POST', body: { origin } }),
+    /** A phone capture link for the inbox, or for one unfiled item when itemId is set. */
+    capture: (origin: string, itemId?: string) =>
+      request<CaptureLink>(`${t}/capture`, { method: 'POST', body: { origin, itemId } }),
 
     people: (fetch?: Fetch) => request<Person[]>(`${t}/people`, { fetch }),
     person: (id: string, fetch?: Fetch) => request<Person>(`${t}/people/${id}`, { fetch }),

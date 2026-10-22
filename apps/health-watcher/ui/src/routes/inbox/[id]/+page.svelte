@@ -9,10 +9,12 @@
   import FindingList from '$lib/components/FindingList.svelte';
   import FindingModal from '$lib/components/FindingModal.svelte';
   import Icon from '$lib/components/Icon.svelte';
+  import ItemCamera from '$lib/components/ItemCamera.svelte';
   import ObservationModal from '$lib/components/ObservationModal.svelte';
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
   import PageTitle from '$lib/components/PageTitle.svelte';
+  import PhoneCaptureModal from '$lib/components/PhoneCaptureModal.svelte';
   import ReadingBadge from '$lib/components/ReadingBadge.svelte';
   import { toggleOff } from '$lib/boxes';
   import { documentKindLabels, formatDate } from '$lib/format';
@@ -50,6 +52,8 @@
   let editingObs = $state<Observation | null>(null);
   let editingFinding = $state<Finding | null>(null);
   let addInput = $state<HTMLInputElement>();
+  let camera = $state<ItemCamera>();
+  let phoneOpen = $state(false);
 
   // More files for the same paper, such as its X-ray image or a page that
   // came later. The whole item is read again with them.
@@ -144,6 +148,19 @@
       {#if item.documentId}<a class="btn-primary" href="{base}/documents/{item.documentId}">Open the document</a>{/if}
     {:else if session.canEdit}
       <Button variant="primary" icon="check" onclick={() => (filing = true)}>File</Button>
+      <!-- A phone opens its own camera; a computer shows a QR code for the phone. -->
+      <Button
+        class="hidden pointer-coarse:inline-flex"
+        icon="camera"
+        title="Photograph more pages of this paper, such as its X-ray film"
+        onclick={() => camera?.take()}>Take photos</Button
+      >
+      <Button
+        class="pointer-coarse:hidden"
+        icon="camera"
+        title="Photograph more pages of this paper with the iPhone, such as its X-ray film"
+        onclick={() => (phoneOpen = true)}>Take photos with iPhone</Button
+      >
       <Button
         icon="plus"
         busy={addFiles.busy}
@@ -155,6 +172,10 @@
     {/if}
   {/snippet}
 </PageTitle>
+
+{#if editable}
+  <ItemCamera bind:this={camera} itemId={item.id} busy={addFiles.busy} onsend={(files) => addFiles.run(files)} />
+{/if}
 
 <Card title="Reading" class="mb-5">
   <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -363,6 +384,16 @@
     e.currentTarget.value = '';
   }}
 />
+{#if phoneOpen}
+  <PhoneCaptureModal
+    open
+    itemId={item.id}
+    onclose={() => {
+      phoneOpen = false;
+      void invalidateAll();
+    }}
+  />
+{/if}
 <FileItemModal
   item={filing ? item : null}
   people={data.people}

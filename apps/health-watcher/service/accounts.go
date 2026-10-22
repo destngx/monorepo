@@ -369,5 +369,5 @@ func (a *Accounts) UploadScope(ctx context.Context, raw string) (domain.Scope, e
 	if tok.ExpiresAt != nil {
 		cred = domain.CredentialCaptureLink
 	}
-	return domain.Scope{UserID: tok.UserID, TenantID: tok.TenantID, Role: role, Credential: cred}, nil
+	return domain.Scope{UserID: tok.UserID, TenantID: tok.TenantID, Role: role, Credential: cred, ItemID: tok.ItemID}, nil
 }

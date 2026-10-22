@@ -123,6 +123,9 @@ func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest)
 	if err := sc.RequireUpload(); err != nil {
 		return UploadResponse{}, err
 	}
+	if sc.ItemID != "" {
+		return UploadResponse{}, domain.Forbidden("start new items: this link adds to one item")
+	}
 	if err := in.checkBatch(req); err != nil {
 		return UploadResponse{}, err
 	}
@@ -169,7 +172,7 @@ func (in *Inbox) Upload(ctx context.Context, sc domain.Scope, req UploadRequest)
 // the X-ray image or a page that came later. The item is read again once
 // the new files have pages; a reading turned off by a person stays off.
 func (in *Inbox) AddFiles(ctx context.Context, sc domain.Scope, itemID string, uploads []domain.Upload) (UploadResponse, error) {
-	if err := sc.RequireEdit(); err != nil {
+	if err := sc.RequireAddTo(itemID); err != nil {
 		return UploadResponse{}, err
 	}
 	if err := in.checkBatch(UploadRequest{Files: uploads}); err != nil {

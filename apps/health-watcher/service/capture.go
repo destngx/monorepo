@@ -36,14 +36,27 @@ type CaptureLink struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
-// Start makes a capture link for the user's inbox in this tenant. origin is
-// the address the browser opened the app at.
-func (c *Capture) Start(ctx context.Context, s domain.Scope, origin string) (CaptureLink, error) {
+// Start makes a capture link for the user's inbox in this tenant, or for
+// one unfiled item when itemID is set (HW-IMP-10). origin is the address
+// the browser opened the app at.
+func (c *Capture) Start(ctx context.Context, s domain.Scope, origin, itemID string) (CaptureLink, error) {
 	if err := s.RequireRead(); err != nil {
 		return CaptureLink{}, err
 	}
 	if err := s.RequireUpload(); err != nil {
 		return CaptureLink{}, err
+	}
+	if itemID != "" {
+		if err := s.RequireAddTo(itemID); err != nil {
+			return CaptureLink{}, err
+		}
+		item, err := c.Store.InboxItem(ctx, s.TenantID, itemID)
+		if err != nil {
+			return CaptureLink{}, err
+		}
+		if item.Status != domain.InboxNew {
+			return CaptureLink{}, domain.Conflict("this item is already %s", item.Status)
+		}
 	}
 	base, err := c.phoneBase(origin)
 	if err != nil {
@@ -58,7 +71,8 @@ func (c *Capture) Start(ctx context.Context, s domain.Scope, origin string) (Cap
 		return CaptureLink{}, err
 	}
 	expires := now.Add(CaptureLifetime)
-	tok := domain.UploadToken{ID: NewID(), Name: "Phone camera", TenantID: s.TenantID, UserID: s.UserID, CreatedAt: now, ExpiresAt: &expires}
+	tok := domain.UploadToken{ID: NewID(), Name: "Phone camera", TenantID: s.TenantID, UserID: s.UserID, CreatedAt: now, ExpiresAt: &expires,
+		ItemID: itemID}
 	if err := c.Store.CreateUploadToken(ctx, tok, HashToken(raw)); err != nil {
 		return CaptureLink{}, fmt.Errorf("create capture link: %w", err)
 	}

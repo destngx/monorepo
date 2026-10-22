@@ -71,6 +71,9 @@ type Scope struct {
 	TenantID   string
 	Role       Role
 	Credential Credential
+	// ItemID is the inbox item a capture link adds to; empty for every
+	// other credential.
+	ItemID string
 }
 
 // CanRead reports whether the scope may read tenant data. An upload token
@@ -92,6 +95,20 @@ func (s Scope) CanManage() bool {
 // CanUpload reports whether the scope may send files to the inbox.
 func (s Scope) CanUpload() bool {
 	return s.TenantID != "" && (s.Role == RoleOwner || s.Role == RoleEditor)
+}
+
+// CanAddTo reports whether the scope may add files to an unfiled item: an
+// editor's session, or a capture link made on that item (HW-IMP-10).
+func (s Scope) CanAddTo(itemID string) bool {
+	return s.CanEdit() || (s.Credential == CredentialCaptureLink && s.ItemID != "" && s.ItemID == itemID && s.CanUpload())
+}
+
+// RequireAddTo returns ErrForbidden unless the scope can add to the item.
+func (s Scope) RequireAddTo(itemID string) error {
+	if !s.CanAddTo(itemID) {
+		return Forbidden("add files to this item")
+	}
+	return nil
 }
 
 // RequireRead returns ErrForbidden unless the scope can read.
