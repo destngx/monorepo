@@ -9,6 +9,7 @@
     liquidityBreakdown,
     sumBalances,
     totalHistory,
+    walletProducts,
   } from '$lib/accounts';
   import AccountFormModal from '$lib/accounts/AccountFormModal.svelte';
   import AccountGroupSection from '$lib/accounts/AccountGroupSection.svelte';
@@ -33,6 +34,7 @@
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
+  import WalletEarningCard from '$lib/components/WalletEarningCard.svelte';
   import AllocationSummary from '$lib/investments/AllocationSummary.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
 
@@ -49,6 +51,17 @@
     accounts.value && !cards.loading
       ? creditStandings(accounts.value, creditLines(cards.value ?? [], accounts.value))
       : null,
+  );
+  // An account linked to a wallet product shows its live rate (D41); without
+  // the rates or the links, rows show none.
+  const savings = track(() => data.flexibleSavings);
+  const preferences = track(() => data.preferences);
+  const wallets = $derived(
+    walletProducts(
+      accounts.value ?? [],
+      preferences.value?.idleCash.accountProducts.accounts ?? [],
+      savings.value?.products ?? [],
+    ),
   );
   // The balance history needs both the histories and the accounts.
   const historyData = $derived(joinStreamed(data.histories, data.accounts));
@@ -184,6 +197,8 @@
   </Deferred>
 </div>
 
+<WalletEarningCard data={data.flexibleSavings} class="mt-4" />
+
 <Deferred data={data.accounts} label="accounts" class="mt-4">
   {#snippet children(list)}
     {@const groups = groupAccounts(list)}
@@ -199,6 +214,7 @@
           total={sumBalances(members)}
           histories={histories.value ?? {}}
           {credits}
+          {wallets}
           ontoggle={() => (expanded[group.key] = !isExpanded(group.key, group.expanded))}
           onedit={openEdit}
           ondelete={(account) => (deleting = account)}

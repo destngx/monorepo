@@ -1,6 +1,7 @@
 <script lang="ts">
   import { accountIcon, isCreditAccount, noteAmount, type CreditStanding } from '$lib/accounts';
-  import type { Account, TrendPoint } from '$lib/api/types';
+  import type { Account, FlexibleSaving, TrendPoint } from '$lib/api/types';
+  import { rateLabel } from '$lib/bills/idleCash';
   import Sparkline from '$lib/charts/Sparkline.svelte';
   import { Button, Icon } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
@@ -18,11 +19,13 @@
      * (the note's amount is shown instead), undefined while it loads.
      */
     credit?: CreditStanding | null;
+    /** The wallet product a wallet earning balance account is linked to (D41), for its live rate. */
+    wallet?: FlexibleSaving;
     onedit: AccountHandler;
     ondelete: AccountHandler;
   }
 
-  let { account, history, credit, onedit, ondelete }: Props = $props();
+  let { account, history, credit, wallet, onedit, ondelete }: Props = $props();
 
   const noted = $derived(isCreditAccount(account) && credit === null ? noteAmount(account.note) : null);
 </script>
@@ -75,6 +78,11 @@
       {/if}
     {:else if noted !== null}
       <p class="muted text-xs">Available <Money value={noted} />, from the note</p>
+    {/if}
+    {#if wallet}
+      <p class="muted text-xs" title="{wallet.provider} {wallet.product}">
+        Earns <span class="tabular">{rateLabel(wallet.rate)}</span> a year{wallet.stale ? ' (stale)' : ''}
+      </p>
     {/if}
   </div>
   <div class="flex justify-end">

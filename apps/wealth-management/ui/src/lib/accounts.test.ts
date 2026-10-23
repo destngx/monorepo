@@ -11,8 +11,9 @@ import {
   noteAmount,
   sumBalances,
   totalHistory,
+  walletProducts,
 } from './accounts';
-import { ACCOUNT_TYPES, type CardBankReport } from './api/types';
+import { ACCOUNT_TYPES, type CardBankReport, type FlexibleSaving } from './api/types';
 
 const account = (overrides: Partial<Account>): Account => ({
   name: 'A',
@@ -172,5 +173,43 @@ describe('totalHistory', () => {
 describe('adjustmentHref (WM-ACC-7)', () => {
   it('pre-fills an adjustment transaction for the account', () => {
     expect(adjustmentHref('VCB & Co')).toBe('/transactions?new=1&account=VCB%20%26%20Co&payee=Balance%20adjustment');
+  });
+});
+
+describe('walletProducts (D41)', () => {
+  // Invented products and rates.
+  const product = (id: string, rate: number): FlexibleSaving => ({
+    id,
+    provider: id,
+    product: 'Earning balance',
+    rate,
+    backing: 'deposit',
+    earningStarts: 'next_working_day',
+    url: 'https://example.test',
+  });
+  const products = [product('wallet-a', 4.1), product('wallet-b', 3.6)];
+
+  it('Given accounts linked to wallet products When joined Then each linked account gets its product, by name case-insensitively', () => {
+    const linked = walletProducts(
+      [account({ name: 'Wallet A' }), account({ name: 'Wallet B' }), account({ name: 'Bank' })],
+      [
+        { account: ' wallet a ', product: 'wallet-a' },
+        { account: 'Wallet B', product: 'wallet-b' },
+      ],
+      products,
+    );
+    expect([...linked.entries()].map(([name, p]) => [name, p.rate])).toEqual([
+      ['Wallet A', 4.1],
+      ['Wallet B', 3.6],
+    ]);
+  });
+
+  it('Given a link to a product the server does not list today When joined Then the account gets no rate', () => {
+    const linked = walletProducts(
+      [account({ name: 'Wallet A' })],
+      [{ account: 'Wallet A', product: 'gone' }],
+      products,
+    );
+    expect(linked.size).toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-import type { Account, AccountType, CardBankReport, TrendPoint } from './api/types';
+import type { Account, AccountType, CardBankReport, FlexibleSaving, TrendPoint } from './api/types';
 import { type IconName } from '@libs/ui-kit';
 
 export interface AccountGroup {
@@ -117,6 +117,26 @@ export function creditStandings(accounts: Account[], lines: Map<string, CreditLi
     });
   }
   return standings;
+}
+
+/**
+ * The wallet product each linked account earns (D41), by account name. Links
+ * match names case-insensitively, as the idle cash settings do; a link to a
+ * product the market data server does not list today gives no rate.
+ */
+export function walletProducts(
+  accounts: Account[],
+  links: { account: string; product: string }[],
+  products: FlexibleSaving[],
+): Map<string, FlexibleSaving> {
+  const key = (name: string) => name.trim().toLowerCase();
+  const byAccount = new Map(links.map((link) => [key(link.account), link.product]));
+  const linked = new Map<string, FlexibleSaving>();
+  for (const account of accounts) {
+    const product = products.find((p) => p.id === byAccount.get(key(account.name)));
+    if (product) linked.set(account.name, product);
+  }
+  return linked;
 }
 
 export function accountIcon(type: AccountType): IconName {

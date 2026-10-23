@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { defer, settled, type Settled, type Streamed } from '$lib/api/load';
-import type { Account, CardBankReport, DashboardSummary } from '$lib/api/types';
+import type { Account, CardBankReport, DashboardSummary, FlexibleSavings, Preferences } from '$lib/api/types';
 import { MASK } from '$lib/format';
 import { mask } from '$lib/state/mask.svelte';
 
@@ -34,6 +34,8 @@ const pendingData = () => ({
   summary: never<DashboardSummary>(),
   allocation: never(),
   cards: never<CardBankReport[]>(),
+  flexibleSavings: never<FlexibleSavings>(),
+  preferences: never<Preferences>(),
 });
 
 const flush = async () => {
@@ -209,6 +211,91 @@ describe('Accounts page', () => {
 
       expect(row('Card Acme')).not.toContain('Available');
       expect(row('Card Noted')).not.toContain('Available');
+    });
+  });
+
+  describe('wallet earning balances (D41)', () => {
+    // Invented products, rates and account names.
+    const savings: FlexibleSavings = {
+      products: [
+        {
+          id: 'wallet-a',
+          provider: 'WalletA',
+          product: 'Earning balance',
+          rate: 4.1,
+          backing: 'deposit',
+          earningStarts: 'next_working_day',
+          url: 'https://example.test/a',
+        },
+        {
+          id: 'wallet-b',
+          provider: 'WalletB',
+          product: 'Golden pocket',
+          rate: 3.65,
+          backing: 'business_cooperation',
+          earningStarts: 'next_working_day',
+          url: 'https://example.test/b',
+          stale: true,
+        },
+      ],
+      failed: [],
+    };
+    const preferences = {
+      idleCash: {
+        accountProducts: {
+          accounts: [
+            { account: 'wallet a', product: 'wallet-a' },
+            { account: 'Wallet B', product: 'wallet-b' },
+          ],
+          etag: 'e1',
+        },
+      },
+    } as unknown as Preferences;
+    const accounts = [account('Wallet A', 1_000), account('Wallet B', 2_000), account('Bank', 3_000)];
+    const row = (name: string) =>
+      (screen.getByText(name, { selector: 'p' }).closest('li')?.textContent ?? '').replace(/\s+/g, ' ');
+
+    it('Given the wallet rates load When the page shows Then the card lists each product with its rate and warnings', async () => {
+      render(AccountsPage, { data: { ...pendingData(), flexibleSavings: settled(savings) } as never });
+      await flush();
+
+      const list = screen.getByTestId('flexible-savings').textContent?.replace(/\s+/g, ' ') ?? '';
+      expect(list).toContain('WalletA Earning balance');
+      expect(list).toContain('4.1%');
+      expect(list).toContain('WalletB Golden pocket');
+      expect(list).toContain('not a bank deposit');
+      expect(list).toContain('3.65%');
+    });
+
+    it('Given accounts linked to wallet products When the rates and links load Then each linked row shows its live rate', async () => {
+      render(AccountsPage, {
+        data: {
+          ...pendingData(),
+          accounts: settled(accounts),
+          flexibleSavings: settled(savings),
+          preferences: settled(preferences),
+        } as never,
+      });
+      await flush();
+
+      expect(row('Wallet A')).toContain('Earns 4.1% a year');
+      expect(row('Wallet B')).toContain('Earns 3.65% a year (stale)');
+      expect(row('Bank')).not.toContain('Earns');
+    });
+
+    it('Given the links fail to load When the accounts show Then rows show no rate and the card still lists the rates', async () => {
+      render(AccountsPage, {
+        data: {
+          ...pendingData(),
+          accounts: settled(accounts),
+          flexibleSavings: settled(savings),
+          preferences: defer(Promise.reject(new Error('sheet down'))),
+        } as never,
+      });
+      await flush();
+
+      expect(row('Wallet A')).not.toContain('Earns');
+      expect(screen.getByTestId('flexible-savings').textContent).toContain('4.1%');
     });
   });
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { AccountGroup, CreditStanding } from '$lib/accounts';
-  import type { Account, TrendPoint } from '$lib/api/types';
+  import type { Account, FlexibleSaving, TrendPoint } from '$lib/api/types';
   import { Icon } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import AccountRow from './AccountRow.svelte';
@@ -15,12 +15,14 @@
     histories: Record<string, TrendPoint[]>;
     /** Card accounts' credit standings; null while the card set-up loads. */
     credits: Map<string, CreditStanding> | null;
+    /** Linked wallet products by account name (D41); empty until the rates and links load. */
+    wallets: Map<string, FlexibleSaving>;
     ontoggle: () => void;
     onedit: AccountHandler;
     ondelete: AccountHandler;
   }
 
-  let { group, accounts, open, total, histories, credits, ontoggle, onedit, ondelete }: Props = $props();
+  let { group, accounts, open, total, histories, credits, wallets, ontoggle, onedit, ondelete }: Props = $props();
 </script>
 
 <section class="panel mt-4">
@@ -46,6 +48,7 @@
           {account}
           history={histories[account.name] ?? []}
           credit={credits ? (credits.get(account.name) ?? null) : undefined}
+          wallet={wallets.get(account.name)}
           {onedit}
           {ondelete}
         />

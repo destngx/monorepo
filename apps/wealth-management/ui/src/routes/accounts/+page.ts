@@ -15,4 +15,7 @@ export const load: PageLoad = ({ fetch }) => ({
   allocation: defer(() => api.allocation({ fetch })),
   // The card set-up holds the bank limits that card accounts share (WM-CARD-16).
   cards: defer(() => api.cards({ fetch })),
+  // Wallet earning balance rates (D41), and the idle cash links that tie an account to one.
+  flexibleSavings: defer(() => api.flexibleSavings(fetch)),
+  preferences: defer(() => api.preferences({ fetch })),
 });
