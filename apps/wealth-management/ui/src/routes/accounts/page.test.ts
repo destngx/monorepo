@@ -251,7 +251,7 @@ describe('Accounts page', () => {
         },
       },
     } as unknown as Preferences;
-    const accounts = [account('Wallet A', 1_000), account('Wallet B', 2_000), account('Bank', 3_000)];
+    const accounts = [account('Wallet A', 36_500_000), account('Wallet B', 2_000), account('Bank', 3_000)];
     const row = (name: string) =>
       (screen.getByText(name, { selector: 'p' }).closest('li')?.textContent ?? '').replace(/\s+/g, ' ');
 
@@ -267,7 +267,8 @@ describe('Accounts page', () => {
       expect(list).toContain('3.65%');
     });
 
-    it('Given accounts linked to wallet products When the rates and links load Then each linked row shows its live rate', async () => {
+    it('Given accounts linked to wallet products When the rates and links load Then each linked row shows its live rate and a day of earnings', async () => {
+      mask.toggle();
       render(AccountsPage, {
         data: {
           ...pendingData(),
@@ -279,6 +280,7 @@ describe('Accounts page', () => {
       await flush();
 
       expect(row('Wallet A')).toContain('Earns 4.1% a year');
+      expect(row('Wallet A')).toContain('About 4.100 ₫ a day');
       expect(row('Wallet B')).toContain('Earns 3.65% a year (stale)');
       expect(row('Bank')).not.toContain('Earns');
     });

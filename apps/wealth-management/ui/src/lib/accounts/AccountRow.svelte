@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { accountIcon, isCreditAccount, noteAmount, type CreditStanding } from '$lib/accounts';
+  import { accountIcon, isCreditAccount, noteAmount, walletEarningPerDay, type CreditStanding } from '$lib/accounts';
   import type { Account, FlexibleSaving, TrendPoint } from '$lib/api/types';
   import { rateLabel } from '$lib/bills/idleCash';
   import Sparkline from '$lib/charts/Sparkline.svelte';
@@ -83,6 +83,9 @@
       <p class="muted text-xs" title="{wallet.provider} {wallet.product}">
         Earns <span class="tabular">{rateLabel(wallet.rate)}</span> a year{wallet.stale ? ' (stale)' : ''}
       </p>
+      {#if account.balance > 0}
+        <p class="muted text-xs">About <Money value={walletEarningPerDay(account.balance, wallet.rate)} /> a day</p>
+      {/if}
     {/if}
   </div>
   <div class="flex justify-end">

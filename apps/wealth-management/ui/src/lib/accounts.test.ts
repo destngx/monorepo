@@ -11,6 +11,7 @@ import {
   noteAmount,
   sumBalances,
   totalHistory,
+  walletEarningPerDay,
   walletProducts,
 } from './accounts';
 import { ACCOUNT_TYPES, type CardBankReport, type FlexibleSaving } from './api/types';
@@ -211,5 +212,17 @@ describe('walletProducts (D41)', () => {
       products,
     );
     expect(linked.size).toBe(0);
+  });
+});
+
+describe('walletEarningPerDay (D41)', () => {
+  it('Given a balance and a yearly rate When estimated Then it is the balance times the rate over 365 days, in whole VND', () => {
+    expect(walletEarningPerDay(36_500_000, 4)).toBe(4_000);
+    expect(walletEarningPerDay(10_000_000, 4.5)).toBe(1_233);
+  });
+
+  it('Given no money in the account When estimated Then it earns nothing', () => {
+    expect(walletEarningPerDay(0, 4.5)).toBe(0);
+    expect(walletEarningPerDay(-500_000, 4.5)).toBe(0);
   });
 });

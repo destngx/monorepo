@@ -139,6 +139,15 @@ export function walletProducts(
   return linked;
 }
 
+/**
+ * Rough earning of a wallet earning balance for one day, in whole VND: the
+ * balance at the yearly rate over 365 days. The provider's own day count and
+ * rounding can differ by a few dong.
+ */
+export function walletEarningPerDay(balance: number, rate: number): number {
+  return balance > 0 ? Math.round((balance * rate) / 100 / 365) : 0;
+}
+
 export function accountIcon(type: AccountType): IconName {
   switch (type) {
     case 'negative active use':
