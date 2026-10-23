@@ -59,11 +59,21 @@ func TestGivenValuesLinkedByAnOlderCatalogWhenTheEngineStartsThenUneditedOnesAre
 	for _, o := range got.Observations {
 		codes[o.ID] = o.MetricCode
 	}
-	if codes[gran.ID] != "" || codes[mid.ID] != "wbc" || codes[lympho.ID] != "wbc" {
+	if codes[gran.ID] != "granulocytes_abs" || codes[mid.ID] != "wbc" || codes[lympho.ID] != "wbc" {
 		t.Fatalf("codes = gran %q, mid %q, lympho %q", codes[gran.ID], codes[mid.ID], codes[lympho.ID])
 	}
 	hist, err := e.clinical.History(e.ctx, sc, domain.AuditObservation, gran.ID)
 	if err != nil || len(hist) != 1 || hist[0].UserID != "" {
 		t.Fatalf("history = %+v, %v", hist, err)
+	}
+
+	// A later catalog change matches the engine's own relink again.
+	e.clinical.Catalog = domain.NewCatalog("newer", []domain.Metric{{Code: "neutrophils_abs", Name: "Neutrophils", Unit: "G/L",
+		Aliases: []string{"gran#"}}})
+	if n, err := e.clinical.RelinkCatalog(e.ctx); err != nil || n != 1 {
+		t.Fatalf("relinked %d, %v after a second catalog change", n, err)
+	}
+	if o, err := e.clinical.Store.Observation(e.ctx, sc.TenantID, gran.ID); err != nil || o.MetricCode != "neutrophils_abs" {
+		t.Fatalf("gran = %q, %v", o.MetricCode, err)
 	}
 }

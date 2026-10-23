@@ -4,6 +4,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -58,7 +59,7 @@ func TrendPointOf(m Metric, o PersonObservation) TrendPoint {
 	if o.DocumentID != "" {
 		p.Source = SourcePaper
 	}
-	if m.Unit == "" {
+	if m.Unit == "" && !m.Printed {
 		return p
 	}
 	canonical := func(v *float64) *float64 {
@@ -77,6 +78,53 @@ func TrendPointOf(m Metric, o PersonObservation) TrendPoint {
 		p.RefLow, p.RefHigh = nil, nil
 	}
 	return p
+}
+
+// CatPrinted groups the metrics made from names the catalog doesn't know.
+const CatPrinted MetricCategory = "printed"
+
+// printedPrefix starts the code of a metric made from a printed name.
+const printedPrefix = "printed-"
+
+// PrintedMetricCode is the code of the metric an analyte name the catalog
+// doesn't know becomes (HW-MET-7): its folded name, so `Tỷ lệ % bạch cầu
+// Mid` and `TY LE % BACH CAU MID` are one metric, and `Mid%` and `Mid#`
+// stay apart.
+func PrintedMetricCode(analyte string) string {
+	var b strings.Builder
+	dash := false
+	for _, r := range analyteKey(analyte) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			dash = false
+		} else if !dash && b.Len() > 0 {
+			b.WriteByte('-')
+			dash = true
+		}
+	}
+	slug := strings.TrimSuffix(b.String(), "-")
+	if slug == "" {
+		slug = "unnamed"
+	}
+	return printedPrefix + slug
+}
+
+// PrintedMetric is the metric of values whose name the catalog doesn't
+// know, oldest first (HW-MET-7). It is named as the latest paper prints
+// it, and its unit is the latest numeric value's, so values in that unit
+// are charted and others are only listed.
+func PrintedMetric(code string, obs []PersonObservation) Metric {
+	m := Metric{Code: code, Category: CatPrinted, Aliases: []string{}, Printed: true}
+	if len(obs) > 0 {
+		m.Name = obs[len(obs)-1].Analyte
+	}
+	for i := len(obs) - 1; i >= 0; i-- {
+		if obs[i].ValueNum != nil {
+			m.Unit = NormalizeUnit(obs[i].Unit)
+			break
+		}
+	}
+	return m
 }
 
 // SortPoints orders points by date, oldest first, keeping the given order

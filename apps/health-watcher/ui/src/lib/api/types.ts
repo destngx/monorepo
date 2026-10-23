@@ -466,7 +466,9 @@ export type MetricCategory =
   | 'coagulation'
   | 'enzymes'
   | 'urine'
-  | 'vitals';
+  | 'vitals'
+  /** Metrics made from printed names the catalog doesn't know (HW-MET-7). */
+  | 'printed';
 
 export interface Metric {
   code: string;
@@ -479,6 +481,8 @@ export interface Metric {
   conversions?: { from: string; factor: number; offset?: number }[];
   aliases: string[] | null;
   urine?: boolean;
+  /** Made from a printed name the catalog doesn't know (HW-MET-7): no LOINC code, conversions or description. */
+  printed?: boolean;
 }
 
 export interface UploadResult {

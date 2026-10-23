@@ -48,14 +48,15 @@ func TestGivenPrintedAnalyteNamesWhenMatchingThenEachFindsItsCatalogEntry(t *tes
 func TestGivenNamesThatStartWithACountsNameWhenMatchingThenTheCountIsNotPicked(t *testing.T) {
 	cases := []struct{ name, unit, value, want string }{
 		{"Số lượng bạch cầu (WBC)", "G/L", "7.7", "wbc"},
-		{"Số lượng bạch cầu đoạn (GRAN#)", "G/L", "4.4", ""},
-		{"Số lượng bạch cầu Mid", "G/L", "0.7", ""},
+		{"Số lượng bạch cầu đoạn (GRAN#)", "G/L", "4.4", "granulocytes_abs"},
+		{"Tỷ lệ % bạch cầu đoạn (GRAN%)", "%", "58.0", "granulocytes_pct"},
+		{"Số lượng bạch cầu Mid", "G/L", "0.7", "mid_abs"},
 		{"Bạch cầu ưa acid", "", "0.2", "eosinophils_pct"},
 		{"Số lượng hồng cầu lưới", "%", "1.1", ""},
 		{"Bạch cầu (que thử)", "BC/µL", "Âm tính", "urine_leukocytes"},
 		{"Bạch cầu", "G/L", "7.1", "wbc"},
 		{"Tỷ lệ % bạch cầu Lympho", "%", "31.0", "lymphocytes_pct"},
-		{"Tỷ lệ % bạch cầu Mid", "%", "7.5", ""},
+		{"Tỷ lệ % bạch cầu Mid", "%", "7.5", "mid_pct"},
 	}
 	for _, tc := range cases {
 		m, ok := DefaultCatalog.Match(tc.name, tc.unit, tc.value)

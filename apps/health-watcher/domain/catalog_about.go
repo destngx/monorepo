@@ -1,7 +1,12 @@
 package domain
 
-// AboutSource names where every metric quote comes from.
-const AboutSource = "MedlinePlus, U.S. National Library of Medicine"
+// The sources metric quotes come from. MedlinePlus is the default; a test
+// MedlinePlus never defines, such as granulocytes, is quoted from the NCI
+// Dictionary of Cancer Terms.
+const (
+	AboutSource    = "MedlinePlus, U.S. National Library of Medicine"
+	AboutSourceNCI = "NCI Dictionary of Cancer Terms, National Cancer Institute"
+)
 
 // MetricAbout is what a metric is, quoted word for word from a trusted source (HW-MET-6).
 type MetricAbout struct {
@@ -19,7 +24,9 @@ func AboutMetric(code string) (MetricAbout, bool) {
 	if !ok {
 		return MetricAbout{}, false
 	}
-	a.Source = AboutSource
+	if a.Source == "" {
+		a.Source = AboutSource
+	}
 	a.Fetched = AboutFetched
 	return a, true
 }

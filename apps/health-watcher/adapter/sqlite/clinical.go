@@ -365,7 +365,9 @@ func (r repos) UneditedReadObservations(ctx context.Context) ([]port.TenantObser
 		FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id
 			JOIN documents d ON d.id = o.document_id
 			JOIN visits v ON v.id = d.visit_id
-		WHERE o.status = 'approved' AND o.source = 'reading' AND o.version = 1 AND o.confidence < 100
+		WHERE o.status = 'approved' AND o.source = 'reading' AND o.confidence < 100
+			AND NOT EXISTS (SELECT 1 FROM audit_log a WHERE a.tenant_id = o.tenant_id AND a.entity = 'observation'
+				AND a.entity_id = o.id AND a.user_id IS NOT NULL)
 		ORDER BY o.tenant_id, o.created_at, o.id`)
 	if err != nil {
 		return nil, fmt.Errorf("list unedited observations: %w", err)

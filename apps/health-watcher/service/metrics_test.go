@@ -44,8 +44,18 @@ func TestGivenALabPaperAndTypedVitalsWhenTheOverviewIsReadThenEachMetricShowsIts
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ov.Unlinked != 1 || len(ov.Groups) != 2 || ov.Groups[0].Category != domain.CatGlucose || ov.Groups[1].Category != domain.CatVitals {
+	if ov.Unlinked != 1 || len(ov.Groups) != 3 || ov.Groups[0].Category != domain.CatGlucose || ov.Groups[1].Category != domain.CatVitals {
 		t.Fatalf("overview = %+v", ov)
+	}
+	// A name the catalog doesn't know is its own metric, never left out (HW-MET-7).
+	other := ov.Groups[2]
+	if other.Category != domain.CatPrinted || len(other.Items) != 1 || other.Items[0].Metric.Name != "Chỉ số lạ" ||
+		other.Items[0].Latest.Printed != "1" || other.Items[0].Latest.Value == nil {
+		t.Fatalf("printed group = %+v", other)
+	}
+	trend, err := e.clinical.PersonMetric(e.ctx, sc, person.ID, other.Items[0].Metric.Code)
+	if err != nil || len(trend.Points) != 1 || !trend.Metric.Printed || trend.About != nil {
+		t.Fatalf("printed trend = %+v, %v", trend, err)
 	}
 	g := ov.Groups[0].Items[0]
 	if g.Metric.Code != "glucose" || g.Count != 2 || g.Latest.Date != "2025-09-01" || g.Previous.Flag != "H" ||

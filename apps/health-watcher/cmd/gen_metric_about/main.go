@@ -1,13 +1,14 @@
 // Command gen_metric_about writes domain/catalog_about_data.go: for each
-// catalog metric, a word-for-word quote from MedlinePlus that says what the
+// catalog metric, a word-for-word quote from MedlinePlus, or from the NCI
+// Dictionary of Cancer Terms where MedlinePlus has none, that says what the
 // metric is (HW-MET-6). Run it from apps/health-watcher:
 //
 //	go run ./cmd/gen_metric_about
 //
 // The quotes are curated below. The command fetches each page summary from
-// MedlinePlus Connect by LOINC code and fails if a quote is not found
-// verbatim in the summary text, so a changed page is caught before the
-// file is rewritten.
+// MedlinePlus Connect by LOINC code, or each NCI term's definition, and
+// fails if a quote is not found verbatim in that text, so a changed page is
+// caught before the file is rewritten.
 package main
 
 import (
@@ -32,12 +33,14 @@ import (
 const connectURL = "https://connect.medlineplus.gov/service"
 
 // about picks the quote for one metric: the Connect entry titled Title,
-// looked up by LOINC (the catalog's code when empty).
+// looked up by LOINC (the catalog's code when empty), or, when NCITerm is
+// set, that term's definition in the NCI Dictionary of Cancer Terms.
 type about struct {
-	Code  string
-	LOINC string
-	Title string
-	Quote string
+	Code    string
+	LOINC   string
+	Title   string
+	NCITerm string
+	Quote   string
 }
 
 var abouts = []about{
@@ -129,6 +132,10 @@ var abouts = []about{
 	{Code: "heart_rate", Title: "Vital Signs", Quote: `Heart rate, or pulse, which measures how fast your heart is beating.`},
 	{Code: "temperature", Title: "Vital Signs", Quote: `Temperature, which measures how hot your body is.`},
 	{Code: "spo2", Title: "Pulse Oximetry", Quote: `Pulse oximetry is a test that uses a small, clip-like device called a pulse oximeter (Pulse Ox) to measure oxygen levels in your blood.`},
+	// MedlinePlus never says what granulocytes are; the NCI dictionary does.
+	// Neither source defines the Mid cells of a 3-part analyser.
+	{Code: "granulocytes_pct", NCITerm: "granulocyte", Title: "granulocyte", Quote: `A type of immune cell that has granules (small particles) with enzymes that are released during infections, allergic reactions, and asthma. Neutrophils, eosinophils, and basophils are granulocytes.`},
+	{Code: "granulocytes_abs", NCITerm: "granulocyte", Title: "granulocyte", Quote: `A type of immune cell that has granules (small particles) with enzymes that are released during infections, allergic reactions, and asthma. Neutrophils, eosinophils, and basophils are granulocytes.`},
 	// Connect has no entry for the waist LOINC codes; the body weight page covers it.
 	{Code: "waist", LOINC: "29463-7", Title: "Body Weight", Quote: `Waist circumference. If most of your body fat is around your abdomen (belly) rather than your hips, you may be at a higher risk for heart disease and type 2 diabetes.`},
 }
@@ -159,6 +166,18 @@ func run(out string) error {
 	resolved := map[string]domain.MetricAbout{}
 	var problems []string
 	for _, a := range abouts {
+		if a.NCITerm != "" {
+			e, err := fetchNCI(client, a.NCITerm)
+			if err != nil {
+				return err
+			}
+			if !strings.Contains(e.Summary, a.Quote) {
+				problems = append(problems, fmt.Sprintf("%s: quote not found verbatim in the NCI definition of %q (%s)", a.Code, a.NCITerm, e.URL))
+				continue
+			}
+			resolved[a.Code] = domain.MetricAbout{Quote: a.Quote, Source: domain.AboutSourceNCI, Title: e.Title, URL: e.URL}
+			continue
+		}
 		loinc := a.LOINC
 		if loinc == "" {
 			m, _ := domain.DefaultCatalog.Metric(a.Code)
@@ -184,7 +203,7 @@ func run(out string) error {
 		resolved[a.Code] = domain.MetricAbout{Quote: a.Quote, Title: e.Title, URL: e.URL}
 	}
 	if len(problems) > 0 {
-		return errors.New("quotes do not match MedlinePlus:\n  " + strings.Join(problems, "\n  "))
+		return errors.New("quotes do not match their source:\n  " + strings.Join(problems, "\n  "))
 	}
 	src, err := render(resolved, time.Now().Format(time.DateOnly))
 	if err != nil {
@@ -263,6 +282,33 @@ func fetch(client *http.Client, loinc string) ([]entry, error) {
 	return entries, nil
 }
 
+// nciURL is the NCI Dictionary of Cancer Terms API for patients, in English.
+const nciURL = "https://webapis.cancer.gov/glossary/v1/Terms/Cancer.gov/Patient/en/"
+
+// fetchNCI reads a term's definition from the NCI Dictionary of Cancer Terms.
+func fetchNCI(client *http.Client, term string) (entry, error) {
+	resp, err := client.Get(nciURL + url.PathEscape(term))
+	if err != nil {
+		return entry{}, fmt.Errorf("fetch NCI term %s: %w", term, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return entry{}, fmt.Errorf("fetch NCI term %s: status %s", term, resp.Status)
+	}
+	var body struct {
+		TermName   string `json:"termName"`
+		PrettyURL  string `json:"prettyUrlName"`
+		Definition struct {
+			Text string `json:"text"`
+		} `json:"definition"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return entry{}, fmt.Errorf("decode NCI term %s: %w", term, err)
+	}
+	return entry{Title: body.TermName, URL: "https://www.cancer.gov/publications/dictionaries/cancer-terms/def/" + body.PrettyURL,
+		Summary: plainText(body.Definition.Text)}, nil
+}
+
 func findEntry(entries []entry, title string) (entry, bool) {
 	for _, e := range entries {
 		if e.Title == title {
@@ -291,7 +337,7 @@ func plainText(s string) string {
 func render(resolved map[string]domain.MetricAbout, fetched string) ([]byte, error) {
 	var b bytes.Buffer
 	b.WriteString("// Code generated by cmd/gen_metric_about; DO NOT EDIT.\n\npackage domain\n\n")
-	b.WriteString("// AboutFetched is the day the quotes were checked against MedlinePlus.\n")
+	b.WriteString("// AboutFetched is the day the quotes were checked against their sources.\n")
 	fmt.Fprintf(&b, "const AboutFetched = %s\n\n", strconv.Quote(fetched))
 	b.WriteString("var metricAbout = map[string]MetricAbout{\n")
 	for _, m := range domain.DefaultCatalog.Metrics() {
@@ -299,8 +345,12 @@ func render(resolved map[string]domain.MetricAbout, fetched string) ([]byte, err
 		if !ok {
 			continue
 		}
-		fmt.Fprintf(&b, "%s: {\nTitle: %s,\nURL: %s,\nQuote: %s,\n},\n",
-			strconv.Quote(m.Code), strconv.Quote(a.Title), strconv.Quote(a.URL), strconv.Quote(a.Quote))
+		source := ""
+		if a.Source == domain.AboutSourceNCI {
+			source = "Source: AboutSourceNCI,\n"
+		}
+		fmt.Fprintf(&b, "%s: {\n%sTitle: %s,\nURL: %s,\nQuote: %s,\n},\n",
+			strconv.Quote(m.Code), source, strconv.Quote(a.Title), strconv.Quote(a.URL), strconv.Quote(a.Quote))
 	}
 	b.WriteString("}\n")
 	src, err := format.Source(b.Bytes())

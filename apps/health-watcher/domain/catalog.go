@@ -35,6 +35,9 @@ type Metric struct {
 	// (`Số lượng bạch cầu đoạn` is not the white cell count), so a longer
 	// printed name never matches it by its start.
 	WholeName bool `json:"-"`
+	// Printed marks a metric made from a printed name the catalog doesn't
+	// know (HW-MET-7). It has no LOINC code, conversions or description.
+	Printed bool `json:"printed,omitempty"`
 }
 
 // Catalog is the shipped metric list with its matching index.

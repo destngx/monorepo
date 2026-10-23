@@ -44,7 +44,13 @@
 
 <PageTitle
   title={metric.name}
-  subtitle="{metric.nameVi} · {data.trend.points.length} values{metric.unit ? ` · in ${metric.unit}` : ''}"
+  subtitle={[
+    metric.printed ? 'Named as printed, not in the catalog' : metric.nameVi,
+    `${data.trend.points.length} values`,
+    metric.unit ? `in ${metric.unit}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')}
 >
   {#snippet actions()}
     {#if session.canEdit && typable}

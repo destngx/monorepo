@@ -42,10 +42,8 @@
     <Icon name="info" size={16} />
     <span
       >{data.overview.unlinked}
-      {data.overview.unlinked === 1
-        ? 'result is not linked to a metric, so it is'
-        : 'results are not linked to a metric, so they are'}
-      not charted. Link them from their document.</span
+      {data.overview.unlinked === 1 ? 'result has' : 'results have'} a name the catalog doesn't know. They are under Not in
+      the catalog, by the name printed on the paper. To chart one with a known metric, link it on its document.</span
     >
   </p>
 {/if}

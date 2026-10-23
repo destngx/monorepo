@@ -121,3 +121,45 @@ func TestGivenTypedVitalsWhenValidatedThenUnitsDefaultAndBadValuesAreRejected(t 
 		}
 	}
 }
+
+func TestGivenNamesTheCatalogDoesNotKnowWhenCodedThenSpellingsOfOneNameShareACode(t *testing.T) {
+	cases := map[string]string{
+		"Tỷ lệ % bạch cầu Mid": "printed-ty-le-bach-cau-mid",
+		"TY LE % BACH CAU MID": "printed-ty-le-bach-cau-mid",
+		"Mid#":                 "printed-mid-abs",
+		"Mid%":                 "printed-mid-pct",
+		"Chỉ số lạ (XYZ)":      "printed-chi-so-la-xyz",
+		"???":                  "printed-unnamed",
+	}
+	for in, want := range cases {
+		if got := PrintedMetricCode(in); got != want {
+			t.Errorf("PrintedMetricCode(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestGivenValuesOfAnUnknownNameWhenPlottedThenTheLatestNameAndUnitWinAndOtherUnitsAreOnlyListed(t *testing.T) {
+	old := obs("2025-01-02", "1.2", "mg/l", f(1.2), f(0), f(5), "", "d1")
+	old.Analyte = "Chỉ số lạ"
+	text := obs("2025-03-01", "Âm tính", "", nil, nil, nil, "", "d2")
+	text.Analyte = "Chỉ số lạ"
+	other := obs("2025-05-01", "3", "U/L", f(3), nil, nil, "", "d3")
+	other.Analyte = "Chỉ số lạ"
+	latest := obs("2025-06-01", "2.5", "mg/L", f(2.5), nil, f(5), "H", "d4")
+	latest.Analyte = "CHỈ SỐ LẠ"
+	all := []PersonObservation{old, text, other, latest}
+
+	m := PrintedMetric(PrintedMetricCode(latest.Analyte), all)
+	if m.Name != "CHỈ SỐ LẠ" || m.Unit != "mg/L" || m.Category != CatPrinted || !m.Printed || m.LOINC != "" {
+		t.Fatalf("metric = %+v", m)
+	}
+	if p := TrendPointOf(m, old); p.Value == nil || *p.Value != 1.2 || *p.RefHigh != 5 {
+		t.Fatalf("same unit, other spelling = %+v", p)
+	}
+	if p := TrendPointOf(m, other); p.Value != nil || p.Printed != "3" {
+		t.Fatalf("other unit = %+v", p)
+	}
+	if p := TrendPointOf(m, text); p.Value != nil || p.Printed != "Âm tính" {
+		t.Fatalf("text = %+v", p)
+	}
+}

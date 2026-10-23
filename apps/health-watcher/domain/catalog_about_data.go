@@ -2,7 +2,7 @@
 
 package domain
 
-// AboutFetched is the day the quotes were checked against MedlinePlus.
+// AboutFetched is the day the quotes were checked against their sources.
 const AboutFetched = "2026-10-23"
 
 var metricAbout = map[string]MetricAbout{
@@ -180,6 +180,18 @@ var metricAbout = map[string]MetricAbout{
 		Title: "Blood Differential",
 		URL:   "https://medlineplus.gov/lab-tests/blood-differential",
 		Quote: "Lymphocytes include two main types of white blood cells: B cells and T cells. B cells fight off invading viruses, bacteria, or toxins. Certain T cells can target and destroy your body's own cells, such as cancer cells and cells that have been infected by viruses.",
+	},
+	"granulocytes_pct": {
+		Source: AboutSourceNCI,
+		Title:  "granulocyte",
+		URL:    "https://www.cancer.gov/publications/dictionaries/cancer-terms/def/granulocyte",
+		Quote:  "A type of immune cell that has granules (small particles) with enzymes that are released during infections, allergic reactions, and asthma. Neutrophils, eosinophils, and basophils are granulocytes.",
+	},
+	"granulocytes_abs": {
+		Source: AboutSourceNCI,
+		Title:  "granulocyte",
+		URL:    "https://www.cancer.gov/publications/dictionaries/cancer-terms/def/granulocyte",
+		Quote:  "A type of immune cell that has granules (small particles) with enzymes that are released during infections, allergic reactions, and asthma. Neutrophils, eosinophils, and basophils are granulocytes.",
 	},
 	"monocytes_pct": {
 		Title: "Blood Differential",

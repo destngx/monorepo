@@ -25,10 +25,12 @@ func TestGivenTheAboutDataWhenCheckedThenEveryEntryIsACatalogMetricWithASourcedQ
 		if a.Title == "" {
 			t.Errorf("%s: empty page title", code)
 		}
-		if !strings.HasPrefix(a.URL, "https://medlineplus.gov/") || strings.Contains(a.URL, "?") {
-			t.Errorf("%s: URL %q is not a plain MedlinePlus page", code, a.URL)
+		site := map[string]string{AboutSource: "https://medlineplus.gov/",
+			AboutSourceNCI: "https://www.cancer.gov/publications/dictionaries/cancer-terms/def/"}[a.Source]
+		if site == "" || !strings.HasPrefix(a.URL, site) || strings.Contains(a.URL, "?") {
+			t.Errorf("%s: URL %q from %q is not a plain page of a known source", code, a.URL, a.Source)
 		}
-		if a.Source != AboutSource || a.Fetched != AboutFetched || a.Fetched == "" {
+		if a.Fetched != AboutFetched || a.Fetched == "" {
 			t.Errorf("%s: source %q fetched %q", code, a.Source, a.Fetched)
 		}
 	}
@@ -43,6 +45,8 @@ func TestGivenACodeWhenAskingAboutItThenOnlyDescribedMetricsAnswer(t *testing.T)
 		{"wbc", true},
 		{"neutrophils_pct", true},
 		{"urine_nitrite", true},
+		{"granulocytes_abs", true},
+		{"mid_abs", false},
 		{"height", false},
 		{"no_such_metric", false},
 	}

@@ -94,6 +94,7 @@ export const metricCategoryLabels: Record<MetricCategory, string> = {
   enzymes: 'Enzymes',
   urine: 'Urine',
   vitals: 'Vital signs',
+  printed: 'Not in the catalog',
 };
 
 /** What a printed flag means: H high, L low, * abnormal. */

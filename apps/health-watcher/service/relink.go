@@ -13,9 +13,9 @@ const catalogVersionKey = "catalog_version"
 
 // RelinkCatalog matches approved values again when the catalog changed
 // since the last start, so a fix to the catalog also fixes the values read
-// before it (HW-READ-5). Only values as the AI reading left them change: a
-// value a person edited, or an analyte name a person linked by hand for
-// that provider, keeps its link. Each change is audited with no user, as
+// before it (HW-READ-5). Only values no person changed are matched again,
+// including ones an earlier relink changed: a value a person edited, or an
+// analyte name a person linked by hand for that provider, keeps its link. Each change is audited with no user, as
 // the engine's own. It returns how many values changed.
 func (c *Clinical) RelinkCatalog(ctx context.Context) (int, error) {
 	changed := 0

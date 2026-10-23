@@ -1,7 +1,7 @@
 package domain
 
 // CatalogVersion changes whenever DefaultCatalog's entries change.
-const CatalogVersion = "2026-10-23.1"
+const CatalogVersion = "2026-10-23.2"
 
 // Metric categories.
 const (
@@ -125,6 +125,17 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 		Aliases: []string{"lym%", "lymph%", "lym", "lymph", "lymphocytes %", "bạch cầu lympho %", "lympho %", "lympho"}},
 	{Code: "lymphocytes_abs", LOINC: "731-0", Name: "Lymphocytes", NameVI: "Số lượng bạch cầu lympho", Category: CatBloodCount, Unit: "G/L",
 		Aliases: []string{"lym#", "lymph#", "lym", "lymph", "lymphocytes #", "bạch cầu lympho #", "lympho #", "lympho"}},
+	// A 3-part analyser counts granulocytes (neutrophils, eosinophils and
+	// basophils together) and Mid cells (monocytes, eosinophils and
+	// basophils) instead of each type.
+	{Code: "granulocytes_pct", LOINC: "19023-1", Name: "Granulocytes %", NameVI: "Tỷ lệ bạch cầu hạt", Category: CatBloodCount, Unit: "%",
+		Aliases: []string{"gran%", "gra%", "gran", "granulocytes %", "granulocytes", "bạch cầu hạt %", "bạch cầu hạt"}},
+	{Code: "granulocytes_abs", LOINC: "20482-6", Name: "Granulocytes", NameVI: "Số lượng bạch cầu hạt", Category: CatBloodCount, Unit: "G/L",
+		Aliases: []string{"gran#", "gra#", "gran", "granulocytes #", "granulocytes", "bạch cầu hạt #", "bạch cầu hạt"}},
+	{Code: "mid_pct", LOINC: "32155-4", Name: "Mid cells %", NameVI: "Tỷ lệ bạch cầu Mid", Category: CatBloodCount, Unit: "%",
+		Aliases: []string{"mid%", "mxd%", "mid", "mxd", "mid cells %", "mid cells", "bạch cầu mid %", "bạch cầu mid"}},
+	{Code: "mid_abs", LOINC: "32154-7", Name: "Mid cells", NameVI: "Số lượng bạch cầu Mid", Category: CatBloodCount, Unit: "G/L",
+		Aliases: []string{"mid#", "mxd#", "mid", "mxd", "mid cells #", "mid cells", "bạch cầu mid #", "bạch cầu mid"}},
 	{Code: "monocytes_pct", LOINC: "5905-5", Name: "Monocytes %", NameVI: "Tỷ lệ bạch cầu mono", Category: CatBloodCount, Unit: "%",
 		Aliases: []string{"mono%", "mono", "monocytes %", "bạch cầu mono %", "bạch cầu mono"}},
 	{Code: "eosinophils_pct", LOINC: "713-8", Name: "Eosinophils %", NameVI: "Tỷ lệ bạch cầu ưa acid", Category: CatBloodCount, Unit: "%",

@@ -2,14 +2,17 @@ package service
 
 import (
 	"context"
+	"slices"
+	"strings"
 
 	"apps/health-watcher/domain"
 	"apps/health-watcher/port"
 )
 
 // MetricsOverview is a person's metrics dashboard (HW-MET-4): each metric
-// with values, grouped by category in catalog order, and how many approved
-// results are not linked to the catalog yet.
+// with values, grouped by category in catalog order, then the metrics made
+// from names the catalog doesn't know (HW-MET-7), and how many approved
+// results those hold.
 type MetricsOverview struct {
 	Person   domain.Person          `json:"person"`
 	Groups   []domain.OverviewGroup `json:"groups"`
@@ -25,46 +28,70 @@ type MetricTrend struct {
 	Points []domain.TrendPoint `json:"points"`
 }
 
-// personPoints loads a person and their approved observations as trend
-// points by metric code, with BMI computed from weight and height.
-func (c *Clinical) personPoints(ctx context.Context, sc domain.Scope, personID string) (domain.Person, map[string][]domain.TrendPoint, int, error) {
+// personPoints is a person with their approved observations as trend
+// points by metric code. BMI is computed from weight and height, and every
+// value the catalog doesn't know joins a metric of its printed name, so no
+// value is left out (HW-MET-7).
+type personPoints struct {
+	person domain.Person
+	byCode map[string][]domain.TrendPoint
+	// printed are the metrics made from printed names, by code.
+	printed  map[string]domain.Metric
+	unlinked int
+}
+
+func (c *Clinical) personPoints(ctx context.Context, sc domain.Scope, personID string) (personPoints, error) {
 	if err := sc.RequireRead(); err != nil {
-		return domain.Person{}, nil, 0, err
+		return personPoints{}, err
 	}
 	person, err := c.Store.Person(ctx, sc.TenantID, personID)
 	if err != nil {
-		return person, nil, 0, err
+		return personPoints{}, err
 	}
 	obs, err := c.Store.ObservationsOfPerson(ctx, sc.TenantID, personID)
 	if err != nil {
-		return person, nil, 0, err
+		return personPoints{}, err
 	}
-	byCode := map[string][]domain.TrendPoint{}
-	unlinked := 0
+	pp := personPoints{person: person, byCode: map[string][]domain.TrendPoint{}, printed: map[string]domain.Metric{}}
+	unknown := map[string][]domain.PersonObservation{}
 	for _, o := range obs {
 		m, ok := c.Catalog.Metric(o.MetricCode)
 		if !ok {
-			unlinked++
+			code := domain.PrintedMetricCode(o.Analyte)
+			unknown[code] = append(unknown[code], o)
+			pp.unlinked++
 			continue
 		}
-		byCode[m.Code] = append(byCode[m.Code], domain.TrendPointOf(m, o))
+		pp.byCode[m.Code] = append(pp.byCode[m.Code], domain.TrendPointOf(m, o))
 	}
-	if bmi := domain.ComputeBMI(byCode["weight"], byCode["height"], byCode["bmi"], person.BirthDate); len(bmi) > 0 {
-		byCode["bmi"] = append(byCode["bmi"], bmi...)
-		domain.SortPoints(byCode["bmi"])
+	for code, os := range unknown {
+		m := domain.PrintedMetric(code, os)
+		pp.printed[code] = m
+		for _, o := range os {
+			pp.byCode[code] = append(pp.byCode[code], domain.TrendPointOf(m, o))
+		}
 	}
-	return person, byCode, unlinked, nil
+	if bmi := domain.ComputeBMI(pp.byCode["weight"], pp.byCode["height"], pp.byCode["bmi"], person.BirthDate); len(bmi) > 0 {
+		pp.byCode["bmi"] = append(pp.byCode["bmi"], bmi...)
+		domain.SortPoints(pp.byCode["bmi"])
+	}
+	return pp, nil
 }
 
 // PersonMetrics returns a person's metrics overview (HW-MET-4).
 func (c *Clinical) PersonMetrics(ctx context.Context, sc domain.Scope, personID string) (MetricsOverview, error) {
-	person, byCode, unlinked, err := c.personPoints(ctx, sc, personID)
+	pp, err := c.personPoints(ctx, sc, personID)
 	if err != nil {
 		return MetricsOverview{}, err
 	}
-	out := MetricsOverview{Person: person, Groups: []domain.OverviewGroup{}, Unlinked: unlinked}
-	for _, m := range c.Catalog.Metrics() {
-		item, ok := domain.OverviewOf(m, byCode[m.Code])
+	out := MetricsOverview{Person: pp.person, Groups: []domain.OverviewGroup{}, Unlinked: pp.unlinked}
+	printed := make([]domain.Metric, 0, len(pp.printed))
+	for _, m := range pp.printed {
+		printed = append(printed, m)
+	}
+	slices.SortFunc(printed, func(a, b domain.Metric) int { return strings.Compare(domain.FoldKey(a.Name), domain.FoldKey(b.Name)) })
+	for _, m := range append(slices.Clone(c.Catalog.Metrics()), printed...) {
+		item, ok := domain.OverviewOf(m, pp.byCode[m.Code])
 		if !ok {
 			continue
 		}
@@ -78,17 +105,20 @@ func (c *Clinical) PersonMetrics(ctx context.Context, sc domain.Scope, personID 
 }
 
 // PersonMetric returns every value of one metric for a person, oldest
-// first (HW-MET-3).
+// first (HW-MET-3); the metric may be one made from a printed name.
 func (c *Clinical) PersonMetric(ctx context.Context, sc domain.Scope, personID, code string) (MetricTrend, error) {
 	m, ok := c.Catalog.Metric(code)
-	if !ok {
-		return MetricTrend{}, domain.NotFound("metric")
-	}
-	person, byCode, _, err := c.personPoints(ctx, sc, personID)
+	pp, err := c.personPoints(ctx, sc, personID)
 	if err != nil {
 		return MetricTrend{}, err
 	}
-	points := byCode[code]
+	if !ok {
+		if m, ok = pp.printed[code]; !ok {
+			return MetricTrend{}, domain.NotFound("metric")
+		}
+	}
+	person := pp.person
+	points := pp.byCode[code]
 	if points == nil {
 		points = []domain.TrendPoint{}
 	}

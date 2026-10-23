@@ -309,9 +309,10 @@ type ClinicalRepo interface {
 	// CountTypedObservations counts a person's approved observations typed
 	// in without a document (HW-MET-2).
 	CountTypedObservations(ctx context.Context, tenantID, personID string) (int, error)
-	// UneditedReadObservations lists every tenant's approved observations as
-	// an AI reading left them: version 1 and the reading's own confidence,
-	// since any edit saves 100. Each comes with its visit's provider.
+	// UneditedReadObservations lists every tenant's approved observations
+	// that no person changed: the reading's own confidence, since any edit
+	// saves 100, and no audit entry made by a user. The engine's own
+	// relinks don't count. Each comes with its visit's provider.
 	UneditedReadObservations(ctx context.Context) ([]TenantObservation, error)
 	AddAudit(ctx context.Context, tenantID string, e domain.AuditEntry) error
 	AuditOf(ctx context.Context, tenantID string, entity domain.AuditEntity, entityID string) ([]domain.AuditEntry, error)
