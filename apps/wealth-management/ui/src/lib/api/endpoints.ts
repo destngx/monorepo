@@ -97,6 +97,16 @@ import type {
   TransactionInput,
   TrendPoint,
   YearlyCashFlow,
+  CardHolding,
+  MerchantMcc,
+  Program,
+  CardInput,
+  CryptoHoldingInput,
+  CryptoHoldingResult,
+  FundTradeInput,
+  FundTradeResult,
+  MerchantInput,
+  ProgramInput,
 } from './types';
 
 type Fetch = RequestOptions['fetch'];
@@ -345,6 +355,23 @@ export const api = {
     aiStream<CaptureEvent>('/ai/capture', { materials }, signal),
   /** The sheet's card configuration: programmes, banks, cards held and merchant MCCs. */
   cardPrograms: (options?: ReadOptions) => read<CardConfig>('/cards/programs', options),
+  /** Adds a Cards row; the tabs are read as they would be after it, so a bad row is refused (WM-FILL-12). */
+  createCard: (input: CardInput) => request<CardHolding>('/cards', { method: 'POST', body: input }),
+  updateCard: (name: string, input: CardInput) =>
+    request<CardHolding>(`/cards/${encodeURIComponent(name)}`, { method: 'PATCH', body: input }),
+  /** Adds a programme version with its rules; 409 when that version exists (WM-FILL-13). */
+  createCardProgram: (input: ProgramInput) => request<Program>('/cards/programs', { method: 'POST', body: input }),
+  /** Saves the MCC a payee is billed with (WM-FILL-14). */
+  saveMerchant: (input: MerchantInput) => request<MerchantMcc>('/cards/merchants', { method: 'POST', body: input }),
+  /** Records a fund trade in History and Total Unit (WM-FILL-10). */
+  recordFundTrade: (input: FundTradeInput) =>
+    request<FundTradeResult>('/investments/funds/trades', { method: 'POST', body: input }),
+  /** Sets coin balances per platform in the Crypto tab (WM-FILL-11). */
+  setCryptoHoldings: (holdings: CryptoHoldingInput[]) =>
+    request<{ holdings: CryptoHoldingResult[] }>('/investments/crypto/holdings', {
+      method: 'POST',
+      body: { holdings },
+    }),
   captureRules: (options?: ReadOptions) => read<CaptureRule[]>('/capture/rules', options),
   saveCaptureRules: (rules: CaptureRule[]) =>
     request<CaptureRulesSaveResult>('/capture/rules', { method: 'POST', body: { rules } }),

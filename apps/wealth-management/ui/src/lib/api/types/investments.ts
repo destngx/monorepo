@@ -323,3 +323,37 @@ export interface Hedges {
   issues: string[];
   generatedAt: string;
 }
+
+/** A fund certificate trade (POST /investments/funds/trades; WM-FILL-10). */
+export interface FundTradeInput {
+  code: string;
+  /** yyyy-mm-dd, not in the future. */
+  date: string;
+  /** Units bought; negative for units sold. */
+  units: number;
+}
+
+export interface FundTradeResult {
+  code: string;
+  /** Units held after the trade. */
+  units: number;
+  entry: string;
+  row: number;
+  created: boolean;
+}
+
+/** A coin's balance on a platform now (POST /investments/crypto/holdings; WM-FILL-11). */
+export interface CryptoHoldingInput {
+  platform: string;
+  symbol: string;
+  quantity: number;
+  note?: string;
+}
+
+export interface CryptoHoldingResult {
+  platform: string;
+  symbol: string;
+  quantity: number;
+  row: number;
+  created: boolean;
+}

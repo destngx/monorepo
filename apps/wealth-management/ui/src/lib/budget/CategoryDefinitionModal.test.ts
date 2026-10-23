@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const endpoints = vi.hoisted(() => ({ setCategoryDefinition: vi.fn() }));
+const endpoints = vi.hoisted(() => ({ setCategoryDefinition: vi.fn(), fill: vi.fn() }));
 const toastMock = vi.hoisted(() => ({ push: vi.fn(), error: vi.fn(), info: vi.fn(), success: vi.fn() }));
 vi.mock('$lib/api/endpoints', () => ({ api: endpoints }));
 vi.mock('$lib/state/toasts.svelte', () => ({ toasts: toastMock }));
@@ -55,7 +55,7 @@ describe('CategoryDefinitionModal: Describe it (WM-FILL-6)', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('fills the definition and split tags, marks them, and saves them as usual', async () => {
-    endpoints.fill = vi.fn().mockResolvedValue({
+    endpoints.fill.mockResolvedValue({
       form: 'category-definition',
       values: { definition: 'Groceries and meals out, not alcohol.', splitTags: ['work', 'family'] },
       filled: ['definition', 'splitTags'],

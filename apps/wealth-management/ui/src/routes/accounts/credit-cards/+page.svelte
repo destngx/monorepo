@@ -1,10 +1,13 @@
 <script lang="ts">
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
-  import { track, Card, Deferred, EmptyState, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
+  import { track, Button, Card, Deferred, EmptyState, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import type { CardBankReport } from '$lib/api/types';
   import { base } from '$app/paths';
   import BestCardForm from '$lib/cards/BestCardForm.svelte';
+  import CardFormModal from '$lib/cards/CardFormModal.svelte';
+  import MerchantFormModal from '$lib/cards/MerchantFormModal.svelte';
+  import ProgramFormModal from '$lib/cards/ProgramFormModal.svelte';
   import {
     allCards,
     capsLeft,
@@ -35,6 +38,9 @@
   const banks = $derived<CardBankReport[]>(report.value ?? []);
   const totals = $derived(portfolioTotals(banks));
   const utilization = $derived(totals.limit ? (totals.usage / totals.limit) * 100 : 0);
+
+  // Card configuration writes (WM-FILL-12..14), each with Describe it.
+  let adding = $state<'card' | 'program' | 'merchant' | null>(null);
 
   // Closed cards are hidden unless asked for; totals still count them.
   let showClosed = $state(false);
@@ -76,6 +82,9 @@
         Show closed cards ({closedCount})
       </label>
     {/if}
+    <Button icon="plus" onclick={() => (adding = 'program')}>Programme terms</Button>
+    <Button icon="plus" onclick={() => (adding = 'card')}>Card</Button>
+    <Button onclick={() => (adding = 'merchant')}>Payee MCC</Button>
   {/snippet}
 </PageHeader>
 
@@ -112,7 +121,7 @@
         <Card class="mt-4"
           ><EmptyState
             title="No credit cards configured"
-            detail="Add the Programs, ProgramRules, Banks and Cards tabs (and Merchants for payee MCCs) to the Google Sheet. See the setup guide for their columns."
+            detail="Add programme terms, then a card. Describe it reads the bank's terms or a statement for you."
           /></Card
         >
       {/if}
@@ -283,3 +292,7 @@
   class="mt-4"
   review={(force, signal) => api.review('credit-summary', {}, { force, signal })}
 />
+
+<ProgramFormModal open={adding === 'program'} onclose={() => (adding = null)} />
+<CardFormModal open={adding === 'card'} onclose={() => (adding = null)} />
+<MerchantFormModal open={adding === 'merchant'} onclose={() => (adding = null)} />

@@ -281,3 +281,53 @@ export interface ProgramComparisonReport {
   payments: number;
   programs: ProgramComparison[];
 }
+
+/** A Cards row to write (POST /cards, PATCH /cards/:name; WM-FILL-12). */
+export interface CardInput {
+  name: string;
+  program: string;
+  keyword: string;
+  expiry?: string;
+  statementDay: number;
+  dueDay: number;
+  default?: boolean;
+  closedFrom?: string;
+  last4?: string;
+  /** The bank's shared account credit limit (Accounts C); absent leaves it. */
+  limit?: number;
+}
+
+export interface ProgramRuleInput {
+  rule: string;
+  /** Codes and ranges as text, e.g. "5411, 5812-5814"; blank matches any. */
+  mccs?: string;
+  rate: number;
+  cap?: number;
+  minTransaction?: number;
+  minCycleSpend?: number;
+  fallback?: boolean;
+  exclude?: boolean;
+  capGroup?: string;
+}
+
+/** A programme version with its rules (POST /cards/programs; WM-FILL-13). */
+export interface ProgramInput {
+  program: string;
+  bank: string;
+  /** For a bank with no Banks row: the account its cards bill to. */
+  sharedAccount?: string;
+  from: string;
+  annualFee?: number;
+  cap?: number;
+  capPeriod: CapPeriod;
+  rules: ProgramRuleInput[];
+}
+
+/** A payee MCC to save (POST /cards/merchants; WM-FILL-14). */
+export interface MerchantInput {
+  pattern: string;
+  mcc: number;
+  from?: string;
+  confidence?: Exclude<MccStatus, 'unknown'>;
+  note?: string;
+}

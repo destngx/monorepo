@@ -1,9 +1,10 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
-  import { track, Card, Deferred, EmptyState, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
+  import { track, Button, Card, Deferred, EmptyState, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
   import CardDetail from '$lib/cards/CardDetail.svelte';
+  import CardFormModal from '$lib/cards/CardFormModal.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import { currentMonth, formatDate, formatMonth } from '$lib/format';
 
@@ -26,12 +27,18 @@
     [...new Set([currentMonth(), ...(card?.history ?? []).map((m) => m.month)])].sort().reverse().slice(0, 12),
   );
   let summaryMonth = $state(currentMonth());
+  let editing = $state(false);
 </script>
 
 <a href="{base}/accounts/credit-cards" class="link muted mb-3 inline-flex items-center gap-1 text-sm"
   ><Icon name="chevronLeft" size={14} /> Credit cards</a
 >
-<PageHeader title={data.name} {subtitle} />
+<PageHeader title={data.name} {subtitle}>
+  {#snippet actions()}
+    {#if card}<Button icon="pencil" onclick={() => (editing = true)}>Edit card</Button>{/if}
+  {/snippet}
+</PageHeader>
+<CardFormModal open={editing} editing={data.name} onclose={() => (editing = false)} />
 
 <Deferred data={data.detail} scope={data.name} label="the card">
   {#snippet children(found)}

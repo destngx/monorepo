@@ -19,8 +19,10 @@
   import AllocationCard from '$lib/investments/AllocationCard.svelte';
   import { BANK_RATES_HREF, bestBankRate } from '$lib/investments/bankRates';
   import CryptoCard from '$lib/investments/CryptoCard.svelte';
+  import CryptoHoldingsModal from '$lib/investments/CryptoHoldingsModal.svelte';
   import ExposureCard from '$lib/investments/ExposureCard.svelte';
   import FundPerformanceCard from '$lib/investments/FundPerformanceCard.svelte';
+  import FundTradeModal from '$lib/investments/FundTradeModal.svelte';
   import HedgesCard from '$lib/investments/HedgesCard.svelte';
   import HoldingsCard from '$lib/investments/HoldingsCard.svelte';
   import { nf } from '$lib/investments/holdings';
@@ -82,6 +84,10 @@
       return { key, title: sectionTitles[key], rows, total: rows.reduce((sum, h) => sum + (h.valueVND ?? 0), 0) };
     });
   }
+
+  // Writes for what was edited in the sheet only (WM-FILL-10, WM-FILL-11).
+  let writing = $state<PortfolioSection | null>(null);
+  const heldIn = (section: PortfolioSection) => valuation.value?.holdings.filter((h) => h.section === section) ?? [];
 
   // One bank-rates list (ROADMAP C5): the full list is on the Fmarket page.
   const bestRate = $derived(bankRates.value ? bestBankRate(bankRates.value.rates) : null);
@@ -188,7 +194,13 @@
   {#snippet children(value)}
     <div class="space-y-4">
       {#each sectionsOf(value) as { key, title, rows, total } (key)}
-        <HoldingsCard {title} {rows} {total} />
+        <HoldingsCard {title} {rows} {total}>
+          {#snippet action()}
+            <Button size="sm" icon={key === 'funds' ? 'plus' : 'pencil'} onclick={() => (writing = key)}
+              >{key === 'funds' ? 'Record a trade' : 'Update balances'}</Button
+            >
+          {/snippet}
+        </HoldingsCard>
       {/each}
     </div>
   {/snippet}
@@ -228,3 +240,16 @@
   {/if}
   <a href="{base}{BANK_RATES_HREF}" class="link ml-auto">All bank rates</a>
 </p>
+
+<FundTradeModal
+  open={writing === 'funds'}
+  codes={[
+    ...new Set(
+      heldIn('funds')
+        .map((h) => h.symbol)
+        .filter(Boolean),
+    ),
+  ]}
+  onclose={() => (writing = null)}
+/>
+<CryptoHoldingsModal open={writing === 'crypto'} holdings={heldIn('crypto')} onclose={() => (writing = null)} />

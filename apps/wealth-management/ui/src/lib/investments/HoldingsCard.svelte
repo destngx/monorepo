@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import type { ValuedHolding } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
   import { Card, EmptyState } from '@libs/ui-kit';
@@ -12,12 +13,14 @@
     rows: ValuedHolding[];
     /** Section total in VND. */
     total: number;
+    /** A write for the section, e.g. recording a trade. */
+    action?: Snippet;
   }
 
-  let { title, rows, total }: Props = $props();
+  let { title, rows, total, action }: Props = $props();
 </script>
 
-<Card {title} subtitle="{rows.length} holdings">
+<Card {title} subtitle="{rows.length} holdings" actions={action}>
   {#if rows.length}
     <div class="-mx-5 overflow-x-auto">
       <table class="w-full min-w-[52rem] text-sm">

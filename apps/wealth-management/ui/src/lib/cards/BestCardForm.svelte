@@ -9,6 +9,7 @@
   import { Button, Card } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { MCC_STATUS, parseCardPayment } from './cards';
+  import MerchantFormModal from './MerchantFormModal.svelte';
 
   // WM-CARD-13: which held card earns the most on a payment about to be made.
   let form = $state({ payee: '', amount: '', mcc: '' });
@@ -20,6 +21,8 @@
   let controller: AbortController | null = null;
   // Fields AI filled from the Describe it box (WM-FILL-6).
   const marks = new FillMarks();
+  // Saves the payee's MCC for next time (WM-FILL-14).
+  let mapping = $state<{ pattern: string; mcc: number | null } | null>(null);
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -105,9 +108,18 @@
       {@const mcc = suggestions[0].mcc}
       <p class="muted mt-4 text-xs">
         {#if mcc.status === 'unknown'}
-          The MCC is unknown, so only fallback rules apply. Map the payee in the Merchants tab or enter the MCC.
+          The MCC is unknown, so only fallback rules apply. Map the payee or enter the MCC.
         {:else}
           MCC {String(mcc.code).padStart(4, '0')} ({MCC_STATUS[mcc.status].label}).
+        {/if}
+        {#if form.payee.trim() && (mcc.status === 'unknown' || form.mcc.trim())}
+          <button
+            type="button"
+            class="link ml-1"
+            onclick={() =>
+              (mapping = { pattern: form.payee.trim(), mcc: mcc.status === 'unknown' ? null : (mcc.code ?? null) })}
+            >Save the payee's MCC</button
+          >
         {/if}
       </p>
       <ol class="mt-2 divide-y divide-stone-900/5 text-sm dark:divide-white/5">
@@ -136,3 +148,5 @@
     {/if}
   {/if}
 </Card>
+
+<MerchantFormModal open={mapping !== null} initial={mapping ?? undefined} onclose={() => (mapping = null)} />
