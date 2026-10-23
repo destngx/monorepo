@@ -250,7 +250,7 @@ describe('IdleCashCard', () => {
   });
 
   it('Given a move plan When shown Then today is set against the best day, with the steps masked', () => {
-    render(IdleCashCard, { idle: idleCash({ moves: [move()] }) });
+    render(IdleCashCard, { idle: idleCash({ moves: [move()], options: [wallet] }) });
 
     const plan = text('idle-moves');
     expect(plan).toContain('Idle cash');
@@ -326,5 +326,20 @@ describe('IdleCashCard', () => {
     const select = screen.getByLabelText<HTMLSelectElement>('Account A');
     expect(select.value).toBe('wallet-z:earning');
     expect(select.selectedOptions[0].textContent).toContain('rate unavailable today');
+  });
+
+  it('Given idle cash When shown Then the answer and four figures show and every detail starts folded', () => {
+    render(IdleCashCard, { idle: idleCash({ moves: [move()], options: [wallet] }) });
+
+    expect(text('idle-figures')).toMatch(/Ready money.*Keep ready.*Idle.*Extra a year/);
+    const folds = [...document.querySelectorAll('details')];
+    expect(folds.map((fold) => fold.querySelector('summary span')?.textContent)).toEqual([
+      'Emergency fund',
+      'Compare instant-access places',
+      'How to move',
+      'Settings',
+      'Show the math',
+    ]);
+    expect(folds.every((fold) => !fold.open)).toBe(true);
   });
 });

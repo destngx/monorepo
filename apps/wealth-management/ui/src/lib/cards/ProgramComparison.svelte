@@ -27,6 +27,8 @@
 </script>
 
 <Card
+  foldable
+  open={false}
   title="Compare programmes"
   subtitle="Your card payments of the last 12 months under each programme's current terms, net of the annual fee"
   class={className}

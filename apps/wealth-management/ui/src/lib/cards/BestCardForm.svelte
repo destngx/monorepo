@@ -44,6 +44,8 @@
 </script>
 
 <Card
+  foldable
+  open={false}
   title="Best card for a payment"
   subtitle="What the payment would add to each card's current period, caps and spend tiers included"
 >

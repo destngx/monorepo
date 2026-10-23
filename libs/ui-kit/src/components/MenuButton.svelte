@@ -19,12 +19,13 @@
   interface Props {
     label: string;
     icon?: IconName;
+    variant?: 'primary' | 'ghost';
     items: MenuItem[];
     busy?: boolean;
     busyText?: string;
   }
 
-  let { label, icon, items, busy = false, busyText }: Props = $props();
+  let { label, icon, variant = 'ghost', items, busy = false, busyText }: Props = $props();
 
   let open = $state(false);
   let root: HTMLDivElement | undefined = $state();
@@ -66,7 +67,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="relative inline-flex" bind:this={root} onkeydown={keydown}>
-  <Button {icon} {busy} {busyText} aria-haspopup="menu" aria-expanded={open} onclick={() => (open = !open)}>
+  <Button {variant} {icon} {busy} {busyText} aria-haspopup="menu" aria-expanded={open} onclick={() => (open = !open)}>
     {label}<Icon name="chevronDown" size={14} />
   </Button>
   {#if open}

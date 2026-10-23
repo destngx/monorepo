@@ -2,6 +2,7 @@
   import type { SubmitHandler } from '$lib/accounts/handlers';
   import type { GoalProgress } from '$lib/api/types';
   import { Button, Modal } from '@libs/ui-kit';
+  import MonthPicker from '$lib/components/MonthPicker.svelte';
   import { looksLikeEmergencyFund, type GoalForm } from './goals';
 
   interface Props {
@@ -80,7 +81,13 @@
     </div>
     <div>
       <label class="label" for="goal-date">Target date</label>
-      <input id="goal-date" type="month" class="field" bind:value={form.targetDate} aria-describedby="goal-date-hint" />
+      <MonthPicker
+        id="goal-date"
+        bind:value={form.targetDate}
+        placeholder="No deadline"
+        clearLabel="No deadline"
+        describedby="goal-date-hint"
+      />
       <p id="goal-date-hint" class="muted mt-1 text-xs">Blank: no deadline, the pace only.</p>
     </div>
     <div>

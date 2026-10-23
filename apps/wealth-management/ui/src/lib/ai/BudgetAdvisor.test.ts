@@ -84,7 +84,6 @@ const tracked: Recommendation = {
 async function showAdvice(value: BudgetAdvice) {
   endpoints.budgetAdvice.mockResolvedValue(value);
   render(BudgetAdvisor);
-  await fireEvent.click(screen.getByRole('button', { name: /Get advice/ }));
   await screen.findByText('Spending is on plan.');
 }
 
@@ -94,14 +93,30 @@ describe('BudgetAdvisor', () => {
     endpoints.recommendations.mockResolvedValue(openList([]));
   });
 
-  it('lists the budget actions being tracked before any advice is asked for (WM-BUD-11)', async () => {
+  it('lists the budget actions being tracked while the advice loads (WM-BUD-11)', async () => {
+    endpoints.budgetAdvice.mockReturnValue(new Promise(() => undefined));
     endpoints.recommendations.mockResolvedValue(openList([tracked]));
     render(BudgetAdvisor);
 
     const section = screen.getByRole('region', { name: "Actions you're tracking" });
     expect(await within(section).findByText('Cook twice a week')).toBeTruthy();
-    expect(endpoints.budgetAdvice).not.toHaveBeenCalled();
     expect(endpoints.recommendations).toHaveBeenCalledWith({ page: '/budget', status: 'open' }, { force: false });
+  });
+
+  it('asks for advice on open without a click, reusing a cached answer', async () => {
+    await showAdvice(advice());
+
+    expect(screen.queryByRole('button', { name: /Get advice/ })).toBeNull();
+    expect(endpoints.budgetAdvice).toHaveBeenCalledOnce();
+    expect(endpoints.budgetAdvice.mock.calls[0][0]).toMatchObject({ force: false });
+  });
+
+  it('regenerates on demand, skipping the cache', async () => {
+    await showAdvice(advice());
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Regenerate advice' }));
+    expect(endpoints.budgetAdvice).toHaveBeenCalledTimes(2);
+    expect(endpoints.budgetAdvice.mock.calls[1][0]).toMatchObject({ force: true });
   });
 
   it('shows each suggestion as a move in words with what the category is', async () => {

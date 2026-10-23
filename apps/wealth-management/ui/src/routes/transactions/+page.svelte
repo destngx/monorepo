@@ -5,7 +5,19 @@
   import { base } from '$app/paths';
   import { page } from '$app/state';
   import { api } from '$lib/api/endpoints';
-  import { track, Button, Card, Deferred, EmptyState, Icon, Modal, SkeletonTable, SkeletonText } from '@libs/ui-kit';
+  import {
+    track,
+    Button,
+    Card,
+    Deferred,
+    EmptyState,
+    Icon,
+    MenuButton,
+    Modal,
+    SkeletonTable,
+    SkeletonText,
+    type MenuItem,
+  } from '@libs/ui-kit';
   import type { Transaction, TransactionInput } from '$lib/api/types';
   import { pendingDrafts } from '$lib/state/drafts.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
@@ -71,6 +83,12 @@
     formKey++;
     editing = 'new';
   }
+
+  // One Add menu: type a row in, or read it from a screenshot or statement.
+  const addItems: MenuItem[] = [
+    { label: 'Add transaction', icon: 'plus', onselect: () => openNew() },
+    { label: 'Smart capture', icon: 'camera', onselect: () => void goto(`${base}/transactions/capture`) },
+  ];
 
   const editorKey = $derived(editing === null ? '' : editing === 'new' ? `new-${formKey}` : editing.id);
 
@@ -194,8 +212,7 @@
     <a class="btn-ghost" href="{base}/transactions/drafts"
       ><Icon name="inbox" size={16} /> Drafts{pendingDrafts.count ? ` (${pendingDrafts.count})` : ''}</a
     >
-    <a class="btn-ghost" href="{base}/transactions/capture"><Icon name="camera" size={16} /> Add from materials</a>
-    <Button variant="primary" icon="plus" onclick={() => openNew()}>Add</Button>
+    <MenuButton variant="primary" label="Add" icon="plus" items={addItems} />
   {/snippet}
 </PageHeader>
 

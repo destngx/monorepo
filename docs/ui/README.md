@@ -124,7 +124,7 @@ Use Tailwind classes for everything else. Write plain CSS only for what Tailwind
   - A flex child that holds text gets `min-w-0`.
   - A wide table scrolls inside its card with `overflow-x-auto`, or stacks its rows into cards below `sm` (WM `TransactionTable`).
 - A page starts with a page title component (`PageHeader` in WM, `PageTitle` in HW): the title, an optional subtitle and an `actions` snippet. It also sets `<title>Page · App</title>`.
-- Cards are `Card` (`panel p-5`) with an optional title, subtitle and actions. Put spacing on the wrapper, not inside the card.
+- Cards are `Card` (`panel p-5`) with an optional title, subtitle and actions. `foldable` adds a chevron before the title that folds the body (bind `open`; it hides the actions while folded), for setup or tools a page rarely needs. Put spacing on the wrapper, not inside the card.
 - Pages that answer a question lead with one headline answer (WM `PageHeadline`), then the detail.
 
 ## 7. Components and behaviour

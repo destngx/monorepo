@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import BriefingCard from '$lib/ai/BriefingCard.svelte';
   import ChartInsight from '$lib/ai/ChartInsight.svelte';
@@ -15,7 +14,6 @@
   import NeedsYouCard from '$lib/home/NeedsYouCard.svelte';
   import { formatDate, formatMonth } from '$lib/format';
   import type { LoadedRates } from '$lib/rates';
-  import { sync } from '$lib/state/sync.svelte';
 
   // Home (ROADMAP R5, P2): what needs me first, then safe-to-spend, the net
   // worth trend and this month's savings, then a short briefing; the
@@ -44,13 +42,8 @@
 
 <PageHeader title="Dashboard" subtitle={summary.value ? `As of ${formatDate(summary.value.asOf)}` : undefined}>
   {#snippet actions()}
-    <!-- WM-DASH-7: quick actions -->
-    <a class="btn-ghost" href="{base}/transactions?new=1"><Icon name="plus" size={16} /> Add transaction</a>
+    <!-- WM-DASH-7: quick action; sync lives in the app header -->
     <a class="btn-ghost" href="{base}/transactions/capture"><Icon name="camera" size={16} /> Smart capture</a>
-    <!-- sync.run reports its own failure; the busy state also covers auto-sync -->
-    <Button icon="refresh" busy={sync.syncing} busyText="Syncing…" onclick={() => sync.run(invalidateAll)}
-      >Sync now</Button
-    >
   {/snippet}
 </PageHeader>
 

@@ -55,8 +55,9 @@ describe('Home page', () => {
     });
 
     expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Add transaction/ }).getAttribute('href')).toBe('/ui/transactions?new=1');
-    expect(screen.getByRole('button', { name: /Sync now/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Smart capture/ }).getAttribute('href')).toBe('/ui/transactions/capture');
+    expect(screen.queryByRole('link', { name: /Add transaction/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Sync now/ })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Income vs expense' })).toBeTruthy();
     const loading = screen.getAllByRole('status').map((status) => status.textContent?.trim());
     expect(loading).toEqual(

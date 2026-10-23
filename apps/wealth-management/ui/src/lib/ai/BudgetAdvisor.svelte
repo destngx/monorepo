@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
@@ -19,8 +19,15 @@
   import { severityStatus } from './severity';
   import { AITask } from './task.svelte';
 
-  // Budget advisor (WM-BUD-5): model advice over engine-computed facts.
+  // Budget advisor (WM-BUD-5): model advice over engine-computed facts. It
+  // runs on open: the engine reuses advice for the same facts for 30
+  // minutes, so only the refresh button asks the AI again.
   const task = new AITask((force, signal) => api.budgetAdvice({ force, signal }));
+
+  onMount(() => {
+    void task.run();
+    return () => task.cancel();
+  });
 
   // The advisor files trackable actions to the Budget page's recommendations
   // and lists the open ones in this card (WM-BUD-11); a run that recorded

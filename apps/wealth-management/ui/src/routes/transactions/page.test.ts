@@ -82,8 +82,18 @@ describe('Transactions page', () => {
     expect(screen.getByText('Counting transactions…')).toBeTruthy();
     expect(screen.getByRole('searchbox', { name: 'Search transactions' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByRole('link', { name: /Add from materials/ })).toBeNull();
     expect(screen.getByRole('link', { name: /Drafts/ }).getAttribute('href')).toBe('/ui/transactions/drafts');
     expect(screen.getByText('Loading transactions…')).toBeTruthy();
+  });
+
+  it('Given the page When Add is opened Then it offers a typed entry and smart capture', async () => {
+    render(TransactionsPage, { data: pending() as never });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    const items = screen.getAllByRole('menuitem').map((item) => item.textContent?.trim());
+    expect(items).toEqual(['Add transaction', 'Smart capture']);
   });
 
   it('Given the ledger fails When it settles Then the table shows the error with Retry and the shell stays', async () => {
@@ -201,6 +211,7 @@ describe('Transactions page', () => {
       });
       await flush();
       await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      await fireEvent.click(screen.getByRole('menuitem', { name: 'Add transaction' }));
       await flush();
 
       await fireEvent.change(document.getElementById('tx-account')!, { target: { value: 'Card A' } });
@@ -238,6 +249,7 @@ describe('Transactions page', () => {
       });
       await flush();
       await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      await fireEvent.click(screen.getByRole('menuitem', { name: 'Add transaction' }));
       await flush();
 
       await fireEvent.change(document.getElementById('tx-account')!, { target: { value: 'Card A' } });

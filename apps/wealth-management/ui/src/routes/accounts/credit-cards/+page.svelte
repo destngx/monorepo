@@ -27,8 +27,9 @@
   import Masked from '$lib/components/Masked.svelte';
   import { STATUS } from '$lib/status';
 
-  // The header renders at once; the banks and their cards stream in, with
-  // the best-card form and programme comparison once there are cards.
+  // The header renders at once; the banks and their cards stream in, then
+  // the history comparison, and last the folded best-card form and
+  // programme comparison once there are cards.
   let { data } = $props();
   const report = track(() => data.banks);
   const banks = $derived<CardBankReport[]>(report.value ?? []);
@@ -216,13 +217,6 @@
       {/each}
 
       {#if cards.length}
-        <div class="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <BestCardForm />
-          <ProgramComparison />
-        </div>
-      {/if}
-
-      {#if cards.length}
         <!-- WM-CARD-2: cross-card comparison -->
         <Card title="Compare cards" subtitle="History per card, by the month each period starts in" class="mt-4">
           {#snippet actions()}
@@ -262,6 +256,12 @@
             label="Card comparison"
           />
         </Card>
+
+        <!-- WM-CARD-13, WM-CARD-14: tools used now and then, folded below the cards -->
+        <div class="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+          <BestCardForm />
+          <ProgramComparison />
+        </div>
       {/if}
     </div>
   {/snippet}

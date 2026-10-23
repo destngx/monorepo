@@ -15,20 +15,33 @@
   }
 
   let { lines, onselect, onedit }: Props = $props();
+
+  // A dense two-column list: the fullest categories first, the rest one
+  // click away so a long budget does not push the page down.
+  const SHOWN = 8;
+  let showAll = $state(false);
+  const visible = $derived(showAll ? lines : lines.slice(0, SHOWN));
 </script>
 
-<Card title="Expense categories" subtitle="Click a category for detail" class="mt-4">
+<Card title="Expense categories" subtitle="Fullest first. Click a category for detail" class="mt-4">
+  {#snippet actions()}
+    {#if lines.length > SHOWN}
+      <button type="button" class="btn-ghost px-2 py-1 text-xs" onclick={() => (showAll = !showAll)}
+        >{showAll ? 'Show fewer' : `Show all ${lines.length}`}</button
+      >
+    {/if}
+  {/snippet}
   {#if lines.length}
-    <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
-      {#each lines as line (line.category)}
-        <li class="flex items-center gap-3 py-3">
+    <ul class="grid grid-cols-1 gap-x-6 md:grid-cols-2">
+      {#each visible as line (line.category)}
+        <li class="flex items-center gap-1 border-b border-stone-900/5 py-1.5 dark:border-white/5">
           <button
             type="button"
-            class="row-link -m-1.5 min-w-0 flex-1 rounded-lg p-1.5 text-left"
+            class="row-link -mx-1.5 min-w-0 flex-1 rounded-lg px-1.5 py-1 text-left"
             onclick={() => onselect(line)}
           >
-            <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span class="flex items-center gap-2 font-medium">
+            <div class="mb-1 flex flex-wrap items-center justify-between gap-x-2 text-sm">
+              <span class="flex min-w-0 items-center gap-2 font-medium">
                 {line.category}
                 {#if line.unbudgeted}<Badge tone="violet">No limit</Badge>
                 {:else if line.status !== 'healthy'}<Badge status={statusTone[line.status]}
@@ -40,7 +53,7 @@
               >
             </div>
             {#if line.burnOutDate}
-              <p class="mb-1 flex items-center gap-1 text-xs {STATUS.serious.ink}">
+              <p class="mb-0.5 flex items-center gap-1 text-xs {STATUS.serious.ink}">
                 <Icon name="clock" size={12} />Runs out on {formatDate(line.burnOutDate)} at the current pace
               </p>
             {/if}
@@ -48,10 +61,11 @@
               percent={line.unbudgeted ? 100 : line.percentUsed}
               color={statusBar[line.status]}
               label={line.category}
+              size="sm"
             />
             {#if line.splits?.length}
               <!-- WM-CAT-3: the share of the month on the category's split tags. -->
-              <p class="muted mt-1 flex flex-wrap gap-x-3 text-xs" data-testid="splits">
+              <p class="muted mt-0.5 flex flex-wrap gap-x-3 text-xs" data-testid="splits">
                 {#each line.splits as split (split.tag)}
                   <span
                     >of which <span class="font-medium">#{split.tag}</span>
@@ -63,10 +77,10 @@
           </button>
           <button
             type="button"
-            class="btn-ghost px-2"
+            class="btn-ghost shrink-0 px-1.5"
             aria-label="Edit limit for {line.category}"
             title="Edit limit"
-            onclick={() => onedit(line)}><Icon name="pencil" size={15} /></button
+            onclick={() => onedit(line)}><Icon name="pencil" size={14} /></button
           >
         </li>
       {/each}

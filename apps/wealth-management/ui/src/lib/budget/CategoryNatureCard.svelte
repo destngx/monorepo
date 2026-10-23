@@ -36,7 +36,10 @@
   }
 </script>
 
+<!-- Setup that rarely changes, so it starts folded. -->
 <Card
+  foldable
+  open={false}
   title="Categories"
   subtitle="Fixed and essential are needs, flexible is wants. Lending categories hold money lent and repaid: they leave income and expense and feed Money lent. Define a category to say what belongs in it; split tags show a share of its spend."
 >

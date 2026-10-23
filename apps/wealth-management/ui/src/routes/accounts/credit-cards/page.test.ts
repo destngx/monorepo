@@ -55,10 +55,24 @@ describe('Credit cards page', () => {
     expect(calls).toContain('recommendations');
   });
 
+  it('Given cards When the page renders Then the best-card and programme tools sit folded below the cards', async () => {
+    render(CreditCardsPage, { data: { engine: never(), banks: settled([testBank()]) } as never });
+    await flush();
+
+    const best = screen.getByRole('button', { name: 'Open Best card for a payment' });
+    const programmes = screen.getByRole('button', { name: 'Open Compare programmes' });
+    expect(best.getAttribute('aria-expanded')).toBe('false');
+    expect(programmes.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'Compare' })).toBeNull();
+    const history = screen.getByRole('heading', { name: 'Compare cards' });
+    expect(history.compareDocumentPosition(best) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('Given cards When Compare is clicked Then the comparison button stays busy until it answers', async () => {
     render(CreditCardsPage, { data: { engine: never(), banks: settled([testBank()]) } as never });
     await flush();
 
+    await fireEvent.click(screen.getByRole('button', { name: 'Open Compare programmes' }));
     const compare = screen.getByRole('button', { name: 'Compare' });
     await fireEvent.click(compare);
     await flush();
