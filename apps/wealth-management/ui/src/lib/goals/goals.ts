@@ -67,13 +67,19 @@ export function groupGoals(plan: GoalPlan): { active: GoalProgress[]; paused: Go
   };
 }
 
-/** Moves one id up (-1) or down (+1); out-of-range moves return the same order. */
-export function moveId(ids: string[], index: number, delta: -1 | 1): string[] {
-  const target = index + delta;
-  if (index < 0 || index >= ids.length || target < 0 || target >= ids.length) return ids;
+/** Moves one id to another index, shifting the ids between; out-of-range moves return the same order. */
+export function moveId(ids: string[], from: number, to: number): string[] {
+  if (from === to || from < 0 || from >= ids.length || to < 0 || to >= ids.length) return ids;
   const next = [...ids];
-  [next[index], next[target]] = [next[target], next[index]];
+  next.splice(to, 0, ...next.splice(from, 1));
   return next;
+}
+
+/** The goals in the given id order (a reorder still saving), the rest after; null keeps them as they are. */
+export function inOrder(goals: GoalProgress[], ids: string[] | null): GoalProgress[] {
+  if (!ids) return goals;
+  const rank = new Map(ids.map((id, index) => [id, index]));
+  return [...goals].sort((a, b) => (rank.get(a.id) ?? ids.length) - (rank.get(b.id) ?? ids.length));
 }
 
 /**

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { GoalProgress } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
-  import { Button } from '@libs/ui-kit';
+  import { Button, Icon, Spinner } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
@@ -13,9 +13,9 @@
     goal: GoalProgress;
     /** Another change to the plan is running: reorders wait for it. */
     busy: boolean;
-    /** This goal is being moved: that arrow shows the spinner. */
-    moving?: 'up' | 'down' | null;
-    /** Reorder handlers; absent hides the arrows (paused and done goals). */
+    /** This goal is being moved: that arrow, or the drag handle, shows the spinner. */
+    moving?: 'up' | 'down' | 'drag' | null;
+    /** Reorder handlers; absent hides the arrows (paused and done goals). With either, the card shows a drag handle. */
     onup?: () => void;
     ondown?: () => void;
     onedit: () => void;
@@ -27,9 +27,24 @@
   const status = $derived(paceStatus(goal.pace));
 </script>
 
-<li class="panel p-4">
+<li
+  class="panel p-4 data-dragging:relative data-dragging:z-20 data-dragging:cursor-grabbing data-dragging:shadow-xl data-drop-target:outline-2 data-drop-target:outline-offset-2 data-drop-target:outline-accent-500 data-drop-target:outline-dashed"
+>
   <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0">
+    {#if onup || ondown}
+      <!-- Pointer drag only; the arrows are the keyboard way to reorder. -->
+      <span
+        data-drag-handle
+        class="hit-area -ml-1 grid h-8 w-5 shrink-0 touch-none place-items-center text-ink-500 select-none {busy
+          ? 'cursor-not-allowed opacity-50'
+          : 'cursor-grab'}"
+        title="Drag to reorder"
+        aria-hidden="true"
+      >
+        {#if moving === 'drag'}<Spinner />{:else}<Icon name="grip" size={16} />{/if}
+      </span>
+    {/if}
+    <div class="min-w-0 flex-1">
       <p class="truncate font-semibold">
         <span class="muted mr-1 text-xs font-medium">#{goal.priority}</span>{goal.name}
       </p>

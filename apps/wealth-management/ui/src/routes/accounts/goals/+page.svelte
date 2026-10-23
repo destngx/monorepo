@@ -17,6 +17,7 @@
   import type { GoalInput, GoalPlan, GoalProgress } from '$lib/api/types';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import Money from '$lib/components/Money.svelte';
+  import { sortable } from '$lib/components/sortable';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
   import Stat from '$lib/components/Stat.svelte';
@@ -28,6 +29,7 @@
     goalFormFor,
     goalInputFrom,
     groupGoals,
+    inOrder,
     looksLikeEmergencyFund,
     moveId,
     verdictStatus,
@@ -45,8 +47,10 @@
   let editing = $state<GoalProgress | null>(null);
   let deleting = $state<GoalProgress | null>(null);
   let form = $state(emptyGoalForm());
-  // The goal whose arrow was pressed, so only that arrow spins.
-  let moving = $state<{ id: string; direction: 'up' | 'down' } | null>(null);
+  // The goal being moved and how, so only that arrow or handle spins.
+  let moving = $state<{ id: string; via: 'up' | 'down' | 'drag' } | null>(null);
+  // The new active order while the reorder saves, so a dropped card stays where it landed.
+  let pendingOrder = $state<string[] | null>(null);
 
   // A finished change closes the dialogs and reloads the plan; the shown plan
   // stays (with a Refreshing badge) until the new one arrives.
@@ -93,6 +97,7 @@
         await done('Priorities updated.');
       } finally {
         moving = null;
+        pendingOrder = null;
       }
     },
     { errorContext: 'Could not reorder the goals' },
@@ -126,15 +131,16 @@
   }
 
   // Reorders active goals; paused and done goals keep their places after them.
-  function move(value: GoalPlan, index: number, direction: 'up' | 'down') {
+  function move(value: GoalPlan, from: number, to: number, via: 'up' | 'down' | 'drag') {
     const groups = groupGoals(value);
     const active = moveId(
       groups.active.map((goal) => goal.id),
-      index,
-      direction === 'up' ? -1 : 1,
+      from,
+      to,
     );
     const ids = [...active, ...groups.paused.map((goal) => goal.id), ...groups.done.map((goal) => goal.id)];
-    moving = { id: groups.active[index].id, direction };
+    moving = { id: groups.active[from].id, via };
+    if (via === 'drag') pendingOrder = active;
     void reorder.run(ids);
   }
 
@@ -154,7 +160,8 @@
 
 <Deferred data={data.plan} label="the goal plan">
   {#snippet children(value)}
-    {@const groups = groupGoals(value)}
+    {@const grouped = groupGoals(value)}
+    {@const groups = { ...grouped, active: inOrder(grouped.active, pendingOrder) }}
     {@const check = value.check}
     {@const verdict = verdictStatus(check.verdict)}
     <div>
@@ -235,14 +242,17 @@
         <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div>
             {#if groups.active.length}
-              <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <ul
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                {@attach sortable({ disabled: busy, onmove: (from, to) => move(value, from, to, 'drag') })}
+              >
                 {#each groups.active as goal, index (goal.id)}
                   <GoalCard
                     {goal}
                     {busy}
-                    moving={moving?.id === goal.id ? moving.direction : null}
-                    onup={index > 0 ? () => move(value, index, 'up') : undefined}
-                    ondown={index < groups.active.length - 1 ? () => move(value, index, 'down') : undefined}
+                    moving={moving?.id === goal.id ? moving.via : null}
+                    onup={index > 0 ? () => move(value, index, index - 1, 'up') : undefined}
+                    ondown={index < groups.active.length - 1 ? () => move(value, index, index + 1, 'down') : undefined}
                     onedit={() => openEdit(goal)}
                     ondelete={() => (deleting = goal)}
                   />

@@ -9,6 +9,7 @@ import {
   goalInputFrom,
   groupGoals,
   looksLikeEmergencyFund,
+  inOrder,
   moveId,
   paceStatus,
   verdictStatus,
@@ -92,12 +93,6 @@ describe('goal lists', () => {
     expect(groups.paused.map((g) => g.id)).toEqual(['c']);
     expect(groups.done.map((g) => g.id)).toEqual(['b']);
   });
-
-  it('moves an id up or down and ignores moves past the ends', () => {
-    expect(moveId(['a', 'b', 'c'], 1, -1)).toEqual(['b', 'a', 'c']);
-    expect(moveId(['a', 'b', 'c'], 1, 1)).toEqual(['a', 'c', 'b']);
-    expect(moveId(['a', 'b'], 0, -1)).toEqual(['a', 'b']);
-  });
 });
 
 describe('goal form', () => {
@@ -133,5 +128,33 @@ describe('goal form', () => {
       startingAmount: null,
       note: 'n',
     });
+  });
+});
+
+describe('moveId', () => {
+  it('moves one place up or down', () => {
+    expect(moveId(['a', 'b', 'c'], 1, 0)).toEqual(['b', 'a', 'c']);
+    expect(moveId(['a', 'b', 'c'], 1, 2)).toEqual(['a', 'c', 'b']);
+  });
+
+  it('takes the place of the card it lands on, shifting the cards between', () => {
+    expect(moveId(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveId(['a', 'b', 'c', 'd'], 3, 1)).toEqual(['a', 'd', 'b', 'c']);
+  });
+
+  it('keeps the order for the same place or an index out of range', () => {
+    const ids = ['a', 'b'];
+    expect(moveId(ids, 1, 1)).toBe(ids);
+    expect(moveId(ids, 0, 5)).toBe(ids);
+    expect(moveId(ids, -1, 0)).toBe(ids);
+  });
+});
+
+describe('inOrder', () => {
+  it('shows goals in a pending order while the reorder saves, keeping goals the order misses', () => {
+    const goals = [goal({ id: 'a' }), goal({ id: 'b' }), goal({ id: 'c' })];
+    expect(inOrder(goals, ['c', 'a', 'b']).map((g) => g.id)).toEqual(['c', 'a', 'b']);
+    expect(inOrder(goals, ['b', 'gone']).map((g) => g.id)).toEqual(['b', 'a', 'c']);
+    expect(inOrder(goals, null)).toBe(goals);
   });
 });
