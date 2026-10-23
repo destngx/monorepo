@@ -14,12 +14,15 @@ The server has no API auth; it runs on a private local machine. Put `VNSTOCK_API
 ## Setup
 
 ```sh
-pnpx nx run market-data-server:install   # creates .venv, installs requirements.txt
 pnpx nx run market-data-server:serve
 pnpx nx run market-data-server:test
 ```
 
-vnstock 4.x is not on PyPI. `requirements.txt` pins `vnstock` and `vnai` by URL and sha256 to the vnstocks.com index.
+Both targets run through `uv run --locked`, which creates `.venv` on the first run and syncs it to `uv.lock` before every run. mise installs uv and Python from `.mise.toml`. uv uses that Python and never downloads one. uv keeps one package cache (`uv cache dir`) and fills each worktree's `.venv` by cloning files from it, so another worktree's `.venv` takes a few MB of disk, not the 150 MB that `du` reports.
+
+To change dependencies, edit `pyproject.toml` and run `uv lock`, or use `uv add <name>` (`uv add --dev <name>` for test tools). Commit `uv.lock` with the change.
+
+vnstock 4.x is not on PyPI. `pyproject.toml` pins `vnstock` and `vnai` by URL and sha256 to the vnstocks.com index.
 
 ## Caching
 

@@ -1,0 +1,28 @@
+[project]
+name = "market-data-server"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  # Event-based reload watcher. Without it, uvicorn --reload polls every file with stat().
+  "watchfiles",
+  "pandas",
+  "requests",
+  "httpx",
+  "python-dotenv",
+  # vnstock is no longer published on PyPI. Pin the vnstocks.com wheels by URL and
+  # hash so uv never resolves these names from another index.
+  "vnstock @ https://vnstocks.com/api/packages/files/vnstock/4.0.9/vnstock-4.0.9-py3-none-any.whl#sha256=b51358c58c1fd9a299379f2d49b5c29e692fbae49e75f2ebc7cbfcc1cb996e64",
+  "vnai @ https://vnstocks.com/api/packages/files/vnai/2.6.3/vnai-2.6.3-py3-none-any.whl#sha256=a378d7cebe50d2a7c2ea2fba7f66c3dd2e706bf240fed17cd57b7c088e721446",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.uv]
+# An app, not a library: uv installs the dependencies only.
+package = false
+# Use the Python that mise pins in .mise.toml (found on PATH), never one uv manages.
+python-preference = "only-system"
+python-downloads = "never"
