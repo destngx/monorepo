@@ -9,100 +9,86 @@ argument-hint: '[branch] (defaults to the current branch)'
 Lands a branch on `main` the way GitHub's "Rebase and merge" would, but from the local checkout. `main` only
 fast-forwards: the repo ruleset rejects merge commits ("Merge commits are not allowed in this repository"), so
 `git merge --no-ff` is never used, even when the user says "no ff". The user asking for a rebase merge (by
-slash command or in plain words such as "merge rebase") is their approval to
-push to `main`, to force-push the feature branch with `--force-with-lease`, and to delete the branch (local and
-remote) and its worktree once the merge and deploy are verified.
+slash command or in plain words such as "merge rebase") is their approval to push to `main`, to force-push the
+feature branch with `--force-with-lease`, and to delete the branch (local and remote) and its worktree once the
+merge and deploy are verified.
 
 Branch: `$ARGUMENTS`, or the current branch when empty.
 
+`scripts/rebase-merge.sh` (repo path `.agents/skills/rebase-merge/scripts/rebase-merge.sh`) runs every git, gh and
+Vercel command. Do not run those steps by hand. Each subcommand prints `key=value` lines and exits with a code that
+says what to do next. Your part is the decisions between subcommands: which checks to rerun, whether the live site
+is right, and which leftover processes to stop. The header of the script lists every exit code. Its tests are in
+`scripts/rebase-merge.test.sh`. Run them with `bash` after changing the script.
+
 ## Steps
 
-1. **Locate the branch.** Run `gwf ls` (without `gwf`: `git worktree list`). Work inside the branch's own
-   worktree; never check out `main` or switch branches in the primary checkout (other sessions use it). Stop if
-   `git status --short` shows uncommitted changes, and ask the user to commit them first.
-
-2. **Rebase onto main.**
+1. **Prepare.** From the branch's worktree (or from anywhere, naming the branch):
 
    ```sh
-   git fetch origin
-   git rebase origin/main
+   bash .agents/skills/rebase-merge/scripts/rebase-merge.sh prepare [branch]
    ```
 
-   On conflicts, stop and report them; do not resolve them silently. If the rebase rewrote commits, run the
-   affected checks (tests, lint, build) again. Then push the branch, even when it has no PR: GitHub marks a PR
-   merged from it, and the upstream lets `git branch -d` in cleanup check the branch against its pushed copy
-   instead of the primary checkout's `main`, which may lag behind origin:
+   It refuses a dirty worktree, a branch with no commits and a branch in the primary checkout (exit 2). It
+   rebases onto `origin/main` and pushes the branch with `--force-with-lease -u`. The push lets GitHub mark the
+   PR merged, and lets `git branch -d` in cleanup check against the pushed copy.
+   - Exit 2 means a precondition failed. Report it. For uncommitted changes, ask the user to commit first.
+   - Exit 3 means the rebase conflicted. The script aborted it, so the branch is unchanged. Report the
+     `conflict=` files and stop. Do not resolve conflicts silently.
+   - `rewritten=yes` means `main` moved and the commits changed. Decide which checks the new base affects (the
+     tests, lint and build of the projects the branch touches, plus any project that `main`'s new commits change
+     under it). Run them in the worktree before landing. Fix or report failures, and do not land a red branch.
+
+2. **Land.**
 
    ```sh
-   git push --force-with-lease -u origin <branch>
+   bash .agents/skills/rebase-merge/scripts/rebase-merge.sh land [branch]
    ```
 
-   Confirm `git rev-parse <branch>` equals `git rev-parse origin/<branch>`.
+   It pushes the branch tip to `main`. The push is a fast-forward or nothing, because there is no force. Then it
+   checks that `origin/main` equals the tip and waits for the PR to show `MERGED`.
+   - Exit 4 means `origin/main` moved after prepare. Go back to step 1.
+   - Exit 5 means a ruleset rejected the push (for example, required reviews or status checks). Report the exact
+     message and stop. Do not try to bypass it.
+   - `pr_state=OPEN` after the retries usually means GitHub is slow. Check again with
+     `gh pr view <branch> --json state` before reporting it.
 
-3. **Fast-forward main and push.** From the same worktree, on a detached HEAD:
+   Keep `old_main` and `vercel_apps` from the output for the next steps.
+
+3. **Watch the deploy.** If `vercel_apps` is empty, go to step 4.
 
    ```sh
-   git checkout --detach origin/main
-   git merge --ff-only <branch>
-   git push origin HEAD:main
-   git checkout <branch>
+   bash .agents/skills/rebase-merge/scripts/rebase-merge.sh deploy
    ```
 
-   If `--ff-only` fails, `origin/main` moved after the rebase: go back to step 2. If the push is rejected by a
-   ruleset (for example required reviews or status checks), report the exact message and stop; do not try to
-   bypass it.
+   For each app with a `vercel.json`, it waits for the production deployment of the new `main` SHA. It uses the
+   Vercel CLI read-only (it never runs `vercel link`). `SKIPPED` means the app's ignored build step found the app
+   unaffected, which is fine. Exit 7 means a deploy failed (the build log is on stderr) or never finished. Exit 2
+   means `vercel` is not on PATH. In that case, ask the user instead of installing it.
 
-4. **Verify.**
-   - `git fetch origin && git log --oneline -1 origin/main` shows the branch tip.
-   - If the branch has a PR, `gh pr view <branch> --json state -q .state` is `MERGED` (GitHub can take a few
-     seconds).
+   For each `READY` app, check the live site yourself. Find the routes the change affects
+   (`git diff --name-only <old_main>..origin/main`). Open them on the production domain, and confirm that they
+   return 200 and show the change. If the deploy failed or the site is wrong, stop, report it, and skip cleanup,
+   so the worktree stays available for a fix.
 
-5. **Watch the deploy.** Find the apps the branch touched (`git diff --name-only <old-main>..origin/main`) and
-   keep those with a `vercel.json`. For each, the push to `main` triggers a production deploy (unless its ignored
-   build step decides the app is unaffected). Use the Vercel CLI read-only (never `vercel link`, which writes
-   `.vercel/`). If `vercel` is not on PATH, ask the user rather than installing it:
+4. **Clean up.** Only after the merge is verified and the deploy (if any) is good. First `cd` to the primary
+   checkout, so your shell is not inside the worktree being removed:
 
    ```sh
-   vercel ls <project> --prod        # find the deployment for the new main SHA
-   vercel inspect --wait <url>       # block until it is Ready or Error
-   vercel inspect --logs <url>       # on Error, or to check for new warnings
+   bash .agents/skills/rebase-merge/scripts/rebase-merge.sh cleanup <branch>
    ```
 
-   When it is Ready, check the live site: the changed routes return 200 and show the change. If the deploy fails
-   or the site is wrong, stop here, report it, and skip cleanup so the worktree stays available for a fix. With
-   no Vercel app touched, go straight to cleanup.
+   It refuses a branch that is not on `origin/main` (exit 6). It stops the worktree's Nx daemon, runs
+   `gwf rm -y -D <branch>` (or `git worktree remove` and `git branch -d` without `gwf`), and deletes the remote
+   branch. It pulls the primary checkout only when it is on `main` and clean. Otherwise it prints
+   `pulled=skipped`, because another session is working there. Ignored files (`node_modules`, build output) go
+   with the worktree, which is expected.
+   - Exit 8 means `gwf rm` skipped the worktree. If the message says `in use by: <name> (pid …)`, run
+     `ps -o pid,command -p <pid>` to see what the process is. Stop it only if your own runs started it from this
+     worktree's path (a dev server, a test engine). Then rerun cleanup. Never stop the user's processes or
+     anything running from the primary checkout. If the worktree has uncommitted changes, or a process is not
+     yours, report it. Never force-remove the worktree or use `git branch -D`.
+   - Exit 6 from the pull means `--ff-only` failed. Report it. Never merge or rebase the primary checkout.
 
-6. **Clean up.** Only after the merge is verified and the deploy (if any) is good. Run from the primary checkout,
-   never from inside the worktree being removed:
-
-   First stop the processes your own runs left in the worktree, or `gwf rm` skips it and prints
-   `in use by: node (pid …)`. The usual one is the Nx daemon, which every `nx run` in the worktree starts and
-   leaves running. Also stop dev servers or test engines you started there. `ps -o pid,command -p <pid>` shows
-   what a pid is. Stop only processes running from this worktree's path, never the user's servers in the primary
-   checkout:
-
-   ```sh
-   (cd <worktree> && pnpm exec nx daemon --stop)
-   ```
-
-   Then remove it:
-
-   ```sh
-   cd <primary checkout>
-   gwf rm -y -D <branch>               # removes the worktree, deletes the branch with -d, prunes
-   git push origin --delete <branch>
-   git pull --ff-only                  # only when on main with a clean `git status --short`
-   ```
-
-   `gwf rm -y` skips a worktree with uncommitted changes or one another process is using, and `-D` deletes the
-   branch with `git branch -d`, which refuses unless it is fully merged. If either is refused, report it; never
-   force-remove the worktree or use `git branch -D`. Without `gwf` on PATH, run `git worktree remove <worktree>`,
-   `git branch -d <branch>` and `git worktree prune` instead. Ignored files (`node_modules`, build output) go
-   with the worktree; that is expected.
-
-   Then bring the primary checkout's `main` up to date. Pull only when it is on `main` and `git status --short`
-   is empty; otherwise another session is working there, so skip the pull and report it. If `--ff-only` fails,
-   report it; never merge or rebase the primary checkout.
-
-7. **Report.** The new `main` SHA, the PR state, the deploy URL and status, what the live check covered, what was
+5. **Report.** The new `main` SHA, the PR state, the deploy URL and status, what the live check covered, what was
    cleaned up, and whether the primary checkout was pulled.
