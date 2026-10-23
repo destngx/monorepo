@@ -1,0 +1,239 @@
+#!/bin/zsh
+# dev-cpu-watch: sends a macOS notification when a process from this repo, or
+# one of its worktrees, keeps the CPU busy across consecutive checks.
+# See docs/dev-cpu-watch/README.md.
+setopt err_exit no_unset pipe_fail
+
+# System tools only, so launchd and an interactive shell with GNU tools first on
+# PATH behave the same.
+export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+: ${DEV_CPU_WATCH_THRESHOLD:=25}     # percent of one core, averaged per check
+: ${DEV_CPU_WATCH_RUNS:=2}           # consecutive hot checks before an alert
+: ${DEV_CPU_WATCH_COOLDOWN:=3600}    # seconds before the same process alerts again
+: ${DEV_CPU_WATCH_MIN_INTERVAL:=60}  # a check sooner than this after the last one is skipped
+: ${DEV_CPU_WATCH_INTERVAL:=300}     # launchd StartInterval, in seconds
+
+APP_DIR=${0:A:h:h}
+LABEL=com.destngx.monorepo.dev-cpu-watch
+PLIST=$HOME/Library/LaunchAgents/$LABEL.plist
+
+usage() {
+  print -r -- "Usage: dev-cpu-watch [check|status|install|uninstall]
+
+  check      sample CPU once and alert on hot repo processes (default; launchd runs this)
+  status     show whether the launchd agent is loaded, hot processes and recent alerts
+  install    load the launchd agent, running check every ${DEV_CPU_WATCH_INTERVAL}s from the primary checkout
+  uninstall  unload the launchd agent and remove its plist"
+}
+
+die() {
+  print -u2 -r -- "dev-cpu-watch: $1"
+  exit 1
+}
+
+# --- system calls, replaced by fakes in tests ---------------------------------
+
+now_epoch() { date +%s }
+ps_snapshot() { ps -Ao pid=,time=,command= }
+cwd_of() { lsof -a -p $1 -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' || true }
+
+notify() {
+  osascript -e 'on run argv' \
+    -e 'display notification (item 2 of argv) with title (item 1 of argv) sound name "Funk"' \
+    -e 'end run' "$1" "$2" > /dev/null
+}
+
+primary_root() {
+  local common
+  common=$(git -C $APP_DIR rev-parse --path-format=absolute --git-common-dir) ||
+    die "cannot find the repo from $APP_DIR"
+  print -r -- ${common:h}
+}
+
+# The primary checkout first, then every linked worktree.
+worktree_roots() {
+  git -C $APP_DIR worktree list --porcelain | sed -n 's/^worktree //p'
+}
+
+state_dir() { print -r -- ${DEV_CPU_WATCH_STATE_DIR:-$(primary_root)/tmp/dev-cpu-watch} }
+
+# --- labels ---------------------------------------------------------------------
+
+# Prints the app that owns a path, given the repo roots with the primary checkout
+# first. Returns 1 for a path outside the repo.
+app_for_path() {
+  local p=$1 primary=${2:-} root rel name
+  for root in ${@:2}; do
+    [[ $p == "$root" || $p == "$root"/* ]] || continue
+    rel=${p#"$root"}
+    rel=${rel#/}
+    if [[ $rel == (apps|libs)/* ]]; then
+      name=${${rel#*/}%%/*}
+    else
+      name=monorepo
+    fi
+    [[ $root == "$primary" ]] || name="$name [worktree ${root:t}]"
+    print -r -- $name
+    return 0
+  done
+  return 1
+}
+
+# Prints the app for a process: the first absolute path in its command that is in
+# the repo, else its working directory. Returns 1 for a process outside the repo.
+app_for_process() {
+  local pid=$1 cmd=$2 word cwd
+  for word in ${=cmd}; do
+    [[ $word == /* ]] || word=${word#*=}
+    [[ $word == /* ]] || continue
+    app_for_path $word ${@:3} && return 0
+  done
+  cwd=$(cwd_of $pid)
+  [[ -n $cwd ]] && app_for_path $cwd ${@:3}
+}
+
+# --- commands -------------------------------------------------------------------
+
+# State file: an "at<TAB>epoch" line, then one line per process:
+#   pid  cpu_seconds  hot_runs  last_due  pct  command
+cmd_check() {
+  local dir now prev_at=0 prev state snap result interval repo_roots app message short
+  local pid cpu hot last pct due cmd
+  dir=$(state_dir)
+  now=$(now_epoch)
+  state=$dir/state.tsv
+  mkdir -p $dir
+
+  if [[ -s $state ]]; then
+    prev_at=$(awk -F'\t' 'NR == 1 && $1 == "at" { print $2 }' $state)
+    : ${prev_at:=0}
+  fi
+  interval=$((now - prev_at))
+  if (( prev_at > 0 && interval < DEV_CPU_WATCH_MIN_INTERVAL )); then
+    print -r -- "dev-cpu-watch: last check was ${interval}s ago, skipping"
+    return 0
+  fi
+
+  prev=/dev/null
+  (( prev_at > 0 )) && prev=$state
+  snap=$dir/ps.tmp
+  ps_snapshot > $snap
+  result=$(awk -v now=$now -v threshold=$DEV_CPU_WATCH_THRESHOLD -v runs=$DEV_CPU_WATCH_RUNS \
+    -v cooldown=$DEV_CPU_WATCH_COOLDOWN -f $APP_DIR/src/detect.awk $prev $snap)
+  repo_roots=(${(f)"$(worktree_roots)"})
+
+  {
+    printf 'at\t%s\n' $now
+    while IFS=$'\t' read -r pid cpu hot last pct due cmd; do
+      [[ -n $pid ]] || continue
+      if (( due )); then
+        # A due process is looked up once per cooldown, in or out of the repo.
+        last=$now
+        if app=$(app_for_process $pid $cmd $repo_roots); then
+          short=${cmd//$HOME/\~}
+          message="$pct% CPU for $((hot * interval / 60)) min (pid $pid). ${short[1,160]}"
+          notify "Dev CPU watch: $app" $message ||
+            print -u2 -r -- "dev-cpu-watch: the notification for pid $pid failed"
+          printf '%s\t%s\t%s%%\t%s\t%s\n' "$(date -r $now '+%F %T')" $app $pct $pid $short >> $dir/alerts.log
+          print -u2 -r -- "dev-cpu-watch: alerted $app, $message"
+        fi
+      fi
+      printf '%s\t%s\t%s\t%s\t%s\t%s\n' $pid $cpu $hot $last $pct $cmd
+    done <<< $result
+  } > $state.tmp
+  mv $state.tmp $state
+  rm -f $snap
+}
+
+cmd_status() {
+  local dir state at
+  dir=$(state_dir)
+  state=$dir/state.tsv
+
+  if launchctl print gui/$UID/$LABEL > /dev/null 2>&1; then
+    print -r -- "launchd agent: loaded ($PLIST)"
+  else
+    print -r -- "launchd agent: not loaded (run: dev-cpu-watch install)"
+  fi
+
+  if [[ ! -s $state ]]; then
+    print -r -- "last check: never"
+    return 0
+  fi
+  at=$(awk -F'\t' 'NR == 1 { print $2 }' $state)
+  print -r -- "last check: $(date -r $at '+%F %T')"
+  print -r -- "processes at or above ${DEV_CPU_WATCH_THRESHOLD}% CPU (all processes, not only the repo):"
+  awk -F'\t' -v t=$DEV_CPU_WATCH_THRESHOLD 'NR > 1 && $5 >= t { printf "  %4d%%  pid %-6s %s\n", $5, $1, substr($6, 1, 100) }' $state
+  if [[ -s $dir/alerts.log ]]; then
+    print -r -- "recent alerts ($dir/alerts.log):"
+    tail -5 $dir/alerts.log | sed 's/^/  /'
+  fi
+}
+
+# Prints the launchd agent plist for a script path and a log directory.
+plist_content() {
+  local script=$1 logs=$2
+  cat <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>$script</string>
+    <string>check</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>$DEV_CPU_WATCH_INTERVAL</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>$logs/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>$logs/launchd.log</string>
+</dict>
+</plist>
+EOF
+}
+
+cmd_install() {
+  local primary script logs
+  primary=$(primary_root)
+  script=$primary/apps/dev-cpu-watch/src/dev-cpu-watch
+  [[ -f $script ]] ||
+    die "$script not found. Merge dev-cpu-watch to main and pull the primary checkout first."
+  logs=$(state_dir)
+  mkdir -p $logs ${PLIST:h}
+  plist_content $script $logs > $PLIST
+  plutil -lint $PLIST > /dev/null || die "generated an invalid plist at $PLIST"
+  launchctl bootout gui/$UID/$LABEL 2> /dev/null || true
+  launchctl bootstrap gui/$UID $PLIST
+  print -r -- "dev-cpu-watch: loaded $LABEL, checking every ${DEV_CPU_WATCH_INTERVAL}s with $script"
+}
+
+cmd_uninstall() {
+  launchctl bootout gui/$UID/$LABEL 2> /dev/null || true
+  rm -f $PLIST
+  print -r -- "dev-cpu-watch: unloaded $LABEL and removed $PLIST"
+}
+
+main() {
+  case ${1:-check} in
+    check) cmd_check ;;
+    status) cmd_status ;;
+    install) cmd_install ;;
+    uninstall) cmd_uninstall ;;
+    help | -h | --help) usage ;;
+    *) usage >&2; return 2 ;;
+  esac
+}
+
+if [[ $ZSH_EVAL_CONTEXT == toplevel ]]; then
+  main "$@"
+fi

@@ -1,0 +1,57 @@
+{
+  "name": "dev-cpu-watch",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/dev-cpu-watch",
+  "projectType": "application",
+  "tags": ["type:app", "app:dev-cpu-watch", "scope:tooling", "lang:shell"],
+  "targets": {
+    "check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./src/dev-cpu-watch check",
+        "cwd": "apps/dev-cpu-watch"
+      },
+      "cache": false
+    },
+    "status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./src/dev-cpu-watch status",
+        "cwd": "apps/dev-cpu-watch"
+      },
+      "cache": false
+    },
+    "load-agent": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./src/dev-cpu-watch install",
+        "cwd": "apps/dev-cpu-watch"
+      },
+      "cache": false
+    },
+    "unload-agent": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./src/dev-cpu-watch uninstall",
+        "cwd": "apps/dev-cpu-watch"
+      },
+      "cache": false
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "zsh test/run-tests.zsh",
+        "cwd": "apps/dev-cpu-watch"
+      },
+      "inputs": ["{projectRoot}/**/*"]
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "zsh -n src/dev-cpu-watch && zsh -n test/run-tests.zsh && awk -f src/detect.awk /dev/null /dev/null",
+        "cwd": "apps/dev-cpu-watch"
+      },
+      "inputs": ["{projectRoot}/**/*"]
+    }
+  }
+}

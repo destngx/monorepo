@@ -3,6 +3,7 @@
 ## Shared
 
 - [UI style guide](./ui/README.md): look, tokens, components and copy rules for every web UI
+- [Dev CPU watch](./dev-cpu-watch/README.md): macOS notification when a repo process keeps the CPU busy
 
 ## Applications
 
