@@ -39,3 +39,8 @@ export function repayStatus(daysUntil: number | null | undefined): { tone: Statu
   if (daysUntil === 1) return { tone: 'warning', label: 'Due tomorrow' };
   return { tone: daysUntil <= 3 ? 'warning' : 'neutral', label: `Due in ${daysUntil} days` };
 }
+
+/** Open loans not due on the person's soonest repayment date: the ones the Repay by column does not show. */
+export function otherOpenLoans(person: MoneyLentPerson): number {
+  return person.loans.filter((loan) => loan.outstanding > 0 && loan.repayBy !== person.repayBy).length;
+}

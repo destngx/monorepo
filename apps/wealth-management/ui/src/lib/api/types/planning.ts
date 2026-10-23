@@ -124,12 +124,32 @@ export interface MoneyLentPerson {
   /** yyyy-mm-dd the open balance started; null when settled. */
   openSince: string | null;
   daysOutstanding: number | null;
-  /** yyyy-mm-dd repayment date written in a memo of a balance owed to you (WM-LEND-6); null when none. */
+  /** yyyy-mm-dd soonest repayment date of the open loans (WM-LEND-6, WM-LEND-7); null when none has one. */
   repayBy: string | null;
   /** Days from today to repayBy; negative when overdue. */
   daysUntilRepay: number | null;
+  /** What is left of the loans due on repayBy. */
+  repayByAmount: number;
+  /** The loans of a balance owed to you, oldest first; empty when nothing is owed to you. */
+  loans: LentLoan[];
   /** Newest first. */
   transactions: Transaction[];
+}
+
+/** One loan of a balance owed to you; repayments pay off the oldest loan first (WM-LEND-7). */
+export interface LentLoan {
+  transactionId: string;
+  /** yyyy-mm-dd lending day. */
+  date: string;
+  amount: number;
+  repaid: number;
+  /** amount - repaid; 0 once repaid. */
+  outstanding: number;
+  daysOutstanding: number;
+  /** yyyy-mm-dd newest repayment date written for the loan; null when none or once repaid. */
+  repayBy: string | null;
+  /** Days from today to repayBy; negative when overdue. */
+  daysUntilRepay: number | null;
 }
 
 /** Money lent per person from lending-category transactions (WM-LEND-1..3, D30). */

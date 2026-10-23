@@ -36,6 +36,14 @@ func TestGivenAMemoWhenReadingTheRepaymentDateThenTheEarliestLaterDateIsUsed(t *
 		{"2026-10-01", "trả cuối tháng 3/27", "2027-03-31"},
 		{"2026-10-01", "trả đầu tháng 1 năm 2027", "2027-01-01"},
 		{"2026-10-01", "(cuối tháng 11), lãi 1.5%", "2026-11-30"},
+		{"2026-10-12", "hẹn trả khi có lương ngày 24", "2026-10-24"},
+		{"2026-10-12", "trả ngày 5", "2026-11-05"},
+		{"2026-11-05", "ngay 31", "2026-12-31"},
+		{"2026-10-12", "mùng 5", "2026-11-05"},
+		{"2026-10-01", "trả ngày 15 tháng 11", "2026-11-15"},
+		{"2026-10-01", "mùng 5 tháng 1 năm 2027", "2027-01-05"},
+		{"2026-10-01", "ngay 20 thang 12/26", "2026-12-20"},
+		{"2026-10-01", "trả ngày 24/11", "2026-11-24"},
 	}
 	for _, c := range cases {
 		got, ok := RepaymentDate(memoTxn("row-2", c.date, "Person A", 1_000_000, 0, c.memo))
@@ -47,7 +55,8 @@ func TestGivenAMemoWhenReadingTheRepaymentDateThenTheEarliestLaterDateIsUsed(t *
 
 func TestGivenAMemoWithoutARepaymentDateWhenReadingThenThereIsNone(t *testing.T) {
 	for _, memo := range []string{"", "lãi 1.5%", "trả 2-3 triệu", "trả 31/02", "lent on 12/10", "lent on 05/10", "trả 15-11/2026",
-		"đầu tháng 10", "cuối tháng", "trả trong 3 tháng", "tháng 13", "tháng 0", "cuối tháng 9/2026"} {
+		"đầu tháng 10", "cuối tháng", "trả trong 3 tháng", "tháng 13", "tháng 0", "cuối tháng 9/2026",
+		"trả ngay 2 triệu", "trả ngay 5k", "chuyển ngày 12", "ngày 32", "ngày 24h", "ngày 30 tháng 2"} {
 		if got, ok := RepaymentDate(memoTxn("row-2", "2026-10-12", "Person A", 1_000_000, 0, memo)); ok {
 			t.Fatalf("RepaymentDate(%q) = %v, want none", memo, got)
 		}
@@ -83,11 +92,107 @@ func TestGivenRepaymentDatesInMemosWhenComputingMoneyLentThenTheNewestNoteOfTheO
 	}
 }
 
-func lentPerson(name string, outstanding float64, daysOutstanding int, repayBy string, daysUntil int) MoneyLentPerson {
-	person := MoneyLentPerson{Name: name, Outstanding: outstanding, DaysOutstanding: &daysOutstanding}
-	if repayBy != "" {
-		person.RepayBy, person.DaysUntilRepay = &repayBy, &daysUntil
+// lentPerson owes one open loan.
+func TestGivenSeveralLoansToOnePersonWhenComputingMoneyLentThenEachKeepsItsDateAndRepaymentsPayTheOldestFirst(t *testing.T) {
+	today := day(2026, 10, 23)
+	transactions := []Transaction{
+		memoTxn("row-2", "2026-10-01", "Person A", 2_000_000, 0, "repay 31/10"),
+		memoTxn("row-3", "2026-10-05", "Person A", 3_000_000, 0, "repay 30/11"),
+		lendingTxn("row-4", "2026-10-08", "Person A", 1_000_000, 0),
+		lendingTxn("row-5", "2026-10-10", "Person A", 0, 500_000),
 	}
+
+	person := ComputeMoneyLent(transactions, today).People[0]
+
+	if person.Outstanding != 5_500_000 || len(person.Loans) != 3 {
+		t.Fatalf("person = %+v", person)
+	}
+	first, second, third := person.Loans[0], person.Loans[1], person.Loans[2]
+	if first.TransactionID != "row-2" || first.Repaid != 500_000 || first.Outstanding != 1_500_000 || first.DaysOutstanding != 22 || *first.RepayBy != "2026-10-31" {
+		t.Fatalf("the repayment pays the oldest loan: %+v", first)
+	}
+	if second.Outstanding != 3_000_000 || *second.RepayBy != "2026-11-30" || *second.DaysUntilRepay != 38 {
+		t.Fatalf("the second loan keeps its own date: %+v", second)
+	}
+	if third.Outstanding != 1_000_000 || third.RepayBy != nil {
+		t.Fatalf("a loan without a memo date has none: %+v", third)
+	}
+	if *person.RepayBy != "2026-10-31" || *person.DaysUntilRepay != 8 || person.RepayByAmount != 1_500_000 {
+		t.Fatalf("the person shows the soonest date and what is due then: %+v", person)
+	}
+
+	transactions = append(transactions, memoTxn("row-6", "2026-10-20", "Person A", 0, 2_000_000, "paid the first, rest of the next by 15/12"))
+	person = ComputeMoneyLent(transactions, today).People[0]
+	first, second = person.Loans[0], person.Loans[1]
+	if first.Outstanding != 0 || first.Repaid != 2_000_000 || first.RepayBy != nil || first.DaysUntilRepay != nil {
+		t.Fatalf("a repaid loan has no date to chase: %+v", first)
+	}
+	if second.Repaid != 500_000 || *second.RepayBy != "2026-12-15" {
+		t.Fatalf("a dated repayment memo moves the oldest loan it leaves open: %+v", second)
+	}
+	if *person.RepayBy != "2026-12-15" || person.RepayByAmount != 2_500_000 {
+		t.Fatalf("person = %+v", person)
+	}
+}
+
+func TestGivenASettledOrPrepaidHistoryWhenComputingMoneyLentThenOnlyTheOpenBalanceLoansShow(t *testing.T) {
+	today := day(2026, 10, 23)
+	transactions := []Transaction{
+		memoTxn("row-2", "2026-01-10", "Person A", 1_000_000, 0, "repay 20/01"),
+		lendingTxn("row-3", "2026-01-20", "Person A", 0, 1_000_000),
+		lendingTxn("row-4", "2026-09-01", "Person A", 0, 400_000),
+		memoTxn("row-5", "2026-10-01", "Person A", 1_000_000, 0, "repay 30/10"),
+		lendingTxn("row-6", "2026-10-02", "Person B", 0, 700_000),
+	}
+
+	lent := ComputeMoneyLent(transactions, today)
+
+	a, b := lent.People[0], lent.People[1]
+	if len(a.Loans) != 1 || a.Loans[0].TransactionID != "row-5" || a.Loans[0].Repaid != 400_000 || a.Loans[0].Outstanding != 600_000 {
+		t.Fatalf("money repaid ahead offsets the next loan; settled loans before the balance opened are left out: %+v", a.Loans)
+	}
+	if b.Outstanding != -700_000 || len(b.Loans) != 0 || b.RepayBy != nil {
+		t.Fatalf("money the user owes has no loans to chase: %+v", b)
+	}
+}
+
+func TestGivenOneOverdueLoanAndOneLaterWhenChasingThenOnlyTheOverdueLoanIsCounted(t *testing.T) {
+	lent := MoneyLent{People: []MoneyLentPerson{owingPerson("Person A",
+		openLoan(1_000_000, 30, "2026-10-20", -3),
+		openLoan(5_000_000, 10, "2026-12-30", 68),
+	)}}
+
+	_, findings := EvaluateRecommendationRules(RuleInputs{MoneyLent: &lent})
+
+	if len(findings) != 1 || *findings[0].AmountVND != 1_000_000 || findings[0].DueDate != "2026-10-20" || !findings[0].Urgent {
+		t.Fatalf("findings = %+v", findings)
+	}
+	item := moneyLentItem(CloseInputs{MoneyLent: &lent})
+	if *item.Count != 1 || *item.Amount != 1_000_000 {
+		t.Fatalf("close item = %+v", item)
+	}
+}
+
+func lentPerson(name string, outstanding float64, daysOutstanding int, repayBy string, daysUntil int) MoneyLentPerson {
+	return owingPerson(name, openLoan(outstanding, daysOutstanding, repayBy, daysUntil))
+}
+
+func openLoan(outstanding float64, daysOutstanding int, repayBy string, daysUntil int) LentLoan {
+	loan := LentLoan{Amount: outstanding, Outstanding: outstanding, DaysOutstanding: daysOutstanding}
+	if repayBy != "" {
+		loan.RepayBy, loan.DaysUntilRepay = &repayBy, &daysUntil
+	}
+	return loan
+}
+
+func owingPerson(name string, loans ...LentLoan) MoneyLentPerson {
+	person := MoneyLentPerson{Name: name, Loans: loans}
+	oldest := 0
+	for _, loan := range loans {
+		person.Outstanding += loan.Outstanding
+		oldest = max(oldest, loan.DaysOutstanding)
+	}
+	person.DaysOutstanding = &oldest
 	return person
 }
 

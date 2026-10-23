@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { MoneyLentPerson } from '$lib/api/types';
-import { ageTone, balanceStatus, formatAge, repayStatus, splitPeople } from './lending';
+import type { LentLoan, MoneyLentPerson } from '$lib/api/types';
+import { ageTone, balanceStatus, formatAge, otherOpenLoans, repayStatus, splitPeople } from './lending';
 
 const person = (name: string, outstanding: number): MoneyLentPerson => ({
   name,
@@ -12,7 +12,20 @@ const person = (name: string, outstanding: number): MoneyLentPerson => ({
   daysOutstanding: outstanding === 0 ? null : 30,
   repayBy: null,
   daysUntilRepay: null,
+  repayByAmount: 0,
+  loans: [],
   transactions: [],
+});
+
+const loan = (outstanding: number, repayBy: string | null): LentLoan => ({
+  transactionId: 'row-2',
+  date: '2026-10-01',
+  amount: 1_000_000,
+  repaid: 1_000_000 - outstanding,
+  outstanding,
+  daysOutstanding: 22,
+  repayBy,
+  daysUntilRepay: repayBy === null ? null : 8,
 });
 
 describe('money lent', () => {
@@ -55,5 +68,22 @@ describe('money lent', () => {
     expect(repayStatus(0)).toEqual({ tone: 'warning', label: 'Due today' });
     expect(repayStatus(-1)).toEqual({ tone: 'serious', label: '1 day overdue' });
     expect(repayStatus(-5)).toEqual({ tone: 'serious', label: '5 days overdue' });
+  });
+
+  it('counts the open loans the soonest repayment date leaves out', () => {
+    const owing = {
+      ...person('Person A', 2_000_000),
+      repayBy: '2026-10-31',
+      loans: [
+        loan(0, null),
+        loan(500_000, '2026-10-31'),
+        loan(500_000, '2026-10-31'),
+        loan(1_000_000, '2026-11-30'),
+        loan(0, null),
+        loan(500_000, null),
+      ],
+    };
+    expect(otherOpenLoans(owing)).toBe(2);
+    expect(otherOpenLoans(person('Person B', 1_000_000))).toBe(0);
   });
 });

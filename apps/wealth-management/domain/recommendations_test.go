@@ -226,8 +226,8 @@ func TestGivenEngineFiguresWhenEvaluatingRulesThenEachConditionMakesOneFinding(t
 		TradeOffs: []GoalTradeOff{{Name: "Goal A", MoveTargetDateTo: &moveDate}}}}
 	oldDays, newDays := 120, 30
 	lent := MoneyLent{People: []MoneyLentPerson{
-		{Name: "Person A", Outstanding: 3_000_000, DaysOutstanding: &oldDays},
-		{Name: "Person B", Outstanding: 1_000_000, DaysOutstanding: &newDays},
+		lentPerson("Person A", 3_000_000, oldDays, "", 0),
+		lentPerson("Person B", 1_000_000, newDays, "", 0),
 		{Name: "Person C", Outstanding: -500_000, DaysOutstanding: &oldDays},
 	}}
 

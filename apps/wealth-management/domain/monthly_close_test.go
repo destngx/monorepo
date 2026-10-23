@@ -35,7 +35,7 @@ func closeInputs() CloseInputs {
 		Goals:           &GoalPlan{Check: PlanCheck{RequiredPerMonth: 15_000_000}, Goals: []GoalProgress{{Pace: PaceBehind}, {Pace: PaceOnTrack}}},
 		Recommendations: &RecommendationSummary{Open: 2, OpenImpactVND: 5_000_000, Snoozed: 1},
 		MoneyLent: &MoneyLent{MoneyLentFacts: MoneyLentFacts{OwedToYou: 1_000_000}, People: []MoneyLentPerson{
-			{Name: "Person A", Outstanding: 1_000_000, DaysOutstanding: &days},
+			lentPerson("Person A", 1_000_000, days, "", 0),
 		}},
 	}
 }
@@ -127,7 +127,7 @@ func TestGivenMissingContextWhenComputingTheCloseThenThoseItemsAreUnavailable(t 
 func TestGivenLongOpenLoansAndNoGoalPlanWhenComputingTheCloseThenTheyAreActions(t *testing.T) {
 	in := closeInputs()
 	days := 45
-	in.MoneyLent.People = append(in.MoneyLent.People, MoneyLentPerson{Name: "Person B", Outstanding: 4_000_000, DaysOutstanding: &days})
+	in.MoneyLent.People = append(in.MoneyLent.People, lentPerson("Person B", 4_000_000, days, "", 0))
 	in.Goals = &GoalPlan{SetupNeeded: true}
 
 	close := ComputeMonthlyClose(in)

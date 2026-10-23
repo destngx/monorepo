@@ -278,9 +278,15 @@ func moneyLentItem(in CloseInputs) CloseItem {
 	}
 	count, amount := 0, 0.0
 	for _, person := range in.MoneyLent.People {
-		if person.Outstanding > settledTolerance && closeChase(person) {
+		chased := false
+		for _, loan := range person.Loans {
+			if loan.Open() && closeChase(loan) {
+				chased = true
+				amount += loan.Outstanding
+			}
+		}
+		if chased {
 			count++
-			amount += person.Outstanding
 		}
 	}
 	item := CloseItem{Key: CloseMoneyLent, Title: title, Count: &count, Amount: &amount}
@@ -297,13 +303,13 @@ func moneyLentItem(in CloseInputs) CloseItem {
 	return item
 }
 
-// closeChase: the repayment date in the memo is close or has passed, or,
-// with no date, the balance is LendingChaseDays old (WM-LEND-6).
-func closeChase(person MoneyLentPerson) bool {
-	if person.RepayBy != nil {
-		return person.RepaymentDue()
+// closeChase: the loan's repayment date is close or has passed, or, with
+// no date, the loan is LendingChaseDays old (WM-LEND-6, WM-LEND-7).
+func closeChase(loan LentLoan) bool {
+	if loan.RepayBy != nil {
+		return loan.Due()
 	}
-	return person.DaysOutstanding != nil && *person.DaysOutstanding >= LendingChaseDays
+	return loan.DaysOutstanding >= LendingChaseDays
 }
 
 func recommendationsItem(in CloseInputs) CloseItem {

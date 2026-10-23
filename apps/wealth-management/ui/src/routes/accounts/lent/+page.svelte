@@ -8,7 +8,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate } from '$lib/format';
-  import { ageTone, balanceStatus, formatAge, repayStatus, splitPeople } from '$lib/lending/lending';
+  import { ageTone, balanceStatus, formatAge, otherOpenLoans, repayStatus, splitPeople } from '$lib/lending/lending';
 
   // The header renders at once; the ledger streams in (one request).
   let { data } = $props();
@@ -137,8 +137,18 @@
             <td class="px-5 py-2.5">
               {#if person.repayBy !== null}
                 {@const repay = repayStatus(person.daysUntilRepay)}
+                {@const others = otherOpenLoans(person)}
                 {formatDate(person.repayBy)}
                 {#if repay}<span class="ml-1.5"><Badge status={repay.tone}>{repay.label}</Badge></span>{/if}
+                {#if others > 0}
+                  <!-- WM-LEND-7: the soonest of several loans -->
+                  <div class="muted mt-0.5 text-xs">
+                    <Money value={person.repayByAmount} /> due then;
+                    <button type="button" class="underline hover:text-accent-600" onclick={() => (expanded = key)}
+                      >{others === 1 ? '1 more loan' : `${others} more loans`}, see details</button
+                    >
+                  </div>
+                {/if}
               {:else}
                 <span class="muted" title="Write the agreed date in a memo, e.g. repay 30/11/2026">-</span>
               {/if}
@@ -161,7 +171,45 @@
           {#if expanded === key}
             <tr>
               <td colspan="8" class="bg-stone-900/[0.02] px-5 py-3 dark:bg-white/[0.02]">
-                <table class="w-full text-xs">
+                {#if person.loans.length}
+                  <!-- WM-LEND-7: each loan with its own date, repaid oldest first -->
+                  <table class="mb-4 w-full text-xs" aria-label="Loans">
+                    <thead>
+                      <tr class="muted text-left uppercase">
+                        <th class="py-1 pr-4">Lent on</th>
+                        <th class="py-1 pr-4 text-right">Amount</th>
+                        <th class="py-1 pr-4 text-right">Repaid</th>
+                        <th class="py-1 pr-4 text-right">Left</th>
+                        <th class="py-1">Repay by</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each person.loans as loan (loan.transactionId)}
+                        {@const repay = repayStatus(loan.daysUntilRepay)}
+                        <tr>
+                          <td class="py-1 pr-4">{formatDate(loan.date)}</td>
+                          <td class="py-1 pr-4 text-right"><Money value={loan.amount} /></td>
+                          <td class="py-1 pr-4 text-right"><Money value={loan.repaid} /></td>
+                          <td class="py-1 pr-4 text-right">
+                            {#if loan.outstanding > 0}<Money value={loan.outstanding} />{:else}<Badge status="good"
+                                >Repaid</Badge
+                              >{/if}
+                          </td>
+                          <td class="py-1">
+                            {#if loan.repayBy !== null}
+                              {formatDate(loan.repayBy)}
+                              {#if repay}<span class="ml-1.5"><Badge status={repay.tone}>{repay.label}</Badge></span
+                                >{/if}
+                            {:else}
+                              <span class="muted">-</span>
+                            {/if}
+                          </td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                {/if}
+                <table class="w-full text-xs" aria-label="Transactions">
                   <thead>
                     <tr class="muted text-left uppercase">
                       <th class="py-1 pr-4">Date</th>

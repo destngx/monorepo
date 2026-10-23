@@ -14,7 +14,11 @@ import (
 // triệu" is never a date), or a Vietnamese month phrase: "cuối tháng 11"
 // (the last day), "giữa tháng 11" (the 15th), "đầu tháng 11" (the 1st) and
 // "tháng 11" alone (the last day), with or without accents, optionally with
-// the year ("tháng 11/2026", "tháng 11 năm 2026"). A date without a year is
+// the year ("tháng 11/2026", "tháng 11 năm 2026"), a day of a month
+// ("ngày 15 tháng 11", "mùng 5 tháng 1 năm 2027"), or a day alone ("lương
+// ngày 24", "mùng 5"): that day of the transaction's month, or of the next
+// month when it is not after the transaction day, but never the
+// transaction day itself. A date without a month or year is
 // the next one after the transaction day ("05/01" written on 20 Dec is next
 // January, "31/10" on a loan from March is this October), unless it falls
 // within recentPastDays before it: "05/10" written on 12 Oct is a week ago.
@@ -32,6 +36,11 @@ var (
 	// year. The leading group stands in for a word boundary, which \b does not
 	// give before a non-ASCII letter such as "đ".
 	monthMemoDate = regexp.MustCompile(`(?i)(?:^|[^\p{L}\d])(?:(cuối|cuoi|giữa|giua|đầu|dau)\s+)?(?:tháng|thang)\s+(\d{1,2})(?:\s*(?:/|năm|nam)\s*(\d{4}|\d{2}))?\b`)
+	// dayFollowers after a day alone make it something else: the rest of a
+	// day-first date or an amount ("ngay" also means "at once").
+	dayFollowers = regexp.MustCompile(`(?i)^(?:[/.-]\d|\s*(?:triệu|trieu|tr|nghìn|nghin|ngàn|ngan|k|đ|vnd)(?:[^\p{L}]|$))`)
+	// dayMemoDate: a day word, the day and an optional month and year.
+	dayMemoDate = regexp.MustCompile(`(?i)(?:^|[^\p{L}\d])(?:ngày|ngay|mùng|mồng|mung)\s+(\d{1,2})\b(?:\s+(?:tháng|thang)\s+(\d{1,2})(?:\s*(?:/|năm|nam)\s*(\d{4}|\d{2}))?\b)?`)
 )
 
 // recentPastDays: a date without a year this close before the transaction
@@ -58,8 +67,38 @@ func RepaymentDate(t Transaction) (time.Time, bool) {
 			consider(date)
 		}
 	}
-	monthMatches := monthMemoDate.FindAllStringSubmatchIndex(memo, -1)
-	for _, match := range monthMatches {
+	dayMatches := [][]int{}
+	for _, match := range dayMemoDate.FindAllStringSubmatchIndex(memo, -1) {
+		day := atoi(memo, match, 1)
+		switch {
+		case insideAny(match, isoMatches):
+			continue
+		case match[4] < 0 && dayFollowers.MatchString(memo[match[3]:]):
+			continue // "ngày 24/11" is a day-first date, "trả ngay 2 triệu" an amount
+		case match[4] < 0:
+			dayMatches = append(dayMatches, match)
+			if date, ok := nextDayOfMonth(after, day); ok {
+				consider(date)
+			}
+		case match[6] >= 0:
+			dayMatches = append(dayMatches, match)
+			if date, ok := validDate(fullYear(atoi(memo, match, 3)), atoi(memo, match, 2), day); ok {
+				consider(date)
+			}
+		default:
+			dayMatches = append(dayMatches, match)
+			month := atoi(memo, match, 2)
+			if date, ok := nextOccurrence(after, func(year int) (time.Time, bool) { return validDate(year, month, day) }); ok {
+				consider(date)
+			}
+		}
+	}
+	monthMatches := [][]int{}
+	for _, match := range monthMemoDate.FindAllStringSubmatchIndex(memo, -1) {
+		if insideAny(match, dayMatches) {
+			continue // the month of "ngày 15 tháng 11"
+		}
+		monthMatches = append(monthMatches, match)
 		part, month := "", atoi(memo, match, 2)
 		if match[2] >= 0 {
 			part = memo[match[2]:match[3]]
@@ -75,7 +114,7 @@ func RepaymentDate(t Transaction) (time.Time, bool) {
 		}
 	}
 	for _, match := range dayFirstMemoDate.FindAllStringSubmatchIndex(memo, -1) {
-		if insideAny(match, isoMatches) || insideAny(match, monthMatches) {
+		if insideAny(match, isoMatches) || insideAny(match, monthMatches) || insideAny(match, dayMatches) {
 			continue // the tail of an ISO date ("01-12" in 2026-01-12) or a month's year ("11/2026")
 		}
 		day, month, separator := atoi(memo, match, 1), atoi(memo, match, 3), memo[match[4]:match[5]]
@@ -98,30 +137,15 @@ func RepaymentDate(t Transaction) (time.Time, bool) {
 	return earliest, !earliest.IsZero()
 }
 
-// openRepaymentDate is the repayment date of the open balance: the one in
-// the newest memo with a date since the balance opened, so a later note
-// ("paid half, the rest by 30/12") replaces an earlier one.
-func openRepaymentDate(newestFirst []Transaction, openSince time.Time) (time.Time, bool) {
-	for _, t := range newestFirst {
-		if t.Date.Before(openSince) {
-			break
-		}
-		if date, ok := RepaymentDate(t); ok {
-			return date, true
-		}
-	}
-	return time.Time{}, false
+// Due reports whether the open loan's repayment date is within
+// LentDueSoonDays or has passed.
+func (l LentLoan) Due() bool {
+	return l.Open() && l.DaysUntilRepay != nil && *l.DaysUntilRepay <= LentDueSoonDays
 }
 
-// RepaymentDue reports whether the person owes the user and the repayment
-// date is within LentDueSoonDays or has passed.
-func (p MoneyLentPerson) RepaymentDue() bool {
-	return p.Outstanding > 0 && p.DaysUntilRepay != nil && *p.DaysUntilRepay <= LentDueSoonDays
-}
-
-// RepaymentOverdue reports whether the person owes the user past the repayment date.
-func (p MoneyLentPerson) RepaymentOverdue() bool {
-	return p.Outstanding > 0 && p.DaysUntilRepay != nil && *p.DaysUntilRepay < 0
+// Overdue reports whether the open loan is past its repayment date.
+func (l LentLoan) Overdue() bool {
+	return l.Open() && l.DaysUntilRepay != nil && *l.DaysUntilRepay < 0
 }
 
 // nextOccurrence is the first date on(year) after from, or none when the
@@ -140,6 +164,22 @@ func nextOccurrence(from time.Time, on func(year int) (time.Time, bool)) (time.T
 	}
 	for year := from.Year(); year <= from.Year()+4; year++ {
 		if date, ok := on(year); ok && date.After(from) {
+			return date, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// nextDayOfMonth is the first day of that number after from: in from's
+// month or a later one, skipping months too short for it. From's own day
+// is when the money moved, so none.
+func nextDayOfMonth(from time.Time, day int) (time.Time, bool) {
+	if day == from.Day() {
+		return time.Time{}, false
+	}
+	for months := range 12 {
+		first := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, months, 0)
+		if date, ok := validDate(first.Year(), int(first.Month()), day); ok && date.After(from) {
 			return date, true
 		}
 	}

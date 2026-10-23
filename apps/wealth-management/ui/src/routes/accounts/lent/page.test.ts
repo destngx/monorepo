@@ -35,6 +35,19 @@ const lent: MoneyLent = {
       daysOutstanding: 40,
       repayBy: '2026-10-13',
       daysUntilRepay: -2,
+      repayByAmount: 3_400_000,
+      loans: [
+        {
+          transactionId: 'row-2',
+          date: '2026-09-05',
+          amount: 3_400_000,
+          repaid: 0,
+          outstanding: 3_400_000,
+          daysOutstanding: 40,
+          repayBy: '2026-10-13',
+          daysUntilRepay: -2,
+        },
+      ],
       transactions: [],
     },
   ],
@@ -82,6 +95,35 @@ describe('Money lent page', () => {
 
     expect(screen.getByRole('columnheader', { name: 'Repay by' })).toBeTruthy();
     expect(screen.getByText('2 days overdue')).toBeTruthy();
+    expect(screen.queryByText(/more loan/)).toBeNull();
+  });
+
+  it('Given several loans with their own dates When the row renders Then it shows the soonest and points to the rest', async () => {
+    const [person] = lent.people;
+    const later = { ...person.loans[0], transactionId: 'row-3', date: '2026-10-01', amount: 1_000_000 };
+    const several: MoneyLent = {
+      ...lent,
+      people: [
+        {
+          ...person,
+          repayByAmount: 2_400_000,
+          loans: [
+            { ...person.loans[0], amount: 2_400_000, outstanding: 2_400_000 },
+            { ...later, outstanding: 1_000_000, repayBy: '2026-11-30', daysUntilRepay: 46 },
+          ],
+        },
+      ],
+    };
+    mask.toggle();
+    render(LentPage, { data: { engine: never(), lent: settled(several) } as never });
+    await flush();
+
+    expect(screen.getByText('2 days overdue')).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: '1 more loan, see details' }));
+    const loans = screen.getByRole('table', { name: 'Loans' });
+    expect(loans.textContent).toContain('30/11/2026');
+    expect(loans.textContent).toContain('Due in 46 days');
+    expect(screen.getByRole('button', { name: 'Hide transactions' }).getAttribute('aria-expanded')).toBe('true');
   });
 
   it('Given a person row When the history toggle is pressed Then it says what it does and expands', async () => {

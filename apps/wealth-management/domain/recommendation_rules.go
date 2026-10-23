@@ -275,23 +275,31 @@ func goalPlanShortFinding(plan GoalPlan) (RuleFinding, bool) {
 	}, true
 }
 
-// lentOverdueFinding: money owed to the user whose repayment date written
-// in a memo is within LentDueSoonDays or has passed (WM-LEND-6), or, with no
+// lentOverdueFinding: loans owed to the user whose repayment date is
+// within LentDueSoonDays or has passed (WM-LEND-6, WM-LEND-7), or, with no
 // date, open longer than 90 days (D30). A date further out is not chased.
 func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 	var overdue, dueSoon, stale lentGroup
-	for _, person := range lent.People {
-		switch {
-		case person.Outstanding <= 0:
-		case person.RepaymentOverdue():
-			overdue.add(person)
-		case person.RepaymentDue():
-			dueSoon.add(person)
-		case person.RepayBy == nil && person.DaysOutstanding != nil && *person.DaysOutstanding > LentOverdueDays:
-			stale.add(person)
+	chased := map[int]bool{}
+	for index, person := range lent.People {
+		for _, loan := range person.Loans {
+			group := (*lentGroup)(nil)
+			switch {
+			case !loan.Open():
+			case loan.Overdue():
+				group = &overdue
+			case loan.Due():
+				group = &dueSoon
+			case loan.RepayBy == nil && loan.DaysOutstanding > LentOverdueDays:
+				group = &stale
+			}
+			if group != nil {
+				group.add(loan)
+				chased[index] = true
+			}
 		}
 	}
-	people, total := overdue.people+dueSoon.people+stale.people, overdue.total+dueSoon.total+stale.total
+	people, total := len(chased), overdue.total+dueSoon.total+stale.total
 	if people == 0 {
 		return RuleFinding{}, false
 	}
@@ -301,25 +309,25 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 		Rule:      RuleLentOverdue,
 		AmountVND: vndAmount(total),
 		Page:      "/accounts/lent",
-		Urgent:    overdue.people > 0,
+		Urgent:    overdue.loans > 0,
 	}
 	evidence := []string{}
-	if overdue.people > 0 {
+	if overdue.loans > 0 {
 		evidence = append(evidence, fmt.Sprintf("%s past the repayment date (due %s, %s ago)", FormatVND(overdue.total), overdue.earliest, plural(-overdue.soonest, "day", "days")))
 	}
-	if dueSoon.people > 0 {
+	if dueSoon.loans > 0 {
 		evidence = append(evidence, fmt.Sprintf("%s due back by %s", FormatVND(dueSoon.total), dueSoon.latest))
 	}
-	if stale.people > 0 {
+	if stale.loans > 0 {
 		evidence = append(evidence, fmt.Sprintf("%s open longer than %d days with no repayment date; oldest %s", FormatVND(stale.total), LentOverdueDays, plural(stale.oldest, "day", "days")))
 	}
 	finding.Evidence = strings.Join(evidence, "; ")
 	switch {
-	case overdue.people > 0:
+	case overdue.loans > 0:
 		finding.Title = fmt.Sprintf("Chase money lent: %s %s, repayment overdue since %s", who, FormatVND(total), overdue.earliest)
 		finding.Action = "Remind them the agreed date has passed, write the new date in the memo if it moves, and " + record
 		finding.DueDate = overdue.earliest
-	case dueSoon.people > 0:
+	case dueSoon.loans > 0:
 		finding.Title = fmt.Sprintf("Chase money lent: %s %s, repayment due %s", who, FormatVND(total), dueIn(dueSoon.soonest))
 		finding.Action = fmt.Sprintf("Remind them repayment is due on %s, and %s", dueSoon.earliest, record)
 		finding.DueDate = dueSoon.earliest
@@ -330,27 +338,25 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 	return finding, true
 }
 
-// lentGroup sums the people of one chase reason.
+// lentGroup sums the loans of one chase reason.
 type lentGroup struct {
-	people int
-	total  float64
+	loans int
+	total float64
 	// earliest and latest repayment dates, soonest days until repayment, oldest days outstanding.
 	earliest, latest string
 	soonest, oldest  int
 }
 
-func (g *lentGroup) add(person MoneyLentPerson) {
-	if person.RepayBy != nil {
-		if g.people == 0 || *person.RepayBy < g.earliest {
-			g.earliest, g.soonest = *person.RepayBy, *person.DaysUntilRepay
+func (g *lentGroup) add(loan LentLoan) {
+	if loan.RepayBy != nil {
+		if g.earliest == "" || *loan.RepayBy < g.earliest {
+			g.earliest, g.soonest = *loan.RepayBy, *loan.DaysUntilRepay
 		}
-		g.latest = max(g.latest, *person.RepayBy)
+		g.latest = max(g.latest, *loan.RepayBy)
 	}
-	if person.DaysOutstanding != nil {
-		g.oldest = max(g.oldest, *person.DaysOutstanding)
-	}
-	g.people++
-	g.total += person.Outstanding
+	g.oldest = max(g.oldest, loan.DaysOutstanding)
+	g.loans++
+	g.total += loan.Outstanding
 }
 
 func dueIn(n int) string {
