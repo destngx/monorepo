@@ -236,6 +236,38 @@ func TestGivenMoneyRepaidAheadWithARefWhenALoanWithThatRefFollowsThenItTakesThat
 	}
 }
 
+func TestGivenARepaymentOfExactlyOneLoansAmountWhenComputingMoneyLentThenItPaysThatLoan(t *testing.T) {
+	transactions := []Transaction{
+		lendingTxn("row-2", "2026-02-10", "Person A", 3_000_000, 0),
+		lendingTxn("row-3", "2026-05-11", "Person A", 4_000_000, 0),
+		lendingTxn("row-4", "2026-07-07", "Person A", 70_000_000, 0),
+		lendingTxn("row-5", "2026-07-20", "Person A", 8_000_000, 0),
+		lendingTxn("row-6", "2026-07-21", "Person A", 0, 8_000_000),
+	}
+
+	loans := ComputeMoneyLent(transactions, day(2026, 10, 23)).People[0].Loans
+
+	if loans[3].Outstanding != 0 || !reflect.DeepEqual(loans[3].Repayments, []LoanRepayment{{TransactionID: "row-6", Date: "2026-07-21", Amount: 8_000_000}}) {
+		t.Fatalf("a repayment of exactly a loan's amount pays that loan: %+v", loans[3])
+	}
+	if loans[0].Outstanding != 3_000_000 || loans[1].Outstanding != 4_000_000 || loans[2].Outstanding != 70_000_000 {
+		t.Fatalf("the other loans stay open: %+v", loans)
+	}
+
+	transactions = append(transactions, lendingTxn("row-7", "2026-09-01", "Person A", 0, 4_000_000))
+	loans = ComputeMoneyLent(transactions, day(2026, 10, 23)).People[0].Loans
+	if loans[0].Outstanding != 3_000_000 || loans[1].Outstanding != 0 {
+		t.Fatalf("the exact match wins over the oldest loan: %+v", loans)
+	}
+
+	transactions = append(transactions, refTxn(lendingTxn("row-8", "2026-09-02", "Person A", 0, 3_000_000), "L3"))
+	transactions[2] = refTxn(transactions[2], "L3")
+	loans = ComputeMoneyLent(transactions, day(2026, 10, 23)).People[0].Loans
+	if loans[0].Outstanding != 3_000_000 || loans[2].Outstanding != 67_000_000 {
+		t.Fatalf("a Ref # wins over the exact amount: %+v", loans)
+	}
+}
+
 func lentPerson(name string, outstanding float64, daysOutstanding int, repayBy string, daysUntil int) MoneyLentPerson {
 	return owingPerson(name, openLoan(outstanding, daysOutstanding, repayBy, daysUntil))
 }

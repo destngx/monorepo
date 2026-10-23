@@ -263,8 +263,8 @@ func moneyLentPerson(group []Transaction, today time.Time) MoneyLentPerson {
 }
 
 // openLoans splits the person's history into loans (WM-LEND-7). A
-// repayment pays the loans with its Ref # first, then the others, oldest
-// first (WM-LEND-9). A loan takes the date in its memo; a dated memo on a
+// repayment pays the loans with its Ref # first (WM-LEND-9), then a loan
+// it repays exactly (WM-LEND-10), then the others, oldest first. A loan takes the date in its memo; a dated memo on a
 // repayment moves the date of the first loan it would pay that is still
 // open after it ("paid half, the rest by 30/12"). Money repaid beyond
 // what was lent is owed to the person and offsets the next loan, its Ref
@@ -308,7 +308,7 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 			dates = append(dates, date)
 			continue
 		}
-		order := payOrder(loans, reference)
+		order := payOrder(loans, reference, repayment)
 		for _, i := range order {
 			if repayment <= 0 {
 				break
@@ -356,27 +356,38 @@ type creditPart struct {
 }
 
 // payOrder lists the loans a repayment pays: those with its Ref # first,
-// then the others, each oldest first.
-func payOrder(loans []LentLoan, reference string) []int {
-	return matchedFirst(len(loans), func(i int) bool { return reference != "" && referenceKey(loans[i].Reference) == reference })
+// then an open loan whose remaining amount it repays exactly (6m back for
+// a 6m loan), then the others, each oldest first.
+func payOrder(loans []LentLoan, reference string, amount float64) []int {
+	return rankedOrder(len(loans), func(i int) int {
+		switch {
+		case reference != "" && referenceKey(loans[i].Reference) == reference:
+			return 0
+		case loans[i].Outstanding > 0 && math.Abs(loans[i].Outstanding-amount) < settledTolerance:
+			return 1
+		}
+		return 2
+	})
 }
 
 // creditOrder lists the money repaid ahead a new loan takes: parts with
 // its Ref # first, then the others, each oldest first.
 func creditOrder(credit []creditPart, reference string) []int {
-	return matchedFirst(len(credit), func(i int) bool { return reference != "" && credit[i].reference == reference })
+	return rankedOrder(len(credit), func(i int) int {
+		if reference != "" && credit[i].reference == reference {
+			return 0
+		}
+		return 1
+	})
 }
 
-// matchedFirst lists 0..n-1 with the matching indexes first, keeping order.
-func matchedFirst(n int, matches func(i int) bool) []int {
-	order := make([]int, 0, n)
-	for _, wanted := range []bool{true, false} {
-		for i := range n {
-			if matches(i) == wanted {
-				order = append(order, i)
-			}
-		}
+// rankedOrder lists 0..n-1 by rank, keeping order within a rank.
+func rankedOrder(n int, rank func(i int) int) []int {
+	order := make([]int, n)
+	for i := range order {
+		order[i] = i
 	}
+	sort.SliceStable(order, func(a, b int) bool { return rank(order[a]) < rank(order[b]) })
 	return order
 }
 
