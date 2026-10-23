@@ -834,8 +834,16 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 	if err != nil {
 		return err
 	}
+	vaccines := map[string]string{}
+	if personID != "" {
+		given, err := p.Store.VaccinationsOfPerson(ctx, tenantID, personID)
+		if err != nil {
+			return err
+		}
+		vaccines = domain.LatestVaccines(given)
+	}
 	obs, obsPages, obsConf := res.Output.CleanObservations(len(sent), today, catalog)
-	finds, findPages, findConf := res.Output.CleanFindings(len(sent))
+	finds, findPages, findConf := res.Output.CleanFindings(len(sent), today, vaccines)
 	now := p.Clock()
 	return p.Store.InTx(ctx, func(r port.Repos) error {
 		current, err := r.InboxItem(ctx, tenantID, item.ID)
@@ -939,5 +947,5 @@ func observationFrom(in domain.ObservationInput, now time.Time) domain.Observati
 
 func findingFrom(in domain.FindingInput, now time.Time) domain.Finding {
 	return domain.Finding{Kind: domain.FindingKind(in.Kind), Section: in.Section, Text: in.Text, ICD10: in.ICD10, Drug: in.Drug, Dose: in.Dose,
-		Frequency: in.Frequency, Duration: in.Duration, PageID: in.PageID, CreatedAt: now, UpdatedAt: now}
+		Frequency: in.Frequency, Duration: in.Duration, Date: in.Date, PageID: in.PageID, CreatedAt: now, UpdatedAt: now}
 }

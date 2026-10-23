@@ -123,15 +123,15 @@ func (r repos) DeleteObservation(ctx context.Context, tenantID, id string) error
 }
 
 const findingSelect = `SELECT f.id, f.status, COALESCE(f.item_id, ''), COALESCE(f.document_id, ''), COALESCE(f.person_id, ''),
-	COALESCE(f.page_id, ''), COALESCE(pg.number, 0), f.kind, f.section, f.text, f.icd10, f.drug, f.dose, f.frequency, f.duration, f.confidence,
-	f.version, f.source, f.source_detail, COALESCE(f.approved_by, ''), f.approved_at, f.created_at, f.updated_at
+	COALESCE(f.page_id, ''), COALESCE(pg.number, 0), f.kind, f.section, f.text, f.icd10, f.drug, f.dose, f.frequency, f.duration, f.date,
+	f.confidence, f.version, f.source, f.source_detail, COALESCE(f.approved_by, ''), f.approved_at, f.created_at, f.updated_at
 	FROM findings f LEFT JOIN pages pg ON pg.id = f.page_id`
 
 func scanFinding(scan func(...any) error) (domain.Finding, error) {
 	var f domain.Finding
 	var status, kind, source, approvedAt, created, updated string
 	if err := scan(&f.ID, &status, &f.ItemID, &f.DocumentID, &f.PersonID, &f.PageID, &f.PageNumber, &kind, &f.Section, &f.Text, &f.ICD10, &f.Drug,
-		&f.Dose, &f.Frequency, &f.Duration, &f.Confidence, &f.Version, &source, &f.SourceDetail, &f.ApprovedBy, &approvedAt,
+		&f.Dose, &f.Frequency, &f.Duration, &f.Date, &f.Confidence, &f.Version, &source, &f.SourceDetail, &f.ApprovedBy, &approvedAt,
 		&created, &updated); err != nil {
 		return f, err
 	}
@@ -167,13 +167,13 @@ func (r repos) findings(ctx context.Context, where string, args ...any) ([]domai
 
 func (r repos) CreateFinding(ctx context.Context, tenantID string, f domain.Finding) error {
 	res, err := r.q.ExecContext(ctx, `INSERT INTO findings (id, tenant_id, status, item_id, document_id, person_id, page_id, position, kind,
-			section, text, icd10, drug, dose, frequency, duration, confidence, version, source, source_detail, approved_by, approved_at,
+			section, text, icd10, drug, dose, frequency, duration, date, confidence, version, source, source_detail, approved_by, approved_at,
 			created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COUNT(*) FROM findings WHERE tenant_id = ? AND (item_id = ? OR document_id = ?)),
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		f.ID, tenantID, string(f.Status), nullable(f.ItemID), nullable(f.DocumentID), nullable(f.PersonID), nullable(f.PageID),
 		tenantID, f.ItemID, f.DocumentID,
-		string(f.Kind), f.Section, f.Text, f.ICD10, f.Drug, f.Dose, f.Frequency, f.Duration, f.Confidence,
+		string(f.Kind), f.Section, f.Text, f.ICD10, f.Drug, f.Dose, f.Frequency, f.Duration, f.Date, f.Confidence,
 		version(f.Version), string(f.Source), f.SourceDetail, nullable(f.ApprovedBy), formatOptionalTime(f.ApprovedAt),
 		formatTime(f.CreatedAt), formatTime(f.UpdatedAt))
 	if err := exec(res, err, "finding"); err != nil {
@@ -184,9 +184,9 @@ func (r repos) CreateFinding(ctx context.Context, tenantID string, f domain.Find
 
 func (r repos) UpdateFinding(ctx context.Context, tenantID string, f domain.Finding) error {
 	res, err := r.q.ExecContext(ctx, `UPDATE findings SET status = ?, page_id = ?, kind = ?, section = ?, text = ?, icd10 = ?, drug = ?, dose = ?,
-			frequency = ?, duration = ?, confidence = ?, version = ?, updated_at = ?
+			frequency = ?, duration = ?, date = ?, confidence = ?, version = ?, updated_at = ?
 		WHERE tenant_id = ? AND id = ?`,
-		string(f.Status), nullable(f.PageID), string(f.Kind), f.Section, f.Text, f.ICD10, f.Drug, f.Dose, f.Frequency, f.Duration, f.Confidence,
+		string(f.Status), nullable(f.PageID), string(f.Kind), f.Section, f.Text, f.ICD10, f.Drug, f.Dose, f.Frequency, f.Duration, f.Date, f.Confidence,
 		version(f.Version), formatTime(f.UpdatedAt), tenantID, f.ID)
 	if err := affected(res, err, "finding"); err != nil {
 		return err
@@ -205,6 +205,10 @@ func (r repos) FindingsOfItem(ctx context.Context, tenantID, itemID string) ([]d
 
 func (r repos) FindingsOfDocument(ctx context.Context, tenantID, documentID string) ([]domain.Finding, error) {
 	return r.findings(ctx, `f.tenant_id = ? AND f.document_id = ? AND f.status = 'approved'`, tenantID, documentID)
+}
+
+func (r repos) VaccinationsOfPerson(ctx context.Context, tenantID, personID string) ([]domain.Finding, error) {
+	return r.findings(ctx, `f.tenant_id = ? AND f.person_id = ? AND f.kind = 'vaccination' AND f.status = 'approved'`, tenantID, personID)
 }
 
 func (r repos) DeleteFinding(ctx context.Context, tenantID, id string) error {

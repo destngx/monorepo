@@ -210,13 +210,16 @@ type Finding struct {
 	Kind       FindingKind  `json:"kind"`
 	// Section is the heading the finding was written under: the specialty
 	// or body system of an exam, the study of an imaging report.
-	Section    string `json:"section,omitempty"`
-	Text       string `json:"text"`
-	ICD10      string `json:"icd10,omitempty"`
-	Drug       string `json:"drug,omitempty"`
-	Dose       string `json:"dose,omitempty"`
-	Frequency  string `json:"frequency,omitempty"`
-	Duration   string `json:"duration,omitempty"`
+	Section   string `json:"section,omitempty"`
+	Text      string `json:"text"`
+	ICD10     string `json:"icd10,omitempty"`
+	Drug      string `json:"drug,omitempty"`
+	Dose      string `json:"dose,omitempty"`
+	Frequency string `json:"frequency,omitempty"`
+	Duration  string `json:"duration,omitempty"`
+	// Date is the day written beside the finding, such as the day of one
+	// vaccine dose or the day a next dose is due; "" means the visit date.
+	Date       string `json:"date,omitempty"`
 	Confidence int    `json:"confidence"`
 	Provenance
 	// ExportGaps lists what a complete export still needs (RecordExportGaps).
@@ -235,6 +238,7 @@ type FindingInput struct {
 	Dose      string `json:"dose"`
 	Frequency string `json:"frequency"`
 	Duration  string `json:"duration"`
+	Date      string `json:"date"`
 	PageID    string `json:"pageId"`
 }
 
@@ -280,8 +284,18 @@ func (in FindingInput) Validate() (FindingInput, error) {
 	in.Text = CleanLines(in.Text)
 	in.ICD10 = strings.ToUpper(strings.TrimSpace(in.ICD10))
 	in.Drug, in.Dose, in.Frequency, in.Duration = CleanText(in.Drug), CleanText(in.Dose), CleanText(in.Frequency), CleanText(in.Duration)
-	if kind != "prescription" {
+	// A vaccination keeps its vaccine in Drug and the amount given in Dose.
+	switch kind {
+	case "prescription":
+	case "vaccination":
+		in.Frequency, in.Duration = "", ""
+	default:
 		in.Drug, in.Dose, in.Frequency, in.Duration = "", "", "", ""
+	}
+	if in.Date = strings.TrimSpace(in.Date); in.Date != "" {
+		if _, err := Date(in.Date); err != nil {
+			return in, err
+		}
 	}
 	if in.Text == "" && in.Drug == "" {
 		return in, Invalid("the finding needs some text")

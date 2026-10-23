@@ -114,6 +114,7 @@ type ReadingFinding struct {
 	Dose       string `json:"dose"`
 	Frequency  string `json:"frequency"`
 	Duration   string `json:"duration"`
+	Date       string `json:"date"`
 	Confidence int    `json:"confidence"`
 }
 
@@ -321,8 +322,39 @@ func splitBloodPressure(in ObservationInput, catalog *Catalog) []ObservationInpu
 	return out
 }
 
-// CleanFindings keeps the valid findings, with pages and confidences.
-func (o ReadingOutput) CleanFindings(pageCount int) ([]FindingInput, []int, []int) {
+// UncheckedVaccineConfidence is the most confidence a vaccine name read by
+// the model gets when no earlier dose confirms it. Vaccine names are often
+// faint, slanted stamps the model misreads with high confidence, so the
+// review page asks a person to check each one (HW-READ-4).
+const UncheckedVaccineConfidence = 60
+
+// LatestVaccines maps each disease, by the folded section of its approved
+// doses, to the vaccine of its latest approved dose with a name.
+func LatestVaccines(findings []Finding) map[string]string {
+	out := map[string]string{}
+	dates := map[string]string{}
+	for _, f := range findings {
+		key := FoldKey(f.Section)
+		if f.Kind != "vaccination" || f.Status != StatusApproved || f.Drug == "" || key == "" {
+			continue
+		}
+		if d, ok := dates[key]; !ok || f.Date >= d {
+			out[key], dates[key] = f.Drug, f.Date
+		}
+	}
+	return out
+}
+
+// CleanFindings keeps the valid findings, with pages and confidences. A
+// date that is not a calendar date is dropped.
+//
+// A vaccination takes the vaccine of the person's latest approved dose for
+// the same disease, from vaccines (LatestVaccines); a name no earlier dose
+// confirms keeps what the model read and is flagged for a check. A
+// vaccination dated after today has not been given yet: record books write
+// the next dose's day in advance, so it becomes advice that the dose is
+// due, with the vaccine and dose leading its text.
+func (o ReadingOutput) CleanFindings(pageCount int, today string, vaccines map[string]string) ([]FindingInput, []int, []int) {
 	var ins []FindingInput
 	var pages, confs []int
 	for _, r := range o.Findings {
@@ -336,13 +368,30 @@ func (o ReadingOutput) CleanFindings(pageCount int) ([]FindingInput, []int, []in
 		in.ICD10 = CleanICD10(in.ICD10)
 		in.Text = cutLines(in.Text, 4000)
 		in.Drug, in.Dose, in.Frequency, in.Duration = cut(in.Drug, 200), cut(in.Dose, 200), cut(in.Frequency, 200), cut(in.Duration, 200)
+		if d, err := Date(strings.TrimSpace(r.Date)); err == nil {
+			in.Date = d
+		}
+		conf := clampConfidence(r.Confidence)
+		if in.Kind == "vaccination" {
+			earlier, ok := vaccines[FoldKey(in.Section)]
+			if !ok || FoldKey(earlier) != FoldKey(in.Drug) {
+				conf = min(conf, UncheckedVaccineConfidence)
+			}
+			if ok {
+				in.Drug = earlier
+			}
+			if in.Date > today {
+				product := strings.TrimSpace(CleanText(in.Drug) + " " + CleanText(in.Dose))
+				in.Kind, in.Text = "advice", cutLines(strings.TrimSpace(product+"\n"+in.Text), 4000)
+			}
+		}
 		v, err := in.Validate()
 		if err != nil {
 			continue
 		}
 		ins = append(ins, v)
 		pages = append(pages, clampPage(r.Page, pageCount))
-		confs = append(confs, clampConfidence(r.Confidence))
+		confs = append(confs, conf)
 	}
 	return ins, pages, confs
 }

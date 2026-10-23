@@ -94,8 +94,20 @@ export function findingInput(f: Finding): FindingInput {
     dose: f.dose ?? '',
     frequency: f.frequency ?? '',
     duration: f.duration ?? '',
+    date: f.date ?? '',
     pageId: f.pageId ?? '',
   };
+}
+
+/** The line under a finding's text: a prescription's drug, dose, frequency and duration, or a vaccination's vaccine and dose. */
+export function findingDetails(f: Finding): string {
+  const parts =
+    f.kind === 'prescription'
+      ? [f.drug, f.dose, f.frequency, f.duration]
+      : f.kind === 'vaccination'
+        ? [f.drug, f.dose]
+        : [];
+  return parts.filter(Boolean).join(' · ');
 }
 
 /** The record an audit entry kept, or {} when it can't be read. */

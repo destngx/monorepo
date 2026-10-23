@@ -825,3 +825,41 @@ func TestGivenADocumentWithValuesWhenUnfiledThenItIsRefused(t *testing.T) {
 		t.Fatalf("viewer unfile = %v", err)
 	}
 }
+
+func TestGivenAnApprovedVaccineDoseWhenTheNextDoseIsReadThenItsDraftTakesTheEarlierVaccineName(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	person := e.person(sc, "Nguyễn Văn Mẫu")
+	dose := func(drug, date, line string) *domain.ReadingOutput {
+		out := labReading()
+		out.Observations = nil
+		out.Findings = []domain.ReadingFinding{{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: drug,
+			Dose: "1ml", Date: date, Text: line, Confidence: 95}}
+		return &out
+	}
+
+	e.reader.out = dose("Vaccine X", "2025-01-15", "Lần 1: 15/01/2025")
+	first := e.uploadRead(sc, "dose 1")
+	if f := first.Findings[0]; f.Drug != "Vaccine X" || f.Date != "2025-01-15" || f.Confidence != domain.UncheckedVaccineConfidence {
+		t.Fatalf("first dose = %+v", f)
+	}
+	if _, err := e.inbox.File(e.ctx, sc, first.Item.ID, domain.FileInput{Kind: "other",
+		Visit: &domain.VisitInput{PersonID: person.ID, Date: "2025-01-15", Type: "vaccination"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	e.reader.out = dose("Misread", "2025-02-15", "Lần 2: 15/02/2025")
+	second := e.uploadRead(sc, "dose 2")
+	if readingOf(t, second).Proposal.PersonID != person.ID {
+		t.Fatal("the person was not matched")
+	}
+	if f := second.Findings[0]; f.Drug != "Vaccine X" || f.Date != "2025-02-15" || f.Confidence != domain.UncheckedVaccineConfidence {
+		t.Fatalf("second dose = %+v", f)
+	}
+
+	e.reader.out = dose("Vaccine X", "2025-02-15", "Lần 2: 15/02/2025")
+	third := e.uploadRead(sc, "dose 2 again")
+	if f := third.Findings[0]; f.Drug != "Vaccine X" || f.Confidence != 95 {
+		t.Fatalf("a dose the earlier one confirms = %+v", f)
+	}
+}

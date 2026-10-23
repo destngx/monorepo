@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Finding, RecordStatus } from '$lib/api/types';
-  import { findingKindLabels } from '$lib/format';
+  import { findingKindLabels, formatDate } from '$lib/format';
+  import { findingDetails } from '$lib/reading';
   import { Button } from '@libs/ui-kit';
   import PageRef from '$lib/components/PageRef.svelte';
 
@@ -26,15 +27,17 @@
     <li class="flex items-start gap-3 py-2 {f.status === 'rejected' ? 'opacity-50' : ''}">
       <div class="min-w-0 flex-1">
         <p class="muted text-xs">
-          {findingKindLabels[f.kind]}{f.section ? ` · ${f.section}` : ''}{f.icd10 ? ` · ${f.icd10}` : ''}
+          {findingKindLabels[f.kind]}{f.section ? ` · ${f.section}` : ''}{f.icd10 ? ` · ${f.icd10}` : ''}{f.date
+            ? ` · ${formatDate(f.date)}`
+            : ''}
           <PageRef {page} href={f.pageId && pageHref ? pageHref(f.pageId) : undefined} />
           {#if f.status === 'draft' && f.confidence < 70}
             · <span class="text-warn-700 dark:text-warn-300">check this ({f.confidence}%)</span>
           {/if}
         </p>
         <p class="text-sm whitespace-pre-wrap {f.status === 'rejected' ? 'line-through' : ''}">{f.text}</p>
-        {#if f.kind === 'prescription' && (f.drug || f.dose || f.frequency || f.duration)}
-          <p class="muted text-xs">{[f.drug, f.dose, f.frequency, f.duration].filter(Boolean).join(' · ')}</p>
+        {#if findingDetails(f)}
+          <p class="muted text-xs">{findingDetails(f)}</p>
         {/if}
       </div>
       <div class="shrink-0 whitespace-nowrap">

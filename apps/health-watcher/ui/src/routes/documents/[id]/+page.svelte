@@ -98,6 +98,7 @@
     dose: '',
     frequency: '',
     duration: '',
+    date: '',
     pageId: '',
   });
 

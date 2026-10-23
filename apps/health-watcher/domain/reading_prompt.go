@@ -14,9 +14,11 @@ How to read:
   - exam: one entry per examined specialty or body system (internal medicine, circulation, respiration, surgery, skin, eyes, ear-nose-throat, teeth, and so on), with section the specialty or system as printed and text the doctor's result or comment, such as "Hiện tại bình thường". Eye exams keep the visual acuity as written. Include handwritten comments and short ones.
   - imaging_report: one entry per X-ray, ultrasound, CT, MRI or other imaging study. section is the study as printed, such as "Chụp X quang tim phổi thẳng". text is the written description followed by the conclusion, each under its printed heading. A study listed again in a summary table is not a second entry.
   - prescription: one entry per drug, with drug, dose, frequency and duration.
+  - vaccination: one entry per dose with a date written next to it, such as each "Lần 1", "Lần 2" and "Nhắc" line of a record book. section is the disease as printed, such as "Viêm gan Siêu vi B (Hepatitis B)". drug is the vaccine's name as written in its column, often a slanted rubber stamp or handwriting. Read the name letter by letter from the image, never from what vaccine is usual for the disease. The OCR often reads only the end of a stamped or slanted word, so a short OCR word there only shows where the name is. Give a confidence under 70 when any letter is unclear. dose is the amount given, such as "1ml". date is that dose's day. text is the dose line as written, such as "Lần 2: 15/02/2025". A vaccine name or amount written once for several doses goes on each of them. Skip dose lines left blank. Anything else written beside the disease, such as a test result, is a note with the same section.
   - advice: what the doctor tells the patient to do next, such as follow-up checks, diet or lifestyle advice.
-  - procedure, allergy, vaccination as printed.
+  - procedure and allergy as printed.
   - note: anything else worth keeping, such as a health classification or a remark in a notes column.
+- drug and dose are "" except on a prescription or a vaccination; frequency and duration are "" except on a prescription. date is the day written beside a finding as YYYY-MM-DD, such as a vaccine dose's day or the day of a follow-up check, otherwise "".
 - pages: one entry per page, with page its 1-based number and title a short heading, in the document's language, for what the page holds, such as "Tổng phân tích tế bào máu" or "Siêu âm ổ bụng". Use the page's printed heading when it has one. A title never holds a name, a date or any other personal detail.
 - document: kind, a short title in the document's language, date (the visit, sample or report date as YYYY-MM-DD, never a birth date), visit_type, provider_name (the hospital, clinic or lab as printed), provider_kind.
 - Handwriting (record books, prescriptions): read what you can and give a low confidence to anything uncertain.
@@ -78,7 +80,7 @@ func ReadingSchema() map[string]any {
 		})},
 		"findings": map[string]any{"type": "array", "items": strictObject(map[string]any{
 			"page": integer, "kind": map[string]any{"type": "string", "enum": enumOf(FindingKinds)}, "section": str, "text": str,
-			"icd10": str, "drug": str, "dose": str, "frequency": str, "duration": str, "confidence": integer,
+			"icd10": str, "drug": str, "dose": str, "frequency": str, "duration": str, "date": str, "confidence": integer,
 		})},
 	})
 }

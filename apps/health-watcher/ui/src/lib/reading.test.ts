@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxItem, Observation, Person, Reading } from './api/types';
-import { findingInput, observationInput, oldRecord, proposalVisit, readingState } from './reading';
+import { findingDetails, findingInput, observationInput, oldRecord, proposalVisit, readingState } from './reading';
 
 function item(over: Partial<InboxItem> = {}): InboxItem {
   return {
@@ -120,6 +120,29 @@ describe('record inputs', () => {
       kind: 'exam',
       section: 'Khám Mắt',
     });
+  });
+});
+
+describe('vaccination findings', () => {
+  const dose = {
+    kind: 'vaccination',
+    text: 'Lần 1: 15/01/2025',
+    drug: 'Vaccine X',
+    dose: '1ml',
+    date: '2025-01-15',
+  } as never;
+  it('keeps the vaccine, dose and date, so approving a draft does not drop them', () => {
+    expect(findingInput(dose)).toMatchObject({ drug: 'Vaccine X', dose: '1ml', date: '2025-01-15' });
+    expect(findingInput({ kind: 'note', text: 'x' } as never).date).toBe('');
+  });
+  it('shows the vaccine and dose under the text', () => {
+    expect(findingDetails(dose)).toBe('Vaccine X · 1ml');
+  });
+  it('shows a prescription line and nothing for other kinds', () => {
+    expect(findingDetails({ kind: 'prescription', drug: 'Metformin', frequency: '2 lần/ngày' } as never)).toBe(
+      'Metformin · 2 lần/ngày',
+    );
+    expect(findingDetails({ kind: 'diagnosis', drug: 'stale' } as never)).toBe('');
   });
 });
 

@@ -360,6 +360,8 @@ export interface Finding extends Provenance {
   dose?: string;
   frequency?: string;
   duration?: string;
+  /** The day written beside it, such as a vaccine dose's day; absent means the visit date. */
+  date?: string;
   confidence: number;
   createdAt: string;
   updatedAt: string;
@@ -374,6 +376,7 @@ export interface FindingInput {
   dose: string;
   frequency: string;
   duration: string;
+  date: string;
   pageId: string;
 }
 

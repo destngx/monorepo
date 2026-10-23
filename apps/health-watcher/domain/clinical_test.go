@@ -71,7 +71,7 @@ func TestGivenAnObservationInputWhenValidatingThenItIsCleanedAndChecked(t *testi
 	}
 }
 
-func TestGivenAFindingInputWhenValidatingThenDrugFieldsStayOnPrescriptionsOnly(t *testing.T) {
+func TestGivenAFindingInputWhenValidatingThenDrugFieldsStayOnPrescriptionsAndVaccinations(t *testing.T) {
 	in, err := FindingInput{Kind: "diagnosis", Text: "Đái tháo đường type 2", ICD10: "e11.9", Drug: "Metformin"}.Validate()
 	if err != nil || in.ICD10 != "E11.9" || in.Drug != "" {
 		t.Fatalf("Validate = %+v, %v", in, err)
@@ -79,6 +79,13 @@ func TestGivenAFindingInputWhenValidatingThenDrugFieldsStayOnPrescriptionsOnly(t
 	rx, err := FindingInput{Kind: "prescription", Drug: "Metformin 500mg", Dose: "1 viên", Frequency: "2 lần/ngày", Duration: "30 ngày"}.Validate()
 	if err != nil || rx.Drug != "Metformin 500mg" {
 		t.Fatalf("prescription = %+v, %v", rx, err)
+	}
+	vax, err := FindingInput{Kind: "vaccination", Drug: "Vaccine X", Dose: "1ml", Frequency: "x", Duration: "y", Date: "2025-01-15"}.Validate()
+	if err != nil || vax.Drug != "Vaccine X" || vax.Dose != "1ml" || vax.Frequency != "" || vax.Duration != "" || vax.Date != "2025-01-15" {
+		t.Fatalf("vaccination = %+v, %v", vax, err)
+	}
+	if _, err := (FindingInput{Kind: "vaccination", Drug: "Vaccine X", Date: "15/01/2025"}).Validate(); !errors.Is(err, ErrValidation) {
+		t.Fatalf("bad date accepted: %v", err)
 	}
 	if _, err := (FindingInput{Kind: "diagnosis", Text: "x", ICD10: "diabetes"}).Validate(); !errors.Is(err, ErrValidation) {
 		t.Fatalf("bad ICD-10 accepted: %v", err)

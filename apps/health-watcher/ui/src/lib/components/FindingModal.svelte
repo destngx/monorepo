@@ -5,10 +5,11 @@
   import { action, Field, Modal } from '@libs/ui-kit';
 
   // Adds or edits one finding: a diagnosis, exam result, prescription line,
-  // imaging report, advice or note.
+  // vaccine dose, imaging report, advice or note.
   const sectionHints: Partial<Record<FindingInput['kind'], string>> = {
     exam: 'The specialty or body system, e.g. Khám Mắt.',
     imaging_report: 'The study, e.g. Chụp X quang tim phổi thẳng.',
+    vaccination: 'The disease, e.g. Viêm gan Siêu vi B (Hepatitis B).',
   };
   interface Props {
     value: FindingInput | null;
@@ -28,6 +29,7 @@
     dose: '',
     frequency: '',
     duration: '',
+    date: '',
     pageId: '',
   });
 
@@ -91,6 +93,23 @@
         </Field>
       </div>
     {/if}
+    {#if form.kind === 'vaccination'}
+      <div class="grid grid-cols-2 gap-4">
+        <Field id="fd-vaccine" label="Vaccine" hint="As written, e.g. a stamped name.">
+          <input id="fd-vaccine" class="field" bind:value={form.drug} maxlength="120" />
+        </Field>
+        <Field id="fd-vdose" label="Dose">
+          <input id="fd-vdose" class="field" bind:value={form.dose} maxlength="60" />
+        </Field>
+      </div>
+    {/if}
+    <Field
+      id="fd-date"
+      label="Date"
+      hint="The day written beside it, such as a dose's day. Blank means the visit date."
+    >
+      <input id="fd-date" class="field" type="date" bind:value={form.date} />
+    </Field>
     {#if pages.length > 0}
       <Field id="fd-page" label="Page">
         <select id="fd-page" class="field" bind:value={form.pageId}>

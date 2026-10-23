@@ -344,6 +344,8 @@ type ClinicalRepo interface {
 	Finding(ctx context.Context, tenantID, id string) (domain.Finding, error)
 	FindingsOfItem(ctx context.Context, tenantID, itemID string) ([]domain.Finding, error)
 	FindingsOfDocument(ctx context.Context, tenantID, documentID string) ([]domain.Finding, error)
+	// VaccinationsOfPerson lists a person's approved vaccine doses.
+	VaccinationsOfPerson(ctx context.Context, tenantID, personID string) ([]domain.Finding, error)
 	DeleteFinding(ctx context.Context, tenantID, id string) error
 
 	// DeleteItemDrafts removes an item's unapproved observations and findings.

@@ -142,6 +142,14 @@ func TestGivenAFiledDocumentWhenAddingRecordsByHandThenTheyAreApprovedWithTheVis
 	if f.Status != domain.StatusApproved || f.Dose != "500 mg" {
 		t.Fatalf("finding = %+v", f)
 	}
+	vax, err := e.clinical.AddFinding(e.ctx, sc, doc.Document.ID, domain.FindingInput{Kind: "vaccination", Section: "Viêm gan Siêu vi B",
+		Text: "Lần 1: 15/01/2025", Drug: "Vaccine X", Dose: "1ml", Date: "2025-01-15"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vax.Drug != "Vaccine X" || vax.Dose != "1ml" || vax.Date != "2025-01-15" {
+		t.Fatalf("vaccination = %+v", vax)
+	}
 	if _, err := e.clinical.AddObservation(e.ctx, sc, doc.Document.ID, domain.ObservationInput{Analyte: "X", Value: "1", PageID: "nope"}); !errors.Is(err, domain.ErrValidation) {
 		t.Fatalf("unknown page = %v", err)
 	}
