@@ -1,4 +1,8 @@
 <script lang="ts">
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { applyFill, asText } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
   import { api } from '$lib/api/endpoints';
   import type { CardSuggestion } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
@@ -14,6 +18,8 @@
   let invalid = $state<'amount' | 'mcc' | 'payee' | null>(null);
   let suggestions = $state<CardSuggestion[] | null>(null);
   let controller: AbortController | null = null;
+  // Fields AI filled from the Describe it box (WM-FILL-6).
+  const marks = new FillMarks();
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -49,9 +55,17 @@
   title="Best card for a payment"
   subtitle="What the payment would add to each card's current period, caps and spend tiers included"
 >
+  <FillBox
+    form="best-card"
+    class="mb-3"
+    onfill={(result) => {
+      form = applyFill(form, result.values, { amount: asText, mcc: asText });
+      marks.take({ ...result, values: { ...result.values, amount: form.amount, mcc: form.mcc } });
+    }}
+  />
   <form class="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end" onsubmit={submit} novalidate>
     <div>
-      <label class="label" for="best-card-payee">Payee</label>
+      <label class="label" for="best-card-payee">Payee<FilledMark show={marks.has('payee', form.payee)} /></label>
       <input
         id="best-card-payee"
         class="field"
@@ -61,7 +75,7 @@
       />
     </div>
     <div>
-      <label class="label" for="best-card-amount">Amount</label>
+      <label class="label" for="best-card-amount">Amount<FilledMark show={marks.has('amount', form.amount)} /></label>
       <input
         id="best-card-amount"
         class="field"
@@ -71,7 +85,7 @@
       />
     </div>
     <div>
-      <label class="label" for="best-card-mcc">MCC (if known)</label>
+      <label class="label" for="best-card-mcc">MCC (if known)<FilledMark show={marks.has('mcc', form.mcc)} /></label>
       <input
         id="best-card-mcc"
         class="field"

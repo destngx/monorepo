@@ -177,7 +177,9 @@ type FillContext struct {
 // FillNote explains a field left blank or something the model wants to say
 // (WM-FILL-3). Row is the 0-based row of a list form.
 type FillNote struct {
-	Field   string `json:"field,omitempty"`
+	Field string `json:"field,omitempty"`
+	// Label is the field's label, for the UI to show with the message.
+	Label   string `json:"label,omitempty"`
 	Row     *int   `json:"row,omitempty"`
 	Message string `json:"message"`
 }
@@ -213,7 +215,7 @@ func ParseFillAnswer(content string, form FillForm, context FillContext, current
 		}
 		value, problem := field.check(raw, context)
 		if problem != "" {
-			result.Notes = append(result.Notes, FillNote{Field: field.Name, Message: problem})
+			result.Notes = append(result.Notes, FillNote{Field: field.Name, Label: field.Label, Message: problem})
 			continue
 		}
 		result.Values[field.Name] = value
@@ -239,7 +241,7 @@ func ParseFillAnswer(content string, form FillForm, context FillContext, current
 					// The row stays so nothing asked for disappears (WM-FILL-5).
 					row[field.Name] = fillText(value)
 					rowIndex := len(result.Rows)
-					result.Notes = append(result.Notes, FillNote{Field: field.Name, Row: &rowIndex, Message: problem})
+					result.Notes = append(result.Notes, FillNote{Field: field.Name, Label: field.Label, Row: &rowIndex, Message: problem})
 					continue
 				}
 				row[field.Name] = checked
@@ -259,7 +261,7 @@ func ParseFillAnswer(content string, form FillForm, context FillContext, current
 		if _, set := result.Values[field.Name]; set || !isBlankFill(current[field.Name]) || hasFieldNote(result.Notes, field.Name) {
 			continue
 		}
-		result.Notes = append(result.Notes, FillNote{Field: field.Name, Message: field.Label + " is still needed."})
+		result.Notes = append(result.Notes, FillNote{Field: field.Name, Label: field.Label, Message: field.Label + " is still needed."})
 	}
 	for _, note := range answer.Notes {
 		if len(result.Notes) >= fillMaxNotes+len(form.Fields) {

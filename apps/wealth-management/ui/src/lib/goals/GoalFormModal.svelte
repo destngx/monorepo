@@ -3,6 +3,10 @@
   import type { GoalProgress } from '$lib/api/types';
   import { Button, Modal } from '@libs/ui-kit';
   import MonthPicker from '$lib/components/MonthPicker.svelte';
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { applyFill } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
   import { goalDateHint, looksLikeEmergencyFund, type GoalForm } from './goals';
 
   interface Props {
@@ -25,10 +29,13 @@
   let nameTouched = $state(false);
   const nameInvalid = $derived((tried || nameTouched) && !form.name.trim());
   const targetInvalid = $derived(tried && (form.target === null ? !emergency : form.target <= 0));
+  // Fields AI filled from the Describe it box (WM-FILL-6).
+  const marks = new FillMarks();
   $effect(() => {
     if (!open) {
       tried = false;
       nameTouched = false;
+      marks.clear();
     }
   });
 
@@ -39,9 +46,18 @@
 </script>
 
 <Modal {open} title={editing ? `Edit ${editing.name}` : 'New goal'} {onclose} {busy}>
+  <FillBox
+    form="goal"
+    class="mb-4"
+    current={() => ({ ...form })}
+    onfill={(result) => {
+      form = applyFill(form, result.values);
+      marks.take(result);
+    }}
+  />
   <form id="goal-form" class="grid grid-cols-1 gap-4 sm:grid-cols-2" onsubmit={submit}>
     <div class="sm:col-span-2">
-      <label class="label" for="goal-name">Name *</label>
+      <label class="label" for="goal-name">Name *<FilledMark show={marks.has('name', form.name)} /></label>
       <input
         id="goal-name"
         class="field"
@@ -57,7 +73,9 @@
       {/if}
     </div>
     <div>
-      <label class="label" for="goal-target">Target (VND){emergency ? '' : ' *'}</label>
+      <label class="label" for="goal-target"
+        >Target (VND){emergency ? '' : ' *'}<FilledMark show={marks.has('target', form.target)} /></label
+      >
       <input
         id="goal-target"
         type="number"
@@ -80,7 +98,9 @@
       </p>
     </div>
     <div>
-      <label class="label" for="goal-date">Target date</label>
+      <label class="label" for="goal-date"
+        >Target date<FilledMark show={marks.has('targetDate', form.targetDate)} /></label
+      >
       <MonthPicker
         id="goal-date"
         bind:value={form.targetDate}
@@ -91,7 +111,8 @@
       <p id="goal-date-hint" class="muted mt-1 text-xs">{goalDateHint(form.targetDate)}</p>
     </div>
     <div>
-      <label class="label" for="goal-priority">Priority</label>
+      <label class="label" for="goal-priority">Priority<FilledMark show={marks.has('priority', form.priority)} /></label
+      >
       <input
         id="goal-priority"
         type="number"
@@ -106,7 +127,9 @@
       </p>
     </div>
     <div>
-      <label class="label" for="goal-starting">Starting amount (VND)</label>
+      <label class="label" for="goal-starting"
+        >Starting amount (VND)<FilledMark show={marks.has('startingAmount', form.startingAmount)} /></label
+      >
       <input
         id="goal-starting"
         type="number"
@@ -119,7 +142,7 @@
       <p id="goal-starting-hint" class="muted mt-1 text-xs">Money already set aside outside your accounts.</p>
     </div>
     <div>
-      <label class="label" for="goal-status">Status</label>
+      <label class="label" for="goal-status">Status<FilledMark show={marks.has('status', form.status)} /></label>
       <select id="goal-status" class="field" bind:value={form.status}>
         <option value="active">Active</option>
         <option value="paused">Paused</option>
@@ -127,7 +150,7 @@
       </select>
     </div>
     <div class="sm:col-span-2">
-      <label class="label" for="goal-note">Note</label>
+      <label class="label" for="goal-note">Note<FilledMark show={marks.has('note', form.note)} /></label>
       <input id="goal-note" class="field" bind:value={form.note} />
     </div>
     <div class="sm:col-span-2">

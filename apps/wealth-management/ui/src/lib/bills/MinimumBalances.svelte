@@ -6,6 +6,9 @@
   import { Button, Icon } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatDate } from '$lib/format';
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import { asText } from '$lib/fill/fill';
+  import type { FillResult } from '$lib/api/types';
   import { STATUS } from '$lib/status';
   import { minimumRows, minimumStatus } from './bills';
   import { parseFloatDraft } from './idleCash';
@@ -47,6 +50,25 @@
     }
   }
 
+  // Describe it (WM-FILL-6): opens the account's editor with the minimum and
+  // note filled; the user saves as usual.
+  let fillProblem = $state<string | null>(null);
+
+  function fill(result: FillResult) {
+    fillProblem = null;
+    const account = typeof result.values.account === 'string' ? result.values.account : '';
+    if (!account) return;
+    const row = rows.find((candidate) => candidate.account === account);
+    if (!row) {
+      fillProblem = `${account} cannot keep a minimum here.`;
+      return;
+    }
+    editing = account;
+    draft = result.values.minimum === undefined ? '' : asText(result.values.minimum);
+    noteDraft = typeof result.values.note === 'string' ? result.values.note : (row.track?.note ?? '');
+    touched = draft !== '';
+  }
+
   // Escape closes the editor and gives focus back to its Change / Set minimum button.
   function onEditorKeydown(event: KeyboardEvent, account: string) {
     if (event.key !== 'Escape') return;
@@ -61,6 +83,8 @@
 </script>
 
 <div class="text-sm" data-testid="minimum-balances">
+  <FillBox form="minimum-balance" class="mb-2" onfill={fill} />
+  {#if fillProblem}<p class="mb-2 text-xs {STATUS.warning.ink}" role="alert">{fillProblem}</p>{/if}
   <p class="muted text-xs">
     For a bank reward on the average monthly balance. The minimum is kept back from ready money and is never idle: the
     reward depends on the whole month's average, so a dip late in the month cannot be made up.

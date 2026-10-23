@@ -1,4 +1,8 @@
 <script lang="ts">
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { applyFill } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
   import { Button, Modal } from '@libs/ui-kit';
   import type { SubmitHandler } from '$lib/accounts/handlers';
   import type { Category } from '$lib/api/types';
@@ -42,17 +46,31 @@
   const unlistedCategory = $derived(
     form.category && !categories.some((category) => category.name === form.category) ? form.category : null,
   );
+  // Fields AI filled from the Describe it box (WM-FILL-6).
+  const marks = new FillMarks();
+  $effect(() => {
+    if (!open) marks.clear();
+  });
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 </script>
 
 <Modal {open} {title} {onclose} {busy}>
+  <FillBox
+    form="recurring"
+    class="mb-4"
+    current={() => ({ ...form })}
+    onfill={(result) => {
+      form = applyFill(form, result.values);
+      marks.take(result);
+    }}
+  />
   <form id="recurring-form" class="grid grid-cols-1 gap-4 sm:grid-cols-2" {onsubmit}>
     <div class="sm:col-span-2">
-      <label class="label" for="recurring-name">Name *</label>
+      <label class="label" for="recurring-name">Name *<FilledMark show={marks.has('name', form.name)} /></label>
       <input id="recurring-name" class="field" bind:value={form.name} required />
     </div>
     <div>
-      <label class="label" for="recurring-kind">Kind</label>
+      <label class="label" for="recurring-kind">Kind<FilledMark show={marks.has('kind', form.kind)} /></label>
       <select id="recurring-kind" class="field" bind:value={form.kind}>
         {#each Object.entries(KIND_LABELS) as [value, label] (value)}
           <option {value}>{label}</option>
@@ -61,7 +79,9 @@
     </div>
     {#if isCard}
       <div>
-        <label class="label" for="recurring-account">Card account *</label>
+        <label class="label" for="recurring-account"
+          >Card account *<FilledMark show={marks.has('account', form.account)} /></label
+        >
         <input
           id="recurring-account"
           class="field"
@@ -76,11 +96,15 @@
       </p>
     {:else}
       <div>
-        <label class="label" for="recurring-amount">Amount (VND) *</label>
+        <label class="label" for="recurring-amount"
+          >Amount (VND) *<FilledMark show={marks.has('amount', form.amount)} /></label
+        >
         <input id="recurring-amount" type="number" min="1" step="1" class="field" bind:value={form.amount} required />
       </div>
       <div>
-        <label class="label" for="recurring-frequency">How often</label>
+        <label class="label" for="recurring-frequency"
+          >How often<FilledMark show={marks.has('frequency', form.frequency)} /></label
+        >
         <select id="recurring-frequency" class="field" bind:value={form.frequency}>
           <option value="monthly">Monthly</option>
           <option value="quarterly">Quarterly</option>
@@ -88,7 +112,7 @@
         </select>
       </div>
       <div>
-        <label class="label" for="recurring-day">Day of month *</label>
+        <label class="label" for="recurring-day">Day of month *<FilledMark show={marks.has('day', form.day)} /></label>
         <input
           id="recurring-day"
           type="number"
@@ -103,7 +127,9 @@
         <p id="recurring-day-hint" class="muted mt-1 text-xs">31 means the last day in shorter months.</p>
       </div>
       <div>
-        <label class="label" for="recurring-grace">Grace days</label>
+        <label class="label" for="recurring-grace"
+          >Grace days<FilledMark show={marks.has('graceDays', form.graceDays)} /></label
+        >
         <input
           id="recurring-grace"
           type="number"
@@ -121,7 +147,9 @@
       {#if form.frequency !== 'monthly'}
         <div>
           <label class="label" for="recurring-month"
-            >{form.frequency === 'quarterly' ? 'First month *' : 'Month *'}</label
+            >{form.frequency === 'quarterly' ? 'First month *' : 'Month *'}<FilledMark
+              show={marks.has('month', form.month)}
+            /></label
           >
           <select id="recurring-month" class="field" bind:value={form.month}>
             {#each months as label, index (label)}
@@ -131,14 +159,18 @@
         </div>
       {/if}
       <div class="sm:col-span-2">
-        <label class="label" for="recurring-match">Payee contains</label>
+        <label class="label" for="recurring-match"
+          >Payee contains<FilledMark show={marks.has('match', form.match)} /></label
+        >
         <input id="recurring-match" class="field" bind:value={form.match} aria-describedby="recurring-match-hint" />
         <p id="recurring-match-hint" class="muted mt-1 text-xs">
           Whole words, case and accents ignored. Without it, the category and an amount within 15% mark a payment.
         </p>
       </div>
       <div>
-        <label class="label" for="recurring-category">Category</label>
+        <label class="label" for="recurring-category"
+          >Category<FilledMark show={marks.has('category', form.category)} /></label
+        >
         <select
           id="recurring-category"
           class="field"
@@ -166,19 +198,21 @@
         {/if}
       </div>
       <div>
-        <label class="label" for="recurring-account">Account</label>
+        <label class="label" for="recurring-account"
+          >Account<FilledMark show={marks.has('account', form.account)} /></label
+        >
         <input id="recurring-account" class="field" bind:value={form.account} />
       </div>
     {/if}
     <div>
-      <label class="label" for="recurring-status">Status</label>
+      <label class="label" for="recurring-status">Status<FilledMark show={marks.has('status', form.status)} /></label>
       <select id="recurring-status" class="field" bind:value={form.status}>
         <option value="active">Active</option>
         <option value="paused">Paused</option>
       </select>
     </div>
     <div>
-      <label class="label" for="recurring-note">Note</label>
+      <label class="label" for="recurring-note">Note<FilledMark show={marks.has('note', form.note)} /></label>
       <input id="recurring-note" class="field" bind:value={form.note} />
     </div>
     {#if error}<p role="alert" class="text-sm text-orange-600 sm:col-span-2 dark:text-orange-400">{error}</p>{/if}

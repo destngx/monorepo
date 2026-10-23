@@ -1,4 +1,8 @@
 <script lang="ts">
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { applyFill, asText } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { Category } from '$lib/api/types';
@@ -17,10 +21,14 @@
   let tags = $state('');
   let saving = $state(false);
 
+  // Fields AI filled from the Describe it box (WM-FILL-6).
+  const marks = new FillMarks();
+
   // Seeded each time a category opens.
   $effect(() => {
     definition = category?.definition ?? '';
     tags = (category?.splitTags ?? []).join(', ');
+    marks.clear();
   });
 
   async function save(event: SubmitEvent) {
@@ -45,9 +53,22 @@
 </script>
 
 <Modal open={category !== null} title="Define {category?.name ?? ''}" {onclose} busy={saving}>
+  <FillBox
+    form="category-definition"
+    class="mb-4"
+    current={() => ({ category: category?.name, definition, splitTags: parseSplitTags(tags) })}
+    onfill={(result) => {
+      const next = applyFill({ definition, splitTags: tags }, result.values, { splitTags: asText });
+      definition = next.definition;
+      tags = next.splitTags;
+      marks.take(result);
+    }}
+  />
   <form id="category-definition-form" class="space-y-4" onsubmit={save}>
     <div>
-      <label class="label" for="category-definition">What belongs here</label>
+      <label class="label" for="category-definition"
+        >What belongs here<FilledMark show={marks.has('definition', definition)} /></label
+      >
       <textarea
         id="category-definition"
         class="field min-h-24"
@@ -57,7 +78,9 @@
       ></textarea>
     </div>
     <div>
-      <label class="label" for="category-split-tags">Split tags</label>
+      <label class="label" for="category-split-tags"
+        >Split tags<FilledMark show={marks.has('splitTags', parseSplitTags(tags))} /></label
+      >
       <input
         id="category-split-tags"
         class="field"

@@ -3,6 +3,11 @@
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
+  import type { FillResult } from '$lib/api/types';
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { asNumber } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
   import {
     DEFAULT_SWITCH_INPUT,
     SWITCH_STORAGE_KEY,
@@ -29,6 +34,37 @@
 
   function reset() {
     input = structuredClone(DEFAULT_SWITCH_INPUT);
+    marks.clear();
+  }
+
+  // Describe it (WM-FILL-6): the figures as the engine's stablecoin form
+  // names them, flat.
+  const marks = new FillMarks();
+  const flat = () => ({
+    principal: input.principal,
+    currentRate: input.currentRate,
+    newRate: input.newRate,
+    days: input.days,
+    entryFeeKind: input.entryFee.kind,
+    entryFee: input.entryFee.value,
+    exitFeeKind: input.exitFee.kind,
+    exitFee: input.exitFee.value,
+  });
+
+  function fill(result: FillResult) {
+    const values = result.values;
+    const number = (key: string, fallback: number) => asNumber(values[key]) ?? fallback;
+    const kind = (key: string, fallback: FeeKind): FeeKind =>
+      values[key] === 'percent' || values[key] === 'amount' ? (values[key] as FeeKind) : fallback;
+    input = {
+      principal: number('principal', input.principal),
+      currentRate: number('currentRate', input.currentRate),
+      newRate: number('newRate', input.newRate),
+      days: number('days', input.days),
+      entryFee: { kind: kind('entryFeeKind', input.entryFee.kind), value: number('entryFee', input.entryFee.value) },
+      exitFee: { kind: kind('exitFeeKind', input.exitFee.kind), value: number('exitFee', input.exitFee.value) },
+    };
+    marks.take(result);
   }
 
   const fees = [
@@ -49,9 +85,12 @@
 
 <div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
   <Card title="Your figures" subtitle="Saved in this browser only" class="lg:col-span-2">
+    <FillBox form="stablecoin" class="mb-3" current={flat} onfill={fill} />
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <div class="sm:col-span-2">
-        <label class="label" for="switch-principal">Amount ({UNIT})</label>
+        <label class="label" for="switch-principal"
+          >Amount ({UNIT})<FilledMark show={marks.has('principal', input.principal)} /></label
+        >
         <input
           id="switch-principal"
           class="field tabular-nums"
@@ -68,7 +107,9 @@
           </p>{/if}
       </div>
       <div>
-        <label class="label" for="switch-current-rate">Current rate (% a year)</label>
+        <label class="label" for="switch-current-rate"
+          >Current rate (% a year)<FilledMark show={marks.has('currentRate', input.currentRate)} /></label
+        >
         <input
           id="switch-current-rate"
           class="field tabular-nums"
@@ -85,7 +126,9 @@
           </p>{/if}
       </div>
       <div>
-        <label class="label" for="switch-new-rate">New rate (% a year)</label>
+        <label class="label" for="switch-new-rate"
+          >New rate (% a year)<FilledMark show={marks.has('newRate', input.newRate)} /></label
+        >
         <input
           id="switch-new-rate"
           class="field tabular-nums"
@@ -102,7 +145,7 @@
           </p>{/if}
       </div>
       <div class="sm:col-span-2">
-        <label class="label" for="switch-days">Days held</label>
+        <label class="label" for="switch-days">Days held<FilledMark show={marks.has('days', input.days)} /></label>
         <input
           id="switch-days"
           class="field tabular-nums"
@@ -120,7 +163,9 @@
       </div>
       {#each fees as fee (fee.key)}
         <div>
-          <label class="label" for="switch-{fee.key}">{fee.label}</label>
+          <label class="label" for="switch-{fee.key}"
+            >{fee.label}<FilledMark show={marks.has(fee.key, input[fee.key].value)} /></label
+          >
           <div class="flex gap-1.5">
             <input
               id="switch-{fee.key}"

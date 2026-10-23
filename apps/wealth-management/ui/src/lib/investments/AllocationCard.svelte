@@ -5,6 +5,10 @@
   import { Button, Card, Icon, Modal } from '@libs/ui-kit';
   import Money from '$lib/components/Money.svelte';
   import { formatPercent } from '$lib/format';
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { applyFill } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
   import { STATUS } from '$lib/status';
   import { targetAllocation } from '$lib/state/settings.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
@@ -40,8 +44,12 @@
   let confirmClear = $state(false);
   let draft = $state<AllocationTargets>({ cash: 0, funds: 0, crypto: 0 });
 
+  // Targets AI filled from the Describe it box (WM-FILL-6).
+  const marks = new FillMarks();
+
   function edit() {
     draft = allocation.targets ? { ...allocation.targets } : { cash: 0, funds: 0, crypto: 0 };
+    marks.clear();
     editing = true;
   }
 
@@ -106,10 +114,21 @@
   {/if}
 
   {#if editing}
+    <FillBox
+      form="allocation"
+      class="mb-3"
+      current={() => ({ ...draft })}
+      onfill={(result) => {
+        draft = applyFill(draft, result.values);
+        marks.take(result);
+      }}
+    />
     <form class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end" onsubmit={submit}>
       {#each TARGET_CLASSES as targetClass (targetClass.key)}
         <div>
-          <label class="label" for="target-{targetClass.key}">{targetClass.label} (%)</label>
+          <label class="label" for="target-{targetClass.key}"
+            >{targetClass.label} (%)<FilledMark show={marks.has(targetClass.key, draft[targetClass.key])} /></label
+          >
           <input
             id="target-{targetClass.key}"
             type="number"

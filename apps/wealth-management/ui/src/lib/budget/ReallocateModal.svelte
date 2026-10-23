@@ -1,4 +1,8 @@
 <script lang="ts">
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { applyFill } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
   import { invalidateAll } from '$app/navigation';
   import { api } from '$lib/api/endpoints';
   import type { BudgetLine } from '$lib/api/types';
@@ -23,6 +27,11 @@
 
   let { open, month, expenseLines, givers, draft = $bindable(), touched = $bindable(), onclose }: Props = $props();
   let moving = $state(false);
+  // Fields AI filled from the Describe it box (WM-FILL-6).
+  const marks = new FillMarks();
+  $effect(() => {
+    if (!open) marks.clear();
+  });
 
   const draftProblems = $derived(reallocationProblems(expenseLines, draft));
   const draftPreview = $derived(reallocationPreview(expenseLines, draft));
@@ -52,13 +61,22 @@
 </script>
 
 <Modal {open} title="Move money between categories" {onclose} busy={moving}>
+  <FillBox
+    form="budget-move"
+    class="mb-4"
+    current={() => ({ ...draft, month })}
+    onfill={(result) => {
+      draft = applyFill(draft, result.values);
+      marks.take(result);
+    }}
+  />
   <form id="reallocate-form" class="space-y-4" onsubmit={submit} novalidate>
     <p class="muted text-sm">
       Moves part of one category's {formatMonth(month)} limit to another. The total budget stays the same.
     </p>
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div>
-        <label class="label" for="move-from">From</label>
+        <label class="label" for="move-from">From<FilledMark show={marks.has('from', draft.from)} /></label>
         <select id="move-from" class="field" bind:value={draft.from}>
           <option value="" disabled>Choose a category</option>
           {#each givers as line (line.category)}
@@ -67,7 +85,7 @@
         </select>
       </div>
       <div>
-        <label class="label" for="move-to">To</label>
+        <label class="label" for="move-to">To<FilledMark show={marks.has('to', draft.to)} /></label>
         <select id="move-to" class="field" bind:value={draft.to}>
           <option value="" disabled>Choose a category</option>
           {#each expenseLines as line (line.category)}
@@ -77,7 +95,7 @@
       </div>
     </div>
     <div>
-      <label class="label" for="move-amount">Amount (VND)</label>
+      <label class="label" for="move-amount">Amount (VND)<FilledMark show={marks.has('amount', draft.amount)} /></label>
       <input id="move-amount" type="number" min="0" step="1000" class="field" bind:value={draft.amount} />
     </div>
     {#if draftPreview}

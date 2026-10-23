@@ -8,6 +8,7 @@
   import Money from '$lib/components/Money.svelte';
   import { STATUS } from '$lib/status';
   import AccountProducts from './AccountProducts.svelte';
+  import SavingsFill from './SavingsFill.svelte';
   import FoldRow from '$lib/components/FoldRow.svelte';
   import DayToDayFloatField from './DayToDayFloatField.svelte';
   import EmergencyAccounts from './EmergencyAccounts.svelte';
@@ -276,6 +277,7 @@
           defaultHint="the spending buffer, {months} of average expense"
           onsaved={() => invalidateAll()}
         />
+        <SavingsFill {idle} />
         <EmergencyAccounts {idle} />
         <AccountProducts {idle} />
       </div>

@@ -130,7 +130,7 @@ var fillForms = []FillForm{
 	{
 		Key: "stablecoin", Title: "Stablecoin switch", Images: true,
 		Fields: []FillField{
-			{Name: "principal", Label: "Amount", Type: FillMoney, Min: fillZero, Hint: "in USDT"},
+			{Name: "principal", Label: "Amount", Type: FillMoney, Min: fillZero, Hint: "in USD or a USD stablecoin"},
 			{Name: "currentRate", Label: "Current rate", Type: FillPercent, Min: fillZero, Hint: "% a year"},
 			{Name: "newRate", Label: "New rate", Type: FillPercent, Min: fillZero, Hint: "% a year"},
 			{Name: "days", Label: "Days held", Type: FillNumber, Min: fillOne},

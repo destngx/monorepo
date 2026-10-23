@@ -2,6 +2,8 @@ import { aiRequestDone } from '$lib/ai/activity';
 import { readNDJSON } from '$lib/ai/ndjson';
 import { ApiError, buildPath, request, requestStream, type RequestOptions } from './client';
 import type {
+  FillRequest,
+  FillResult,
   AccountReadinessInput,
   ApiTokenStatus,
   EmergencyAccountInput,
@@ -308,6 +310,9 @@ export const api = {
       body: { payee },
       signal,
     }).finally(aiRequestDone),
+  /** Reads a sentence or images into a form's fields; writes nothing (WM-FILL-1). */
+  fill: (input: FillRequest, signal?: AbortSignal) =>
+    request<FillResult>('/ai/fill', { method: 'POST', body: input, signal }).finally(aiRequestDone),
   review: (kind: ReviewKind, input: { month?: string; card?: string; year?: number } = {}, options?: AIOptions) =>
     ai<Insight>('/ai/review', { kind, ...input }, options),
   healthCommentary: (options?: AIOptions) => ai<Insight>('/ai/health-commentary', {}, options),

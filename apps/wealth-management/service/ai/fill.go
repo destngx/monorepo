@@ -31,7 +31,7 @@ func (s *Service) Fill(ctx context.Context, request domain.FillRequest) (domain.
 	if err := s.requireConfigured(); err != nil {
 		return domain.FillResult{}, err
 	}
-	known, err := s.fillContext(ctx, form)
+	known, err := s.fillContext(ctx, form, request.Current)
 	if err != nil {
 		return domain.FillResult{}, err
 	}
@@ -93,7 +93,7 @@ func (s *Service) maskFillCurrent(current map[string]any) map[string]any {
 
 // fillContext reads the lists the form's fields match against and the
 // facts the model needs for the form.
-func (s *Service) fillContext(ctx context.Context, form domain.FillForm) (domain.FillContext, error) {
+func (s *Service) fillContext(ctx context.Context, form domain.FillForm, current map[string]any) (domain.FillContext, error) {
 	known := domain.FillContext{Today: s.today(), Lists: map[domain.FillList][]string{}}
 	var facts []string
 	needs := map[domain.FillList]bool{}
@@ -171,11 +171,18 @@ func (s *Service) fillContext(ctx context.Context, form domain.FillForm) (domain
 		}
 		facts = append(facts, goalFacts(plan.Goals)...)
 	case "budget-limits", "budget-move":
-		items, err := s.db.ListBudget(known.Today.Year(), false)
+		// The page's month, when the form sends one, else this month.
+		month := known.Today
+		if text, ok := current["month"].(string); ok {
+			if parsed, err := time.Parse("2006-01", text); err == nil {
+				month = parsed
+			}
+		}
+		items, err := s.db.ListBudget(month.Year(), false)
 		if err != nil {
 			return known, fmt.Errorf("read the budget: %w", err)
 		}
-		facts = append(facts, budgetFacts(items, known.Today)...)
+		facts = append(facts, budgetFacts(items, month)...)
 	case "recurring":
 		sheet, err := s.db.ReadRecurring(false)
 		if err != nil {
@@ -240,10 +247,10 @@ func goalFacts(goals []domain.PlannedGoal) []string {
 	return lines
 }
 
-func budgetFacts(items []domain.BudgetItem, today time.Time) []string {
-	lines := []string{"This month's limits (" + today.Format("2006-01") + "):"}
+func budgetFacts(items []domain.BudgetItem, month time.Time) []string {
+	lines := []string{"The limits for " + month.Format("2006-01") + ":"}
 	for _, item := range items {
-		lines = append(lines, fmt.Sprintf("- %s: %s", item.Category, strconv.FormatFloat(item.LimitFor(today), 'f', -1, 64)))
+		lines = append(lines, fmt.Sprintf("- %s: %s", item.Category, strconv.FormatFloat(item.LimitFor(month), 'f', -1, 64)))
 	}
 	return lines
 }

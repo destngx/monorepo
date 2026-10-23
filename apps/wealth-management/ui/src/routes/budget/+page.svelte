@@ -10,6 +10,7 @@
   import CategoryNatureCard from '$lib/budget/CategoryNatureCard.svelte';
   import ExpenseCategoriesCard from '$lib/budget/ExpenseCategoriesCard.svelte';
   import LimitModal from '$lib/budget/LimitModal.svelte';
+  import LimitsFillModal from '$lib/budget/LimitsFillModal.svelte';
   import ReallocateModal from '$lib/budget/ReallocateModal.svelte';
   import SpendingRhythmCard from '$lib/budget/SpendingRhythmCard.svelte';
   import type { ReallocationDraft } from '$lib/budget/reallocate';
@@ -56,6 +57,9 @@
   // Only a category with a limit can give; any expense category can receive.
   const givers = $derived(expenseLines.filter((line) => line.limit > 0));
 
+  // Several limits from one sentence (WM-FILL-5).
+  let settingLimits = $state(false);
+
   function openReallocate(from = '') {
     draft = { from, to: '', amount: null };
     draftTouched = false;
@@ -65,6 +69,7 @@
 
 <PageHeader title="Budget" subtitle={formatMonth(data.month)}>
   {#snippet actions()}
+    <Button icon="sparkles" disabled={!expenseLines.length} onclick={() => (settingLimits = true)}>Set limits</Button>
     <Button disabled={!givers.length || expenseLines.length < 2} onclick={() => openReallocate()}>Move money</Button>
     <div class="flex items-center gap-1">
       <Button
@@ -156,6 +161,8 @@
   bind:value={limitValue}
   onclose={() => (editing = null)}
 />
+
+<LimitsFillModal open={settingLimits} month={data.month} lines={expenseLines} onclose={() => (settingLimits = false)} />
 
 <ReallocateModal
   open={reallocating}

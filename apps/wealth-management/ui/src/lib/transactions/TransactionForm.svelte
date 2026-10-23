@@ -1,4 +1,9 @@
 <script lang="ts">
+  import FillBox from '$lib/fill/FillBox.svelte';
+  import FilledMark from '$lib/fill/FilledMark.svelte';
+  import { applyFill } from '$lib/fill/fill';
+  import { FillMarks } from '$lib/fill/marks.svelte';
+  import type { FillResult } from '$lib/api/types';
   import { api } from '$lib/api/endpoints';
   import { withSplitTag } from '$lib/budget/natures';
   import type { Account, Category, CategorySuggestion, Transaction, TransactionInput } from '$lib/api/types';
@@ -137,6 +142,20 @@
 
   $effect(() => () => suggestController?.abort());
 
+  // Fields AI filled from the Describe it box (WM-FILL-6). Tags add to the
+  // ones the row has, and an amount in one column clears the other.
+  const marks = new FillMarks();
+
+  function fill(result: FillResult) {
+    const { tags: filledTags, ...values } = result.values;
+    const next = applyFill(form, values);
+    if (Array.isArray(filledTags)) next.tags = [...new Set([...form.tags, ...(filledTags as string[])])];
+    if (typeof values.payment === 'number' && values.deposit === undefined) next.deposit = undefined;
+    if (typeof values.deposit === 'number' && values.payment === undefined) next.payment = undefined;
+    form = next;
+    marks.take({ ...result, values: { ...result.values, tags: next.tags } });
+  }
+
   function submit(event: SubmitEvent) {
     event.preventDefault();
     const addAnother = (event.submitter as HTMLButtonElement | null)?.value === 'another';
@@ -182,9 +201,12 @@
   }
 </script>
 
+<FillBox form="transaction" class="mb-4" current={() => ({ ...form })} onfill={fill} />
 <form id="transaction-form" class="grid grid-cols-1 gap-4 sm:grid-cols-2" onsubmit={submit} novalidate>
   <div>
-    <label class="label" for="tx-account">Account *</label>
+    <label class="label" for="tx-account"
+      >Account *<FilledMark show={marks.has('accountName', form.accountName)} /></label
+    >
     <select
       id="tx-account"
       class="field"
@@ -199,7 +221,7 @@
     </select>
   </div>
   <div>
-    <label class="label" for="tx-date">Date *</label>
+    <label class="label" for="tx-date">Date *<FilledMark show={marks.has('date', form.date)} /></label>
     <input
       id="tx-date"
       type="date"
@@ -210,7 +232,7 @@
     />
   </div>
   <div class="sm:col-span-2">
-    <label class="label" for="tx-payee">Payee *</label>
+    <label class="label" for="tx-payee">Payee *<FilledMark show={marks.has('payee', form.payee)} /></label>
     <input
       id="tx-payee"
       class="field"
@@ -222,7 +244,8 @@
   </div>
   <div class="sm:col-span-2">
     <div class="flex items-center justify-between gap-2">
-      <label class="label" for="tx-category">Category *</label>
+      <label class="label" for="tx-category">Category *<FilledMark show={marks.has('category', form.category)} /></label
+      >
       <Button
         size="sm"
         icon="sparkles"
@@ -264,7 +287,9 @@
     {/if}
   </div>
   <div>
-    <label class="label" for="tx-payment">Payment (money out)</label>
+    <label class="label" for="tx-payment"
+      >Payment (money out)<FilledMark show={marks.has('payment', form.payment)} /></label
+    >
     <input
       id="tx-payment"
       type="number"
@@ -277,7 +302,9 @@
     />
   </div>
   <div>
-    <label class="label" for="tx-deposit">Deposit (money in)</label>
+    <label class="label" for="tx-deposit"
+      >Deposit (money in)<FilledMark show={marks.has('deposit', form.deposit)} /></label
+    >
     <input
       id="tx-deposit"
       type="number"
@@ -306,7 +333,7 @@
     </div>
   {/if}
   <div class="sm:col-span-2">
-    <span class="label">Tags</span>
+    <span class="label">Tags<FilledMark show={marks.has('tags', form.tags)} /></span>
     <TagPicker
       fixed={engineTags.map((tag) => ({
         tag,
@@ -317,11 +344,13 @@
     />
   </div>
   <div class="sm:col-span-2">
-    <label class="label" for="tx-memo">Memo</label>
+    <label class="label" for="tx-memo">Memo<FilledMark show={marks.has('memo', form.memo)} /></label>
     <input id="tx-memo" class="field" bind:value={form.memo} />
   </div>
   <div>
-    <label class="label" for="tx-ref">Reference</label>
+    <label class="label" for="tx-ref"
+      >Reference<FilledMark show={marks.has('referenceNumber', form.referenceNumber)} /></label
+    >
     <input id="tx-ref" class="field" bind:value={form.referenceNumber} />
   </div>
   <label class="mt-6 flex items-center gap-2 text-sm">
