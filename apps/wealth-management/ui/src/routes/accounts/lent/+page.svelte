@@ -12,6 +12,7 @@
     ageTone,
     balanceStatus,
     formatAge,
+    loanLabel,
     loanLinks,
     otherOpenLoans,
     repayStatus,
@@ -198,7 +199,7 @@
                       {#each person.loans as loan, index (loan.transactionId)}
                         {@const repay = repayStatus(loan.daysUntilRepay)}
                         <tr>
-                          <td class="py-1 pr-4 font-medium">#{index + 1}</td>
+                          <td class="py-1 pr-4 font-medium">{loanLabel(loan, index)}</td>
                           <td class="py-1 pr-4">{formatDate(loan.date)}</td>
                           <td class="py-1 pr-4 text-right"><Money value={loan.amount} /></td>
                           <td class="py-1 pr-4 text-right"><Money value={loan.repaid} /></td>
@@ -257,7 +258,7 @@
                         <td class="py-1">
                           {#each parts as part (part.loan)}
                             <div>
-                              #{part.loan}{#if parts.length > 1}&nbsp;<Money value={part.amount} />{/if}
+                              {part.label}{#if parts.length > 1}&nbsp;<Money value={part.amount} />{/if}
                             </div>
                           {:else}
                             <span class="muted">-</span>

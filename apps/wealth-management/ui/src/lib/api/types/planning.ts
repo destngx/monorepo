@@ -141,6 +141,8 @@ export interface LentLoan {
   transactionId: string;
   /** yyyy-mm-dd lending day. */
   date: string;
+  /** The lending row's Ref #; null when blank. A repayment with the same Ref # pays this loan first (WM-LEND-9). */
+  reference: string | null;
   amount: number;
   repaid: number;
   /** amount - repaid; 0 once repaid. */

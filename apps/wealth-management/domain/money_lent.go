@@ -2,6 +2,7 @@ package domain
 
 import (
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -47,14 +48,17 @@ type MoneyLentPerson struct {
 }
 
 // LentLoan is one loan of a balance owed to the user (WM-LEND-7).
-// Repayments pay off the oldest loan first.
+// Repayments pay off the loans with their Ref # first, then the oldest.
 type LentLoan struct {
 	// TransactionID is the lending transaction.
 	TransactionID string `json:"transactionId"`
 	// Date is the lending day, yyyy-mm-dd.
-	Date   string  `json:"date"`
-	Amount float64 `json:"amount"`
-	Repaid float64 `json:"repaid"`
+	Date string `json:"date"`
+	// Reference is the lending row's Ref #; nil when blank. A repayment
+	// with the same Ref # pays this loan first (WM-LEND-9).
+	Reference *string `json:"reference"`
+	Amount    float64 `json:"amount"`
+	Repaid    float64 `json:"repaid"`
 	// Outstanding is amount - repaid; 0 once repaid.
 	Outstanding     float64 `json:"outstanding"`
 	DaysOutstanding int     `json:"daysOutstanding"`
@@ -258,13 +262,14 @@ func moneyLentPerson(group []Transaction, today time.Time) MoneyLentPerson {
 	return person
 }
 
-// openLoans splits the person's history into loans and pays them off
-// oldest first (WM-LEND-7). A loan takes the date in its memo; a dated
-// memo on a repayment moves the date of the oldest loan it leaves open
-// ("paid half, the rest by 30/12"). Money repaid beyond what was lent
-// is owed to the person and offsets the next loan. Each loan lists the
-// repayments that paid it. It returns the loans lent since the balance
-// opened.
+// openLoans splits the person's history into loans (WM-LEND-7). A
+// repayment pays the loans with its Ref # first, then the others, oldest
+// first (WM-LEND-9). A loan takes the date in its memo; a dated memo on a
+// repayment moves the date of the first loan it would pay that is still
+// open after it ("paid half, the rest by 30/12"). Money repaid beyond
+// what was lent is owed to the person and offsets the next loan, its Ref
+// # first. Each loan lists the repayments that paid it (WM-LEND-8). It
+// returns the loans lent since the balance opened.
 func openLoans(group []Transaction, openSince time.Time, today time.Time) []LentLoan {
 	oldestFirst := append([]Transaction(nil), group...)
 	sort.SliceStable(oldestFirst, func(i, j int) bool {
@@ -278,19 +283,22 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 	var lentOn []time.Time
 	var dates []*time.Time
 	// credit is money repaid beyond what was lent, oldest first.
-	var credit []LoanRepayment
+	var credit []creditPart
 	for _, t := range oldestFirst {
-		repayment := t.DepositAmount() - t.PaymentAmount()
+		repayment, reference := t.DepositAmount()-t.PaymentAmount(), referenceKey(t.ReferenceNumber)
 		if repayment < 0 {
-			loan := LentLoan{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Amount: -repayment, Outstanding: -repayment, Repayments: []LoanRepayment{}}
-			for len(credit) > 0 && loan.Outstanding > 0 {
-				part := credit[0]
+			loan := LentLoan{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Reference: trimmedReference(t.ReferenceNumber),
+				Amount: -repayment, Outstanding: -repayment, Repayments: []LoanRepayment{}}
+			for _, i := range creditOrder(credit, reference) {
+				if loan.Outstanding <= 0 {
+					break
+				}
+				part := credit[i].LoanRepayment
 				part.Amount = min(part.Amount, loan.Outstanding)
 				loan.pay(part)
-				if credit[0].Amount -= part.Amount; credit[0].Amount <= 0 {
-					credit = credit[1:]
-				}
+				credit[i].Amount -= part.Amount
 			}
+			credit = slices.DeleteFunc(credit, func(c creditPart) bool { return c.Amount <= 0 })
 			loans = append(loans, loan)
 			lentOn = append(lentOn, t.Date)
 			var date *time.Time
@@ -300,7 +308,8 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 			dates = append(dates, date)
 			continue
 		}
-		for i := range loans {
+		order := payOrder(loans, reference)
+		for _, i := range order {
 			if repayment <= 0 {
 				break
 			}
@@ -310,10 +319,10 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 			}
 		}
 		if repayment > 0 {
-			credit = append(credit, LoanRepayment{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Amount: repayment})
+			credit = append(credit, creditPart{LoanRepayment{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Amount: repayment}, reference})
 		}
 		if repayBy, ok := RepaymentDate(t); ok {
-			for i := range loans {
+			for _, i := range order {
 				if loans[i].Outstanding >= settledTolerance {
 					dates[i] = &repayBy
 					break
@@ -338,6 +347,53 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 		open = append(open, loan)
 	}
 	return open
+}
+
+// creditPart is money repaid ahead and the Ref # it was written with.
+type creditPart struct {
+	LoanRepayment
+	reference string
+}
+
+// payOrder lists the loans a repayment pays: those with its Ref # first,
+// then the others, each oldest first.
+func payOrder(loans []LentLoan, reference string) []int {
+	return matchedFirst(len(loans), func(i int) bool { return reference != "" && referenceKey(loans[i].Reference) == reference })
+}
+
+// creditOrder lists the money repaid ahead a new loan takes: parts with
+// its Ref # first, then the others, each oldest first.
+func creditOrder(credit []creditPart, reference string) []int {
+	return matchedFirst(len(credit), func(i int) bool { return reference != "" && credit[i].reference == reference })
+}
+
+// matchedFirst lists 0..n-1 with the matching indexes first, keeping order.
+func matchedFirst(n int, matches func(i int) bool) []int {
+	order := make([]int, 0, n)
+	for _, wanted := range []bool{true, false} {
+		for i := range n {
+			if matches(i) == wanted {
+				order = append(order, i)
+			}
+		}
+	}
+	return order
+}
+
+// referenceKey compares Ref # values ignoring case and surrounding spaces.
+func referenceKey(reference *string) string {
+	if reference == nil {
+		return ""
+	}
+	return strings.ToUpper(strings.TrimSpace(*reference))
+}
+
+func trimmedReference(reference *string) *string {
+	if reference == nil || strings.TrimSpace(*reference) == "" {
+		return nil
+	}
+	value := strings.TrimSpace(*reference)
+	return &value
 }
 
 func (l *LentLoan) pay(part LoanRepayment) {

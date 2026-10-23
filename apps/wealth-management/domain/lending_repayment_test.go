@@ -184,6 +184,58 @@ func TestGivenOneOverdueLoanAndOneLaterWhenChasingThenOnlyTheOverdueLoanIsCounte
 	}
 }
 
+func refTxn(t Transaction, reference string) Transaction {
+	t.ReferenceNumber = &reference
+	return t
+}
+
+func TestGivenARepaymentWithALoansRefWhenComputingMoneyLentThenItPaysThatLoanFirst(t *testing.T) {
+	today := day(2026, 10, 23)
+	transactions := []Transaction{
+		refTxn(memoTxn("row-2", "2026-10-01", "Person A", 1_000_000, 0, "repay 31/10"), "L1"),
+		refTxn(memoTxn("row-3", "2026-10-05", "Person A", 2_000_000, 0, "repay 30/11"), " l2 "),
+		refTxn(lendingTxn("row-4", "2026-10-10", "Person A", 0, 2_500_000), "L2"),
+		refTxn(memoTxn("row-5", "2026-10-12", "Person A", 0, 100_000, "rest by 15/12"), "L2"),
+		refTxn(lendingTxn("row-6", "2026-10-14", "Person A", 0, 100_000), "unknown"),
+	}
+
+	loans := ComputeMoneyLent(transactions, today).People[0].Loans
+
+	first, second := loans[0], loans[1]
+	if *first.Reference != "L1" || *second.Reference != "l2" {
+		t.Fatalf("loans carry their trimmed Ref #: %+v %+v", first, second)
+	}
+	if second.Outstanding != 0 || !reflect.DeepEqual(second.Repayments, []LoanRepayment{{TransactionID: "row-4", Date: "2026-10-10", Amount: 2_000_000}}) {
+		t.Fatalf("a repayment pays the loan with its Ref # first, ignoring case: %+v", second)
+	}
+	want := []LoanRepayment{
+		{TransactionID: "row-4", Date: "2026-10-10", Amount: 500_000},
+		{TransactionID: "row-5", Date: "2026-10-12", Amount: 100_000},
+		{TransactionID: "row-6", Date: "2026-10-14", Amount: 100_000},
+	}
+	if first.Outstanding != 300_000 || !reflect.DeepEqual(first.Repayments, want) {
+		t.Fatalf("what is left, and repayments with another Ref #, go to the oldest loan: %+v", first)
+	}
+	if *first.RepayBy != "2026-12-15" {
+		t.Fatalf("a dated memo moves the first loan the repayment would pay that is still open: %+v", first)
+	}
+}
+
+func TestGivenMoneyRepaidAheadWithARefWhenALoanWithThatRefFollowsThenItTakesThatMoneyFirst(t *testing.T) {
+	transactions := []Transaction{
+		refTxn(lendingTxn("row-2", "2026-09-01", "Person A", 0, 300_000), "OTHER"),
+		refTxn(lendingTxn("row-3", "2026-09-02", "Person A", 0, 200_000), "L5"),
+		refTxn(lendingTxn("row-4", "2026-10-01", "Person A", 1_000_000, 0), "L5"),
+	}
+
+	loan := ComputeMoneyLent(transactions, day(2026, 10, 23)).People[0].Loans[0]
+
+	want := []LoanRepayment{{TransactionID: "row-3", Date: "2026-09-02", Amount: 200_000}, {TransactionID: "row-2", Date: "2026-09-01", Amount: 300_000}}
+	if loan.Outstanding != 500_000 || !reflect.DeepEqual(loan.Repayments, want) {
+		t.Fatalf("loan = %+v", loan)
+	}
+}
+
 func lentPerson(name string, outstanding float64, daysOutstanding int, repayBy string, daysUntil int) MoneyLentPerson {
 	return owingPerson(name, openLoan(outstanding, daysOutstanding, repayBy, daysUntil))
 }

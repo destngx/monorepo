@@ -1,4 +1,4 @@
-import type { MoneyLentPerson } from '$lib/api/types';
+import type { LentLoan, MoneyLentPerson } from '$lib/api/types';
 import type { StatusTone } from '$lib/status';
 
 /** People with an open balance (owed either way) and settled people, in the engine's order. */
@@ -45,17 +45,23 @@ export function otherOpenLoans(person: MoneyLentPerson): number {
   return person.loans.filter((loan) => loan.outstanding > 0 && loan.repayBy !== person.repayBy).length;
 }
 
+/** A loan's label: its Ref # from the sheet, else its place in the loans list (#1 the oldest, WM-LEND-9). */
+export function loanLabel(loan: LentLoan, index: number): string {
+  return loan.reference ?? `#${index + 1}`;
+}
+
 /**
- * The loans each transaction belongs to, numbered as in the loans table (#1 the oldest): a lending
+ * The loans each transaction belongs to (`loan` is the place in the loans list, from 1): a lending
  * row is its own loan, a repayment the loans it paid, with the part each got (WM-LEND-8).
  */
-export function loanLinks(person: MoneyLentPerson): Map<string, { loan: number; amount: number }[]> {
-  const links = new Map<string, { loan: number; amount: number }[]>();
-  const add = (transactionId: string, loan: number, amount: number) =>
-    links.set(transactionId, [...(links.get(transactionId) ?? []), { loan, amount }]);
+export function loanLinks(person: MoneyLentPerson): Map<string, { loan: number; label: string; amount: number }[]> {
+  const links = new Map<string, { loan: number; label: string; amount: number }[]>();
+  const add = (transactionId: string, loan: number, label: string, amount: number) =>
+    links.set(transactionId, [...(links.get(transactionId) ?? []), { loan, label, amount }]);
   person.loans.forEach((loan, index) => {
-    add(loan.transactionId, index + 1, loan.amount);
-    for (const part of loan.repayments) add(part.transactionId, index + 1, part.amount);
+    const label = loanLabel(loan, index);
+    add(loan.transactionId, index + 1, label, loan.amount);
+    for (const part of loan.repayments) add(part.transactionId, index + 1, label, part.amount);
   });
   return links;
 }

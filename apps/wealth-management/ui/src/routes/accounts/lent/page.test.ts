@@ -40,6 +40,7 @@ const lent: MoneyLent = {
         {
           transactionId: 'row-2',
           date: '2026-09-05',
+          reference: null,
           amount: 3_400_000,
           repaid: 0,
           outstanding: 3_400_000,
@@ -158,6 +159,7 @@ describe('Money lent page', () => {
             {
               ...person.loans[0],
               transactionId: 'row-3',
+              reference: 'L2',
               repaid: 500_000,
               outstanding: 2_900_000,
               repayments: [{ transactionId: 'row-4', date: '2026-10-10', amount: 500_000 }],
@@ -174,8 +176,8 @@ describe('Money lent page', () => {
 
     const loans = screen.getByRole('table', { name: 'Loans' });
     expect(loans.textContent).toMatch(/#1.*10\/10\/2026\s*1\.000\.000/s);
-    expect(loans.textContent).toMatch(/#2.*10\/10\/2026\s*500\.000/s);
+    expect(loans.textContent).toMatch(/L2.*10\/10\/2026\s*500\.000/s);
     const row = within(screen.getByRole('table', { name: 'Transactions' })).getAllByRole('row')[1];
-    expect(row.lastElementChild?.textContent).toMatch(/#1\s*1\.000\.000.*#2\s*500\.000/s);
+    expect(row.lastElementChild?.textContent).toMatch(/#1\s*1\.000\.000.*L2\s*500\.000/s);
   });
 });
