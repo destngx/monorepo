@@ -8,7 +8,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "uv run --locked uvicorn src.main:app --reload --reload-dir src --port 8000",
+        "command": "uv run --locked uvicorn src.main:app --reload --reload-dir src --host 0.0.0.0 --port 8000",
         "cwd": "apps/market-data-server",
         "env": {
           "UV_PROJECT_ENVIRONMENT": "apps/market-data-server/.venv"

@@ -9,7 +9,7 @@ The single market-data API of the monorepo. It owns every source (vnstock, fmark
 
 ## Authentication
 
-The server has no API auth; it runs on a private local machine. Put `VNSTOCK_API_KEY` in `.env.local` (loaded at startup) to get the Community quota of 60 requests/min instead of the guest 20/min.
+The server has no API auth; it runs on a private local machine. `serve` listens on all interfaces (`0.0.0.0:8000`), so other machines on the same network can call it at `http://<host-ip>:8000`, and so can anyone else on that network. Run it only on a trusted network. Put `VNSTOCK_API_KEY` in `.env.local` (loaded at startup) to get the Community quota of 60 requests/min instead of the guest 20/min.
 
 ## Setup
 
