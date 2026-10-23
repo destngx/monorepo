@@ -439,7 +439,7 @@ func (p *Pipeline) ScheduleReading(ctx context.Context, tenantID, itemID string,
 }
 
 // resumeReadings sends the unfiled items read while AI reading was off,
-// and queues a title job for each document filed before pages had titles.
+// and queues a title job for each document with an untitled page.
 func (p *Pipeline) resumeReadings(ctx context.Context) error {
 	docs, err := p.Store.UntitledDocuments(ctx)
 	if err != nil {
@@ -663,13 +663,84 @@ func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
 	if err != nil {
 		return err
 	}
-	return p.storeReading(ctx, tenantID, item, rd, send, personID, res, len(readable) > len(send))
+	texts = make([]string, len(send))
+	for i := range send {
+		texts[i] = masks[i].Text
+	}
+	sentTitles, err := titleEvery(ctx, reader, domain.CleanPageTitles(res.Output.Pages, len(send)), texts)
+	if err != nil {
+		return err
+	}
+	titles := map[string]string{}
+	for i, ip := range send {
+		titles[ip.page.ID] = sentTitles[i]
+	}
+	for _, ip := range pages {
+		if !domain.Readable(ip.page.Text) {
+			titles[ip.page.ID] = domain.UntextedPageTitle
+		}
+	}
+	return p.storeReading(ctx, tenantID, item, rd, send, personID, res, titles, len(readable) > len(send))
 }
 
-// runTitle names the pages of a filed document that have none, from their
-// masked text alone (HW-READ-9). Only pages an AI reading already masked
-// are sent; they are masked again first, as for a reading, and a page whose
-// mask now needs a check stays without a title.
+// titleRetries is how many times the AI is asked again for the pages it
+// left without a title before the job fails and retries later.
+const titleRetries = 2
+
+// titleEvery fills the titles the AI left empty by asking it again with
+// only those pages' masked text. Every sent page must end with a title
+// (HW-READ-9).
+func titleEvery(ctx context.Context, reader port.Reader, titles, texts []string) ([]string, error) {
+	for range titleRetries + 1 {
+		var missing []int
+		for i, t := range titles {
+			if t == "" {
+				missing = append(missing, i)
+			}
+		}
+		if len(missing) == 0 {
+			return titles, nil
+		}
+		ask := make([]port.ReadPage, len(missing))
+		for k, i := range missing {
+			ask[k] = port.ReadPage{Number: k + 1, Text: texts[i]}
+		}
+		res, err := reader.TitlePages(ctx, ask)
+		if err != nil {
+			return nil, err
+		}
+		got := domain.CleanPageTitles(res.Output.Pages, len(missing))
+		for k, i := range missing {
+			titles[i] = got[k]
+		}
+	}
+	for i, t := range titles {
+		if t == "" {
+			return nil, fmt.Errorf("the AI gave no title for page %d", i+1)
+		}
+	}
+	return titles, nil
+}
+
+// scheduleTitles queues a title job for a document when AI reading is on;
+// the job does nothing when every page has a title.
+func (p *Pipeline) scheduleTitles(ctx context.Context, r port.Repos, tenantID, documentID string) error {
+	if p == nil || p.reader() == nil {
+		return nil
+	}
+	if err := r.EnqueueJob(ctx, domain.Job{ID: NewID(), TenantID: tenantID, Kind: domain.JobTitle, SubjectID: documentID}, p.Clock()); err != nil {
+		return err
+	}
+	p.Wake()
+	return nil
+}
+
+// runTitle gives every page of a filed document a title (HW-READ-9). A
+// page with too little text gets UntextedPageTitle. The rest go to the AI
+// as masked text alone: a page keeps the mask it was read with, so a
+// checked page is never masked again here, and a page never masked is
+// masked now. A page whose mask waits for a check keeps no title until a
+// person checks it on the document page.
 func (p *Pipeline) runTitle(ctx context.Context, job domain.Job) error {
 	reader := p.reader()
 	if reader == nil {
@@ -692,33 +763,44 @@ func (p *Pipeline) runTitle(ctx context.Context, job domain.Job) error {
 		return err
 	}
 	names := peopleNames(people)
+	titles := map[string]string{}
 	var send []itemPage
-	var readPages []port.ReadPage
+	var texts []string
 	for _, ip := range pages {
-		if ip.page.Title != "" || ip.page.Mask == nil || !domain.Readable(ip.page.Text) || len(send) == domain.MaxReadPages {
+		if ip.page.Title != "" {
 			continue
 		}
-		m, err := p.maskPage(ctx, tenantID, ip, names)
-		if err != nil {
-			return err
+		if !domain.Readable(ip.page.Text) {
+			titles[ip.page.ID] = domain.UntextedPageTitle
+			continue
+		}
+		m := ip.page.Mask
+		if m == nil {
+			fresh, err := p.maskPage(ctx, tenantID, ip, names)
+			if err != nil {
+				return err
+			}
+			m = &fresh
 		}
 		if m.Status == domain.MaskNeedsCheck {
 			continue
 		}
 		send = append(send, ip)
-		readPages = append(readPages, port.ReadPage{Number: len(send), Text: m.Text})
+		texts = append(texts, m.Text)
 	}
-	if len(send) == 0 {
-		return nil
+	for start := 0; start < len(send); start += domain.MaxReadPages {
+		end := min(start+domain.MaxReadPages, len(send))
+		got, err := titleEvery(ctx, reader, make([]string, end-start), texts[start:end])
+		if err != nil {
+			return err
+		}
+		for i, ip := range send[start:end] {
+			titles[ip.page.ID] = got[i]
+		}
 	}
-	res, err := reader.TitlePages(ctx, readPages)
-	if err != nil {
-		return err
-	}
-	titles := domain.CleanPageTitles(res.Output.Pages, len(send))
 	return p.Store.InTx(ctx, func(r port.Repos) error {
-		for i, title := range titles {
-			if err := ignoreGone(r.SetPageTitle(ctx, tenantID, send[i].page.ID, title)); err != nil {
+		for pageID, title := range titles {
+			if err := ignoreGone(r.SetPageTitle(ctx, tenantID, pageID, title)); err != nil {
 				return err
 			}
 		}
@@ -730,13 +812,12 @@ func (p *Pipeline) runTitle(ctx context.Context, job domain.Job) error {
 // drafts, replacing any earlier drafts, unless the item was filed or
 // discarded while the provider was reading.
 func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domain.InboxItem, rd domain.Reading, sent []itemPage,
-	personID string, res port.ReadResult, truncated bool) error {
+	personID string, res port.ReadResult, titles map[string]string, truncated bool) error {
 	today := p.today()
 	proposal := res.Output.Proposal(today)
 	proposal.PersonID = personID
 	obs, obsPages, obsConf := res.Output.CleanObservations(len(sent), today, p.Catalog)
 	finds, findPages, findConf := res.Output.CleanFindings(len(sent))
-	titles := domain.CleanPageTitles(res.Output.Pages, len(sent))
 	now := p.Clock()
 	return p.Store.InTx(ctx, func(r port.Repos) error {
 		current, err := r.InboxItem(ctx, tenantID, item.ID)
@@ -755,8 +836,8 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 		if err := r.DeleteItemDrafts(ctx, tenantID, item.ID); err != nil {
 			return err
 		}
-		for i, title := range titles {
-			if err := r.SetPageTitle(ctx, tenantID, sent[i].page.ID, title); err != nil {
+		for pageID, title := range titles {
+			if err := r.SetPageTitle(ctx, tenantID, pageID, title); err != nil {
 				return err
 			}
 		}

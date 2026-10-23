@@ -108,6 +108,8 @@ type fakeReader struct {
 	calls [][]port.ReadPage
 	// titleCalls are the page sets sent to TitlePages.
 	titleCalls [][]port.ReadPage
+	// noTitles makes TitlePages answer with no titles.
+	noTitles bool
 	// during runs once, while the first page set is being read.
 	during func()
 }
@@ -147,6 +149,9 @@ func (f *fakeReader) TitlePages(_ context.Context, pages []port.ReadPage) (port.
 	}
 	out := domain.PageTitlesOutput{}
 	for _, p := range pages {
+		if f.noTitles {
+			break
+		}
 		out.Pages = append(out.Pages, domain.ReadingPage{Page: p.Number, Title: fmt.Sprintf("Trang %d", p.Number)})
 	}
 	return port.TitleResult{Model: "test-model", Output: out}, nil
@@ -634,38 +639,108 @@ func TestGivenItemsReadWhileAIWasOffWhenAIIsTurnedOnThenOpenItemsAreSentForReadi
 	}
 }
 
-func TestGivenADocumentFiledBeforePageTitlesWhenTheEngineStartsThenItsPagesAreNamedFromMaskedTextOnce(t *testing.T) {
+func TestGivenAReadingThatLeavesAPageUntitledWhenStoredThenTheAIIsAskedAgainWithMaskedTextOnly(t *testing.T) {
 	e := newEnv(t)
 	sc := e.setup()
-	person := e.person(sc, "Nguyễn Văn Mẫu")
+	e.person(sc, "Nguyễn Văn Mẫu")
 	untitled := labReading()
 	untitled.Pages = nil
 	e.reader.out = &untitled
-	doc := e.filedLab(sc, person, "lab")
-	if doc.Pages[0].Title != "" {
-		t.Fatalf("title = %q before the title job", doc.Pages[0].Title)
-	}
 
-	for range 2 {
-		e.pipeline.Configure(e.ocr, nil, 1)
-		e.pipeline.Configure(e.ocr, e.reader, 1)
-		e.drain()
-	}
+	d := e.uploadRead(sc, "lab")
 
-	got, err := e.clinical.Document(e.ctx, sc, doc.Document.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Pages[0].Title != "Trang 1" {
-		t.Fatalf("title = %q", got.Pages[0].Title)
-	}
-	if len(e.reader.titleCalls) != 1 {
-		t.Fatalf("title calls = %d, want 1", len(e.reader.titleCalls))
+	if d.Pages[0].Title != "Trang 1" || len(e.reader.titleCalls) != 1 {
+		t.Fatalf("title = %q after %d title calls", d.Pages[0].Title, len(e.reader.titleCalls))
 	}
 	sent := e.reader.titleCalls[0][0]
 	if sent.JPEG != nil || strings.Contains(sent.Text, "NGUYỄN VĂN MẪU") || !strings.Contains(sent.Text, "Glucose") {
 		t.Fatalf("sent = %q, %d image bytes", sent.Text, len(sent.JPEG))
 	}
+}
+
+func TestGivenAnAIThatNeverTitlesAPageWhenReadingThenTheReadingFailsAndRetries(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	untitled := labReading()
+	untitled.Pages = nil
+	e.reader.out = &untitled
+	e.reader.noTitles = true
+
+	d := e.uploadRead(sc, "lab")
+
+	if rd := readingOf(t, d); rd.Status == domain.ReadingDone || !strings.Contains(rd.Error, "no title for page 1") {
+		t.Fatalf("reading = %+v", rd)
+	}
+	if len(e.reader.titleCalls) != titleRetries+1 {
+		t.Fatalf("title calls = %d", len(e.reader.titleCalls))
+	}
+}
+
+func TestGivenAFilmPhotoFiledWithItsReportWhenFiledThenEveryPageHasATitle(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	person := e.person(sc, "Nguyễn Văn Mẫu")
+	d := e.uploadRead(sc, "lab")
+	e.addFiles(sc, d.Item.ID, pdf("film"))
+	e.drain()
+	filed, err := e.inbox.File(e.ctx, sc, d.Item.ID, domain.FileInput{Kind: "lab_result",
+		Visit: &domain.VisitInput{PersonID: person.ID, Date: "2025-03-14", Type: "lab"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.drain()
+
+	doc, err := e.clinical.Document(e.ctx, sc, filed.Document.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Pages) != 2 || doc.Pages[0].Title != "Sinh hóa máu" || doc.Pages[1].Title != domain.UntextedPageTitle {
+		t.Fatalf("pages = %+v", doc.Pages)
+	}
+}
+
+func TestGivenAFiledPageWhoseMaskNeedsACheckWhenAPersonChecksItThenItGetsATitle(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	person := e.person(sc, "Nguyễn Văn Mẫu")
+	doc := e.filedLab(sc, person, "lab")
+	pg := doc.Pages[0]
+	m := *pg.Mask
+	m.Status = domain.MaskNeedsCheck
+	if _, err := e.store.SetPageMask(e.ctx, sc.TenantID, pg.ID, m); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.store.SetPageTitle(e.ctx, sc.TenantID, pg.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	e.pipeline.Configure(e.ocr, nil, 1)
+	e.pipeline.Configure(e.ocr, e.reader, 1)
+	e.drain()
+	if got := e.document(sc, doc.Document.ID).Pages[0]; got.Title != "" || len(e.reader.titleCalls) != 0 {
+		t.Fatalf("a page waiting for a check was sent: %q, %d calls", got.Title, len(e.reader.titleCalls))
+	}
+
+	if _, err := e.inbox.CheckDocumentPage(e.ctx, sc, doc.Document.ID, pg.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.drain()
+	got := e.document(sc, doc.Document.ID).Pages[0]
+	if got.Title != "Trang 1" || got.Mask.Status != domain.MaskChecked || len(e.reader.titleCalls) != 1 {
+		t.Fatalf("page = %q, %s, %d calls", got.Title, got.Mask.Status, len(e.reader.titleCalls))
+	}
+	if _, err := e.inbox.CheckDocumentPage(e.ctx, sc, doc.Document.ID, pg.ID); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("second check = %v", err)
+	}
+}
+
+func (e *env) document(sc domain.Scope, id string) DocumentDetail {
+	e.t.Helper()
+	d, err := e.clinical.Document(e.ctx, sc, id)
+	if err != nil {
+		e.t.Fatalf("document: %v", err)
+	}
+	return d
 }
 
 func TestGivenADocumentFiledWhileAIWasOffWhenUnfiledThenItIsReadAndFiledAgain(t *testing.T) {
@@ -679,8 +754,11 @@ func TestGivenADocumentFiledWhileAIWasOffWhenUnfiledThenItIsReadAndFiledAgain(t 
 	}
 	e.pipeline.Configure(e.ocr, e.reader, 1)
 	e.drain()
-	if len(e.reader.calls) != 0 || len(e.reader.titleCalls) != 0 {
-		t.Fatalf("reads = %d, titles = %d: a page never masked for the AI is not sent", len(e.reader.calls), len(e.reader.titleCalls))
+	if len(e.reader.calls) != 0 {
+		t.Fatalf("reads = %d, a filed item is not read", len(e.reader.calls))
+	}
+	if titled := e.document(sc, doc.Document.ID).Pages[0]; titled.Title != "Trang 1" || titled.Mask == nil {
+		t.Fatalf("page = %+v, want it masked and titled once AI is on", titled)
 	}
 
 	itemID, err := e.inbox.Unfile(e.ctx, sc, doc.Document.ID)

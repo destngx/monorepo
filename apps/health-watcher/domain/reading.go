@@ -139,6 +139,10 @@ type PageTitlesOutput struct {
 // MaxPageTitle bounds a page title in characters.
 const MaxPageTitle = 80
 
+// UntextedPageTitle names a page with too little text to send to the AI,
+// such as a film photo or a blank page (D5), so every page has a title.
+const UntextedPageTitle = "Photo or blank page"
+
 // CleanPageTitles returns one title per page, 1-based page n at index n-1;
 // a page the model skipped, or numbered outside the document, gets "".
 // The first title given for a page wins.

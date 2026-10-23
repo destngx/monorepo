@@ -462,3 +462,41 @@ func (in *Inbox) FileGroup(ctx context.Context, sc domain.Scope, req GroupFileIn
 	}
 	return in.Records.Visit(ctx, sc, visitID)
 }
+
+// CheckDocumentPage records that a person checked the masked copy of a
+// filed document's page, so its masked text may go to the AI for a title
+// (HW-AI-7, HW-READ-9). Only a page waiting for a check can be checked.
+func (in *Inbox) CheckDocumentPage(ctx context.Context, sc domain.Scope, documentID, pageID string) (domain.Page, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return domain.Page{}, err
+	}
+	if err := in.requirePipeline(); err != nil {
+		return domain.Page{}, err
+	}
+	err := in.Store.InTx(ctx, func(r port.Repos) error {
+		doc, err := r.Document(ctx, sc.TenantID, documentID)
+		if err != nil {
+			return err
+		}
+		pg, err := r.Page(ctx, sc.TenantID, pageID)
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(doc.Files, func(f domain.StoredFile) bool { return f.ID == pg.FileID }) {
+			return domain.NotFound("page")
+		}
+		if pg.Mask == nil || pg.Mask.Status != domain.MaskNeedsCheck {
+			return domain.Conflict("this page is not waiting for a check")
+		}
+		m := *pg.Mask
+		m.Status = domain.MaskChecked
+		if _, err := r.SetPageMask(ctx, sc.TenantID, pg.ID, m); err != nil {
+			return err
+		}
+		return in.Pipeline.scheduleTitles(ctx, r, sc.TenantID, doc.ID)
+	})
+	if err != nil {
+		return domain.Page{}, err
+	}
+	return in.Store.Page(ctx, sc.TenantID, pageID)
+}

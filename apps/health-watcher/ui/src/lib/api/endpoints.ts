@@ -125,6 +125,9 @@ export function tenantApi(tenantId: string) {
     deleteVisit: (id: string) => request<void>(`${t}/visits/${id}`, { method: 'DELETE' }),
     deleteDocument: (id: string) => request<void>(`${t}/documents/${id}`, { method: 'DELETE' }),
     unfileDocument: (id: string) => request<{ itemId: string }>(`${t}/documents/${id}/unfile`, { method: 'POST' }),
+    /** Records that a person checked a filed page's masked copy, so it can get a title (HW-READ-9). */
+    checkDocumentPage: (documentId: string, pageId: string) =>
+      request<Page>(`${t}/documents/${documentId}/pages/${pageId}/check`, { method: 'POST' }),
 
     inbox: (fetch?: Fetch) => request<InboxItem[]>(`${t}/inbox`, { fetch }),
     upload: (

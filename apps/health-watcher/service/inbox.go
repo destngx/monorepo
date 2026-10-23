@@ -482,7 +482,12 @@ func (in *Inbox) fileItem(ctx context.Context, r port.Repos, sc domain.Scope, it
 	if err := r.ApproveItemDrafts(ctx, sc.TenantID, item.ID, doc.ID, visit.PersonID, visit.Date, sc.UserID, in.Clock()); err != nil {
 		return "", err
 	}
-	return doc.ID, r.SetInboxStatus(ctx, sc.TenantID, item.ID, domain.InboxFiled, doc.ID)
+	if err := r.SetInboxStatus(ctx, sc.TenantID, item.ID, domain.InboxFiled, doc.ID); err != nil {
+		return "", err
+	}
+	// Pages the reading left without a title, such as pages past the
+	// reading's limit, get one from a title job (HW-READ-9).
+	return doc.ID, in.Pipeline.scheduleTitles(ctx, r, sc.TenantID, doc.ID)
 }
 
 // File turns an unfiled item into a document under an existing or new

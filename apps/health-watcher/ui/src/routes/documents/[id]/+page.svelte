@@ -2,7 +2,15 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { base } from '$app/paths';
   import { page as appPage } from '$app/state';
-  import type { AuditEntry, DocumentKind, Finding, FindingInput, Observation, ObservationInput } from '$lib/api/types';
+  import type {
+    AuditEntry,
+    DocumentKind,
+    Finding,
+    FindingInput,
+    Observation,
+    ObservationInput,
+    Page,
+  } from '$lib/api/types';
   import { Button, Card, FoldToggle, Icon, Modal, PageTitle, action } from '@libs/ui-kit';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import { Folds } from '$lib/folds.svelte';
@@ -48,8 +56,10 @@
   const folds = new Folds();
   const pageIds = $derived(pages.map((p) => p.id));
   let showText = $state<Record<string, boolean>>({});
-  // Per page: the original, or the masked copy the AI was sent (HW-AI-7).
+  // Per page: the masked copy the AI was sent (HW-AI-7), shown first, or
+  // the original.
   let masked = $state<Record<string, boolean>>({});
+  const showMasked = (p: Page) => !!p.mask && (masked[p.id] ?? true);
   let obsForm = $state<{ id: string | null; value: ObservationInput } | null>(null);
   let findingForm = $state<{ id: string | null; value: FindingInput } | null>(null);
   let history = $state<AuditEntry[] | null>(null);
@@ -139,6 +149,12 @@
     if (!confirm(`Delete "${label}", its values and its files? The values stay in the history.`)) return;
     await session.api.deleteDocument(doc.id);
     await goto(`${base}/visits/${visit.id}`);
+  }
+
+  async function checkPage(p: Page) {
+    await session.api.checkDocumentPage(doc.id, p.id);
+    masked[p.id] = true;
+    await invalidateAll();
   }
 
   async function unfile() {
@@ -241,7 +257,7 @@
     </Card>
   </div>
 {:else}
-  <div class="mx-auto max-w-4xl space-y-4">
+  <div class="space-y-4">
     <div class="flex items-center gap-3">
       {#if pages.length > 1}
         <button type="button" class="btn-ghost px-2.5 py-1 text-xs" onclick={() => folds.toggleAll(pageIds)}
@@ -265,15 +281,18 @@
             ontoggle={() => folds.toggle(p.id)}
           />
           <span class="min-w-0 truncate text-sm font-medium">{pageName(i + 1, p.title)}</span>
+          {#if p.mask?.status === 'needs_check'}
+            <span class="tag shrink-0 bg-warn-500/15 text-warn-800 dark:text-warn-200">Needs a check</span>
+          {/if}
           <span class="ml-auto flex gap-1 {folds.isOpen(p.id) ? '' : 'hidden'}">
             {#if p.mask}
               <button
                 type="button"
-                class="btn-ghost px-2.5 py-1 text-xs {masked[p.id]
+                class="btn-ghost px-2.5 py-1 text-xs {showMasked(p)
                   ? 'bg-accent-600/10 text-accent-700 dark:text-accent-300'
                   : ''}"
-                aria-pressed={!!masked[p.id]}
-                onclick={() => (masked[p.id] = !masked[p.id])}>Masked</button
+                aria-pressed={showMasked(p)}
+                onclick={() => (masked[p.id] = !showMasked(p))}>Masked</button
               >
             {/if}
             {#if p.text}
@@ -285,18 +304,31 @@
             {/if}
           </span>
         </header>
+        {#if folds.isOpen(p.id) && p.mask?.status === 'needs_check' && editable}
+          <div
+            class="mb-2 flex flex-wrap items-center gap-3 rounded-xl bg-warn-500/10 px-3 py-2 text-sm text-warn-800 dark:text-warn-200"
+          >
+            <p class="flex-1">
+              The masking rules changed since this page was checked, so it has no title yet. Check that the masked copy
+              hides every personal detail, then send its masked text for a title.
+            </p>
+            <Button size="sm" errorContext="Could not check the page" onclick={() => checkPage(p)}
+              >It looks right</Button
+            >
+          </div>
+        {/if}
         {#if !folds.isOpen(p.id)}
           <!-- Folded: the header alone. -->
         {:else if showText[p.id]}
           <pre
             id="page-body-{p.id}"
-            class="max-h-[70vh] overflow-auto rounded-xl bg-ink-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-ink-50/5">{masked[
-              p.id
-            ] && p.mask
+            class="max-h-[70vh] overflow-auto rounded-xl bg-ink-900/5 p-3 text-xs whitespace-pre-wrap dark:bg-ink-50/5">{showMasked(
+              p,
+            ) && p.mask
               ? p.mask.text
               : p.text}</pre>
         {:else}
-          <div id="page-body-{p.id}"><PageImage page={p} {zoom} masked={!!masked[p.id] && !!p.mask} /></div>
+          <div id="page-body-{p.id}"><PageImage page={p} {zoom} masked={showMasked(p)} /></div>
         {/if}
       </section>
     {/each}

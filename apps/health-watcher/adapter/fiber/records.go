@@ -73,6 +73,9 @@ func (s *server) recordRoutes(r fiber.Router) {
 		itemID, err := s.svc.Inbox.Unfile(c.UserContext(), scope(c), c.Params("id"))
 		return s.list(c)(fiber.Map{"itemId": itemID}, err)
 	})
+	r.Post("/documents/:id/pages/:pageId/check", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Inbox.CheckDocumentPage(c.UserContext(), scope(c), c.Params("id"), c.Params("pageId")))
+	})
 	r.Get("/files/:id", s.file)
 }
 

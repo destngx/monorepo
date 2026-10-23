@@ -197,7 +197,7 @@ func (r repos) SetPageTitle(ctx context.Context, tenantID, pageID, title string)
 func (r repos) UntitledDocuments(ctx context.Context) ([]port.TenantDocument, error) {
 	rows, err := r.q.QueryContext(ctx, `SELECT d.tenant_id, d.id FROM documents d
 		WHERE EXISTS (SELECT 1 FROM document_files df JOIN pages p ON p.file_id = df.file_id
-			WHERE df.document_id = d.id AND p.title = '' AND p.mask_status IN ('ready', 'checked'))
+			WHERE df.document_id = d.id AND p.title = '')
 		AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'title' AND j.subject_id = d.id)
 		ORDER BY d.created_at`)
 	if err != nil {

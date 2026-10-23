@@ -222,8 +222,8 @@ type PageRepo interface {
 	SetPageMask(ctx context.Context, tenantID, pageID string, m domain.PageMask) (string, error)
 	// SetPageTitle names a page (HW-READ-9).
 	SetPageTitle(ctx context.Context, tenantID, pageID, title string) error
-	// UntitledDocuments lists the documents with a page that was masked
-	// for the AI but has no title, and no title job yet, oldest first.
+	// UntitledDocuments lists the documents with a page that has no title
+	// and no title job yet, oldest first.
 	UntitledDocuments(ctx context.Context) ([]TenantDocument, error)
 	// PageImageSHAs lists the page and masked image hashes of a file's pages.
 	PageImageSHAs(ctx context.Context, tenantID, fileID string) ([]string, error)
