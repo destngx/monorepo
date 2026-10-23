@@ -36,10 +36,14 @@ github.com/aws/aws-sdk-go-v2/service/bedrock v1.73.3 h1:UePvy/BbWHeDT9qBuQXqwP0l
 github.com/aws/aws-sdk-go-v2/service/bedrock v1.73.3/go.mod h1:dyyhJBy4DeryctBp4U2bQ4VltFHuxsuCa+UTq+kf/mc=
 github.com/aws/aws-sdk-go-v2/service/bedrock v1.73.4 h1:5js9H3X+Z20bFBSqOwdpLEhi537W1X33viF2lPJjG40=
 github.com/aws/aws-sdk-go-v2/service/bedrock v1.73.4/go.mod h1:7oD/4Bt0gts+ehhfbzAIW3UIlQoyickLXZJCSkrd9t8=
+github.com/aws/aws-sdk-go-v2/service/bedrock v1.74.0 h1:4pr85FuY2m/+5HdRBFEZacc5b4FgyllRkwq8H1cLoYQ=
+github.com/aws/aws-sdk-go-v2/service/bedrock v1.74.0/go.mod h1:7oD/4Bt0gts+ehhfbzAIW3UIlQoyickLXZJCSkrd9t8=
 github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.3 h1:VEqBGK/7z6ToHazNY24H9MQtcLVkZe8ncyB81p/EqTc=
 github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.3/go.mod h1:SPkpz0MqR7SX45gtcHIYIFaQi3BLiNUj2lNnnsIKvCg=
 github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.4 h1:XW1H5pGqfSKa9S5+G9ICFBTKy3nmThAYwjYEhcTQ3zI=
 github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.4/go.mod h1:FLNP7RBDx4uMBFj96X6r6zNZiuxFVzuaMJZoGdwBQ5o=
+github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.5 h1:IIq+JEFRgAx2AF7rpt34MYffp/2yVm+mSkNipLycCjI=
+github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.63.5/go.mod h1:FLNP7RBDx4uMBFj96X6r6zNZiuxFVzuaMJZoGdwBQ5o=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.20 h1:XBYeuBbMY5LRAKOdZgzUQO1BVj3B07uYAROSapq/IWg=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.20/go.mod h1:XL6ZfC3ePnooN2u2LT4RNhpr/xs5TiboydyUbgr8Dmg=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.21 h1:e6YW5uME30TkrElR+4/xcY7NB6CCj2dcv7vtmGXhfhQ=

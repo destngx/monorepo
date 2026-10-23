@@ -83,7 +83,7 @@
     "lint-staged": "^15.5.2",
     "mdsvex": "^0.12.8",
     "nx": "22.7.12",
-    "postcss": "8.5.30",
+    "postcss": "8.5.31",
     "prettier": "^3.0.0",
     "prettier-plugin-svelte": "^3.5.1",
     "prettier-plugin-tailwindcss": "^0.8.0",
