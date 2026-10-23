@@ -51,7 +51,7 @@
 {/if}
 
 {#each data.overview.groups as group (group.category)}
-  <h2 class="heading mt-8 mb-3">{metricCategoryLabels[group.category]}</h2>
+  <h2 class="mt-8 mb-3 text-lg font-semibold text-ink-900 dark:text-ink-50">{metricCategoryLabels[group.category]}</h2>
   <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
     {#each group.items as item (item.metric.code)}
       {@const v = pointValue(item.latest, item.metric)}
