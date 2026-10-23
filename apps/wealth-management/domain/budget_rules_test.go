@@ -46,8 +46,9 @@ func TestComputeBudgetReport(t *testing.T) {
 	if _, ok := lines["Unused"]; ok {
 		t.Fatal("expected line with no limit and no spend to be hidden")
 	}
-	if _, ok := lines["Salary"]; ok {
-		t.Fatal("expected income line with no limit and no spend to be hidden")
+	// Income reads as money received, not spend clamped to zero.
+	if salary, ok := lines["Salary"]; !ok || salary.Spent != 20_000_000 || salary.YearlySpent != 20_000_000 {
+		t.Fatalf("expected salary to show the 20M received, got %+v", salary)
 	}
 	gifts := lines["Gifts"]
 	if !gifts.Unbudgeted || gifts.Spent != 700_000 || gifts.Status != BudgetStatusUrgent {
@@ -65,6 +66,26 @@ func TestComputeBudgetReport(t *testing.T) {
 	}
 	if report.Lines[0].Category != "Gifts" {
 		t.Fatalf("expected lines sorted by percent used, first was %s", report.Lines[0].Category)
+	}
+}
+
+func TestGivenWagesWithAnExpectedAmountWhenComputingBudgetThenTheLineShowsWhatCameIn(t *testing.T) {
+	items := []BudgetItem{{Category: "Wages", CategoryType: categoryType(CategoryTypeIncome), MonthlyLimit: 30_000_000}}
+	transactions := []Transaction{
+		txn(day(2026, 3, 5), "Wages", CategoryTypeIncome, 0, 25_000_000),
+		txn(day(2026, 3, 6), "Wages", CategoryTypeIncome, 1_000_000, 0), // a correction paid back
+	}
+	report := ComputeBudgetReport(items, transactions, day(2026, 3, 1), day(2026, 3, 10))
+
+	if len(report.Lines) != 1 {
+		t.Fatalf("expected one line, got %+v", report.Lines)
+	}
+	wages := report.Lines[0]
+	if wages.Spent != 24_000_000 || wages.Remaining != 6_000_000 || wages.PercentUsed != 80 {
+		t.Fatalf("expected 24M of 30M received, got %+v", wages)
+	}
+	if report.TotalSpent != 0 || report.TotalLimit != 0 {
+		t.Fatalf("income must stay out of the expense totals, got %+v", report)
 	}
 }
 

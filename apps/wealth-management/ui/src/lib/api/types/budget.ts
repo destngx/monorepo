@@ -53,6 +53,7 @@ export interface BudgetLine {
   categoryType: CategoryType;
   note?: string;
   limit: number;
+  /** Money out for expense and lending lines; money received for an income line. */
   spent: number;
   remaining: number;
   percentUsed: number;

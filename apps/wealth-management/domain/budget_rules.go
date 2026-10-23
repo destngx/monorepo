@@ -35,10 +35,12 @@ func BudgetStatusFor(percentUsed float64) BudgetStatus {
 
 // BudgetLine is one category's actuals for a month (WM-RULE-5).
 type BudgetLine struct {
-	Category        string       `json:"category"`
-	CategoryType    CategoryType `json:"categoryType"`
-	Note            string       `json:"note,omitempty"`
-	Limit           float64      `json:"limit"`
+	Category     string       `json:"category"`
+	CategoryType CategoryType `json:"categoryType"`
+	Note         string       `json:"note,omitempty"`
+	Limit        float64      `json:"limit"`
+	// Spent is money out for expense and lending lines and money received
+	// for an income line, whose limit is the amount expected.
 	Spent           float64      `json:"spent"`
 	Remaining       float64      `json:"remaining"`
 	PercentUsed     float64      `json:"percentUsed"`
@@ -133,11 +135,16 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 		if item.CategoryType != nil {
 			categoryType = *item.CategoryType
 		}
-		line := newBudgetLine(item.Category, categoryType, item.LimitFor(month), monthSpend[key])
+		sign := lineSign(categoryType, lending[key])
+		line := newBudgetLine(item.Category, categoryType, item.LimitFor(month), sign*monthSpend[key])
 		line.Lending = lending[key]
 		line.Note = item.Note
 		line.YearlyLimit = item.YearlyLimit
-		line.YearlySpent = clampZero(yearSpend[key])
+		line.YearlySpent = clampZero(sign * yearSpend[key])
+		if sign < 0 {
+			// Status warns about a limit running out; more income is never a warning.
+			line.Status = BudgetStatusHealthy
+		}
 		line.YearlyRemaining = clampZero(item.YearlyLimit - line.YearlySpent)
 		if line.Limit > 0 || line.Spent > 0 {
 			report.Lines = append(report.Lines, line)
@@ -152,8 +159,13 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 		line.Unbudgeted = true
 		report.Lines = append(report.Lines, line)
 	}
+	// Expense lines first, fullest first; income and lending after them.
 	sort.SliceStable(report.Lines, func(i, j int) bool {
-		return report.Lines[i].PercentUsed > report.Lines[j].PercentUsed
+		a, b := report.Lines[i], report.Lines[j]
+		if a.CountsAsExpense() != b.CountsAsExpense() {
+			return a.CountsAsExpense()
+		}
+		return a.PercentUsed > b.PercentUsed
 	})
 	if SameMonth(month, today) {
 		for i := range report.Lines {
@@ -176,6 +188,17 @@ func ComputeBudgetReport(items []BudgetItem, transactions []Transaction, month t
 		report.ProjectedSpend = round2(report.DailyBurn * float64(report.DaysInMonth))
 	}
 	return report
+}
+
+// lineSign turns a category's payments-minus-deposits into what its line
+// counts: an income line counts money received, so a wage reads as 20M of
+// 30M instead of a negative spend clamped to 0. Expense and lending lines
+// count money out.
+func lineSign(categoryType CategoryType, lending bool) float64 {
+	if categoryType == CategoryTypeIncome && !lending {
+		return -1
+	}
+	return 1
 }
 
 func newBudgetLine(category string, categoryType CategoryType, limit float64, net float64) BudgetLine {

@@ -94,7 +94,13 @@
                   >{line.category}
                   <span class="muted text-xs">({line.lending ? 'lending' : line.categoryType})</span></span
                 >
-                <span class="tabular"><Money value={line.spent} /> / <Money value={line.limit} /></span>
+                <!-- An income line counts money received; the limit is the amount expected. -->
+                <span class="tabular"
+                  ><Money value={line.spent} /> / <Money
+                    value={line.limit}
+                  />{#if line.categoryType === 'income' && !line.lending}
+                    <span class="muted text-xs">received</span>{/if}</span
+                >
               </li>
             {/each}
           </ul>
