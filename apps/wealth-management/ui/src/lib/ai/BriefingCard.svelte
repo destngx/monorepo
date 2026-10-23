@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import { base } from '$app/paths';
   import { api } from '$lib/api/endpoints';
@@ -11,9 +12,16 @@
 
   // Dashboard intelligence briefing (WM-DASH-6, WM-AI-6). Compact (the home
   // page, ROADMAP R5) keeps the alerts and the briefing, and folds the
-  // pattern cards away.
+  // pattern cards away. It loads on open: the engine reuses a briefing of
+  // the same facts for 30 minutes, so only the refresh button asks the AI
+  // again.
   let { compact = false }: { compact?: boolean } = $props();
   const task = new AITask((force, signal) => api.briefing({ force, signal }));
+
+  onMount(() => {
+    void task.run();
+    return () => task.cancel();
+  });
 
   const patternLabels: Record<string, string> = {
     'spending-forecast': 'Spending forecast',
