@@ -229,7 +229,7 @@ func (o ReadingOutput) CleanObservations(pageCount int, today string, catalog *C
 		if err != nil {
 			flag = ""
 		}
-		in := ObservationInput{Analyte: cut(r.Analyte, 120), Value: cut(r.Value, 120), Unit: cut(r.Unit, 120),
+		in := ObservationInput{Analyte: cut(r.Analyte, 120), Value: numberOverWord(cut(r.Value, 120)), Unit: cut(r.Unit, 120),
 			Reference: cut(r.Reference, 120), Flag: flag, SampleDate: cleanDate(r.SampleDate, today)}
 		if in.Analyte == "" || in.Value == "" {
 			continue
@@ -251,6 +251,36 @@ func (o ReadingOutput) CleanObservations(pageCount int, today string, catalog *C
 		}
 	}
 	return ins, pages, confs
+}
+
+var (
+	oneNumber = regexp.MustCompile(`[+-]?\d+(?:[.,]\d+)?`)
+	// resultWords are the printed readings of a test with a cut-off, as
+	// FoldKey gives them.
+	resultWords = map[string]bool{"negative": true, "positive": true, "neg": true, "pos": true, "am tinh": true, "duong tinh": true,
+		"reactive": true, "non reactive": true, "nonreactive": true, "phan ung": true, "khong phan ung": true}
+)
+
+// numberOverWord keeps only the number of a result printed with its
+// reading, such as `Negative 0.794` or `0.794 (Âm tính)`, so it is a
+// value a chart can show. Anything else is returned as it is.
+func numberOverWord(value string) string {
+	nums := oneNumber.FindAllString(value, -1)
+	if len(nums) != 1 {
+		return value
+	}
+	// Only the reading may sit beside the number, never a comparator such
+	// as `<`, which makes the number a bound.
+	rest := strings.Replace(value, nums[0], " ", 1)
+	for _, r := range rest {
+		if !unicode.IsLetter(r) && !unicode.Is(unicode.Mn, r) && !unicode.IsSpace(r) && !strings.ContainsRune("():-", r) {
+			return value
+		}
+	}
+	if !resultWords[FoldKey(rest)] {
+		return value
+	}
+	return nums[0]
 }
 
 var pressurePair = regexp.MustCompile(`^([0-9]{2,3})\s*/\s*([0-9]{2,3})$`)

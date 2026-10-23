@@ -174,3 +174,26 @@ func TestGivenPageTextWhenCheckingReadableThenOnlyPagesWithEnoughTextAreSent(t *
 		t.Fatal("a report page is not readable")
 	}
 }
+
+func TestGivenAResultPrintedWithItsReadingWhenCleaningThenOnlyTheNumberIsKept(t *testing.T) {
+	cases := map[string]string{
+		"Negative 0.794":    "0.794",
+		"0,794 (Âm tính)":   "0,794",
+		"Dương tính: 12.5":  "12.5",
+		"Non-reactive 0.12": "0.12",
+		"Âm tính":           "Âm tính",
+		"< 0.5":             "< 0.5",
+		"Negative < 0.5":    "Negative < 0.5",
+		"1/80 Positive":     "1/80 Positive",
+		"Negative 0.1 0.2":  "Negative 0.1 0.2",
+		"6.4":               "6.4",
+		"Trace 0.3":         "Trace 0.3",
+	}
+	for value, want := range cases {
+		out := ReadingOutput{Observations: []ReadingObservation{{Page: 1, Analyte: "HBsAg miễn dịch tự động", Value: value, Unit: "S/Co"}}}
+		obs, _, _ := out.CleanObservations(1, today, DefaultCatalog)
+		if len(obs) != 1 || obs[0].Value != want {
+			t.Errorf("%q = %+v, want %q", value, obs, want)
+		}
+	}
+}
