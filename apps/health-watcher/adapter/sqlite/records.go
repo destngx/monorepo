@@ -318,6 +318,21 @@ func (r repos) DeleteDocument(ctx context.Context, tenantID, id string) error {
 	return affected(res, err, "document")
 }
 
+func (r repos) UnlinkDocumentFile(ctx context.Context, tenantID, documentID, fileID string) error {
+	res, err := r.q.ExecContext(ctx, `DELETE FROM document_files WHERE file_id = ?
+		AND document_id IN (SELECT id FROM documents WHERE tenant_id = ? AND id = ?)`, fileID, tenantID, documentID)
+	if err := affected(res, err, "document file"); err != nil {
+		return err
+	}
+	// The item it was filed from drops the file too, so going back to the
+	// inbox doesn't bring it back.
+	if _, err := r.q.ExecContext(ctx, `DELETE FROM inbox_files WHERE file_id = ?
+		AND item_id IN (SELECT id FROM inbox_items WHERE tenant_id = ? AND document_id = ?)`, fileID, tenantID, documentID); err != nil {
+		return fmt.Errorf("unlink item file: %w", err)
+	}
+	return nil
+}
+
 func (r repos) CreateFile(ctx context.Context, tenantID string, f domain.StoredFile) error {
 	res, err := r.q.ExecContext(ctx, `INSERT INTO files (id, tenant_id, sha256, mime, size, original_name, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`, f.ID, tenantID, f.SHA256, f.MIME, f.Size, f.OriginalName, formatTime(f.CreatedAt))

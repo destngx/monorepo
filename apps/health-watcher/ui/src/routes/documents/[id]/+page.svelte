@@ -157,6 +157,23 @@
     await invalidateAll();
   }
 
+  // Removes one page; the values and findings read from it go too, into
+  // the history. The last page goes only with the document.
+  async function removePage(p: Page, number: number) {
+    const records =
+      data.detail.observations.filter((o) => o.pageId === p.id).length +
+      data.detail.findings.filter((f) => f.pageId === p.id).length;
+    const also =
+      records === 1
+        ? ' The value or finding read from it is deleted too; it stays in the history.'
+        : records
+          ? ` The ${records} values and findings read from it are deleted too; they stay in the history.`
+          : '';
+    if (!confirm(`Remove page ${number} from this document?${also} The other pages stay.`)) return;
+    await session.api.removeDocumentPage(doc.id, p.id);
+    await invalidateAll();
+  }
+
   async function unfile() {
     const question = 'Move this document back to the inbox to read it with AI? Its visit stays for filing it again.';
     if (!confirm(question)) return;
@@ -300,6 +317,14 @@
                 type="button"
                 class="btn-ghost px-2.5 py-1 text-xs"
                 onclick={() => (showText[p.id] = !showText[p.id])}>{showText[p.id] ? 'Image' : 'Text'}</button
+              >
+            {/if}
+            {#if editable && pages.length > 1}
+              <Button
+                size="sm"
+                icon="trash"
+                errorContext="Could not remove the page"
+                onclick={() => removePage(p, i + 1)}>Remove</Button
               >
             {/if}
           </span>

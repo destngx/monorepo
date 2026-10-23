@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"apps/health-watcher/domain"
 	"apps/health-watcher/port"
@@ -63,7 +64,17 @@ func jsonText(v any) (string, error) {
 }
 
 func (r repos) PagesOf(ctx context.Context, tenantID, fileID string) ([]domain.Page, error) {
-	rows, err := r.q.QueryContext(ctx, `SELECT `+pageColumns+` FROM pages WHERE tenant_id = ? AND file_id = ? ORDER BY number`, tenantID, fileID)
+	return r.pagesOf(ctx, tenantID, fileID, false)
+}
+
+// pagesOf lists a file's pages, with the removed ones when withRemoved.
+func (r repos) pagesOf(ctx context.Context, tenantID, fileID string, withRemoved bool) ([]domain.Page, error) {
+	shown := ` AND removed_at IS NULL`
+	if withRemoved {
+		shown = ""
+	}
+	rows, err := r.q.QueryContext(ctx, `SELECT `+pageColumns+` FROM pages WHERE tenant_id = ? AND file_id = ?`+shown+` ORDER BY number`,
+		tenantID, fileID)
 	if err != nil {
 		return nil, fmt.Errorf("list pages: %w", err)
 	}
@@ -80,7 +91,7 @@ func (r repos) PagesOf(ctx context.Context, tenantID, fileID string) ([]domain.P
 }
 
 func (r repos) Page(ctx context.Context, tenantID, id string) (domain.Page, error) {
-	p, err := scanPage(r.q.QueryRowContext(ctx, `SELECT `+pageColumns+` FROM pages WHERE tenant_id = ? AND id = ?`, tenantID, id).Scan)
+	p, err := scanPage(r.q.QueryRowContext(ctx, `SELECT `+pageColumns+` FROM pages WHERE tenant_id = ? AND id = ? AND removed_at IS NULL`, tenantID, id).Scan)
 	return p, one(err, "page")
 }
 
@@ -88,7 +99,12 @@ func (r repos) SavePages(ctx context.Context, tenantID, fileID string, pages []d
 	if _, err := r.File(ctx, tenantID, fileID); err != nil {
 		return nil, err
 	}
-	old, err := r.PagesOf(ctx, tenantID, fileID)
+	// Removed pages keep their id and stay removed and out of search.
+	old, err := r.pagesOf(ctx, tenantID, fileID, true)
+	if err != nil {
+		return nil, err
+	}
+	removed, err := r.removedPages(ctx, tenantID, fileID)
 	if err != nil {
 		return nil, err
 	}
@@ -125,6 +141,9 @@ func (r repos) SavePages(ctx context.Context, tenantID, fileID string, pages []d
 			return nil, err
 		}
 		kept[p.ImageSHA] = true
+		if removed[p.ID] {
+			continue
+		}
 		if err := r.index(ctx, tenantID, domain.SearchPage, p.ID, p.Text); err != nil {
 			return nil, err
 		}
@@ -147,6 +166,32 @@ func (r repos) SavePages(ctx context.Context, tenantID, fileID string, pages []d
 		return nil, fmt.Errorf("delete extra pages: %w", err)
 	}
 	return released, nil
+}
+
+func (r repos) removedPages(ctx context.Context, tenantID, fileID string) (map[string]bool, error) {
+	rows, err := r.q.QueryContext(ctx, `SELECT id FROM pages WHERE tenant_id = ? AND file_id = ? AND removed_at IS NOT NULL`, tenantID, fileID)
+	if err != nil {
+		return nil, fmt.Errorf("list removed pages: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan removed page: %w", err)
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
+func (r repos) RemovePage(ctx context.Context, tenantID, pageID string, at time.Time) error {
+	res, err := r.q.ExecContext(ctx, `UPDATE pages SET removed_at = ? WHERE tenant_id = ? AND id = ? AND removed_at IS NULL`,
+		formatTime(at), tenantID, pageID)
+	if err := affected(res, err, "page"); err != nil {
+		return err
+	}
+	return r.unindex(ctx, domain.SearchPage, pageID)
 }
 
 func nonNil[T any](s []T) []T {
@@ -197,7 +242,7 @@ func (r repos) SetPageTitle(ctx context.Context, tenantID, pageID, title string)
 func (r repos) UntitledDocuments(ctx context.Context) ([]port.TenantDocument, error) {
 	rows, err := r.q.QueryContext(ctx, `SELECT d.tenant_id, d.id FROM documents d
 		WHERE EXISTS (SELECT 1 FROM document_files df JOIN pages p ON p.file_id = df.file_id
-			WHERE df.document_id = d.id AND p.title = '')
+			WHERE df.document_id = d.id AND p.title = '' AND p.removed_at IS NULL)
 		AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'title' AND j.subject_id = d.id)
 		ORDER BY d.created_at`)
 	if err != nil {

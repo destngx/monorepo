@@ -156,7 +156,7 @@ func (r repos) searchContext(ctx context.Context, tenantID string, kind domain.S
 		return hit, ok, err
 	case domain.SearchPage:
 		var fileID string
-		err := r.q.QueryRowContext(ctx, `SELECT id, number, file_id FROM pages WHERE tenant_id = ? AND id = ?`, tenantID, ref).
+		err := r.q.QueryRowContext(ctx, `SELECT id, number, file_id FROM pages WHERE tenant_id = ? AND id = ? AND removed_at IS NULL`, tenantID, ref).
 			Scan(&hit.PageID, &hit.PageNumber, &fileID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return hit, false, nil
@@ -233,7 +233,7 @@ func (r repos) RebuildSearchIndex(ctx context.Context, version string) (bool, er
 		}
 		return rows.Err()
 	}
-	if err := collect(domain.SearchPage, `SELECT tenant_id, id, text FROM pages`, func(c []string) string { return c[0] }); err != nil {
+	if err := collect(domain.SearchPage, `SELECT tenant_id, id, text FROM pages WHERE removed_at IS NULL`, func(c []string) string { return c[0] }); err != nil {
 		return false, err
 	}
 	if err := collect(domain.SearchVisit, `SELECT v.tenant_id, v.id, v.title, v.note, COALESCE(pr.name, '')

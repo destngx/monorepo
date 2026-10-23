@@ -293,3 +293,118 @@ func TestGivenANewIndexVersionWhenRebuildingThenSearchFindsTheSameRecords(t *tes
 		}
 	}
 }
+
+// fileUploads reads uploads as one item for the test person and files it.
+func (e *env) fileUploads(sc domain.Scope, person domain.Person, files ...domain.Upload) (DocumentDetail, string) {
+	e.t.Helper()
+	resp := e.upload(sc, true, files...)
+	e.drain()
+	filed, err := e.inbox.File(e.ctx, sc, resp.Items[0].ID, domain.FileInput{Kind: "lab_result",
+		Visit: &domain.VisitInput{PersonID: person.ID, Date: "2025-03-14", Type: "lab"}})
+	if err != nil {
+		e.t.Fatalf("file: %v", err)
+	}
+	doc, err := e.clinical.Document(e.ctx, sc, filed.Document.ID)
+	if err != nil {
+		e.t.Fatalf("document: %v", err)
+	}
+	return doc, resp.Items[0].ID
+}
+
+func TestGivenAPDFPageWithoutResultsWhenRemovedThenTheOtherPagesAndValuesStay(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	doc, _ := e.fileUploads(sc, e.person(sc, "Nguyễn Văn Mẫu"), pdf("twopage lab"))
+	if len(doc.Pages) != 2 {
+		t.Fatalf("pages = %+v", doc.Pages)
+	}
+	appendix := doc.Pages[1]
+
+	after, err := e.clinical.RemoveDocumentPage(e.ctx, sc, doc.Document.ID, appendix.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.Pages) != 1 || after.Pages[0].ID != doc.Pages[0].ID || len(after.Document.Files) != 1 {
+		t.Fatalf("after = %+v", after)
+	}
+	if len(after.Observations) != 1 || len(after.Findings) != 1 {
+		t.Fatalf("records = %+v, %+v", after.Observations, after.Findings)
+	}
+	if res, err := e.clinical.Search(e.ctx, sc, "phu luc"); err != nil || len(res.Hits) != 0 {
+		t.Fatalf("hits = %+v, %v", res, err)
+	}
+	if _, err := e.clinical.RemoveDocumentPage(e.ctx, sc, doc.Document.ID, appendix.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("remove again = %v", err)
+	}
+
+	// A new reading of the file keeps the page removed.
+	fileID := doc.Document.Files[0].ID
+	if _, err := e.store.SavePages(e.ctx, sc.TenantID, fileID, []domain.Page{doc.Pages[0], appendix}); err != nil {
+		t.Fatal(err)
+	}
+	again, err := e.clinical.Document(e.ctx, sc, doc.Document.ID)
+	if err != nil || len(again.Pages) != 1 {
+		t.Fatalf("after a new reading = %+v, %v", again.Pages, err)
+	}
+	if res, err := e.clinical.Search(e.ctx, sc, "phu luc"); err != nil || len(res.Hits) != 0 {
+		t.Fatalf("hits after a new reading = %+v, %v", res, err)
+	}
+
+	if _, err := e.clinical.RemoveDocumentPage(e.ctx, sc, doc.Document.ID, doc.Pages[0].ID); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("remove the last page = %v", err)
+	}
+}
+
+func TestGivenAPhotoWithResultsWhenItsPageIsRemovedThenItsRecordsAreAuditedAndTheFileGoes(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	doc, itemID := e.fileUploads(sc, e.person(sc, "Nguyễn Văn Mẫu"), pdf("lab front"), pdf("lab back"))
+	if len(doc.Pages) != 2 || len(doc.Observations) != 1 || doc.Observations[0].PageID != doc.Pages[0].ID {
+		t.Fatalf("document = %+v", doc)
+	}
+	front := doc.Document.Files[0]
+
+	after, err := e.clinical.RemoveDocumentPage(e.ctx, sc, doc.Document.ID, doc.Pages[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.Pages) != 1 || len(after.Document.Files) != 1 || after.Document.Files[0].ID == front.ID {
+		t.Fatalf("after = %+v", after)
+	}
+	if len(after.Observations) != 0 || len(after.Findings) != 0 {
+		t.Fatalf("records = %+v, %+v", after.Observations, after.Findings)
+	}
+	for entity, id := range map[domain.AuditEntity]string{domain.AuditObservation: doc.Observations[0].ID, domain.AuditFinding: doc.Findings[0].ID} {
+		hist, err := e.clinical.History(e.ctx, sc, entity, id)
+		if err != nil || len(hist) != 1 || hist[0].Action != "delete" {
+			t.Fatalf("%s history = %+v, %v", entity, hist, err)
+		}
+	}
+	if _, err := e.files.Open(e.ctx, front.SHA256); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("bytes still there: %v", err)
+	}
+
+	// Back in the inbox, the item holds only the page that stayed.
+	if _, err := e.inbox.Unfile(e.ctx, sc, doc.Document.ID); err != nil {
+		t.Fatal(err)
+	}
+	if item := e.item(sc, itemID); len(item.Item.Files) != 1 || len(item.Pages) != 1 {
+		t.Fatalf("item = %+v", item)
+	}
+}
+
+func TestGivenAViewerOrAnotherDocumentWhenRemovingAPageThenItIsRefused(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	person := e.person(sc, "Nguyễn Văn Mẫu")
+	doc, _ := e.fileUploads(sc, person, pdf("twopage lab"))
+	other, _ := e.fileUploads(sc, person, pdf("twopage lab other"))
+
+	viewer := e.join(sc, "viewer@example.test", "viewer")
+	if _, err := e.clinical.RemoveDocumentPage(e.ctx, viewer, doc.Document.ID, doc.Pages[1].ID); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("viewer = %v", err)
+	}
+	if _, err := e.clinical.RemoveDocumentPage(e.ctx, sc, doc.Document.ID, other.Pages[1].ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("other document's page = %v", err)
+	}
+}

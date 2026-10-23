@@ -235,3 +235,11 @@ func TestGivenTypedVitalsWhenUsingTheMetricRoutesThenTheOverviewAndTrendShowThem
 	resp, body = h.json(http.MethodGet, base+"/metrics/nope", nil)
 	wantStatus(t, resp, body, http.StatusNotFound, "")
 }
+
+func TestGivenAPageOfNoDocumentWhenRemovingItThenItIsNotFound(t *testing.T) {
+	h := newHarness(t)
+	h.login()
+	_, filed := h.fileOne(h.firstPerson())
+	resp, body := h.json(http.MethodDelete, "/api/tenants/"+h.tenant+"/documents/"+filed.Document.ID+"/pages/nope", nil)
+	wantStatus(t, resp, body, http.StatusNotFound, CodeNotFound)
+}

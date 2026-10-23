@@ -202,6 +202,9 @@ type DocumentRepo interface {
 	DocumentsOf(ctx context.Context, tenantID, visitID string) ([]domain.Document, error)
 	UpdateDocument(ctx context.Context, tenantID string, d domain.Document) error
 	DeleteDocument(ctx context.Context, tenantID, id string) error
+	// UnlinkDocumentFile takes a file out of a document and out of the
+	// inbox item the document was filed from.
+	UnlinkDocumentFile(ctx context.Context, tenantID, documentID, fileID string) error
 }
 
 type FileRepo interface {
@@ -261,8 +264,11 @@ type PageRepo interface {
 	// that existed before, and reindexes their text for search. It returns
 	// the image hashes the file's pages no longer use.
 	SavePages(ctx context.Context, tenantID, fileID string, pages []domain.Page) ([]string, error)
+	// PagesOf and Page leave out removed pages.
 	PagesOf(ctx context.Context, tenantID, fileID string) ([]domain.Page, error)
 	Page(ctx context.Context, tenantID, id string) (domain.Page, error)
+	// RemovePage hides a page from its file's pages and from search (HW-FIND-3).
+	RemovePage(ctx context.Context, tenantID, pageID string, at time.Time) error
 	// SetPageMask stores a page's mask and returns the masked image hash it replaced.
 	SetPageMask(ctx context.Context, tenantID, pageID string, m domain.PageMask) (string, error)
 	// SetPageTitle names a page (HW-READ-9).

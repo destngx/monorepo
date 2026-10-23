@@ -130,6 +130,9 @@ export function tenantApi(tenantId: string) {
     /** Records that a person checked a filed page's masked copy, so it can get a title (HW-READ-9). */
     checkDocumentPage: (documentId: string, pageId: string) =>
       request<Page>(`${t}/documents/${documentId}/pages/${pageId}/check`, { method: 'POST' }),
+    /** Removes one page of a filed document with the values and findings read from it (HW-FIND-3). */
+    removeDocumentPage: (documentId: string, pageId: string) =>
+      request<DocumentDetail>(`${t}/documents/${documentId}/pages/${pageId}`, { method: 'DELETE' }),
 
     inbox: (fetch?: Fetch) => request<InboxItem[]>(`${t}/inbox`, { fetch }),
     upload: (

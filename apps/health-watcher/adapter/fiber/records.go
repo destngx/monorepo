@@ -76,6 +76,9 @@ func (s *server) recordRoutes(r fiber.Router) {
 	r.Post("/documents/:id/pages/:pageId/check", func(c *fiber.Ctx) error {
 		return s.list(c)(s.svc.Inbox.CheckDocumentPage(c.UserContext(), scope(c), c.Params("id"), c.Params("pageId")))
 	})
+	r.Delete("/documents/:id/pages/:pageId", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Clinical.RemoveDocumentPage(c.UserContext(), scope(c), c.Params("id"), c.Params("pageId")))
+	})
 	r.Get("/files/:id", s.file)
 }
 

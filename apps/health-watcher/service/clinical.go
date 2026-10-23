@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 	"unicode/utf8"
 
@@ -411,6 +412,104 @@ func (c *Clinical) Document(ctx context.Context, sc domain.Scope, id string) (Do
 		return DocumentDetail{}, err
 	}
 	return d, nil
+}
+
+// RemoveDocumentPage takes one page out of a filed document, with the
+// values and findings read from it, each approved one audited (HW-FIND-3,
+// HW-REC-6). The file's other pages stay. A file left with no pages leaves
+// the document, and goes when nothing else uses it. The document's last
+// page is refused: deleting the document removes it.
+func (c *Clinical) RemoveDocumentPage(ctx context.Context, sc domain.Scope, documentID, pageID string) (DocumentDetail, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return DocumentDetail{}, err
+	}
+	var released []domain.StoredFile
+	err := c.Store.InTx(ctx, func(r port.Repos) error {
+		doc, err := r.Document(ctx, sc.TenantID, documentID)
+		if err != nil {
+			return err
+		}
+		pg, err := r.Page(ctx, sc.TenantID, pageID)
+		if err != nil {
+			return err
+		}
+		i := slices.IndexFunc(doc.Files, func(f domain.StoredFile) bool { return f.ID == pg.FileID })
+		if i < 0 {
+			return domain.NotFound("page")
+		}
+		shown, ofFile := 0, 0
+		for _, f := range doc.Files {
+			pages, err := r.PagesOf(ctx, sc.TenantID, f.ID)
+			if err != nil {
+				return err
+			}
+			shown += len(pages)
+			if f.ID == pg.FileID {
+				ofFile = len(pages)
+			}
+		}
+		if shown <= 1 {
+			return domain.Conflict("this is the document's only page; delete the document instead")
+		}
+		if err := c.deletePageRecords(ctx, r, sc, documentID, pageID); err != nil {
+			return err
+		}
+		if err := r.RemovePage(ctx, sc.TenantID, pageID, c.Clock()); err != nil {
+			return err
+		}
+		if ofFile > 1 {
+			return nil
+		}
+		released = append(released, doc.Files[i])
+		return r.UnlinkDocumentFile(ctx, sc.TenantID, documentID, pg.FileID)
+	})
+	if err != nil {
+		return DocumentDetail{}, err
+	}
+	if err := releaseFiles(ctx, c.Deps, sc.TenantID, released); err != nil {
+		return DocumentDetail{}, err
+	}
+	return c.Document(ctx, sc, documentID)
+}
+
+// deletePageRecords deletes a document's values and findings read from a
+// page, auditing each approved one.
+func (c *Clinical) deletePageRecords(ctx context.Context, r port.Repos, sc domain.Scope, documentID, pageID string) error {
+	obs, err := r.ObservationsOfDocument(ctx, sc.TenantID, documentID)
+	if err != nil {
+		return err
+	}
+	for _, o := range obs {
+		if o.PageID != pageID {
+			continue
+		}
+		if o.Status == domain.StatusApproved {
+			if err := c.audit(ctx, r, sc, domain.AuditObservation, o.ID, "delete", o.Version, o); err != nil {
+				return err
+			}
+		}
+		if err := r.DeleteObservation(ctx, sc.TenantID, o.ID); err != nil {
+			return err
+		}
+	}
+	finds, err := r.FindingsOfDocument(ctx, sc.TenantID, documentID)
+	if err != nil {
+		return err
+	}
+	for _, f := range finds {
+		if f.PageID != pageID {
+			continue
+		}
+		if f.Status == domain.StatusApproved {
+			if err := c.audit(ctx, r, sc, domain.AuditFinding, f.ID, "delete", f.Version, f); err != nil {
+				return err
+			}
+		}
+		if err := r.DeleteFinding(ctx, sc.TenantID, f.ID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DocumentInput changes a document's kind, title and printed date

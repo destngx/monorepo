@@ -332,7 +332,7 @@ func (r repos) ObservationsOfPerson(ctx context.Context, tenantID, personID stri
 	rows, err := r.q.QueryContext(ctx, `SELECT `+observationColumns+`, COALESCE(d.visit_id, ''), COALESCE(pr.name, ''),
 			COALESCE((SELECT COUNT(*) FROM document_files df JOIN document_files own ON own.document_id = df.document_id
 				JOIN pages p2 ON p2.file_id = df.file_id
-				WHERE df.document_id = o.document_id AND own.file_id = pg.file_id
+				WHERE df.document_id = o.document_id AND own.file_id = pg.file_id AND p2.removed_at IS NULL
 					AND (df.position < own.position OR (df.position = own.position AND p2.number <= pg.number))), 0),
 			COALESCE(pg.title, '')
 		FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id

@@ -93,7 +93,13 @@ func (f *fakeOCR) Read(_ context.Context, path, workDir string) ([]port.OCRPage,
 	if strings.Contains(src, "noimage") {
 		pg.ImagePath = ""
 	}
-	return []port.OCRPage{pg}, nil
+	if !strings.Contains(src, "twopage") {
+		return []port.OCRPage{pg}, nil
+	}
+	// A second page with no results on it.
+	appendix := []domain.Line{line("PHỤ LỤC HƯỚNG DẪN CHUẨN BỊ", 0.1)}
+	return []port.OCRPage{pg, {Number: 2, Method: domain.MethodOCR, Text: joinLines(appendix), Confidence: 1, Lines: appendix,
+		BarcodesChecked: true, ImagePath: img, Width: 100, Height: 140}}, nil
 }
 
 // nopTB lets whitePage run outside a test; encoding a blank image can't fail.
