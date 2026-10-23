@@ -90,6 +90,17 @@ export default [
       'no-unused-vars': 'warn',
     },
   },
+  // TypeScript and components use the TypeScript rule only: the core one reports parameter names
+  // in function types, such as `event` in `onclick?: (event: MouseEvent) => void`, and would report
+  // a real unused variable twice. The TypeScript rule needs no type information.
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.svelte'],
+    plugins: { '@typescript-eslint': ts.plugin },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'warn',
+    },
+  },
   // TypeScript-specific rules
   {
     files: ['**/*.ts', '**/*.tsx'],
