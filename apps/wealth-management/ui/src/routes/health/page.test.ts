@@ -24,7 +24,9 @@ const flush = async () => {
 // Invented figures.
 const health: FinancialHealth = {
   score: 68,
+  uncappedScore: 68,
   band: 'yellow',
+  caps: [],
   components: [
     {
       key: 'emergency',
@@ -61,6 +63,22 @@ const health: FinancialHealth = {
 
 describe('Health page', () => {
   afterEach(() => mask.hide());
+
+  it('Given a cap holds the score When it renders Then the reason and the uncapped sum show', async () => {
+    const held: FinancialHealth = {
+      ...health,
+      score: 49,
+      uncappedScore: 81,
+      band: 'red',
+      caps: [{ key: 'noBuffer', limit: 49, reason: 'Liquid cash covers 0.8 months of expense, under 1 month.' }],
+    };
+    render(HealthPage, { data: { engine: never(), health: settled(held), netWorthHistory: never() } as never });
+    await flush();
+
+    const caps = screen.getByTestId('health-caps').textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(caps).toContain('Held at 49: the pillars add up to 81');
+    expect(caps).toContain('under 1 month. At most 49.');
+  });
 
   it('Given nothing has answered When the page renders Then the header shows with the score and history skeletons', () => {
     render(HealthPage, { data: { engine: never(), health: never(), netWorthHistory: never() } as never });

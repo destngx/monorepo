@@ -266,7 +266,7 @@ func TestGivenAnAllocationSourceWhenScoringHealthThenDiversificationUsesTheSameA
 		t.Fatalf("allocation %+v forced %v", health.Allocation, source.forced)
 	}
 	for _, component := range health.Components {
-		if component.Key == "diversification" && component.Score != 20 {
+		if component.Key == "diversification" && component.Score != 10 {
 			t.Fatalf("an even split scores full: %+v", component)
 		}
 	}

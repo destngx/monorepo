@@ -12,10 +12,21 @@ export interface HealthComponent {
   detail: string;
 }
 
+/** A strict rule that holds the score at `limit` whatever the pillars add up to (D44). */
+export interface HealthCap {
+  key: string;
+  limit: number;
+  reason: string;
+}
+
 export interface FinancialHealth {
+  /** The pillar sum, held down by the caps. */
   score: number;
+  uncappedScore: number;
   band: 'red' | 'yellow' | 'green';
   components: HealthComponent[];
+  /** Critical caps (limit 49) first, then serious ones (limit 75). */
+  caps: HealthCap[];
   recommendations: { component: string; title: string; action: string }[];
   liquidAssets: number;
   avgMonthlyIncome: number;

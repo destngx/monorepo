@@ -103,7 +103,7 @@ func (s *Server) analyticsTools() []tool {
 			},
 		},
 		readTool("CompareCardPrograms", "Replays the last 12 months of card payments under every programme's current terms, held or not, ranked by cashback less the annual fee.", analytics.ComparePrograms),
-		readTool("GetFinancialHealth", "Financial health score with per-pillar formulas and recommendations.", analytics.FinancialHealth),
+		readTool("GetFinancialHealth", "Financial health score: eight pillars with their formulas, the strict caps that hold the score down, and recommendations.", analytics.FinancialHealth),
 		{
 			definition: definition("GetAccountHistories", "Back-calculated daily balances per account.", object(map[string]any{
 				"days": map[string]any{"type": "integer", "minimum": 1, "maximum": 366, "default": 60}, "force": forceSchema,

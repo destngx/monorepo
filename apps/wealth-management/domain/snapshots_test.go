@@ -47,9 +47,12 @@ func TestGivenLastMonthWhenComputingItsSnapshotThenBalancesAreTakenBackToTheMont
 	if *snapshot.Income != 30_000_000 || *snapshot.Expense != 18_000_000 || *snapshot.Savings != 12_000_000 || *snapshot.SavingsRate != 40 {
 		t.Fatalf("flow = %v %v %v %v", *snapshot.Income, *snapshot.Expense, *snapshot.Savings, *snapshot.SavingsRate)
 	}
-	pillars := *snapshot.SavingsScore + *snapshot.EmergencyScore + *snapshot.DebtScore + *snapshot.DiversificationScore
-	if snapshot.HealthScore == nil || *snapshot.HealthScore <= 0 || !closeTo(round2(pillars), *snapshot.HealthScore) {
-		t.Fatalf("health %v vs pillars %v", snapshot.HealthScore, pillars)
+	// The score is the capped sum of all pillars (D44); four of them are kept.
+	if snapshot.HealthScore == nil || *snapshot.HealthScore <= 0 || *snapshot.HealthScore > 100 {
+		t.Fatalf("health %v", snapshot.HealthScore)
+	}
+	if snapshot.SavingsScore == nil || snapshot.EmergencyScore == nil || snapshot.DebtScore == nil || snapshot.DiversificationScore == nil {
+		t.Fatal("pillar scores missing")
 	}
 	if snapshot.EmergencyMonths == nil {
 		t.Fatal("emergency months missing")

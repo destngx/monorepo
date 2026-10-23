@@ -36,7 +36,7 @@ func (s *Service) HealthCommentary(ctx context.Context, force bool, model string
 		},
 		actionKey: "actions/financial-health",
 		facts: map[string]any{
-			"score": health.Score, "band": health.Band, "components": health.Components,
+			"score": health.Score, "uncappedScore": health.UncappedScore, "band": health.Band, "components": health.Components, "caps": health.Caps,
 			"liquidAssets": health.LiquidAssets, "avgMonthlyIncome": health.AvgMonthlyIncome, "avgMonthlyExpense": health.AvgMonthlyExpense,
 			"freedomMonths": health.FreedomMonths, "allocation": health.Allocation,
 			"monthlyDebtPayments": health.MonthlyDebtPayments, "moneyLent": snap.lent.MoneyLentFacts,

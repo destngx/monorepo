@@ -2,7 +2,7 @@
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { track, Button, Card, Deferred, Icon, SkeletonCard, SkeletonStat, Radar, Ring } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
-  import type { FinancialHealth, HealthComponent } from '$lib/api/types';
+  import type { FinancialHealth, HealthCap } from '$lib/api/types';
   import BarChart from '$lib/charts/BarChart.svelte';
   import { NOMINAL, REAL } from '$lib/charts/palette';
   import Badge from '$lib/components/Badge.svelte';
@@ -10,10 +10,9 @@
   import Money from '$lib/components/Money.svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
-  import { formatPercent } from '$lib/format';
   import AllocationSummary from '$lib/investments/AllocationSummary.svelte';
   import NetWorthHistoryCard from '$lib/networth/NetWorthHistoryCard.svelte';
-  import { pillarText, projectionRows } from '$lib/health';
+  import { axisName, pillarTarget, pillarText, pillarValue, projectionRows } from '$lib/health';
   import { STATUS, type StatusTone } from '$lib/status';
 
   // The header renders at once; the score (with its pillars, math, projection
@@ -30,17 +29,11 @@
   };
 
   const axesOf = (value: FinancialHealth) =>
-    value.components.map((c) => ({ label: c.label, fraction: c.maxScore ? c.score / c.maxScore : 0 }));
+    value.components.map((c) => ({ label: axisName(c), fraction: c.maxScore ? c.score / c.maxScore : 0 }));
 
   let openMath = $state<string | null>(null);
-  const formatValue = (c: HealthComponent) =>
-    c.unit === '%'
-      ? formatPercent(c.value)
-      : c.unit === 'months'
-        ? `${c.value.toFixed(1)} months`
-        : `${c.value.toFixed(2)} ${c.unit}`;
-  const formatTarget = (c: HealthComponent) =>
-    c.unit === '%' ? formatPercent(c.target, 0) : c.unit === 'months' ? `${c.target} months` : `${c.target} ${c.unit}`;
+  // A cap at the red limit is critical; one at the green limit is serious (D44).
+  const capTone = (cap: HealthCap): StatusTone => (cap.limit < 50 ? 'critical' : 'warning');
 </script>
 
 <PageHeader
@@ -73,6 +66,26 @@
               <span class="muted text-xs">of 100</span>
             </Ring>
             <Badge status={status.tone}>{status.label}</Badge>
+            {#if value.caps.length}
+              <!-- D44: strict rules that hold the score down whatever the pillars add up to -->
+              <div class="w-full text-sm" data-testid="health-caps">
+                <p class="font-medium">
+                  {#if value.uncappedScore > value.score}
+                    Held at {Math.round(value.score)}: the pillars add up to {Math.round(value.uncappedScore)}
+                  {:else}
+                    Rules limiting the score
+                  {/if}
+                </p>
+                <ul class="mt-1 space-y-1">
+                  {#each value.caps as cap (cap.key)}
+                    <li class="flex items-start gap-1.5 text-xs {STATUS[capTone(cap)].ink}">
+                      <Icon name={STATUS[capTone(cap)].icon} size={14} class="mt-0.5 shrink-0" />
+                      <span><MaskedText text={cap.reason} /> <span class="muted">At most {cap.limit}.</span></span>
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
           </div>
         </Card>
         <Card title="Pillars" class="lg:col-span-2">
@@ -99,7 +112,7 @@
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p class="font-medium">{text.label}</p>
-                  <p class="muted text-xs">{formatValue(component)} · target {formatTarget(component)}</p>
+                  <p class="muted text-xs">{pillarValue(component)} · full at {pillarTarget(component)}</p>
                   {#if text.explanation}<p class="muted mt-0.5 text-xs"><MaskedText text={text.explanation} /></p>{/if}
                 </div>
                 <div class="flex items-center gap-3">
