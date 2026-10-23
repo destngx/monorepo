@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -120,6 +121,9 @@ func TestGivenSeveralLoansToOnePersonWhenComputingMoneyLentThenEachKeepsItsDateA
 	if *person.RepayBy != "2026-10-31" || *person.DaysUntilRepay != 8 || person.RepayByAmount != 1_500_000 {
 		t.Fatalf("the person shows the soonest date and what is due then: %+v", person)
 	}
+	if len(first.Repayments) != 1 || first.Repayments[0] != (LoanRepayment{TransactionID: "row-5", Date: "2026-10-10", Amount: 500_000}) || len(second.Repayments) != 0 {
+		t.Fatalf("each loan lists the repayments that paid it: %+v %+v", first.Repayments, second.Repayments)
+	}
 
 	transactions = append(transactions, memoTxn("row-6", "2026-10-20", "Person A", 0, 2_000_000, "paid the first, rest of the next by 15/12"))
 	person = ComputeMoneyLent(transactions, today).People[0]
@@ -129,6 +133,10 @@ func TestGivenSeveralLoansToOnePersonWhenComputingMoneyLentThenEachKeepsItsDateA
 	}
 	if second.Repaid != 500_000 || *second.RepayBy != "2026-12-15" {
 		t.Fatalf("a dated repayment memo moves the oldest loan it leaves open: %+v", second)
+	}
+	if len(first.Repayments) != 2 || first.Repayments[1] != (LoanRepayment{TransactionID: "row-6", Date: "2026-10-20", Amount: 1_500_000}) ||
+		len(second.Repayments) != 1 || second.Repayments[0] != (LoanRepayment{TransactionID: "row-6", Date: "2026-10-20", Amount: 500_000}) {
+		t.Fatalf("a repayment is split over the loans it paid: %+v %+v", first.Repayments, second.Repayments)
 	}
 	if *person.RepayBy != "2026-12-15" || person.RepayByAmount != 2_500_000 {
 		t.Fatalf("person = %+v", person)
@@ -150,6 +158,9 @@ func TestGivenASettledOrPrepaidHistoryWhenComputingMoneyLentThenOnlyTheOpenBalan
 	a, b := lent.People[0], lent.People[1]
 	if len(a.Loans) != 1 || a.Loans[0].TransactionID != "row-5" || a.Loans[0].Repaid != 400_000 || a.Loans[0].Outstanding != 600_000 {
 		t.Fatalf("money repaid ahead offsets the next loan; settled loans before the balance opened are left out: %+v", a.Loans)
+	}
+	if want := []LoanRepayment{{TransactionID: "row-4", Date: "2026-09-01", Amount: 400_000}}; !reflect.DeepEqual(a.Loans[0].Repayments, want) {
+		t.Fatalf("money repaid ahead is listed on the loan it offsets: %+v", a.Loans[0].Repayments)
 	}
 	if b.Outstanding != -700_000 || len(b.Loans) != 0 || b.RepayBy != nil {
 		t.Fatalf("money the user owes has no loans to chase: %+v", b)

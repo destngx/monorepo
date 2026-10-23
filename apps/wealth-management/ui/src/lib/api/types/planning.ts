@@ -150,6 +150,16 @@ export interface LentLoan {
   repayBy: string | null;
   /** Days from today to repayBy; negative when overdue. */
   daysUntilRepay: number | null;
+  /** The parts of repayment transactions that paid the loan, oldest first (WM-LEND-8). */
+  repayments: LoanRepayment[];
+}
+
+/** The part of a repayment transaction that paid one loan. */
+export interface LoanRepayment {
+  transactionId: string;
+  /** yyyy-mm-dd repayment day. */
+  date: string;
+  amount: number;
 }
 
 /** Money lent per person from lending-category transactions (WM-LEND-1..3, D30). */

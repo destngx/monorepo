@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LentLoan, MoneyLentPerson } from '$lib/api/types';
-import { ageTone, balanceStatus, formatAge, otherOpenLoans, repayStatus, splitPeople } from './lending';
+import { ageTone, balanceStatus, formatAge, loanLinks, otherOpenLoans, repayStatus, splitPeople } from './lending';
 
 const person = (name: string, outstanding: number): MoneyLentPerson => ({
   name,
@@ -26,6 +26,7 @@ const loan = (outstanding: number, repayBy: string | null): LentLoan => ({
   daysOutstanding: 22,
   repayBy,
   daysUntilRepay: repayBy === null ? null : 8,
+  repayments: [],
 });
 
 describe('money lent', () => {
@@ -85,5 +86,31 @@ describe('money lent', () => {
     };
     expect(otherOpenLoans(owing)).toBe(2);
     expect(otherOpenLoans(person('Person B', 1_000_000))).toBe(0);
+  });
+
+  it('links each transaction to its loans: a lending row to itself, a repayment to the loans it paid', () => {
+    const owing = {
+      ...person('Person A', 1_500_000),
+      loans: [
+        {
+          ...loan(0, null),
+          transactionId: 'row-2',
+          repayments: [{ transactionId: 'row-4', date: '2026-10-10', amount: 1_000_000 }],
+        },
+        {
+          ...loan(500_000, null),
+          transactionId: 'row-3',
+          repayments: [{ transactionId: 'row-4', date: '2026-10-10', amount: 500_000 }],
+        },
+      ],
+    };
+    const links = loanLinks(owing);
+    expect(links.get('row-2')).toEqual([{ loan: 1, amount: 1_000_000 }]);
+    expect(links.get('row-3')).toEqual([{ loan: 2, amount: 1_000_000 }]);
+    expect(links.get('row-4')).toEqual([
+      { loan: 1, amount: 1_000_000 },
+      { loan: 2, amount: 500_000 },
+    ]);
+    expect(links.get('row-9')).toBeUndefined();
   });
 });

@@ -8,7 +8,15 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Stat from '$lib/components/Stat.svelte';
   import { formatDate } from '$lib/format';
-  import { ageTone, balanceStatus, formatAge, otherOpenLoans, repayStatus, splitPeople } from '$lib/lending/lending';
+  import {
+    ageTone,
+    balanceStatus,
+    formatAge,
+    loanLinks,
+    otherOpenLoans,
+    repayStatus,
+    splitPeople,
+  } from '$lib/lending/lending';
 
   // The header renders at once; the ledger streams in (one request).
   let { data } = $props();
@@ -169,24 +177,28 @@
             </td>
           </tr>
           {#if expanded === key}
+            {@const links = loanLinks(person)}
             <tr>
               <td colspan="8" class="bg-stone-900/[0.02] px-5 py-3 dark:bg-white/[0.02]">
                 {#if person.loans.length}
-                  <!-- WM-LEND-7: each loan with its own date, repaid oldest first -->
+                  <!-- WM-LEND-7: each loan with its own date, repaid oldest first; WM-LEND-8: the repayments that paid it -->
                   <table class="mb-4 w-full text-xs" aria-label="Loans">
                     <thead>
                       <tr class="muted text-left uppercase">
+                        <th class="py-1 pr-4">Loan</th>
                         <th class="py-1 pr-4">Lent on</th>
                         <th class="py-1 pr-4 text-right">Amount</th>
                         <th class="py-1 pr-4 text-right">Repaid</th>
                         <th class="py-1 pr-4 text-right">Left</th>
-                        <th class="py-1">Repay by</th>
+                        <th class="py-1 pr-4">Repay by</th>
+                        <th class="py-1">Repaid by</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {#each person.loans as loan (loan.transactionId)}
+                      {#each person.loans as loan, index (loan.transactionId)}
                         {@const repay = repayStatus(loan.daysUntilRepay)}
                         <tr>
+                          <td class="py-1 pr-4 font-medium">#{index + 1}</td>
                           <td class="py-1 pr-4">{formatDate(loan.date)}</td>
                           <td class="py-1 pr-4 text-right"><Money value={loan.amount} /></td>
                           <td class="py-1 pr-4 text-right"><Money value={loan.repaid} /></td>
@@ -195,7 +207,7 @@
                                 >Repaid</Badge
                               >{/if}
                           </td>
-                          <td class="py-1">
+                          <td class="py-1 pr-4">
                             {#if loan.repayBy !== null}
                               {formatDate(loan.repayBy)}
                               {#if repay}<span class="ml-1.5"><Badge status={repay.tone}>{repay.label}</Badge></span
@@ -203,6 +215,13 @@
                             {:else}
                               <span class="muted">-</span>
                             {/if}
+                          </td>
+                          <td class="py-1">
+                            {#each loan.repayments as part (part.transactionId)}
+                              <div>{formatDate(part.date)} <Money value={part.amount} /></div>
+                            {:else}
+                              <span class="muted">-</span>
+                            {/each}
                           </td>
                         </tr>
                       {/each}
@@ -216,11 +235,13 @@
                       <th class="py-1 pr-4">Account</th>
                       <th class="py-1 pr-4">Memo</th>
                       <th class="py-1 pr-4 text-right">Lent</th>
-                      <th class="py-1 text-right">Repaid</th>
+                      <th class="py-1 pr-4 text-right">Repaid</th>
+                      <th class="py-1">Loan</th>
                     </tr>
                   </thead>
                   <tbody>
                     {#each person.transactions as transaction (transaction.id)}
+                      {@const parts = links.get(transaction.id) ?? []}
                       <tr>
                         <td class="py-1 pr-4">{formatDate(transaction.date)}</td>
                         <td class="py-1 pr-4">{transaction.accountName}</td>
@@ -230,8 +251,17 @@
                         <td class="py-1 pr-4 text-right">
                           {#if transaction.payment}<Money value={transaction.payment} />{/if}
                         </td>
-                        <td class="py-1 text-right">
+                        <td class="py-1 pr-4 text-right">
                           {#if transaction.deposit}<Money value={transaction.deposit} />{/if}
+                        </td>
+                        <td class="py-1">
+                          {#each parts as part (part.loan)}
+                            <div>
+                              #{part.loan}{#if parts.length > 1}&nbsp;<Money value={part.amount} />{/if}
+                            </div>
+                          {:else}
+                            <span class="muted">-</span>
+                          {/each}
                         </td>
                       </tr>
                     {/each}

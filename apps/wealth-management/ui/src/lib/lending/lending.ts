@@ -44,3 +44,18 @@ export function repayStatus(daysUntil: number | null | undefined): { tone: Statu
 export function otherOpenLoans(person: MoneyLentPerson): number {
   return person.loans.filter((loan) => loan.outstanding > 0 && loan.repayBy !== person.repayBy).length;
 }
+
+/**
+ * The loans each transaction belongs to, numbered as in the loans table (#1 the oldest): a lending
+ * row is its own loan, a repayment the loans it paid, with the part each got (WM-LEND-8).
+ */
+export function loanLinks(person: MoneyLentPerson): Map<string, { loan: number; amount: number }[]> {
+  const links = new Map<string, { loan: number; amount: number }[]>();
+  const add = (transactionId: string, loan: number, amount: number) =>
+    links.set(transactionId, [...(links.get(transactionId) ?? []), { loan, amount }]);
+  person.loans.forEach((loan, index) => {
+    add(loan.transactionId, index + 1, loan.amount);
+    for (const part of loan.repayments) add(part.transactionId, index + 1, part.amount);
+  });
+  return links;
+}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defer, settled, type Settled, type Streamed } from '$lib/api/load';
@@ -46,6 +46,7 @@ const lent: MoneyLent = {
           daysOutstanding: 40,
           repayBy: '2026-10-13',
           daysUntilRepay: -2,
+          repayments: [],
         },
       ],
       transactions: [],
@@ -134,5 +135,47 @@ describe('Money lent page', () => {
     expect(toggle.getAttribute('title')).toBe('Show transactions');
     await fireEvent.click(toggle);
     expect(screen.getByRole('button', { name: 'Hide transactions' }).getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('Given a repayment split over two loans When the history opens Then each loan lists it and the row names both loans', async () => {
+    const [person] = lent.people;
+    const repayment = { id: 'row-4', date: '2026-10-10', accountName: 'Bank', deposit: 1_500_000, memo: null };
+    const paid: MoneyLent = {
+      ...lent,
+      people: [
+        {
+          ...person,
+          loans: [
+            {
+              ...person.loans[0],
+              amount: 1_000_000,
+              repaid: 1_000_000,
+              outstanding: 0,
+              repayBy: null,
+              daysUntilRepay: null,
+              repayments: [{ transactionId: 'row-4', date: '2026-10-10', amount: 1_000_000 }],
+            },
+            {
+              ...person.loans[0],
+              transactionId: 'row-3',
+              repaid: 500_000,
+              outstanding: 2_900_000,
+              repayments: [{ transactionId: 'row-4', date: '2026-10-10', amount: 500_000 }],
+            },
+          ],
+          transactions: [repayment as never],
+        },
+      ],
+    };
+    mask.toggle();
+    render(LentPage, { data: { engine: never(), lent: settled(paid) } as never });
+    await flush();
+    await fireEvent.click(screen.getByRole('button', { name: 'Show transactions' }));
+
+    const loans = screen.getByRole('table', { name: 'Loans' });
+    expect(loans.textContent).toMatch(/#1.*10\/10\/2026\s*1\.000\.000/s);
+    expect(loans.textContent).toMatch(/#2.*10\/10\/2026\s*500\.000/s);
+    const row = within(screen.getByRole('table', { name: 'Transactions' })).getAllByRole('row')[1];
+    expect(row.lastElementChild?.textContent).toMatch(/#1\s*1\.000\.000.*#2\s*500\.000/s);
   });
 });

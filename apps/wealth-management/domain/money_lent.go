@@ -63,6 +63,17 @@ type LentLoan struct {
 	RepayBy *string `json:"repayBy"`
 	// DaysUntilRepay counts days from today to RepayBy; negative when overdue.
 	DaysUntilRepay *int `json:"daysUntilRepay"`
+	// Repayments are the parts of repayment transactions that paid the
+	// loan, oldest first. One repayment can be split over several loans.
+	Repayments []LoanRepayment `json:"repayments"`
+}
+
+// LoanRepayment is the part of a repayment transaction that paid one loan.
+type LoanRepayment struct {
+	TransactionID string `json:"transactionId"`
+	// Date is the repayment day, yyyy-mm-dd.
+	Date   string  `json:"date"`
+	Amount float64 `json:"amount"`
 }
 
 // Open reports whether part of the loan is still owed.
@@ -251,8 +262,9 @@ func moneyLentPerson(group []Transaction, today time.Time) MoneyLentPerson {
 // oldest first (WM-LEND-7). A loan takes the date in its memo; a dated
 // memo on a repayment moves the date of the oldest loan it leaves open
 // ("paid half, the rest by 30/12"). Money repaid beyond what was lent
-// is owed to the person and offsets the next loan. It returns the loans
-// lent since the balance opened.
+// is owed to the person and offsets the next loan. Each loan lists the
+// repayments that paid it. It returns the loans lent since the balance
+// opened.
 func openLoans(group []Transaction, openSince time.Time, today time.Time) []LentLoan {
 	oldestFirst := append([]Transaction(nil), group...)
 	sort.SliceStable(oldestFirst, func(i, j int) bool {
@@ -265,14 +277,20 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 	var loans []LentLoan
 	var lentOn []time.Time
 	var dates []*time.Time
-	var credit float64
+	// credit is money repaid beyond what was lent, oldest first.
+	var credit []LoanRepayment
 	for _, t := range oldestFirst {
 		repayment := t.DepositAmount() - t.PaymentAmount()
 		if repayment < 0 {
-			loan := LentLoan{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Amount: -repayment}
-			taken := min(credit, loan.Amount)
-			credit -= taken
-			loan.Repaid, loan.Outstanding = taken, loan.Amount-taken
+			loan := LentLoan{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Amount: -repayment, Outstanding: -repayment, Repayments: []LoanRepayment{}}
+			for len(credit) > 0 && loan.Outstanding > 0 {
+				part := credit[0]
+				part.Amount = min(part.Amount, loan.Outstanding)
+				loan.pay(part)
+				if credit[0].Amount -= part.Amount; credit[0].Amount <= 0 {
+					credit = credit[1:]
+				}
+			}
 			loans = append(loans, loan)
 			lentOn = append(lentOn, t.Date)
 			var date *time.Time
@@ -286,12 +304,14 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 			if repayment <= 0 {
 				break
 			}
-			paid := min(repayment, loans[i].Outstanding)
-			loans[i].Repaid += paid
-			loans[i].Outstanding -= paid
-			repayment -= paid
+			if paid := min(repayment, loans[i].Outstanding); paid > 0 {
+				loans[i].pay(LoanRepayment{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Amount: paid})
+				repayment -= paid
+			}
 		}
-		credit += repayment
+		if repayment > 0 {
+			credit = append(credit, LoanRepayment{TransactionID: t.ID, Date: t.Date.Format(time.DateOnly), Amount: repayment})
+		}
 		if repayBy, ok := RepaymentDate(t); ok {
 			for i := range loans {
 				if loans[i].Outstanding >= settledTolerance {
@@ -318,6 +338,12 @@ func openLoans(group []Transaction, openSince time.Time, today time.Time) []Lent
 		open = append(open, loan)
 	}
 	return open
+}
+
+func (l *LentLoan) pay(part LoanRepayment) {
+	l.Repaid += part.Amount
+	l.Outstanding -= part.Amount
+	l.Repayments = append(l.Repayments, part)
 }
 
 // openSince walks the balance day by day (a day's lending and repayment net
