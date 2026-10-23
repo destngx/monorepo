@@ -16,7 +16,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": ".venv/bin/uvicorn src.main:app --reload --port 8000",
+        "command": ".venv/bin/uvicorn src.main:app --reload --reload-dir src --port 8000",
         "cwd": "apps/market-data-server"
       }
     },

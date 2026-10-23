@@ -1,5 +1,7 @@
 fastapi
 uvicorn
+# Event-based reload watcher. Without it, uvicorn --reload polls every file with stat().
+watchfiles
 pandas
 requests
 httpx
