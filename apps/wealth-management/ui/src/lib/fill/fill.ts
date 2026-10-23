@@ -99,12 +99,18 @@ export function asText(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/** What the summary line says after a fill. */
-export function fillSummary(result: FillResult, rowsLabel = 'row'): string {
+/** What a fill set, e.g. "Filled 3 fields and 2 rules"; empty when nothing. */
+export function fillCount(result: FillResult, rowsLabel = 'row'): string {
   const rows = result.rows?.length ?? 0;
   const fields = result.filled.filter((field) => field !== 'rows').length;
   const parts: string[] = [];
   if (fields) parts.push(`${fields} ${fields === 1 ? 'field' : 'fields'}`);
   if (rows) parts.push(`${rows} ${rows === 1 ? rowsLabel : `${rowsLabel}s`}`);
-  return parts.length ? `Filled ${parts.join(' and ')}. Check them, then save.` : 'Nothing to fill from that.';
+  return parts.length ? `Filled ${parts.join(' and ')}` : '';
+}
+
+/** What the summary line says after a fill. */
+export function fillSummary(result: FillResult, rowsLabel = 'row'): string {
+  const count = fillCount(result, rowsLabel);
+  return count ? `${count}. Check them, then save.` : 'Nothing to fill from that.';
 }

@@ -129,3 +129,12 @@ describe('suggestionsFor', () => {
     expect(suggestionsFor('/unknown')).toHaveLength(2);
   });
 });
+
+describe('applyEvent: form (WM-FILL-7)', () => {
+  it('keeps each form the reply filled', () => {
+    const result = { form: 'goal' as const, values: {}, filled: [], notes: [] };
+    const form = { form: 'goal' as const, title: 'Goal', page: '/accounts/goals', text: 'x', result };
+    const entry = applyEvent({ role: 'assistant', content: '' }, { type: 'form', form });
+    expect(entry.forms).toEqual([form]);
+  });
+});

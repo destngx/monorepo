@@ -25,6 +25,7 @@ vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn(() => Promise.resolve()
 vi.mock('$app/paths', () => ({ base: '/ui' }));
 
 import GoalsPage from './+page.svelte';
+import { pendingFills } from '$lib/fill/pending.svelte';
 
 const never = <T>(): Streamed<T> => new Promise<Settled<T>>(() => undefined);
 const flush = async () => {
@@ -214,5 +215,36 @@ describe('Goals page', () => {
 
     const create = calls.find((call) => call.name === 'createGoal');
     expect(create?.args[0]).toMatchObject({ name: 'House', target: 100_000_000, useSlowMoney: true });
+  });
+});
+
+describe('Goals page: a chat fill (WM-FILL-7)', () => {
+  beforeAll(() => {
+    if (!('showModal' in HTMLDialogElement.prototype)) {
+      Object.assign(HTMLDialogElement.prototype, {
+        showModal(this: HTMLDialogElement) {
+          this.open = true;
+        },
+        close(this: HTMLDialogElement) {
+          this.open = false;
+        },
+      });
+    }
+  });
+
+  it('Given the chat filled a goal When the page opens Then New goal opens with the values in it', async () => {
+    pendingFills.set({
+      form: 'goal',
+      title: 'Goal',
+      page: '/accounts/goals',
+      text: 'save 50M for a trip',
+      result: { form: 'goal', values: { name: 'Trip', target: 50_000_000 }, filled: ['name', 'target'], notes: [] },
+    });
+    render(GoalsPage, { data: { engine: never(), plan: settled(plan()) } as never });
+    await flush();
+
+    expect(document.querySelector('dialog')?.textContent).toContain('New goal');
+    await vi.waitFor(() => expect(screen.getByDisplayValue('Trip')).toBeTruthy());
+    expect(screen.getByDisplayValue('50000000')).toBeTruthy();
   });
 });

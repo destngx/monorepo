@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { base } from '$app/paths';
   import { invalidateAll } from '$app/navigation';
@@ -81,6 +82,9 @@
     form = emptyAccountForm();
     creating = true;
   }
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('account', openCreate);
 
   function openEdit(account: Account) {
     form = accountFormFor(account);

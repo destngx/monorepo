@@ -54,3 +54,35 @@ describe('FillBox', () => {
     expect(onfill).not.toHaveBeenCalled();
   });
 });
+
+describe('FillBox: a chat fill (WM-FILL-7)', () => {
+  beforeEach(() => {
+    endpoints.fill.mockReset();
+  });
+
+  it('applies a fill the chat stashed for its form once, with the chat text', async () => {
+    const { pendingFills } = await import('./pending.svelte');
+    const result = { form: 'goal' as const, values: { name: 'Trip' }, filled: ['name'], notes: [] };
+    pendingFills.set({ form: 'goal', title: 'Goal', page: '/accounts/goals', text: 'save for a trip', result });
+    const onfill = vi.fn();
+    render(FillBox, { form: 'goal', onfill });
+
+    await vi.waitFor(() => expect(onfill).toHaveBeenCalledWith(result));
+    expect(screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Describe it' }).value).toBe('save for a trip');
+    expect(screen.getByText('Filled 1 field. Check them, then save.')).toBeTruthy();
+    expect(pendingFills.waiting('goal')).toBe(false);
+    expect(endpoints.fill).not.toHaveBeenCalled();
+  });
+
+  it('leaves a fill for another form waiting', async () => {
+    const { pendingFills } = await import('./pending.svelte');
+    const result = { form: 'card' as const, values: {}, filled: [], notes: [] };
+    pendingFills.set({ form: 'card', title: 'Credit card', page: '/accounts/credit-cards', text: 'x', result });
+    const onfill = vi.fn();
+    render(FillBox, { form: 'goal', onfill });
+
+    await Promise.resolve();
+    expect(onfill).not.toHaveBeenCalled();
+    expect(pendingFills.take('card')).not.toBeNull();
+  });
+});

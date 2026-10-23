@@ -53,3 +53,12 @@ export interface FillResult {
   filled: string[];
   notes: FillNote[];
 }
+
+/** A fill the chat ran, opened in its form on `page` (WM-FILL-7). */
+export interface FillChatForm {
+  form: FillFormKey;
+  title: string;
+  page: string;
+  text: string;
+  result: FillResult;
+}

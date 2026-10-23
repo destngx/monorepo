@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import { invalidateAll } from '$app/navigation';
   import { track, Button, Card, Deferred, EmptyState, Icon, Modal, SkeletonCard, SkeletonHeadline } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
@@ -81,6 +82,9 @@
     form = emptyRecurringForm();
     creating = true;
   }
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('recurring', openCreate);
 
   function openEdit(item: BillItem) {
     formError = null;

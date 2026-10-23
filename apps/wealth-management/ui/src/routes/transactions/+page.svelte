@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { untrack } from 'svelte';
   import { goto, invalidateAll } from '$app/navigation';
@@ -83,6 +84,9 @@
     formKey++;
     editing = 'new';
   }
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('transaction', () => openNew());
 
   // One Add menu: type a row in, or read it from a screenshot or statement.
   const addItems: MenuItem[] = [

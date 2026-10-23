@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import FillBox from '$lib/fill/FillBox.svelte';
   import FilledMark from '$lib/fill/FilledMark.svelte';
   import { applyFill, asText } from '$lib/fill/fill';
@@ -23,6 +24,9 @@
   const marks = new FillMarks();
   // Saves the payee's MCC for next time (WM-FILL-14).
   let mapping = $state<{ pattern: string; mcc: number | null } | null>(null);
+  // Folded until used, or until a chat fill opens it (WM-FILL-7).
+  let unfolded = $state(false);
+  openOnPendingFill('best-card', () => (unfolded = true));
 
   async function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -54,7 +58,7 @@
 
 <Card
   foldable
-  open={false}
+  bind:open={unfolded}
   title="Best card for a payment"
   subtitle="What the payment would add to each card's current period, caps and spend tiers included"
 >

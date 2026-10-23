@@ -16,7 +16,7 @@ var (
 
 var fillForms = []FillForm{
 	{
-		Key: "transaction", Title: "Transaction", Images: true,
+		Key: "transaction", Title: "Transaction", Images: true, Page: "/transactions",
 		Fields: []FillField{
 			{Name: "accountName", Label: "Account", Type: FillName, List: FillAccounts, Required: true},
 			{Name: "date", Label: "Date", Type: FillDate, Required: true},
@@ -31,7 +31,7 @@ var fillForms = []FillForm{
 		Guide: "Set either payment (money out) or deposit (money in), never both.",
 	},
 	{
-		Key: "goal", Title: "Goal",
+		Key: "goal", Title: "Goal", Page: "/accounts/goals",
 		Fields: []FillField{
 			{Name: "name", Label: "Name", Type: FillText, Required: true, Hint: "short, e.g. Trip to Japan"},
 			{Name: "target", Label: "Target", Type: FillMoney, Min: fillOne, Hint: "the amount the goal needs in total"},
@@ -43,7 +43,7 @@ var fillForms = []FillForm{
 		},
 	},
 	{
-		Key: "recurring", Title: "Bill or recurring item", Images: true,
+		Key: "recurring", Title: "Bill or recurring item", Images: true, Page: "/bills",
 		Fields: []FillField{
 			{Name: "name", Label: "Name", Type: FillText, Required: true},
 			{Name: "kind", Label: "Kind", Type: FillChoice, Choices: fillRecurringKinds()},
@@ -61,7 +61,7 @@ var fillForms = []FillForm{
 		Guide: "For a card row (kind card), account is the credit card account and amount stays out.",
 	},
 	{
-		Key: "budget-limits", Title: "Budget limits", RowsLabel: "limit",
+		Key: "budget-limits", Title: "Budget limits", RowsLabel: "limit", Page: "/budget",
 		Rows: []FillField{
 			{Name: "category", Label: "Category", Type: FillName, List: FillCategories, Required: true},
 			{Name: "limit", Label: "Limit", Type: FillMoney, Min: fillZero, Required: true},
@@ -70,7 +70,7 @@ var fillForms = []FillForm{
 		Guide: "One row per category the request sets. A change such as \"cut shopping by 1M\" uses the limit the app lists.",
 	},
 	{
-		Key: "budget-move", Title: "Move money between categories",
+		Key: "budget-move", Title: "Move money between categories", Page: "/budget",
 		Fields: []FillField{
 			{Name: "from", Label: "From", Type: FillName, List: FillCategories, Required: true},
 			{Name: "to", Label: "To", Type: FillName, List: FillCategories, Required: true},
@@ -85,7 +85,7 @@ var fillForms = []FillForm{
 		},
 	},
 	{
-		Key: "allocation", Title: "Allocation targets",
+		Key: "allocation", Title: "Allocation targets", Page: "/investments",
 		Fields: []FillField{
 			{Name: "cash", Label: "Cash", Type: FillPercent, Min: fillZero, Max: fillBound(100)},
 			{Name: "funds", Label: "Funds", Type: FillPercent, Min: fillZero, Max: fillBound(100)},
@@ -94,7 +94,7 @@ var fillForms = []FillForm{
 		Guide: "The three targets add up to 100. When the request gives two, set the third to the rest.",
 	},
 	{
-		Key: "account", Title: "Account", Images: true,
+		Key: "account", Title: "Account", Images: true, Page: "/accounts",
 		Fields: []FillField{
 			{Name: "name", Label: "Name", Type: FillText, Required: true, Hint: "bank or wallet and what the account is, e.g. Bank B Savings"},
 			{Name: "type", Label: "Type", Type: FillChoice, Choices: fillAccountTypes},
@@ -120,7 +120,7 @@ var fillForms = []FillForm{
 		},
 	},
 	{
-		Key: "best-card", Title: "Best card for a payment", Images: true,
+		Key: "best-card", Title: "Best card for a payment", Images: true, Page: "/accounts/credit-cards",
 		Fields: []FillField{
 			{Name: "payee", Label: "Payee", Type: FillName, List: FillPayees, New: true, Required: true},
 			{Name: "amount", Label: "Amount", Type: FillMoney, Min: fillOne, Required: true},
@@ -128,7 +128,7 @@ var fillForms = []FillForm{
 		},
 	},
 	{
-		Key: "stablecoin", Title: "Stablecoin switch", Images: true,
+		Key: "stablecoin", Title: "Stablecoin switch", Images: true, Page: "/investments/stablecoin",
 		Fields: []FillField{
 			{Name: "principal", Label: "Amount", Type: FillMoney, Min: fillZero, Hint: "in USD or a USD stablecoin"},
 			{Name: "currentRate", Label: "Current rate", Type: FillPercent, Min: fillZero, Hint: "% a year"},
@@ -142,7 +142,7 @@ var fillForms = []FillForm{
 		Guide: "\"0.1% fee each way\" sets both fees.",
 	},
 	{
-		Key: "fund-trade", Title: "Fund trade", Images: true,
+		Key: "fund-trade", Title: "Fund trade", Images: true, Page: "/investments",
 		Fields: []FillField{
 			{Name: "code", Label: "Fund code", Type: FillName, List: FillFunds, New: true, Required: true, Hint: "the fund's short code, e.g. VESAF"},
 			{Name: "date", Label: "Date", Type: FillDate, Required: true, Hint: "the day the order was matched"},
@@ -152,7 +152,7 @@ var fillForms = []FillForm{
 		Guide: "When only the money is given, leave units out and say so in notes.",
 	},
 	{
-		Key: "crypto-holdings", Title: "Crypto holdings", Images: true, RowsLabel: "coin",
+		Key: "crypto-holdings", Title: "Crypto holdings", Images: true, RowsLabel: "coin", Page: "/investments",
 		Rows: []FillField{
 			{Name: "platform", Label: "Platform", Type: FillName, List: FillPlatforms, New: true, Required: true, Hint: "exchange or wallet"},
 			{Name: "symbol", Label: "Coin", Type: FillText, Required: true, Hint: "the ticker in capitals, e.g. BTC"},
@@ -162,7 +162,7 @@ var fillForms = []FillForm{
 		Guide: "One row per coin shown, with the platform the request or screen names.",
 	},
 	{
-		Key: "card", Title: "Credit card", Images: true,
+		Key: "card", Title: "Credit card", Images: true, Page: "/accounts/credit-cards",
 		Fields: []FillField{
 			{Name: "name", Label: "Card", Type: FillName, List: FillCards, New: true, Required: true},
 			{Name: "program", Label: "Programme", Type: FillName, List: FillPrograms},
@@ -178,7 +178,7 @@ var fillForms = []FillForm{
 		Guide: "A statement shows the statement day, the due date (use its day) and the limit. Mention the statement balance and minimum payment in notes.",
 	},
 	{
-		Key: "cashback-program", Title: "Cashback programme", Images: true, RowsLabel: "rule",
+		Key: "cashback-program", Title: "Cashback programme", Images: true, RowsLabel: "rule", Page: "/accounts/credit-cards",
 		Fields: []FillField{
 			{Name: "program", Label: "Programme", Type: FillName, List: FillPrograms, New: true, Required: true},
 			{Name: "bank", Label: "Bank", Type: FillName, List: FillBanks, New: true, Required: true},
@@ -201,7 +201,7 @@ var fillForms = []FillForm{
 		},
 	},
 	{
-		Key: "merchant", Title: "Merchant MCC", Images: true,
+		Key: "merchant", Title: "Merchant MCC", Images: true, Page: "/accounts/credit-cards",
 		Fields: []FillField{
 			{Name: "pattern", Label: "Payee pattern", Type: FillName, List: FillPayees, New: true, Required: true, Hint: "the payee as the ledger writes it"},
 			{Name: "mcc", Label: "MCC", Type: FillNumber, Min: fillZero, Max: fillBound(9999), Required: true},
@@ -210,6 +210,17 @@ var fillForms = []FillForm{
 			{Name: "note", Label: "Source", Type: FillText, Hint: "where the MCC comes from"},
 		},
 	},
+}
+
+// ChatFillForms are the forms the chat can fill (WM-FILL-7).
+func ChatFillForms() []FillForm {
+	var forms []FillForm
+	for _, form := range fillForms {
+		if form.Page != "" {
+			forms = append(forms, form)
+		}
+	}
+	return forms
 }
 
 // fillAccountTypes is the type list in the UI's order.

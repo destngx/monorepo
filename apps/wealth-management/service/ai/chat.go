@@ -87,7 +87,7 @@ func (s *Service) Chat(ctx context.Context, request port.ChatRequest, emit func(
 			if err := emit(port.ChatEvent{Type: "tool", Tool: toolCall.Name, Status: "running"}); err != nil {
 				return err
 			}
-			result, toolErr := s.runTool(ctx, tools, toolCall)
+			raw, result, toolErr := s.runTool(ctx, tools, toolCall)
 			status := "ok"
 			if toolErr != nil {
 				status = "error"
@@ -96,6 +96,11 @@ func (s *Service) Chat(ctx context.Context, request port.ChatRequest, emit func(
 			}
 			if err := emit(port.ChatEvent{Type: "tool", Tool: toolCall.Name, Status: status}); err != nil {
 				return err
+			}
+			if form, ok := raw.(domain.FillChatForm); ok {
+				if err := emit(port.ChatEvent{Type: "form", Form: &form}); err != nil {
+					return err
+				}
 			}
 			messages = append(messages, domain.AIMessage{Role: domain.AIRoleTool, ToolCallID: toolCall.ID, Content: result})
 		}

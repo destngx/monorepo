@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { track, Button, Card, Deferred, SkeletonCard, SkeletonHeadline } from '@libs/ui-kit';
@@ -65,6 +66,10 @@
     draftTouched = false;
     reallocating = true;
   }
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('budget-limits', () => (settingLimits = true));
+  openOnPendingFill('budget-move', () => openReallocate());
 </script>
 
 <PageHeader title="Budget" subtitle={formatMonth(data.month)}>

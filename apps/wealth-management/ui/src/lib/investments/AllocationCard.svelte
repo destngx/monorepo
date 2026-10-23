@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import { api } from '$lib/api/endpoints';
   import type { Allocation, AllocationTargets } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
@@ -52,6 +53,9 @@
     marks.clear();
     editing = true;
   }
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('allocation', edit);
 
   async function save(targets: AllocationTargets | null, success: string) {
     saving = true;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import { base } from '$app/paths';
   import { track, Button, Deferred, Icon, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
@@ -88,6 +89,10 @@
   // Writes for what was edited in the sheet only (WM-FILL-10, WM-FILL-11).
   let writing = $state<PortfolioSection | null>(null);
   const heldIn = (section: PortfolioSection) => valuation.value?.holdings.filter((h) => h.section === section) ?? [];
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('fund-trade', () => (writing = 'funds'));
+  openOnPendingFill('crypto-holdings', () => (writing = 'crypto'));
 
   // One bank-rates list (ROADMAP C5): the full list is on the Fmarket page.
   const bestRate = $derived(bankRates.value ? bestBankRate(bankRates.value.rates) : null);

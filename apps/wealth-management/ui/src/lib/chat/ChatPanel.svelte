@@ -1,6 +1,10 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  import { base } from '$app/paths';
   import Markdown from '$lib/ai/Markdown.svelte';
-  import type { ChatPageContext } from '$lib/api/types';
+  import type { ChatPageContext, FillChatForm } from '$lib/api/types';
+  import { fillCount } from '$lib/fill/fill';
+  import { pendingFills } from '$lib/fill/pending.svelte';
   import { Button, Icon, Modal, Spinner } from '@libs/ui-kit';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
@@ -24,7 +28,14 @@
     getFinancialHealth: 'Scoring health',
     getMoneyLent: 'Reading money lent',
     getGoals: 'Reading goals',
+    fillForm: 'Filling the form',
   };
+
+  // The chat never saves: the form opens on its page with the values in it (WM-FILL-7).
+  async function openForm(form: FillChatForm) {
+    pendingFills.set(form);
+    if (page.path !== form.page) await goto(`${base}${form.page}`);
+  }
 
   const COPIED_MS = 1500;
 
@@ -308,6 +319,16 @@
                 <span class="muted ml-1.5 text-xs" aria-hidden="true">Thinking…</span>
               </div>
             {/if}
+            {#each entry.forms ?? [] as form, formIndex (formIndex)}
+              <div class="flex flex-wrap items-center gap-2 rounded-xl border border-edge px-3 py-2 text-xs">
+                <Icon name="sparkles" size={14} />
+                <span class="min-w-0 flex-1"
+                  ><span class="font-medium">{form.title}</span>
+                  <span class="muted">{fillCount(form.result) || 'Nothing filled'}</span></span
+                >
+                <Button size="sm" onclick={() => openForm(form)}>Open the form</Button>
+              </div>
+            {/each}
             {#if entry.error}
               <div
                 class="flex flex-wrap items-center gap-2 rounded-xl bg-rose-500/10 px-3 py-1.5 text-xs text-rose-700 dark:text-rose-300"

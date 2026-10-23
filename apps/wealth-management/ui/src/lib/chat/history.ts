@@ -1,4 +1,4 @@
-import type { ChatEvent, ChatMessage } from '$lib/api/types';
+import type { ChatEvent, ChatMessage, FillChatForm } from '$lib/api/types';
 
 // One chat format shared by the floating widget and the /chat page (WM-AI-11),
 // so a conversation started in one continues in the other.
@@ -12,6 +12,8 @@ export interface ChatEntry {
   role: 'user' | 'assistant';
   content: string;
   tools?: ChatTool[];
+  /** Forms the reply filled, each opened on its page (WM-FILL-7). */
+  forms?: FillChatForm[];
   model?: string;
   error?: string;
 }
@@ -35,6 +37,8 @@ export function applyEvent(entry: ChatEntry, event: ChatEvent): ChatEntry {
       else tools.push({ name, status });
       return { ...entry, tools };
     }
+    case 'form':
+      return event.form ? { ...entry, forms: [...(entry.forms ?? []), event.form] } : entry;
     case 'done':
       return { ...entry, model: event.model ?? entry.model };
     case 'error':

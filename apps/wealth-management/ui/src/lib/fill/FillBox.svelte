@@ -3,8 +3,9 @@
   import type { FillFormKey, FillNote, FillResult, FillValues } from '$lib/api/types';
   import { isImageFile, prepareImage, toBase64 } from '$lib/capture/materials';
   import { Button, Icon } from '@libs/ui-kit';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import { FILL_EXAMPLES, FILL_MAX_IMAGES, FILL_MAX_TEXT, fillSummary, takesImages } from './fill';
+  import { pendingFills } from './pending.svelte';
 
   // The Describe it box (WM-FILL-6): a sentence and/or images go to the
   // engine, which answers with checked values; the form merges them and the
@@ -111,6 +112,20 @@
       busy = false;
     }
   }
+
+  // A fill the chat ran for this form (WM-FILL-7) applies once the form
+  // around the box has set itself up.
+  $effect(() => {
+    if (!pendingFills.waiting(form)) return;
+    const pending = untrack(() => pendingFills.take(form));
+    if (!pending) return;
+    void tick().then(() => {
+      text = pending.text;
+      notes = pending.result.notes;
+      summary = fillSummary(pending.result, rowsLabel);
+      onfill(pending.result);
+    });
+  });
 
   function onkeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {

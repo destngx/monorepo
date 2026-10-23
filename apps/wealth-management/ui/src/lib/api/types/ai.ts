@@ -1,5 +1,6 @@
 import type { CategoryNature } from './budget';
 import type { CaptureLimits } from './capture';
+import type { FillChatForm } from './fill';
 import type { RecommendationRecord } from './recommendations';
 
 // AI (§10). Every figure in these payloads that is not prose comes from the engine.
@@ -184,10 +185,12 @@ export interface ChatPageContext {
 }
 
 export interface ChatEvent {
-  type: 'text' | 'tool' | 'done' | 'error';
+  type: 'text' | 'tool' | 'form' | 'done' | 'error';
   delta?: string;
   tool?: string;
   status?: 'running' | 'ok' | 'error';
   model?: string;
   message?: string;
+  /** A filled form the user can open (WM-FILL-7). */
+  form?: FillChatForm;
 }

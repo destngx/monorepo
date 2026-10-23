@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import RecommendationsPanel from '$lib/recommendations/RecommendationsPanel.svelte';
   import { track, Button, Card, Deferred, EmptyState, SkeletonCard, SkeletonStat } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
@@ -41,6 +42,11 @@
 
   // Card configuration writes (WM-FILL-12..14), each with Describe it.
   let adding = $state<'card' | 'program' | 'merchant' | null>(null);
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('card', () => (adding = 'card'));
+  openOnPendingFill('cashback-program', () => (adding = 'program'));
+  openOnPendingFill('merchant', () => (adding = 'merchant'));
 
   // Closed cards are hidden unless asked for; totals still count them.
   let showClosed = $state(false);

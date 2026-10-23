@@ -96,12 +96,14 @@ type ChatPageContext struct {
 
 // ChatEvent is one NDJSON line of a chat stream.
 type ChatEvent struct {
-	Type    string `json:"type"` // "text", "tool", "done", "error"
+	Type    string `json:"type"` // "text", "tool", "form", "done", "error"
 	Delta   string `json:"delta,omitempty"`
 	Tool    string `json:"tool,omitempty"`
 	Status  string `json:"status,omitempty"` // tool: "running", "ok", "error"
 	Model   string `json:"model,omitempty"`
 	Message string `json:"message,omitempty"`
+	// Form is a fill the user can open in its form (WM-FILL-7).
+	Form *domain.FillChatForm `json:"form,omitempty"`
 }
 
 // AIService implements the AI use cases on top of sheet data (§10).

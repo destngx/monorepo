@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { openOnPendingFill } from '$lib/fill/pending.svelte';
   import { invalidateAll } from '$app/navigation';
   import {
     track,
@@ -109,6 +110,9 @@
     form = emptyGoalForm();
     creating = true;
   }
+
+  // A chat fill opens its form here (WM-FILL-7).
+  openOnPendingFill('goal', openCreate);
 
   function openEdit(goal: GoalProgress) {
     form = goalFormFor(goal);

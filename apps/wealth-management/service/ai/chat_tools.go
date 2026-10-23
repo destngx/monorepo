@@ -14,10 +14,12 @@ type chatTool struct {
 	run        func(ctx context.Context, arguments json.RawMessage) (any, error)
 }
 
-func (s *Service) runTool(ctx context.Context, tools map[string]chatTool, toolCall domain.AIToolCall) (string, error) {
+// runTool runs a tool call and returns its result as is and as the JSON
+// the model reads.
+func (s *Service) runTool(ctx context.Context, tools map[string]chatTool, toolCall domain.AIToolCall) (any, string, error) {
 	tool, ok := tools[toolCall.Name]
 	if !ok {
-		return "", fmt.Errorf("%w: unknown tool %q", domain.ErrValidation, toolCall.Name)
+		return nil, "", fmt.Errorf("%w: unknown tool %q", domain.ErrValidation, toolCall.Name)
 	}
 	arguments := json.RawMessage(strings.TrimSpace(toolCall.Arguments))
 	if len(arguments) == 0 {
@@ -25,9 +27,70 @@ func (s *Service) runTool(ctx context.Context, tools map[string]chatTool, toolCa
 	}
 	result, err := tool.run(ctx, arguments)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
-	return toJSON(result), nil
+	if form, ok := result.(domain.FillChatForm); ok {
+		return form, s.masker.Mask(toJSON(fillToolAnswer(form))), nil
+	}
+	return result, toJSON(result), nil
+}
+
+// fillToolAnswer is what the model reads back from fillForm: the checked
+// values and notes, and that the user saves the form, not the chat.
+func fillToolAnswer(form domain.FillChatForm) map[string]any {
+	return map[string]any{
+		"form":   form.Title,
+		"values": form.Result.Values,
+		"rows":   form.Result.Rows,
+		"filled": form.Result.Filled,
+		"notes":  form.Result.Notes,
+		"next":   "The user sees an Open the form button for this. Nothing is saved until they check the form and save it there. Mention any notes.",
+	}
+}
+
+// fillFormTool runs a form fill for the chat (WM-FILL-7); the stream sends
+// the result as a form event.
+func (s *Service) fillFormTool() chatTool {
+	forms := domain.ChatFillForms()
+	keys := make([]string, len(forms))
+	described := make([]string, len(forms))
+	for index, form := range forms {
+		keys[index] = form.Key
+		described[index] = fmt.Sprintf("%s (%s)", form.Key, form.Title)
+	}
+	return chatTool{
+		definition: domain.AITool{
+			Name: "fillForm",
+			Description: "Fills one of the app's forms from the user's words, for the user to check and save; it saves nothing. " +
+				"Use it when the user asks to add, record, set or change something these forms cover: " + strings.Join(described, ", ") + ".",
+			Parameters: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"form": map[string]any{"type": "string", "enum": keys},
+					"text": map[string]any{"type": "string", "description": "What to fill, in the user's words with every detail they gave."},
+				},
+				"required": []string{"form", "text"},
+			},
+		},
+		run: func(ctx context.Context, arguments json.RawMessage) (any, error) {
+			var input struct {
+				Form string `json:"form"`
+				Text string `json:"text"`
+			}
+			if err := decodeArguments(arguments, &input); err != nil {
+				return nil, err
+			}
+			form, ok := domain.FillFormFor(input.Form)
+			if !ok || form.Page == "" {
+				return nil, fmt.Errorf("%w: the chat cannot fill the %q form", domain.ErrValidation, input.Form)
+			}
+			result, err := s.Fill(ctx, domain.FillRequest{Form: form.Key, Text: input.Text})
+			if err != nil {
+				return nil, err
+			}
+			return domain.FillChatForm{Form: form.Key, Title: form.Title, Page: form.Page, Text: strings.TrimSpace(input.Text), Result: result}, nil
+		},
+	}
 }
 
 func decodeArguments(arguments json.RawMessage, target any) error {
@@ -41,8 +104,9 @@ func objectSchema(properties map[string]any) map[string]any {
 	return map[string]any{"type": "object", "properties": properties}
 }
 
-// chatTools are the read-only ledger tools of the chat (WM-AI-11, WM-MCP-4)
-// plus the market tools that are wired.
+// chatTools are the read-only ledger tools of the chat (WM-AI-11, WM-MCP-4),
+// the market tools that are wired and fillForm, which fills a form the user
+// saves (WM-FILL-7).
 func (s *Service) chatTools() map[string]chatTool {
 	str := func(description string) map[string]any {
 		return map[string]any{"type": "string", "description": description}
@@ -154,6 +218,7 @@ func (s *Service) chatTools() map[string]chatTool {
 		})
 	}
 	tools = append(tools, s.marketTools(str)...)
+	tools = append(tools, s.fillFormTool())
 	byName := make(map[string]chatTool, len(tools))
 	for _, tool := range tools {
 		byName[tool.definition.Name] = tool

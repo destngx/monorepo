@@ -85,6 +85,19 @@ type FillForm struct {
 	Images bool `json:"images"`
 	// Guide is form-specific advice for the model.
 	Guide string `json:"-"`
+	// Page is the app route the chat opens the form on (WM-FILL-7); a form
+	// without one edits a chosen item and is not offered in the chat.
+	Page string `json:"page,omitempty"`
+}
+
+// FillChatForm is a fill the chat ran: the user opens it in its form on
+// Page, checks it and saves there (WM-FILL-7).
+type FillChatForm struct {
+	Form   string     `json:"form"`
+	Title  string     `json:"title"`
+	Page   string     `json:"page"`
+	Text   string     `json:"text"`
+	Result FillResult `json:"result"`
 }
 
 func (f FillForm) lists() []FillList {
