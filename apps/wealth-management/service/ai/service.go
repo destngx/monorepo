@@ -67,6 +67,8 @@ type Options struct {
 	Recommendations port.RecommendationService
 	// Close gives the briefing the net worth history (ROADMAP P3); optional.
 	Close port.MonthlyCloseService
+	// Rates gives form filling the savings products (D41); optional.
+	Rates port.BankRateSource
 }
 
 type Service struct {
@@ -85,6 +87,7 @@ type Service struct {
 	portfolio     port.PortfolioService
 	recommend     port.RecommendationService
 	close         port.MonthlyCloseService
+	rates         port.BankRateSource
 	// captureMemory gives Smart Capture the rows written for a counterparty
 	// before (WM-CAP-23); optional.
 	captureMemory port.CaptureMemoryStore
@@ -116,6 +119,7 @@ func New(client port.AIClient, db port.DatabaseService, analytics port.Analytics
 		portfolio:     options.Portfolio,
 		recommend:     options.Recommendations,
 		close:         options.Close,
+		rates:         options.Rates,
 	}
 }
 

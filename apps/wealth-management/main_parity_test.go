@@ -120,6 +120,7 @@ var unexposedRoutes = map[string]string{
 	"POST /api/auth/google/start":    "connecting a Google account needs the user's consent in a browser",
 	"GET /api/auth/google/callback":  "Google redirects the user's browser here after consent",
 	"POST /api/auth/google/exchange": "completes the user's browser consent; an agent has no consent to complete",
+	"POST /api/ai/fill":              "fills a UI form from a sentence (D46); an agent already reads language and calls the write tools with fields",
 }
 
 // TestGivenEveryHTTPRouteWhenListingMCPToolsThenEachIsMappedOrAllowlisted

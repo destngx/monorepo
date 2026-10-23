@@ -174,3 +174,19 @@ func TestAIMarketRoutes(t *testing.T) {
 		t.Fatalf("investment analysis error event: %d %q", status, body)
 	}
 }
+
+func TestAIFillRoute(t *testing.T) {
+	ai := &fakes.AI{}
+	app := newAIApp(t, ai)
+	status, body := call(t, app, http.MethodPost, "/api/ai/fill", `{"form":"recurring","text":"Netflix 260k","images":[{"mediaType":"image/png","data":"cG5n"}],"current":{"name":"Old"}}`)
+	if status != http.StatusOK || !strings.Contains(body, `"values":{"name":"Trip"}`) || !strings.Contains(body, `"filled":["name"]`) {
+		t.Fatalf("fill: %d %s", status, body)
+	}
+	request := ai.Fills[0]
+	if request.Form != "recurring" || request.Text != "Netflix 260k" || string(request.Images[0].Data) != "png" || request.Current["name"] != "Old" {
+		t.Fatalf("the request is not decoded: %+v", request)
+	}
+	if status, _ := call(t, app, http.MethodPost, "/api/ai/fill", `{"form":`); status != http.StatusBadRequest {
+		t.Fatalf("a broken body is a 400, got %d", status)
+	}
+}

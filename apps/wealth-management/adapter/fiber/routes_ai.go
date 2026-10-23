@@ -1,6 +1,9 @@
 package fiber
 
-import "apps/wealth-management/domain"
+import (
+	"apps/wealth-management/domain"
+	"strings"
+)
 
 // Route registration for the AI use cases (§10). Every model call costs
 // money and may be slow, so all of them sit behind the WriteGuard.
@@ -90,6 +93,18 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 			"model": schemaString,
 		}, "materials"),
 	})
+	ai.Post("/fill", guard.Wrap(h.Fill), RouteMeta{
+		Summary: "AI form filling (WM-FILL-1): reads text and/or images into the fields of a form (" + strings.Join(fillFormKeys(), ", ") + "). " +
+			"Returns {form, values, rows, filled, notes}: values hold only the fields the answer set, each checked by type and with names matched against the sheet; " +
+			"filled names the fields that differ from current; notes explain fields left blank. current is what the form holds, for edits. Writes nothing.",
+		RequestBody: jsonBody(map[string]any{
+			"form":    map[string]any{"type": "string", "enum": fillFormKeys()},
+			"text":    map[string]any{"type": "string", "maxLength": domain.FillMaxText},
+			"images":  map[string]any{"type": "array", "maxItems": domain.FillMaxImages, "items": map[string]any{"type": "object", "properties": map[string]any{"mediaType": map[string]any{"type": "string", "enum": domain.CaptureImageTypes}, "data": map[string]any{"type": "string", "format": "byte", "description": "Base64 image bytes."}}}},
+			"current": map[string]any{"type": "object"},
+			"model":   schemaString,
+		}, "form"),
+	})
 	ai.Post("/chat", guard.Wrap(h.Chat), RouteMeta{
 		Summary: "Tool-using chat streamed as NDJSON events: text (delta), tool (name, status), done (model) and error (message).",
 		RequestBody: jsonBody(map[string]any{
@@ -122,4 +137,13 @@ func RegisterAIRoutes(api RouteRegistrar, h *AIHandler, guard WriteGuard) {
 			"model": schemaString,
 		}),
 	})
+}
+
+func fillFormKeys() []string {
+	forms := domain.FillForms()
+	keys := make([]string, len(forms))
+	for index, form := range forms {
+		keys[index] = form.Key
+	}
+	return keys
 }

@@ -19,6 +19,8 @@ type AI struct {
 	Tickers  []port.TickerInsightRequest
 	// Analyses records think tank requests.
 	Analyses []port.InvestmentAnalysisRequest
+	// Fills records form fill requests.
+	Fills []domain.FillRequest
 }
 
 var _ port.AIService = (*AI)(nil)
@@ -62,6 +64,14 @@ func (f *AI) Briefing(context.Context, bool, string) (domain.Briefing, error) {
 
 func (f *AI) BudgetAdvice(context.Context, bool, string) (domain.BudgetAdvice, error) {
 	return domain.BudgetAdvice{Briefing: "advice"}, f.Err
+}
+
+func (f *AI) Fill(_ context.Context, request domain.FillRequest) (domain.FillResult, error) {
+	f.Fills = append(f.Fills, request)
+	if f.Err != nil {
+		return domain.FillResult{}, f.Err
+	}
+	return domain.FillResult{Form: request.Form, Values: map[string]any{"name": "Trip"}, Filled: []string{"name"}, Notes: []domain.FillNote{}}, nil
 }
 
 func (f *AI) Chat(_ context.Context, request port.ChatRequest, emit func(port.ChatEvent) error) error {

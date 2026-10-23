@@ -67,6 +67,15 @@ func (h *AIHandler) SuggestCategory(c *fiber.Ctx) error {
 	return respondWith(c, h.log, aiScope)(h.ai.SuggestCategory(c.UserContext(), body.Payee, body.Model))
 }
 
+// Fill reads a sentence or images into a form's fields (WM-FILL-1).
+func (h *AIHandler) Fill(c *fiber.Ctx) error {
+	var body domain.FillRequest
+	if err := c.BodyParser(&body); err != nil {
+		return badRequest(c, "invalid request body")
+	}
+	return respondWith(c, h.log, aiScope)(h.ai.Fill(c.UserContext(), body))
+}
+
 func (h *AIHandler) Review(c *fiber.Ctx) error {
 	var body port.ReviewRequest
 	if err := c.BodyParser(&body); err != nil {

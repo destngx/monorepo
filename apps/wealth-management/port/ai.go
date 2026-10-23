@@ -123,6 +123,9 @@ type AIService interface {
 	// Capture reads materials into suggested transactions without writing
 	// anything (§6.2). progress may be nil; calls to it are serialised.
 	Capture(ctx context.Context, request CaptureRequest, progress func(CaptureProgress)) (domain.CaptureResult, error)
+	// Fill reads a sentence or images into a form's fields without writing
+	// anything (§10.5).
+	Fill(ctx context.Context, request domain.FillRequest) (domain.FillResult, error)
 	// NewsSentiment searches a topic and classifies each article (WM-INV-17).
 	NewsSentiment(ctx context.Context, request NewsRequest) (domain.NewsReport, error)
 	// TickerInsight comments on the deterministic analysis of a symbol (WM-AI-14).

@@ -133,6 +133,7 @@ func run() int {
 		// The AI think tank needs live prices, so it only gets the
 		// portfolio when the market data server is configured.
 		aiOptions.Portfolio = sheets.portfolio
+		aiOptions.Rates = marketSvc
 	}
 	if sheets.close != nil {
 		aiOptions.Close = sheets.close
