@@ -36,6 +36,12 @@ class CatalogState {
     );
     return this.#pending;
   }
+
+  /** Loads the catalog again, such as after a metric was added (HW-MET-8). */
+  reload(fetch?: typeof globalThis.fetch): Promise<void> {
+    this.#pending = null;
+    return this.load(fetch);
+  }
 }
 
 export const catalog = new CatalogState();

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"apps/health-watcher/domain"
 	"apps/health-watcher/port"
 )
 
@@ -140,5 +141,35 @@ func TestGivenAProviderWhenPingingThenASmallStrictRequestChecksTheModelAndKey(t 
 	srv.Close()
 	if err := r.Ping(context.Background()); err == nil || err.Error() != "the AI provider is unreachable at this address" {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestGivenUnknownNamesWhenSuggestingThenOnlyNamesUnitsAndTheCatalogAreSent(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &got)
+		answer := `{"suggestions":[{"name":"GRA#","action":"link","metric_code":"neut-abs","new_name":"","new_name_vi":"","loinc":"","unit":"","category":"","reason":"Granulocyte count."}]}`
+		_ = json.NewEncoder(w).Encode(map[string]any{"model": "gpt-6-luna", "status": "completed",
+			"output": []any{map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": answer}}}}})
+	}))
+	defer srv.Close()
+	r := New(Config{BaseURL: srv.URL + "/v1", Model: "gpt-6-luna"}, nil)
+	catalog := []domain.Metric{{Code: "wbc", Name: "White blood cells", NameVI: "Bạch cầu", Unit: "G/L"}}
+	res, err := r.SuggestMetrics(context.Background(), []domain.UnknownName{{Key: "gra abs", Analyte: "GRA#", Unit: "G/L"}}, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Model != "gpt-6-luna" || len(res.Output.Suggestions) != 1 || res.Output.Suggestions[0].MetricCode != "neut-abs" {
+		t.Fatalf("result = %+v", res)
+	}
+	raw, _ := json.Marshal(got["input"])
+	text := string(raw)
+	if !strings.Contains(text, "GRA# | G/L") || !strings.Contains(text, "wbc | White blood cells") || got["store"] != false ||
+		strings.Contains(text, "input_image") {
+		t.Fatalf("request = %s", raw)
+	}
+	if format := got["text"].(map[string]any)["format"].(map[string]any); format["name"] != "metric_suggestions" || format["strict"] != true {
+		t.Fatalf("format = %v", format)
 	}
 }

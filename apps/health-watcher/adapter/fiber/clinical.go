@@ -125,7 +125,21 @@ func (s *server) clinicalRoutes(r fiber.Router) {
 		return s.list(c)(s.svc.Clinical.Search(c.UserContext(), scope(c), c.Query("q")))
 	})
 	r.Get("/metrics", func(c *fiber.Ctx) error {
-		return s.list(c)(s.svc.Clinical.Metrics(scope(c)))
+		return s.list(c)(s.svc.Clinical.Metrics(c.UserContext(), scope(c)))
+	})
+	// Suggestions for printed names no metric knows (HW-MET-8).
+	r.Get("/metric-suggestions", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Clinical.Suggestions(c.UserContext(), scope(c)))
+	})
+	r.Post("/metric-suggestions/:id/approve", func(c *fiber.Ctx) error {
+		var in service.SuggestionEdit
+		if err := parseJSON(c, &in); err != nil {
+			return respond(c, s.log, err)
+		}
+		return s.list(c)(s.svc.Clinical.ApproveSuggestion(c.UserContext(), scope(c), c.Params("id"), in))
+	})
+	r.Post("/metric-suggestions/:id/reject", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Clinical.RejectSuggestion(c.UserContext(), scope(c), c.Params("id")))
 	})
 }
 

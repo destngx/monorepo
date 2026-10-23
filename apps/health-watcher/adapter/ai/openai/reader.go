@@ -159,6 +159,45 @@ func (r *Reader) TitlePages(ctx context.Context, pages []port.ReadPage) (port.Ti
 	return port.TitleResult{Model: model, Output: out}, nil
 }
 
+// SuggestMetrics sends the catalog and the printed names with their
+// units, never values, people or dates, and returns what each name is
+// (HW-MET-8).
+func (r *Reader) SuggestMetrics(ctx context.Context, names []domain.UnknownName, catalog []domain.Metric) (port.SuggestResult, error) {
+	if len(names) == 0 {
+		return port.SuggestResult{}, errors.New("no names to suggest for")
+	}
+	var b strings.Builder
+	b.WriteString("Categories: ")
+	for i, c := range domain.MetricCategories {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(string(c))
+	}
+	b.WriteString("\n\nCatalog (code | English name | Vietnamese name | unit):\n")
+	for _, m := range catalog {
+		fmt.Fprintf(&b, "%s | %s | %s | %s\n", m.Code, m.Name, m.NameVI, m.Unit)
+	}
+	b.WriteString("\nPrinted names (name | printed unit):\n")
+	for _, n := range names {
+		fmt.Fprintf(&b, "%s | %s\n", n.Analyte, n.Unit)
+	}
+	body := r.request(domain.SuggestInstructions, []content{{Type: "input_text", Text: b.String()}}, "metric_suggestions", domain.SuggestSchema())
+	decoded, err := r.post(ctx, body)
+	if err != nil {
+		return port.SuggestResult{}, err
+	}
+	var out domain.SuggestOutput
+	if err := json.Unmarshal([]byte(outputText(decoded)), &out); err != nil {
+		return port.SuggestResult{}, fmt.Errorf("the AI answer is not the expected JSON: %w", err)
+	}
+	model := decoded.Model
+	if model == "" {
+		model = r.cfg.Model
+	}
+	return port.SuggestResult{Model: model, Output: out}, nil
+}
+
 // Ping sends a small request with a strict schema, the same model and
 // effort as a reading, and no health data. It checks the address, the key
 // and that the provider serves the model (HW-OPS-9).

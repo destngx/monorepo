@@ -74,7 +74,11 @@ func (c *Clinical) UpdateObservation(ctx context.Context, sc domain.Scope, id st
 	if err := sc.RequireEdit(); err != nil {
 		return domain.Observation{}, err
 	}
-	in, err := patch.Validate(c.today(), c.Catalog)
+	catalog, err := c.catalogFor(ctx, sc.TenantID)
+	if err != nil {
+		return domain.Observation{}, err
+	}
+	in, err := patch.Validate(c.today(), catalog)
 	if err != nil {
 		return domain.Observation{}, err
 	}
@@ -147,12 +151,16 @@ func (c *Clinical) AddObservation(ctx context.Context, sc domain.Scope, document
 	if err := sc.RequireEdit(); err != nil {
 		return domain.Observation{}, err
 	}
-	in, err := input.Validate(c.today(), c.Catalog)
+	catalog, err := c.catalogFor(ctx, sc.TenantID)
+	if err != nil {
+		return domain.Observation{}, err
+	}
+	in, err := input.Validate(c.today(), catalog)
 	if err != nil {
 		return domain.Observation{}, err
 	}
 	if in.MetricCode == "" {
-		if m, ok := c.Catalog.Match(in.Analyte, in.Unit, in.Value); ok {
+		if m, ok := catalog.Match(in.Analyte, in.Unit, in.Value); ok {
 			in.MetricCode = m.Code
 		}
 	}
@@ -309,7 +317,11 @@ func (c *Clinical) LinkMetric(ctx context.Context, sc domain.Scope, id, code str
 		return domain.Observation{}, err
 	}
 	if code != "" {
-		if _, ok := c.Catalog.Metric(code); !ok {
+		catalog, err := c.catalogFor(ctx, sc.TenantID)
+		if err != nil {
+			return domain.Observation{}, err
+		}
+		if _, ok := catalog.Metric(code); !ok {
 			return domain.Observation{}, domain.Invalid("unknown metric %q", code)
 		}
 	}
@@ -329,7 +341,7 @@ func (c *Clinical) LinkMetric(ctx context.Context, sc domain.Scope, id, code str
 			return err
 		}
 		if code != "" {
-			if err := r.SetAnalyteLink(ctx, sc.TenantID, providerID, domain.FoldKey(o.Analyte), code); err != nil {
+			if err := r.SetAnalyteLink(ctx, sc.TenantID, providerID, domain.AnalyteKey(o.Analyte), code); err != nil {
 				return err
 			}
 		}
@@ -350,12 +362,17 @@ func (c *Clinical) History(ctx context.Context, sc domain.Scope, entity domain.A
 	return c.Store.AuditOf(ctx, sc.TenantID, entity, id)
 }
 
-// Metrics returns the catalog (HW-MET-1).
-func (c *Clinical) Metrics(sc domain.Scope) ([]domain.Metric, error) {
+// Metrics returns the catalog with the tenant's custom metrics (HW-MET-1,
+// HW-MET-8).
+func (c *Clinical) Metrics(ctx context.Context, sc domain.Scope) ([]domain.Metric, error) {
 	if err := sc.RequireRead(); err != nil {
 		return nil, err
 	}
-	return c.Catalog.Metrics(), nil
+	catalog, err := c.catalogFor(ctx, sc.TenantID)
+	if err != nil {
+		return nil, err
+	}
+	return catalog.Metrics(), nil
 }
 
 // DocumentDetail is the document viewer's data (HW-FIND-3).

@@ -40,6 +40,51 @@ type Repos interface {
 	SettingsRepo
 	SearchRepo
 	MetaRepo
+	MetricRepo
+}
+
+// MetricRepo stores a tenant's custom metrics and the metric suggestions
+// for printed names no metric knows (HW-MET-8).
+type MetricRepo interface {
+	CustomMetrics(ctx context.Context, tenantID string) ([]domain.Metric, error)
+	CreateCustomMetric(ctx context.Context, tenantID string, m domain.Metric, by string, at time.Time) error
+	// UnlinkedObservations lists a tenant's approved observations linked to
+	// no metric, oldest first.
+	UnlinkedObservations(ctx context.Context, tenantID string) ([]domain.Observation, error)
+	// SuggestionKeys lists the folded names that have a suggestion, in any status.
+	SuggestionKeys(ctx context.Context, tenantID string) (map[string]bool, error)
+	CreateSuggestion(ctx context.Context, tenantID string, s domain.MetricSuggestion) error
+	// Suggestions lists a tenant's suggestions in a status, oldest first.
+	Suggestions(ctx context.Context, tenantID string, status domain.SuggestionStatus) ([]domain.MetricSuggestion, error)
+	Suggestion(ctx context.Context, tenantID, id string) (domain.MetricSuggestion, error)
+	DecideSuggestion(ctx context.Context, tenantID, id string, status domain.SuggestionStatus, by string, at time.Time) error
+	// TenantsWithUnlinked lists the tenants with an approved value linked to no metric.
+	TenantsWithUnlinked(ctx context.Context) ([]string, error)
+	// AllAnalyteLinks lists every remembered analyte link of every tenant.
+	AllAnalyteLinks(ctx context.Context) ([]AnalyteLink, error)
+	DeleteAnalyteLink(ctx context.Context, tenantID, providerID, analyteKey string) error
+	// LinkedAnalytes lists the distinct printed names of the values linked
+	// to a metric.
+	LinkedAnalytes(ctx context.Context, tenantID, metricCode string) ([]string, error)
+}
+
+// AnalyteLink is a remembered link from a printed name, for a provider or
+// for every provider, to a metric (HW-READ-5, HW-MET-8).
+type AnalyteLink struct {
+	TenantID   string
+	ProviderID string
+	Key        string
+	MetricCode string
+}
+
+// LOINC looks up LOINC codes and their descriptions by code; only the code
+// leaves the Mac (HW-MET-8).
+type LOINC interface {
+	// Name returns the code's long common name, false when the code is unknown.
+	Name(ctx context.Context, code string) (string, bool, error)
+	// About returns a word-for-word description of the test, false when the
+	// source has none (HW-MET-6).
+	About(ctx context.Context, code string) (domain.MetricAbout, bool, error)
 }
 
 // MetaRepo keeps engine bookkeeping values, such as the catalog version the
@@ -391,6 +436,15 @@ type Reader interface {
 	// TitlePages names pages from their masked text alone; JPEG is not sent
 	// (HW-READ-9).
 	TitlePages(ctx context.Context, pages []ReadPage) (TitleResult, error)
+	// SuggestMetrics asks what printed test names are, given the catalog;
+	// only names and units are sent (HW-MET-8).
+	SuggestMetrics(ctx context.Context, names []domain.UnknownName, catalog []domain.Metric) (SuggestResult, error)
+}
+
+// SuggestResult is the provider's metric suggestions.
+type SuggestResult struct {
+	Model  string
+	Output domain.SuggestOutput
 }
 
 // FileStore keeps file bytes by SHA-256 (HW-OPS-2). Put is idempotent.

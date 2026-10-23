@@ -20,6 +20,7 @@ import (
 	"apps/health-watcher/adapter/filestore"
 	"apps/health-watcher/adapter/imaging"
 	"apps/health-watcher/adapter/macocr"
+	"apps/health-watcher/adapter/nlm"
 	"apps/health-watcher/adapter/password"
 	"apps/health-watcher/adapter/qrcode"
 	"apps/health-watcher/adapter/sqlite"
@@ -79,6 +80,10 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 		return nil, err
 	}
 	clinical := &service.Clinical{Deps: deps, Catalog: domain.DefaultCatalog}
+	if err := clinical.RekeyAnalyteLinks(ctx); err != nil {
+		_ = store.Close()
+		return nil, err
+	}
 	relinked, err := clinical.RelinkCatalog(ctx)
 	if err != nil {
 		_ = store.Close()
@@ -101,7 +106,7 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 		return nil, err
 	}
 	pipeline := &service.Pipeline{Deps: deps, Masker: imaging.Masker{Quality: 85}, Catalog: domain.DefaultCatalog,
-		WorkDir: cfg.WorkDir(), Log: log}
+		LOINC: nlm.New(nil), WorkDir: cfg.WorkDir(), Log: log}
 	records := &service.Records{Deps: deps}
 	inbox := &service.Inbox{Deps: deps, Records: records, Pipeline: pipeline}
 	settings.Apply = func(s domain.Settings) {

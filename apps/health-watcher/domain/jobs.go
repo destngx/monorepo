@@ -14,6 +14,9 @@ const (
 	// JobTitle names the pages of a document filed before pages had
 	// titles, from their masked text; the subject is a document id.
 	JobTitle JobKind = "title"
+	// JobSuggest asks what the printed names no metric knows are; the
+	// subject is a tenant id (HW-MET-8).
+	JobSuggest JobKind = "suggest"
 )
 
 // JobStatus is where a job is in its life.

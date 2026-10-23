@@ -15,8 +15,9 @@ const catalogVersionKey = "catalog_version"
 // since the last start, so a fix to the catalog also fixes the values read
 // before it (HW-READ-5). Only values no person changed are matched again,
 // including ones an earlier relink changed: a value a person edited, or an
-// analyte name a person linked by hand for that provider, keeps its link. Each change is audited with no user, as
-// the engine's own. It returns how many values changed.
+// analyte name a person linked by hand for that provider or for every
+// provider, keeps its link. Values match the catalog with the tenant's
+// custom metrics. Each change is audited with no user, as the engine's own. It returns how many values changed.
 func (c *Clinical) RelinkCatalog(ctx context.Context) (int, error) {
 	changed := 0
 	err := c.Store.InTx(ctx, func(r port.Repos) error {
@@ -29,18 +30,26 @@ func (c *Clinical) RelinkCatalog(ctx context.Context) (int, error) {
 			return err
 		}
 		links := map[[2]string]map[string]string{}
+		catalogs := map[string]*domain.Catalog{}
 		for _, to := range obs {
 			key := [2]string{to.TenantID, to.ProviderID}
 			if links[key] == nil {
-				if links[key], err = r.AnalyteLinks(ctx, to.TenantID, to.ProviderID); err != nil {
+				if links[key], err = analyteLinks(ctx, r, to.TenantID, to.ProviderID); err != nil {
 					return err
 				}
 			}
-			if _, ok := links[key][domain.FoldKey(to.Analyte)]; ok {
+			if _, ok := links[key][domain.AnalyteKey(to.Analyte)]; ok {
 				continue
 			}
+			catalog := catalogs[to.TenantID]
+			if catalog == nil {
+				if catalog, err = tenantCatalog(ctx, r, c.Catalog, to.TenantID); err != nil {
+					return err
+				}
+				catalogs[to.TenantID] = catalog
+			}
 			code := ""
-			if m, ok := c.Catalog.Match(to.Analyte, to.Unit, to.Value); ok {
+			if m, ok := catalog.Match(to.Analyte, to.Unit, to.Value); ok {
 				code = m.Code
 			}
 			if code == to.MetricCode {

@@ -21,6 +21,7 @@ import type {
   MeasurementInput,
   Metric,
   MetricsOverview,
+  MetricSuggestion,
   MetricTrend,
   Observation,
   ObservationInput,
@@ -28,6 +29,7 @@ import type {
   Quad,
   RecordStatus,
   SearchResult,
+  SuggestionEdit,
   Invite,
   InviteInfo,
   Me,
@@ -190,6 +192,11 @@ export function tenantApi(tenantId: string) {
     findingHistory: (id: string) => request<AuditEntry[]>(`${t}/findings/${id}/history`),
     search: (q: string, fetch?: Fetch) => request<SearchResult>(`${t}/search`, { query: { q }, fetch }),
     metrics: (fetch?: Fetch) => request<Metric[]>(`${t}/metrics`, { fetch }),
+    metricSuggestions: (fetch?: Fetch) => request<MetricSuggestion[]>(`${t}/metric-suggestions`, { fetch }),
+    approveSuggestion: (id: string, body: SuggestionEdit = {}) =>
+      request<MetricSuggestion>(`${t}/metric-suggestions/${id}/approve`, { method: 'POST', body }),
+    rejectSuggestion: (id: string) =>
+      request<MetricSuggestion>(`${t}/metric-suggestions/${id}/reject`, { method: 'POST' }),
     personMetrics: (personId: string, fetch?: Fetch) =>
       request<MetricsOverview>(`${t}/people/${personId}/metrics`, { fetch }),
     personMetric: (personId: string, code: string, fetch?: Fetch) =>

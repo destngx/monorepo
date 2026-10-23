@@ -91,9 +91,15 @@ const printedPrefix = "printed-"
 // Mid` and `TY LE % BACH CAU MID` are one metric, and `Mid%` and `Mid#`
 // stay apart.
 func PrintedMetricCode(analyte string) string {
+	return printedPrefix + slug(analyteKey(analyte))
+}
+
+// slug turns a folded name into a code part: letters and digits joined by
+// dashes, "unnamed" when nothing is left.
+func slug(key string) string {
 	var b strings.Builder
 	dash := false
-	for _, r := range analyteKey(analyte) {
+	for _, r := range key {
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
 			b.WriteRune(r)
 			dash = false
@@ -102,11 +108,11 @@ func PrintedMetricCode(analyte string) string {
 			dash = true
 		}
 	}
-	slug := strings.TrimSuffix(b.String(), "-")
-	if slug == "" {
-		slug = "unnamed"
+	out := strings.TrimSuffix(b.String(), "-")
+	if out == "" {
+		return "unnamed"
 	}
-	return printedPrefix + slug
+	return out
 }
 
 // PrintedMetric is the metric of values whose name the catalog doesn't

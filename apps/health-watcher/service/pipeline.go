@@ -34,6 +34,8 @@ type Pipeline struct {
 	// Reader is nil when AI is not configured; items then stay OCR-only.
 	Reader  port.Reader
 	Catalog *domain.Catalog
+	// LOINC checks suggested LOINC codes; nil drops them (HW-MET-8).
+	LOINC port.LOINC
 	// WorkDir is a private directory for the OCR tool's files.
 	WorkDir string
 	Log     *slog.Logger
@@ -200,6 +202,8 @@ func (p *Pipeline) RunOnce(ctx context.Context) (bool, error) {
 		runErr = p.runRead(ctx, job)
 	case domain.JobTitle:
 		runErr = p.runTitle(ctx, job)
+	case domain.JobSuggest:
+		runErr = p.runSuggest(ctx, job)
 	default:
 		runErr = fmt.Errorf("unknown job kind %q", job.Kind)
 	}
@@ -439,8 +443,18 @@ func (p *Pipeline) ScheduleReading(ctx context.Context, tenantID, itemID string,
 }
 
 // resumeReadings sends the unfiled items read while AI reading was off,
-// and queues a title job for each document with an untitled page.
+// queues a title job for each document with an untitled page and a
+// suggestion job for each tenant with values no metric holds.
 func (p *Pipeline) resumeReadings(ctx context.Context) error {
+	tenants, err := p.Store.TenantsWithUnlinked(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range tenants {
+		if err := p.Store.EnqueueJob(ctx, domain.Job{ID: NewID(), TenantID: id, Kind: domain.JobSuggest, SubjectID: id}, p.Clock()); err != nil {
+			return err
+		}
+	}
 	docs, err := p.Store.UntitledDocuments(ctx)
 	if err != nil {
 		return err
@@ -816,7 +830,11 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 	today := p.today()
 	proposal := res.Output.Proposal(today)
 	proposal.PersonID = personID
-	obs, obsPages, obsConf := res.Output.CleanObservations(len(sent), today, p.Catalog)
+	catalog, err := tenantCatalog(ctx, p.Store, p.Catalog, tenantID)
+	if err != nil {
+		return err
+	}
+	obs, obsPages, obsConf := res.Output.CleanObservations(len(sent), today, catalog)
 	finds, findPages, findConf := res.Output.CleanFindings(len(sent))
 	now := p.Clock()
 	return p.Store.InTx(ctx, func(r port.Repos) error {
@@ -842,7 +860,7 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 			}
 		}
 		for i, in := range obs {
-			if code, ok := links[domain.FoldKey(in.Analyte)]; ok {
+			if code, ok := links[domain.AnalyteKey(in.Analyte)]; ok {
 				in.MetricCode = code
 			}
 			o := observationFrom(in, now)
@@ -874,7 +892,8 @@ func sameFiles(a, b []domain.StoredFile) bool {
 }
 
 // providerLinks returns the analyte links remembered for a provider name,
-// or the links for papers without a provider (HW-READ-5).
+// or the links for papers without a provider, with the links approved for
+// every provider (HW-READ-5, HW-MET-8).
 func providerLinks(ctx context.Context, r port.Repos, tenantID, providerName string) (map[string]string, error) {
 	providerID := ""
 	if key := domain.FoldKey(providerName); key != "" {
@@ -886,7 +905,7 @@ func providerLinks(ctx context.Context, r port.Repos, tenantID, providerName str
 			return nil, err
 		}
 	}
-	return r.AnalyteLinks(ctx, tenantID, providerID)
+	return analyteLinks(ctx, r, tenantID, providerID)
 }
 
 // readingProvenance is the origin of a draft read by model.

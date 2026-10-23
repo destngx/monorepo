@@ -487,7 +487,11 @@ func (in *Inbox) fileItem(ctx context.Context, r port.Repos, sc domain.Scope, it
 	}
 	// Pages the reading left without a title, such as pages past the
 	// reading's limit, get one from a title job (HW-READ-9).
-	return doc.ID, in.Pipeline.scheduleTitles(ctx, r, sc.TenantID, doc.ID)
+	if err := in.Pipeline.scheduleTitles(ctx, r, sc.TenantID, doc.ID); err != nil {
+		return "", err
+	}
+	// Names no metric knows get a suggestion to approve (HW-MET-8).
+	return doc.ID, in.Pipeline.scheduleSuggest(ctx, r, sc.TenantID)
 }
 
 // File turns an unfiled item into a document under an existing or new

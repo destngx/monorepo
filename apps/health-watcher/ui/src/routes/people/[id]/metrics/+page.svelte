@@ -37,13 +37,25 @@
 
 <PersonTabs personId={person.id} current="metrics" />
 
+{#if data.overview.suggestions > 0}
+  <a class="panel interactive mb-5 flex items-center gap-2 p-3 text-sm" href="{base}/metrics/suggestions">
+    <Icon name="sparkles" size={16} />
+    <span class="flex-1"
+      >{data.overview.suggestions}
+      {data.overview.suggestions === 1 ? 'suggestion' : 'suggestions'} for names the catalog doesn't know</span
+    >
+    <Icon name="chevronRight" size={16} />
+  </a>
+{/if}
+
 {#if data.overview.unlinked > 0}
   <p class="panel mb-5 flex items-start gap-2 p-3 text-sm" role="note">
     <Icon name="info" size={16} />
     <span
       >{data.overview.unlinked}
       {data.overview.unlinked === 1 ? 'result has' : 'results have'} a name the catalog doesn't know. They are under Not in
-      the catalog, by the name printed on the paper. To chart one with a known metric, link it on its document.</span
+      the catalog, by the name printed on the paper. After each filing the app suggests what they are; you can also link one
+      on its document.</span
     >
   </p>
 {/if}

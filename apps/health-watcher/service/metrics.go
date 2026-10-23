@@ -11,12 +11,13 @@ import (
 
 // MetricsOverview is a person's metrics dashboard (HW-MET-4): each metric
 // with values, grouped by category in catalog order, then the metrics made
-// from names the catalog doesn't know (HW-MET-7), and how many approved
-// results those hold.
+// from names the catalog doesn't know (HW-MET-7), how many approved
+// results those hold and how many suggestions wait for a person (HW-MET-8).
 type MetricsOverview struct {
-	Person   domain.Person          `json:"person"`
-	Groups   []domain.OverviewGroup `json:"groups"`
-	Unlinked int                    `json:"unlinked"`
+	Person      domain.Person          `json:"person"`
+	Groups      []domain.OverviewGroup `json:"groups"`
+	Unlinked    int                    `json:"unlinked"`
+	Suggestions int                    `json:"suggestions"`
 }
 
 // MetricTrend is one metric of a person over time (HW-MET-3), with what the
@@ -33,8 +34,9 @@ type MetricTrend struct {
 // value the catalog doesn't know joins a metric of its printed name, so no
 // value is left out (HW-MET-7).
 type personPoints struct {
-	person domain.Person
-	byCode map[string][]domain.TrendPoint
+	person  domain.Person
+	catalog *domain.Catalog
+	byCode  map[string][]domain.TrendPoint
 	// printed are the metrics made from printed names, by code.
 	printed  map[string]domain.Metric
 	unlinked int
@@ -52,10 +54,14 @@ func (c *Clinical) personPoints(ctx context.Context, sc domain.Scope, personID s
 	if err != nil {
 		return personPoints{}, err
 	}
-	pp := personPoints{person: person, byCode: map[string][]domain.TrendPoint{}, printed: map[string]domain.Metric{}}
+	catalog, err := c.catalogFor(ctx, sc.TenantID)
+	if err != nil {
+		return personPoints{}, err
+	}
+	pp := personPoints{person: person, catalog: catalog, byCode: map[string][]domain.TrendPoint{}, printed: map[string]domain.Metric{}}
 	unknown := map[string][]domain.PersonObservation{}
 	for _, o := range obs {
-		m, ok := c.Catalog.Metric(o.MetricCode)
+		m, ok := catalog.Metric(o.MetricCode)
 		if !ok {
 			code := domain.PrintedMetricCode(o.Analyte)
 			unknown[code] = append(unknown[code], o)
@@ -84,13 +90,17 @@ func (c *Clinical) PersonMetrics(ctx context.Context, sc domain.Scope, personID 
 	if err != nil {
 		return MetricsOverview{}, err
 	}
-	out := MetricsOverview{Person: pp.person, Groups: []domain.OverviewGroup{}, Unlinked: pp.unlinked}
+	pending, err := c.pendingSuggestions(ctx, sc.TenantID)
+	if err != nil {
+		return MetricsOverview{}, err
+	}
+	out := MetricsOverview{Person: pp.person, Groups: []domain.OverviewGroup{}, Unlinked: pp.unlinked, Suggestions: pending}
 	printed := make([]domain.Metric, 0, len(pp.printed))
 	for _, m := range pp.printed {
 		printed = append(printed, m)
 	}
 	slices.SortFunc(printed, func(a, b domain.Metric) int { return strings.Compare(domain.FoldKey(a.Name), domain.FoldKey(b.Name)) })
-	for _, m := range append(slices.Clone(c.Catalog.Metrics()), printed...) {
+	for _, m := range append(slices.Clone(pp.catalog.Metrics()), printed...) {
 		item, ok := domain.OverviewOf(m, pp.byCode[m.Code])
 		if !ok {
 			continue
@@ -107,11 +117,11 @@ func (c *Clinical) PersonMetrics(ctx context.Context, sc domain.Scope, personID 
 // PersonMetric returns every value of one metric for a person, oldest
 // first (HW-MET-3); the metric may be one made from a printed name.
 func (c *Clinical) PersonMetric(ctx context.Context, sc domain.Scope, personID, code string) (MetricTrend, error) {
-	m, ok := c.Catalog.Metric(code)
 	pp, err := c.personPoints(ctx, sc, personID)
 	if err != nil {
 		return MetricTrend{}, err
 	}
+	m, ok := pp.catalog.Metric(code)
 	if !ok {
 		if m, ok = pp.printed[code]; !ok {
 			return MetricTrend{}, domain.NotFound("metric")
@@ -123,7 +133,9 @@ func (c *Clinical) PersonMetric(ctx context.Context, sc domain.Scope, personID, 
 		points = []domain.TrendPoint{}
 	}
 	trend := MetricTrend{Person: person, Metric: m, Points: points}
-	if about, ok := domain.AboutMetric(code); ok {
+	if m.About != nil {
+		trend.About = m.About
+	} else if about, ok := domain.AboutMetric(code); ok {
 		trend.About = &about
 	}
 	return trend, nil

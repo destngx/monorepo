@@ -483,6 +483,8 @@ export interface Metric {
   urine?: boolean;
   /** Made from a printed name the catalog doesn't know (HW-MET-7): no LOINC code, conversions or description. */
   printed?: boolean;
+  /** Added by the family from a suggestion (HW-MET-8). */
+  custom?: boolean;
 }
 
 export interface UploadResult {
@@ -635,6 +637,48 @@ export interface MetricsOverview {
   groups: OverviewGroup[];
   /** Approved results not linked to a catalog metric yet. */
   unlinked: number;
+  /** Metric suggestions waiting for a person (HW-MET-8). */
+  suggestions: number;
+}
+
+/** A suggested new metric (HW-MET-8). The LOINC code is "" or one the NLM service knows. */
+export interface MetricProposal {
+  name: string;
+  nameVi: string;
+  loinc: string;
+  /** The LOINC code's name in the NLM service. */
+  loincName?: string;
+  unit: string;
+  category: MetricCategory;
+  about?: MetricAbout;
+}
+
+/** What the app suggests for a printed name no metric knows (HW-MET-8). */
+export interface MetricSuggestion {
+  id: string;
+  analyteKey: string;
+  /** The name as the latest paper printed it. */
+  analyte: string;
+  unit: string;
+  /** link: a known metric under another name; new: a test the catalog lacks. */
+  kind: 'link' | 'new' | 'none';
+  /** The metric to link to, for kind link. */
+  metricCode?: string;
+  proposal?: MetricProposal;
+  reason: string;
+  model: string;
+  status: 'pending' | 'approved' | 'rejected';
+  /** Approved values with this name that no metric holds yet. */
+  values: number;
+  createdAt: string;
+}
+
+/** A person's change to a suggested new metric; empty fields keep the suggestion's. */
+export interface SuggestionEdit {
+  name?: string;
+  nameVi?: string;
+  unit?: string;
+  category?: MetricCategory;
 }
 
 /** What a metric is, quoted word for word from a trusted source (HW-MET-6). */

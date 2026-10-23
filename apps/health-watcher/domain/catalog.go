@@ -38,9 +38,16 @@ type Metric struct {
 	// Printed marks a metric made from a printed name the catalog doesn't
 	// know (HW-MET-7). It has no LOINC code, conversions or description.
 	Printed bool `json:"printed,omitempty"`
+	// Custom marks a metric a family approved from a suggestion (HW-MET-8);
+	// it lives in the tenant's database, not in the shipped catalog.
+	Custom bool `json:"custom,omitempty"`
+	// About is a custom metric's description, fetched by LOINC code when
+	// it was suggested; shipped metrics use AboutMetric.
+	About *MetricAbout `json:"-"`
 }
 
-// Catalog is the shipped metric list with its matching index.
+// Catalog is the shipped metric list with its matching index; With adds a
+// tenant's custom metrics.
 type Catalog struct {
 	Version string
 	metrics []Metric
@@ -65,6 +72,19 @@ func NewCatalog(version string, metrics []Metric) *Catalog {
 	}
 	return c
 }
+
+// With returns the catalog with extra metrics after the shipped ones, such
+// as a tenant's custom metrics. The version stays the shipped one.
+func (c *Catalog) With(extra []Metric) *Catalog {
+	if len(extra) == 0 {
+		return c
+	}
+	return NewCatalog(c.Version, append(append([]Metric{}, c.metrics...), extra...))
+}
+
+// AnalyteKey folds an analyte name the way matching does, keeping `%` and
+// `#` apart: the key of remembered links (HW-READ-5) and suggestions.
+func AnalyteKey(s string) string { return analyteKey(s) }
 
 // Metrics returns every entry in catalog order.
 func (c *Catalog) Metrics() []Metric { return c.metrics }

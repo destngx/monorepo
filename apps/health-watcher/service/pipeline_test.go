@@ -112,6 +112,9 @@ type fakeReader struct {
 	noTitles bool
 	// during runs once, while the first page set is being read.
 	during func()
+	// suggest answers SuggestMetrics; suggestCalls are the names sent.
+	suggest      domain.SuggestOutput
+	suggestCalls [][]domain.UnknownName
 }
 
 func labReading() domain.ReadingOutput {
@@ -155,6 +158,14 @@ func (f *fakeReader) TitlePages(_ context.Context, pages []port.ReadPage) (port.
 		out.Pages = append(out.Pages, domain.ReadingPage{Page: p.Number, Title: fmt.Sprintf("Trang %d", p.Number)})
 	}
 	return port.TitleResult{Model: "test-model", Output: out}, nil
+}
+
+func (f *fakeReader) SuggestMetrics(_ context.Context, names []domain.UnknownName, _ []domain.Metric) (port.SuggestResult, error) {
+	f.suggestCalls = append(f.suggestCalls, names)
+	if f.err != nil {
+		return port.SuggestResult{}, f.err
+	}
+	return port.SuggestResult{Model: "test-model", Output: f.suggest}, nil
 }
 
 func (e *env) drain() {
