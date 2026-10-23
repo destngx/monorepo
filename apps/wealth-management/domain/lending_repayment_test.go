@@ -291,6 +291,27 @@ func owingPerson(name string, loans ...LentLoan) MoneyLentPerson {
 	return person
 }
 
+func TestGivenOneLoanDueAndOneOldLoanWhenChasingMoneyLentThenTheTitleCountsOnlyThePersonDue(t *testing.T) {
+	lent := MoneyLent{People: []MoneyLentPerson{
+		lentPerson("Person A", 3_000_000, 10, "2026-10-24", 1),
+		lentPerson("Person B", 2_000_000, 120, "", 0),
+	}}
+	_, findings := EvaluateRecommendationRules(RuleInputs{MoneyLent: &lent})
+	chase := findings[0]
+	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment due tomorrow; 1 more owes 2.000.000 ₫" || *chase.AmountVND != 5_000_000 {
+		t.Fatalf("one person is due tomorrow, the other is only old: %+v", chase)
+	}
+
+	same := MoneyLent{People: []MoneyLentPerson{owingPerson("Person A",
+		openLoan(3_000_000, 10, "2026-10-24", 1),
+		openLoan(2_000_000, 120, "", 0),
+	)}}
+	_, findings = EvaluateRecommendationRules(RuleInputs{MoneyLent: &same})
+	if chase := findings[0]; chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment due tomorrow; 2.000.000 ₫ more to chase" {
+		t.Fatalf("the same person's old loan is not another person: %+v", chase)
+	}
+}
+
 func TestGivenRepaymentDatesWhenChasingMoneyLentThenOnlyCloseOrPassedDatesAreChased(t *testing.T) {
 	later := MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 3_000_000, 200, "2026-10-23", 4)}}
 	if _, findings := EvaluateRecommendationRules(RuleInputs{MoneyLent: &later}); len(findings) != 0 {
@@ -318,7 +339,7 @@ func TestGivenRepaymentDatesWhenChasingMoneyLentThenOnlyCloseOrPassedDatesAreCha
 	}}
 	_, findings = EvaluateRecommendationRules(RuleInputs{MoneyLent: &mixed})
 	chase = findings[0]
-	if chase.Title != "Chase money lent: 3 people owe 6.000.000 ₫, repayment overdue since 2026-10-15" || chase.DueDate != "2026-10-15" || !chase.Urgent || *chase.AmountVND != 6_000_000 {
+	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment overdue since 2026-10-15; 2 more owe 3.000.000 ₫" || chase.DueDate != "2026-10-15" || !chase.Urgent || *chase.AmountVND != 6_000_000 {
 		t.Fatalf("overdue = %+v", chase)
 	}
 	want := "3.000.000 ₫ past the repayment date (due 2026-10-15, 4 days ago); 1.000.000 ₫ due back by 2026-10-19; " +

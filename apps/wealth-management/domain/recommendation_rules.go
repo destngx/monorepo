@@ -279,7 +279,7 @@ func goalPlanShortFinding(plan GoalPlan) (RuleFinding, bool) {
 // within LentDueSoonDays or has passed (WM-LEND-6, WM-LEND-7), or, with no
 // date, open longer than 90 days (D30). A date further out is not chased.
 func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
-	var overdue, dueSoon, stale lentGroup
+	overdue, dueSoon, stale := newLentGroup(), newLentGroup(), newLentGroup()
 	chased := map[int]bool{}
 	for index, person := range lent.People {
 		for _, loan := range person.Loans {
@@ -287,14 +287,14 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 			switch {
 			case !loan.Open():
 			case loan.Overdue():
-				group = &overdue
+				group = overdue
 			case loan.Due():
-				group = &dueSoon
+				group = dueSoon
 			case loan.RepayBy == nil && loan.DaysOutstanding > LentOverdueDays:
-				group = &stale
+				group = stale
 			}
 			if group != nil {
-				group.add(loan)
+				group.add(index, loan)
 				chased[index] = true
 			}
 		}
@@ -303,7 +303,6 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 	if people == 0 {
 		return RuleFinding{}, false
 	}
-	who := plural(people, "person owes", "people owe")
 	const record = "record repayments as deposits in the lending category."
 	finding := RuleFinding{
 		Rule:      RuleLentOverdue,
@@ -322,18 +321,40 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 		evidence = append(evidence, fmt.Sprintf("%s open longer than %d days with no repayment date; oldest %s", FormatVND(stale.total), LentOverdueDays, plural(stale.oldest, "day", "days")))
 	}
 	finding.Evidence = strings.Join(evidence, "; ")
+	// The title counts only the people and money of the reason it names;
+	// the rest of the chase follows it (WM-LEND-6).
+	var lead *lentGroup
 	switch {
 	case overdue.loans > 0:
-		finding.Title = fmt.Sprintf("Chase money lent: %s %s, repayment overdue since %s", who, FormatVND(total), overdue.earliest)
+		lead = overdue
+		finding.Title = fmt.Sprintf("Chase money lent: %s, repayment overdue since %s", lead.owes(), overdue.earliest)
 		finding.Action = "Remind them the agreed date has passed, write the new date in the memo if it moves, and " + record
 		finding.DueDate = overdue.earliest
 	case dueSoon.loans > 0:
-		finding.Title = fmt.Sprintf("Chase money lent: %s %s, repayment due %s", who, FormatVND(total), dueIn(dueSoon.soonest))
+		lead = dueSoon
+		finding.Title = fmt.Sprintf("Chase money lent: %s, repayment due %s", lead.owes(), dueIn(dueSoon.soonest))
 		finding.Action = fmt.Sprintf("Remind them repayment is due on %s, and %s", dueSoon.earliest, record)
 		finding.DueDate = dueSoon.earliest
 	default:
-		finding.Title = fmt.Sprintf("Chase money lent: %s %s for over %d days", who, FormatVND(total), LentOverdueDays)
+		lead = stale
+		finding.Title = fmt.Sprintf("Chase money lent: %s for over %d days", lead.owes(), LentOverdueDays)
 		finding.Action = "Ask for repayment or agree a date (write it in the memo, e.g. \"repay 30/11/2026\"), and " + record
+	}
+	others := 0
+	for index := range chased {
+		if !lead.people[index] {
+			others++
+		}
+	}
+	switch rest := total - lead.total; {
+	case others > 0:
+		verb := "owe"
+		if others == 1 {
+			verb = "owes"
+		}
+		finding.Title += fmt.Sprintf("; %d more %s %s", others, verb, FormatVND(rest))
+	case rest > 0:
+		finding.Title += fmt.Sprintf("; %s more to chase", FormatVND(rest))
 	}
 	return finding, true
 }
@@ -342,12 +363,24 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 type lentGroup struct {
 	loans int
 	total float64
+	// people holds the indexes of the people with a loan in the group.
+	people map[int]bool
 	// earliest and latest repayment dates, soonest days until repayment, oldest days outstanding.
 	earliest, latest string
 	soonest, oldest  int
 }
 
-func (g *lentGroup) add(loan LentLoan) {
+func newLentGroup() *lentGroup {
+	return &lentGroup{people: map[int]bool{}}
+}
+
+// owes reads "1 person owes 3.000.000 ₫".
+func (g *lentGroup) owes() string {
+	return fmt.Sprintf("%s %s", plural(len(g.people), "person owes", "people owe"), FormatVND(g.total))
+}
+
+func (g *lentGroup) add(person int, loan LentLoan) {
+	g.people[person] = true
 	if loan.RepayBy != nil {
 		if g.earliest == "" || *loan.RepayBy < g.earliest {
 			g.earliest, g.soonest = *loan.RepayBy, *loan.DaysUntilRepay
