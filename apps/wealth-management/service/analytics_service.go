@@ -271,6 +271,8 @@ func (s *analyticsService) AccountHistories(days int, forceFresh bool) (map[stri
 		byAccount[transaction.AccountName] = append(byAccount[transaction.AccountName], transaction)
 	}
 	today := s.today()
+	// Every account starts on the same day, so the page can add them up.
+	days = domain.HistoryDays(transactions, today, days)
 	histories := make(map[string][]domain.TrendPoint, len(accounts))
 	for _, account := range accounts {
 		histories[account.Name] = domain.BackCalculateSeries(account.Balance, byAccount[account.Name], today, days)

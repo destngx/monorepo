@@ -6,6 +6,7 @@
     creditLines,
     creditStandings,
     groupAccounts,
+    historySpan,
     liquidityBreakdown,
     sumBalances,
     totalHistory,
@@ -189,8 +190,9 @@
   </Deferred>
   <Deferred data={historyData} label="the balance history">
     {#snippet children([trend, list])}
-      <Card title="Balance history" subtitle="All accounts, last 12 months">
-        <LineChart points={totalHistory(trend, list)} height={180} label="12-month total balance in VND" />
+      {@const points = totalHistory(trend, list)}
+      <Card title="Balance history" subtitle="All accounts, {historySpan(points)}">
+        <LineChart {points} height={180} label="Total balance in VND, {historySpan(points)}" />
       </Card>
     {/snippet}
     {#snippet skeleton()}<SkeletonCard title="Balance history" chart={180} lines={0} />{/snippet}

@@ -53,6 +53,13 @@ const account = (name: string, balance: number): Account => ({
   currency: 'VND',
   note: null,
 });
+/** Consecutive daily balances from start, oldest first, as the engine sends them. */
+const days = (start: string, count: number) =>
+  Array.from({ length: count }, (_, day) => ({
+    date: new Date(Date.parse(start) + day * 86_400_000).toISOString().slice(0, 10),
+    value: 100_000 + day * 1_000,
+  }));
+
 const summary = {
   balanceSheet: { assets: 9_100_000, liabilities: 1_300_000, netWorth: 7_800_000, receivables: 0, payables: 0 },
 } as unknown as DashboardSummary;
@@ -136,10 +143,7 @@ describe('Accounts page', () => {
   });
 
   it('Given a year of balance history When an account row shows Then its sparkline fills the column and spans 12 months', async () => {
-    const year = Array.from({ length: 366 }, (_, day) => ({
-      date: `2025-10-${String((day % 28) + 1).padStart(2, '0')}`,
-      value: 100_000 + day * 1_000,
-    }));
+    const year = days('2025-10-12', 366);
     render(AccountsPage, {
       data: {
         ...pendingData(),
@@ -154,6 +158,21 @@ describe('Accounts page', () => {
     expect(spark.getAttribute('preserveAspectRatio')).toBe('none');
     const line = spark.querySelectorAll('path')[1];
     expect(line.getAttribute('d')?.match(/[ML]/g)).toHaveLength(366);
+  });
+
+  it('Given a ledger that starts this year When the balance history shows Then it is labelled since 1 January', async () => {
+    render(AccountsPage, {
+      data: {
+        ...pendingData(),
+        accounts: settled([account('Wallet', 466_000)]),
+        histories: settled({ Wallet: days('2026-01-01', 285) }),
+      } as never,
+    });
+    await flush();
+
+    screen.getByRole('img', { name: 'Wallet balance, since 01/01/2026' });
+    screen.getByRole('img', { name: 'Total balance in VND, since 01/01/2026' });
+    screen.getByText('All accounts, since 01/01/2026');
   });
 
   describe('credit card rows', () => {

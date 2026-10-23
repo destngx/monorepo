@@ -191,3 +191,16 @@ func TestGivenTheLastDayWhenProjectingExpenseThenThePaceIsWhatWasSpent(t *testin
 		t.Fatalf("pace = %+v", pace)
 	}
 }
+
+func TestGivenNoDataBeforeThisYearWhenReadingTheDashboardEarlyInJanuaryThenTheTrendStartsOnFirstJanuary(t *testing.T) {
+	today := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
+	income := CategoryTypeIncome
+	deposit := 10.0
+	txs := []Transaction{{AccountName: "Bank", Date: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), Category: "Salary", CategoryType: &income, Deposit: &deposit}}
+
+	summary := ComputeDashboardSummary([]Account{{Name: "Bank", Balance: 100, Type: AccountTypeActiveUse}}, txs, today, 12)
+
+	if len(summary.NetWorthTrend) != 5 || summary.NetWorthTrend[0].Date != "2026-01-01" || summary.NetWorthTrend[0].Value != 90 {
+		t.Fatalf("trend = %+v", summary.NetWorthTrend)
+	}
+}

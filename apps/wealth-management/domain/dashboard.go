@@ -40,7 +40,8 @@ type DashboardSummary struct {
 
 // ComputeDashboardSummary derives the dashboard from sheet data. Month-over-
 // month net worth compares to the start of the month, reconstructed by
-// undoing this month's net flow; the trend is back-calculated daily. Income
+// undoing this month's net flow; the trend is back-calculated daily from
+// where the ledger starts (HistoryDays). Income
 // and expense compare month to date with the same days of last month, so
 // mid-month figures are not set against a whole month. Lending leaves the
 // net worth change and trend out: it moves money between an account and a
@@ -62,7 +63,7 @@ func ComputeDashboardSummary(accounts []Account, transactions []Transaction, tod
 		BalanceSheet:          sheet,
 		NetGrowthThisMonth:    growth,
 		NetWorthChangePercent: PercentChange(sheet.NetWorth, sheet.NetWorth-growth),
-		NetWorthTrend:         BackCalculateSeries(sheet.NetWorth, netWorthFlows, today, dashboardTrendDays),
+		NetWorthTrend:         BackCalculateSeries(sheet.NetWorth, netWorthFlows, today, HistoryDays(transactions, today, dashboardTrendDays)),
 		ThisMonth:             thisMonth,
 		LastMonth:             ComputeCashFlow(transactions, previous),
 		LastMonthToDate:       lastMonthToDate,

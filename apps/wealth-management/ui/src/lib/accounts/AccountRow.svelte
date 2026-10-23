@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { accountIcon, isCreditAccount, noteAmount, walletEarningPerDay, type CreditStanding } from '$lib/accounts';
+  import {
+    accountIcon,
+    historySpan,
+    isCreditAccount,
+    noteAmount,
+    walletEarningPerDay,
+    type CreditStanding,
+  } from '$lib/accounts';
   import type { Account, FlexibleSaving, TrendPoint } from '$lib/api/types';
   import { rateLabel } from '$lib/bills/idleCash';
   import Sparkline from '$lib/charts/Sparkline.svelte';
@@ -12,7 +19,7 @@
 
   interface Props {
     account: Account;
-    /** Balance history, oldest first: the page loads 12 months and the sparkline shows all of it. */
+    /** Balance history, oldest first: up to 12 months, from where the ledger starts; the sparkline shows all of it. */
     history: TrendPoint[];
     /**
      * A card account's credit line: its standing, null when it has no limit
@@ -53,7 +60,7 @@
       width={288}
       height={32}
       fluid
-      label="{account.name} balance, last 12 months"
+      label="{account.name} balance, {historySpan(history)}"
     />
   </div>
   <div class="text-right">

@@ -2,7 +2,8 @@ import { api } from '$lib/api/endpoints';
 import { defer } from '$lib/api/load';
 import type { PageLoad } from './$types';
 
-// 366 days covers the 12-month balance history (WM-ACC-8) and each account's sparkline (WM-ACC-3).
+// 366 days covers the 12-month balance history (WM-ACC-8) and each account's sparkline (WM-ACC-3);
+// the engine starts them later when the ledger does, at the latest on 1 January.
 const HISTORY_DAYS = 366;
 
 // Every request streams into its own section: the header and New account show

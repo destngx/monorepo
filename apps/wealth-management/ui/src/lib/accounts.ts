@@ -1,5 +1,6 @@
 import type { Account, AccountType, CardBankReport, FlexibleSaving, TrendPoint } from './api/types';
 import { type IconName } from '@libs/ui-kit';
+import { formatDate } from './format';
 
 export interface AccountGroup {
   key: string;
@@ -220,6 +221,19 @@ export function totalHistory(histories: Record<string, TrendPoint[]>, accounts: 
     }
   }
   return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }));
+}
+
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+
+/**
+ * The span of a balance history for its label. The engine starts the history
+ * where the ledger does, so a ledger that begins this year reads "since 01/01".
+ */
+export function historySpan(points: TrendPoint[]): string {
+  if (points.length === 0) return 'last 12 months';
+  const first = points[0].date;
+  const days = Date.parse(points[points.length - 1].date) - Date.parse(first);
+  return days >= YEAR_MS ? 'last 12 months' : `since ${formatDate(first)}`;
 }
 
 /**

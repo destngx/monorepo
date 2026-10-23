@@ -126,6 +126,29 @@ func TestBackCalculateSeries(t *testing.T) {
 	}
 }
 
+func TestHistoryDays(t *testing.T) {
+	today := day(2026, 3, 10)
+	sinceJanuary := 31 + 28 + 10
+	cases := []struct {
+		name         string
+		transactions []Transaction
+		days         int
+		want         int
+	}{
+		{"no data before this year starts on 1 January", []Transaction{txn(day(2026, 2, 3), "Food", CategoryTypeExpense, 5, 0)}, 366, sinceJanuary},
+		{"no transactions at all", nil, 366, sinceJanuary},
+		{"older data starts at the first transaction", []Transaction{txn(day(2025, 12, 1), "Food", CategoryTypeExpense, 5, 0)}, 366, sinceJanuary + 31},
+		{"data older than the window keeps the window", []Transaction{txn(day(2024, 1, 1), "Food", CategoryTypeExpense, 5, 0)}, 366, 366},
+		{"a short window inside this year is unchanged", nil, 30, 30},
+		{"unusable rows are not data", []Transaction{{Date: day(2025, 6, 1), Issues: []string{"bad"}}}, 366, sinceJanuary},
+	}
+	for _, c := range cases {
+		if got := HistoryDays(c.transactions, today, c.days); got != c.want {
+			t.Errorf("%s: got %d want %d", c.name, got, c.want)
+		}
+	}
+}
+
 func TestPercentChange(t *testing.T) {
 	if PercentChange(110, 100) == nil || *PercentChange(110, 100) != 10 {
 		t.Fatal("expected +10%")

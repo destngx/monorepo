@@ -461,3 +461,24 @@ func TestGivenALinkedWalletWhenCheckingIdleCashThenProductsAreComparedAndFailure
 		t.Fatalf("options = %+v", idle.Options)
 	}
 }
+
+func TestGivenNoDataBeforeThisYearWhenReadingAccountHistoriesThenEveryAccountStartsOnFirstJanuary(t *testing.T) {
+	deposit := 100.0
+	db := &fakes.Database{
+		Accounts:     []domain.Account{{Name: "Bank", Balance: 500}, {Name: "Wallet", Balance: 50}},
+		Transactions: []domain.Transaction{{AccountName: "Bank", Date: time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC), Deposit: &deposit}},
+	}
+
+	histories, err := newAnalytics(db).AccountHistories(366, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, points := range histories {
+		if len(points) != 285 || points[0].Date != "2026-01-01" || points[len(points)-1].Date != "2026-10-12" {
+			t.Fatalf("%s: %d points from %s", name, len(points), points[0].Date)
+		}
+	}
+	if histories["Bank"][0].Value != 400 {
+		t.Fatalf("Bank opens at %v, want 400", histories["Bank"][0].Value)
+	}
+}

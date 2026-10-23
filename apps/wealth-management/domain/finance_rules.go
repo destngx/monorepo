@@ -216,6 +216,20 @@ func BackCalculateSeries(current float64, transactions []Transaction, today time
 	return points
 }
 
+// HistoryDays shortens a series of `days` days ending today so it starts
+// where the ledger does: at the first usable transaction, or on 1 January of
+// today's year when nothing is older. Before that, BackCalculateSeries would
+// only repeat the opening balance.
+func HistoryDays(transactions []Transaction, today time.Time, days int) int {
+	start := time.Date(today.Year(), time.January, 1, 0, 0, 0, 0, today.Location())
+	for _, t := range transactions {
+		if t.Usable() && t.Date.Before(start) {
+			start = t.Date
+		}
+	}
+	return min(days, int(today.Sub(start).Hours()/24)+1)
+}
+
 // MonthNetFlow is total deposits minus total payments booked in the month.
 // Like BackCalculateSeries it reconstructs a balance (net worth at the start
 // of the month), so it uses booking dates rather than effective dates.

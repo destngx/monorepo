@@ -11,6 +11,7 @@ import {
   noteAmount,
   sumBalances,
   totalHistory,
+  historySpan,
   walletEarningPerDay,
   walletProducts,
 } from './accounts';
@@ -168,6 +169,26 @@ describe('totalHistory', () => {
       { date: '2026-10-01', value: 95 },
       { date: '2026-10-02', value: 100 },
     ]);
+  });
+});
+
+describe('historySpan', () => {
+  it('names a full year as the last 12 months', () => {
+    expect(
+      historySpan([
+        { date: '2025-10-12', value: 0 },
+        { date: '2026-10-12', value: 0 },
+      ]),
+    ).toBe('last 12 months');
+  });
+
+  it('names a shorter history by its first day, e.g. a ledger that starts this year', () => {
+    expect(
+      historySpan([
+        { date: '2026-01-01', value: 0 },
+        { date: '2026-10-12', value: 0 },
+      ]),
+    ).toBe('since 01/01/2026');
   });
 });
 
