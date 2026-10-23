@@ -21,6 +21,7 @@ Multiple agent sessions work in this repo concurrently. Never do feature work in
 - **Node**: Use `pnpm run` and `pnpx nx` for package management and task execution.
 - **Workspace binaries**: Nx targets and scripts call tools installed in the workspace with `pnpm exec <tool>` (eslint, vite, vitest, svelte-check), never `pnpx <tool>`: `pnpx` is `pnpm dlx`, which downloads the latest release and ignores the pinned version and its peers (it once ran ESLint 10 against a 9 config for 20+ minutes, and vitest without jsdom).
 - **Workflow**: Default to **TDD + BDD**. Always verify changes with unit or integration tests.
+- **Python**: uv. The apps are members of the uv workspace in the root `pyproject.toml` and share one root `uv.lock`, so a package two apps use has one version and one copy in the uv cache. Nx targets run `uv run --locked` with `UV_PROJECT_ENVIRONMENT=apps/<app>/.venv`, which creates or syncs that app's own `.venv` on every run, so there is no install step. To change dependencies, run `uv add --no-sync <name>` (`--dev` for test tools) in the app directory, or edit its `pyproject.toml` and run `uv lock`, then commit `uv.lock`. A new Python app adds itself to `members`. uv and Python come from `.mise.toml`.
 - **Toolchain caches stay global**: never redirect `GOCACHE`, `GOMODCACHE`, `GOPATH`, the pnpm store, or other toolchain caches into the repo or a worktree. The global caches are shared across worktrees and safe for concurrent agents. If a cache write fails, stop and report it instead of working around it.
 
 ### Security and Env

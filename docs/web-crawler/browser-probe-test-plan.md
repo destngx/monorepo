@@ -10,7 +10,6 @@ This plan validates the Python browser probe endpoint for VOZ.
 
 ## Prerequisites
 
-- Python dependencies installed under `apps/web-crawler/.venv`
 - Chrome or Chromium installed on the host
 - `CHROME_BIN` points to the browser executable
 - `cookie` may be supplied in the request body for an authorized browser session
@@ -63,9 +62,9 @@ Expected:
 
 ## Execution Order
 
-1. Run `bunx nx run web-crawler:test`.
-2. Run `bunx nx run web-crawler:test-e2e`.
-3. Start the API with `bunx nx run web-crawler:serve`.
+1. Run `pnpx nx run web-crawler:test`.
+2. Run `pnpx nx run web-crawler:test-e2e`.
+3. Start the API with `pnpx nx run web-crawler:serve`.
 4. Call `/v1/pages/probe/browser` with `curl`.
 5. Record `kind`, `bytes`, `post_count`, and `last_page`.
 
@@ -79,8 +78,8 @@ Expected:
 
 ### Unit and Smoke Tests
 
-- `bunx nx run web-crawler:test` passed
-- `bunx nx run web-crawler:test-e2e` passed
+- `pnpx nx run web-crawler:test` passed
+- `pnpx nx run web-crawler:test-e2e` passed
 
 ### Live Browser Probe
 

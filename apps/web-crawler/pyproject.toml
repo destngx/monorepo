@@ -1,0 +1,20 @@
+[project]
+name = "web-crawler"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  # Drives the host Chrome set in CHROME_BIN; no Playwright browser download is needed.
+  "playwright",
+  "httpx",
+  "beautifulsoup4",
+  "lxml",
+]
+
+[dependency-groups]
+dev = ["pytest", "black", "ruff"]
+
+[tool.uv]
+# An app, not a library: uv installs the dependencies only.
+package = false

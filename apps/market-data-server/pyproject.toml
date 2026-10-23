@@ -23,6 +23,3 @@ dev = ["pytest"]
 [tool.uv]
 # An app, not a library: uv installs the dependencies only.
 package = false
-# Use the Python that mise pins in .mise.toml (found on PATH), never one uv manages.
-python-preference = "only-system"
-python-downloads = "never"

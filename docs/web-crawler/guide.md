@@ -4,13 +4,12 @@ This is the practical guide for running the `apps/web-crawler` service.
 
 ## Prerequisites
 
-- Install dependencies for `apps/web-crawler`.
 - Install Chrome or Chromium locally.
 - Set `CHROME_BIN` if the default path does not match your machine.
 
 ## Start
 
-1. Run `bunx nx run web-crawler:serve`.
+1. Run `pnpx nx run web-crawler:serve`. The first run creates `apps/web-crawler/.venv` with uv (root `AGENTS.md`, Python).
 2. Confirm `GET /health` returns `200`.
 3. Use `POST /v1/pages/probe/browser` to probe a URL.
 
@@ -43,6 +42,6 @@ curl -s "http://127.0.0.1:8002/v1/threads/crawl/jobs/$job_id" | jq .job.status
 
 ## Checks
 
-- `bunx nx run web-crawler:test`
-- `bunx nx run web-crawler:test-e2e`
-- `bunx nx run web-crawler:lint`
+- `pnpx nx run web-crawler:test`
+- `pnpx nx run web-crawler:test-e2e`
+- `pnpx nx run web-crawler:lint`

@@ -16,7 +16,7 @@ The server is the single market-data API for the monorepo. It owns every source 
 
 - **Language**: Python 3.10+ (developed on 3.14)
 - **Framework**: FastAPI
-- **Dependencies**: uv. `pyproject.toml` plus the committed `uv.lock`. `uv run --locked` in the `serve` and `test` targets creates and syncs `.venv`, so no install step exists. Change dependencies with `uv add` or `uv lock`. uv and Python come from `.mise.toml`.
+- **Dependencies**: uv, in the root uv workspace (root `AGENTS.md`, Python). The `serve` and `test` targets create and sync `apps/market-data-server/.venv`, so there is no install step.
 - **vnstock**: 4.x. It is no longer published on PyPI; `vnstock` and `vnai` are pinned by URL and sha256 to the vnstocks.com index so uv never resolves those names elsewhere. Bump both together.
 - **Caching**: in-process LRU, plus Upstash Redis when configured, otherwise a local SQLite file.
 
@@ -53,7 +53,7 @@ TTLs live in `CacheConfig` (`src/cache.py`) and are all capped at the next 5am G
 
 ## 🧪 Testing & Workflow
 
-- **Runner**: `pnpx nx run market-data-server:test` (or `PYTHONPATH=. uv run pytest` in the app directory).
+- **Runner**: `pnpx nx run market-data-server:test` (or `UV_PROJECT_ENVIRONMENT=apps/market-data-server/.venv PYTHONPATH=. uv run pytest` in the app directory).
 - Unit tests patch the client classes in `src.modules.shared.deps` (for example `@patch("src.modules.shared.deps.Company")`). `tests/conftest.py` forces `CACHE_ENABLED=false` and `MARKET_DB_PATH=:memory:` so tests never touch a shared cache or store, and imports `src.main` so the shared services exist.
 - v2 tests are async with anyio (`pytestmark = pytest.mark.anyio`). Sources are tested against `httpx.MockTransport` (the `Upstream` recorder in `tests/test_market_sources.py`), the router and service with `FakeSource`, and routes with `app.dependency_overrides[get_market_service]` and `TestClient`. No test calls a real upstream.
 - **Environment**: `src/main.py` loads `.env.local` at startup (real environment variables win). Never commit or print secrets such as `VNSTOCK_API_KEY`.

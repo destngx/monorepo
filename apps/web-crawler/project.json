@@ -5,19 +5,14 @@
   "projectType": "application",
   "tags": ["type:app", "app:web-crawler", "scope:backend", "lang:python"],
   "targets": {
-    "install": {
-      "executor": "nx:run-commands",
-      "options": {
-        "command": "uv pip install -r requirements.txt",
-        "cwd": "apps/web-crawler"
-      },
-      "inputs": ["{projectRoot}/requirements.txt"]
-    },
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "PYTHONPATH=. .venv/bin/python -m compileall src tests",
-        "cwd": "apps/web-crawler"
+        "command": "PYTHONPATH=. uv run --locked python -m compileall src tests",
+        "cwd": "apps/web-crawler",
+        "env": {
+          "UV_PROJECT_ENVIRONMENT": "apps/web-crawler/.venv"
+        }
       },
       "inputs": ["default", "^default"],
       "outputs": []
@@ -25,38 +20,53 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": ".venv/bin/uvicorn src.main:app --reload --reload-dir src --host 0.0.0.0 --port 8002",
-        "cwd": "apps/web-crawler"
+        "command": "uv run --locked uvicorn src.main:app --reload --reload-dir src --host 0.0.0.0 --port 8002",
+        "cwd": "apps/web-crawler",
+        "env": {
+          "UV_PROJECT_ENVIRONMENT": "apps/web-crawler/.venv"
+        }
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "PYTHONPATH=. .venv/bin/pytest tests/unit",
-        "cwd": "apps/web-crawler"
+        "command": "PYTHONPATH=. uv run --locked pytest tests/unit",
+        "cwd": "apps/web-crawler",
+        "env": {
+          "UV_PROJECT_ENVIRONMENT": "apps/web-crawler/.venv"
+        }
       },
       "inputs": ["default", "{projectRoot}/tests/unit/**/*"]
     },
     "test-e2e": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "PYTHONPATH=. .venv/bin/pytest tests/e2e",
-        "cwd": "apps/web-crawler"
+        "command": "PYTHONPATH=. uv run --locked pytest tests/e2e",
+        "cwd": "apps/web-crawler",
+        "env": {
+          "UV_PROJECT_ENVIRONMENT": "apps/web-crawler/.venv"
+        }
       },
       "inputs": ["default", "{projectRoot}/tests/e2e/**/*"]
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "PYTHONPATH=. .venv/bin/ruff check src tests",
-        "cwd": "apps/web-crawler"
+        "command": "PYTHONPATH=. uv run --locked ruff check src tests",
+        "cwd": "apps/web-crawler",
+        "env": {
+          "UV_PROJECT_ENVIRONMENT": "apps/web-crawler/.venv"
+        }
       }
     },
     "format": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "PYTHONPATH=. .venv/bin/black --check src tests",
-        "cwd": "apps/web-crawler"
+        "command": "PYTHONPATH=. uv run --locked black --check src tests",
+        "cwd": "apps/web-crawler",
+        "env": {
+          "UV_PROJECT_ENVIRONMENT": "apps/web-crawler/.venv"
+        }
       }
     }
   }

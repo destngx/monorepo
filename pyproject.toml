@@ -1,0 +1,11 @@
+# uv workspace for the Python apps. One uv.lock resolves every app's dependencies, so a
+# package the apps share has one version and one copy in the uv cache. Each app keeps its
+# own .venv: the Nx targets set UV_PROJECT_ENVIRONMENT=apps/<app>/.venv (uv resolves it
+# from this directory).
+[tool.uv.workspace]
+members = ["apps/market-data-server", "apps/web-crawler"]
+
+[tool.uv]
+# Use the Python that mise pins in .mise.toml (found on PATH), never one uv manages.
+python-preference = "only-system"
+python-downloads = "never"
