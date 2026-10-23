@@ -47,6 +47,17 @@ export function finishLabel(goal: GoalProgress): string {
   return formatMonth(goal.projectedFinish);
 }
 
+/**
+ * The target date hint. The engine counts a month's savings as all there by the
+ * end of that month, so money needed early in a month belongs to the month before.
+ */
+export function goalDateHint(targetDate: string): string {
+  if (!targetDate) return 'Blank means no deadline; the goal shows its projected finish only.';
+  const [year, month] = targetDate.split('-').map(Number);
+  const before = month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
+  return `Saved by the end of ${formatMonth(targetDate)}. Need it before ${formatMonth(targetDate, true)}'s wage arrives? Pick ${formatMonth(before)}.`;
+}
+
 /** Active goals first, then paused, then done, each in priority order (the engine's order). */
 export function groupGoals(plan: GoalPlan): { active: GoalProgress[]; paused: GoalProgress[]; done: GoalProgress[] } {
   return {

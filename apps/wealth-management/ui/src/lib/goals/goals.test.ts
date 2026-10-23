@@ -4,6 +4,7 @@ import {
   emptyGoalForm,
   finishLabel,
   formatYears,
+  goalDateHint,
   goalFormFor,
   goalInputFrom,
   groupGoals,
@@ -55,6 +56,24 @@ describe('goal statuses', () => {
     expect(finishLabel(goal({ pace: 'done' }))).toBe('Done');
     expect(formatYears(8.7)).toBe('8.7 years');
     expect(formatYears(null)).toBe('-');
+  });
+});
+
+describe('goalDateHint', () => {
+  it('explains a blank date as no deadline', () => {
+    expect(goalDateHint('')).toBe('Blank means no deadline; the goal shows its projected finish only.');
+  });
+
+  it('counts savings to the end of the month and points to the month before for early needs', () => {
+    expect(goalDateHint('2026-12')).toBe(
+      "Saved by the end of Dec 2026. Need it before Dec's wage arrives? Pick Nov 2026.",
+    );
+  });
+
+  it('steps back across a year boundary', () => {
+    expect(goalDateHint('2027-01')).toBe(
+      "Saved by the end of Jan 2027. Need it before Jan's wage arrives? Pick Dec 2026.",
+    );
   });
 });
 

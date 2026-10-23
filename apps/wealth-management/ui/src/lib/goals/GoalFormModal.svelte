@@ -3,7 +3,7 @@
   import type { GoalProgress } from '$lib/api/types';
   import { Button, Modal } from '@libs/ui-kit';
   import MonthPicker from '$lib/components/MonthPicker.svelte';
-  import { looksLikeEmergencyFund, type GoalForm } from './goals';
+  import { goalDateHint, looksLikeEmergencyFund, type GoalForm } from './goals';
 
   interface Props {
     open: boolean;
@@ -88,7 +88,7 @@
         clearLabel="No deadline"
         describedby="goal-date-hint"
       />
-      <p id="goal-date-hint" class="muted mt-1 text-xs">Blank: no deadline, the pace only.</p>
+      <p id="goal-date-hint" class="muted mt-1 text-xs">{goalDateHint(form.targetDate)}</p>
     </div>
     <div>
       <label class="label" for="goal-priority">Priority</label>
