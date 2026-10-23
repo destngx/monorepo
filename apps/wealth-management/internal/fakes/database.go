@@ -76,6 +76,12 @@ type Database struct {
 	// RecommendationWrites counts UpdateRecommendations calls that wrote.
 	RecommendationWrites int
 	SavedSnapshots       []domain.MonthSnapshot
+	CreatedCards         []domain.CardInput
+	UpdatedCards         map[string]domain.CardInput
+	CreatedPrograms      []domain.ProgramInput
+	SavedMerchants       []domain.MerchantInput
+	FundTrades           []domain.FundTradeInput
+	CryptoWrites         []domain.CryptoHoldingsInput
 }
 
 var _ port.DatabaseService = (*Database)(nil)
@@ -645,4 +651,77 @@ func (f *Database) SaveSnapshot(snapshot domain.MonthSnapshot) (domain.SnapshotS
 	snapshot.Row = len(f.Snapshots.Snapshots) + 2
 	f.Snapshots.Snapshots = append(f.Snapshots.Snapshots, snapshot)
 	return domain.SnapshotSaveResult{Snapshot: snapshot, Created: true}, nil
+}
+
+func (f *Database) CreateCard(input domain.CardInput) (domain.Card, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	input = input.Normalized()
+	if err := input.Validate(); err != nil {
+		return domain.Card{}, err
+	}
+	f.CreatedCards = append(f.CreatedCards, input)
+	return domain.Card{Name: input.Name, Program: input.Program}, f.Err
+}
+
+func (f *Database) UpdateCard(name string, input domain.CardInput) (domain.Card, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	input = input.Normalized()
+	if err := input.Validate(); err != nil {
+		return domain.Card{}, err
+	}
+	if f.UpdatedCards == nil {
+		f.UpdatedCards = map[string]domain.CardInput{}
+	}
+	f.UpdatedCards[name] = input
+	return domain.Card{Name: input.Name, Program: input.Program}, f.Err
+}
+
+func (f *Database) CreateCardProgram(input domain.ProgramInput) (domain.Program, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	input = input.Normalized()
+	if _, err := input.Validate(); err != nil {
+		return domain.Program{}, err
+	}
+	f.CreatedPrograms = append(f.CreatedPrograms, input)
+	return domain.Program{Name: input.Program, Bank: input.Bank}, f.Err
+}
+
+func (f *Database) SaveMerchant(input domain.MerchantInput) (domain.MerchantMCC, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	input = input.Normalized()
+	if err := input.Validate(); err != nil {
+		return domain.MerchantMCC{}, err
+	}
+	f.SavedMerchants = append(f.SavedMerchants, input)
+	return domain.MerchantMCC{Pattern: input.Pattern, MCC: input.MCC}, f.Err
+}
+
+func (f *Database) RecordFundTrade(input domain.FundTradeInput) (domain.FundTradeResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	input = input.Normalized()
+	if _, err := input.Validate(time.Now()); err != nil {
+		return domain.FundTradeResult{}, err
+	}
+	f.FundTrades = append(f.FundTrades, input)
+	return domain.FundTradeResult{Code: input.Code, Units: input.Units}, f.Err
+}
+
+func (f *Database) SetCryptoHoldings(input domain.CryptoHoldingsInput) ([]domain.CryptoHoldingResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	holdings, err := input.Normalized()
+	if err != nil {
+		return nil, err
+	}
+	f.CryptoWrites = append(f.CryptoWrites, input)
+	results := make([]domain.CryptoHoldingResult, len(holdings))
+	for index, holding := range holdings {
+		results[index] = domain.CryptoHoldingResult{Platform: holding.Platform, Symbol: holding.Symbol, Quantity: holding.Quantity}
+	}
+	return results, f.Err
 }

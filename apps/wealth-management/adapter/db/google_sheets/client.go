@@ -175,6 +175,24 @@ func (c *SheetsClient) UpdateRow(rangeValue string, values []any) error {
 	})
 }
 
+// UpdateCells writes the rows with one values.batchUpdate request.
+func (c *SheetsClient) UpdateCells(updates []domain.CellUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	data := make([]*sheets.ValueRange, len(updates))
+	for index, update := range updates {
+		data[index] = &sheets.ValueRange{Range: update.Range, Values: [][]any{update.Values}}
+	}
+	return c.write("values.batchUpdate", func(ctx context.Context) error {
+		_, err := c.service.Spreadsheets.Values.BatchUpdate(c.spreadsheetID, &sheets.BatchUpdateValuesRequest{
+			ValueInputOption: "USER_ENTERED",
+			Data:             data,
+		}).Context(ctx).Do()
+		return err
+	})
+}
+
 // WriteRowsAtFirstEmptyRow writes rows below the last non-empty cell of the
 // anchor column and returns the first sheet row written. The sheet keeps
 // formulas in later columns of empty rows, so rows are written in place

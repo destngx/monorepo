@@ -75,6 +75,33 @@ func (c *Client) UpdateRow(rangeValue string, values []any) error {
 	return nil
 }
 
+// UpdateCells writes every row or none: the ranges are checked first.
+func (c *Client) UpdateCells(updates []domain.CellUpdate) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	type write struct {
+		tab    *sheet
+		target cellRange
+		values []any
+	}
+	writes := make([]write, 0, len(updates))
+	for _, update := range updates {
+		target, err := parseRange(update.Range)
+		if err != nil {
+			return err
+		}
+		tab, err := c.sheet(target.sheet)
+		if err != nil {
+			return err
+		}
+		writes = append(writes, write{tab: tab, target: target, values: update.Values})
+	}
+	for _, w := range writes {
+		w.tab.writeRow(w.target.startRow, w.target.startCol, w.values)
+	}
+	return nil
+}
+
 // WriteRowsAtFirstEmptyRow writes rows from column A below the last
 // non-empty cell of the anchor column, like the Sheets client.
 func (c *Client) WriteRowsAtFirstEmptyRow(sheetName string, anchorRange string, rows [][]any) (int, error) {

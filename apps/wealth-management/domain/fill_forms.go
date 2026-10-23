@@ -181,7 +181,8 @@ var fillForms = []FillForm{
 		Key: "cashback-program", Title: "Cashback programme", Images: true, RowsLabel: "rule",
 		Fields: []FillField{
 			{Name: "program", Label: "Programme", Type: FillName, List: FillPrograms, New: true, Required: true},
-			{Name: "bank", Label: "Bank", Type: FillName, List: FillBanks, Required: true},
+			{Name: "bank", Label: "Bank", Type: FillName, List: FillBanks, New: true, Required: true},
+			{Name: "sharedAccount", Label: "Shared account", Type: FillName, List: FillAccounts, Hint: "only for a bank not listed yet: the account its cards bill to"},
 			{Name: "from", Label: "From", Type: FillDate, Required: true, Hint: "the day these terms start"},
 			{Name: "annualFee", Label: "Annual fee", Type: FillMoney, Min: fillZero},
 			{Name: "cap", Label: "Card cashback cap", Type: FillMoney, Min: fillZero},

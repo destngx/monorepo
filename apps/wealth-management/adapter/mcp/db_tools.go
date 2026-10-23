@@ -7,7 +7,7 @@ import (
 )
 
 func (s *Server) databaseTools() []tool {
-	return append(append(s.sheetTools(), s.goalWriteTools()...), s.billsWriteTools()...)
+	return append(append(append(s.sheetTools(), s.goalWriteTools()...), s.billsWriteTools()...), s.configWriteTools()...)
 }
 
 func (s *Server) sheetTools() []tool {

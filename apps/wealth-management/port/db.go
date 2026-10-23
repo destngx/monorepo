@@ -125,6 +125,24 @@ type DatabaseService interface {
 	// merchant MCCs from the Programs, ProgramRules, Banks, Cards and
 	// Merchants tabs (WM-CARD-3); a missing tab contributes no rows.
 	ListCardConfig(forceFresh bool) (domain.CardConfig, error)
+	// CreateCard and UpdateCard write a Cards row, and the shared account's
+	// credit limit when set (WM-FILL-12). A write that would leave a row the
+	// strict read rejects fails with ErrValidation; UpdateCard returns
+	// ErrNotFound for an unknown card.
+	CreateCard(input domain.CardInput) (domain.Card, error)
+	UpdateCard(name string, input domain.CardInput) (domain.Card, error)
+	// CreateCardProgram appends a programme version and its rules
+	// (WM-FILL-13); ErrConflict when that version exists.
+	CreateCardProgram(input domain.ProgramInput) (domain.Program, error)
+	// SaveMerchant upserts a Merchants row by pattern and start date
+	// (WM-FILL-14).
+	SaveMerchant(input domain.MerchantInput) (domain.MerchantMCC, error)
+	// RecordFundTrade adds a trade to a fund's History and Total Unit
+	// (WM-FILL-10).
+	RecordFundTrade(input domain.FundTradeInput) (domain.FundTradeResult, error)
+	// SetCryptoHoldings sets coin quantities per platform in the Crypto tab
+	// (WM-FILL-11).
+	SetCryptoHoldings(input domain.CryptoHoldingsInput) ([]domain.CryptoHoldingResult, error)
 	SyncCache() (domain.SyncResult, error)
 	// SheetInfo returns the spreadsheet id and title and the time of the
 	// last successful SyncCache (WM-SET-2).
@@ -150,6 +168,9 @@ type DatabaseClient interface {
 	// the order of ranges.
 	ReadSheets(ranges []string) ([][][]string, error)
 	UpdateRow(rangeValue string, values []any) error
+	// UpdateCells writes several rows in one request, so a change that
+	// spans cells is written whole or not at all.
+	UpdateCells(updates []domain.CellUpdate) error
 	// WriteRowsAtFirstEmptyRow writes rows below the anchor column's last value
 	// and returns the first sheet row written.
 	WriteRowsAtFirstEmptyRow(sheetName string, anchorRange string, rows [][]any) (int, error)

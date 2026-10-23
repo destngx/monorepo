@@ -210,3 +210,9 @@ type InitResult struct {
 	} `json:"loaded"`
 	Error string `json:"error,omitempty"`
 }
+
+// CellUpdate is one row of values written from the first cell of Range.
+type CellUpdate struct {
+	Range  string
+	Values []any
+}

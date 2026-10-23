@@ -85,6 +85,21 @@ func (f *fakeSheetClient) UpdateRow(rangeValue string, values []any) error {
 	return nil
 }
 
+func (f *fakeSheetClient) UpdateCells(updates []domain.CellUpdate) error {
+	if f.writeErr != nil {
+		return f.writeErr
+	}
+	for _, update := range updates {
+		if err := f.writeErrFor[update.Range]; err != nil {
+			return err
+		}
+	}
+	for _, update := range updates {
+		f.updates = append(f.updates, sheetUpdate{rangeValue: update.Range, values: update.Values})
+	}
+	return nil
+}
+
 func (f *fakeSheetClient) WriteRowsAtFirstEmptyRow(sheetName string, anchor string, rows [][]any) (int, error) {
 	if f.writeErr != nil {
 		return 0, f.writeErr
