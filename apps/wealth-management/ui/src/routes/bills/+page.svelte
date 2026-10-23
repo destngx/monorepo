@@ -20,6 +20,7 @@
   } from '$lib/bills/bills';
   import IdleCashCard from '$lib/bills/IdleCashCard.svelte';
   import MinimumBalances from '$lib/bills/MinimumBalances.svelte';
+  import FoldRow from '$lib/components/FoldRow.svelte';
   import SetAside from '$lib/bills/SetAside.svelte';
   import ReadyMoney from '$lib/bills/ReadyMoney.svelte';
   import RecurringFormModal from '$lib/bills/RecurringFormModal.svelte';
@@ -200,51 +201,86 @@
           {/if}
         </span>
       {/snippet}
-      <dl class="mt-4 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm" data-testid="safe-breakdown">
-        <dt>
-          Ready money{#if safe.reserved > 0}, above minimum balances{/if}
-        </dt>
-        <dd class="text-right"><Money value={safe.readyMoney} /></dd>
-        {#if safe.reserved > 0}
-          <dt class="muted text-xs">Kept as minimum balances (not counted)</dt>
-          <dd class="muted text-right text-xs" data-testid="safe-reserved"><Money value={safe.reserved} /></dd>
-        {/if}
-        <dt>Bills due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
-        <dd class="text-right">− <Money value={safe.billsDue} /></dd>
-        <dt>Card payments due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
-        <dd class="text-right">− <Money value={safe.cardPayments} /></dd>
-        {#if safe.natureTagged}
-          <dt>Fixed costs still to pay</dt>
-          <dd class="text-right">− <Money value={safe.fixedCosts} /></dd>
-        {/if}
-        <dt class="border-t border-stone-900/10 pt-1 dark:border-white/10">Left after committed</dt>
-        <dd class="border-t border-stone-900/10 pt-1 text-right dark:border-white/10">
-          <Money value={safe.amount} />
-        </dd>
-        {#if safe.natureTagged}
-          <dt>Essentials for {safe.days} {safe.days === 1 ? 'day' : 'days'}</dt>
-          <dd class="text-right">− <Money value={safe.essentials} /></dd>
-        {/if}
-        <dt class="border-t border-stone-900/10 pt-1 font-semibold dark:border-white/10">Free to spend</dt>
-        <dd class="border-t border-stone-900/10 pt-1 text-right font-semibold dark:border-white/10">
-          <Money value={safe.safeToSpend} />
-        </dd>
+      <!-- The answer's four figures; the details fold below, closed until asked for. -->
+      <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4" data-testid="safe-figures">
+        <div class="min-w-0">
+          <dt class="label">Ready money</dt>
+          <dd class="tabular font-semibold"><Money value={safe.readyMoney} /></dd>
+        </div>
+        <div class="min-w-0">
+          <dt class="label">Committed</dt>
+          <dd class="tabular font-semibold">
+            − <Money value={safe.billsDue + safe.cardPayments + (safe.natureTagged ? safe.fixedCosts : 0)} />
+          </dd>
+        </div>
+        <div class="min-w-0">
+          <dt class="label">Essentials</dt>
+          <dd class="tabular font-semibold">
+            {#if safe.natureTagged}− <Money value={safe.essentials} />{:else}<span class="muted">not set aside</span
+              >{/if}
+          </dd>
+        </div>
+        <div class="min-w-0">
+          <dt class="label">Free to spend</dt>
+          <dd class="tabular font-semibold"><Money value={safe.safeToSpend} /></dd>
+        </div>
       </dl>
-      <p class="muted mt-3 text-xs" data-testid="safe-explanation">
-        {#if safe.untilIncome}Until the next income, {safe.incomeName}, expected {formatDate(safe.until)}. Unpaid bills
-          and card payments due before that day count, overdue ones too; anything due on payday itself is paid by that
-          wage, so it is not counted.{:else}No income item is set, so this covers the next 30 days: unpaid bills and
-          card payments due up to and including {formatDate(safe.until)}, overdue ones too.{/if}
-        Ready money is bank, cash, active and rarely used accounts you can spend today; crypto and accounts you mark not ready
-        to use (slow to withdraw) are left out. An account with a minimum balance to keep counts only what is above that minimum:
-        it is a hard reserve, since a reward on the month's average cannot be saved by topping up late.
-        {#if safe.natureTagged}Committed money is never spendable: bills, card payments and the fixed costs (rent,
-          insurance) still to pay this month, from their budget or their usual amount. Essentials (groceries, transport)
-          are kept for needs at your usual daily pace. Only what is free to spend is for wants.{/if}
-      </p>
-      <SetAside {safe} />
-      <ReadyMoney {safe} />
-      <MinimumBalances {safe} />
+      {#if !safe.natureTagged}<SetAside {safe} />{/if}
+      <div
+        class="mt-3 divide-y divide-stone-900/5 border-t border-stone-900/5 text-sm dark:divide-white/5 dark:border-white/5"
+      >
+        <FoldRow title="How it adds up">
+          <dl class="grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm" data-testid="safe-breakdown">
+            <dt>
+              Ready money{#if safe.reserved > 0}, above minimum balances{/if}
+            </dt>
+            <dd class="text-right"><Money value={safe.readyMoney} /></dd>
+            {#if safe.reserved > 0}
+              <dt class="muted text-xs">Kept as minimum balances (not counted)</dt>
+              <dd class="muted text-right text-xs" data-testid="safe-reserved"><Money value={safe.reserved} /></dd>
+            {/if}
+            <dt>Bills due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
+            <dd class="text-right">− <Money value={safe.billsDue} /></dd>
+            <dt>Card payments due {safe.untilIncome ? 'before payday' : 'by then'}</dt>
+            <dd class="text-right">− <Money value={safe.cardPayments} /></dd>
+            {#if safe.natureTagged}
+              <dt>Fixed costs still to pay</dt>
+              <dd class="text-right">− <Money value={safe.fixedCosts} /></dd>
+            {/if}
+            <dt class="border-t border-stone-900/10 pt-1 dark:border-white/10">Left after committed</dt>
+            <dd class="border-t border-stone-900/10 pt-1 text-right dark:border-white/10">
+              <Money value={safe.amount} />
+            </dd>
+            {#if safe.natureTagged}
+              <dt>Essentials for {safe.days} {safe.days === 1 ? 'day' : 'days'}</dt>
+              <dd class="text-right">− <Money value={safe.essentials} /></dd>
+            {/if}
+            <dt class="border-t border-stone-900/10 pt-1 font-semibold dark:border-white/10">Free to spend</dt>
+            <dd class="border-t border-stone-900/10 pt-1 text-right font-semibold dark:border-white/10">
+              <Money value={safe.safeToSpend} />
+            </dd>
+          </dl>
+          <p class="muted mt-3 text-xs" data-testid="safe-explanation">
+            {#if safe.untilIncome}Until the next income, {safe.incomeName}, expected {formatDate(safe.until)}. Unpaid
+              bills and card payments due before that day count, overdue ones too; anything due on payday itself is paid
+              by that wage, so it is not counted.{:else}No income item is set, so this covers the next 30 days: unpaid
+              bills and card payments due up to and including {formatDate(safe.until)}, overdue ones too.{/if}
+            Ready money is bank, cash, active and rarely used accounts you can spend today; crypto and accounts you mark not
+            ready to use (slow to withdraw) are left out. An account with a minimum balance to keep counts only what is above
+            that minimum: it is a hard reserve, since a reward on the month's average cannot be saved by topping up late.
+            {#if safe.natureTagged}Committed money is never spendable: bills, card payments and the fixed costs (rent,
+              insurance) still to pay this month, from their budget or their usual amount. Essentials (groceries,
+              transport) are kept for needs at your usual daily pace. Only what is free to spend is for wants.{/if}
+          </p>
+        </FoldRow>
+        {#if safe.natureTagged}
+          <FoldRow title="Set aside" money={safe.fixedCosts + safe.essentials}><SetAside {safe} /></FoldRow>
+        {/if}
+        <FoldRow title="Accounts and what is due" count={safe.counted.length}><ReadyMoney {safe} /></FoldRow>
+        <FoldRow title="Minimum balances" money={safe.reserved > 0 ? safe.reserved : undefined}
+          ><MinimumBalances {safe} /></FoldRow
+        >
+      </div>
     </PageHeadline>
   {/snippet}
   {#snippet skeleton()}<SkeletonHeadline question="Safe to spend" label="safe to spend" />{/snippet}

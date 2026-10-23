@@ -10,7 +10,7 @@
   const basisLabel = (basis: 'budget' | 'average') => (basis === 'budget' ? 'budget' : '6-month average');
 </script>
 
-<div class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2" data-testid="set-aside">
+<div class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 {safe.natureTagged ? '' : 'mt-2'}" data-testid="set-aside">
   {#if safe.natureTagged}
     <section aria-labelledby="fixed-costs-title">
       <h3 id="fixed-costs-title" class="text-xs font-semibold tracking-wide uppercase">Fixed costs still to pay</h3>
@@ -52,7 +52,7 @@
       </ul>
     </section>
   {:else}
-    <p class="muted sm:col-span-2">
+    <p class="muted text-xs sm:col-span-2">
       No category is tagged fixed or essential, so nothing is set aside for rent or groceries. Tag them on the
       <a href="{base}/budget" class="link">budget page</a>.
     </p>

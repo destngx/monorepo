@@ -7,6 +7,7 @@
   import Money from '$lib/components/Money.svelte';
   import { STATUS } from '$lib/status';
   import AccountProducts from './AccountProducts.svelte';
+  import FoldRow from '$lib/components/FoldRow.svelte';
   import DayToDayFloatField from './DayToDayFloatField.svelte';
   import EmergencyAccounts from './EmergencyAccounts.svelte';
   import {
@@ -51,20 +52,6 @@
   const moveCount = $derived(idle.moves.length + idle.switches.length + idle.emergency.moves.length);
   const months = $derived(c.bufferMonths === 1 ? '1 month' : `${Number(c.bufferMonths.toFixed(1))} months`);
 </script>
-
-{#snippet foldTitle(title: string, id?: string, extra?: { money?: number; count?: number })}
-  <summary
-    class="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-xs font-semibold tracking-wide uppercase"
-  >
-    <span {id}>{title}</span>
-    <span class="muted flex items-center gap-2 font-normal tracking-normal normal-case">
-      {#if extra?.money !== undefined}<Money
-          value={extra.money}
-        />{:else if extra?.count !== undefined}{extra.count}{/if}
-      <Icon name="chevronDown" size={14} class="transition-transform group-open:rotate-180" />
-    </span>
-  </summary>
-{/snippet}
 
 <Card title="Idle cash" subtitle="Ready money beyond your day-to-day float" class="mt-4">
   {#snippet actions()}
@@ -149,127 +136,115 @@
   <div
     class="mt-3 divide-y divide-stone-900/5 border-t border-stone-900/5 text-sm dark:divide-white/5 dark:border-white/5"
   >
-    <details class="group" data-testid="idle-emergency">
-      {@render foldTitle('Emergency fund', 'emergency-fund-title', { money: c.emergencyFund })}
-      <section class="pb-2" aria-labelledby="emergency-fund-title">
-        {#if idle.emergency.accounts.length}
-          <p>
-            Target <Money value={c.emergencyFund} />: your emergency accounts hold <Money
-              value={c.emergencyInAccounts}
-            />
-            {#if c.emergencyFromReady > 0}
-              and cover <Money value={c.emergencyCovered} />; the other <Money value={c.emergencyFromReady} /> stays in ready
-              money.
-            {:else}
-              and cover all of it.
-            {/if}
-          </p>
-          {#if idle.emergency.betterRate && idle.best}
-            <p class="mt-1 flex items-start gap-1 {STATUS.info.ink}" data-testid="emergency-better-rate">
-              <Icon name={STATUS.info.icon} size={14} />
-              <span
-                >Your emergency accounts earn <span class="tabular">{rateLabel(idle.emergency.currentRate)}</span>.
-                {sentence(place(idle.best))} (<span class="tabular">{rateLabel(idle.best.rate)}</span>, {depositTerms(
-                  idle.best,
-                )}) would earn about <Money value={idle.emergency.extraPerYear} /> a year more and keep it within reach. Move
-                it only if the new place is as quick to reach in an emergency.</span
-              >
-            </p>
+    <FoldRow title="Emergency fund" money={c.emergencyFund} testid="idle-emergency">
+      {#if idle.emergency.accounts.length}
+        <p>
+          Target <Money value={c.emergencyFund} />: your emergency accounts hold <Money value={c.emergencyInAccounts} />
+          {#if c.emergencyFromReady > 0}
+            and cover <Money value={c.emergencyCovered} />; the other <Money value={c.emergencyFromReady} /> stays in ready
+            money.
+          {:else}
+            and cover all of it.
           {/if}
-        {:else}
-          <p class="mt-1">
-            No emergency account is marked, so the whole target (<Money value={c.emergencyFund} />) is kept from ready
-            money. Mark the account that holds it below.
+        </p>
+        {#if idle.emergency.betterRate && idle.best}
+          <p class="mt-1 flex items-start gap-1 {STATUS.info.ink}" data-testid="emergency-better-rate">
+            <Icon name={STATUS.info.icon} size={14} />
+            <span
+              >Your emergency accounts earn <span class="tabular">{rateLabel(idle.emergency.currentRate)}</span>.
+              {sentence(place(idle.best))} (<span class="tabular">{rateLabel(idle.best.rate)}</span>, {depositTerms(
+                idle.best,
+              )}) would earn about <Money value={idle.emergency.extraPerYear} /> a year more and keep it within reach. Move
+              it only if the new place is as quick to reach in an emergency.</span
+            >
           </p>
         {/if}
-      </section>
-    </details>
+      {:else}
+        <p class="mt-1">
+          No emergency account is marked, so the whole target (<Money value={c.emergencyFund} />) is kept from ready
+          money. Mark the account that holds it below.
+        </p>
+      {/if}
+    </FoldRow>
     {#if idle.options.length}
-      <details class="group" data-testid="idle-options">
-        {@render foldTitle('Compare instant-access places', 'idle-options-title', { count: idle.options.length })}
-        <section class="pb-2" aria-labelledby="idle-options-title">
-          <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
-            {#each idle.options as option, index (option.productId ?? `${option.bank}-${option.access}`)}
-              {@const own = ownProducts(option)}
-              <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
-                <span class="min-w-0">
-                  <strong>{sentence(place(option))}</strong><span class="muted">, {depositTerms(option)}</span>
-                  {#if option.url}
-                    <a class="link text-xs" href={option.url} target="_blank" rel="noopener noreferrer"
-                      >Open<span class="sr-only"> {place(option)} (new tab)</span></a
-                    >
-                  {/if}
-                </span>
-                <span class="flex flex-wrap items-center gap-1.5">
-                  {#if index === 0}<Badge status="good">Best</Badge>{/if}
-                  {#if own.length}<Badge tone="blue">Used by {own.join(', ')}</Badge>{/if}
-                  {#if option.backing === 'business_cooperation'}<Badge status="warning">not a bank deposit</Badge>{/if}
-                  {#if option.stale}<Badge status="warning">stale</Badge>{/if}
-                  <span class="tabular font-medium">{rateLabel(option.rate)}</span>
-                </span>
-              </li>
-            {/each}
-          </ul>
-        </section>
-      </details>
+      <FoldRow title="Compare instant-access places" count={idle.options.length} testid="idle-options">
+        <ul class="divide-y divide-stone-900/5 dark:divide-white/5">
+          {#each idle.options as option, index (option.productId ?? `${option.bank}-${option.access}`)}
+            {@const own = ownProducts(option)}
+            <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
+              <span class="min-w-0">
+                <strong>{sentence(place(option))}</strong><span class="muted">, {depositTerms(option)}</span>
+                {#if option.url}
+                  <a class="link text-xs" href={option.url} target="_blank" rel="noopener noreferrer"
+                    >Open<span class="sr-only"> {place(option)} (new tab)</span></a
+                  >
+                {/if}
+              </span>
+              <span class="flex flex-wrap items-center gap-1.5">
+                {#if index === 0}<Badge status="good">Best</Badge>{/if}
+                {#if own.length}<Badge tone="blue">Used by {own.join(', ')}</Badge>{/if}
+                {#if option.backing === 'business_cooperation'}<Badge status="warning">not a bank deposit</Badge>{/if}
+                {#if option.stale}<Badge status="warning">stale</Badge>{/if}
+                <span class="tabular font-medium">{rateLabel(option.rate)}</span>
+              </span>
+            </li>
+          {/each}
+        </ul>
+      </FoldRow>
     {/if}
     {#if hasMoves}
-      <details class="group" data-testid="idle-moves">
-        {@render foldTitle('How to move', 'idle-moves-title', { count: moveCount })}
-        <section class="pb-2" aria-labelledby="idle-moves-title">
-          {#each moveGroups as group (group.title)}
-            {#if group.moves.length}
-              <h4 class="mt-1 text-xs font-medium first:mt-0">{group.title}</h4>
-              <ul class="mt-1 space-y-3">
-                {#each group.moves as move (move.from + move.to)}
-                  <li data-testid="idle-move">
-                    <p>
-                      <strong>{move.from}</strong> ({rateLabel(move.fromRate)}) to <strong>{move.to}</strong>
-                      ({rateLabel(move.toRate)}): <Money value={move.amount} />,
-                      <span class="tabular">{Number(move.rateGapPoints.toFixed(2))}</span>
-                      points more, about <Money value={move.extraPerMonth} /> a month and <Money
-                        value={move.extraPerYear}
-                      /> a year.
+      <FoldRow title="How to move" count={moveCount} testid="idle-moves">
+        {#each moveGroups as group (group.title)}
+          {#if group.moves.length}
+            <h4 class="mt-1 text-xs font-medium first:mt-0">{group.title}</h4>
+            <ul class="mt-1 space-y-3">
+              {#each group.moves as move (move.from + move.to)}
+                <li data-testid="idle-move">
+                  <p>
+                    <strong>{move.from}</strong> ({rateLabel(move.fromRate)}) to <strong>{move.to}</strong>
+                    ({rateLabel(move.toRate)}): <Money value={move.amount} />,
+                    <span class="tabular">{Number(move.rateGapPoints.toFixed(2))}</span>
+                    points more, about <Money value={move.extraPerMonth} /> a month and <Money
+                      value={move.extraPerYear}
+                    /> a year.
+                  </p>
+                  <p class="mt-0.5">
+                    Moving today ({move.today.weekday}): {move.today.daysWithoutInterest}
+                    {move.today.daysWithoutInterest === 1 ? 'day' : 'days'} without interest, about
+                    <Money value={move.today.interestLost} /> lost.
+                  </p>
+                  <p class="mt-0.5">
+                    Best day, {move.bestDay.weekday}
+                    {move.bestDay.date}: {move.bestDay.daysWithoutInterest}
+                    {move.bestDay.daysWithoutInterest === 1 ? 'day' : 'days'}, <Money
+                      value={move.bestDay.interestLost}
+                    />
+                    lost, earned back in {move.bestDay.paybackDays}
+                    {move.bestDay.paybackDays === 1 ? 'day' : 'days'}.
+                  </p>
+                  {#if move.worstCaseExtraDays > 0}
+                    <p class="mt-0.5 flex items-start gap-1 {STATUS.warning.ink}">
+                      <Icon name={STATUS.warning.icon} size={14} />
+                      <span
+                        >Worst case the money is in transit {move.worstCaseExtraDays}
+                        {move.worstCaseExtraDays === 1 ? 'day' : 'days'} longer.</span
+                      >
                     </p>
-                    <p class="mt-0.5">
-                      Moving today ({move.today.weekday}): {move.today.daysWithoutInterest}
-                      {move.today.daysWithoutInterest === 1 ? 'day' : 'days'} without interest, about
-                      <Money value={move.today.interestLost} /> lost.
-                    </p>
-                    <p class="mt-0.5">
-                      Best day, {move.bestDay.weekday}
-                      {move.bestDay.date}: {move.bestDay.daysWithoutInterest}
-                      {move.bestDay.daysWithoutInterest === 1 ? 'day' : 'days'}, <Money
-                        value={move.bestDay.interestLost}
-                      />
-                      lost, earned back in {move.bestDay.paybackDays}
-                      {move.bestDay.paybackDays === 1 ? 'day' : 'days'}.
-                    </p>
-                    {#if move.worstCaseExtraDays > 0}
-                      <p class="mt-0.5 flex items-start gap-1 {STATUS.warning.ink}">
-                        <Icon name={STATUS.warning.icon} size={14} />
-                        <span
-                          >Worst case the money is in transit {move.worstCaseExtraDays}
-                          {move.worstCaseExtraDays === 1 ? 'day' : 'days'} longer.</span
-                        >
-                      </p>
-                    {/if}
-                    <ol class="mt-1 list-decimal space-y-0.5 pl-5">
-                      {#each move.steps as step (step)}
-                        <li><MaskedText text={step} /></li>
-                      {/each}
-                    </ol>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-          {/each}
-        </section>
-      </details>
+                  {/if}
+                  <ol class="mt-1 list-decimal space-y-0.5 pl-5">
+                    {#each move.steps as step (step)}
+                      <li><MaskedText text={step} /></li>
+                    {/each}
+                  </ol>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        {/each}
+      </FoldRow>
     {/if}
-    <details class="group">
-      {@render foldTitle('Settings')}
-      <div class="grid grid-cols-1 gap-4 pb-2 sm:grid-cols-2">
+    <FoldRow title="Settings">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <DayToDayFloatField
           saved={idle.emergency.settings.dayToDayFloat}
           effective={c.dayToDayFloat}
@@ -279,9 +254,8 @@
         <EmergencyAccounts {idle} />
         <AccountProducts {idle} />
       </div>
-    </details>
-    <details class="group">
-      {@render foldTitle('Show the math')}
+    </FoldRow>
+    <FoldRow title="Show the math">
       <dl class="mt-2 grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1">
         <dt>
           Ready money (without emergency accounts{#if c.minimumReserved > 0}, above minimum balances{/if})
@@ -349,6 +323,6 @@
       <p class="muted mt-1 text-xs">
         {idle.thresholdRule} This is about the rate only: goal money stays pooled, it does not need its own account.
       </p>
-    </details>
+    </FoldRow>
   </div>
 </Card>

@@ -248,6 +248,23 @@ describe('Bills page', () => {
     render(BillsPage, { data: { engine: never(), bills: settled(bills), idleCash: never() } as never });
     await flush();
 
+    const figures = screen.getByTestId('safe-figures').textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(figures).toContain('Ready money 9.870.000 ₫');
+    expect(figures).toContain('Committed − 1.850.000 ₫');
+    expect(figures).toContain('Essentials − 800.000 ₫');
+    expect(figures).toContain('Free to spend 7.220.000 ₫');
+    // The details start folded.
+    const folds = [...document.querySelectorAll('details')].map((fold) => [
+      fold.querySelector('summary span')?.textContent,
+      fold.open,
+    ]);
+    expect(folds).toEqual([
+      ['How it adds up', false],
+      ['Set aside', false],
+      ['Accounts and what is due', false],
+      ['Minimum balances', false],
+    ]);
+
     const rows = [...screen.getByTestId('safe-breakdown').querySelectorAll('dt')].map((dt) => {
       const value = dt.nextElementSibling?.textContent ?? '';
       return `${(dt.textContent ?? '').trim()}: ${value.replace(/\s+/g, ' ').trim()}`;
@@ -286,7 +303,7 @@ describe('Bills page', () => {
     expect(breakdown).toContain('Internet, 10/10/2026, overdue');
     expect(breakdown).toContain('“Old Broker” is marked not ready but is not an account');
     expect(document.body.textContent).not.toMatch(/15\.000\.000|7\.870\.000/);
-    const explanation = screen.getByTestId('safe-explanation').textContent ?? '';
+    const explanation = (screen.getByTestId('safe-explanation').textContent ?? '').replace(/\s+/g, ' ');
     expect(explanation).toContain('anything due on payday itself is paid by that');
     expect(explanation.toLowerCase()).not.toContain('goal');
   });

@@ -60,9 +60,8 @@
   const inputId = (account: string) => `minimum-${account.replace(/\W+/g, '-').toLowerCase()}`;
 </script>
 
-<section class="mt-4 text-sm" aria-labelledby="minimum-balances-title" data-testid="minimum-balances">
-  <h3 id="minimum-balances-title" class="text-xs font-semibold tracking-wide uppercase">Minimum balance to keep</h3>
-  <p class="muted mt-1 text-xs">
+<div class="text-sm" data-testid="minimum-balances">
+  <p class="muted text-xs">
     For a bank reward on the average monthly balance. The minimum is kept back from ready money and is never idle: the
     reward depends on the whole month's average, so a dip late in the month cannot be made up.
     {#if safe.reserved > 0}Kept back now: <Money value={safe.reserved} />.{/if}
@@ -182,4 +181,4 @@
       {/each}
     </ul>
   {/if}
-</section>
+</div>

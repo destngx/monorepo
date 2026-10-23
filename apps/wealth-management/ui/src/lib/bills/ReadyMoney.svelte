@@ -34,7 +34,7 @@
   );
 </script>
 
-<div class="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2" data-testid="ready-money">
+<div class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2" data-testid="ready-money">
   <section aria-labelledby="ready-money-title">
     <h3 id="ready-money-title" class="text-xs font-semibold tracking-wide uppercase">Ready money</h3>
     <ul class="mt-1 divide-y divide-stone-900/5 dark:divide-white/5">
