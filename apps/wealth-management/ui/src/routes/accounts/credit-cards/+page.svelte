@@ -171,9 +171,18 @@
                       <dt class="muted">Cashback</dt>
                       <dd><Masked inLink text={formatMoney(standing.cashback.total)} /></dd>
                     </div>
-                    <div>
-                      <dt class="muted">Confirmed</dt>
-                      <dd><Masked inLink text={formatMoney(standing.cashback.confirmed)} /></dd>
+                    <!-- WM-CARD-15: the statement the pay-by settles -->
+                    <div
+                      title={card.statement
+                        ? `${formatDate(card.statement.start)} - ${formatDate(card.statement.end)}${card.statement.open ? ' · still open' : ''}`
+                        : undefined}
+                    >
+                      <dt class="muted">Est. statement</dt>
+                      <dd>
+                        {#if card.statement}<Masked inLink text={formatMoney(card.statement.amount)} />{:else}<span
+                            class="muted">-</span
+                          >{/if}
+                      </dd>
                     </div>
                     <div>
                       <dt class="muted">Cap left</dt>

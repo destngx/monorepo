@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defer, settled, type Settled, type Streamed } from '$lib/api/load';
-import { testBank } from '$lib/cards/cards.testdata';
+import { testBank, testCard } from '$lib/cards/cards.testdata';
 import { MASK } from '$lib/format';
 import { mask } from '$lib/state/mask.svelte';
 
@@ -82,5 +82,27 @@ describe('Credit cards page', () => {
     mask.toggle();
     await flush();
     expect(link.textContent).toMatch(/6\.420\.000/);
+  });
+
+  it('Given an open card When the list renders Then its card shows the estimated statement in place of Confirmed', async () => {
+    const card = testCard({
+      statement: {
+        start: '2026-09-21',
+        end: '2026-10-20',
+        open: false,
+        spent: 2_350_000,
+        fees: 0,
+        cashback: 0,
+        amount: 2_350_000,
+      },
+    });
+    render(CreditCardsPage, { data: { engine: never(), banks: settled([testBank([card])]) } as never });
+    mask.toggle();
+    await flush();
+
+    const link = screen.getByRole('link', { name: /Blue Rewards/ });
+    expect(link.textContent).toContain('Est. statement');
+    expect(link.textContent).toMatch(/2\.350\.000/);
+    expect(link.textContent).not.toContain('Confirmed');
   });
 });
