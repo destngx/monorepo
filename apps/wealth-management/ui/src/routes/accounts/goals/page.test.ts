@@ -213,6 +213,17 @@ describe('Goals page', () => {
     expect(screen.getByText('Below 0, check its transactions')).toBeTruthy();
   });
 
+  it('Given a plan When it shows Then the money left and monthly needs sit in the headline', async () => {
+    const pool = { ...plan().pool, slow: 9_000_000 };
+    render(GoalsPage, { data: { engine: never(), plan: settled(plan({ pool })) } as never });
+    await flush();
+
+    const headline = document.querySelector('[aria-labelledby="goals-verdict"]');
+    expect(headline?.textContent).toContain('Left after goals');
+    expect(headline?.textContent).toContain('Slow money left');
+    expect(headline?.textContent).toContain('Monthly needs');
+  });
+
   it('Given the new goal form When Can use slow money is ticked Then the goal is created with it', async () => {
     calls.length = 0;
     render(GoalsPage, { data: { engine: never(), plan: settled(plan()) } as never });

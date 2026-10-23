@@ -11,7 +11,6 @@
     Modal,
     SkeletonCard,
     SkeletonHeadline,
-    SkeletonStat,
     action,
   } from '@libs/ui-kit';
   import { api } from '$lib/api/endpoints';
@@ -21,7 +20,6 @@
   import { sortable } from '$lib/components/sortable';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import PageHeadline from '$lib/components/PageHeadline.svelte';
-  import Stat from '$lib/components/Stat.svelte';
   import { formatMonth } from '$lib/format';
   import GoalCard from '$lib/goals/GoalCard.svelte';
   import GoalFormModal from '$lib/goals/GoalFormModal.svelte';
@@ -154,6 +152,14 @@
   }
 </script>
 
+{#snippet figure(label: string, amount: number, hint: string)}
+  <div class="min-w-0">
+    <dt class="muted text-[0.65rem] font-semibold tracking-[0.12em] uppercase">{label}</dt>
+    <dd class="mt-0.5 font-semibold tabular-nums"><Money value={amount} /></dd>
+    <dd class="muted text-[0.7rem]">{hint}</dd>
+  </div>
+{/snippet}
+
 <PageHeader title="Goals" subtitle="Goals share one savings pool, filled in priority order">
   {#snippet actions()}
     {#if !plan.value?.setupNeeded}
@@ -204,6 +210,19 @@
             Savings are the average of income minus spending over the last {value.monthlySavings.months}
             {value.monthlySavings.months === 1 ? 'month' : 'months'}, money lent left out.
           </p>
+          <dl class="mt-3 grid grid-cols-1 gap-3 border-t border-stone-900/10 pt-3 sm:grid-cols-3 dark:border-white/10">
+            {@render figure('Left after goals', value.unallocated, 'Pool money no active goal needs now')}
+            {#if value.pool.slow > 0}
+              {@render figure('Slow money left', value.unallocatedSlow, 'Slow money no goal that can use it needs now')}
+            {/if}
+            {@render figure(
+              'Monthly needs',
+              value.needs.perMonth,
+              value.needs.fromTotalExpense
+                ? 'Total spending: tag fixed and essential categories on the Budget page for needs only'
+                : `Fixed and essential spending, ${value.needs.months}-month average`,
+            )}
+          </dl>
         </PageHeadline>
 
         {#if check.tradeOffs.length}
@@ -283,24 +302,7 @@
             {/each}
           </div>
 
-          <div class="space-y-4">
-            <PoolCard pool={value.pool} asOf={value.asOf} />
-            <Stat label="Left after goals" value={value.unallocated} hint="Pool money no active goal needs now" />
-            {#if value.pool.slow > 0}
-              <Stat
-                label="Slow money left"
-                value={value.unallocatedSlow}
-                hint="Slow money no goal that can use it needs now"
-              />
-            {/if}
-            <Stat
-              label="Monthly needs"
-              value={value.needs.perMonth}
-              hint={value.needs.fromTotalExpense
-                ? 'Total spending: tag fixed and essential categories on the Budget page for needs only'
-                : `Fixed and essential spending, ${value.needs.months}-month average`}
-            />
-          </div>
+          <div><PoolCard pool={value.pool} asOf={value.asOf} /></div>
         </div>
       {/if}
     </div>
@@ -313,10 +315,7 @@
           <SkeletonCard lines={4} label="goals" />
           <SkeletonCard lines={4} label="goals" />
         </div>
-        <div class="space-y-4">
-          <SkeletonCard title="Savings pool" lines={4} />
-          <SkeletonStat label="left after goals" />
-        </div>
+        <SkeletonCard title="Savings pool" lines={4} />
       </div>
     </div>
   {/snippet}
