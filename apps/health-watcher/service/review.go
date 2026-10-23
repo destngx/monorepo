@@ -242,6 +242,105 @@ func (in *Inbox) Unfile(ctx context.Context, sc domain.Scope, documentID string)
 	return itemID, in.Pipeline.ScheduleReading(ctx, sc.TenantID, itemID, false)
 }
 
+// RemoveItemPage takes one page out of an unfiled item, with the drafts
+// read from it (HW-READ-4). The file's other pages stay. A file left with
+// no pages leaves the item, and goes when nothing else uses it. A reading
+// that is done is read again without the page, replacing the drafts. The
+// item's last page is refused: discarding the item removes it.
+func (in *Inbox) RemoveItemPage(ctx context.Context, sc domain.Scope, itemID, pageID string) (ItemDetail, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return ItemDetail{}, err
+	}
+	item, err := in.newItem(ctx, sc, itemID)
+	if err != nil {
+		return ItemDetail{}, err
+	}
+	var released []domain.StoredFile
+	reread := false
+	err = in.Store.InTx(ctx, func(r port.Repos) error {
+		pg, err := r.Page(ctx, sc.TenantID, pageID)
+		if err != nil {
+			return err
+		}
+		i := slices.IndexFunc(item.Files, func(f domain.StoredFile) bool { return f.ID == pg.FileID })
+		if i < 0 {
+			return domain.NotFound("page")
+		}
+		shown, ofFile := 0, 0
+		for _, f := range item.Files {
+			pages, err := r.PagesOf(ctx, sc.TenantID, f.ID)
+			if err != nil {
+				return err
+			}
+			shown += len(pages)
+			if f.ID == pg.FileID {
+				ofFile = len(pages)
+			}
+		}
+		if shown <= 1 {
+			return domain.Conflict("this is the item's only page; discard the item instead")
+		}
+		if err := deletePageDrafts(ctx, r, sc.TenantID, itemID, pageID); err != nil {
+			return err
+		}
+		if err := r.RemovePage(ctx, sc.TenantID, pageID, in.Clock()); err != nil {
+			return err
+		}
+		rd, err := r.Reading(ctx, sc.TenantID, itemID)
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
+		case err != nil:
+			return err
+		default:
+			reread = rd.Status == domain.ReadingDone
+		}
+		if ofFile > 1 {
+			return nil
+		}
+		released = append(released, item.Files[i])
+		return r.UnlinkItemFile(ctx, sc.TenantID, itemID, pg.FileID)
+	})
+	if err != nil {
+		return ItemDetail{}, err
+	}
+	if err := releaseFiles(ctx, in.Deps, sc.TenantID, released); err != nil {
+		return ItemDetail{}, err
+	}
+	if reread && in.Pipeline != nil && in.Pipeline.AIEnabled() {
+		if err := in.Pipeline.ScheduleReading(ctx, sc.TenantID, itemID, true); err != nil {
+			return ItemDetail{}, err
+		}
+	}
+	return in.Item(ctx, sc, itemID)
+}
+
+// deletePageDrafts deletes an item's drafts read from a page.
+func deletePageDrafts(ctx context.Context, r port.Repos, tenantID, itemID, pageID string) error {
+	obs, err := r.ObservationsOfItem(ctx, tenantID, itemID)
+	if err != nil {
+		return err
+	}
+	for _, o := range obs {
+		if o.PageID == pageID {
+			if err := r.DeleteObservation(ctx, tenantID, o.ID); err != nil {
+				return err
+			}
+		}
+	}
+	finds, err := r.FindingsOfItem(ctx, tenantID, itemID)
+	if err != nil {
+		return err
+	}
+	for _, f := range finds {
+		if f.PageID == pageID {
+			if err := r.DeleteFinding(ctx, tenantID, f.ID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // MaxManualBoxes bounds the boxes a person draws on one page.
 const MaxManualBoxes = 50
 

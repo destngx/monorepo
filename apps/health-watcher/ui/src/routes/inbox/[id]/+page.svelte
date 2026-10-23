@@ -159,6 +159,23 @@
     await invalidateAll();
   }
 
+  // Removes one page and the drafts read from it; a finished reading runs
+  // again without it. The last page goes only with the item.
+  async function removePage(p: Page, number: number) {
+    const drafts =
+      data.detail.observations.filter((o) => o.pageId === p.id).length +
+      data.detail.findings.filter((f) => f.pageId === p.id).length;
+    let question = `Remove page ${number} from this item? The other pages stay.`;
+    if (drafts)
+      question +=
+        drafts === 1 ? ' The draft read from it is deleted.' : ` The ${drafts} drafts read from it are deleted.`;
+    if (data.detail.aiEnabled && reading?.status === 'done')
+      question += ' The item is read again with AI without it, which replaces the drafts and your edits to them.';
+    if (!confirm(question)) return;
+    await session.api.removeItemPage(item.id, p.id);
+    await invalidateAll();
+  }
+
   async function discard() {
     if (!confirm('Discard this item? Its files are deleted unless a record already uses them.')) return;
     await session.api.discard(item.id);
@@ -325,6 +342,11 @@
                 drawing = drawing === p.id ? null : p.id;
                 view[p.id] = 'masked';
               }}>{drawing === p.id ? 'Done' : 'Hide more'}</Button
+            >
+          {/if}
+          {#if editable && pages.length > 1}
+            <Button size="sm" icon="trash" errorContext="Could not remove the page" onclick={() => removePage(p, i + 1)}
+              >Remove</Button
             >
           {/if}
         </span>

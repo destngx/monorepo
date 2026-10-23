@@ -42,6 +42,9 @@ func (s *server) reviewRoutes(r fiber.Router) {
 		}
 		return s.list(c)(s.svc.Inbox.SetPageBoxes(c.UserContext(), scope(c), c.Params("id"), c.Params("pageId"), in.Boxes))
 	})
+	r.Delete("/inbox/:id/pages/:pageId", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Inbox.RemoveItemPage(c.UserContext(), scope(c), c.Params("id"), c.Params("pageId")))
+	})
 	r.Put("/inbox/:id/pages/:pageId/off", func(c *fiber.Ctx) error {
 		var in struct {
 			Off []string `json:"off"`

@@ -408,3 +408,74 @@ func TestGivenAViewerOrAnotherDocumentWhenRemovingAPageThenItIsRefused(t *testin
 		t.Fatalf("other document's page = %v", err)
 	}
 }
+
+func TestGivenAReadItemWhenAPageIsRemovedThenItIsReadAgainWithoutIt(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	d := e.uploadRead(sc, "twopage lab")
+	if len(d.Pages) != 2 || len(e.reader.calls) != 1 {
+		t.Fatalf("pages = %+v, reads = %d", d.Pages, len(e.reader.calls))
+	}
+
+	after, err := e.inbox.RemoveItemPage(e.ctx, sc, d.Item.ID, d.Pages[1].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.Pages) != 1 || len(after.Item.Files) != 1 || len(after.Observations) != 1 {
+		t.Fatalf("after = %+v", after)
+	}
+	e.drain()
+	if len(e.reader.calls) != 2 || len(e.reader.calls[1]) != 1 {
+		t.Fatalf("reads = %+v", e.reader.calls)
+	}
+	if _, err := e.inbox.RemoveItemPage(e.ctx, sc, d.Item.ID, d.Pages[0].ID); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("remove the last page = %v", err)
+	}
+}
+
+func TestGivenAPhotoWithDraftsWhenItsPageIsRemovedFromTheItemThenTheDraftsAndTheFileGo(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	resp := e.upload(sc, true, pdf("lab front"), pdf("lab back"))
+	e.drain()
+	d := e.item(sc, resp.Items[0].ID)
+	if len(d.Pages) != 2 || len(d.Observations) != 1 || d.Observations[0].PageID != d.Pages[0].ID {
+		t.Fatalf("item = %+v", d)
+	}
+	front := d.Item.Files[0]
+
+	after, err := e.inbox.RemoveItemPage(e.ctx, sc, d.Item.ID, d.Pages[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.Pages) != 1 || len(after.Item.Files) != 1 || after.Item.Files[0].ID == front.ID {
+		t.Fatalf("after = %+v", after)
+	}
+	if len(after.Observations) != 0 || len(after.Findings) != 0 {
+		t.Fatalf("drafts = %+v, %+v", after.Observations, after.Findings)
+	}
+	if _, err := e.files.Open(e.ctx, front.SHA256); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("bytes still there: %v", err)
+	}
+}
+
+func TestGivenAViewerOrAFiledItemWhenRemovingAnItemPageThenItIsRefused(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	d := e.uploadRead(sc, "twopage lab")
+	viewer := e.join(sc, "viewer@example.test", "viewer")
+	if _, err := e.inbox.RemoveItemPage(e.ctx, viewer, d.Item.ID, d.Pages[1].ID); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("viewer = %v", err)
+	}
+	other := e.uploadRead(sc, "twopage lab other")
+	if _, err := e.inbox.RemoveItemPage(e.ctx, sc, d.Item.ID, other.Pages[1].ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("other item's page = %v", err)
+	}
+	if _, err := e.inbox.File(e.ctx, sc, d.Item.ID, domain.FileInput{Kind: "lab_result",
+		Visit: &domain.VisitInput{PersonID: e.person(sc, "Nguyễn Văn Mẫu").ID, Date: "2025-03-14"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.inbox.RemoveItemPage(e.ctx, sc, d.Item.ID, d.Pages[1].ID); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("filed item = %v", err)
+	}
+}

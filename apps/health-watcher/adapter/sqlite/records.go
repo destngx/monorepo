@@ -494,6 +494,12 @@ func (r repos) UnfileDocument(ctx context.Context, tenantID, documentID string) 
 	return id, one(err, "inbox item")
 }
 
+func (r repos) UnlinkItemFile(ctx context.Context, tenantID, itemID, fileID string) error {
+	res, err := r.q.ExecContext(ctx, `DELETE FROM inbox_files WHERE file_id = ?
+		AND item_id IN (SELECT id FROM inbox_items WHERE tenant_id = ? AND id = ? AND status = 'new')`, fileID, tenantID, itemID)
+	return affected(res, err, "item file")
+}
+
 func (r repos) NewItemsWithFile(ctx context.Context, tenantID, fileID string) ([]string, error) {
 	rows, err := r.q.QueryContext(ctx, `SELECT i.id FROM inbox_items i JOIN inbox_files inf ON inf.item_id = i.id
 		WHERE i.tenant_id = ? AND inf.file_id = ? AND i.status = 'new' ORDER BY i.created_at`, tenantID, fileID)

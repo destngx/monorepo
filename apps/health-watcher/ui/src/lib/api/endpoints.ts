@@ -169,6 +169,9 @@ export function tenantApi(tenantId: string) {
     retryReading: (itemId: string) => request<void>(`${t}/inbox/${itemId}/reading/retry`, { method: 'POST' }),
     setPageBoxes: (itemId: string, pageId: string, boxes: Quad[]) =>
       request<Page>(`${t}/inbox/${itemId}/pages/${pageId}/boxes`, { method: 'PUT', body: { boxes } }),
+    /** Removes one page of an unfiled item with its drafts; a finished reading runs again (HW-READ-4). */
+    removeItemPage: (itemId: string, pageId: string) =>
+      request<ItemDetail>(`${t}/inbox/${itemId}/pages/${pageId}`, { method: 'DELETE' }),
     setPageOff: (itemId: string, pageId: string, off: string[]) =>
       request<Page>(`${t}/inbox/${itemId}/pages/${pageId}/off`, { method: 'PUT', body: { off } }),
     groups: (fetch?: Fetch) => request<InboxGroup[]>(`${t}/inbox/groups`, { fetch }),

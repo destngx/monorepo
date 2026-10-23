@@ -232,6 +232,8 @@ type InboxRepo interface {
 	// UnfileDocument moves the item filed as a document back to new and
 	// returns its ID; a document no item was filed as is domain.ErrNotFound.
 	UnfileDocument(ctx context.Context, tenantID, documentID string) (string, error)
+	// UnlinkItemFile takes a file out of an unfiled item.
+	UnlinkItemFile(ctx context.Context, tenantID, itemID, fileID string) error
 	// NewItemsWithFile lists the unfiled items holding a file.
 	NewItemsWithFile(ctx context.Context, tenantID, fileID string) ([]string, error)
 	// OCRProgress counts the item's files with pages and with failed OCR jobs.
