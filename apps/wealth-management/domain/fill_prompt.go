@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -16,12 +17,15 @@ func FillInstruction(form FillForm, context FillContext, current map[string]any,
 	fmt.Fprintf(&b, "You fill in the %q form of a personal finance app from what the user wrote or the images show. Today is %s (%s).\n",
 		form.Title, context.Today.Format("2006-01-02"), context.Today.Weekday())
 	b.WriteString(`Rules:
-- Read only what the request says or the images show. Never invent a value; leave a field out when it is not given.
+- Read only what the request says or the images show. Never invent a value; leave a field out when it is not given, except a field that says to suggest it.
 - Resolve relative dates from today ("yesterday", "next month", "June 2027").
 - Money is a plain number in the field's currency, VND unless the field says otherwise: "50M" or "50tr" is 50000000, "260k" is 260000.
 - A name field must be copied from its list exactly when the request means one of them.
 - When something is unclear or missing, say so in notes, in one short sentence each, in English.
 `)
+	if form.suggests() {
+		b.WriteString("- When you suggest a value, add a note saying why.\n")
+	}
 	if len(current) > 0 {
 		b.WriteString("- The form already holds the values below. Return only the fields the request changes; leave every other field out.\n")
 	}
@@ -71,6 +75,9 @@ func writeFillFields(b *strings.Builder, fields []FillField) {
 		if field.Hint != "" {
 			b.WriteString(". " + field.Hint)
 		}
+		if field.Suggest != "" {
+			b.WriteString(". Suggest it even when the request does not say: " + field.Suggest)
+		}
 		b.WriteString("\n")
 	}
 }
@@ -105,4 +112,9 @@ func fillTypeRule(field FillField) string {
 		return fmt.Sprintf("a JSON list of names from the %s list", field.List)
 	}
 	return "text"
+}
+
+// suggests reports whether any field of the form is suggested.
+func (f FillForm) suggests() bool {
+	return slices.ContainsFunc(append(slices.Clone(f.Fields), f.Rows...), func(field FillField) bool { return field.Suggest != "" })
 }

@@ -40,7 +40,13 @@ var fillForms = []FillForm{
 			{Name: "startingAmount", Label: "Starting amount", Type: FillMoney, Min: fillZero, Hint: "money already set aside outside the accounts"},
 			{Name: "status", Label: "Status", Type: FillChoice, Choices: []string{"active", "paused", "done"}},
 			{Name: "note", Label: "Note", Type: FillText},
-			{Name: "useSlowMoney", Label: "Can use slow money", Type: FillFlag, Hint: "true only when the request lets the goal use investments, long holding or not-ready accounts, which take days to withdraw"},
+			{
+				Name: "useSlowMoney", Label: "Can use slow money", Type: FillFlag,
+				Hint: "lets the goal use investments, long holding and not-ready accounts, which take days to withdraw",
+				Suggest: "false for the emergency fund, medical or health costs, anything due within 6 months, and money that may be needed at short notice; " +
+					"otherwise true for a goal 6 months or more away or with no date, such as retirement, a home, education, a car or own wedding a year out, or long-term wealth. " +
+					"When the request says, follow it. When the form already holds a value, change it only when the request changes the goal's date or purpose",
+			},
 		},
 	},
 	{

@@ -67,9 +67,12 @@ type FillField struct {
 	Choices  []string `json:"choices,omitempty"`
 	Required bool     `json:"required,omitempty"`
 	// Hint tells the model what the field holds.
-	Hint string   `json:"hint,omitempty"`
-	Min  *float64 `json:"min,omitempty"`
-	Max  *float64 `json:"max,omitempty"`
+	Hint string `json:"hint,omitempty"`
+	// Suggest is how the model picks the value when the request does not
+	// give it; a field without it is left out instead.
+	Suggest string   `json:"suggest,omitempty"`
+	Min     *float64 `json:"min,omitempty"`
+	Max     *float64 `json:"max,omitempty"`
 }
 
 // FillForm is a form the engine can fill. Rows are the fields of each row

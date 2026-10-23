@@ -282,3 +282,17 @@ func TestGivenTheFillFormsThenOnlyTheFourTextFormsRefuseImages(t *testing.T) {
 		}
 	}
 }
+
+func TestGivenAGoalFillThenTheModelSuggestsSlowMoney(t *testing.T) {
+	instruction := FillInstruction(mustForm(t, "goal"), fillContext(), nil, "")
+	for _, want := range []string{
+		"except a field that says to suggest it",
+		"- useSlowMoney (Can use slow money): true or false.", "Suggest it even when the request does not say:",
+		"emergency fund", "medical", "6 months",
+		"When you suggest a value, add a note saying why.",
+	} {
+		if !strings.Contains(instruction, want) {
+			t.Errorf("instruction lacks %q:\n%s", want, instruction)
+		}
+	}
+}
