@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { base } from '$app/paths';
   import MaskedText from '$lib/components/MaskedText.svelte';
   import type { DepositRate, IdleCash } from '$lib/api/types';
   import Badge from '$lib/components/Badge.svelte';
@@ -136,13 +137,37 @@
   <div
     class="mt-3 divide-y divide-stone-900/5 border-t border-stone-900/5 text-sm dark:divide-white/5 dark:border-white/5"
   >
-    <FoldRow title="Emergency fund" money={c.emergencyFund} testid="idle-emergency">
+    <!-- A target, never a balance: the row says so, with what is held beside it. -->
+    <FoldRow title="Emergency fund" testid="idle-emergency">
+      {#snippet aside()}
+        {#if idle.emergency.accounts.length}
+          <span><Money value={c.emergencyInAccounts} /> held of <Money value={c.emergencyFund} /> target</span>
+        {:else}
+          <span>target <Money value={c.emergencyFund} />, none marked</span>
+        {/if}
+      {/snippet}
+      <p data-testid="emergency-target">
+        {#if !c.emergencyTargetComputed}
+          The target, <Money value={c.emergencyFund} />, is the amount on your Emergency fund goal.
+        {:else if c.needsFromTotalExpense}
+          The target, <Money value={c.emergencyFund} />, is {c.emergencyMonths} months × <Money
+            value={c.needsPerMonth}
+          /> average monthly spending. No category is tagged fixed or essential, so all spending counts, wants included. Tag
+          categories on the <a href="{base}/budget" class="link">budget page</a> or type a target on
+          <a href="{base}/accounts/goals" class="link">Goals</a> to set it.
+        {:else}
+          The target, <Money value={c.emergencyFund} />, is {c.emergencyMonths} months × <Money
+            value={c.needsPerMonth}
+          /> average monthly needs (fixed and essential spending, last 6 months). Type a target on
+          <a href="{base}/accounts/goals" class="link">Goals</a> to change it.
+        {/if}
+      </p>
       {#if idle.emergency.accounts.length}
-        <p>
-          Target <Money value={c.emergencyFund} />: your emergency accounts hold <Money value={c.emergencyInAccounts} />
+        <p class="mt-1">
+          Your emergency accounts hold <Money value={c.emergencyInAccounts} />
           {#if c.emergencyFromReady > 0}
-            and cover <Money value={c.emergencyCovered} />; the other <Money value={c.emergencyFromReady} /> stays in ready
-            money.
+            and cover <Money value={c.emergencyCovered} />; the other <Money value={c.emergencyFromReady} /> is held back
+            from your everyday accounts, so it is not counted as idle.
           {:else}
             and cover all of it.
           {/if}
@@ -161,8 +186,8 @@
         {/if}
       {:else}
         <p class="mt-1">
-          No emergency account is marked, so the whole target (<Money value={c.emergencyFund} />) is kept from ready
-          money. Mark the account that holds it below.
+          No account is marked as holding it, so the whole target is held back from your everyday accounts and not
+          counted as idle. It is not money set aside yet. Mark the account that holds it in Settings.
         </p>
       {/if}
     </FoldRow>

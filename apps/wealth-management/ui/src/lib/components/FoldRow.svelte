@@ -12,11 +12,13 @@
     money?: number;
     /** A count to show beside the title. */
     count?: number;
+    /** Words beside the title, in place of a bare amount or count. */
+    aside?: Snippet;
     testid?: string;
     children: Snippet;
   }
 
-  let { title, money, count, testid, children }: Props = $props();
+  let { title, money, count, aside, testid, children }: Props = $props();
   const id = $props.id();
 </script>
 
@@ -26,7 +28,9 @@
   >
     <span id="{id}-title">{title}</span>
     <span class="muted flex items-center gap-2 font-normal tracking-normal normal-case">
-      {#if money !== undefined}<Money value={money} />{:else if count !== undefined}{count}{/if}
+      {#if aside}{@render aside()}{:else if money !== undefined}<Money
+          value={money}
+        />{:else if count !== undefined}{count}{/if}
       <Icon name="chevronDown" size={14} class="transition-transform group-open:rotate-180" />
     </span>
   </summary>

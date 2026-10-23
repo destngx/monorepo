@@ -115,6 +115,14 @@ type IdleCashComponents struct {
 	// emergency months x monthly needs (WM-GOAL-5).
 	EmergencyFund     float64 `json:"emergencyFund"`
 	EmergencyFromGoal bool    `json:"emergencyFromGoal"`
+	// EmergencyTargetComputed is true when no amount is typed for the
+	// target, so it is EmergencyMonths x NeedsPerMonth (WM-GOAL-5).
+	// NeedsFromTotalExpense says no category is tagged fixed or essential,
+	// so all spending stands in for needs.
+	EmergencyTargetComputed bool    `json:"emergencyTargetComputed"`
+	EmergencyMonths         float64 `json:"emergencyMonths"`
+	NeedsPerMonth           float64 `json:"needsPerMonth"`
+	NeedsFromTotalExpense   bool    `json:"needsFromTotalExpense"`
 	// EmergencyInAccounts is the balance of the emergency accounts;
 	// EmergencyCovered = min(EmergencyInAccounts, EmergencyFund) and
 	// EmergencyFromReady = EmergencyFund - EmergencyCovered, kept liquid.
@@ -552,9 +560,11 @@ func idleComponents(input IdleCashInput, ready []IdleCashAccount, emergencyBalan
 		c.AverageMonthlyExpense = plan.Pool.AverageMonthlyExpense
 		c.DayToDayFloat = math.Round(plan.Pool.SpendingBuffer)
 		c.EmergencyFund = math.Round(plan.Settings.EmergencyMonths * plan.Needs.PerMonth)
+		c.EmergencyTargetComputed = true
+		c.EmergencyMonths, c.NeedsPerMonth, c.NeedsFromTotalExpense = plan.Settings.EmergencyMonths, plan.Needs.PerMonth, plan.Needs.FromTotalExpense
 		for _, goal := range plan.Goals {
 			if goal.EmergencyFund {
-				c.EmergencyFund, c.EmergencyFromGoal = goal.TargetAmount, true
+				c.EmergencyFund, c.EmergencyFromGoal, c.EmergencyTargetComputed = goal.TargetAmount, true, goal.TargetComputed
 				break
 			}
 		}

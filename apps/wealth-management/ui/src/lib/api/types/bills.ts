@@ -349,6 +349,12 @@ export interface IdleCashComponents {
   emergencyFund: number;
   /** False when the target comes from emergency months x monthly needs. */
   emergencyFromGoal: boolean;
+  /** True when no amount is typed, so the target is emergencyMonths x needsPerMonth. */
+  emergencyTargetComputed: boolean;
+  emergencyMonths: number;
+  needsPerMonth: number;
+  /** No category is tagged fixed or essential, so all spending stands in for needs. */
+  needsFromTotalExpense: boolean;
   /** Held in the emergency accounts. */
   emergencyInAccounts: number;
   /** min(emergencyInAccounts, emergencyFund). */

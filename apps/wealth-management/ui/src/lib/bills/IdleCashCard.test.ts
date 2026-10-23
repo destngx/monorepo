@@ -95,19 +95,43 @@ describe('IdleCashCard', () => {
     render(IdleCashCard, { idle: idleCash() });
 
     const emergency = text('idle-emergency');
-    expect(emergency).toContain('Target 30.000.000');
+    expect(text('idle-emergency').startsWith('Emergency fund 20.000.000 ₫ held of 30.000.000 ₫ target')).toBe(true);
+    expect(emergency).toContain('The target, 30.000.000 ₫, is the amount on your Emergency fund goal.');
     expect(emergency).toContain('hold 20.000.000');
-    expect(emergency).toContain('the other 10.000.000 ₫ stays in ready money');
+    expect(emergency).toContain(
+      'the other 10.000.000 ₫ is held back from your everyday accounts, so it is not counted as idle',
+    );
     expect(text('emergency-better-rate')).toContain('earn 4%. A 1-month deposit at Bank X (5.5%');
     expect(text('emergency-better-rate')).toContain('Move it only if the new place is as quick to reach');
     expect(emergency.toLowerCase()).not.toContain('move all');
   });
 
-  it('Given no emergency account When shown Then the whole target is kept from ready money', () => {
+  it('Given no emergency account When shown Then the row reads as a target, not money held', () => {
+    mask.toggle();
     const idle = idleCash();
     render(IdleCashCard, { idle: { ...idle, emergency: { ...idle.emergency, accounts: [], betterRate: false } } });
-    expect(text('idle-emergency')).toContain('No emergency account is marked');
+    const emergency = text('idle-emergency');
+    expect(emergency.startsWith('Emergency fund target 30.000.000 ₫, none marked')).toBe(true);
+    expect(emergency).toContain('It is not money set aside yet. Mark the account that holds it in Settings.');
     expect(screen.queryByTestId('emergency-better-rate')).toBeNull();
+  });
+
+  it('Given a target worked out from all spending When shown Then it gives the months, the monthly figure and how to change it', () => {
+    mask.toggle();
+    const idle = idleCash();
+    const components = {
+      ...idle.components,
+      emergencyFund: 120_000_000,
+      emergencyTargetComputed: true,
+      emergencyMonths: 6,
+      needsPerMonth: 20_000_000,
+      needsFromTotalExpense: true,
+    };
+    render(IdleCashCard, { idle: { ...idle, components } });
+    const target = text('emergency-target');
+    expect(target).toContain('The target, 120.000.000 ₫, is 6 months × 20.000.000 ₫ average monthly spending.');
+    expect(target).toContain('No category is tagged fixed or essential, so all spending counts, wants included.');
+    expect(screen.getByRole('link', { name: 'Goals' }).getAttribute('href')).toBe('/ui/accounts/goals');
   });
 
   it('shows the math with the float and the accounts that are never idle once revealed', () => {

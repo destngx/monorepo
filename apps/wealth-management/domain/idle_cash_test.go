@@ -265,6 +265,18 @@ func TestGivenNoPublishedRateWhenCheckingIdleCashThenTheVerdictSaysSoWithTheIssu
 	}
 }
 
+func TestGivenAnEmergencyGoalWhenCheckingIdleCashThenTheTargetSaysWhetherItWasTypedOrWorkedOut(t *testing.T) {
+	input := idleInput()
+	if c := ComputeIdleCash(input).Components; !c.EmergencyFromGoal || c.EmergencyTargetComputed {
+		t.Fatalf("a typed target is not worked out: %+v", c)
+	}
+	input.Plan.Goals[0].TargetComputed = true
+	input.Plan.Needs.FromTotalExpense = true
+	if c := ComputeIdleCash(input).Components; !c.EmergencyTargetComputed || !c.NeedsFromTotalExpense {
+		t.Fatalf("a blank target is worked out from all spending: %+v", c)
+	}
+}
+
 func TestGivenNoEmergencyGoalWhenCheckingIdleCashThenTheTargetComesFromTheSettings(t *testing.T) {
 	input := idleInput()
 	input.Plan.Goals = input.Plan.Goals[1:]
@@ -273,6 +285,10 @@ func TestGivenNoEmergencyGoalWhenCheckingIdleCashThenTheTargetComesFromTheSettin
 	// 6 months x 4M of needs.
 	if idle.Components.EmergencyFund != 24_000_000 || idle.Components.EmergencyFromGoal {
 		t.Fatalf("components = %+v", idle.Components)
+	}
+	// The page says how the target is worked out, so it never reads as money held.
+	if c := idle.Components; !c.EmergencyTargetComputed || c.EmergencyMonths != 6 || c.NeedsPerMonth != 4_000_000 {
+		t.Fatalf("target basis = %+v", c)
 	}
 
 	input.Plan = nil
