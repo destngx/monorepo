@@ -18,7 +18,11 @@ Branch: `$ARGUMENTS`, or the current branch when empty.
 `scripts/rebase-merge.sh` (repo path `.agents/skills/rebase-merge/scripts/rebase-merge.sh`) runs every git, gh and
 Vercel command. Do not run those steps by hand. Each subcommand prints `key=value` lines and exits with a code that
 says what to do next. Your part is the decisions between subcommands: which checks to rerun, whether the live site
-is right, and which leftover processes to stop. The header of the script lists every exit code. Its tests are in
+is right, and which leftover processes to stop. The header of the script lists every exit code.
+
+Run it exactly as written below, from a checkout's root, with no `cd` or env prefix in the same command. The
+project settings allow only `bash .agents/skills/rebase-merge/scripts/rebase-merge.sh *`, and that rule is the
+permission to push to `main`. The repo's `main` ruleset rejects force pushes and deleting `main` on the server. Its tests are in
 `scripts/rebase-merge.test.sh`. Run them with `bash` after changing the script.
 
 ## Steps
