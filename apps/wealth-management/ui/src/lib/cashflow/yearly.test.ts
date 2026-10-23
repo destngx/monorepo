@@ -117,20 +117,24 @@ describe('savingsRateDomain', () => {
 
 describe('expenseSplitMessage', () => {
   const months = (total: number) => ({ category: '', values: [], total });
+  // Shares are of income in percent: needs (fixed + essential + untagged), wants, saved.
   const split = (
     fixed: number,
     essential: number,
     flexible: number,
     untagged: number,
-    share: number | null,
+    shares: [number, number, number] | null,
     untaggedCategories: string[] = [],
   ) => ({
     fixed: months(fixed),
     essential: months(essential),
     flexible: months(flexible),
     untagged: months(untagged),
-    needsShareOfIncome: share,
+    needsShareOfIncome: shares?.[0] ?? null,
     needsShareComfortable: 50,
+    wantsShareOfIncome: shares?.[1] ?? null,
+    savingsShareOfIncome: shares?.[2] ?? null,
+    savingsShareTarget: 30,
     untaggedCategories,
     room: [],
     roomPerMonth: 0,
@@ -138,31 +142,46 @@ describe('expenseSplitMessage', () => {
   });
 
   it('asks for tags until any category is tagged', () => {
-    expect(expenseSplitMessage(split(0, 0, 0, 100, 0, ['Food']))).toMatchObject({
+    expect(expenseSplitMessage(split(0, 0, 0, 100, [100, 0, 0], ['Food']))).toMatchObject({
       tone: 'neutral',
       title: 'Tag your categories',
     });
   });
 
-  it('judges needs, fixed plus essential, against half of income', () => {
-    expect(expenseSplitMessage(split(30, 10, 30, 0, 40))).toMatchObject({
+  it('leaves room only when needs stay within 50% and saving meets 30%', () => {
+    expect(expenseSplitMessage(split(30, 10, 15, 0, [40, 15, 45]))).toMatchObject({
       tone: 'good',
       title: 'Needs leave room',
-      text: 'Needs (fixed + essential) take 40.0% of your income, under the 50% rule of thumb. The rest can go to wants and savings.',
+      text: 'Needs take 40.0% of your income, wants 15.0%, and you save 45.0%. Needs are within 50% and saving meets the 30% target. Keep saving first: wants can grow only to 30.0% of income.',
       detail: null,
     });
-    expect(expenseSplitMessage(split(40, 20, 10, 0, 60))).toMatchObject({ tone: 'warning', title: 'Needs are heavy' });
+  });
+
+  it('says wants take the savings when needs are light but saving is short', () => {
+    expect(expenseSplitMessage(split(30, 4, 50, 0, [34, 50, 16]))).toMatchObject({
+      tone: 'warning',
+      title: 'Wants take the savings',
+      text: 'Needs take 34.0% of your income, wants 50.0%, and you save 16.0%. Needs are within 50%, but saving is under the 30% target. Bring wants down to 36.0% of income to reach it.',
+    });
+    expect(expenseSplitMessage(split(30, 10, 70, 0, [40, 70, -10])).tone).toBe('critical');
+  });
+
+  it('says needs are heavy above half of income', () => {
+    expect(expenseSplitMessage(split(40, 20, 10, 0, [60, 10, 30]))).toMatchObject({
+      tone: 'warning',
+      title: 'Needs are heavy',
+    });
     expect(expenseSplitMessage(split(60, 0, 10, 0, null)).text).toBe(
       'No income recorded, so there is no share to judge yet.',
     );
   });
 
-  it('says how much spending is left out while some categories are untagged', () => {
-    expect(expenseSplitMessage(split(40, 0, 35, 25, 40, ['Gifts', 'Repairs'])).detail).toBe(
-      '2 untagged categories (25.0% of spending) are not counted yet.',
+  it('says untagged spending counts as needs until tagged', () => {
+    expect(expenseSplitMessage(split(40, 0, 35, 25, [65, 35, 0], ['Gifts', 'Repairs'])).detail).toBe(
+      '2 untagged categories (25.0% of spending) count as needs until tagged.',
     );
-    expect(expenseSplitMessage(split(40, 0, 35, 25, 40, ['Gifts'])).detail).toBe(
-      '1 untagged category (25.0% of spending) is not counted yet.',
+    expect(expenseSplitMessage(split(40, 0, 35, 25, [65, 35, 0], ['Gifts'])).detail).toBe(
+      '1 untagged category (25.0% of spending) counts as needs until tagged.',
     );
   });
 });

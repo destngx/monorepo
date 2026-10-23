@@ -36,17 +36,25 @@ type YearlyCashFlow struct {
 }
 
 // ExpenseSplit splits the year's expense by the Categories tag. Needs are
-// fixed plus essential; flexible is wants. Room is what the essential and
+// fixed, essential and untagged; flexible is wants. Room is what the essential and
 // flexible categories could save, judged by your own leaner months.
 type ExpenseSplit struct {
 	Fixed     CategoryMonths `json:"fixed"`
 	Essential CategoryMonths `json:"essential"`
 	Flexible  CategoryMonths `json:"flexible"`
 	Untagged  CategoryMonths `json:"untagged"`
-	// NeedsShareOfIncome is fixed plus essential expense over income in percent; nil without income.
+	// NeedsShareOfIncome is fixed, essential and untagged expense over
+	// income in percent; nil without income. What is not known to be a want
+	// counts as a need (D45).
 	NeedsShareOfIncome *float64 `json:"needsShareOfIncome"`
 	// NeedsShareComfortable is the share of income needs should stay under.
 	NeedsShareComfortable float64 `json:"needsShareComfortable"`
+	// WantsShareOfIncome is flexible expense over income; nil without income.
+	WantsShareOfIncome *float64 `json:"wantsShareOfIncome"`
+	// SavingsShareOfIncome is income less all expense over income; nil without income.
+	SavingsShareOfIncome *float64 `json:"savingsShareOfIncome"`
+	// SavingsShareTarget is the share of income to save before wants (TargetSavingsRate).
+	SavingsShareTarget float64 `json:"savingsShareTarget"`
 	// UntaggedCategories have expense this year but no tag, largest first.
 	UntaggedCategories []string `json:"untaggedCategories"`
 	// Room lists essential and flexible categories that could cost less over
@@ -189,6 +197,7 @@ func expenseSplit(expense []CategoryMonths, categories []Category, income float6
 		Flexible:              CategoryMonths{Category: string(NatureFlexible), Values: make([]float64, 12)},
 		Untagged:              CategoryMonths{Category: untaggedNature, Values: make([]float64, 12)},
 		NeedsShareComfortable: NeedsShareComfortable,
+		SavingsShareTarget:    TargetSavingsRate,
 		UntaggedCategories:    []string{},
 		Room:                  []CategoryRoom{},
 	}
@@ -226,8 +235,12 @@ func expenseSplit(expense []CategoryMonths, categories []Category, income float6
 	}
 	sort.SliceStable(split.Room, func(i, j int) bool { return split.Room[i].PerMonth > split.Room[j].PerMonth })
 	if income > 0 {
-		share := round2((split.Fixed.Total + split.Essential.Total) / income * 100)
-		split.NeedsShareOfIncome = &share
+		needs := split.Fixed.Total + split.Essential.Total + split.Untagged.Total
+		spent := needs + split.Flexible.Total
+		needsShare := round2(needs / income * 100)
+		wantsShare := round2(split.Flexible.Total / income * 100)
+		savingsShare := round2((income - spent) / income * 100)
+		split.NeedsShareOfIncome, split.WantsShareOfIncome, split.SavingsShareOfIncome = &needsShare, &wantsShare, &savingsShare
 	}
 	return split
 }

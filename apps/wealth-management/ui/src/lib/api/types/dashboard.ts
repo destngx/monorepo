@@ -103,15 +103,21 @@ export interface YearlyCashFlow {
   expenseSplit: ExpenseSplit;
 }
 
-/** Expense by the Categories nature tag (WM-DASH-8): needs are fixed plus essential, wants are flexible. */
+/** Expense by the Categories nature tag (WM-DASH-8): needs are fixed, essential and untagged; wants are flexible. */
 export interface ExpenseSplit {
   fixed: CategoryMonths;
   essential: CategoryMonths;
   flexible: CategoryMonths;
   untagged: CategoryMonths;
-  /** Fixed plus essential expense over income in percent; null without income. */
+  /** Fixed, essential and untagged expense over income in percent; null without income (D45). */
   needsShareOfIncome: number | null;
   needsShareComfortable: number;
+  /** Flexible expense over income in percent; null without income. */
+  wantsShareOfIncome: number | null;
+  /** Income less all expense over income in percent; null without income. */
+  savingsShareOfIncome: number | null;
+  /** The share of income to save before wants (30%). */
+  savingsShareTarget: number;
   /** Expense categories with spending but no tag, largest first. */
   untaggedCategories: string[];
   /** Essential and flexible categories that could cost less, most room first; rows do not add up to the total. */

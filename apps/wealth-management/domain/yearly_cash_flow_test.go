@@ -235,9 +235,12 @@ func TestYearlyCashFlowExpenseSplit(t *testing.T) {
 	if got.Essential.Total != 20 || got.Flexible.Total != 10 || got.Untagged.Total != 20 || got.Untagged.Values[1] != 20 {
 		t.Fatalf("essential = %+v, flexible = %+v, untagged = %+v", got.Essential, got.Flexible, got.Untagged)
 	}
-	// Needs are fixed plus essential: 100 of 200 income.
-	if got.NeedsShareOfIncome == nil || *got.NeedsShareOfIncome != 50 || got.NeedsShareComfortable != 50 {
+	// Needs are fixed, essential and untagged: 120 of 200 income; wants 10; saved 70.
+	if got.NeedsShareOfIncome == nil || *got.NeedsShareOfIncome != 60 || got.NeedsShareComfortable != 50 {
 		t.Fatalf("needs share = %v of %v", got.NeedsShareOfIncome, got.NeedsShareComfortable)
+	}
+	if got.WantsShareOfIncome == nil || *got.WantsShareOfIncome != 5 || got.SavingsShareOfIncome == nil || *got.SavingsShareOfIncome != 35 || got.SavingsShareTarget != 30 {
+		t.Fatalf("wants share = %v, savings share = %v of %v", got.WantsShareOfIncome, got.SavingsShareOfIncome, got.SavingsShareTarget)
 	}
 	if !reflect.DeepEqual(got.UntaggedCategories, []string{"Gifts", "Repairs"}) {
 		t.Fatalf("untagged categories = %v", got.UntaggedCategories)
@@ -250,7 +253,7 @@ func TestYearlyCashFlowExpenseSplit(t *testing.T) {
 	}
 
 	empty := ComputeYearlyCashFlow(nil, nil, 2026, day(2026, 2, 20)).ExpenseSplit
-	if empty.NeedsShareOfIncome != nil || empty.UntaggedCategories == nil || empty.Room == nil || len(empty.Fixed.Values) != 12 {
+	if empty.NeedsShareOfIncome != nil || empty.WantsShareOfIncome != nil || empty.SavingsShareOfIncome != nil || empty.UntaggedCategories == nil || empty.Room == nil || len(empty.Fixed.Values) != 12 {
 		t.Fatalf("empty = %+v", empty)
 	}
 }

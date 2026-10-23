@@ -107,7 +107,12 @@ export function savingsRateDomain(rates: number[], target: number): [number, num
   return [Math.floor(low / 10) * 10, Math.ceil(high / 10) * 10];
 }
 
-/** How heavy needs (fixed + essential) are; percentages only, so it reads the same masked. */
+/**
+ * How needs, wants and savings share income (D45); percentages only, so it
+ * reads the same masked. Untagged spending counts as a need. Needs leave
+ * room only when they stay within the needs limit and the savings target is
+ * met; wants get what is left after both.
+ */
 export function expenseSplitMessage(split: ExpenseSplit): VerdictMessage {
   if (split.fixed.total + split.essential.total + split.flexible.total === 0) {
     return {
@@ -122,10 +127,11 @@ export function expenseSplitMessage(split: ExpenseSplit): VerdictMessage {
   const detail =
     untagged === 0
       ? null
-      : `${untagged} untagged ${untagged === 1 ? 'category' : 'categories'} (${formatPercent((split.untagged.total / spending) * 100)} of spending) ${untagged === 1 ? 'is' : 'are'} not counted yet.`;
-  const share = split.needsShareOfIncome;
-  const limit = split.needsShareComfortable;
-  if (share === null) {
+      : `${untagged} untagged ${untagged === 1 ? 'category' : 'categories'} (${formatPercent((split.untagged.total / spending) * 100)} of spending) ${untagged === 1 ? 'counts' : 'count'} as needs until tagged.`;
+  const needs = split.needsShareOfIncome;
+  const wants = split.wantsShareOfIncome;
+  const saved = split.savingsShareOfIncome;
+  if (needs === null || wants === null || saved === null) {
     return {
       tone: 'neutral',
       title: 'Needs vs wants',
@@ -133,18 +139,31 @@ export function expenseSplitMessage(split: ExpenseSplit): VerdictMessage {
       detail,
     };
   }
-  if (share <= limit) {
+  const limit = split.needsShareComfortable;
+  const target = split.savingsShareTarget;
+  const shares = `Needs take ${formatPercent(needs)} of your income, wants ${formatPercent(wants)}, and you save ${formatPercent(saved)}.`;
+  // What wants may take once needs are paid and the savings target is set aside.
+  const wantsRoom = Math.max(0, 100 - target - needs);
+  if (needs > limit) {
     return {
-      tone: 'good',
-      title: 'Needs leave room',
-      text: `Needs (fixed + essential) take ${formatPercent(share)} of your income, under the ${limit}% rule of thumb. The rest can go to wants and savings.`,
+      tone: saved < 0 ? 'critical' : 'warning',
+      title: 'Needs are heavy',
+      text: `${shares} Needs are above the ${limit}% limit, so the ${target}% savings target needs a lower fixed cost or trimmed essentials, not only fewer wants.`,
+      detail,
+    };
+  }
+  if (saved < target) {
+    return {
+      tone: saved < 0 ? 'critical' : 'warning',
+      title: 'Wants take the savings',
+      text: `${shares} Needs are within ${limit}%, but saving is under the ${target}% target. Bring wants down to ${formatPercent(wantsRoom)} of income to reach it.`,
       detail,
     };
   }
   return {
-    tone: 'warning',
-    title: 'Needs are heavy',
-    text: `Needs (fixed + essential) take ${formatPercent(share)} of your income, above the ${limit}% rule of thumb. Saving more will mean lowering a fixed cost or trimming essentials, not only cutting wants.`,
+    tone: 'good',
+    title: 'Needs leave room',
+    text: `${shares} Needs are within ${limit}% and saving meets the ${target}% target. Keep saving first: wants can grow only to ${formatPercent(wantsRoom)} of income.`,
     detail,
   };
 }

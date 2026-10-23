@@ -13,7 +13,7 @@
     months: CashFlow[];
   }
 
-  // WM-DASH-8: needs (fixed + essential) vs wants (flexible), and the room to save.
+  // WM-DASH-8, D45: needs (fixed, essential, untagged) vs wants (flexible), and the room to save.
   let { split, months }: Props = $props();
 
   const ROOM_SHOWN = 5;

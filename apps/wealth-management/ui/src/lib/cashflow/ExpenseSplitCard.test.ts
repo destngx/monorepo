@@ -15,6 +15,9 @@ const split = {
   untagged: months(0),
   needsShareOfIncome: 40,
   needsShareComfortable: 50,
+  wantsShareOfIncome: 10,
+  savingsShareOfIncome: 40,
+  savingsShareTarget: 30,
   untaggedCategories: [],
   room: [
     {

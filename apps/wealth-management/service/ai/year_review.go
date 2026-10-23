@@ -41,6 +41,9 @@ type expenseSplitFacts struct {
 	Untagged              float64               `json:"untagged"`
 	NeedsShareOfIncome    *float64              `json:"needsShareOfIncomePercent"`
 	NeedsShareComfortable float64               `json:"needsShareComfortablePercent"`
+	WantsShareOfIncome    *float64              `json:"wantsShareOfIncomePercent"`
+	SavingsShareOfIncome  *float64              `json:"savingsShareOfIncomePercent"`
+	SavingsShareTarget    float64               `json:"savingsShareTargetPercent"`
 	UntaggedCategories    []string              `json:"untaggedCategories"`
 	Room                  []domain.CategoryRoom `json:"roomToSave"`
 	RoomPerMonth          float64               `json:"roomToSavePerMonth"`
@@ -67,6 +70,7 @@ func (s *Service) yearReviewInputs(year int) (map[string]string, yearReviewFacts
 		ExpenseSplit: expenseSplitFacts{
 			Fixed: split.Fixed.Total, Essential: split.Essential.Total, Flexible: split.Flexible.Total, Untagged: split.Untagged.Total,
 			NeedsShareOfIncome: split.NeedsShareOfIncome, NeedsShareComfortable: split.NeedsShareComfortable,
+			WantsShareOfIncome: split.WantsShareOfIncome, SavingsShareOfIncome: split.SavingsShareOfIncome, SavingsShareTarget: split.SavingsShareTarget,
 			UntaggedCategories: split.UntaggedCategories, Room: split.Room, RoomPerMonth: split.RoomPerMonth, RoomPerYear: split.RoomPerYear,
 		},
 	}
