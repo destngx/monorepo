@@ -22,7 +22,7 @@ func goalProperties() map[string]any {
 		"name":           schemaString,
 		"target":         map[string]any{"type": "number", "description": "VND, positive. Omit only on the emergency fund (name or note mentions emergency) to compute it."},
 		"targetDate":     map[string]any{"type": "string", "description": "yyyy-mm; omit for no deadline."},
-		"priority":       map[string]any{"type": "integer", "description": "1 is filled first. 0 or omitted: last on create, unchanged on update."},
+		"priority":       map[string]any{"type": "integer", "description": "1 is filled first; the same priority shares equally. 0 or omitted: last on create, unchanged on update."},
 		"startingAmount": map[string]any{"type": "number", "description": "Money already set aside outside the pool."},
 		"status":         map[string]any{"type": "string", "enum": []string{"active", "paused", "done"}, "description": "Default active on create, unchanged on update."},
 		"note":           schemaString,

@@ -101,7 +101,9 @@
         bind:value={form.priority}
         aria-describedby="goal-priority-hint"
       />
-      <p id="goal-priority-hint" class="muted mt-1 text-xs">1 is filled first. Blank puts a new goal last.</p>
+      <p id="goal-priority-hint" class="muted mt-1 text-xs">
+        1 is filled first; goals with the same priority share equally. Blank puts a new goal last.
+      </p>
     </div>
     <div>
       <label class="label" for="goal-starting">Starting amount (VND)</label>

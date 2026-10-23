@@ -106,8 +106,9 @@ type GoalPlan struct {
 	Issues      []GoalPlanIssue `json:"issues"`
 }
 
-// ComputeGoalPlan fills the goals from the pool by priority, projects the
-// rest from monthly savings and checks the plan.
+// ComputeGoalPlan fills the goals from the pool by priority (goals with the
+// same priority share it equally), projects the rest from monthly savings
+// and checks the plan.
 func ComputeGoalPlan(sheet GoalPlanSheet, accounts []Account, transactions []Transaction, categories []Category, settings GoalPoolSettings, today time.Time) GoalPlan {
 	plan := GoalPlan{
 		AsOf:           today.Format(time.DateOnly),
@@ -125,7 +126,6 @@ func ComputeGoalPlan(sheet GoalPlanSheet, accounts []Account, transactions []Tra
 		return cmp.Or(cmp.Compare(priorityKey(a.Priority), priorityKey(b.Priority)), cmp.Compare(a.Row, b.Row))
 	})
 	emergencyFound := false
-	poolLeft := plan.Pool.Total
 	for _, goal := range ordered {
 		progress := GoalProgress{PlannedGoal: goal}
 		if IsEmergencyFund(goal.Name, goal.Note) && !emergencyFound {
@@ -140,10 +140,9 @@ func ComputeGoalPlan(sheet GoalPlanSheet, accounts []Account, transactions []Tra
 			plan.Issues = append(plan.Issues, GoalPlanIssue{Row: goal.Row, Message: "only one emergency fund may leave its target blank; give this goal a target"})
 			continue
 		}
-		poolLeft = fillFromPool(&progress, poolLeft)
 		plan.Goals = append(plan.Goals, progress)
 	}
-	plan.Unallocated = poolLeft
+	plan.Unallocated = fillFromPool(plan.Goals, plan.Pool.Total)
 	current := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
 	projectGoals(plan.Goals, plan.MonthlySavings.PerMonth, current)
 	plan.Check = checkPlan(plan.Goals, plan.MonthlySavings.PerMonth, current)
@@ -158,34 +157,81 @@ func priorityKey(priority int) int {
 	return priority
 }
 
-// fillFromPool funds one goal and returns the pool left. Done goals count
-// as fully funded and take nothing; paused goals keep only their starting
-// amount.
-func fillFromPool(progress *GoalProgress, poolLeft float64) float64 {
-	target := progress.TargetAmount
-	switch progress.Status {
-	case GoalDone:
-		progress.Funded, progress.Pace = target, PaceDone
-	case GoalPaused:
-		progress.Funded, progress.Pace = math.Min(progress.StartingAmount, target), PacePaused
-	default:
-		starting := math.Min(progress.StartingAmount, target)
-		progress.FromPool = math.Min(target-starting, poolLeft)
-		progress.Funded = starting + progress.FromPool
-		poolLeft -= progress.FromPool
+// priorityGroups splits goals in priority order into runs that share
+// money equally: goals with the same priority. A goal without a priority is
+// a run of its own, so those fill in sheet order.
+func priorityGroups(goals []GoalProgress) [][]int {
+	var groups [][]int
+	for i, goal := range goals {
+		if last := len(groups) - 1; last >= 0 && goal.Priority > 0 && goals[groups[last][0]].Priority == goal.Priority {
+			groups[last] = append(groups[last], i)
+			continue
+		}
+		groups = append(groups, []int{i})
 	}
-	progress.Remaining = math.Max(0, target-progress.Funded)
-	if target > 0 {
-		progress.Percent = math.Round(progress.Funded/target*1000) / 10
-	} else {
-		progress.Percent = 100
+	return groups
+}
+
+// shareEqually splits budget equally across needs. A need smaller than its
+// share takes only what it needs and the rest is split among the others.
+// It returns each take, in the order of needs.
+func shareEqually(needs []float64, budget float64) []float64 {
+	takes := make([]float64, len(needs))
+	order := make([]int, len(needs))
+	for i := range order {
+		order[i] = i
 	}
-	return poolLeft
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(needs[a], needs[b]) })
+	for k, i := range order {
+		takes[i] = math.Min(needs[i], budget/float64(len(order)-k))
+		budget -= takes[i]
+	}
+	return takes
+}
+
+// fillFromPool funds the goals by priority group and returns the pool left.
+// Done goals count as fully funded and take nothing; paused goals keep only
+// their starting amount.
+func fillFromPool(goals []GoalProgress, pool float64) float64 {
+	for _, group := range priorityGroups(goals) {
+		var active []int
+		var needs []float64
+		for _, i := range group {
+			progress := &goals[i]
+			target := progress.TargetAmount
+			switch progress.Status {
+			case GoalDone:
+				progress.Funded, progress.Pace = target, PaceDone
+			case GoalPaused:
+				progress.Funded, progress.Pace = math.Min(progress.StartingAmount, target), PacePaused
+			default:
+				progress.Funded = math.Min(progress.StartingAmount, target)
+				active = append(active, i)
+				needs = append(needs, target-progress.Funded)
+			}
+		}
+		for k, take := range shareEqually(needs, pool) {
+			progress := &goals[active[k]]
+			progress.FromPool = take
+			progress.Funded += take
+			pool -= take
+		}
+		for _, i := range group {
+			progress := &goals[i]
+			progress.Remaining = math.Max(0, progress.TargetAmount-progress.Funded)
+			if progress.TargetAmount > 0 {
+				progress.Percent = math.Round(progress.Funded/progress.TargetAmount*1000) / 10
+			} else {
+				progress.Percent = 100
+			}
+		}
+	}
+	return pool
 }
 
 // projectGoals simulates month by month: each month's savings fill the
-// unfinished active goals in priority order, then sets each goal's
-// required pace, projection and status.
+// unfinished active goals in priority order, shared equally within a
+// priority, then sets each goal's required pace, projection and status.
 func projectGoals(goals []GoalProgress, savings float64, current time.Time) {
 	remaining := make([]float64, len(goals))
 	finish := make([]int, len(goals))
@@ -201,18 +247,29 @@ func projectGoals(goals []GoalProgress, savings float64, current time.Time) {
 		}
 		unfinished++
 	}
+	groups := priorityGroups(goals)
 	for month := 1; month <= goalHorizonMonths && unfinished > 0 && savings > 0; month++ {
 		budget := savings
-		for i := range goals {
-			if finish[i] >= 0 || remaining[i] <= 0 || budget <= 0 {
-				continue
+		for _, group := range groups {
+			if budget <= 0 {
+				break
 			}
-			take := math.Min(remaining[i], budget)
-			remaining[i] -= take
-			budget -= take
-			if remaining[i] <= 0 {
-				finish[i] = month
-				unfinished--
+			var open []int
+			var needs []float64
+			for _, i := range group {
+				if finish[i] < 0 && remaining[i] > 0 {
+					open = append(open, i)
+					needs = append(needs, remaining[i])
+				}
+			}
+			for k, take := range shareEqually(needs, budget) {
+				i := open[k]
+				remaining[i] -= take
+				budget -= take
+				if remaining[i] <= 0 {
+					finish[i] = month
+					unfinished--
+				}
 			}
 		}
 	}

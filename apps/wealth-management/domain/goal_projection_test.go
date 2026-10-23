@@ -204,3 +204,79 @@ func TestGivenAPlanWhenSummarisingForAIThenOnlyNumbersAreGiven(t *testing.T) {
 		t.Fatal("no facts before setup")
 	}
 }
+
+func computeTiedGoals(goals ...PlannedGoal) GoalPlan {
+	return ComputeGoalPlan(GoalPlanSheet{Exists: true, Goals: goals}, poolAccounts(), monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+}
+
+func TestGivenGoalsWithTheSamePriorityWhenFillingThenTheyShareThePoolEqually(t *testing.T) {
+	plan := computeTiedGoals(
+		plannedGoal(2, "House", money(200_000_000), "", 1, GoalActive),
+		plannedGoal(3, "Car", money(200_000_000), "", 1, GoalActive),
+		plannedGoal(4, "Phone", money(20_000_000), "", 1, GoalActive),
+		plannedGoal(5, "Trip", money(30_000_000), "", 2, GoalActive),
+	)
+
+	if phone := goalNamed(t, plan, "Phone"); phone.FromPool != 20_000_000 || phone.Pace != PaceFunded {
+		t.Fatalf("a goal needing less than its share takes only what it needs: %+v", phone)
+	}
+	for _, name := range []string{"House", "Car"} {
+		if goal := goalNamed(t, plan, name); goal.FromPool != 55_000_000 {
+			t.Fatalf("%s shares the rest equally: %+v", name, goal)
+		}
+	}
+	if trip := goalNamed(t, plan, "Trip"); trip.FromPool != 0 {
+		t.Fatalf("a lower priority gets the pool only after the tie is full: %+v", trip)
+	}
+	if plan.Unallocated != 0 {
+		t.Fatalf("unallocated = %v", plan.Unallocated)
+	}
+}
+
+func TestGivenGoalsWithTheSamePriorityWhenTheirStartingAmountsDifferThenEachGetsAnEqualShareOfThePool(t *testing.T) {
+	house := plannedGoal(2, "House", money(200_000_000), "", 1, GoalActive)
+	house.StartingAmount = 50_000_000
+	plan := computeTiedGoals(house, plannedGoal(3, "Car", money(200_000_000), "", 1, GoalActive))
+
+	if house := goalNamed(t, plan, "House"); house.FromPool != 65_000_000 || house.Funded != 115_000_000 {
+		t.Fatalf("house = %+v", house)
+	}
+	if car := goalNamed(t, plan, "Car"); car.FromPool != 65_000_000 || car.Funded != 65_000_000 {
+		t.Fatalf("car = %+v", car)
+	}
+}
+
+func TestGivenGoalsWithTheSamePriorityWhenProjectingThenTheyShareMonthlySavingsEqually(t *testing.T) {
+	plan := computeTiedGoals(
+		plannedGoal(2, "House", money(200_000_000), "", 1, GoalActive),
+		plannedGoal(3, "Car", money(80_000_000), "", 1, GoalActive),
+		plannedGoal(4, "Trip", money(50_000_000), "", 2, GoalActive),
+	)
+
+	// Pool 130M: 65M each. Savings 10M a month: 5M each until the car's
+	// last 15M is in (month 3), then the house takes all 10M (month 15),
+	// then the trip (month 20).
+	if car := goalNamed(t, plan, "Car"); car.FromPool != 65_000_000 || *car.MonthsToReach != 3 || *car.ProjectedFinish != "2027-01" {
+		t.Fatalf("car = %+v", car)
+	}
+	if house := goalNamed(t, plan, "House"); house.FromPool != 65_000_000 || *house.MonthsToReach != 15 {
+		t.Fatalf("house = %+v", house)
+	}
+	if trip := goalNamed(t, plan, "Trip"); *trip.MonthsToReach != 20 {
+		t.Fatalf("trip = %+v", trip)
+	}
+}
+
+func TestGivenGoalsWithoutAPriorityWhenFillingThenTheyFillInSheetOrder(t *testing.T) {
+	plan := computeTiedGoals(
+		plannedGoal(2, "House", money(100_000_000), "", 0, GoalActive),
+		plannedGoal(3, "Car", money(100_000_000), "", 0, GoalActive),
+	)
+
+	if house := goalNamed(t, plan, "House"); house.FromPool != 100_000_000 {
+		t.Fatalf("house = %+v", house)
+	}
+	if car := goalNamed(t, plan, "Car"); car.FromPool != 30_000_000 {
+		t.Fatalf("car = %+v", car)
+	}
+}

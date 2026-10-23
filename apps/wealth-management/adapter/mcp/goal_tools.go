@@ -13,7 +13,7 @@ func goalSchema() map[string]any {
 		"name":           stringSchema,
 		"target":         map[string]any{"type": "number", "exclusiveMinimum": 0, "description": "VND. Omit only on the emergency fund (name or note mentions emergency) to compute it from monthly needs."},
 		"targetDate":     map[string]any{"type": "string", "pattern": `^\d{4}-\d{1,2}$`, "description": "yyyy-mm; omit for no deadline."},
-		"priority":       map[string]any{"type": "integer", "minimum": 0, "description": "1 is filled first; 0 or omitted keeps it last on create, unchanged on update."},
+		"priority":       map[string]any{"type": "integer", "minimum": 0, "description": "1 is filled first; goals with the same priority share the money equally; 0 or omitted keeps it last on create, unchanged on update."},
 		"startingAmount": numberSchema,
 		"status":         map[string]any{"type": "string", "enum": []string{string(domain.GoalActive), string(domain.GoalPaused), string(domain.GoalDone)}},
 		"note":           stringSchema,
