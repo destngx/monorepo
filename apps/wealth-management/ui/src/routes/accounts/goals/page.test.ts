@@ -75,6 +75,7 @@ const plan = (overrides: Partial<GoalPlan> = {}): GoalPlan => ({
     crypto: 0,
     archived: 0,
     moneyLent: 0,
+    negativeBalances: 0,
     accounts: [],
   },
   needs: { perMonth: 4_000_000, months: 6, fromTotalExpense: false },
@@ -197,6 +198,19 @@ describe('Goals page', () => {
     expect(screen.getByText('From slow money')).toBeTruthy();
     expect(screen.getByText('Slow money left')).toBeTruthy();
     expect(document.body.textContent).toContain('9.000.000');
+  });
+
+  it('Given a wallet below 0 When the pool shows Then it is flagged apart from card debt', async () => {
+    const pool = {
+      ...plan().pool,
+      negativeBalances: 1_000_000,
+      accounts: [{ name: 'Wallet', balance: -1_000_000, role: 'negative' as const }],
+    };
+    render(GoalsPage, { data: { engine: never(), plan: settled(plan({ pool })) } as never });
+    await flush();
+
+    expect(screen.getByText('Negative balances')).toBeTruthy();
+    expect(screen.getByText('Below 0, check its transactions')).toBeTruthy();
   });
 
   it('Given the new goal form When Can use slow money is ticked Then the goal is created with it', async () => {

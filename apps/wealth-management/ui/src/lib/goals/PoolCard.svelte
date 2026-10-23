@@ -11,6 +11,7 @@
     cardDebt: 'Card debt',
     crypto: 'Crypto, not counted',
     slow: 'Slow money',
+    negative: 'Below 0, check its transactions',
     archived: 'Archived, not counted',
     empty: 'Empty',
   };
@@ -50,6 +51,13 @@
     <dd class="text-right"><Money value={pool.crypto} /></dd>
     <dt>Money lent <span class="muted text-xs">(owed to you)</span></dt>
     <dd class="text-right"><Money value={pool.moneyLent} /></dd>
+    {#if pool.negativeBalances > 0}
+      <dt>
+        Negative balances
+        <span class="muted text-xs">(accounts that are not cards; the ledger is missing money, counted as 0)</span>
+      </dt>
+      <dd class="text-right"><Money value={-pool.negativeBalances} /></dd>
+    {/if}
     {#if pool.archived > 0}
       <dt>Archived accounts</dt>
       <dd class="text-right"><Money value={pool.archived} /></dd>

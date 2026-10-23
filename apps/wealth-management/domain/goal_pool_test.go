@@ -155,3 +155,26 @@ func TestGivenSlowAccountsWhenComputingThePoolThenTheyAreKeptApartFromReadyMoney
 		t.Fatalf("roles = %v", roles)
 	}
 }
+
+func TestGivenANegativeBalanceOnAnAccountThatIsNotACardWhenComputingThePoolThenItIsFlaggedNotTakenOff(t *testing.T) {
+	accounts := append(poolAccounts(),
+		Account{Name: "Wallet F", Type: AccountTypeRarelyUse, Currency: CurrencyVND, Balance: -1_000_000},
+		Account{Name: "Old card G", Type: AccountTypeDeprecated, Currency: CurrencyVND, Balance: -2_000_000},
+	)
+
+	pool := ComputeGoalPool(accounts, monthlyHistory(), DefaultGoalPoolSettings(), nil, planToday)
+
+	if pool.CardDebt != 12_000_000 || pool.Total != 128_000_000 {
+		t.Fatalf("card debt = %v, pool = %v: only cards and old cards are debt", pool.CardDebt, pool.Total)
+	}
+	if pool.NegativeBalances != 1_000_000 {
+		t.Fatalf("negative balances = %v", pool.NegativeBalances)
+	}
+	roles := map[string]PoolRole{}
+	for _, account := range pool.Accounts {
+		roles[account.Name] = account.Role
+	}
+	if roles["Wallet F"] != PoolRoleNegative || roles["Old card G"] != PoolRoleCardDebt || roles["Card E"] != PoolRoleCardDebt {
+		t.Fatalf("roles = %v", roles)
+	}
+}

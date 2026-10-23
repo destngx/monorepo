@@ -46,7 +46,7 @@ export interface GoalProgress extends PlannedGoal {
   pace: GoalPace;
 }
 
-export type PoolRole = 'asset' | 'cardDebt' | 'crypto' | 'slow' | 'archived' | 'empty';
+export type PoolRole = 'asset' | 'cardDebt' | 'crypto' | 'slow' | 'negative' | 'archived' | 'empty';
 
 /**
  * The pooled savings balance: total = max(0, assets - cardDebt - spendingBuffer), ready money only.
@@ -64,6 +64,8 @@ export interface GoalPool {
   crypto: number;
   archived: number;
   moneyLent: number;
+  /** Negative balances of accounts that are not cards: a ledger gap, counted as 0. */
+  negativeBalances: number;
   accounts: { name: string; balance: number; role: PoolRole }[];
 }
 

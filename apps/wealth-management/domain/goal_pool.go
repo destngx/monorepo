@@ -25,6 +25,10 @@ const (
 	// PoolRoleSlow is slow money: takes days or more to withdraw, so only
 	// goals that opt in draw on it.
 	PoolRoleSlow PoolRole = "slow"
+	// PoolRoleNegative is a negative balance on an account that is not a
+	// card: a bank or wallet cannot go below 0, so the ledger is missing
+	// money. Counted as 0 and flagged.
+	PoolRoleNegative PoolRole = "negative"
 	// PoolRoleArchived is a deprecated account, left out.
 	PoolRoleArchived PoolRole = "archived"
 	// PoolRoleEmpty is a zero balance.
@@ -43,21 +47,26 @@ type PoolAccount struct {
 // Total = max(0, Assets - CardDebt - SpendingBuffer), ready money only.
 // Slow money is apart: only goals that opt in draw on it.
 type GoalPool struct {
-	Assets                float64       `json:"assets"`
-	CardDebt              float64       `json:"cardDebt"`
-	SpendingBuffer        float64       `json:"spendingBuffer"`
-	BufferMonths          float64       `json:"bufferMonths"`
-	AverageMonthlyExpense float64       `json:"averageMonthlyExpense"`
-	Total                 float64       `json:"total"`
-	Slow                  float64       `json:"slow"`
-	Crypto                float64       `json:"crypto"`
-	Archived              float64       `json:"archived"`
-	MoneyLent             float64       `json:"moneyLent"`
-	Accounts              []PoolAccount `json:"accounts"`
+	Assets                float64 `json:"assets"`
+	CardDebt              float64 `json:"cardDebt"`
+	SpendingBuffer        float64 `json:"spendingBuffer"`
+	BufferMonths          float64 `json:"bufferMonths"`
+	AverageMonthlyExpense float64 `json:"averageMonthlyExpense"`
+	Total                 float64 `json:"total"`
+	Slow                  float64 `json:"slow"`
+	Crypto                float64 `json:"crypto"`
+	Archived              float64 `json:"archived"`
+	MoneyLent             float64 `json:"moneyLent"`
+	// NegativeBalances sums the negative balances of accounts that are not
+	// cards, left out of the pool.
+	NegativeBalances float64       `json:"negativeBalances"`
+	Accounts         []PoolAccount `json:"accounts"`
 }
 
 // ComputeGoalPool sums positive balances of ready accounts, then takes off
-// every negative balance (card debt, D17) and the spending buffer. Slow
+// card debt (negative balances of credit cards and deprecated accounts, the
+// liability types of WM-RULE-2) and the spending buffer. A negative balance
+// on any other account is a ledger gap: counted as 0 and reported. Slow
 // money (investment and long holding accounts, and the accounts marked not
 // ready to use, notReady) is summed apart. Crypto, archived accounts and
 // money lent are reported beside it but never counted (D32, D30).
@@ -66,9 +75,12 @@ func ComputeGoalPool(accounts []Account, transactions []Transaction, settings Go
 	for _, account := range accounts {
 		role := PoolRoleAsset
 		switch {
-		case account.Balance < 0:
+		case account.Balance < 0 && (account.Type == AccountTypeNegativeActive || account.Type == AccountTypeDeprecated):
 			role = PoolRoleCardDebt
 			pool.CardDebt += -account.Balance
+		case account.Balance < 0:
+			role = PoolRoleNegative
+			pool.NegativeBalances += -account.Balance
 		case account.Balance == 0:
 			role = PoolRoleEmpty
 		case account.Type == AccountTypeDeprecated:
