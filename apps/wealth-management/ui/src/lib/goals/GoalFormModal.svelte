@@ -130,6 +130,21 @@
       <label class="label" for="goal-note">Note</label>
       <input id="goal-note" class="field" bind:value={form.note} />
     </div>
+    <div class="sm:col-span-2">
+      <label class="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          class="size-4 accent-accent-600"
+          bind:checked={form.useSlowMoney}
+          aria-describedby="goal-slow-hint"
+        />
+        Can use slow money
+      </label>
+      <p id="goal-slow-hint" class="muted mt-1 text-xs">
+        Investment and long holding accounts, and accounts marked not ready to use, take days to withdraw. Leave this
+        off for money you may need fast, like the emergency fund.
+      </p>
+    </div>
   </form>
   {#snippet footer()}
     <Button disabled={busy} onclick={onclose}>Cancel</Button>

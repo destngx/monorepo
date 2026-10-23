@@ -30,8 +30,8 @@ func TestE2EGoalPlanRoundTrip(t *testing.T) {
 	}
 
 	var edited domain.PlannedGoal
-	h.request(t, http.MethodPatch, "/api/goals/"+created.ID, map[string]any{"name": name, "target": 12_000_000, "status": "paused", "etag": created.ETag}, http.StatusOK, &edited)
-	if edited.Status != domain.GoalPaused || *edited.Target != 12_000_000 {
+	h.request(t, http.MethodPatch, "/api/goals/"+created.ID, map[string]any{"name": name, "target": 12_000_000, "status": "paused", "useSlowMoney": true, "etag": created.ETag}, http.StatusOK, &edited)
+	if edited.Status != domain.GoalPaused || *edited.Target != 12_000_000 || !edited.UseSlowMoney {
 		t.Fatalf("the edit did not read back: %+v", edited)
 	}
 	h.request(t, http.MethodPatch, "/api/goals/"+created.ID, map[string]any{"name": name, "target": 1, "etag": created.ETag}, http.StatusConflict, nil)

@@ -8,6 +8,7 @@ type goalPlanContext struct {
 	SetupNeeded      bool                  `json:"setupNeeded,omitempty"`
 	Pool             float64               `json:"pool"`
 	PoolExcludes     string                `json:"poolExcludes"`
+	SlowMoney        float64               `json:"slowMoney"`
 	MonthlySavings   float64               `json:"monthlySavings"`
 	RequiredPerMonth float64               `json:"requiredPerMonth"`
 	Gap              float64               `json:"gap"`
@@ -24,6 +25,8 @@ type goalContext struct {
 	EmergencyFund    bool              `json:"emergencyFund,omitempty"`
 	Target           float64           `json:"target"`
 	Funded           float64           `json:"funded"`
+	UsesSlowMoney    bool              `json:"usesSlowMoney,omitempty"`
+	FromSlow         float64           `json:"fromSlow,omitempty"`
 	Remaining        float64           `json:"remaining"`
 	TargetDate       string            `json:"targetDate,omitempty"`
 	RequiredPerMonth *float64          `json:"requiredPerMonth,omitempty"`
@@ -35,7 +38,8 @@ func (s *Service) goalPlanContext(plan domain.GoalPlan) goalPlanContext {
 	out := goalPlanContext{
 		SetupNeeded:      plan.SetupNeeded,
 		Pool:             plan.Pool.Total,
-		PoolExcludes:     "crypto, archived accounts and money lent; card debt and a spending buffer are taken off",
+		PoolExcludes:     "crypto, archived accounts, money lent and slow money; card debt and a spending buffer are taken off",
+		SlowMoney:        plan.Pool.Slow,
 		MonthlySavings:   plan.MonthlySavings.PerMonth,
 		RequiredPerMonth: plan.Check.RequiredPerMonth,
 		Gap:              plan.Check.Gap,
@@ -45,7 +49,7 @@ func (s *Service) goalPlanContext(plan domain.GoalPlan) goalPlanContext {
 	for _, goal := range plan.Goals {
 		out.Goals = append(out.Goals, goalContext{
 			Name: s.masker.Mask(goal.Name), Priority: goal.Priority, Status: goal.Status, Pace: goal.Pace, EmergencyFund: goal.EmergencyFund,
-			Target: goal.TargetAmount, Funded: goal.Funded, Remaining: goal.Remaining, TargetDate: goal.TargetDate,
+			Target: goal.TargetAmount, Funded: goal.Funded, UsesSlowMoney: goal.UseSlowMoney, FromSlow: goal.FromSlow, Remaining: goal.Remaining, TargetDate: goal.TargetDate,
 			RequiredPerMonth: goal.RequiredPerMonth, ProjectedFinish: goal.ProjectedFinish, YearsToReach: goal.YearsToReach,
 		})
 	}

@@ -51,6 +51,7 @@
       <div class="mt-1 flex flex-wrap items-center gap-1.5">
         <Badge status={status.tone}>{status.label}</Badge>
         {#if goal.emergencyFund}<Badge tone="violet">Emergency fund</Badge>{/if}
+        {#if goal.useSlowMoney}<Badge>Uses slow money</Badge>{/if}
       </div>
     </div>
     <div class="flex shrink-0">
@@ -106,6 +107,10 @@
     {/if}
     <dt class="muted">Projected finish</dt>
     <dd class="text-right">{finishLabel(goal)}</dd>
+    {#if goal.fromSlow > 0}
+      <dt class="muted">From slow money</dt>
+      <dd class="text-right"><Money value={goal.fromSlow} /></dd>
+    {/if}
     {#if goal.startingAmount > 0}
       <dt class="muted">Set aside outside the pool</dt>
       <dd class="text-right"><Money value={goal.startingAmount} /></dd>

@@ -24,11 +24,13 @@ const goal = (overrides: Partial<GoalProgress> = {}): GoalProgress => ({
   startingAmount: 0,
   status: 'active',
   etag: 'e1',
+  useSlowMoney: false,
   emergencyFund: false,
   targetAmount: 30_000_000,
   targetComputed: false,
   funded: 10_000_000,
   fromPool: 10_000_000,
+  fromSlow: 0,
   remaining: 20_000_000,
   percent: 33.3,
   monthsLeft: 10,
@@ -112,7 +114,9 @@ describe('goal form', () => {
       startingAmount: undefined,
       status: 'active',
       note: undefined,
+      useSlowMoney: undefined,
     });
+    expect(goalInputFrom({ ...form, useSlowMoney: true }, false).input?.useSlowMoney).toBe(true);
     expect(goalInputFrom({ ...form, name: '' }, false).error).toMatch(/Name/);
     expect(goalInputFrom({ ...form, target: null }, false).error).toMatch(/Target is required/);
     expect(goalInputFrom({ ...form, target: null }, true).input?.target).toBeUndefined();
@@ -120,13 +124,14 @@ describe('goal form', () => {
   });
 
   it('fills the form from a goal', () => {
-    expect(goalFormFor(goal({ targetDate: '2027-06', note: 'n' }))).toMatchObject({
+    expect(goalFormFor(goal({ targetDate: '2027-06', note: 'n', useSlowMoney: true }))).toMatchObject({
       name: 'Trip',
       target: 30_000_000,
       targetDate: '2027-06',
       priority: 1,
       startingAmount: null,
       note: 'n',
+      useSlowMoney: true,
     });
   });
 });

@@ -41,11 +41,13 @@ const goal = (id: string, name: string, priority: number): GoalProgress => ({
   startingAmount: 0,
   status: 'active',
   etag: `etag-${id}`,
+  useSlowMoney: false,
   emergencyFund: false,
   targetAmount: 50_000_000,
   targetComputed: false,
   funded: 12_300_000,
   fromPool: 12_300_000,
+  fromSlow: 0,
   remaining: 37_700_000,
   percent: 24.6,
   monthsLeft: null,
@@ -68,6 +70,7 @@ const plan = (overrides: Partial<GoalPlan> = {}): GoalPlan => ({
     bufferMonths: 1,
     averageMonthlyExpense: 5_000_000,
     total: 25_000_000,
+    slow: 0,
     crypto: 0,
     archived: 0,
     moneyLent: 0,
@@ -77,6 +80,7 @@ const plan = (overrides: Partial<GoalPlan> = {}): GoalPlan => ({
   monthlySavings: { perMonth: 2_000_000, months: 6 },
   goals: [goal('goal-1', 'Car', 1), goal('goal-2', 'Trip', 2)],
   unallocated: 700_000,
+  unallocatedSlow: 0,
   check: {
     requiredPerMonth: 0,
     monthlySavings: 2_000_000,
@@ -176,5 +180,39 @@ describe('Goals page', () => {
     expect(document.getElementById('goal-name')?.getAttribute('aria-invalid')).toBe('true');
     expect(document.getElementById('goal-target')?.getAttribute('aria-invalid')).toBe('true');
     expect(screen.getByText('Enter a name for the goal.')).toBeTruthy();
+  });
+
+  it('Given a goal that uses slow money When the plan shows Then its card and the pool show the slow money', async () => {
+    const house = { ...goal('goal-1', 'House', 1), useSlowMoney: true, fromSlow: 8_000_000 };
+    const pool = { ...plan().pool, slow: 9_000_000 };
+    render(GoalsPage, {
+      data: { engine: never(), plan: settled(plan({ goals: [house], pool, unallocatedSlow: 1_000_000 })) } as never,
+    });
+    await flush();
+    mask.toggle();
+    await flush();
+
+    expect(screen.getByText('Uses slow money')).toBeTruthy();
+    expect(screen.getByText('From slow money')).toBeTruthy();
+    expect(screen.getByText('Slow money left')).toBeTruthy();
+    expect(document.body.textContent).toContain('9.000.000');
+  });
+
+  it('Given the new goal form When Can use slow money is ticked Then the goal is created with it', async () => {
+    calls.length = 0;
+    render(GoalsPage, { data: { engine: never(), plan: settled(plan()) } as never });
+    await flush();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'New goal' }));
+    await fireEvent.input(document.getElementById('goal-name') as HTMLInputElement, { target: { value: 'House' } });
+    await fireEvent.input(document.getElementById('goal-target') as HTMLInputElement, {
+      target: { value: '100000000' },
+    });
+    await fireEvent.click(screen.getByLabelText('Can use slow money'));
+    await fireEvent.submit(document.getElementById('goal-form') as HTMLFormElement);
+    await flush();
+
+    const create = calls.find((call) => call.name === 'createGoal');
+    expect(create?.args[0]).toMatchObject({ name: 'House', target: 100_000_000, useSlowMoney: true });
   });
 });

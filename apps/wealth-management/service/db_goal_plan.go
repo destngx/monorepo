@@ -14,10 +14,13 @@ import (
 
 const (
 	goalPlanSheet    = "Goal Plan"
-	goalPlanRange    = "'Goal Plan'!A2:G"
+	goalPlanRange    = "'Goal Plan'!A2:H"
 	goalPlanAnchor   = "'Goal Plan'!A2:A"
 	goalPlanFirstRow = 2
-	goalPlanColumns  = 7 // A-G
+	goalPlanColumns  = 8 // A-H
+	// goalPlanSlowHeader labels column H, added after the first tabs were
+	// created; a write that opts a goal in sets it.
+	goalPlanSlowHeader = "'Goal Plan'!H1"
 
 	legacyGoalsSheet = "Goals"
 	legacyGoalsRange = "Goals!A1:Z50"
@@ -29,7 +32,7 @@ const (
 	emergencyFundNote = "Blank target = computed from monthly needs"
 )
 
-var goalPlanHeader = []any{"Name", "Target", "Target date", "Priority", "Starting amount", "Status", "Note"}
+var goalPlanHeader = []any{"Name", "Target", "Target date", "Priority", "Starting amount", "Status", "Note", "Slow money"}
 
 func (s *dbService) ReadGoalPlan(forceFresh bool) (domain.GoalPlanSheet, error) {
 	return cachedRead(s, cacheKeyGoalPlan, sheetDataTTL, forceFresh, func() (domain.GoalPlanSheet, error) {
@@ -55,7 +58,7 @@ func (s *dbService) ReadGoalPlan(forceFresh bool) (domain.GoalPlanSheet, error) 
 	})
 }
 
-// goalRowValues renders columns A-G for USER_ENTERED. The target date is
+// goalRowValues renders columns A-H for USER_ENTERED. The target date is
 // written as text ('yyyy-mm) so Sheets does not turn it into a date.
 func goalRowValues(input domain.GoalInput, priority int, status domain.GoalStatus) []any {
 	target, starting, date := any(""), any(""), any("")
@@ -68,7 +71,23 @@ func goalRowValues(input domain.GoalInput, priority int, status domain.GoalStatu
 	if month, _ := domain.ParseGoalMonth(input.TargetDate); month != "" {
 		date = "'" + month
 	}
-	return []any{strings.TrimSpace(input.Name), target, date, priority, starting, string(status), strings.TrimSpace(input.Note)}
+	slow := ""
+	if input.UseSlowMoney {
+		slow = "yes"
+	}
+	return []any{strings.TrimSpace(input.Name), target, date, priority, starting, string(status), strings.TrimSpace(input.Note), slow}
+}
+
+// labelSlowMoneyColumn writes the column H header, which tabs created
+// before it existed lack, when a goal opts in to slow money.
+func (s *dbService) labelSlowMoneyColumn(input domain.GoalInput) error {
+	if !input.UseSlowMoney {
+		return nil
+	}
+	if err := s.client.UpdateRow(goalPlanSlowHeader, []any{goalPlanHeader[goalPlanColumns-1]}); err != nil {
+		return fmt.Errorf("write goal plan header: %w", err)
+	}
+	return nil
 }
 
 // readGoalRow reads one goal row back so the caller gets the sheet's own
@@ -132,10 +151,13 @@ func (s *dbService) CreateGoal(input domain.GoalInput) (domain.PlannedGoal, erro
 		return domain.PlannedGoal{}, fmt.Errorf("write goal: %w", err)
 	}
 	s.invalidate(cacheKeyGoalPattern)
+	if err := s.labelSlowMoneyColumn(input); err != nil {
+		return domain.PlannedGoal{}, err
+	}
 	return s.readGoalRow(row)
 }
 
-// UpdateGoal replaces columns A-G. A zero Priority or empty Status keeps
+// UpdateGoal replaces columns A-H. A zero Priority or empty Status keeps
 // the row's current value.
 func (s *dbService) UpdateGoal(id string, input domain.GoalUpdateInput) (domain.PlannedGoal, error) {
 	if err := input.Validate(); err != nil {
@@ -158,10 +180,13 @@ func (s *dbService) UpdateGoal(id string, input domain.GoalUpdateInput) (domain.
 		return domain.PlannedGoal{}, fmt.Errorf("update goal: %w", err)
 	}
 	s.invalidate(cacheKeyGoalPattern)
+	if err := s.labelSlowMoneyColumn(input.GoalInput); err != nil {
+		return domain.PlannedGoal{}, err
+	}
 	return s.readGoalRow(row)
 }
 
-// DeleteGoal clears columns A-G; other goal IDs do not shift.
+// DeleteGoal clears columns A-H; other goal IDs do not shift.
 func (s *dbService) DeleteGoal(id string, etag string) error {
 	if strings.TrimSpace(etag) == "" {
 		return fmt.Errorf("%w: etag is required", domain.ErrValidation)

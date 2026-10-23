@@ -310,7 +310,7 @@ func (s *analyticsService) GoalPlan(forceFresh bool) (domain.GoalPlan, error) {
 	if err != nil {
 		return domain.GoalPlan{}, err
 	}
-	return domain.ComputeGoalPlan(sheet, accounts, transactions, categories, prefs.GoalPool, s.today()), nil
+	return domain.ComputeGoalPlan(sheet, accounts, transactions, categories, prefs.GoalPool, prefs.SafeToSpend.NotReadyAccounts, s.today()), nil
 }
 
 // Bills reads the Recurring tab, the ledger, the card settings, the

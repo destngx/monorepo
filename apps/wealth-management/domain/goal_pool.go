@@ -2,6 +2,8 @@ package domain
 
 import (
 	"math"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -20,6 +22,9 @@ const (
 	PoolRoleCardDebt PoolRole = "cardDebt"
 	// PoolRoleCrypto is upside, counted toward goals only once converted (D32).
 	PoolRoleCrypto PoolRole = "crypto"
+	// PoolRoleSlow is slow money: takes days or more to withdraw, so only
+	// goals that opt in draw on it.
+	PoolRoleSlow PoolRole = "slow"
 	// PoolRoleArchived is a deprecated account, left out.
 	PoolRoleArchived PoolRole = "archived"
 	// PoolRoleEmpty is a zero balance.
@@ -35,7 +40,8 @@ type PoolAccount struct {
 
 // GoalPool is the pooled savings balance goals draw on (D31), with the
 // parts of the sum so the UI can show the math:
-// Total = max(0, Assets - CardDebt - SpendingBuffer).
+// Total = max(0, Assets - CardDebt - SpendingBuffer), ready money only.
+// Slow money is apart: only goals that opt in draw on it.
 type GoalPool struct {
 	Assets                float64       `json:"assets"`
 	CardDebt              float64       `json:"cardDebt"`
@@ -43,17 +49,19 @@ type GoalPool struct {
 	BufferMonths          float64       `json:"bufferMonths"`
 	AverageMonthlyExpense float64       `json:"averageMonthlyExpense"`
 	Total                 float64       `json:"total"`
+	Slow                  float64       `json:"slow"`
 	Crypto                float64       `json:"crypto"`
 	Archived              float64       `json:"archived"`
 	MoneyLent             float64       `json:"moneyLent"`
 	Accounts              []PoolAccount `json:"accounts"`
 }
 
-// ComputeGoalPool sums positive balances of non-crypto, non-archived
-// accounts, then takes off every negative balance (card debt, D17) and the
-// spending buffer. Crypto, archived accounts and money lent are reported
-// beside it but never counted (D32, D30).
-func ComputeGoalPool(accounts []Account, transactions []Transaction, settings GoalPoolSettings, today time.Time) GoalPool {
+// ComputeGoalPool sums positive balances of ready accounts, then takes off
+// every negative balance (card debt, D17) and the spending buffer. Slow
+// money (investment and long holding accounts, and the accounts marked not
+// ready to use, notReady) is summed apart. Crypto, archived accounts and
+// money lent are reported beside it but never counted (D32, D30).
+func ComputeGoalPool(accounts []Account, transactions []Transaction, settings GoalPoolSettings, notReady []string, today time.Time) GoalPool {
 	pool := GoalPool{BufferMonths: settings.SpendingBufferMonths, Accounts: make([]PoolAccount, 0, len(accounts))}
 	for _, account := range accounts {
 		role := PoolRoleAsset
@@ -69,6 +77,9 @@ func ComputeGoalPool(accounts []Account, transactions []Transaction, settings Go
 		case isCryptoAccount(account):
 			role = PoolRoleCrypto
 			pool.Crypto += account.Balance
+		case isSlowAccount(account, notReady):
+			role = PoolRoleSlow
+			pool.Slow += account.Balance
 		default:
 			pool.Assets += account.Balance
 		}
@@ -84,6 +95,17 @@ func ComputeGoalPool(accounts []Account, transactions []Transaction, settings Go
 	pool.SpendingBuffer = math.Round(settings.SpendingBufferMonths * pool.AverageMonthlyExpense)
 	pool.Total = math.Max(0, pool.Assets-pool.CardDebt-pool.SpendingBuffer)
 	return pool
+}
+
+// isSlowAccount: money that takes days or more to withdraw (T+2 funds,
+// long holdings) or that the user marked not ready to use (D33).
+func isSlowAccount(account Account, notReady []string) bool {
+	if account.Type == AccountTypeInvestment || account.Type == AccountTypeLongHolding {
+		return true
+	}
+	return slices.ContainsFunc(notReady, func(name string) bool {
+		return strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(account.Name))
+	})
 }
 
 // MonthlyNeeds is the average monthly spending on needs (fixed + essential

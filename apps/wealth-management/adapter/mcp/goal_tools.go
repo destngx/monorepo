@@ -17,6 +17,7 @@ func goalSchema() map[string]any {
 		"startingAmount": numberSchema,
 		"status":         map[string]any{"type": "string", "enum": []string{string(domain.GoalActive), string(domain.GoalPaused), string(domain.GoalDone)}},
 		"note":           stringSchema,
+		"useSlowMoney":   map[string]any{"type": "boolean", "description": "Let the goal draw on slow money (investment and long holding accounts, accounts marked not ready to use). Default false; an update without it turns it off."},
 	}
 }
 

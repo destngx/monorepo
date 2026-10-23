@@ -10,6 +10,7 @@
     asset: 'Counted',
     cardDebt: 'Card debt',
     crypto: 'Crypto, not counted',
+    slow: 'Slow money',
     archived: 'Archived, not counted',
     empty: 'Empty',
   };
@@ -32,6 +33,15 @@
     <dd class="border-t border-stone-900/10 pt-1.5 text-right font-semibold dark:border-white/10">
       <Money value={pool.total} />
     </dd>
+  </dl>
+
+  <p class="muted mt-4 text-xs font-medium tracking-wide uppercase">Slow money</p>
+  <dl class="mt-1.5 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-sm">
+    <dt>
+      Investment, long holding and not-ready accounts
+      <span class="muted text-xs">(only goals that can use slow money)</span>
+    </dt>
+    <dd class="text-right"><Money value={pool.slow} /></dd>
   </dl>
 
   <p class="muted mt-4 text-xs font-medium tracking-wide uppercase">Not counted toward goals</p>

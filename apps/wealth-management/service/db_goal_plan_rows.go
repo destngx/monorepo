@@ -71,6 +71,13 @@ func mapGoalPlanRow(row []string, sheetRow int) (domain.PlannedGoal, string, boo
 		problems = append(problems, fmt.Sprintf("status %q must be one of active, paused or done", strings.TrimSpace(cellAt(row, 5))))
 	}
 	goal.Status = status
+	switch slow := strings.ToLower(strings.TrimSpace(cellAt(row, 7))); slow {
+	case "", "no", "n", "false":
+	case "yes", "y", "x", "true", "✓":
+		goal.UseSlowMoney = true
+	default:
+		problems = append(problems, fmt.Sprintf("slow money %q must be yes or blank", strings.TrimSpace(cellAt(row, 7))))
+	}
 	if len(problems) > 0 {
 		return domain.PlannedGoal{}, strings.Join(problems, "; "), false
 	}
@@ -110,5 +117,5 @@ func parseGoalID(id string) (int, error) {
 }
 
 func goalRowRange(row int) string {
-	return fmt.Sprintf("'%s'!A%d:G%d", goalPlanSheet, row, row)
+	return fmt.Sprintf("'%s'!A%d:H%d", goalPlanSheet, row, row)
 }

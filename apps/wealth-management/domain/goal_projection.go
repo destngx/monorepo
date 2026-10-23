@@ -41,8 +41,10 @@ type GoalProgress struct {
 	TargetAmount   float64 `json:"targetAmount"`
 	TargetComputed bool    `json:"targetComputed"`
 	// Funded = starting amount + FromPool (the target for a done goal).
-	Funded    float64 `json:"funded"`
-	FromPool  float64 `json:"fromPool"`
+	Funded   float64 `json:"funded"`
+	FromPool float64 `json:"fromPool"`
+	// FromSlow is the part of FromPool taken from slow money.
+	FromSlow  float64 `json:"fromSlow"`
 	Remaining float64 `json:"remaining"`
 	Percent   float64 `json:"percent"`
 	// MonthsLeft counts months from this month to the target month.
@@ -100,22 +102,25 @@ type GoalPlan struct {
 	MonthlySavings MonthlySavings   `json:"monthlySavings"`
 	// Goals are in priority order (sheet row on ties).
 	Goals []GoalProgress `json:"goals"`
-	// Unallocated is pool money left after every active goal is filled.
-	Unallocated float64         `json:"unallocated"`
-	Check       PlanCheck       `json:"check"`
-	Issues      []GoalPlanIssue `json:"issues"`
+	// Unallocated is ready pool money left after every active goal is
+	// filled; UnallocatedSlow is the slow money left.
+	Unallocated     float64         `json:"unallocated"`
+	UnallocatedSlow float64         `json:"unallocatedSlow"`
+	Check           PlanCheck       `json:"check"`
+	Issues          []GoalPlanIssue `json:"issues"`
 }
 
 // ComputeGoalPlan fills the goals from the pool by priority (goals with the
 // same priority share it equally), projects the rest from monthly savings
-// and checks the plan.
-func ComputeGoalPlan(sheet GoalPlanSheet, accounts []Account, transactions []Transaction, categories []Category, settings GoalPoolSettings, today time.Time) GoalPlan {
+// and checks the plan. notReady lists the accounts marked not ready to use,
+// counted as slow money.
+func ComputeGoalPlan(sheet GoalPlanSheet, accounts []Account, transactions []Transaction, categories []Category, settings GoalPoolSettings, notReady []string, today time.Time) GoalPlan {
 	plan := GoalPlan{
 		AsOf:           today.Format(time.DateOnly),
 		SetupNeeded:    !sheet.Exists,
 		LegacyGoals:    sheet.LegacyGoals,
 		Settings:       settings,
-		Pool:           ComputeGoalPool(accounts, transactions, settings, today),
+		Pool:           ComputeGoalPool(accounts, transactions, settings, notReady, today),
 		Needs:          ComputeMonthlyNeeds(transactions, categories, today),
 		MonthlySavings: ComputeMonthlySavings(transactions, today),
 		Goals:          []GoalProgress{},
@@ -142,7 +147,7 @@ func ComputeGoalPlan(sheet GoalPlanSheet, accounts []Account, transactions []Tra
 		}
 		plan.Goals = append(plan.Goals, progress)
 	}
-	plan.Unallocated = fillFromPool(plan.Goals, plan.Pool.Total)
+	plan.Unallocated, plan.UnallocatedSlow = fillFromPool(plan.Goals, plan.Pool.Total, plan.Pool.Slow)
 	current := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC)
 	projectGoals(plan.Goals, plan.MonthlySavings.PerMonth, current)
 	plan.Check = checkPlan(plan.Goals, plan.MonthlySavings.PerMonth, current)
@@ -189,13 +194,15 @@ func shareEqually(needs []float64, budget float64) []float64 {
 	return takes
 }
 
-// fillFromPool funds the goals by priority group and returns the pool left.
-// Done goals count as fully funded and take nothing; paused goals keep only
-// their starting amount.
-func fillFromPool(goals []GoalProgress, pool float64) float64 {
+// fillFromPool funds the goals by priority group and returns the ready and
+// slow money left. In a group, the goals that use slow money share it
+// first, so ready money stays for the goals that cannot use slow money;
+// then every goal shares ready money by what it still needs. Done goals
+// count as fully funded and take nothing; paused goals keep only their
+// starting amount.
+func fillFromPool(goals []GoalProgress, ready float64, slow float64) (float64, float64) {
 	for _, group := range priorityGroups(goals) {
-		var active []int
-		var needs []float64
+		var active, slowUsers []int
 		for _, i := range group {
 			progress := &goals[i]
 			target := progress.TargetAmount
@@ -207,14 +214,23 @@ func fillFromPool(goals []GoalProgress, pool float64) float64 {
 			default:
 				progress.Funded = math.Min(progress.StartingAmount, target)
 				active = append(active, i)
-				needs = append(needs, target-progress.Funded)
+				if progress.UseSlowMoney {
+					slowUsers = append(slowUsers, i)
+				}
 			}
 		}
-		for k, take := range shareEqually(needs, pool) {
-			progress := &goals[active[k]]
-			progress.FromPool = take
+		for k, take := range shareEqually(stillNeeded(goals, slowUsers), slow) {
+			progress := &goals[slowUsers[k]]
+			progress.FromSlow = take
+			progress.FromPool += take
 			progress.Funded += take
-			pool -= take
+			slow -= take
+		}
+		for k, take := range shareEqually(stillNeeded(goals, active), ready) {
+			progress := &goals[active[k]]
+			progress.FromPool += take
+			progress.Funded += take
+			ready -= take
 		}
 		for _, i := range group {
 			progress := &goals[i]
@@ -226,7 +242,16 @@ func fillFromPool(goals []GoalProgress, pool float64) float64 {
 			}
 		}
 	}
-	return pool
+	return ready, slow
+}
+
+// stillNeeded is target - funded for each listed goal.
+func stillNeeded(goals []GoalProgress, indexes []int) []float64 {
+	needs := make([]float64, len(indexes))
+	for k, i := range indexes {
+		needs[k] = math.Max(0, goals[i].TargetAmount-goals[i].Funded)
+	}
+	return needs
 }
 
 // projectGoals simulates month by month: each month's savings fill the

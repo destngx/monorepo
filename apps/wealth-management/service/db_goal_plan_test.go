@@ -140,7 +140,7 @@ func TestGivenAnEmptyGoalPlanTabWhenSettingUpThenRowsAreWrittenWithoutRecreating
 func TestGivenANewGoalWhenCreatingThenItGoesLastAndIsReadBack(t *testing.T) {
 	client := goalPlanClient([][]string{{"Emergency fund", "", "", "1"}, {"Car", "1000", "", "4"}})
 	client.nextRow = 4
-	client.ranges["'Goal Plan'!A4:G4"] = [][]string{{"Trip", "30000000", "2027-01", "5", "", "active"}}
+	client.ranges["'Goal Plan'!A4:H4"] = [][]string{{"Trip", "30000000", "2027-01", "5", "", "active"}}
 
 	goal, err := newTestDBService(t, client, newFakeCache()).CreateGoal(domain.GoalInput{Name: " Trip ", Target: ptr(30_000_000.0), TargetDate: "2027-1"})
 	if err != nil || goal.ID != "goal-4" || goal.Priority != 5 || goal.ETag == "" {
@@ -164,7 +164,7 @@ func TestGivenNoGoalPlanTabWhenCreatingAGoalThenItIsNotFound(t *testing.T) {
 func TestGivenAGoalWhenUpdatingThenTheETagGuardsTheRow(t *testing.T) {
 	current := []string{"Trip", "30000000", "2027-01", "3", "", "active"}
 	client := goalPlanClient(nil)
-	client.ranges["'Goal Plan'!A4:G4"] = [][]string{current}
+	client.ranges["'Goal Plan'!A4:H4"] = [][]string{current}
 	svc := newTestDBService(t, client, newFakeCache())
 	etag := rowETag(current, goalPlanColumns)
 
@@ -173,7 +173,7 @@ func TestGivenAGoalWhenUpdatingThenTheETagGuardsTheRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	update := client.updates[0]
-	if update.rangeValue != "'Goal Plan'!A4:G4" || update.values[3] != 3 || update.values[5] != "paused" || update.values[2] != "" {
+	if update.rangeValue != "'Goal Plan'!A4:H4" || update.values[3] != 3 || update.values[5] != "paused" || update.values[2] != "" {
 		t.Fatalf("update = %+v (priority 0 keeps the row's)", update)
 	}
 
@@ -189,8 +189,8 @@ func TestGivenAGoalWhenUpdatingThenTheETagGuardsTheRow(t *testing.T) {
 func TestGivenAGoalWhenDeletingThenItsRowIsCleared(t *testing.T) {
 	current := []string{"Trip", "30000000", "", "3"}
 	client := goalPlanClient(nil)
-	client.ranges["'Goal Plan'!A4:G4"] = [][]string{current}
-	client.ranges["'Goal Plan'!A5:G5"] = [][]string{{}}
+	client.ranges["'Goal Plan'!A4:H4"] = [][]string{current}
+	client.ranges["'Goal Plan'!A5:H5"] = [][]string{{}}
 	svc := newTestDBService(t, client, newFakeCache())
 
 	if err := svc.DeleteGoal("goal-4", rowETag(current, goalPlanColumns)); err != nil {
@@ -238,4 +238,40 @@ func contains(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func TestGivenASlowMoneyColumnWhenReadingThenOnlyMarkedGoalsUseSlowMoney(t *testing.T) {
+	client := goalPlanClient([][]string{
+		{"House", "1000", "", "1", "", "", "", "Yes"},
+		{"Car", "1000", "", "2", "", "", "", "no"},
+		{"Trip", "1000", "", "3"},
+		{"Boat", "1000", "", "4", "", "", "", "maybe"},
+	})
+	sheet, err := newTestDBService(t, client, newFakeCache()).ReadGoalPlan(true)
+	if err != nil || len(sheet.Goals) != 3 {
+		t.Fatalf("read: %+v %v", sheet, err)
+	}
+	if !sheet.Goals[0].UseSlowMoney || sheet.Goals[1].UseSlowMoney || sheet.Goals[2].UseSlowMoney {
+		t.Fatalf("goals = %+v", sheet.Goals)
+	}
+	if len(sheet.Issues) != 1 || sheet.Issues[0].Row != 5 || !strings.Contains(sheet.Issues[0].Message, "slow money") {
+		t.Fatalf("issues = %+v", sheet.Issues)
+	}
+}
+
+func TestGivenAGoalThatUsesSlowMoneyWhenCreatingThenColumnHAndItsHeaderAreWritten(t *testing.T) {
+	client := goalPlanClient(nil)
+	client.nextRow = 4
+	client.ranges["'Goal Plan'!A4:H4"] = [][]string{{"House", "1000", "", "1", "", "active", "", "yes"}}
+
+	goal, err := newTestDBService(t, client, newFakeCache()).CreateGoal(domain.GoalInput{Name: "House", Target: ptr(1000.0), UseSlowMoney: true})
+	if err != nil || !goal.UseSlowMoney {
+		t.Fatalf("goal = %+v, %v", goal, err)
+	}
+	if row := client.appends[0].rows[0]; len(row) != goalPlanColumns || row[7] != "yes" {
+		t.Fatalf("row = %v", row)
+	}
+	if len(client.updates) != 1 || client.updates[0].rangeValue != "'Goal Plan'!H1" || client.updates[0].values[0] != "Slow money" {
+		t.Fatalf("an older tab gets the column header: %+v", client.updates)
+	}
 }

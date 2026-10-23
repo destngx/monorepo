@@ -53,7 +53,7 @@ func poolAccounts() []Account {
 func TestGivenAccountsWhenComputingThePoolThenCryptoArchivedAndMoneyLentStayOutAndDebtAndBufferComeOff(t *testing.T) {
 	transactions := append(monthlyHistory(), lendingTxn("row-90", "2026-09-05", "Person A", 7_000_000, 0))
 
-	pool := ComputeGoalPool(poolAccounts(), transactions, DefaultGoalPoolSettings(), planToday)
+	pool := ComputeGoalPool(poolAccounts(), transactions, DefaultGoalPoolSettings(), nil, planToday)
 
 	if pool.Assets != 150_000_000 || pool.CardDebt != 10_000_000 {
 		t.Fatalf("assets / card debt = %v / %v", pool.Assets, pool.CardDebt)
@@ -81,7 +81,7 @@ func TestGivenMoreDebtThanAssetsWhenComputingThePoolThenItIsZero(t *testing.T) {
 		{Name: "Bank", Type: AccountTypeActiveUse, Currency: CurrencyVND, Balance: 5_000_000},
 		{Name: "Card", Type: AccountTypeNegativeActive, Currency: CurrencyVND, Balance: -8_000_000},
 	}
-	if pool := ComputeGoalPool(accounts, nil, DefaultGoalPoolSettings(), planToday); pool.Total != 0 {
+	if pool := ComputeGoalPool(accounts, nil, DefaultGoalPoolSettings(), nil, planToday); pool.Total != 0 {
 		t.Fatalf("pool = %v, want 0", pool.Total)
 	}
 }
@@ -129,5 +129,29 @@ func TestGivenIncomeAndExpenseWhenComputingMonthlySavingsThenLendingIsLeftOutAnd
 	overspent := []Transaction{natureTxn(day(2026, 9, 3), "Rent", NatureFixed, 6_000_000)}
 	if savings := ComputeMonthlySavings(overspent, planToday); savings.PerMonth != 0 {
 		t.Fatalf("savings must not go below zero: %+v", savings)
+	}
+}
+
+func TestGivenSlowAccountsWhenComputingThePoolThenTheyAreKeptApartFromReadyMoney(t *testing.T) {
+	accounts := append(poolAccounts(),
+		Account{Name: "Fund F", Type: AccountTypeInvestment, Currency: CurrencyVND, Balance: 40_000_000},
+		Account{Name: "Gold G", Type: AccountTypeLongHolding, Currency: CurrencyVND, Balance: 15_000_000},
+		Account{Name: "Term H", Type: AccountTypeBank, Currency: CurrencyVND, Balance: 20_000_000},
+	)
+
+	pool := ComputeGoalPool(accounts, monthlyHistory(), DefaultGoalPoolSettings(), []string{" term h "}, planToday)
+
+	if pool.Assets != 150_000_000 || pool.Total != 130_000_000 {
+		t.Fatalf("ready money = assets %v, pool %v", pool.Assets, pool.Total)
+	}
+	if pool.Slow != 75_000_000 {
+		t.Fatalf("slow = %v, want investment, long holding and not-ready accounts", pool.Slow)
+	}
+	roles := map[string]PoolRole{}
+	for _, account := range pool.Accounts {
+		roles[account.Name] = account.Role
+	}
+	if roles["Fund F"] != PoolRoleSlow || roles["Gold G"] != PoolRoleSlow || roles["Term H"] != PoolRoleSlow || roles["Savings B"] != PoolRoleAsset || roles["Exchange C"] != PoolRoleCrypto {
+		t.Fatalf("roles = %v", roles)
 	}
 }

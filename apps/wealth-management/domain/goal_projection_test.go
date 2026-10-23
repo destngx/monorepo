@@ -32,7 +32,7 @@ func examplePlan() GoalPlanSheet {
 
 func computeExample(t *testing.T) GoalPlan {
 	t.Helper()
-	return ComputeGoalPlan(examplePlan(), poolAccounts(), monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+	return ComputeGoalPlan(examplePlan(), poolAccounts(), monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
 }
 
 func goalNamed(t *testing.T, plan GoalPlan, name string) GoalProgress {
@@ -116,7 +116,7 @@ func TestGivenDatedGoalsWhenCheckingThePlanThenTheGapAndTradeOffsAreData(t *test
 func TestGivenEnoughSavingsWhenCheckingThePlanThenItFits(t *testing.T) {
 	sheet := GoalPlanSheet{Exists: true, Goals: []PlannedGoal{plannedGoal(2, "Trip", money(30_000_000), "2027-04", 1, GoalActive)}}
 
-	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
 
 	if plan.Check.Verdict != PlanFits || plan.Check.Gap != -5_000_000 || len(plan.Check.TradeOffs) != 0 {
 		t.Fatalf("check = %+v", plan.Check)
@@ -132,7 +132,7 @@ func TestGivenNoSavingsWhenProjectingThenUnfundedGoalsAreNotReachable(t *testing
 		plannedGoal(3, "House", money(900_000_000), "", 2, GoalActive),
 	}}
 
-	plan := ComputeGoalPlan(sheet, nil, nil, nil, DefaultGoalPoolSettings(), planToday)
+	plan := ComputeGoalPlan(sheet, nil, nil, nil, DefaultGoalPoolSettings(), nil, planToday)
 
 	trip, house := plan.Goals[0], plan.Goals[1]
 	if trip.Pace != PaceBehind || trip.ProjectedFinish != nil || trip.MonthsToReach != nil {
@@ -149,7 +149,7 @@ func TestGivenNoSavingsWhenProjectingThenUnfundedGoalsAreNotReachable(t *testing
 func TestGivenAGoalBeyondTheHorizonWhenProjectingThenItIsNotReachable(t *testing.T) {
 	sheet := GoalPlanSheet{Exists: true, Goals: []PlannedGoal{plannedGoal(2, "Island", money(1e13), "", 1, GoalActive)}}
 
-	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
 
 	if plan.Goals[0].ProjectedFinish != nil || plan.Goals[0].YearsToReach != nil {
 		t.Fatalf("goal = %+v", plan.Goals[0])
@@ -159,7 +159,7 @@ func TestGivenAGoalBeyondTheHorizonWhenProjectingThenItIsNotReachable(t *testing
 func TestGivenNoDatedGoalsWhenCheckingThePlanThenThereIsNoDeadlineVerdict(t *testing.T) {
 	sheet := GoalPlanSheet{Exists: true, Goals: []PlannedGoal{plannedGoal(2, "House", money(900_000_000), "", 1, GoalActive)}}
 
-	if plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), nil, DefaultGoalPoolSettings(), planToday); plan.Check.Verdict != PlanNoDeadlines {
+	if plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), nil, DefaultGoalPoolSettings(), nil, planToday); plan.Check.Verdict != PlanNoDeadlines {
 		t.Fatalf("check = %+v", plan.Check)
 	}
 }
@@ -170,7 +170,7 @@ func TestGivenTwoEmergencyRowsWithoutTargetWhenComputingThenOnlyTheFirstIsTheFun
 		plannedGoal(3, "Emergency fund 2", nil, "", 2, GoalActive),
 	}}
 
-	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
 
 	if len(plan.Goals) != 1 || len(plan.Issues) != 1 || plan.Issues[0].Row != 3 || !strings.Contains(plan.Issues[0].Message, "only one emergency fund") {
 		t.Fatalf("goals %+v issues %+v", plan.Goals, plan.Issues)
@@ -180,7 +180,7 @@ func TestGivenTwoEmergencyRowsWithoutTargetWhenComputingThenOnlyTheFirstIsTheFun
 func TestGivenAnEmergencyRowWithATargetWhenComputingThenTheTargetIsKept(t *testing.T) {
 	sheet := GoalPlanSheet{Exists: true, Goals: []PlannedGoal{plannedGoal(2, "Emergency fund", money(20_000_000), "", 1, GoalActive)}}
 
-	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+	plan := ComputeGoalPlan(sheet, nil, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
 
 	if goal := plan.Goals[0]; !goal.EmergencyFund || goal.TargetComputed || goal.TargetAmount != 20_000_000 {
 		t.Fatalf("goal = %+v", goal)
@@ -188,7 +188,7 @@ func TestGivenAnEmergencyRowWithATargetWhenComputingThenTheTargetIsKept(t *testi
 }
 
 func TestGivenNoTabWhenComputingThenSetupIsNeeded(t *testing.T) {
-	plan := ComputeGoalPlan(GoalPlanSheet{LegacyGoals: 3}, poolAccounts(), monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+	plan := ComputeGoalPlan(GoalPlanSheet{LegacyGoals: 3}, poolAccounts(), monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
 
 	if !plan.SetupNeeded || plan.LegacyGoals != 3 || len(plan.Goals) != 0 || plan.Pool.Total != 130_000_000 {
 		t.Fatalf("plan = %+v", plan)
@@ -206,7 +206,7 @@ func TestGivenAPlanWhenSummarisingForAIThenOnlyNumbersAreGiven(t *testing.T) {
 }
 
 func computeTiedGoals(goals ...PlannedGoal) GoalPlan {
-	return ComputeGoalPlan(GoalPlanSheet{Exists: true, Goals: goals}, poolAccounts(), monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), planToday)
+	return ComputeGoalPlan(GoalPlanSheet{Exists: true, Goals: goals}, poolAccounts(), monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
 }
 
 func TestGivenGoalsWithTheSamePriorityWhenFillingThenTheyShareThePoolEqually(t *testing.T) {
@@ -277,6 +277,59 @@ func TestGivenGoalsWithoutAPriorityWhenFillingThenTheyFillInSheetOrder(t *testin
 		t.Fatalf("house = %+v", house)
 	}
 	if car := goalNamed(t, plan, "Car"); car.FromPool != 30_000_000 {
+		t.Fatalf("car = %+v", car)
+	}
+}
+
+// computeWithSlowMoney: ready pool 130M and 40M of slow money in a fund.
+func computeWithSlowMoney(goals ...PlannedGoal) GoalPlan {
+	accounts := append(poolAccounts(), Account{Name: "Fund F", Type: AccountTypeInvestment, Currency: CurrencyVND, Balance: 40_000_000})
+	return ComputeGoalPlan(GoalPlanSheet{Exists: true, Goals: goals}, accounts, monthlyHistory(), taggedCategories(), DefaultGoalPoolSettings(), nil, planToday)
+}
+
+func slowGoal(row int, name string, target float64, priority int) PlannedGoal {
+	goal := plannedGoal(row, name, money(target), "", priority, GoalActive)
+	goal.UseSlowMoney = true
+	return goal
+}
+
+func TestGivenSlowMoneyWhenAGoalDoesNotOptInThenItFillsFromReadyMoneyOnly(t *testing.T) {
+	plan := computeWithSlowMoney(plannedGoal(2, "Emergency fund", nil, "", 1, GoalActive), plannedGoal(3, "House", money(200_000_000), "", 2, GoalActive))
+
+	if emergency := goalNamed(t, plan, "Emergency fund"); emergency.FromPool != 48_000_000 || emergency.FromSlow != 0 {
+		t.Fatalf("emergency = %+v", emergency)
+	}
+	if house := goalNamed(t, plan, "House"); house.FromPool != 82_000_000 || house.FromSlow != 0 {
+		t.Fatalf("house = %+v", house)
+	}
+	if plan.Unallocated != 0 || plan.UnallocatedSlow != 40_000_000 {
+		t.Fatalf("unallocated = %v, slow %v", plan.Unallocated, plan.UnallocatedSlow)
+	}
+}
+
+func TestGivenAGoalThatUsesSlowMoneyWhenFillingThenItTakesSlowMoneyFirst(t *testing.T) {
+	plan := computeWithSlowMoney(slowGoal(2, "House", 100_000_000, 1), plannedGoal(3, "Car", money(100_000_000), "", 2, GoalActive))
+
+	if house := goalNamed(t, plan, "House"); house.FromPool != 100_000_000 || house.FromSlow != 40_000_000 {
+		t.Fatalf("house = %+v", house)
+	}
+	if car := goalNamed(t, plan, "Car"); car.FromPool != 70_000_000 || car.FromSlow != 0 {
+		t.Fatalf("the ready money the house left = %+v", car)
+	}
+	if plan.Unallocated != 0 || plan.UnallocatedSlow != 0 {
+		t.Fatalf("unallocated = %v, slow %v", plan.Unallocated, plan.UnallocatedSlow)
+	}
+}
+
+func TestGivenTiedGoalsWhereOneUsesSlowMoneyWhenFillingThenReadyMoneyIsSharedByWhatEachStillNeeds(t *testing.T) {
+	plan := computeWithSlowMoney(slowGoal(2, "House", 100_000_000, 1), plannedGoal(3, "Car", money(100_000_000), "", 1, GoalActive))
+
+	// Slow 40M goes to the house; ready 130M is shared: the house needs
+	// 60M more, under its 65M share, so the car gets 70M.
+	if house := goalNamed(t, plan, "House"); house.FromPool != 100_000_000 || house.FromSlow != 40_000_000 {
+		t.Fatalf("house = %+v", house)
+	}
+	if car := goalNamed(t, plan, "Car"); car.FromPool != 70_000_000 {
 		t.Fatalf("car = %+v", car)
 	}
 }

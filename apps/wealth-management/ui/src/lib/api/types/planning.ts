@@ -20,6 +20,8 @@ export interface PlannedGoal {
   startingAmount: number;
   status: GoalStatus;
   note?: string;
+  /** The goal may draw on slow money (column H); off by default. */
+  useSlowMoney: boolean;
   etag: string;
 }
 
@@ -30,6 +32,8 @@ export interface GoalProgress extends PlannedGoal {
   targetComputed: boolean;
   funded: number;
   fromPool: number;
+  /** The part of fromPool taken from slow money. */
+  fromSlow: number;
   remaining: number;
   percent: number;
   monthsLeft: number | null;
@@ -42,9 +46,12 @@ export interface GoalProgress extends PlannedGoal {
   pace: GoalPace;
 }
 
-export type PoolRole = 'asset' | 'cardDebt' | 'crypto' | 'archived' | 'empty';
+export type PoolRole = 'asset' | 'cardDebt' | 'crypto' | 'slow' | 'archived' | 'empty';
 
-/** The pooled savings balance: total = max(0, assets - cardDebt - spendingBuffer). */
+/**
+ * The pooled savings balance: total = max(0, assets - cardDebt - spendingBuffer), ready money only.
+ * slow (investment and long holding accounts, accounts marked not ready) is apart: only goals that opt in use it.
+ */
 export interface GoalPool {
   assets: number;
   cardDebt: number;
@@ -52,6 +59,7 @@ export interface GoalPool {
   bufferMonths: number;
   averageMonthlyExpense: number;
   total: number;
+  slow: number;
   /** Shown as upside, never counted (D32). */
   crypto: number;
   archived: number;
@@ -83,6 +91,7 @@ export interface GoalPlan {
   /** Priority order. */
   goals: GoalProgress[];
   unallocated: number;
+  unallocatedSlow: number;
   check: {
     requiredPerMonth: number;
     monthlySavings: number;
@@ -103,6 +112,7 @@ export interface GoalInput {
   startingAmount?: number;
   status?: GoalStatus;
   note?: string;
+  useSlowMoney?: boolean;
 }
 
 export interface GoalPlanSetupResult {

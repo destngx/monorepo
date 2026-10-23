@@ -282,6 +282,13 @@
           <div class="space-y-4">
             <PoolCard pool={value.pool} asOf={value.asOf} />
             <Stat label="Left after goals" value={value.unallocated} hint="Pool money no active goal needs now" />
+            {#if value.pool.slow > 0}
+              <Stat
+                label="Slow money left"
+                value={value.unallocatedSlow}
+                hint="Slow money no goal that can use it needs now"
+              />
+            {/if}
             <Stat
               label="Monthly needs"
               value={value.needs.perMonth}

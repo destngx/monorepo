@@ -51,7 +51,10 @@ type PlannedGoal struct {
 	StartingAmount float64    `json:"startingAmount"`
 	Status         GoalStatus `json:"status"`
 	Note           string     `json:"note,omitempty"`
-	// ETag fingerprints columns A-G as read, so edits detect a changed row.
+	// UseSlowMoney lets the goal draw on slow money (column H); off by
+	// default.
+	UseSlowMoney bool `json:"useSlowMoney"`
+	// ETag fingerprints columns A-H as read, so edits detect a changed row.
 	ETag string `json:"etag"`
 }
 
@@ -132,6 +135,7 @@ type GoalInput struct {
 	StartingAmount *float64   `json:"startingAmount,omitempty"`
 	Status         GoalStatus `json:"status,omitempty"`
 	Note           string     `json:"note,omitempty"`
+	UseSlowMoney   bool       `json:"useSlowMoney,omitempty"`
 }
 
 func (input GoalInput) Validate() error {

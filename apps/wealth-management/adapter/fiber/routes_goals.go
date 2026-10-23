@@ -4,12 +4,14 @@ package fiber
 // only the app-managed Goal Plan tab.
 
 const goalPlanSummary = "The goal plan. Goals are claims on one pooled savings balance, filled by priority " +
-	"(emergency fund first). pool = assets (positive balances, crypto and archived accounts excluded) - cardDebt - " +
+	"(emergency fund first; the same priority shares equally). pool = assets (positive balances of ready accounts; " +
+	"crypto, archived and slow accounts excluded) - cardDebt - " +
 	"spendingBuffer (bufferMonths x average monthly expense of the last 3 completed months), floored at 0; crypto, " +
-	"archived and moneyLent are shown but not counted. needs = average fixed + essential expense of the last 6 " +
+	"archived and moneyLent are shown but not counted. slow = investment and long holding accounts and the accounts " +
+	"marked not ready to use; only goals with useSlowMoney draw on it, before ready money. needs = average fixed + essential expense of the last 6 " +
 	"completed months (fromTotalExpense when no category is tagged); an emergency fund with a blank target gets " +
 	"emergencyMonths x needs. monthlySavings = average income - expense of the last 3 completed months, floored at 0. " +
-	"Per goal: targetAmount, funded (startingAmount + fromPool), remaining, percent, monthsLeft, requiredPerMonth, " +
+	"Per goal: targetAmount, funded (startingAmount + fromPool), fromSlow (the slow money part of fromPool), remaining, percent, monthsLeft, requiredPerMonth, " +
 	"projectedFinish (yyyy-mm, savings added in priority order; null when not reachable within 50 years), " +
 	"monthsToReach, yearsToReach, longHorizon and pace (done, paused, funded, on_track, behind, no_deadline). " +
 	"check: requiredPerMonth of dated goals vs monthlySavings, gap (> 0 is a shortfall), verdict (fits, short, " +
@@ -26,6 +28,7 @@ func goalProperties() map[string]any {
 		"startingAmount": map[string]any{"type": "number", "description": "Money already set aside outside the pool."},
 		"status":         map[string]any{"type": "string", "enum": []string{"active", "paused", "done"}, "description": "Default active on create, unchanged on update."},
 		"note":           schemaString,
+		"useSlowMoney":   map[string]any{"type": "boolean", "description": "Let the goal draw on slow money (investment and long holding accounts, accounts marked not ready to use). Default false; an update without it turns it off."},
 	}
 }
 

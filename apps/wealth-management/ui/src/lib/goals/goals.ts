@@ -104,10 +104,20 @@ export interface GoalForm {
   startingAmount: number | null;
   status: GoalStatus;
   note: string;
+  useSlowMoney: boolean;
 }
 
 export function emptyGoalForm(): GoalForm {
-  return { name: '', target: null, targetDate: '', priority: null, startingAmount: null, status: 'active', note: '' };
+  return {
+    name: '',
+    target: null,
+    targetDate: '',
+    priority: null,
+    startingAmount: null,
+    status: 'active',
+    note: '',
+    useSlowMoney: false,
+  };
 }
 
 export function goalFormFor(goal: GoalProgress): GoalForm {
@@ -119,6 +129,7 @@ export function goalFormFor(goal: GoalProgress): GoalForm {
     startingAmount: goal.startingAmount || null,
     status: goal.status,
     note: goal.note ?? '',
+    useSlowMoney: goal.useSlowMoney,
   };
 }
 
@@ -141,6 +152,7 @@ export function goalInputFrom(form: GoalForm, emergencyFund: boolean): { input?:
       startingAmount: form.startingAmount ?? undefined,
       status: form.status,
       note: form.note.trim() || undefined,
+      useSlowMoney: form.useSlowMoney || undefined,
     },
   };
 }

@@ -21,7 +21,7 @@ func TestGivenTheLocalWorkbookWhenManagingTheGoalPlanThenEveryWriteReadsBack(t *
 	if _, err := db.SetupGoalPlan(); err != nil {
 		t.Fatal(err)
 	}
-	assertRows(t, read(t, client, "'Goal Plan'!A1:G1"), [][]string{{"Name", "Target", "Target date", "Priority", "Starting amount", "Status", "Note"}})
+	assertRows(t, read(t, client, "'Goal Plan'!A1:H1"), [][]string{{"Name", "Target", "Target date", "Priority", "Starting amount", "Status", "Note", "Slow money"}})
 
 	car, err := db.CreateGoal(domain.GoalInput{Name: "New car", Target: money(100_000_000), TargetDate: "2030-06", StartingAmount: money(10_000_000)})
 	if err != nil {
@@ -31,8 +31,8 @@ func TestGivenTheLocalWorkbookWhenManagingTheGoalPlanThenEveryWriteReadsBack(t *
 		t.Fatalf("created = %+v", car)
 	}
 
-	paused, err := db.UpdateGoal(car.ID, domain.GoalUpdateInput{GoalInput: domain.GoalInput{Name: "New car", Target: money(120_000_000), Status: domain.GoalPaused}, ETag: car.ETag})
-	if err != nil || paused.Status != domain.GoalPaused || *paused.Target != 120_000_000 || paused.TargetDate != "" || paused.Priority != 2 {
+	paused, err := db.UpdateGoal(car.ID, domain.GoalUpdateInput{GoalInput: domain.GoalInput{Name: "New car", Target: money(120_000_000), Status: domain.GoalPaused, UseSlowMoney: true}, ETag: car.ETag})
+	if err != nil || paused.Status != domain.GoalPaused || *paused.Target != 120_000_000 || paused.TargetDate != "" || paused.Priority != 2 || !paused.UseSlowMoney {
 		t.Fatalf("updated = %+v %v", paused, err)
 	}
 	if _, err := db.UpdateGoal(car.ID, domain.GoalUpdateInput{GoalInput: domain.GoalInput{Name: "New car", Target: money(1)}, ETag: car.ETag}); !errors.Is(err, domain.ErrConflict) {
