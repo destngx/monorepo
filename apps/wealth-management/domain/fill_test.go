@@ -218,7 +218,7 @@ func TestFillRequestValidate(t *testing.T) {
 		{"unknown form", FillRequest{Form: "taxes", Text: "x"}, `unknown form "taxes"`},
 		{"nothing to read", FillRequest{Form: "goal", Text: "  "}, "describe what to fill or add an image"},
 		{"too long", FillRequest{Form: "goal", Text: strings.Repeat("a", FillMaxText+1)}, "at most 2000"},
-		{"image on a text form", FillRequest{Form: "goal", Images: []FillImage{image}}, "takes text only"},
+		{"image on a text form", FillRequest{Form: "budget-move", Images: []FillImage{image}}, "takes text only"},
 		{"too many images", FillRequest{Form: "recurring", Images: []FillImage{image, image, image, image, image}}, "at most 4 images"},
 		{"bad image type", FillRequest{Form: "recurring", Images: []FillImage{{MediaType: "image/heic", Data: []byte{1}}}}, "media type"},
 	}
@@ -270,6 +270,15 @@ func TestFillInstruction(t *testing.T) {
 	} {
 		if !strings.Contains(instruction, want) {
 			t.Errorf("instruction lacks %q", want)
+		}
+	}
+}
+
+func TestGivenTheFillFormsThenOnlyTheFourTextFormsRefuseImages(t *testing.T) {
+	textOnly := map[string]bool{"budget-limits": true, "budget-move": true, "category-definition": true, "allocation": true}
+	for _, form := range FillForms() {
+		if form.Images == textOnly[form.Key] {
+			t.Errorf("%s: images = %v, want %v (WM-FILL-15)", form.Key, form.Images, !textOnly[form.Key])
 		}
 	}
 }

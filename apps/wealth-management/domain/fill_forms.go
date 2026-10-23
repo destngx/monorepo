@@ -31,7 +31,7 @@ var fillForms = []FillForm{
 		Guide: "Set either payment (money out) or deposit (money in), never both.",
 	},
 	{
-		Key: "goal", Title: "Goal", Page: "/accounts/goals",
+		Key: "goal", Title: "Goal", Images: true, Page: "/accounts/goals",
 		Fields: []FillField{
 			{Name: "name", Label: "Name", Type: FillText, Required: true, Hint: "short, e.g. Trip to Japan"},
 			{Name: "target", Label: "Target", Type: FillMoney, Min: fillOne, Hint: "the amount the goal needs in total"},
