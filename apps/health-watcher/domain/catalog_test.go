@@ -35,9 +35,32 @@ func TestGivenPrintedAnalyteNamesWhenMatchingThenEachFindsItsCatalogEntry(t *tes
 		{"Glucose máu tĩnh mạch", "mmol/L", "glucose"},
 	}
 	for _, tc := range cases {
-		m, ok := DefaultCatalog.Match(tc.name, tc.unit)
+		m, ok := DefaultCatalog.Match(tc.name, tc.unit, "1.0")
 		if !ok || m.Code != tc.want {
 			t.Errorf("Match(%q, %q) = %q, %v; want %q", tc.name, tc.unit, m.Code, ok, tc.want)
+		}
+	}
+}
+
+// A complete blood count names each white cell type after the white cell
+// count (`Số lượng bạch cầu đoạn`), and a urine strip prints `Bạch cầu`
+// with no word for urine: neither may join the white cell count's trend.
+func TestGivenNamesThatStartWithACountsNameWhenMatchingThenTheCountIsNotPicked(t *testing.T) {
+	cases := []struct{ name, unit, value, want string }{
+		{"Số lượng bạch cầu (WBC)", "G/L", "7.7", "wbc"},
+		{"Số lượng bạch cầu đoạn (GRAN#)", "G/L", "4.4", ""},
+		{"Số lượng bạch cầu Mid", "G/L", "0.7", ""},
+		{"Bạch cầu ưa acid", "", "0.2", "eosinophils_pct"},
+		{"Số lượng hồng cầu lưới", "%", "1.1", ""},
+		{"Bạch cầu (que thử)", "BC/µL", "Âm tính", "urine_leukocytes"},
+		{"Bạch cầu", "G/L", "7.1", "wbc"},
+		{"Tỷ lệ % bạch cầu Lympho", "%", "31.0", "lymphocytes_pct"},
+		{"Tỷ lệ % bạch cầu Mid", "%", "7.5", ""},
+	}
+	for _, tc := range cases {
+		m, ok := DefaultCatalog.Match(tc.name, tc.unit, tc.value)
+		if m.Code != tc.want || ok != (tc.want != "") {
+			t.Errorf("Match(%q, %q, %q) = %q, %v; want %q", tc.name, tc.unit, tc.value, m.Code, ok, tc.want)
 		}
 	}
 }
@@ -49,7 +72,7 @@ func TestGivenUnknownOrAmbiguousNamesWhenMatchingThenNothingIsGuessed(t *testing
 		{"Xét nghiệm lạ", "mg/dL"},
 		{"", ""},
 	} {
-		if m, ok := DefaultCatalog.Match(tc.name, tc.unit); ok {
+		if m, ok := DefaultCatalog.Match(tc.name, tc.unit, ""); ok {
 			t.Errorf("Match(%q) = %q, want no match", tc.name, m.Code)
 		}
 	}

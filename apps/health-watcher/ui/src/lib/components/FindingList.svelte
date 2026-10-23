@@ -2,30 +2,32 @@
   import type { Finding, RecordStatus } from '$lib/api/types';
   import { findingKindLabels } from '$lib/format';
   import { Button } from '@libs/ui-kit';
+  import PageRef from '$lib/components/PageRef.svelte';
 
   // Findings as a list, with the same actions as ObservationTable.
   interface Props {
     findings: Finding[];
     editable: boolean;
-    pageNumber: (pageId: string | undefined) => number | undefined;
+    pageOf: (pageId: string | undefined) => { name: string } | undefined;
+    /** Where a page opens; without it a page is named but not linked. */
+    pageHref?: (pageId: string) => string;
     onedit: (f: Finding) => void;
     onstatus?: (f: Finding, status: RecordStatus) => Promise<unknown>;
     ondelete?: (f: Finding) => Promise<unknown>;
     onhistory?: (f: Finding) => Promise<unknown>;
   }
 
-  let { findings, editable, pageNumber, onedit, onstatus, ondelete, onhistory }: Props = $props();
+  let { findings, editable, pageOf, pageHref, onedit, onstatus, ondelete, onhistory }: Props = $props();
 </script>
 
 <ul class="divide-y divide-ink-900/5 dark:divide-ink-50/5">
   {#each findings as f (f.id)}
-    {@const page = pageNumber(f.pageId)}
+    {@const page = pageOf(f.pageId)}
     <li class="flex items-start gap-3 py-2 {f.status === 'rejected' ? 'opacity-50' : ''}">
       <div class="min-w-0 flex-1">
         <p class="muted text-xs">
-          {findingKindLabels[f.kind]}{f.section ? ` · ${f.section}` : ''}{f.icd10 ? ` · ${f.icd10}` : ''}{page
-            ? ` · page ${page}`
-            : ''}
+          {findingKindLabels[f.kind]}{f.section ? ` · ${f.section}` : ''}{f.icd10 ? ` · ${f.icd10}` : ''}
+          <PageRef {page} href={f.pageId && pageHref ? pageHref(f.pageId) : undefined} />
           {#if f.status === 'draft' && f.confidence < 70}
             · <span class="text-warn-700 dark:text-warn-300">check this ({f.confidence}%)</span>
           {/if}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -105,6 +106,8 @@ type fakeReader struct {
 	out   *domain.ReadingOutput
 	err   error
 	calls [][]port.ReadPage
+	// titleCalls are the page sets sent to TitlePages.
+	titleCalls [][]port.ReadPage
 	// during runs once, while the first page set is being read.
 	during func()
 }
@@ -113,6 +116,7 @@ func labReading() domain.ReadingOutput {
 	return domain.ReadingOutput{
 		Document: domain.ReadingDocument{Kind: "lab_result", Title: "Phiếu xét nghiệm", Date: "2025-03-14", VisitType: "lab",
 			ProviderName: "Bệnh viện Đa khoa Mẫu", ProviderKind: "hospital", Confidence: 90},
+		Pages: []domain.ReadingPage{{Page: 1, Title: "Sinh hóa máu"}},
 		Observations: []domain.ReadingObservation{{Page: 1, Analyte: "Glucose (đói)", Value: "6.4", Unit: "mmol/L",
 			Reference: "3.9 - 6.1", Flag: "H", Confidence: 95}},
 		Findings: []domain.ReadingFinding{{Page: 1, Kind: "diagnosis", Text: "Khám sức khỏe định kỳ", Confidence: 80}},
@@ -134,6 +138,18 @@ func (f *fakeReader) Read(_ context.Context, pages []port.ReadPage) (port.ReadRe
 		out = *f.out
 	}
 	return port.ReadResult{Model: "test-model", Output: out}, nil
+}
+
+func (f *fakeReader) TitlePages(_ context.Context, pages []port.ReadPage) (port.TitleResult, error) {
+	f.titleCalls = append(f.titleCalls, pages)
+	if f.err != nil {
+		return port.TitleResult{}, f.err
+	}
+	out := domain.PageTitlesOutput{}
+	for _, p := range pages {
+		out.Pages = append(out.Pages, domain.ReadingPage{Page: p.Number, Title: fmt.Sprintf("Trang %d", p.Number)})
+	}
+	return port.TitleResult{Model: "test-model", Output: out}, nil
 }
 
 func (e *env) drain() {
@@ -191,7 +207,7 @@ func TestGivenALabReportWhenItIsReadThenDraftsAndAProposalAreReadyAndNothingPers
 	if len(d.Findings) != 1 || d.Findings[0].Kind != "diagnosis" {
 		t.Fatalf("findings = %+v", d.Findings)
 	}
-	if len(d.Pages) != 1 || d.Pages[0].Mask == nil || d.Pages[0].Mask.Status != domain.MaskReady {
+	if len(d.Pages) != 1 || d.Pages[0].Mask == nil || d.Pages[0].Mask.Status != domain.MaskReady || d.Pages[0].Title != "Sinh hóa máu" {
 		t.Fatalf("pages = %+v", d.Pages)
 	}
 	sent := e.reader.calls[0][0]
@@ -618,6 +634,40 @@ func TestGivenItemsReadWhileAIWasOffWhenAIIsTurnedOnThenOpenItemsAreSentForReadi
 	}
 }
 
+func TestGivenADocumentFiledBeforePageTitlesWhenTheEngineStartsThenItsPagesAreNamedFromMaskedTextOnce(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	person := e.person(sc, "Nguyễn Văn Mẫu")
+	untitled := labReading()
+	untitled.Pages = nil
+	e.reader.out = &untitled
+	doc := e.filedLab(sc, person, "lab")
+	if doc.Pages[0].Title != "" {
+		t.Fatalf("title = %q before the title job", doc.Pages[0].Title)
+	}
+
+	for range 2 {
+		e.pipeline.Configure(e.ocr, nil, 1)
+		e.pipeline.Configure(e.ocr, e.reader, 1)
+		e.drain()
+	}
+
+	got, err := e.clinical.Document(e.ctx, sc, doc.Document.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Pages[0].Title != "Trang 1" {
+		t.Fatalf("title = %q", got.Pages[0].Title)
+	}
+	if len(e.reader.titleCalls) != 1 {
+		t.Fatalf("title calls = %d, want 1", len(e.reader.titleCalls))
+	}
+	sent := e.reader.titleCalls[0][0]
+	if sent.JPEG != nil || strings.Contains(sent.Text, "NGUYỄN VĂN MẪU") || !strings.Contains(sent.Text, "Glucose") {
+		t.Fatalf("sent = %q, %d image bytes", sent.Text, len(sent.JPEG))
+	}
+}
+
 func TestGivenADocumentFiledWhileAIWasOffWhenUnfiledThenItIsReadAndFiledAgain(t *testing.T) {
 	e := newEnv(t)
 	e.pipeline.Reader = nil
@@ -629,8 +679,8 @@ func TestGivenADocumentFiledWhileAIWasOffWhenUnfiledThenItIsReadAndFiledAgain(t 
 	}
 	e.pipeline.Configure(e.ocr, e.reader, 1)
 	e.drain()
-	if len(e.reader.calls) != 0 {
-		t.Fatalf("reads = %d, a filed item is not read", len(e.reader.calls))
+	if len(e.reader.calls) != 0 || len(e.reader.titleCalls) != 0 {
+		t.Fatalf("reads = %d, titles = %d: a page never masked for the AI is not sent", len(e.reader.calls), len(e.reader.titleCalls))
 	}
 
 	itemID, err := e.inbox.Unfile(e.ctx, sc, doc.Document.ID)

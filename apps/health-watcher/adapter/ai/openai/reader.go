@@ -132,6 +132,33 @@ func (r *Reader) Read(ctx context.Context, pages []port.ReadPage) (port.ReadResu
 	return port.ReadResult{Model: model, Output: out}, nil
 }
 
+// TitlePages sends each page's masked text, never its image, and returns
+// a title per page (HW-READ-9).
+func (r *Reader) TitlePages(ctx context.Context, pages []port.ReadPage) (port.TitleResult, error) {
+	if len(pages) == 0 {
+		return port.TitleResult{}, errors.New("no pages to name")
+	}
+	parts := []content{{Type: "input_text", Text: fmt.Sprintf("The document has %d page(s).", len(pages))}}
+	for _, p := range pages {
+		parts = append(parts,
+			content{Type: "input_text", Text: fmt.Sprintf("Page %d OCR text (personal lines replaced with %s):\n%s", p.Number, domain.MaskPlaceholder, p.Text)})
+	}
+	body := r.request(domain.PageTitlesInstructions, parts, "page_titles", domain.PageTitlesSchema())
+	decoded, err := r.post(ctx, body)
+	if err != nil {
+		return port.TitleResult{}, err
+	}
+	var out domain.PageTitlesOutput
+	if err := json.Unmarshal([]byte(outputText(decoded)), &out); err != nil {
+		return port.TitleResult{}, fmt.Errorf("the AI answer is not the expected JSON: %w", err)
+	}
+	model := decoded.Model
+	if model == "" {
+		model = r.cfg.Model
+	}
+	return port.TitleResult{Model: model, Output: out}, nil
+}
+
 // Ping sends a small request with a strict schema, the same model and
 // effort as a reading, and no health data. It checks the address, the key
 // and that the provider serves the model (HW-OPS-9).

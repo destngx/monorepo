@@ -12,20 +12,22 @@
   import ObservationModal from '$lib/components/ObservationModal.svelte';
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
+  import ViewTabs from '$lib/components/ViewTabs.svelte';
   import { documentKindLabels, formatDate, options, todayISO, visitTypeLabels } from '$lib/format';
+  import { pageHref, pageLookup, pageName } from '$lib/pages';
   import { findingInput, observationInput } from '$lib/reading';
   import { session } from '$lib/state/session.svelte';
 
-  // The document viewer (HW-FIND-3): page images with zoom and their text,
-  // the approved values and findings, editing with history (HW-REC-6) and
-  // manual entry (HW-READ-7).
+  // The document viewer (HW-FIND-3): a Results tab with the approved values
+  // and findings side by side, and a Pages tab with page images, zoom and
+  // their text; editing with history (HW-REC-6) and manual entry (HW-READ-7).
   let { data } = $props();
 
   const doc = $derived(data.detail.document);
   const visit = $derived(data.detail.visit);
   const pages = $derived(data.detail.pages);
-  const pageIndex = $derived(new Map(pages.map((p, i) => [p.id, i + 1])));
-  const pageNumber = (id: string | undefined) => (id ? pageIndex.get(id) : undefined);
+  const pageOf = $derived(pageLookup(pages));
+  const linkPage = (pageId: string) => pageHref(base, doc.id, pageId);
   const editable = $derived(session.canEdit);
   // Only a document without values goes back to the inbox (HW-READ-8);
   // films are never read with AI (D5).
@@ -35,8 +37,11 @@
       data.detail.observations.length === 0 &&
       data.detail.findings.length === 0,
   );
-  // Search results link here with ?page= to open that page.
+  // Search results and metric values link here with ?page= to open that
+  // page on the Pages tab.
   const focusPage = $derived(appPage.url.searchParams.get('page'));
+  const tab = $derived(appPage.url.searchParams.get('tab') === 'pages' || focusPage ? 'pages' : 'results');
+  const results = $derived(data.detail.observations.length + data.detail.findings.length);
   const filesWithoutPages = $derived(doc.files.filter((f) => !pages.some((p) => p.fileId === f.id)));
 
   let zoom = $state(1);
@@ -59,7 +64,7 @@
   );
 
   $effect(() => {
-    if (!focusPage) return;
+    if (!focusPage || tab !== 'pages') return;
     folds.open(focusPage);
     document.getElementById(`page-${focusPage}`)?.scrollIntoView({ block: 'start' });
   });
@@ -187,9 +192,18 @@
   </div>
 {/if}
 
-<div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-  <div class="space-y-5">
-    <Card title="Values" subtitle={data.detail.observations.length ? undefined : 'No values yet.'}>
+<ViewTabs
+  label="Document"
+  current={tab}
+  tabs={[
+    { key: 'results', label: `Results (${results})`, icon: 'activity', href: `${base}/documents/${doc.id}` },
+    { key: 'pages', label: `Pages (${pages.length})`, icon: 'file', href: pageHref(base, doc.id) },
+  ]}
+/>
+
+{#if tab === 'results'}
+  <div class="grid items-start gap-5 lg:grid-cols-2">
+    <Card title="Metrics" subtitle={data.detail.observations.length ? undefined : 'No values yet.'}>
       {#snippet actions()}
         {#if editable}
           <Button size="sm" icon="plus" onclick={() => (obsForm = { id: null, value: blankObs() })}>Add</Button>
@@ -199,7 +213,8 @@
         <ObservationTable
           observations={data.detail.observations}
           {editable}
-          {pageNumber}
+          {pageOf}
+          pageHref={linkPage}
           onedit={(o) => (obsForm = { id: o.id, value: observationInput(o) })}
           ondelete={deleteObs}
           onhistory={async (o) => (history = await session.api.observationHistory(o.id))}
@@ -216,7 +231,8 @@
         <FindingList
           findings={data.detail.findings}
           {editable}
-          {pageNumber}
+          {pageOf}
+          pageHref={linkPage}
           onedit={(f) => (findingForm = { id: f.id, value: findingInput(f) })}
           ondelete={deleteFinding}
           onhistory={async (f) => (history = await session.api.findingHistory(f.id))}
@@ -224,10 +240,9 @@
       {/if}
     </Card>
   </div>
-
-  <div class="space-y-4">
+{:else}
+  <div class="mx-auto max-w-4xl space-y-4">
     <div class="flex items-center gap-3">
-      <h2 class="heading">Pages</h2>
       {#if pages.length > 1}
         <button type="button" class="btn-ghost px-2.5 py-1 text-xs" onclick={() => folds.toggleAll(pageIds)}
           >{folds.allFolded(pageIds) ? 'Expand all' : 'Fold all'}</button
@@ -249,7 +264,7 @@
             controls="page-body-{p.id}"
             ontoggle={() => folds.toggle(p.id)}
           />
-          <span class="text-sm font-medium">Page {i + 1}</span>
+          <span class="min-w-0 truncate text-sm font-medium">{pageName(i + 1, p.title)}</span>
           <span class="ml-auto flex gap-1 {folds.isOpen(p.id) ? '' : 'hidden'}">
             {#if p.mask}
               <button
@@ -295,7 +310,7 @@
       </p>
     {/if}
   </div>
-</div>
+{/if}
 
 <ObservationModal
   value={obsForm?.value ?? null}

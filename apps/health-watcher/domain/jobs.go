@@ -11,6 +11,9 @@ const (
 	// JobRead masks an inbox item's pages and sends them to the AI provider;
 	// the subject is an inbox item id.
 	JobRead JobKind = "read"
+	// JobTitle names the pages of a document filed before pages had
+	// titles, from their masked text; the subject is a document id.
+	JobTitle JobKind = "title"
 )
 
 // JobStatus is where a job is in its life.

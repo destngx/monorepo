@@ -1,7 +1,7 @@
 package domain
 
 // CatalogVersion changes whenever DefaultCatalog's entries change.
-const CatalogVersion = "2026-10-21.2"
+const CatalogVersion = "2026-10-23.1"
 
 // Metric categories.
 const (
@@ -95,12 +95,12 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 
 	// Blood count
 	{Code: "wbc", LOINC: "6690-2", Name: "White blood cells", NameVI: "Số lượng bạch cầu", Category: CatBloodCount, Unit: "G/L",
-		Aliases: []string{"wbc", "bạch cầu", "white blood cell", "white blood cells", "leukocytes", "sl bạch cầu"}},
+		Aliases: []string{"wbc", "bạch cầu", "white blood cell", "white blood cells", "leukocytes", "sl bạch cầu"}, WholeName: true},
 	{Code: "rbc", LOINC: "789-8", Name: "Red blood cells", NameVI: "Số lượng hồng cầu", Category: CatBloodCount, Unit: "T/L",
-		Aliases: []string{"rbc", "hồng cầu", "red blood cell", "red blood cells", "erythrocytes", "sl hồng cầu"}},
+		Aliases: []string{"rbc", "hồng cầu", "red blood cell", "red blood cells", "erythrocytes", "sl hồng cầu"}, WholeName: true},
 	{Code: "hemoglobin", LOINC: "718-7", Name: "Hemoglobin", NameVI: "Huyết sắc tố", Category: CatBloodCount, Unit: "g/L",
 		Conversions: []Conversion{conv("g/dL", 10)},
-		Aliases:     []string{"hgb", "hb", "hemoglobin", "haemoglobin", "lượng huyết sắc tố", "hst"}},
+		Aliases:     []string{"hgb", "hb", "hemoglobin", "haemoglobin", "lượng huyết sắc tố", "hst"}, WholeName: true},
 	{Code: "hematocrit", LOINC: "4544-3", Name: "Hematocrit", NameVI: "Thể tích khối hồng cầu", Category: CatBloodCount, Unit: "%",
 		Conversions: []Conversion{conv("L/L", 100)},
 		Aliases:     []string{"hct", "hematocrit", "thể tích hồng cầu"}},
@@ -114,7 +114,7 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 	{Code: "rdw", LOINC: "788-0", Name: "RDW", NameVI: "Độ phân bố kích thước hồng cầu", Category: CatBloodCount, Unit: "%",
 		Aliases: []string{"rdw", "rdw-cv", "dải phân bố hồng cầu"}},
 	{Code: "platelets", LOINC: "777-3", Name: "Platelets", NameVI: "Số lượng tiểu cầu", Category: CatBloodCount, Unit: "G/L",
-		Aliases: []string{"plt", "tiểu cầu", "platelet", "platelet count", "sl tiểu cầu"}},
+		Aliases: []string{"plt", "tiểu cầu", "platelet", "platelet count", "sl tiểu cầu"}, WholeName: true},
 	{Code: "mpv", LOINC: "32623-1", Name: "MPV", NameVI: "Thể tích trung bình tiểu cầu", Category: CatBloodCount, Unit: "fL",
 		Aliases: []string{"mpv"}},
 	{Code: "neutrophils_pct", LOINC: "770-8", Name: "Neutrophils %", NameVI: "Tỷ lệ bạch cầu trung tính", Category: CatBloodCount, Unit: "%",
@@ -230,11 +230,11 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 	{Code: "urine_sg", LOINC: "5811-5", Name: "Urine specific gravity", NameVI: "Tỷ trọng niệu", Category: CatUrine, Unit: "", Urine: true,
 		Aliases: []string{"sg", "tỷ trọng", "specific gravity"}},
 	{Code: "urine_leukocytes", LOINC: "5799-2", Name: "Urine leukocytes", NameVI: "Bạch cầu niệu", Category: CatUrine, Unit: "", Urine: true,
-		Aliases: []string{"leu", "bạch cầu", "leukocytes", "leukocyte esterase"}},
+		Aliases: []string{"leu", "bạch cầu", "leukocytes", "leukocyte esterase"}, WholeName: true},
 	{Code: "urine_nitrite", LOINC: "5802-4", Name: "Urine nitrite", NameVI: "Nitrit niệu", Category: CatUrine, Unit: "", Urine: true,
 		Aliases: []string{"nit", "nitrit", "nitrite"}},
 	{Code: "urine_blood", LOINC: "5794-3", Name: "Urine blood", NameVI: "Hồng cầu niệu", Category: CatUrine, Unit: "", Urine: true,
-		Aliases: []string{"ery", "bld", "hồng cầu", "blood", "máu"}},
+		Aliases: []string{"ery", "bld", "hồng cầu", "blood", "máu"}, WholeName: true},
 	{Code: "urine_bilirubin", LOINC: "5770-3", Name: "Urine bilirubin", NameVI: "Bilirubin niệu", Category: CatUrine, Unit: "", Urine: true,
 		Aliases: []string{"bil", "bilirubin"}},
 	{Code: "urine_urobilinogen", LOINC: "5818-0", Name: "Urine urobilinogen", NameVI: "Urobilinogen niệu", Category: CatUrine, Unit: "", Urine: true,

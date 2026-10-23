@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"apps/health-watcher/domain"
@@ -118,5 +119,37 @@ func TestGivenAViewerOrAnotherTenantWhenTheyUseMetricsThenOnlyReadingInTheirOwnT
 	}
 	if _, err := e.clinical.AddMeasurements(e.ctx, b, person.ID, vitals("2025-04-01", "weight", "60")); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("other tenant add = %v", err)
+	}
+}
+
+func TestGivenAValueOnTheSecondFileOfADocumentWhenItsTrendIsReadThenThePointNamesItsPage(t *testing.T) {
+	e := newEnv(t)
+	sc := e.setup()
+	person := e.person(sc, "Nguyễn Văn Mẫu")
+	out := labReading()
+	out.Pages = []domain.ReadingPage{{Page: 1, Title: "Phiếu chỉ định"}, {Page: 2, Title: "Sinh hóa máu"}}
+	out.Observations[0].Page = 2
+	e.reader.out = &out
+	d := e.uploadRead(sc, "lab")
+	e.addFiles(sc, d.Item.ID, pdf("lab-2"))
+	e.drain()
+	if _, err := e.inbox.File(e.ctx, sc, d.Item.ID, domain.FileInput{Kind: "lab_result",
+		Visit: &domain.VisitInput{PersonID: person.ID, Date: "2025-03-14", Type: "lab"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	trend, err := e.clinical.PersonMetric(e.ctx, sc, person.ID, "glucose")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trend.Points) != 1 {
+		t.Fatalf("points = %+v", trend.Points)
+	}
+	p := trend.Points[0]
+	if p.PageID == "" || p.PageNumber != 2 || p.PageTitle != "Sinh hóa máu" {
+		t.Fatalf("point = %+v", p)
+	}
+	if trend.About == nil || !strings.HasPrefix(trend.About.URL, "https://medlineplus.gov/") || trend.About.Quote == "" {
+		t.Fatalf("about = %+v", trend.About)
 	}
 }

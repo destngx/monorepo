@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ObservationInput, Page } from '$lib/api/types';
   import { catalog } from '$lib/state/catalog.svelte';
+  import { pageName } from '$lib/pages';
   import { action, Field, Modal } from '@libs/ui-kit';
 
   // Adds or edits one observation (HW-READ-4, HW-READ-7).
@@ -84,7 +85,7 @@
         <Field id="obs-page" label="Page">
           <select id="obs-page" class="field" bind:value={form.pageId}>
             <option value="">Not set</option>
-            {#each pages as p, i (p.id)}<option value={p.id}>Page {i + 1}</option>{/each}
+            {#each pages as p, i (p.id)}<option value={p.id}>{pageName(i + 1, p.title)}</option>{/each}
           </select>
         </Field>
       {/if}

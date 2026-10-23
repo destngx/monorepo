@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -44,6 +45,26 @@ func (r repos) SaveSettings(ctx context.Context, values map[string]string, at ti
 		if err := exec(res, err, "setting"); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (r repos) Meta(ctx context.Context, key string) (string, error) {
+	var v string
+	err := r.q.QueryRowContext(ctx, `SELECT value FROM meta WHERE key = ?`, key).Scan(&v)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read meta %s: %w", key, err)
+	}
+	return v, nil
+}
+
+func (r repos) SetMeta(ctx context.Context, key, value string) error {
+	if _, err := r.q.ExecContext(ctx, `INSERT INTO meta (key, value) VALUES (?, ?)
+		ON CONFLICT (key) DO UPDATE SET value = excluded.value`, key, value); err != nil {
+		return fmt.Errorf("write meta %s: %w", key, err)
 	}
 	return nil
 }

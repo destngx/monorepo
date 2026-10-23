@@ -16,10 +16,12 @@ type MetricsOverview struct {
 	Unlinked int                    `json:"unlinked"`
 }
 
-// MetricTrend is one metric of a person over time (HW-MET-3).
+// MetricTrend is one metric of a person over time (HW-MET-3), with what the
+// metric is when a trusted source says so (HW-MET-6).
 type MetricTrend struct {
 	Person domain.Person       `json:"person"`
 	Metric domain.Metric       `json:"metric"`
+	About  *domain.MetricAbout `json:"about,omitempty"`
 	Points []domain.TrendPoint `json:"points"`
 }
 
@@ -90,7 +92,11 @@ func (c *Clinical) PersonMetric(ctx context.Context, sc domain.Scope, personID, 
 	if points == nil {
 		points = []domain.TrendPoint{}
 	}
-	return MetricTrend{Person: person, Metric: m, Points: points}, nil
+	trend := MetricTrend{Person: person, Metric: m, Points: points}
+	if about, ok := domain.AboutMetric(code); ok {
+		trend.About = &about
+	}
+	return trend, nil
 }
 
 // AddMeasurements stores vitals typed in for a person without a paper; they

@@ -39,6 +39,15 @@ type Repos interface {
 	AnalyteLinkRepo
 	SettingsRepo
 	SearchRepo
+	MetaRepo
+}
+
+// MetaRepo keeps engine bookkeeping values, such as the catalog version the
+// stored links were made with.
+type MetaRepo interface {
+	// Meta returns a value, "" when it was never set.
+	Meta(ctx context.Context, key string) (string, error)
+	SetMeta(ctx context.Context, key, value string) error
 }
 
 // SettingsRepo stores the engine settings as key and value (HW-OPS-9).
@@ -187,6 +196,20 @@ type TenantFile struct {
 	FileID   string
 }
 
+// TenantObservation is an observation with its tenant and the provider of
+// its visit, "" when the visit has none.
+type TenantObservation struct {
+	TenantID   string
+	ProviderID string
+	domain.Observation
+}
+
+// TenantDocument names a document of a tenant.
+type TenantDocument struct {
+	TenantID   string
+	DocumentID string
+}
+
 // PageRepo stores the pages read from files (HW-READ-1, HW-READ-2, HW-AI-7).
 type PageRepo interface {
 	// SavePages replaces a file's pages, keeping the id of each page number
@@ -197,6 +220,11 @@ type PageRepo interface {
 	Page(ctx context.Context, tenantID, id string) (domain.Page, error)
 	// SetPageMask stores a page's mask and returns the masked image hash it replaced.
 	SetPageMask(ctx context.Context, tenantID, pageID string, m domain.PageMask) (string, error)
+	// SetPageTitle names a page (HW-READ-9).
+	SetPageTitle(ctx context.Context, tenantID, pageID, title string) error
+	// UntitledDocuments lists the documents with a page that was masked
+	// for the AI but has no title, and no title job yet, oldest first.
+	UntitledDocuments(ctx context.Context) ([]TenantDocument, error)
 	// PageImageSHAs lists the page and masked image hashes of a file's pages.
 	PageImageSHAs(ctx context.Context, tenantID, fileID string) ([]string, error)
 	// FilesWithoutPages lists files with no pages and no OCR job, oldest first.
@@ -281,6 +309,10 @@ type ClinicalRepo interface {
 	// CountTypedObservations counts a person's approved observations typed
 	// in without a document (HW-MET-2).
 	CountTypedObservations(ctx context.Context, tenantID, personID string) (int, error)
+	// UneditedReadObservations lists every tenant's approved observations as
+	// an AI reading left them: version 1 and the reading's own confidence,
+	// since any edit saves 100. Each comes with its visit's provider.
+	UneditedReadObservations(ctx context.Context) ([]TenantObservation, error)
 	AddAudit(ctx context.Context, tenantID string, e domain.AuditEntry) error
 	AuditOf(ctx context.Context, tenantID string, entity domain.AuditEntity, entityID string) ([]domain.AuditEntry, error)
 }
@@ -346,9 +378,18 @@ type ReadResult struct {
 	Output domain.ReadingOutput
 }
 
+// TitleResult is the provider's page titles.
+type TitleResult struct {
+	Model  string
+	Output domain.PageTitlesOutput
+}
+
 // Reader sends masked pages to the AI provider (HW-READ-3, HW-AI-1).
 type Reader interface {
 	Read(ctx context.Context, pages []ReadPage) (ReadResult, error)
+	// TitlePages names pages from their masked text alone; JPEG is not sent
+	// (HW-READ-9).
+	TitlePages(ctx context.Context, pages []ReadPage) (TitleResult, error)
 }
 
 // FileStore keeps file bytes by SHA-256 (HW-OPS-2). Put is idempotent.

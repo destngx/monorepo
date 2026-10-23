@@ -3,20 +3,23 @@
   import { flagLabel, formatDate } from '$lib/format';
   import { catalog } from '$lib/state/catalog.svelte';
   import { Button } from '@libs/ui-kit';
+  import PageRef from '$lib/components/PageRef.svelte';
 
   // Observations as a table. Drafts can be edited, rejected and restored;
   // approved ones edited, deleted and their history shown (HW-READ-4, HW-REC-6).
   interface Props {
     observations: Observation[];
     editable: boolean;
-    pageNumber: (pageId: string | undefined) => number | undefined;
+    pageOf: (pageId: string | undefined) => { name: string } | undefined;
+    /** Where a page opens; without it a page is named but not linked. */
+    pageHref?: (pageId: string) => string;
     onedit: (o: Observation) => void;
     onstatus?: (o: Observation, status: RecordStatus) => Promise<unknown>;
     ondelete?: (o: Observation) => Promise<unknown>;
     onhistory?: (o: Observation) => Promise<unknown>;
   }
 
-  let { observations, editable, pageNumber, onedit, onstatus, ondelete, onhistory }: Props = $props();
+  let { observations, editable, pageOf, pageHref, onedit, onstatus, ondelete, onhistory }: Props = $props();
 
   const flagTone: Record<string, string> = {
     H: 'text-danger-700 dark:text-danger-300',
@@ -39,12 +42,13 @@
     <tbody class="divide-y divide-ink-900/5 dark:divide-ink-50/5">
       {#each observations as o (o.id)}
         {@const metric = o.metricCode ? catalog.byCode.get(o.metricCode) : undefined}
-        {@const page = pageNumber(o.pageId)}
+        {@const page = pageOf(o.pageId)}
         <tr class={o.status === 'rejected' ? 'opacity-50' : ''}>
           <td class="py-2 pr-3 align-top">
             <span class="font-medium {o.status === 'rejected' ? 'line-through' : ''}">{o.analyte}</span>
             <span class="muted block text-xs">
-              {metric ? metric.name : 'Not in the catalog'}{page ? ` · page ${page}` : ''}
+              {metric ? metric.name : 'Not in the catalog'}
+              <PageRef {page} href={o.pageId && pageHref ? pageHref(o.pageId) : undefined} />
               {#if o.status === 'draft' && o.confidence < 70}
                 · <span class="text-warn-700 dark:text-warn-300">check this ({o.confidence}%)</span>
               {/if}

@@ -269,6 +269,8 @@ export interface Page {
   width: number;
   height: number;
   hasImage: boolean;
+  /** What the page holds, written by the AI (HW-READ-9); missing until a reading names it. */
+  title?: string;
   mask?: PageMask;
 }
 
@@ -590,6 +592,10 @@ export type PointSource = 'paper' | 'typed' | 'computed';
 export interface TrendPoint {
   observationId?: string;
   documentId?: string;
+  pageId?: string;
+  /** The page's number within its document, counting across the document's files. */
+  pageNumber?: number;
+  pageTitle?: string;
   visitId?: string;
   provider?: string;
   date: string;
@@ -627,9 +633,22 @@ export interface MetricsOverview {
   unlinked: number;
 }
 
+/** What a metric is, quoted word for word from a trusted source (HW-MET-6). */
+export interface MetricAbout {
+  quote: string;
+  /** Who publishes the source, such as MedlinePlus. */
+  source: string;
+  /** The title of the quoted page. */
+  title: string;
+  url: string;
+  /** The day the quote was checked against the page, YYYY-MM-DD. */
+  fetched: string;
+}
+
 export interface MetricTrend {
   person: Person;
   metric: Metric;
+  about?: MetricAbout;
   points: TrendPoint[];
 }
 

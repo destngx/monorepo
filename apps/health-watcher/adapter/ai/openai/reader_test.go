@@ -54,6 +54,33 @@ func TestGivenMaskedPagesWhenReadingThenTheRequestIsStrictPrivateAndCarriesImage
 	}
 }
 
+func TestGivenMaskedPagesWhenNamingThemThenOnlyTheirTextIsSent(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &got)
+		answer := `{"pages":[{"page":1,"title":"Tổng phân tích tế bào máu"}]}`
+		_ = json.NewEncoder(w).Encode(map[string]any{"model": "gpt-6-luna", "status": "completed",
+			"output": []any{map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": answer}}}}})
+	}))
+	defer srv.Close()
+	r := New(Config{BaseURL: srv.URL + "/v1", Model: "gpt-6-luna"}, nil)
+	res, err := r.TitlePages(context.Background(), []port.ReadPage{{Number: 1, JPEG: []byte{0xFF, 0xD8}, Text: "WBC 7.7 G/L"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Model != "gpt-6-luna" || len(res.Output.Pages) != 1 || res.Output.Pages[0].Title != "Tổng phân tích tế bào máu" {
+		t.Fatalf("result = %+v", res)
+	}
+	raw, _ := json.Marshal(got["input"])
+	if strings.Contains(string(raw), "input_image") || !strings.Contains(string(raw), "WBC 7.7 G/L") || got["store"] != false {
+		t.Fatalf("request = %s", raw)
+	}
+	if format := got["text"].(map[string]any)["format"].(map[string]any); format["name"] != "page_titles" || format["strict"] != true {
+		t.Fatalf("format = %v", format)
+	}
+}
+
 func TestGivenAGatewayErrorWithAStackTraceWhenReadingThenOnlyTheMessageIsKept(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)

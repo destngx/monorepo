@@ -9,10 +9,12 @@
   import MeasurementsModal from '$lib/components/MeasurementsModal.svelte';
   import { formatDate } from '$lib/format';
   import { pointRange, pointSource, pointValue, typedVitals } from '$lib/metrics';
+  import { pageHref, pageName } from '$lib/pages';
   import { session } from '$lib/state/session.svelte';
 
-  // One metric of a person over time (HW-MET-3), with every value in a table
-  // below the chart, newest first, each linked to its paper.
+  // One metric of a person over time (HW-MET-3): what the metric is, quoted
+  // from a trusted source (HW-MET-6), the chart, and every value in a table
+  // below it, newest first, each linked to the page it was read from.
   let { data } = $props();
   let adding = $state(false);
 
@@ -50,6 +52,21 @@
     {/if}
   {/snippet}
 </PageTitle>
+
+{#if data.trend.about}
+  {@const about = data.trend.about}
+  <Card class="mb-5">
+    <figure>
+      <blockquote class="border-l-2 border-ink-900/15 pl-3 text-sm dark:border-ink-50/15">
+        <p>{about.quote}</p>
+      </blockquote>
+      <figcaption class="muted mt-2 text-xs">
+        <a class="link" href={about.url} target="_blank" rel="noopener noreferrer">{about.source}: {about.title}</a>, as
+        on {formatDate(about.fetched)}. General information, not advice for one person.
+      </figcaption>
+    </figure>
+  </Card>
+{/if}
 
 <Card class="mb-5">
   <TrendChart points={data.trend.points} {metric} onopen={open} />
@@ -121,11 +138,16 @@
             </td>
             <td class="py-2 pr-4 whitespace-nowrap tabular">{pointRange(p) || '-'}</td>
             <td class="py-2 pr-4"><FlagTag flag={p.flag} /></td>
-            <td class="py-2 pr-4 whitespace-nowrap">
+            <td class="py-2 pr-4">
               {#if p.documentId}
-                <a class="link" href="{base}/documents/{p.documentId}">{pointSource(p)}</a>
+                <a class="link whitespace-nowrap" href={pageHref(base, p.documentId, p.pageId)}>{pointSource(p)}</a>
+                {#if p.pageNumber}
+                  <span class="muted block max-w-64 truncate text-xs" title={pageName(p.pageNumber, p.pageTitle)}
+                    >{pageName(p.pageNumber, p.pageTitle)}</span
+                  >
+                {/if}
               {:else}
-                <span class="muted">{pointSource(p)}</span>
+                <span class="muted whitespace-nowrap">{pointSource(p)}</span>
               {/if}
             </td>
             <td class="py-2 text-right">

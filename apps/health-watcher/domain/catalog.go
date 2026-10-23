@@ -31,6 +31,10 @@ type Metric struct {
 	// Urine marks a urine test whose names are shared with a blood test
 	// (glucose, protein); it matches a blood name only in a urine context.
 	Urine bool `json:"urine,omitempty"`
+	// WholeName marks a test whose names begin the names of other tests
+	// (`Số lượng bạch cầu đoạn` is not the white cell count), so a longer
+	// printed name never matches it by its start.
+	WholeName bool `json:"-"`
 }
 
 // Catalog is the shipped metric list with its matching index.
@@ -72,10 +76,15 @@ func (c *Catalog) Metric(code string) (Metric, bool) {
 }
 
 // analyteKey folds an analyte name for matching. `%` and `#` mark the
-// percentage and absolute count of a white cell type, so they become words.
+// percentage and absolute count of a white cell type, so they become words;
+// `Tỷ lệ %` already says percentage, so its `%` is dropped.
 func analyteKey(s string) string {
 	s = strings.NewReplacer("%", " pct ", "#", " abs ").Replace(s)
-	return FoldKey(s)
+	key := FoldKey(s)
+	if rest, ok := strings.CutPrefix(key, "ty le pct "); ok {
+		return "ty le " + rest
+	}
+	return key
 }
 
 // urineWords mark an analyte name as a urine test.
@@ -127,11 +136,13 @@ func splitParens(s string) (string, []string) {
 }
 
 // Match finds the catalog entry for an analyte name as printed, using the
-// unit to choose between entries that share a name (HW-READ-5). It tries
-// the whole name, the name outside parentheses, each part inside them, and
-// finally the longest known name the printed one starts with. Context words
-// such as `niệu` pick urine tests. An unknown or ambiguous name gives false.
-func (c *Catalog) Match(analyte, unit string) (Metric, bool) {
+// unit and value to choose between entries that share a name (HW-READ-5).
+// It tries the whole name, the name outside parentheses, each part inside
+// them, and finally the longest known name the printed one starts with.
+// Context words such as `niệu` pick urine tests, and a text result such as
+// `Âm tính` picks a test read as text. An unknown or ambiguous name gives
+// false.
+func (c *Catalog) Match(analyte, unit, value string) (Metric, bool) {
 	full := analyteKey(analyte)
 	if full == "" {
 		return Metric{}, false
@@ -145,12 +156,13 @@ func (c *Catalog) Match(analyte, unit string) (Metric, bool) {
 		in = append(in, analyteKey(part))
 	}
 	levels = append(levels, in)
+	text := strings.TrimSpace(value) != "" && ParseNumber(value) == nil
 	for _, keys := range levels {
-		if m, ok := c.pick(c.exact(keys), unit, urine); ok {
+		if m, ok := c.pick(c.exact(keys), unit, urine, text); ok {
 			return m, true
 		}
 	}
-	return c.pick(c.prefix(stripped), unit, urine)
+	return c.pick(c.prefix(stripped), unit, urine, text)
 }
 
 func stripUrineWords(s string) string {
@@ -183,7 +195,9 @@ func (c *Catalog) exact(keys []string) []int {
 	return out
 }
 
-// prefix returns the entries whose longest alias starts key at a word boundary.
+// prefix returns the entries whose longest alias starts key at a word
+// boundary. A WholeName entry never matches this way, and still blocks
+// shorter aliases: `Số lượng bạch cầu đoạn` must not fall back to `bạch cầu`.
 func (c *Catalog) prefix(key string) []int {
 	if key == "" {
 		return nil
@@ -199,14 +213,33 @@ func (c *Catalog) prefix(key string) []int {
 		}
 		out = append(out, idx...)
 	}
+	for _, i := range out {
+		if c.metrics[i].WholeName && len(key) > best {
+			return nil
+		}
+	}
 	return out
 }
 
-// pick chooses one entry among candidates: by urine context, then by unit.
-func (c *Catalog) pick(cands []int, unit string, urine bool) (Metric, bool) {
+// pick chooses one entry among candidates: by urine context, then by the
+// kind of result, then by unit.
+func (c *Catalog) pick(cands []int, unit string, urine, text bool) (Metric, bool) {
 	cands = dedupe(cands)
 	if len(cands) == 0 {
 		return Metric{}, false
+	}
+	if text {
+		// A text result fits only a test read as text: `Bạch cầu` with
+		// `Âm tính` is the urine strip, not the white cell count.
+		var fit []int
+		for _, i := range cands {
+			if c.metrics[i].Unit == "" {
+				fit = append(fit, i)
+			}
+		}
+		if len(fit) > 0 {
+			cands = fit
+		}
 	}
 	var urineC, bloodC []int
 	for _, i := range cands {
@@ -221,7 +254,7 @@ func (c *Catalog) pick(cands []int, unit string, urine bool) (Metric, bool) {
 		cands = urineC
 	case !urine && len(bloodC) > 0:
 		cands = bloodC
-	case !urine && strings.TrimSpace(unit) != "":
+	case !urine && !text && strings.TrimSpace(unit) != "":
 		// Only urine tests share this name and nothing says urine: a
 		// printed unit must fit them (`Protein` in g/L is a blood test).
 		var fit []int

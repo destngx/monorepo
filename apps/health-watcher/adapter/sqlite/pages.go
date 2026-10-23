@@ -11,7 +11,7 @@ import (
 )
 
 const pageColumns = `id, file_id, number, method, text, confidence, width, height, image_sha, lines_json, barcodes_json,
-	mask_status, mask_reasons_json, mask_boxes_json, mask_manual_json, mask_auto_json, mask_lines, mask_text, mask_image_sha, mask_version`
+	mask_status, mask_reasons_json, mask_boxes_json, mask_manual_json, mask_auto_json, mask_lines, mask_text, mask_image_sha, mask_version, title`
 
 func scanPage(scan func(...any) error) (domain.Page, error) {
 	var p domain.Page
@@ -19,7 +19,7 @@ func scanPage(scan func(...any) error) (domain.Page, error) {
 	var barcodesJSON, autoJSON sql.NullString
 	var maskLines, maskVersion int
 	if err := scan(&p.ID, &p.FileID, &p.Number, &method, &p.Text, &p.Confidence, &p.Width, &p.Height, &p.ImageSHA, &linesJSON,
-		&barcodesJSON, &maskStatus, &reasonsJSON, &boxesJSON, &manualJSON, &autoJSON, &maskLines, &maskText, &maskSHA, &maskVersion); err != nil {
+		&barcodesJSON, &maskStatus, &reasonsJSON, &boxesJSON, &manualJSON, &autoJSON, &maskLines, &maskText, &maskSHA, &maskVersion, &p.Title); err != nil {
 		return p, err
 	}
 	p.Method = domain.PageMethod(method)
@@ -118,7 +118,7 @@ func (r repos) SavePages(ctx context.Context, tenantID, fileID string, pages []d
 			ON CONFLICT (file_id, number) DO UPDATE SET method = excluded.method, text = excluded.text,
 				confidence = excluded.confidence, width = excluded.width, height = excluded.height, image_sha = excluded.image_sha,
 				lines_json = excluded.lines_json, barcodes_json = excluded.barcodes_json, mask_status = '', mask_reasons_json = '[]',
-				mask_boxes_json = '[]', mask_manual_json = '[]', mask_auto_json = NULL, mask_lines = 0, mask_text = '', mask_image_sha = '', mask_version = 0`,
+				mask_boxes_json = '[]', mask_manual_json = '[]', mask_auto_json = NULL, mask_lines = 0, mask_text = '', mask_image_sha = '', mask_version = 0, title = ''`,
 			p.ID, tenantID, fileID, p.Number, string(p.Method), p.Text, p.Confidence, p.Width, p.Height, p.ImageSHA, lines, barcodes,
 			formatTime(p.CreatedAt))
 		if err := exec(res, err, "page"); err != nil {
@@ -187,6 +187,32 @@ func (r repos) SetPageMask(ctx context.Context, tenantID, pageID string, m domai
 		return "", nil
 	}
 	return prev, nil
+}
+
+func (r repos) SetPageTitle(ctx context.Context, tenantID, pageID, title string) error {
+	res, err := r.q.ExecContext(ctx, `UPDATE pages SET title = ? WHERE tenant_id = ? AND id = ?`, title, tenantID, pageID)
+	return affected(res, err, "page")
+}
+
+func (r repos) UntitledDocuments(ctx context.Context) ([]port.TenantDocument, error) {
+	rows, err := r.q.QueryContext(ctx, `SELECT d.tenant_id, d.id FROM documents d
+		WHERE EXISTS (SELECT 1 FROM document_files df JOIN pages p ON p.file_id = df.file_id
+			WHERE df.document_id = d.id AND p.title = '' AND p.mask_status IN ('ready', 'checked'))
+		AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'title' AND j.subject_id = d.id)
+		ORDER BY d.created_at`)
+	if err != nil {
+		return nil, fmt.Errorf("list untitled documents: %w", err)
+	}
+	defer rows.Close()
+	var out []port.TenantDocument
+	for rows.Next() {
+		var td port.TenantDocument
+		if err := rows.Scan(&td.TenantID, &td.DocumentID); err != nil {
+			return nil, fmt.Errorf("scan document: %w", err)
+		}
+		out = append(out, td)
+	}
+	return out, rows.Err()
 }
 
 func (r repos) PageImageSHAs(ctx context.Context, tenantID, fileID string) ([]string, error) {

@@ -152,7 +152,7 @@ func (c *Clinical) AddObservation(ctx context.Context, sc domain.Scope, document
 		return domain.Observation{}, err
 	}
 	if in.MetricCode == "" {
-		if m, ok := c.Catalog.Match(in.Analyte, in.Unit); ok {
+		if m, ok := c.Catalog.Match(in.Analyte, in.Unit, in.Value); ok {
 			in.MetricCode = m.Code
 		}
 	}

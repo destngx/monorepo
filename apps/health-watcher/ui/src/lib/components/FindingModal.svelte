@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { FindingInput, Page } from '$lib/api/types';
   import { findingKindLabels, options } from '$lib/format';
+  import { pageName } from '$lib/pages';
   import { action, Field, Modal } from '@libs/ui-kit';
 
   // Adds or edits one finding: a diagnosis, exam result, prescription line,
@@ -94,7 +95,7 @@
       <Field id="fd-page" label="Page">
         <select id="fd-page" class="field" bind:value={form.pageId}>
           <option value="">Not set</option>
-          {#each pages as p, i (p.id)}<option value={p.id}>Page {i + 1}</option>{/each}
+          {#each pages as p, i (p.id)}<option value={p.id}>{pageName(i + 1, p.title)}</option>{/each}
         </select>
       </Field>
     {/if}

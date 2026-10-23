@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"apps/health-watcher/domain"
+	"apps/health-watcher/port"
 )
 
 func nullFloat(v *float64) any {
@@ -326,7 +327,14 @@ func (r repos) AnalyteLinks(ctx context.Context, tenantID, providerID string) (m
 }
 
 func (r repos) ObservationsOfPerson(ctx context.Context, tenantID, personID string) ([]domain.PersonObservation, error) {
-	rows, err := r.q.QueryContext(ctx, `SELECT `+observationColumns+`, COALESCE(d.visit_id, ''), COALESCE(pr.name, '')
+	// A page's number in its document counts the pages of the files
+	// before its own, in the document's file order.
+	rows, err := r.q.QueryContext(ctx, `SELECT `+observationColumns+`, COALESCE(d.visit_id, ''), COALESCE(pr.name, ''),
+			COALESCE((SELECT COUNT(*) FROM document_files df JOIN document_files own ON own.document_id = df.document_id
+				JOIN pages p2 ON p2.file_id = df.file_id
+				WHERE df.document_id = o.document_id AND own.file_id = pg.file_id
+					AND (df.position < own.position OR (df.position = own.position AND p2.number <= pg.number))), 0),
+			COALESCE(pg.title, '')
 		FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id
 			LEFT JOIN documents d ON d.id = o.document_id
 			LEFT JOIN visits v ON v.id = d.visit_id
@@ -340,13 +348,38 @@ func (r repos) ObservationsOfPerson(ctx context.Context, tenantID, personID stri
 	out := []domain.PersonObservation{}
 	for rows.Next() {
 		var po domain.PersonObservation
-		var visitID, provider string
-		o, err := scanObservation(func(dest ...any) error { return rows.Scan(append(dest, &visitID, &provider)...) })
+		o, err := scanObservation(func(dest ...any) error {
+			return rows.Scan(append(dest, &po.VisitID, &po.Provider, &po.PageNumber, &po.PageTitle)...)
+		})
 		if err != nil {
 			return nil, fmt.Errorf("scan person observation: %w", err)
 		}
-		po.Observation, po.VisitID, po.Provider = o, visitID, provider
+		po.Observation = o
 		out = append(out, po)
+	}
+	return out, rows.Err()
+}
+
+func (r repos) UneditedReadObservations(ctx context.Context) ([]port.TenantObservation, error) {
+	rows, err := r.q.QueryContext(ctx, `SELECT `+observationColumns+`, o.tenant_id, COALESCE(v.provider_id, '')
+		FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id
+			JOIN documents d ON d.id = o.document_id
+			JOIN visits v ON v.id = d.visit_id
+		WHERE o.status = 'approved' AND o.source = 'reading' AND o.version = 1 AND o.confidence < 100
+		ORDER BY o.tenant_id, o.created_at, o.id`)
+	if err != nil {
+		return nil, fmt.Errorf("list unedited observations: %w", err)
+	}
+	defer rows.Close()
+	out := []port.TenantObservation{}
+	for rows.Next() {
+		var to port.TenantObservation
+		o, err := scanObservation(func(dest ...any) error { return rows.Scan(append(dest, &to.TenantID, &to.ProviderID)...) })
+		if err != nil {
+			return nil, fmt.Errorf("scan unedited observation: %w", err)
+		}
+		to.Observation = o
+		out = append(out, to)
 	}
 	return out, rows.Err()
 }

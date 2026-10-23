@@ -44,8 +44,38 @@ func TestGivenAModelAnswerWhenCleaningThenEnumsDatesPagesAndFlagsAreChecked(t *t
 	}
 }
 
+func TestGivenPageTitlesFromTheModelWhenCleaningThenEachPageGetsOneTrimmedTitle(t *testing.T) {
+	long := strings.Repeat("x", MaxPageTitle+10)
+	got := CleanPageTitles([]ReadingPage{
+		{Page: 2, Title: "  Siêu âm ổ bụng  "},
+		{Page: 1, Title: "Tổng phân tích tế bào máu"},
+		{Page: 2, Title: "A second title for page 2"},
+		{Page: 0, Title: "No such page"},
+		{Page: 9, Title: "No such page"},
+		{Page: 3, Title: long},
+	}, 4)
+	want := []string{"Tổng phân tích tế bào máu", "Siêu âm ổ bụng", long[:MaxPageTitle], ""}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("titles = %q, want %q", got, want)
+	}
+}
+
 func TestGivenTheReadingSchemaWhenEncodedThenEveryObjectIsStrict(t *testing.T) {
+	for _, schema := range []map[string]any{ReadingSchema(), PageTitlesSchema()} {
+		assertStrict(t, schema)
+	}
 	raw, err := json.Marshal(ReadingSchema())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"imaging_film"`) || !strings.Contains(string(raw), `"pages"`) {
+		t.Fatal("document kinds or page titles missing from the schema")
+	}
+}
+
+func assertStrict(t *testing.T, schema map[string]any) {
+	t.Helper()
+	raw, err := json.Marshal(schema)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,9 +102,6 @@ func TestGivenTheReadingSchemaWhenEncodedThenEveryObjectIsStrict(t *testing.T) {
 	var decoded any
 	_ = json.Unmarshal(raw, &decoded)
 	walk(decoded)
-	if !strings.Contains(string(raw), `"imaging_film"`) {
-		t.Fatal("document kinds missing from the schema")
-	}
 }
 
 func TestGivenABloodPressurePairWhenCleaningThenItSplitsIntoSystolicAndDiastolic(t *testing.T) {

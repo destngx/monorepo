@@ -17,11 +17,31 @@ How to read:
   - advice: what the doctor tells the patient to do next, such as follow-up checks, diet or lifestyle advice.
   - procedure, allergy, vaccination as printed.
   - note: anything else worth keeping, such as a health classification or a remark in a notes column.
+- pages: one entry per page, with page its 1-based number and title a short heading, in the document's language, for what the page holds, such as "Tổng phân tích tế bào máu" or "Siêu âm ổ bụng". Use the page's printed heading when it has one. A title never holds a name, a date or any other personal detail.
 - document: kind, a short title in the document's language, date (the visit, sample or report date as YYYY-MM-DD, never a birth date), visit_type, provider_name (the hospital, clinic or lab as printed), provider_kind.
 - Handwriting (record books, prescriptions): read what you can and give a low confidence to anything uncertain.
 - page is the 1-based page number a value came from. confidence is 0 to 100; use 90 or more only when the text is sharp and unambiguous.
 - Never describe or interpret a medical image (an X-ray, scan or photo) yourself. Read only the words printed or written about it.
 - Do not interpret, judge or diagnose. Report only what is printed.`
+
+// PageTitlesInstructions is the system prompt of a title job: naming the
+// pages of a document filed before pages had titles (HW-READ-9).
+const PageTitlesInstructions = `You name the pages of one medical document for a family health record. Each page comes as the text an on-device OCR read from it.
+
+Privacy: personal details were removed on the device before sending; "[ẩn]" in the text hides them. Never try to read, guess or restore what is hidden.
+
+Give one entry per page, with page its 1-based number and title a short heading, in the document's language, for what the page holds, such as "Tổng phân tích tế bào máu" or "Siêu âm ổ bụng". Use the page's printed heading when it has one. A title never holds a name, a date or any other personal detail. Do not interpret, judge or diagnose.`
+
+func pagesSchema() map[string]any {
+	return map[string]any{"type": "array", "items": strictObject(map[string]any{
+		"page": map[string]any{"type": "integer"}, "title": map[string]any{"type": "string"},
+	})}
+}
+
+// PageTitlesSchema is the strict JSON schema of PageTitlesOutput.
+func PageTitlesSchema() map[string]any {
+	return strictObject(map[string]any{"pages": pagesSchema()})
+}
 
 func enumOf[T ~string](values []T) []any {
 	out := make([]any, len(values))
@@ -51,6 +71,7 @@ func ReadingSchema() map[string]any {
 			"visit_type": map[string]any{"type": "string", "enum": enumOf(VisitTypes)}, "provider_name": str,
 			"provider_kind": map[string]any{"type": "string", "enum": enumOf(providerKinds)}, "confidence": integer,
 		}),
+		"pages": pagesSchema(),
 		"observations": map[string]any{"type": "array", "items": strictObject(map[string]any{
 			"page": integer, "analyte": str, "value": str, "unit": str, "reference": str,
 			"flag": map[string]any{"type": "string", "enum": []any{"", "H", "L", "*"}}, "sample_date": str, "confidence": integer,

@@ -26,6 +26,7 @@
   import ReadingBadge from '$lib/components/ReadingBadge.svelte';
   import { toggleOff } from '$lib/boxes';
   import { documentKindLabels, formatDate } from '$lib/format';
+  import { pageLookup, pageName } from '$lib/pages';
   import { findingInput, observationInput, readingState } from '$lib/reading';
   import { session } from '$lib/state/session.svelte';
   import { ACCEPT, addedMessage, pickFiles } from '$lib/upload';
@@ -38,8 +39,7 @@
   const reading = $derived(item.reading);
   const status = $derived(readingState(item));
   const pages = $derived(data.detail.pages);
-  const pageIndex = $derived(new Map(pages.map((p, i) => [p.id, i + 1])));
-  const pageNumber = (id: string | undefined) => (id ? pageIndex.get(id) : undefined);
+  const pageOf = $derived(pageLookup(pages));
   const editable = $derived(session.canEdit && item.status === 'new');
   const ocrFailed = $derived((item.ocr?.failed ?? 0) > 0);
   const needsCheck = $derived(reading?.status === 'needs_check');
@@ -242,7 +242,7 @@
     <ObservationTable
       observations={data.detail.observations}
       {editable}
-      {pageNumber}
+      {pageOf}
       onedit={(o) => (editingObs = o)}
       onstatus={setObsStatus}
     />
@@ -253,7 +253,7 @@
     <FindingList
       findings={data.detail.findings}
       {editable}
-      {pageNumber}
+      {pageOf}
       onedit={(f) => (editingFinding = f)}
       onstatus={setFindingStatus}
     />
@@ -278,7 +278,7 @@
           controls="page-body-{p.id}"
           ontoggle={() => folds.toggle(p.id)}
         />
-        <span class="font-medium">Page {i + 1}</span>
+        <span class="font-medium">{pageName(i + 1, p.title)}</span>
         {#if !p.mask && reading && ['done', 'needs_check'].includes(reading.status)}
           <span
             class="tag bg-ink-900/5 dark:bg-ink-50/10"

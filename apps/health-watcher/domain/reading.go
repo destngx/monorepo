@@ -117,11 +117,40 @@ type ReadingFinding struct {
 	Confidence int    `json:"confidence"`
 }
 
+// ReadingPage is the title the model gave one page.
+type ReadingPage struct {
+	Page  int    `json:"page"`
+	Title string `json:"title"`
+}
+
 // ReadingOutput is the model's answer, shaped by ReadingSchema.
 type ReadingOutput struct {
 	Document     ReadingDocument      `json:"document"`
+	Pages        []ReadingPage        `json:"pages"`
 	Observations []ReadingObservation `json:"observations"`
 	Findings     []ReadingFinding     `json:"findings"`
+}
+
+// PageTitlesOutput is the answer of a title job, shaped by PageTitlesSchema.
+type PageTitlesOutput struct {
+	Pages []ReadingPage `json:"pages"`
+}
+
+// MaxPageTitle bounds a page title in characters.
+const MaxPageTitle = 80
+
+// CleanPageTitles returns one title per page, 1-based page n at index n-1;
+// a page the model skipped, or numbered outside the document, gets "".
+// The first title given for a page wins.
+func CleanPageTitles(pages []ReadingPage, pageCount int) []string {
+	out := make([]string, pageCount)
+	for _, p := range pages {
+		if p.Page < 1 || p.Page > pageCount || out[p.Page-1] != "" {
+			continue
+		}
+		out[p.Page-1] = cut(p.Title, MaxPageTitle)
+	}
+	return out
 }
 
 // Limits on what one reading may propose.
@@ -203,7 +232,7 @@ func (o ReadingOutput) CleanObservations(pageCount int, today string, catalog *C
 		}
 		parts := splitBloodPressure(in, catalog)
 		if parts == nil {
-			if m, ok := catalog.Match(in.Analyte, in.Unit); ok {
+			if m, ok := catalog.Match(in.Analyte, in.Unit, in.Value); ok {
 				in.MetricCode = m.Code
 			}
 			parts = []ObservationInput{in}

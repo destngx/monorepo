@@ -78,6 +78,15 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 		_ = store.Close()
 		return nil, err
 	}
+	clinical := &service.Clinical{Deps: deps, Catalog: domain.DefaultCatalog}
+	relinked, err := clinical.RelinkCatalog(ctx)
+	if err != nil {
+		_ = store.Close()
+		return nil, err
+	}
+	if relinked > 0 {
+		log.Info("catalog changed: values read before it were matched again", "values", relinked)
+	}
 	defaultBin, err := config.DefaultMacOCRBin()
 	if err != nil {
 		_ = store.Close()
@@ -119,7 +128,7 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 			Tenants:  &service.Tenants{Deps: deps, Accounts: accounts},
 			Records:  records,
 			Inbox:    inbox,
-			Clinical: &service.Clinical{Deps: deps, Catalog: domain.DefaultCatalog},
+			Clinical: clinical,
 			Engine:   settings,
 			Capture:  &service.Capture{Deps: deps, QR: qrcode.Coder{}, Listening: settings.Listening},
 		},

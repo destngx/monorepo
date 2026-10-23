@@ -101,6 +101,9 @@ type Page struct {
 	// could not render the page.
 	ImageSHA string `json:"-"`
 	HasImage bool   `json:"hasImage"`
+	// Title says what the page holds, written by the AI (HW-READ-9); ""
+	// until a reading or a title job names it.
+	Title    string `json:"title,omitempty"`
 	Lines    []Line `json:"-"`
 	Barcodes []Quad `json:"-"`
 	// BarcodesChecked is false when the OCR tool could not look for barcodes.

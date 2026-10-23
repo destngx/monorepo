@@ -8,11 +8,15 @@ import (
 )
 
 // PersonObservation is an approved observation of a person with the visit
-// and place it came from; a typed-in measurement has neither.
+// and place it came from, and its page: the page's number within the
+// document, counting across its files, and title. A typed-in measurement
+// has none of them.
 type PersonObservation struct {
 	Observation
-	VisitID  string
-	Provider string
+	VisitID    string
+	Provider   string
+	PageNumber int
+	PageTitle  string
 }
 
 // PointSource says where a trend point came from.
@@ -31,6 +35,9 @@ const (
 type TrendPoint struct {
 	ObservationID string      `json:"observationId,omitempty"`
 	DocumentID    string      `json:"documentId,omitempty"`
+	PageID        string      `json:"pageId,omitempty"`
+	PageNumber    int         `json:"pageNumber,omitempty"`
+	PageTitle     string      `json:"pageTitle,omitempty"`
 	VisitID       string      `json:"visitId,omitempty"`
 	Provider      string      `json:"provider,omitempty"`
 	Date          string      `json:"date"`
@@ -46,7 +53,7 @@ type TrendPoint struct {
 
 // TrendPointOf turns an observation into a point of metric m.
 func TrendPointOf(m Metric, o PersonObservation) TrendPoint {
-	p := TrendPoint{ObservationID: o.ID, DocumentID: o.DocumentID, VisitID: o.VisitID, Provider: o.Provider, Date: o.SampleDate,
+	p := TrendPoint{ObservationID: o.ID, DocumentID: o.DocumentID, PageID: o.PageID, PageNumber: o.PageNumber, PageTitle: o.PageTitle, VisitID: o.VisitID, Provider: o.Provider, Date: o.SampleDate,
 		Printed: o.Value, PrintedUnit: o.Unit, RefText: o.RefText, Flag: o.Flag, Source: SourceTyped}
 	if o.DocumentID != "" {
 		p.Source = SourcePaper
