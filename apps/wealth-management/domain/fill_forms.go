@@ -40,6 +40,7 @@ var fillForms = []FillForm{
 			{Name: "startingAmount", Label: "Starting amount", Type: FillMoney, Min: fillZero, Hint: "money already set aside outside the accounts"},
 			{Name: "status", Label: "Status", Type: FillChoice, Choices: []string{"active", "paused", "done"}},
 			{Name: "note", Label: "Note", Type: FillText},
+			{Name: "useSlowMoney", Label: "Can use slow money", Type: FillFlag, Hint: "true only when the request lets the goal use investments, long holding or not-ready accounts, which take days to withdraw"},
 		},
 	},
 	{

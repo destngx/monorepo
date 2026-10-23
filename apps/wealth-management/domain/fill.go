@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// AI form filling (§10.5, D46). The model only reads a request into field
+// AI form filling (§10.5, D47). The model only reads a request into field
 // text; the engine checks every value against the form's schema and
 // matches names against the sheet. Nothing is written.
 

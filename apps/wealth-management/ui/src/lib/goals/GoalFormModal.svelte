@@ -161,7 +161,7 @@
           bind:checked={form.useSlowMoney}
           aria-describedby="goal-slow-hint"
         />
-        Can use slow money
+        Can use slow money<FilledMark show={marks.has('useSlowMoney', form.useSlowMoney)} />
       </label>
       <p id="goal-slow-hint" class="muted mt-1 text-xs">
         Investment and long holding accounts, and accounts marked not ready to use, take days to withdraw. Leave this

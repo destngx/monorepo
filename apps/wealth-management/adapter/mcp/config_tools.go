@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 )
 
-// Writes for the inputs that were sheet-only before AI form filling (D46),
+// Writes for the inputs that were sheet-only before AI form filling (D47),
 // matching the /api/investments and /api/cards write routes.
 
 func cardSchema() map[string]any {

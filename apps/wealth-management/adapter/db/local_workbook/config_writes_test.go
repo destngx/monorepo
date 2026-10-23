@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// The writes for inputs that were sheet-only (D46) round-trip through the
+// The writes for inputs that were sheet-only (D47) round-trip through the
 // local workbook: each tab is created on first use and read back.
 func TestGivenTheLocalWorkbookWhenWritingCardConfigThenTheStrictReadAcceptsIt(t *testing.T) {
 	client := openFixture(t)

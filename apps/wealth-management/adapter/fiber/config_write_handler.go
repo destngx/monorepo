@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// Writes for inputs that were sheet-only before AI form filling (D46): fund
+// Writes for inputs that were sheet-only before AI form filling (D47): fund
 // trades, crypto holdings, cards, cashback programmes and merchant MCCs.
 
 func (h *DatabaseHandler) RecordFundTrade(c *fiber.Ctx) error {

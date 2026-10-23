@@ -119,3 +119,16 @@ func TestFillPayeesAreMostUsedFirst(t *testing.T) {
 		t.Fatalf("payees = %v", got)
 	}
 }
+
+func TestGivenAGoalThatMayUseSlowMoneyWhenFillingThenTheFlagIsSet(t *testing.T) {
+	client := &scriptedClient{replies: []reply{{content: `{"values": {"name": "House", "target": 900000000, "useSlowMoney": true}}`}}}
+	result, err := newTestService(t, fixtureDatabase(), client, nil).Fill(context.Background(), domain.FillRequest{
+		Form: "goal", Text: "save 900M for a house, it can use my fund money",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Values["useSlowMoney"] != true {
+		t.Fatalf("values = %#v", result.Values)
+	}
+}

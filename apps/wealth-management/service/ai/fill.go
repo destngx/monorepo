@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// AI form filling (§10.5, D46): the model reads the request into the
+// AI form filling (§10.5, D47): the model reads the request into the
 // form's fields; domain.ParseFillAnswer checks every value and matches the
 // names against the sheet. Nothing is cached or written, and the request
 // never reaches the logs (WM-FILL-8).
@@ -241,6 +241,9 @@ func goalFacts(goals []domain.PlannedGoal) []string {
 		}
 		if domain.IsEmergencyFund(goal.Name, goal.Note) {
 			line += ", the emergency fund"
+		}
+		if goal.UseSlowMoney {
+			line += ", can use slow money"
 		}
 		lines = append(lines, line+")")
 	}
