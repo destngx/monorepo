@@ -44,7 +44,7 @@ func TestGivenEverySourceWithAnActionWhenBuildingThenItemsRankBySeverityThenWeig
 		{Name: "Internet", Kind: RecurringBill, Source: BillFromRecurring, ExpectedDate: "2026-10-05", Status: BillOverdue, Remaining: 300_000},
 		{Name: "Salary", Kind: RecurringIncome, Source: BillFromRecurring, ExpectedDate: "2026-10-10", Status: BillOverdue, Remaining: 30_000_000},
 	}}}
-	lent := &MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 3_000_000, oldDays, "", 0)}}
+	lent := &MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 3_000_000, oldDays, "2026-10-19", 2)}}
 	idle := &IdleCash{Idle: 50_000_000, ExtraPerYear: 2_250_000, Verdict: IdleCashWorthMoving, Best: &DepositRate{Bank: "Bank A", Tenor: "12M", Rate: 5}}
 	recommendations := &RecommendationList{Items: []Recommendation{
 		{ID: "rec-small", Source: "budget-review", Title: "Cook at home", Status: RecommendationOpen, ImpactVND: impact(1_000_000), Page: "/budget"},
@@ -162,7 +162,7 @@ func TestGivenRuleConditionsWhenBuildingThenLiveFindingsAreTheSourceAndTheUserDe
 		{Class: AllocationCash, Label: "Cash and deposits", Targeted: true, Current: &cashNow, Target: &cashTarget, Drift: &cashDrift},
 		{Class: AllocationCrypto, Label: "Crypto", Targeted: true, Current: &cryptoNow, Target: &cryptoTarget, Drift: &cryptoDrift},
 	}}
-	lent := &MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 3_000_000, oldDays, "", 0)}}
+	lent := &MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 3_000_000, oldDays, "2026-10-19", 2)}}
 	plan := &GoalPlan{Check: PlanCheck{Verdict: PlanShort, Gap: 2_000_000, RequiredPerMonth: 7_000_000, MonthlySavings: 5_000_000},
 		Goals: []GoalProgress{{PlannedGoal: PlannedGoal{Name: "Goal A", Status: GoalActive}, Pace: PaceBehind}}}
 	inputs := NeedsYouInputs{Today: homeToday, Allocation: allocation, MoneyLent: lent, GoalPlan: plan}

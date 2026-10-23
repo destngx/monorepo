@@ -49,7 +49,7 @@ func RegisterRecommendationRoutes(api RouteRegistrar, h *RecommendationHandler, 
 	recommendations.Post("/refresh", guard.Wrap(h.Refresh), RouteMeta{
 		Summary: "Runs the engine rules, then returns the list as GET /api/recommendations does. Rules: rebalance (an allocation " +
 			"class drifts beyond the threshold), goal-plan-short (dated goals need more a month than is saved; impact = the gap x 12), " +
-			"lent-overdue (money owed to the user open longer than 90 days), idle-cash (ready money above the day-to-day float and " +
+			"lent-overdue (money owed to the user due back within 3 days or overdue by the repayment date in the memo), idle-cash (ready money above the day-to-day float and " +
 			"what stays liquid worth putting in the best instant-access deposit, no-term or 1-month, GET /api/bills/idle-cash; impact = the " +
 			"extra interest a year), emergency-fund-rate (the emergency accounts earn at least 0.5 points and 200.000 VND a year less " +
 			"than that rate); both skipped without an instant-access rate. A rule adds one item while its condition holds, unless " +

@@ -226,7 +226,7 @@ func TestGivenEngineFiguresWhenEvaluatingRulesThenEachConditionMakesOneFinding(t
 		TradeOffs: []GoalTradeOff{{Name: "Goal A", MoveTargetDateTo: &moveDate}}}}
 	oldDays, newDays := 120, 30
 	lent := MoneyLent{People: []MoneyLentPerson{
-		lentPerson("Person A", 3_000_000, oldDays, "", 0),
+		lentPerson("Person A", 3_000_000, oldDays, "2026-10-20", 2),
 		lentPerson("Person B", 1_000_000, newDays, "", 0),
 		{Name: "Person C", Outstanding: -500_000, DaysOutstanding: &oldDays},
 	}}
@@ -242,7 +242,7 @@ func TestGivenEngineFiguresWhenEvaluatingRulesThenEachConditionMakesOneFinding(t
 	if goals.Title != "Goal plan is short by 2.000.000 ₫ a month" || *goals.ImpactVND != 24_000_000 || !strings.Contains(goals.Action, "move Goal A to 2028-06") {
 		t.Fatalf("goals = %+v", goals)
 	}
-	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫ for over 90 days" || chase.Page != "/accounts/lent" {
+	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment due in 2 days" || chase.Page != "/accounts/lent" {
 		t.Fatalf("chase = %+v", chase)
 	}
 

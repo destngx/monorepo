@@ -291,31 +291,37 @@ func owingPerson(name string, loans ...LentLoan) MoneyLentPerson {
 	return person
 }
 
-func TestGivenOneLoanDueAndOneOldLoanWhenChasingMoneyLentThenTheTitleCountsOnlyThePersonDue(t *testing.T) {
+func TestGivenLoansWithoutARepaymentDateWhenChasingMoneyLentThenOnlyDatedLoansAreChased(t *testing.T) {
+	undated := MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 2_000_000, 400, "", 0)}}
+	if _, findings := EvaluateRecommendationRules(RuleInputs{MoneyLent: &undated}); len(findings) != 0 {
+		t.Fatalf("a loan without a repayment date is never chased, however old: %+v", findings)
+	}
+
 	lent := MoneyLent{People: []MoneyLentPerson{
 		lentPerson("Person A", 3_000_000, 10, "2026-10-24", 1),
 		lentPerson("Person B", 2_000_000, 120, "", 0),
 	}}
 	_, findings := EvaluateRecommendationRules(RuleInputs{MoneyLent: &lent})
 	chase := findings[0]
-	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment due tomorrow; 1 more owes 2.000.000 ₫" || *chase.AmountVND != 5_000_000 {
-		t.Fatalf("one person is due tomorrow, the other is only old: %+v", chase)
+	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment due tomorrow" || *chase.AmountVND != 3_000_000 || chase.Evidence != "3.000.000 ₫ due back by 2026-10-24" {
+		t.Fatalf("only the person with a date is chased: %+v", chase)
 	}
 
 	same := MoneyLent{People: []MoneyLentPerson{owingPerson("Person A",
-		openLoan(3_000_000, 10, "2026-10-24", 1),
-		openLoan(2_000_000, 120, "", 0),
+		openLoan(3_000_000, 10, "2026-10-17", -2),
+		openLoan(2_000_000, 5, "2026-10-24", 1),
+		openLoan(1_000_000, 120, "", 0),
 	)}}
 	_, findings = EvaluateRecommendationRules(RuleInputs{MoneyLent: &same})
-	if chase := findings[0]; chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment due tomorrow; 2.000.000 ₫ more to chase" {
-		t.Fatalf("the same person's old loan is not another person: %+v", chase)
+	if chase := findings[0]; chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment overdue since 2026-10-17; 2.000.000 ₫ more to chase" {
+		t.Fatalf("the same person's next dated loan is not another person: %+v", chase)
 	}
 }
 
 func TestGivenRepaymentDatesWhenChasingMoneyLentThenOnlyCloseOrPassedDatesAreChased(t *testing.T) {
 	later := MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 3_000_000, 200, "2026-10-23", 4)}}
 	if _, findings := EvaluateRecommendationRules(RuleInputs{MoneyLent: &later}); len(findings) != 0 {
-		t.Fatalf("a repayment date more than %d days out is not chased, even after 90 days: %+v", LentDueSoonDays, findings)
+		t.Fatalf("a repayment date more than %d days out is not chased, however old the loan: %+v", LentDueSoonDays, findings)
 	}
 
 	soon := MoneyLent{People: []MoneyLentPerson{lentPerson("Person A", 3_000_000, 10, "2026-10-22", 3)}}
@@ -339,11 +345,10 @@ func TestGivenRepaymentDatesWhenChasingMoneyLentThenOnlyCloseOrPassedDatesAreCha
 	}}
 	_, findings = EvaluateRecommendationRules(RuleInputs{MoneyLent: &mixed})
 	chase = findings[0]
-	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment overdue since 2026-10-15; 2 more owe 3.000.000 ₫" || chase.DueDate != "2026-10-15" || !chase.Urgent || *chase.AmountVND != 6_000_000 {
+	if chase.Title != "Chase money lent: 1 person owes 3.000.000 ₫, repayment overdue since 2026-10-15; 1 more owes 1.000.000 ₫" || chase.DueDate != "2026-10-15" || !chase.Urgent || *chase.AmountVND != 4_000_000 {
 		t.Fatalf("overdue = %+v", chase)
 	}
-	want := "3.000.000 ₫ past the repayment date (due 2026-10-15, 4 days ago); 1.000.000 ₫ due back by 2026-10-19; " +
-		"2.000.000 ₫ open longer than 90 days with no repayment date; oldest 120 days"
+	want := "3.000.000 ₫ past the repayment date (due 2026-10-15, 4 days ago); 1.000.000 ₫ due back by 2026-10-19"
 	if chase.Evidence != want {
 		t.Fatalf("evidence = %q", chase.Evidence)
 	}

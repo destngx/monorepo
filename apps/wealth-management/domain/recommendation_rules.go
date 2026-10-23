@@ -24,9 +24,6 @@ const (
 	// earn materially more in another one (D41), e.g. after a rate cut.
 	RuleWalletSwitch = "wallet-switch"
 
-	// LentOverdueDays: money lent open longer than this is worth chasing.
-	LentOverdueDays = 90
-
 	// ruleResolvedOutcome is written when a rule's condition no longer holds.
 	ruleResolvedOutcome = "resolved"
 )
@@ -276,10 +273,10 @@ func goalPlanShortFinding(plan GoalPlan) (RuleFinding, bool) {
 }
 
 // lentOverdueFinding: loans owed to the user whose repayment date is
-// within LentDueSoonDays or has passed (WM-LEND-6, WM-LEND-7), or, with no
-// date, open longer than 90 days (D30). A date further out is not chased.
+// within LentDueSoonDays or has passed (WM-LEND-6, WM-LEND-7). A loan
+// without a date, or with one further out, is not chased.
 func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
-	overdue, dueSoon, stale := newLentGroup(), newLentGroup(), newLentGroup()
+	overdue, dueSoon := newLentGroup(), newLentGroup()
 	chased := map[int]bool{}
 	for index, person := range lent.People {
 		for _, loan := range person.Loans {
@@ -290,8 +287,6 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 				group = overdue
 			case loan.Due():
 				group = dueSoon
-			case loan.RepayBy == nil && loan.DaysOutstanding > LentOverdueDays:
-				group = stale
 			}
 			if group != nil {
 				group.add(index, loan)
@@ -299,7 +294,7 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 			}
 		}
 	}
-	people, total := len(chased), overdue.total+dueSoon.total+stale.total
+	people, total := len(chased), overdue.total+dueSoon.total
 	if people == 0 {
 		return RuleFinding{}, false
 	}
@@ -317,28 +312,20 @@ func lentOverdueFinding(lent MoneyLent) (RuleFinding, bool) {
 	if dueSoon.loans > 0 {
 		evidence = append(evidence, fmt.Sprintf("%s due back by %s", FormatVND(dueSoon.total), dueSoon.latest))
 	}
-	if stale.loans > 0 {
-		evidence = append(evidence, fmt.Sprintf("%s open longer than %d days with no repayment date; oldest %s", FormatVND(stale.total), LentOverdueDays, plural(stale.oldest, "day", "days")))
-	}
 	finding.Evidence = strings.Join(evidence, "; ")
 	// The title counts only the people and money of the reason it names;
 	// the rest of the chase follows it (WM-LEND-6).
 	var lead *lentGroup
-	switch {
-	case overdue.loans > 0:
+	if overdue.loans > 0 {
 		lead = overdue
 		finding.Title = fmt.Sprintf("Chase money lent: %s, repayment overdue since %s", lead.owes(), overdue.earliest)
 		finding.Action = "Remind them the agreed date has passed, write the new date in the memo if it moves, and " + record
 		finding.DueDate = overdue.earliest
-	case dueSoon.loans > 0:
+	} else {
 		lead = dueSoon
 		finding.Title = fmt.Sprintf("Chase money lent: %s, repayment due %s", lead.owes(), dueIn(dueSoon.soonest))
 		finding.Action = fmt.Sprintf("Remind them repayment is due on %s, and %s", dueSoon.earliest, record)
 		finding.DueDate = dueSoon.earliest
-	default:
-		lead = stale
-		finding.Title = fmt.Sprintf("Chase money lent: %s for over %d days", lead.owes(), LentOverdueDays)
-		finding.Action = "Ask for repayment or agree a date (write it in the memo, e.g. \"repay 30/11/2026\"), and " + record
 	}
 	others := 0
 	for index := range chased {
@@ -365,9 +352,9 @@ type lentGroup struct {
 	total float64
 	// people holds the indexes of the people with a loan in the group.
 	people map[int]bool
-	// earliest and latest repayment dates, soonest days until repayment, oldest days outstanding.
+	// earliest and latest repayment dates, soonest days until repayment.
 	earliest, latest string
-	soonest, oldest  int
+	soonest          int
 }
 
 func newLentGroup() *lentGroup {
@@ -387,7 +374,6 @@ func (g *lentGroup) add(person int, loan LentLoan) {
 		}
 		g.latest = max(g.latest, *loan.RepayBy)
 	}
-	g.oldest = max(g.oldest, loan.DaysOutstanding)
 	g.loans++
 	g.total += loan.Outstanding
 }

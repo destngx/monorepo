@@ -24,11 +24,12 @@ func (s *stubAllocation) Allocation(context.Context, bool) (domain.Allocation, e
 func lendingDatabase(days int) *fakes.Database {
 	nonBudget := domain.CategoryTypeNonBudget
 	lent := 2_000_000.0
+	memo := "repay " + fixedNow.AddDate(0, 0, 1).Format(time.DateOnly)
 	return &fakes.Database{
 		Categories: []domain.Category{{Name: "Lending / Repayment", Type: domain.CategoryTypeNonBudget, Nature: domain.NatureLending}},
 		Transactions: []domain.Transaction{{
 			ID: "row-2", AccountName: "Bank", Date: fixedNow.AddDate(0, 0, -days), Payee: "Person A",
-			Category: "Lending / Repayment", CategoryType: &nonBudget, CategoryNature: domain.NatureLending, Payment: &lent,
+			Category: "Lending / Repayment", CategoryType: &nonBudget, CategoryNature: domain.NatureLending, Payment: &lent, Memo: &memo,
 		}},
 	}
 }
@@ -39,7 +40,7 @@ func newRecommendations(t *testing.T, db *fakes.Database, allocation port.Alloca
 	return NewRecommendationService(db, NewAnalyticsService(db, now), allocation, logger.NewTestLogger(t), now)
 }
 
-func TestGivenMoneyLentLongAgoWhenRefreshingTwiceThenOneRuleItemIsAddedAndClosedOnceRepaid(t *testing.T) {
+func TestGivenMoneyLentDueTomorrowWhenRefreshingTwiceThenOneRuleItemIsAddedAndClosedOnceRepaid(t *testing.T) {
 	db := lendingDatabase(120)
 	svc := newRecommendations(t, db, &stubAllocation{err: errors.New("market data down")})
 	ctx := context.Background()
