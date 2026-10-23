@@ -49,6 +49,9 @@ func (s *Service) Fill(ctx context.Context, request domain.FillRequest) (domain.
 	} else {
 		message.Content = "Fill the form from the images."
 	}
+	// OpenAI's JSON mode needs "JSON" in an input message; the system prompt
+	// goes out as instructions, which it does not read.
+	message.Content += "\n\nReply with the JSON object described in the instructions."
 	for _, image := range request.Images {
 		message.Images = append(message.Images, domain.AIImage{MediaType: image.MediaType, Data: image.Data})
 	}

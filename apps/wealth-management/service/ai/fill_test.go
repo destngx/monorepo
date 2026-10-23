@@ -132,3 +132,22 @@ func TestGivenAGoalThatMayUseSlowMoneyWhenFillingThenTheFlagIsSet(t *testing.T) 
 		t.Fatalf("values = %#v", result.Values)
 	}
 }
+
+// OpenAI's JSON mode needs the word "json" in an input message, and the
+// system prompt is sent as instructions, which it does not read.
+func TestFillAsksForJSONInTheUserMessage(t *testing.T) {
+	for name, request := range map[string]domain.FillRequest{
+		"text":  {Form: "goal", Text: "save 50M for Japan"},
+		"image": {Form: "goal", Images: []domain.FillImage{{MediaType: "image/png", Data: []byte("png")}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := &scriptedClient{replies: []reply{{content: `{"values": {"name": "Japan"}}`}}}
+			if _, err := newTestService(t, fixtureDatabase(), client, nil).Fill(context.Background(), request); err != nil {
+				t.Fatal(err)
+			}
+			if user := client.requests[0].Messages[1].Content; !strings.Contains(strings.ToLower(user), "json") {
+				t.Errorf("the user message does not ask for JSON: %s", user)
+			}
+		})
+	}
+}
