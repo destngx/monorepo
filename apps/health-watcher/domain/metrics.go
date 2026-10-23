@@ -31,7 +31,8 @@ const (
 
 // TrendPoint is one value on a person's trend chart (HW-MET-3). Value and
 // the range are in the metric's canonical unit; Value is nil for a text
-// result or a unit with no known conversion, which a table still lists.
+// result or a unit with no known conversion, which a table still lists. A
+// metric with no unit charts the numbers printed with no unit (INR 1.1).
 // The range and flag are the paper's own and never made up (HW-MET-5).
 type TrendPoint struct {
 	ObservationID string      `json:"observationId,omitempty"`
@@ -58,9 +59,6 @@ func TrendPointOf(m Metric, o PersonObservation) TrendPoint {
 		Printed: o.Value, PrintedUnit: o.Unit, RefText: o.RefText, Flag: o.Flag, Source: SourceTyped}
 	if o.DocumentID != "" {
 		p.Source = SourcePaper
-	}
-	if m.Unit == "" && !m.Printed {
-		return p
 	}
 	canonical := func(v *float64) *float64 {
 		if v == nil {

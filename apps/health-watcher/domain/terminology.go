@@ -183,6 +183,8 @@ var ucumUnits = map[string]string{
 	"L/L": "L/L", "mg/g": "mg/g", "mg/mmol": "mg/mmol", "mL/min/1.73m²": "mL/min/{1.73_m2}", "mm/h": "mm/h", "s": "s",
 	"G/L": "10*9/L", "T/L": "10*12/L", "mmHg": "mm[Hg]", "kg": "kg", "lb": "[lb_av]", "cm": "cm", "m": "m",
 	"in": "[in_i]", "kg/m²": "kg/m2", "/min": "/min", "°C": "Cel", "°F": "[degF]",
+	// Cut-off ratios have no UCUM unit; LOINC writes them as annotations.
+	"S/CO": "{s_co_ratio}", "COI": "{COI}",
 }
 
 // UCUMUnit is the UCUM code of a printed unit, and false when the unit is

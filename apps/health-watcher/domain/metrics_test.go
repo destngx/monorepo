@@ -163,3 +163,27 @@ func TestGivenValuesOfAnUnknownNameWhenPlottedThenTheLatestNameAndUnitWinAndOthe
 		t.Fatalf("text = %+v", p)
 	}
 }
+
+func TestGivenACutOffIndexWhenPlottedThenTheNumberIsChartedAndARapidTestIsListed(t *testing.T) {
+	hbsag := metric(t, "hbsag")
+	if p := TrendPointOf(hbsag, obs("2025-01-02", "0.794", "S/Co", f(0.794), nil, f(1), "", "d1")); p.Value == nil || *p.Value != 0.794 ||
+		p.RefHigh == nil || *p.RefHigh != 1 {
+		t.Fatalf("S/Co = %+v", p)
+	}
+	if p := TrendPointOf(hbsag, obs("2025-02-02", "0.5", "COI", f(0.5), nil, nil, "", "d1")); p.Value == nil || *p.Value != 0.5 {
+		t.Fatalf("COI = %+v", p)
+	}
+	if p := TrendPointOf(hbsag, obs("2025-03-02", "Âm tính", "", nil, nil, nil, "", "d1")); p.Value != nil || p.Printed != "Âm tính" {
+		t.Fatalf("rapid test = %+v", p)
+	}
+}
+
+func TestGivenANumberWithNoUnitWhenPlottedThenAMetricWithNoUnitChartsIt(t *testing.T) {
+	if p := TrendPointOf(metric(t, "inr"), obs("2025-01-02", "1.1", "", f(1.1), f(0.8), f(1.2), "", "d1")); p.Value == nil || *p.Value != 1.1 ||
+		*p.RefLow != 0.8 {
+		t.Fatalf("INR = %+v", p)
+	}
+	if p := TrendPointOf(metric(t, "urine_glucose"), obs("2025-01-02", "Âm tính", "", nil, nil, nil, "", "d1")); p.Value != nil {
+		t.Fatalf("urine glucose = %+v", p)
+	}
+}

@@ -24,7 +24,8 @@ type Metric struct {
 	Name     string         `json:"name"`
 	NameVI   string         `json:"nameVi"`
 	Category MetricCategory `json:"category"`
-	// Unit is the canonical unit; "" for results read as text (Âm tính).
+	// Unit is the canonical unit; "" for a test read as text (Âm tính) or
+	// a number with no unit (INR).
 	Unit        string       `json:"unit"`
 	Conversions []Conversion `json:"conversions,omitempty"`
 	Aliases     []string     `json:"aliases"`
@@ -347,6 +348,7 @@ var unitSpellings = map[string]string{
 	"ml/min/1.73m2": "mL/min/1.73m²", "ml/ph/1.73m2": "mL/min/1.73m²", "ml/phut/1.73m2": "mL/min/1.73m²",
 	"ml/min": "mL/min/1.73m²",
 	"mg/g":   "mg/g", "mg/mmol": "mg/mmol",
+	"s/co": "S/CO", "coi": "COI",
 	"kg": "kg", "lb": "lb", "lbs": "lb", "cm": "cm", "m": "m", "in": "in",
 	"kg/m2": "kg/m²", "mmhg": "mmHg", "/min": "/min", "bpm": "/min", "lan/phut": "/min", "l/p": "/min", "l/ph": "/min",
 	"°c": "°C", "oc": "°C", "c": "°C", "°f": "°F", "of": "°F",

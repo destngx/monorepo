@@ -140,3 +140,15 @@ func TestGivenTheCatalogWhenCheckingEntriesThenCodesAreUniqueAndConversionsTarge
 		}
 	}
 }
+
+func TestGivenAnHBsAgIndexOrRapidTestWhenMatchingThenBothFindHBsAg(t *testing.T) {
+	for _, c := range []struct{ name, unit, value string }{
+		{"HBsAg miễn dịch tự động", "S/Co", "0.794"},
+		{"HBsAg", "COI", "0,52"},
+		{"HBsAg test nhanh", "", "Âm tính"},
+	} {
+		if m, ok := DefaultCatalog.Match(c.name, c.unit, c.value); !ok || m.Code != "hbsag" {
+			t.Errorf("%q %q %q = %q, %v", c.name, c.unit, c.value, m.Code, ok)
+		}
+	}
+}

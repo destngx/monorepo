@@ -1,7 +1,7 @@
 package domain
 
 // CatalogVersion changes whenever DefaultCatalog's entries change.
-const CatalogVersion = "2026-10-23.2"
+const CatalogVersion = "2026-10-24.1"
 
 // Metric categories.
 const (
@@ -23,6 +23,11 @@ const (
 )
 
 func conv(from string, factor float64) Conversion { return Conversion{From: from, Factor: factor} }
+
+// cutOffIndex is the unit of a screening immunoassay: the sample's signal
+// over the assay's cut-off, so 1 is the threshold whichever analyser made
+// it (S/CO on Abbott, COI on Roche). A rapid test reads as text instead.
+var cutOffIndex = []Conversion{conv("COI", 1)}
 
 // DefaultCatalog is the curated metric list shipped with the app (HW-MET-1).
 // Conversion factors are the usual clinical ones (e.g. glucose mg/dL ÷
@@ -196,12 +201,12 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 		Aliases:     []string{"folate", "acid folic", "axit folic", "folic acid"}},
 
 	// Hepatitis
-	{Code: "hbsag", LOINC: "5196-1", Name: "HBsAg", NameVI: "HBsAg", Category: CatHepatitis, Unit: "",
+	{Code: "hbsag", LOINC: "5196-1", Name: "HBsAg", NameVI: "HBsAg", Category: CatHepatitis, Unit: "S/CO", Conversions: cutOffIndex,
 		Aliases: []string{"hbsag", "hbs ag", "hbsag test nhanh", "kháng nguyên bề mặt viêm gan b"}},
 	{Code: "anti_hbs", LOINC: "16935-9", Name: "Anti-HBs", NameVI: "Anti-HBs", Category: CatHepatitis, Unit: "mIU/mL",
 		Conversions: []Conversion{conv("U/L", 1)},
 		Aliases:     []string{"anti-hbs", "anti hbs", "hbsab", "hbs ab", "kháng thể hbs"}},
-	{Code: "anti_hcv", LOINC: "16128-1", Name: "Anti-HCV", NameVI: "Anti-HCV", Category: CatHepatitis, Unit: "",
+	{Code: "anti_hcv", LOINC: "16128-1", Name: "Anti-HCV", NameVI: "Anti-HCV", Category: CatHepatitis, Unit: "S/CO", Conversions: cutOffIndex,
 		Aliases: []string{"anti-hcv", "anti hcv", "hcv ab", "kháng thể hcv"}},
 
 	// Tumour markers
