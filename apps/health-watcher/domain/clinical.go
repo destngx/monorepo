@@ -18,6 +18,30 @@ const (
 	StatusRejected RecordStatus = "rejected"
 )
 
+// RecordSource says how an observation or finding was made (D9): read by
+// AI from a document, typed by a person, or imported from another system.
+// It becomes the FHIR Provenance activity.
+type RecordSource string
+
+const (
+	SourceReading RecordSource = "reading"
+	SourceManual  RecordSource = "manual"
+	SourceImport  RecordSource = "import"
+)
+
+// Provenance is the version and origin every observation and finding
+// carries (DATA-MODEL.md §5). Version starts at 1 and each edit of an
+// approved record raises it. SourceDetail is the reading's model or the
+// import id. ApprovedBy and ApprovedAt are empty for drafts and for records
+// approved before D9; a manual entry is approved by its author when saved.
+type Provenance struct {
+	Version      int          `json:"version"`
+	Source       RecordSource `json:"source"`
+	SourceDetail string       `json:"sourceDetail,omitempty"`
+	ApprovedBy   string       `json:"approvedBy,omitempty"`
+	ApprovedAt   *time.Time   `json:"approvedAt,omitempty"`
+}
+
 // Observation is one measured value as printed on a paper (HW-REC-3).
 type Observation struct {
 	ID         string       `json:"id"`
@@ -38,9 +62,12 @@ type Observation struct {
 	Flag       string       `json:"flag"`
 	SampleDate string       `json:"sampleDate,omitempty"`
 	// Confidence is the reader's confidence, 0-100; 100 for manual entries.
-	Confidence int       `json:"confidence"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	Confidence int `json:"confidence"`
+	Provenance
+	// ExportGaps lists what a complete export still needs (RecordExportGaps).
+	ExportGaps []ExportGap `json:"exportGaps,omitempty"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	UpdatedAt  time.Time   `json:"updatedAt"`
 }
 
 // ObservationInput is a new or changed observation, from the AI reading or
@@ -183,16 +210,19 @@ type Finding struct {
 	Kind       FindingKind  `json:"kind"`
 	// Section is the heading the finding was written under: the specialty
 	// or body system of an exam, the study of an imaging report.
-	Section    string    `json:"section,omitempty"`
-	Text       string    `json:"text"`
-	ICD10      string    `json:"icd10,omitempty"`
-	Drug       string    `json:"drug,omitempty"`
-	Dose       string    `json:"dose,omitempty"`
-	Frequency  string    `json:"frequency,omitempty"`
-	Duration   string    `json:"duration,omitempty"`
-	Confidence int       `json:"confidence"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	Section    string `json:"section,omitempty"`
+	Text       string `json:"text"`
+	ICD10      string `json:"icd10,omitempty"`
+	Drug       string `json:"drug,omitempty"`
+	Dose       string `json:"dose,omitempty"`
+	Frequency  string `json:"frequency,omitempty"`
+	Duration   string `json:"duration,omitempty"`
+	Confidence int    `json:"confidence"`
+	Provenance
+	// ExportGaps lists what a complete export still needs (RecordExportGaps).
+	ExportGaps []ExportGap `json:"exportGaps,omitempty"`
+	CreatedAt  time.Time   `json:"createdAt"`
+	UpdatedAt  time.Time   `json:"updatedAt"`
 }
 
 // FindingInput is a new or changed finding.
@@ -288,7 +318,9 @@ type AuditEntry struct {
 	Entity   AuditEntity `json:"entity"`
 	EntityID string      `json:"entityId"`
 	Action   string      `json:"action"`
-	UserID   string      `json:"userId"`
-	At       time.Time   `json:"at"`
-	OldJSON  string      `json:"old"`
+	// Version is the version the old value had.
+	Version int       `json:"version"`
+	UserID  string    `json:"userId"`
+	At      time.Time `json:"at"`
+	OldJSON string    `json:"old"`
 }

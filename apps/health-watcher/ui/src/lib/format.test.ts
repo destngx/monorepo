@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { ageOn, flagLabel, formatDate, formatSize, isImage, options, todayISO, visitTypeLabels } from './format';
+import {
+  ageOn,
+  flagLabel,
+  formatDate,
+  formatDateRange,
+  formatSize,
+  isImage,
+  options,
+  todayISO,
+  visitTypeLabels,
+} from './format';
+
+describe('formatDateRange', () => {
+  it('shows a stay from its first to its last day', () => {
+    expect(formatDateRange('2025-03-14', '2025-03-18')).toBe('14/03/2025 – 18/03/2025');
+  });
+  it('shows one date for a visit of one day', () => {
+    expect(formatDateRange('2025-03-14')).toBe('14/03/2025');
+    expect(formatDateRange('2025-03-14', '')).toBe('14/03/2025');
+    expect(formatDateRange('2025-03-14', '2025-03-14')).toBe('14/03/2025');
+  });
+});
 
 describe('formatDate', () => {
   it('shows ISO dates day first', () => {

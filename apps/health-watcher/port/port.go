@@ -146,7 +146,7 @@ type DocumentRepo interface {
 	CreateDocument(ctx context.Context, tenantID string, d domain.Document, fileIDs []string) error
 	Document(ctx context.Context, tenantID, id string) (domain.Document, error)
 	DocumentsOf(ctx context.Context, tenantID, visitID string) ([]domain.Document, error)
-	UpdateDocument(ctx context.Context, tenantID, id string, kind domain.DocumentKind, title string) error
+	UpdateDocument(ctx context.Context, tenantID string, d domain.Document) error
 	DeleteDocument(ctx context.Context, tenantID, id string) error
 }
 
@@ -268,9 +268,13 @@ type ClinicalRepo interface {
 	// DeleteItemDrafts removes an item's unapproved observations and findings.
 	DeleteItemDrafts(ctx context.Context, tenantID, itemID string) error
 	// ApproveItemDrafts approves an item's drafts under a document and
-	// person; a draft with no sample date gets sampleDate. Rejected rows
-	// are deleted.
-	ApproveItemDrafts(ctx context.Context, tenantID, itemID, documentID, personID, sampleDate string, at time.Time) error
+	// person; a draft with no sample date gets sampleDate, and userID is
+	// recorded as the approver. Rejected rows are deleted.
+	ApproveItemDrafts(ctx context.Context, tenantID, itemID, documentID, personID, sampleDate, userID string, at time.Time) error
+	// ConfirmApprovals records userID as the approver of a document's
+	// approved records that have none (records from before D9) and
+	// returns how many it changed.
+	ConfirmApprovals(ctx context.Context, tenantID, documentID, userID string, at time.Time) (int, error)
 	// ObservationsOfPerson lists a person's approved observations, oldest
 	// sample first, with the visit and place each came from (HW-MET-3).
 	ObservationsOfPerson(ctx context.Context, tenantID, personID string) ([]domain.PersonObservation, error)

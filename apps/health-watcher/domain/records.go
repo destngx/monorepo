@@ -131,30 +131,38 @@ func ParseVisitType(s string) (VisitType, error) {
 
 // Visit is one encounter on one date with one provider for one person.
 type Visit struct {
-	ID            string    `json:"id"`
-	PersonID      string    `json:"personId"`
-	Date          string    `json:"date"`
+	ID       string `json:"id"`
+	PersonID string `json:"personId"`
+	Date     string `json:"date"`
+	// EndDate is the last day of an inpatient stay; empty for a visit of
+	// one day (FHIR Encounter.period.end).
+	EndDate       string    `json:"endDate,omitempty"`
 	Type          VisitType `json:"type"`
 	Title         string    `json:"title"`
 	Note          string    `json:"note"`
 	Provider      *Provider `json:"provider"`
 	DocumentCount int       `json:"documentCount"`
 	// FlaggedCount counts approved values the paper flagged (HW-FIND-1).
-	FlaggedCount int        `json:"flaggedCount"`
-	Documents    []Document `json:"documents,omitempty"`
-	CreatedAt    time.Time  `json:"createdAt"`
+	FlaggedCount int `json:"flaggedCount"`
+	// ExportGaps lists what a complete export still needs (VisitExportGaps).
+	ExportGaps []ExportGap `json:"exportGaps,omitempty"`
+	Documents  []Document  `json:"documents,omitempty"`
+	CreatedAt  time.Time   `json:"createdAt"`
 }
 
 // VisitInput is a new or changed visit. ProviderName creates or reuses a
 // provider by its folded name.
 type VisitInput struct {
-	PersonID     string `json:"personId"`
-	Date         string `json:"date"`
-	Type         string `json:"type"`
-	Title        string `json:"title"`
-	Note         string `json:"note"`
-	ProviderName string `json:"providerName"`
-	ProviderKind string `json:"providerKind"`
+	PersonID string `json:"personId"`
+	Date     string `json:"date"`
+	// EndDate is optional; nil keeps the visit's current end date, so
+	// clients that do not send it leave it alone.
+	EndDate      *string `json:"endDate"`
+	Type         string  `json:"type"`
+	Title        string  `json:"title"`
+	Note         string  `json:"note"`
+	ProviderName string  `json:"providerName"`
+	ProviderKind string  `json:"providerKind"`
 }
 
 // Validate cleans the input and checks its fields. today bounds the date.
@@ -168,6 +176,19 @@ func (in VisitInput) Validate(today string) (VisitInput, error) {
 	}
 	if in.Date > today {
 		return in, Invalid("visit date is in the future")
+	}
+	if in.EndDate != nil && *in.EndDate != "" {
+		end, err := Date(*in.EndDate)
+		if err != nil {
+			return in, Invalid("end date must be YYYY-MM-DD")
+		}
+		if end < in.Date {
+			return in, Invalid("end date is before the visit date")
+		}
+		if end > today {
+			return in, Invalid("end date is in the future")
+		}
+		in.EndDate = &end
 	}
 	t, err := ParseVisitType(in.Type)
 	if err != nil {
@@ -218,11 +239,14 @@ func ParseDocumentKind(s string) (DocumentKind, error) {
 // Document is one original filed under a visit. It has one or more files:
 // one PDF, or several photographed pages.
 type Document struct {
-	ID        string       `json:"id"`
-	VisitID   string       `json:"visitId"`
-	PersonID  string       `json:"personId"`
-	Kind      DocumentKind `json:"kind"`
-	Title     string       `json:"title"`
+	ID       string       `json:"id"`
+	VisitID  string       `json:"visitId"`
+	PersonID string       `json:"personId"`
+	Kind     DocumentKind `json:"kind"`
+	Title    string       `json:"title"`
+	// Date is the date printed on the paper; empty means the visit date
+	// (FHIR DocumentReference.date, DiagnosticReport.issued).
+	Date      string       `json:"date,omitempty"`
 	Files     []StoredFile `json:"files"`
 	CreatedAt time.Time    `json:"createdAt"`
 }

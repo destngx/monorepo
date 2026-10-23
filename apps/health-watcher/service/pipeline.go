@@ -682,6 +682,7 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 			}
 			o := observationFrom(in, now)
 			o.ID, o.Status, o.ItemID, o.PageID, o.Confidence = NewID(), domain.StatusDraft, item.ID, sent[obsPages[i]-1].page.ID, obsConf[i]
+			o.Provenance = readingProvenance(res.Model)
 			if err := r.CreateObservation(ctx, tenantID, o); err != nil {
 				return err
 			}
@@ -689,6 +690,7 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 		for i, in := range finds {
 			f := findingFrom(in, now)
 			f.ID, f.Status, f.ItemID, f.PageID, f.Confidence = NewID(), domain.StatusDraft, item.ID, sent[findPages[i]-1].page.ID, findConf[i]
+			f.Provenance = readingProvenance(res.Model)
 			if err := r.CreateFinding(ctx, tenantID, f); err != nil {
 				return err
 			}
@@ -720,6 +722,26 @@ func providerLinks(ctx context.Context, r port.Repos, tenantID, providerName str
 		}
 	}
 	return r.AnalyteLinks(ctx, tenantID, providerID)
+}
+
+// readingProvenance is the origin of a draft read by model.
+func readingProvenance(model string) domain.Provenance {
+	return domain.Provenance{Version: 1, Source: domain.SourceReading, SourceDetail: model}
+}
+
+// manualProvenance is the origin of a record a person typed in; typing it
+// into a filed document approves it at once (HW-READ-7).
+func manualProvenance(sc domain.Scope, now time.Time) domain.Provenance {
+	return domain.Provenance{Version: 1, Source: domain.SourceManual, ApprovedBy: sc.UserID, ApprovedAt: &now}
+}
+
+// nextVersion is the provenance of an edited record: an edit of an
+// approved record is a new version, a draft stays at its version.
+func nextVersion(old domain.Provenance, status domain.RecordStatus) domain.Provenance {
+	if status == domain.StatusApproved {
+		old.Version++
+	}
+	return old
 }
 
 // observationFrom builds an observation from a validated input, parsing

@@ -16,6 +16,14 @@ func nullFloat(v *float64) any {
 	return *v
 }
 
+// version stores a record version; 0 means a new record, version 1.
+func version(v int) int {
+	if v < 1 {
+		return 1
+	}
+	return v
+}
+
 func floatPtr(v sql.NullFloat64) *float64 {
 	if !v.Valid {
 		return nil
@@ -24,22 +32,30 @@ func floatPtr(v sql.NullFloat64) *float64 {
 	return &f
 }
 
-const observationSelect = `SELECT o.id, o.status, COALESCE(o.item_id, ''), COALESCE(o.document_id, ''), COALESCE(o.person_id, ''),
+// observationColumns are the columns scanObservation reads, in order.
+const observationColumns = `o.id, o.status, COALESCE(o.item_id, ''), COALESCE(o.document_id, ''), COALESCE(o.person_id, ''),
 	COALESCE(o.page_id, ''), COALESCE(pg.number, 0), o.analyte, o.metric_code, o.value, o.value_num, o.unit, o.ref_text, o.ref_low,
-	o.ref_high, o.flag, o.sample_date, o.confidence, o.created_at, o.updated_at
-	FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id`
+	o.ref_high, o.flag, o.sample_date, o.confidence, o.version, o.source, o.source_detail, COALESCE(o.approved_by, ''), o.approved_at,
+	o.created_at, o.updated_at`
+
+const observationSelect = `SELECT ` + observationColumns + ` FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id`
 
 func scanObservation(scan func(...any) error) (domain.Observation, error) {
 	var o domain.Observation
-	var status, created, updated string
+	var status, source, approvedAt, created, updated string
 	var num, low, high sql.NullFloat64
 	if err := scan(&o.ID, &status, &o.ItemID, &o.DocumentID, &o.PersonID, &o.PageID, &o.PageNumber, &o.Analyte, &o.MetricCode,
-		&o.Value, &num, &o.Unit, &o.RefText, &low, &high, &o.Flag, &o.SampleDate, &o.Confidence, &created, &updated); err != nil {
+		&o.Value, &num, &o.Unit, &o.RefText, &low, &high, &o.Flag, &o.SampleDate, &o.Confidence, &o.Version, &source, &o.SourceDetail,
+		&o.ApprovedBy, &approvedAt, &created, &updated); err != nil {
 		return o, err
 	}
-	o.Status = domain.RecordStatus(status)
+	o.Status, o.Source = domain.RecordStatus(status), domain.RecordSource(source)
 	o.ValueNum, o.RefLow, o.RefHigh = floatPtr(num), floatPtr(low), floatPtr(high)
 	var err error
+	if o.ApprovedAt, err = optionalTime(approvedAt); err != nil {
+		return o, err
+	}
+	o.ExportGaps = domain.RecordExportGaps(o.Status, o.Provenance)
 	if o.CreatedAt, err = parseTime(created); err != nil {
 		return o, err
 	}
@@ -66,22 +82,24 @@ func (r repos) observations(ctx context.Context, where string, args ...any) ([]d
 
 func (r repos) CreateObservation(ctx context.Context, tenantID string, o domain.Observation) error {
 	res, err := r.q.ExecContext(ctx, `INSERT INTO observations (id, tenant_id, status, item_id, document_id, person_id, page_id, position,
-			analyte, metric_code, value, value_num, unit, ref_text, ref_low, ref_high, flag, sample_date, confidence, created_at, updated_at)
+			analyte, metric_code, value, value_num, unit, ref_text, ref_low, ref_high, flag, sample_date, confidence,
+			version, source, source_detail, approved_by, approved_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COUNT(*) FROM observations WHERE tenant_id = ? AND (item_id = ? OR document_id = ?)),
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		o.ID, tenantID, string(o.Status), nullable(o.ItemID), nullable(o.DocumentID), nullable(o.PersonID), nullable(o.PageID),
 		tenantID, o.ItemID, o.DocumentID,
 		o.Analyte, o.MetricCode, o.Value, nullFloat(o.ValueNum), o.Unit, o.RefText, nullFloat(o.RefLow), nullFloat(o.RefHigh), o.Flag,
-		o.SampleDate, o.Confidence, formatTime(o.CreatedAt), formatTime(o.UpdatedAt))
+		o.SampleDate, o.Confidence, version(o.Version), string(o.Source), o.SourceDetail, nullable(o.ApprovedBy), formatOptionalTime(o.ApprovedAt),
+		formatTime(o.CreatedAt), formatTime(o.UpdatedAt))
 	return exec(res, err, "observation")
 }
 
 func (r repos) UpdateObservation(ctx context.Context, tenantID string, o domain.Observation) error {
 	res, err := r.q.ExecContext(ctx, `UPDATE observations SET status = ?, page_id = ?, analyte = ?, metric_code = ?, value = ?, value_num = ?,
-			unit = ?, ref_text = ?, ref_low = ?, ref_high = ?, flag = ?, sample_date = ?, confidence = ?, updated_at = ?
+			unit = ?, ref_text = ?, ref_low = ?, ref_high = ?, flag = ?, sample_date = ?, confidence = ?, version = ?, updated_at = ?
 		WHERE tenant_id = ? AND id = ?`,
 		string(o.Status), nullable(o.PageID), o.Analyte, o.MetricCode, o.Value, nullFloat(o.ValueNum), o.Unit, o.RefText,
-		nullFloat(o.RefLow), nullFloat(o.RefHigh), o.Flag, o.SampleDate, o.Confidence, formatTime(o.UpdatedAt), tenantID, o.ID)
+		nullFloat(o.RefLow), nullFloat(o.RefHigh), o.Flag, o.SampleDate, o.Confidence, version(o.Version), formatTime(o.UpdatedAt), tenantID, o.ID)
 	return affected(res, err, "observation")
 }
 
@@ -105,18 +123,23 @@ func (r repos) DeleteObservation(ctx context.Context, tenantID, id string) error
 
 const findingSelect = `SELECT f.id, f.status, COALESCE(f.item_id, ''), COALESCE(f.document_id, ''), COALESCE(f.person_id, ''),
 	COALESCE(f.page_id, ''), COALESCE(pg.number, 0), f.kind, f.section, f.text, f.icd10, f.drug, f.dose, f.frequency, f.duration, f.confidence,
-	f.created_at, f.updated_at
+	f.version, f.source, f.source_detail, COALESCE(f.approved_by, ''), f.approved_at, f.created_at, f.updated_at
 	FROM findings f LEFT JOIN pages pg ON pg.id = f.page_id`
 
 func scanFinding(scan func(...any) error) (domain.Finding, error) {
 	var f domain.Finding
-	var status, kind, created, updated string
+	var status, kind, source, approvedAt, created, updated string
 	if err := scan(&f.ID, &status, &f.ItemID, &f.DocumentID, &f.PersonID, &f.PageID, &f.PageNumber, &kind, &f.Section, &f.Text, &f.ICD10, &f.Drug,
-		&f.Dose, &f.Frequency, &f.Duration, &f.Confidence, &created, &updated); err != nil {
+		&f.Dose, &f.Frequency, &f.Duration, &f.Confidence, &f.Version, &source, &f.SourceDetail, &f.ApprovedBy, &approvedAt,
+		&created, &updated); err != nil {
 		return f, err
 	}
-	f.Status, f.Kind = domain.RecordStatus(status), domain.FindingKind(kind)
+	f.Status, f.Kind, f.Source = domain.RecordStatus(status), domain.FindingKind(kind), domain.RecordSource(source)
 	var err error
+	if f.ApprovedAt, err = optionalTime(approvedAt); err != nil {
+		return f, err
+	}
+	f.ExportGaps = domain.RecordExportGaps(f.Status, f.Provenance)
 	if f.CreatedAt, err = parseTime(created); err != nil {
 		return f, err
 	}
@@ -143,12 +166,15 @@ func (r repos) findings(ctx context.Context, where string, args ...any) ([]domai
 
 func (r repos) CreateFinding(ctx context.Context, tenantID string, f domain.Finding) error {
 	res, err := r.q.ExecContext(ctx, `INSERT INTO findings (id, tenant_id, status, item_id, document_id, person_id, page_id, position, kind,
-			section, text, icd10, drug, dose, frequency, duration, confidence, created_at, updated_at)
+			section, text, icd10, drug, dose, frequency, duration, confidence, version, source, source_detail, approved_by, approved_at,
+			created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COUNT(*) FROM findings WHERE tenant_id = ? AND (item_id = ? OR document_id = ?)),
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		f.ID, tenantID, string(f.Status), nullable(f.ItemID), nullable(f.DocumentID), nullable(f.PersonID), nullable(f.PageID),
 		tenantID, f.ItemID, f.DocumentID,
-		string(f.Kind), f.Section, f.Text, f.ICD10, f.Drug, f.Dose, f.Frequency, f.Duration, f.Confidence, formatTime(f.CreatedAt), formatTime(f.UpdatedAt))
+		string(f.Kind), f.Section, f.Text, f.ICD10, f.Drug, f.Dose, f.Frequency, f.Duration, f.Confidence,
+		version(f.Version), string(f.Source), f.SourceDetail, nullable(f.ApprovedBy), formatOptionalTime(f.ApprovedAt),
+		formatTime(f.CreatedAt), formatTime(f.UpdatedAt))
 	if err := exec(res, err, "finding"); err != nil {
 		return err
 	}
@@ -157,10 +183,10 @@ func (r repos) CreateFinding(ctx context.Context, tenantID string, f domain.Find
 
 func (r repos) UpdateFinding(ctx context.Context, tenantID string, f domain.Finding) error {
 	res, err := r.q.ExecContext(ctx, `UPDATE findings SET status = ?, page_id = ?, kind = ?, section = ?, text = ?, icd10 = ?, drug = ?, dose = ?,
-			frequency = ?, duration = ?, confidence = ?, updated_at = ?
+			frequency = ?, duration = ?, confidence = ?, version = ?, updated_at = ?
 		WHERE tenant_id = ? AND id = ?`,
 		string(f.Status), nullable(f.PageID), string(f.Kind), f.Section, f.Text, f.ICD10, f.Drug, f.Dose, f.Frequency, f.Duration, f.Confidence,
-		formatTime(f.UpdatedAt), tenantID, f.ID)
+		version(f.Version), formatTime(f.UpdatedAt), tenantID, f.ID)
 	if err := affected(res, err, "finding"); err != nil {
 		return err
 	}
@@ -198,14 +224,17 @@ func (r repos) DeleteItemDrafts(ctx context.Context, tenantID, itemID string) er
 	return nil
 }
 
-func (r repos) ApproveItemDrafts(ctx context.Context, tenantID, itemID, documentID, personID, sampleDate string, at time.Time) error {
+func (r repos) ApproveItemDrafts(ctx context.Context, tenantID, itemID, documentID, personID, sampleDate, userID string, at time.Time) error {
 	if _, err := r.q.ExecContext(ctx, `UPDATE observations SET status = 'approved', document_id = ?, person_id = ?,
-			sample_date = CASE WHEN sample_date = '' THEN ? ELSE sample_date END, updated_at = ?
-		WHERE tenant_id = ? AND item_id = ? AND status = 'draft'`, documentID, personID, sampleDate, formatTime(at), tenantID, itemID); err != nil {
+			sample_date = CASE WHEN sample_date = '' THEN ? ELSE sample_date END, approved_by = ?, approved_at = ?, updated_at = ?
+		WHERE tenant_id = ? AND item_id = ? AND status = 'draft'`, documentID, personID, sampleDate, nullable(userID), formatTime(at),
+		formatTime(at), tenantID, itemID); err != nil {
 		return fmt.Errorf("approve observations: %w", err)
 	}
-	if _, err := r.q.ExecContext(ctx, `UPDATE findings SET status = 'approved', document_id = ?, person_id = ?, updated_at = ?
-		WHERE tenant_id = ? AND item_id = ? AND status = 'draft'`, documentID, personID, formatTime(at), tenantID, itemID); err != nil {
+	if _, err := r.q.ExecContext(ctx, `UPDATE findings SET status = 'approved', document_id = ?, person_id = ?, approved_by = ?, approved_at = ?,
+			updated_at = ?
+		WHERE tenant_id = ? AND item_id = ? AND status = 'draft'`, documentID, personID, nullable(userID), formatTime(at), formatTime(at),
+		tenantID, itemID); err != nil {
 		return fmt.Errorf("approve findings: %w", err)
 	}
 	if err := r.DeleteItemDrafts(ctx, tenantID, itemID); err != nil {
@@ -223,14 +252,33 @@ func (r repos) ApproveItemDrafts(ctx context.Context, tenantID, itemID, document
 	return nil
 }
 
+func (r repos) ConfirmApprovals(ctx context.Context, tenantID, documentID, userID string, at time.Time) (int, error) {
+	total := 0
+	for _, table := range []string{"observations", "findings"} {
+		res, err := r.q.ExecContext(ctx, `UPDATE `+table+` SET approved_by = ?, approved_at = ?
+			WHERE tenant_id = ? AND document_id = ? AND status = 'approved' AND approved_by IS NULL`,
+			userID, formatTime(at), tenantID, documentID)
+		if err != nil {
+			return 0, fmt.Errorf("confirm approvals: %w", err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return 0, fmt.Errorf("confirm approvals: %w", err)
+		}
+		total += int(n)
+	}
+	return total, nil
+}
+
 func (r repos) AddAudit(ctx context.Context, tenantID string, e domain.AuditEntry) error {
-	res, err := r.q.ExecContext(ctx, `INSERT INTO audit_log (id, tenant_id, entity, entity_id, action, user_id, at, old_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, e.ID, tenantID, string(e.Entity), e.EntityID, e.Action, nullable(e.UserID), formatTime(e.At), e.OldJSON)
+	res, err := r.q.ExecContext(ctx, `INSERT INTO audit_log (id, tenant_id, entity, entity_id, action, version, user_id, at, old_json)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, e.ID, tenantID, string(e.Entity), e.EntityID, e.Action, version(e.Version), nullable(e.UserID),
+		formatTime(e.At), e.OldJSON)
 	return exec(res, err, "audit entry")
 }
 
 func (r repos) AuditOf(ctx context.Context, tenantID string, entity domain.AuditEntity, entityID string) ([]domain.AuditEntry, error) {
-	rows, err := r.q.QueryContext(ctx, `SELECT id, entity, entity_id, action, COALESCE(user_id, ''), at, old_json FROM audit_log
+	rows, err := r.q.QueryContext(ctx, `SELECT id, entity, entity_id, action, version, COALESCE(user_id, ''), at, old_json FROM audit_log
 		WHERE tenant_id = ? AND entity = ? AND entity_id = ? ORDER BY at, id`, tenantID, string(entity), entityID)
 	if err != nil {
 		return nil, fmt.Errorf("list audit: %w", err)
@@ -240,7 +288,7 @@ func (r repos) AuditOf(ctx context.Context, tenantID string, entity domain.Audit
 	for rows.Next() {
 		var e domain.AuditEntry
 		var ent, at string
-		if err := rows.Scan(&e.ID, &ent, &e.EntityID, &e.Action, &e.UserID, &at, &e.OldJSON); err != nil {
+		if err := rows.Scan(&e.ID, &ent, &e.EntityID, &e.Action, &e.Version, &e.UserID, &at, &e.OldJSON); err != nil {
 			return nil, fmt.Errorf("scan audit: %w", err)
 		}
 		e.Entity = domain.AuditEntity(ent)
@@ -278,9 +326,7 @@ func (r repos) AnalyteLinks(ctx context.Context, tenantID, providerID string) (m
 }
 
 func (r repos) ObservationsOfPerson(ctx context.Context, tenantID, personID string) ([]domain.PersonObservation, error) {
-	rows, err := r.q.QueryContext(ctx, `SELECT o.id, o.status, COALESCE(o.item_id, ''), COALESCE(o.document_id, ''), COALESCE(o.person_id, ''),
-			COALESCE(o.page_id, ''), COALESCE(pg.number, 0), o.analyte, o.metric_code, o.value, o.value_num, o.unit, o.ref_text, o.ref_low,
-			o.ref_high, o.flag, o.sample_date, o.confidence, o.created_at, o.updated_at, COALESCE(d.visit_id, ''), COALESCE(pr.name, '')
+	rows, err := r.q.QueryContext(ctx, `SELECT `+observationColumns+`, COALESCE(d.visit_id, ''), COALESCE(pr.name, '')
 		FROM observations o LEFT JOIN pages pg ON pg.id = o.page_id
 			LEFT JOIN documents d ON d.id = o.document_id
 			LEFT JOIN visits v ON v.id = d.visit_id

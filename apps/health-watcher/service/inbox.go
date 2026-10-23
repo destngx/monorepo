@@ -479,7 +479,7 @@ func (in *Inbox) fileItem(ctx context.Context, r port.Repos, sc domain.Scope, it
 	if err := r.CreateDocument(ctx, sc.TenantID, doc, fileIDs); err != nil {
 		return "", err
 	}
-	if err := r.ApproveItemDrafts(ctx, sc.TenantID, item.ID, doc.ID, visit.PersonID, visit.Date, in.Clock()); err != nil {
+	if err := r.ApproveItemDrafts(ctx, sc.TenantID, item.ID, doc.ID, visit.PersonID, visit.Date, sc.UserID, in.Clock()); err != nil {
 		return "", err
 	}
 	return doc.ID, r.SetInboxStatus(ctx, sc.TenantID, item.ID, domain.InboxFiled, doc.ID)

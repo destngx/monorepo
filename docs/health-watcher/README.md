@@ -51,6 +51,8 @@ Everything stays on the Mac, in the data folder (`HW_DATA_DIR`):
 
 Encryption at rest relies on FileVault (D1). Back up both the database and `files/` together.
 
+The records model follows HL7 FHIR R4: [DATA-MODEL.md](./DATA-MODEL.md) maps each record to its FHIR resource and code systems (D9).
+
 ## 4. Accounts and families
 
 - A **tenant** is a family or group. A login can belong to several, and switches between them in the header.
@@ -87,19 +89,19 @@ Failed readings retry after 1, 5 and 30 minutes, then 6 hours, then stop with a 
 
 `apps/health-watcher`: Go engine at the root, SvelteKit UI in `ui/`.
 
-| Path                 | Holds                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `domain/`            | Types and rules: roles and scope, validation, accent folding, file sniffing, masking, search snippets, the metric catalog, reading output checks |
-| `port/`              | Interfaces the services use: store, file store, password hasher, OCR, image masker, AI reader                                                    |
-| `service/`           | Use cases. Each tenant method takes a `domain.Scope` and checks the role                                                                         |
-| `adapter/sqlite/`    | Store and migrations                                                                                                                             |
-| `adapter/filestore/` | Files by SHA-256                                                                                                                                 |
-| `adapter/password/`  | argon2id                                                                                                                                         |
-| `adapter/fiber/`     | Routes, session and CSRF middleware, error envelope, UI mount                                                                                    |
-| `adapter/macocr/`    | Runs mac-ocr and parses its JSON (schema 1.1 and 1.2)                                                                                            |
-| `adapter/imaging/`   | Blacks out boxes in a page JPEG                                                                                                                  |
-| `adapter/ai/openai/` | Responses API reader with a strict JSON schema                                                                                                   |
-| `internal/app/`      | Wiring shared by `main.go` and `cmd/reset_password`                                                                                              |
+| Path                 | Holds                                                                                                                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domain/`            | Types and rules: roles and scope, validation, accent folding, file sniffing, masking, search snippets, the metric catalog, reading output checks, FHIR code maps (`terminology.go`) |
+| `port/`              | Interfaces the services use: store, file store, password hasher, OCR, image masker, AI reader                                                                                       |
+| `service/`           | Use cases. Each tenant method takes a `domain.Scope` and checks the role                                                                                                            |
+| `adapter/sqlite/`    | Store and migrations                                                                                                                                                                |
+| `adapter/filestore/` | Files by SHA-256                                                                                                                                                                    |
+| `adapter/password/`  | argon2id                                                                                                                                                                            |
+| `adapter/fiber/`     | Routes, session and CSRF middleware, error envelope, UI mount                                                                                                                       |
+| `adapter/macocr/`    | Runs mac-ocr and parses its JSON (schema 1.1 and 1.2)                                                                                                                               |
+| `adapter/imaging/`   | Blacks out boxes in a page JPEG                                                                                                                                                     |
+| `adapter/ai/openai/` | Responses API reader with a strict JSON schema                                                                                                                                      |
+| `internal/app/`      | Wiring shared by `main.go` and `cmd/reset_password`                                                                                                                                 |
 
 Tests:
 

@@ -12,7 +12,7 @@
   import ObservationModal from '$lib/components/ObservationModal.svelte';
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
-  import { documentKindLabels, formatDate, options, visitTypeLabels } from '$lib/format';
+  import { documentKindLabels, formatDate, options, todayISO, visitTypeLabels } from '$lib/format';
   import { findingInput, observationInput } from '$lib/reading';
   import { session } from '$lib/state/session.svelte';
 
@@ -51,6 +51,12 @@
   let editingDoc = $state(false);
   let docKind = $state<DocumentKind>('other');
   let docTitle = $state('');
+  let docDate = $state('');
+  // Records approved before approvals were kept (D9): an export needs to
+  // know who approved them.
+  const unconfirmed = $derived(
+    [...data.detail.observations, ...data.detail.findings].filter((r) => r.exportGaps?.includes('approver')).length,
+  );
 
   $effect(() => {
     if (!focusPage) return;
@@ -108,11 +114,19 @@
 
   const saveDoc = action(
     async () => {
-      await session.api.updateDocument(doc.id, { kind: docKind, title: docTitle });
+      await session.api.updateDocument(doc.id, { kind: docKind, title: docTitle, date: docDate });
       editingDoc = false;
       await invalidateAll();
     },
     { errorContext: 'Could not save', success: 'Saved' },
+  );
+
+  const confirmApprovals = action(
+    async () => {
+      await session.api.confirmApprovals(doc.id);
+      await invalidateAll();
+    },
+    { errorContext: 'Could not confirm', success: 'Confirmed' },
   );
 
   async function deleteDoc() {
@@ -138,7 +152,7 @@
   title={doc.title || documentKindLabels[doc.kind]}
   subtitle="{data.person.displayName} · {documentKindLabels[doc.kind]}{visit.provider
     ? ` · ${visit.provider.name}`
-    : ''}"
+    : ''}{doc.date ? ` · dated ${formatDate(doc.date)}` : ''}"
 >
   {#snippet actions()}
     {#if editable}
@@ -147,6 +161,7 @@
         onclick={() => {
           docKind = doc.kind;
           docTitle = doc.title;
+          docDate = doc.date ?? '';
           editingDoc = true;
         }}>Edit</Button
       >
@@ -157,6 +172,20 @@
     {/if}
   {/snippet}
 </PageTitle>
+
+{#if editable && unconfirmed}
+  <div
+    class="mb-5 flex flex-wrap items-center gap-3 rounded-xl bg-warn-500/10 px-3 py-2 text-sm text-warn-800 dark:text-warn-200"
+  >
+    <p class="flex-1">
+      {unconfirmed === 1 ? '1 record was' : `${unconfirmed} records were`} approved before the app kept who approved them.
+      An export needs that. Check them against the pages, then confirm them in your name.
+    </p>
+    <Button size="sm" disabled={confirmApprovals.busy} onclick={() => void confirmApprovals.run()}
+      >I checked them</Button
+    >
+  </div>
+{/if}
 
 <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
   <div class="space-y-5">
@@ -302,6 +331,11 @@
     <div>
       <label class="label" for="doc-title">Title</label>
       <input id="doc-title" class="field" bind:value={docTitle} maxlength="120" />
+    </div>
+    <div>
+      <label class="label" for="doc-date">Date on the paper</label>
+      <input id="doc-date" class="field" type="date" bind:value={docDate} max={todayISO()} />
+      <p class="muted mt-1 text-xs">Leave empty when it is the visit date.</p>
     </div>
   </form>
   {#snippet footer()}

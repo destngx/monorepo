@@ -113,7 +113,7 @@ func (c *Clinical) AddMeasurements(ctx context.Context, sc domain.Scope, personI
 			m, _ := c.Catalog.Metric(v.MetricCode)
 			o := domain.Observation{ID: NewID(), Status: domain.StatusApproved, PersonID: personID, Analyte: m.Name, MetricCode: m.Code,
 				Value: v.Value, ValueNum: domain.ParseNumber(v.Value), Unit: v.Unit, SampleDate: in.Date, Confidence: 100,
-				CreatedAt: now, UpdatedAt: now}
+				Provenance: manualProvenance(sc, now), CreatedAt: now, UpdatedAt: now}
 			if err := r.CreateObservation(ctx, sc.TenantID, o); err != nil {
 				return err
 			}

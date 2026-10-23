@@ -112,8 +112,8 @@ func providerID(v domain.Visit) any {
 }
 
 func (r repos) CreateVisit(ctx context.Context, tenantID string, v domain.Visit) error {
-	res, err := r.q.ExecContext(ctx, `INSERT INTO visits (id, tenant_id, person_id, provider_id, date, type, title, note, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, v.ID, tenantID, v.PersonID, providerID(v), v.Date, string(v.Type), v.Title, v.Note,
+	res, err := r.q.ExecContext(ctx, `INSERT INTO visits (id, tenant_id, person_id, provider_id, date, end_date, type, title, note, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, v.ID, tenantID, v.PersonID, providerID(v), v.Date, v.EndDate, string(v.Type), v.Title, v.Note,
 		formatTime(v.CreatedAt))
 	if err := exec(res, err, "visit"); err != nil {
 		return err
@@ -122,15 +122,15 @@ func (r repos) CreateVisit(ctx context.Context, tenantID string, v domain.Visit)
 }
 
 func (r repos) UpdateVisit(ctx context.Context, tenantID string, v domain.Visit) error {
-	res, err := r.q.ExecContext(ctx, `UPDATE visits SET person_id = ?, provider_id = ?, date = ?, type = ?, title = ?, note = ?
-		WHERE tenant_id = ? AND id = ?`, v.PersonID, providerID(v), v.Date, string(v.Type), v.Title, v.Note, tenantID, v.ID)
+	res, err := r.q.ExecContext(ctx, `UPDATE visits SET person_id = ?, provider_id = ?, date = ?, end_date = ?, type = ?, title = ?, note = ?
+		WHERE tenant_id = ? AND id = ?`, v.PersonID, providerID(v), v.Date, v.EndDate, string(v.Type), v.Title, v.Note, tenantID, v.ID)
 	if err := affected(res, err, "visit"); err != nil {
 		return err
 	}
 	return r.indexVisit(ctx, tenantID, v.ID)
 }
 
-const visitSelect = `SELECT v.id, v.person_id, v.date, v.type, v.title, v.note, v.created_at,
+const visitSelect = `SELECT v.id, v.person_id, v.date, v.end_date, v.type, v.title, v.note, v.created_at,
 	COALESCE(pr.id, ''), COALESCE(pr.name, ''), COALESCE(pr.kind, ''),
 	(SELECT COUNT(*) FROM documents d WHERE d.visit_id = v.id),
 	(SELECT COUNT(*) FROM observations o JOIN documents d ON d.id = o.document_id
@@ -140,7 +140,7 @@ const visitSelect = `SELECT v.id, v.person_id, v.date, v.type, v.title, v.note, 
 func scanVisit(scan func(...any) error) (domain.Visit, error) {
 	var v domain.Visit
 	var typ, created, prID, prName, prKind string
-	if err := scan(&v.ID, &v.PersonID, &v.Date, &typ, &v.Title, &v.Note, &created, &prID, &prName, &prKind, &v.DocumentCount,
+	if err := scan(&v.ID, &v.PersonID, &v.Date, &v.EndDate, &typ, &v.Title, &v.Note, &created, &prID, &prName, &prKind, &v.DocumentCount,
 		&v.FlaggedCount); err != nil {
 		return v, err
 	}
@@ -148,6 +148,7 @@ func scanVisit(scan func(...any) error) (domain.Visit, error) {
 	if prID != "" {
 		v.Provider = &domain.Provider{ID: prID, Name: prName, Kind: domain.ProviderKind(prKind)}
 	}
+	v.ExportGaps = domain.VisitExportGaps(v)
 	var err error
 	v.CreatedAt, err = parseTime(created)
 	return v, err
@@ -196,8 +197,8 @@ func (r repos) DeleteVisit(ctx context.Context, tenantID, id string) error {
 }
 
 func (r repos) CreateDocument(ctx context.Context, tenantID string, d domain.Document, fileIDs []string) error {
-	res, err := r.q.ExecContext(ctx, `INSERT INTO documents (id, tenant_id, visit_id, person_id, kind, title, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, d.ID, tenantID, d.VisitID, d.PersonID, string(d.Kind), d.Title, formatTime(d.CreatedAt))
+	res, err := r.q.ExecContext(ctx, `INSERT INTO documents (id, tenant_id, visit_id, person_id, kind, title, date, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, d.ID, tenantID, d.VisitID, d.PersonID, string(d.Kind), d.Title, d.Date, formatTime(d.CreatedAt))
 	if err := exec(res, err, "document"); err != nil {
 		return err
 	}
@@ -246,12 +247,12 @@ func (r repos) documentFiles(ctx context.Context, documentID string) ([]domain.S
 		WHERE df.document_id = ? ORDER BY df.position`, documentID)
 }
 
-const documentSelect = `SELECT id, visit_id, person_id, kind, title, created_at FROM documents`
+const documentSelect = `SELECT id, visit_id, person_id, kind, title, date, created_at FROM documents`
 
 func scanDocument(scan func(...any) error) (domain.Document, error) {
 	var d domain.Document
 	var kind, created string
-	if err := scan(&d.ID, &d.VisitID, &d.PersonID, &kind, &d.Title, &created); err != nil {
+	if err := scan(&d.ID, &d.VisitID, &d.PersonID, &kind, &d.Title, &d.Date, &created); err != nil {
 		return d, err
 	}
 	d.Kind = domain.DocumentKind(kind)
@@ -301,9 +302,9 @@ func (r repos) DocumentsOf(ctx context.Context, tenantID, visitID string) ([]dom
 	return out, nil
 }
 
-func (r repos) UpdateDocument(ctx context.Context, tenantID, id string, kind domain.DocumentKind, title string) error {
-	res, err := r.q.ExecContext(ctx, `UPDATE documents SET kind = ?, title = ? WHERE tenant_id = ? AND id = ?`,
-		string(kind), title, tenantID, id)
+func (r repos) UpdateDocument(ctx context.Context, tenantID string, d domain.Document) error {
+	res, err := r.q.ExecContext(ctx, `UPDATE documents SET kind = ?, title = ?, date = ? WHERE tenant_id = ? AND id = ?`,
+		string(d.Kind), d.Title, d.Date, tenantID, d.ID)
 	return affected(res, err, "document")
 }
 

@@ -22,17 +22,20 @@ type Clinical struct {
 }
 
 // audit records the old value of an approved record before it changes.
-func (c *Clinical) audit(ctx context.Context, r port.Repos, sc domain.Scope, entity domain.AuditEntity, id, action string, old any) error {
-	return addAudit(ctx, r, c.Clock, sc, entity, id, action, old)
+func (c *Clinical) audit(ctx context.Context, r port.Repos, sc domain.Scope, entity domain.AuditEntity, id, action string, version int,
+	old any) error {
+	return addAudit(ctx, r, c.Clock, sc, entity, id, action, version, old)
 }
 
-func addAudit(ctx context.Context, r port.Repos, clock func() time.Time, sc domain.Scope, entity domain.AuditEntity, id, action string, old any) error {
+// addAudit records old, a record at version, before it changes.
+func addAudit(ctx context.Context, r port.Repos, clock func() time.Time, sc domain.Scope, entity domain.AuditEntity, id, action string,
+	version int, old any) error {
 	raw, err := json.Marshal(old)
 	if err != nil {
 		return fmt.Errorf("encode audit entry: %w", err)
 	}
-	return r.AddAudit(ctx, sc.TenantID, domain.AuditEntry{ID: NewID(), Entity: entity, EntityID: id, Action: action, UserID: sc.UserID,
-		At: clock(), OldJSON: string(raw)})
+	return r.AddAudit(ctx, sc.TenantID, domain.AuditEntry{ID: NewID(), Entity: entity, EntityID: id, Action: action, Version: version,
+		UserID: sc.UserID, At: clock(), OldJSON: string(raw)})
 }
 
 // ObservationPatch changes an observation. Status moves a draft between
@@ -89,7 +92,7 @@ func (c *Clinical) UpdateObservation(ctx context.Context, sc domain.Scope, id st
 		}
 		next := observationFrom(in, c.Clock())
 		next.ID, next.Status, next.ItemID, next.DocumentID, next.PersonID = old.ID, status, old.ItemID, old.DocumentID, old.PersonID
-		next.CreatedAt, next.Confidence = old.CreatedAt, 100
+		next.CreatedAt, next.Confidence, next.Provenance = old.CreatedAt, 100, nextVersion(old.Provenance, old.Status)
 		if in.PageID == "" {
 			next.PageID = old.PageID
 		}
@@ -97,7 +100,7 @@ func (c *Clinical) UpdateObservation(ctx context.Context, sc domain.Scope, id st
 			next.SampleDate = old.SampleDate
 		}
 		if old.Status == domain.StatusApproved {
-			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "update", old); err != nil {
+			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "update", old.Version, old); err != nil {
 				return err
 			}
 		}
@@ -120,7 +123,7 @@ func (c *Clinical) DeleteObservation(ctx context.Context, sc domain.Scope, id st
 			return err
 		}
 		if old.Status == domain.StatusApproved {
-			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "delete", old); err != nil {
+			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "delete", old.Version, old); err != nil {
 				return err
 			}
 		}
@@ -163,6 +166,7 @@ func (c *Clinical) AddObservation(ctx context.Context, sc domain.Scope, document
 			return err
 		}
 		o.ID, o.Status, o.DocumentID, o.PersonID, o.Confidence = NewID(), domain.StatusApproved, doc.ID, doc.PersonID, 100
+		o.Provenance = manualProvenance(sc, o.CreatedAt)
 		if o.SampleDate == "" {
 			o.SampleDate = visit.Date
 		}
@@ -203,12 +207,12 @@ func (c *Clinical) UpdateFinding(ctx context.Context, sc domain.Scope, id string
 		}
 		next := findingFrom(in, c.Clock())
 		next.ID, next.Status, next.ItemID, next.DocumentID, next.PersonID = old.ID, status, old.ItemID, old.DocumentID, old.PersonID
-		next.CreatedAt, next.Confidence = old.CreatedAt, 100
+		next.CreatedAt, next.Confidence, next.Provenance = old.CreatedAt, 100, nextVersion(old.Provenance, old.Status)
 		if in.PageID == "" {
 			next.PageID = old.PageID
 		}
 		if old.Status == domain.StatusApproved {
-			if err := c.audit(ctx, r, sc, domain.AuditFinding, id, "update", old); err != nil {
+			if err := c.audit(ctx, r, sc, domain.AuditFinding, id, "update", old.Version, old); err != nil {
 				return err
 			}
 		}
@@ -231,7 +235,7 @@ func (c *Clinical) DeleteFinding(ctx context.Context, sc domain.Scope, id string
 			return err
 		}
 		if old.Status == domain.StatusApproved {
-			if err := c.audit(ctx, r, sc, domain.AuditFinding, id, "delete", old); err != nil {
+			if err := c.audit(ctx, r, sc, domain.AuditFinding, id, "delete", old.Version, old); err != nil {
 				return err
 			}
 		}
@@ -258,6 +262,7 @@ func (c *Clinical) AddFinding(ctx context.Context, sc domain.Scope, documentID s
 			return err
 		}
 		f.ID, f.Status, f.DocumentID, f.PersonID, f.Confidence = NewID(), domain.StatusApproved, doc.ID, doc.PersonID, 100
+		f.Provenance = manualProvenance(sc, f.CreatedAt)
 		return r.CreateFinding(ctx, sc.TenantID, f)
 	})
 	if err != nil {
@@ -314,10 +319,11 @@ func (c *Clinical) LinkMetric(ctx context.Context, sc domain.Scope, id, code str
 			return err
 		}
 		if o.Status == domain.StatusApproved {
-			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "update", o); err != nil {
+			if err := c.audit(ctx, r, sc, domain.AuditObservation, id, "update", o.Version, o); err != nil {
 				return err
 			}
 		}
+		o.Provenance = nextVersion(o.Provenance, o.Status)
 		providerID, err := observationProvider(ctx, r, sc.TenantID, o)
 		if err != nil {
 			return err
@@ -390,10 +396,12 @@ func (c *Clinical) Document(ctx context.Context, sc domain.Scope, id string) (Do
 	return d, nil
 }
 
-// DocumentInput changes a document's kind and title (HW-READ-7).
+// DocumentInput changes a document's kind, title and printed date
+// (HW-READ-7). A nil Date keeps the current one; "" clears it.
 type DocumentInput struct {
-	Kind  string `json:"kind"`
-	Title string `json:"title"`
+	Kind  string  `json:"kind"`
+	Title string  `json:"title"`
+	Date  *string `json:"date"`
 }
 
 // UpdateDocument changes a filed document's kind and title.
@@ -405,10 +413,51 @@ func (c *Clinical) UpdateDocument(ctx context.Context, sc domain.Scope, id strin
 	if err != nil {
 		return DocumentDetail{}, err
 	}
-	if err := c.Store.UpdateDocument(ctx, sc.TenantID, id, kind, title); err != nil {
+	date := ""
+	if in.Date != nil && *in.Date != "" {
+		if date, err = domain.Date(*in.Date); err != nil {
+			return DocumentDetail{}, domain.Invalid("document date must be YYYY-MM-DD")
+		}
+		if date > c.today() {
+			return DocumentDetail{}, domain.Invalid("document date is in the future")
+		}
+	}
+	err = c.Store.InTx(ctx, func(r port.Repos) error {
+		doc, err := r.Document(ctx, sc.TenantID, id)
+		if err != nil {
+			return err
+		}
+		doc.Kind, doc.Title = kind, title
+		if in.Date != nil {
+			doc.Date = date
+		}
+		return r.UpdateDocument(ctx, sc.TenantID, doc)
+	})
+	if err != nil {
 		return DocumentDetail{}, err
 	}
 	return c.Document(ctx, sc, id)
+}
+
+// ConfirmApprovals records the caller as the approver of a document's
+// approved records that have none, the records approved before D9, so
+// they can be exported (GapApprover). The values stay as they are, so no
+// version is added.
+func (c *Clinical) ConfirmApprovals(ctx context.Context, sc domain.Scope, documentID string) (DocumentDetail, error) {
+	if err := sc.RequireEdit(); err != nil {
+		return DocumentDetail{}, err
+	}
+	err := c.Store.InTx(ctx, func(r port.Repos) error {
+		if _, err := r.Document(ctx, sc.TenantID, documentID); err != nil {
+			return err
+		}
+		_, err := r.ConfirmApprovals(ctx, sc.TenantID, documentID, sc.UserID, c.Clock())
+		return err
+	})
+	if err != nil {
+		return DocumentDetail{}, err
+	}
+	return c.Document(ctx, sc, documentID)
 }
 
 // auditDocumentRecords audits every approved record of a document before
@@ -419,7 +468,7 @@ func auditDocumentRecords(ctx context.Context, r port.Repos, clock func() time.T
 		return err
 	}
 	for _, o := range obs {
-		if err := addAudit(ctx, r, clock, sc, domain.AuditObservation, o.ID, "delete", o); err != nil {
+		if err := addAudit(ctx, r, clock, sc, domain.AuditObservation, o.ID, "delete", o.Version, o); err != nil {
 			return err
 		}
 	}
@@ -428,7 +477,7 @@ func auditDocumentRecords(ctx context.Context, r port.Repos, clock func() time.T
 		return err
 	}
 	for _, f := range finds {
-		if err := addAudit(ctx, r, clock, sc, domain.AuditFinding, f.ID, "delete", f); err != nil {
+		if err := addAudit(ctx, r, clock, sc, domain.AuditFinding, f.ID, "delete", f.Version, f); err != nil {
 			return err
 		}
 	}

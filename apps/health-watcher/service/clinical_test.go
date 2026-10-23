@@ -248,7 +248,7 @@ func TestGivenTwoTenantsWhenOneReachesForTheOthersReadingsThenEverythingIsNotFou
 		"add finding": func() error {
 			_, err := e.clinical.AddFinding(e.ctx, b, doc.Document.ID, domain.FindingInput{Text: "x"})
 			return err
-		}(),
+		}(), "confirm approvals": func() error { _, err := e.clinical.ConfirmApprovals(e.ctx, b, doc.Document.ID); return err }(),
 	}
 	for name, err := range checks {
 		if !errors.Is(err, domain.ErrNotFound) {

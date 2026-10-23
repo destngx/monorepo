@@ -6,6 +6,11 @@ export function formatDate(iso: string | undefined | null): string {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
 }
 
+/** A visit's dates as dd/MM/yyyy, with the last day of a stay when there is one. */
+export function formatDateRange(start: string, end?: string): string {
+  return end && end !== start ? `${formatDate(start)} – ${formatDate(end)}` : formatDate(start);
+}
+
 /** Today's date in Asia/Ho_Chi_Minh as YYYY-MM-DD, the engine's calendar. */
 export function todayISO(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);

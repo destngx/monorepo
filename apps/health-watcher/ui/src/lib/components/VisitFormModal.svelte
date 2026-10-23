@@ -26,6 +26,7 @@
       ? {
           personId: visit.personId,
           date: visit.date,
+          endDate: visit.endDate ?? '',
           type: visit.type,
           title: visit.title,
           note: visit.note,
@@ -37,7 +38,9 @@
 
   const save = action(
     async () => {
-      const saved = visit ? await session.api.updateVisit(visit.id, value) : await session.api.createVisit(value);
+      // Only a stay has a last day; another type clears it.
+      const body = { ...value, endDate: value.type === 'inpatient' ? (value.endDate ?? '') : '' };
+      const saved = visit ? await session.api.updateVisit(visit.id, body) : await session.api.createVisit(body);
       onsaved(saved);
     },
     { errorContext: 'Could not save the visit', success: 'Saved' },

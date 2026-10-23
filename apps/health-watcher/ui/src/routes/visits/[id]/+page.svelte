@@ -5,7 +5,7 @@
   import { Button, Card, EmptyState, Icon, PageTitle } from '@libs/ui-kit';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import VisitFormModal from '$lib/components/VisitFormModal.svelte';
-  import { documentKindLabels, formatDate, providerKindLabels, visitTypeLabels } from '$lib/format';
+  import { documentKindLabels, formatDateRange, providerKindLabels, visitTypeLabels } from '$lib/format';
   import { session } from '$lib/state/session.svelte';
 
   let { data } = $props();
@@ -33,7 +33,8 @@
 
 <PageTitle
   title={data.visit.title || visitTypeLabels[data.visit.type]}
-  subtitle="{formatDate(data.visit.date)} · {visitTypeLabels[data.visit.type]}{data.visit.provider
+  subtitle="{formatDateRange(data.visit.date, data.visit.endDate)} · {visitTypeLabels[data.visit.type]}{data.visit
+    .provider
     ? ` · ${data.visit.provider.name} (${providerKindLabels[data.visit.provider.kind].toLowerCase()})`
     : ''}"
 >
@@ -46,6 +47,12 @@
     {/if}
   {/snippet}
 </PageTitle>
+
+{#if data.visit.exportGaps?.includes('end_date')}
+  <p class="mb-5 rounded-xl bg-warn-500/10 px-3 py-2 text-sm text-warn-800 dark:text-warn-200">
+    This stay has no last day. Add it with Edit; an export needs it.
+  </p>
+{/if}
 
 {#if data.visit.note}
   <Card title="Note" class="mb-5"><p class="text-sm whitespace-pre-wrap">{data.visit.note}</p></Card>

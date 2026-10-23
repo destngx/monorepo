@@ -177,6 +177,19 @@ func parseTimePtr(s sql.NullString) (*time.Time, error) {
 	return &t, nil
 }
 
+// optionalTime parses a time stored as text as an empty string when there is none.
+func optionalTime(s string) (*time.Time, error) {
+	return parseTimePtr(sql.NullString{String: s, Valid: s != ""})
+}
+
+// formatOptionalTime stores a time as text as an empty string when there is none.
+func formatOptionalTime(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return formatTime(*t)
+}
+
 // one maps sql.ErrNoRows to a domain not-found error.
 func one(err error, what string) error {
 	if errors.Is(err, sql.ErrNoRows) {

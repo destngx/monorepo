@@ -131,6 +131,8 @@ export interface HealthDocument {
   personId: string;
   kind: DocumentKind;
   title: string;
+  /** The date printed on the paper; absent means the visit date. */
+  date?: string;
   files: StoredFile[];
   createdAt: string;
 }
@@ -139,6 +141,8 @@ export interface Visit {
   id: string;
   personId: string;
   date: string;
+  /** The last day of an inpatient stay; absent for a visit of one day. */
+  endDate?: string;
   type: VisitType;
   title: string;
   note: string;
@@ -146,6 +150,7 @@ export interface Visit {
   documentCount: number;
   /** Approved values the paper flagged high or low (HW-FIND-1). */
   flaggedCount: number;
+  exportGaps?: ExportGap[];
   documents?: HealthDocument[];
   createdAt: string;
 }
@@ -153,6 +158,8 @@ export interface Visit {
 export interface VisitInput {
   personId: string;
   date: string;
+  /** An inpatient stay's last day; '' clears it, absent keeps it. */
+  endDate?: string;
   type: VisitType;
   title: string;
   note: string;
@@ -267,7 +274,28 @@ export interface Page {
 
 export type RecordStatus = 'draft' | 'approved' | 'rejected';
 
-export interface Observation {
+/**
+ * What a record lacks for a complete FHIR export (D9): an inpatient stay's
+ * last day, or who approved a record approved before approvals were kept.
+ */
+export type ExportGap = 'end_date' | 'approver';
+
+/** How a record was made (D9): AI reading, typed by a person, or imported. */
+export type RecordSource = 'reading' | 'manual' | 'import';
+
+/** Version and origin of an observation or finding (DATA-MODEL.md §5). */
+export interface Provenance {
+  /** 1 at first; each edit of an approved record raises it. */
+  version: number;
+  source: RecordSource;
+  /** The reading's model, or the import id. */
+  sourceDetail?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  exportGaps?: ExportGap[];
+}
+
+export interface Observation extends Provenance {
   id: string;
   status: RecordStatus;
   itemId?: string;
@@ -314,7 +342,7 @@ export type FindingKind =
   | 'vaccination'
   | 'note';
 
-export interface Finding {
+export interface Finding extends Provenance {
   id: string;
   status: RecordStatus;
   itemId?: string;
@@ -354,6 +382,8 @@ export interface AuditEntry {
   entity: AuditEntity;
   entityId: string;
   action: 'update' | 'delete';
+  /** The version the old value had. */
+  version: number;
   userId: string;
   at: string;
   /** The record as it was before the change, as JSON. */

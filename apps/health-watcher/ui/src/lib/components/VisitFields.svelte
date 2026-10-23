@@ -38,6 +38,18 @@
       <input id="{idPrefix}-title" class="field" bind:value={value.title} maxlength="120" />
     </Field>
   </div>
+  {#if value.type === 'inpatient'}
+    <Field id="{idPrefix}-end" label="Last day of the stay" hint="Optional now; an export needs it.">
+      <input
+        id="{idPrefix}-end"
+        class="field"
+        type="date"
+        bind:value={value.endDate}
+        min={value.date}
+        max={todayISO()}
+      />
+    </Field>
+  {/if}
   <div class="grid gap-4 sm:grid-cols-[2fr_1fr]">
     <Field id="{idPrefix}-provider" label="Hospital, clinic or lab" hint="Names match ignoring accents and case.">
       <input

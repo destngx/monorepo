@@ -187,6 +187,9 @@ func (s *Records) createVisit(ctx context.Context, r port.Repos, sc domain.Scope
 	}
 	v := domain.Visit{ID: NewID(), PersonID: in.PersonID, Date: in.Date, Type: domain.VisitType(in.Type), Title: in.Title,
 		Note: in.Note, Provider: prov, CreatedAt: s.Clock()}
+	if in.EndDate != nil {
+		v.EndDate = *in.EndDate
+	}
 	if err := r.CreateVisit(ctx, sc.TenantID, v); err != nil {
 		return domain.Visit{}, err
 	}
@@ -236,6 +239,12 @@ func (s *Records) UpdateVisit(ctx context.Context, sc domain.Scope, id string, i
 			return err
 		}
 		v.PersonID, v.Date, v.Type, v.Title, v.Note, v.Provider = in.PersonID, in.Date, domain.VisitType(in.Type), in.Title, in.Note, prov
+		if in.EndDate != nil {
+			v.EndDate = *in.EndDate
+		}
+		if v.EndDate != "" && v.EndDate < v.Date {
+			return domain.Invalid("end date is before the visit date")
+		}
 		return r.UpdateVisit(ctx, sc.TenantID, v)
 	})
 	if err != nil {

@@ -167,8 +167,10 @@ export function tenantApi(tenantId: string) {
     fileGroup: (body: GroupFileInput) => request<Visit>(`${t}/inbox/groups/file`, { method: 'POST', body }),
 
     document: (id: string, fetch?: Fetch) => request<DocumentDetail>(`${t}/documents/${id}`, { fetch }),
-    updateDocument: (id: string, body: { kind: DocumentKind; title: string }) =>
+    updateDocument: (id: string, body: { kind: DocumentKind; title: string; date?: string }) =>
       request<DocumentDetail>(`${t}/documents/${id}`, { method: 'PATCH', body }),
+    confirmApprovals: (id: string) =>
+      request<DocumentDetail>(`${t}/documents/${id}/confirm-approvals`, { method: 'POST' }),
     addObservation: (documentId: string, body: ObservationInput) =>
       request<Observation>(`${t}/documents/${documentId}/observations`, { method: 'POST', body }),
     addFinding: (documentId: string, body: FindingInput) =>

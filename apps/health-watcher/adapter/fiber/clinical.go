@@ -67,6 +67,9 @@ func (s *server) clinicalRoutes(r fiber.Router) {
 		}
 		return s.list(c)(s.svc.Clinical.UpdateDocument(c.UserContext(), scope(c), c.Params("id"), in))
 	})
+	r.Post("/documents/:id/confirm-approvals", func(c *fiber.Ctx) error {
+		return s.list(c)(s.svc.Clinical.ConfirmApprovals(c.UserContext(), scope(c), c.Params("id")))
+	})
 	r.Post("/documents/:id/observations", func(c *fiber.Ctx) error {
 		var in domain.ObservationInput
 		if err := parseJSON(c, &in); err != nil {
