@@ -6,7 +6,9 @@
   import { api } from '$lib/api';
   import ConnectionDot from '$lib/components/ConnectionDot.svelte';
   import { KEY_BUTTONS } from '$lib/keys';
-  import { tidyScreen } from '$lib/screen';
+  import { parseAnsi } from '$lib/ansi';
+  import Screen from '$lib/components/Screen.svelte';
+  import { tidyLines, toBlocks, type Block } from '$lib/screen';
   import { live } from '$lib/state/live.svelte';
 
   let { data } = $props();
@@ -17,7 +19,9 @@
   // Output changes fast while an agent works or waits, slowly otherwise.
   const refreshEvery = $derived(agent?.status === 'working' || agent?.status === 'blocked' ? 2000 : 8000);
 
-  let text = $state('');
+  // The raw output, to skip work when nothing changed, and its blocks.
+  let raw = '';
+  let blocks = $state<Block[]>([]);
   let screenError = $state('');
   let screenLoaded = $state(false);
   let message = $state('');
@@ -28,11 +32,11 @@
   async function loadScreen(signal?: AbortSignal) {
     try {
       const res = await api.screen(data.paneId, signal);
-      const next = tidyScreen(res.text);
       screenError = '';
       screenLoaded = true;
-      if (next === text) return;
-      text = next;
+      if (res.text === raw) return;
+      raw = res.text;
+      blocks = toBlocks(tidyLines(parseAnsi(res.text)));
       if (follow) {
         await tick();
         scroller?.scrollTo({ top: scroller.scrollHeight });
@@ -133,19 +137,19 @@
       <div
         bind:this={scroller}
         onscroll={onScroll}
-        class="h-full overflow-y-auto overscroll-contain px-3 py-3"
+        class="h-full overflow-y-auto overscroll-contain"
         aria-label="Agent output"
         role="log"
       >
         {#if !screenLoaded && !screenError}
-          <div role="status" aria-busy="true" class="space-y-2">
+          <div role="status" aria-busy="true" class="space-y-2 px-3 py-3">
             <span class="sr-only">Loading output…</span>
             {#each [0, 1, 2, 3, 4] as i (i)}<div class="skeleton h-4" style="width: {90 - i * 12}%"></div>{/each}
           </div>
+        {:else if blocks.length === 0}
+          <p class="muted px-3 py-3 text-sm">No output yet.</p>
         {:else}
-          <pre
-            class="font-mono text-[12px] leading-[1.45] break-words whitespace-pre-wrap text-ink-900 dark:text-ink-100">{text ||
-              'No output yet.'}</pre>
+          <Screen {blocks} agentLabel={agent?.kind === 'claude' ? 'Claude' : agent?.kind || 'Agent'} />
         {/if}
       </div>
       {#if screenError}

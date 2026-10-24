@@ -35,7 +35,13 @@ For UI work, `nx run herdr-glance:serve-ui` runs Vite on port 5176 and proxies `
 - **Agents** lists agents grouped by state: Needs you (herdr's `blocked`), Working, Done, Idle, Unknown. A line at the top counts them, and the tab title shows how many need you. A dot says whether the page is getting live updates.
 - **One agent** shows its recent output, about one terminal screen, newest at the bottom. herdr cannot read further back while an agent works, because that means scrolling the agent's screen. It reloads every 2 seconds while the agent works or waits for you, every 8 seconds otherwise, and at once when its state changes. The keys `1`, `2`, `3`, Enter, Esc, ↑, ↓, Tab and Shift+Tab answer menus such as Claude Code's permission question. The text box sends a message. herdr refuses a message while the agent waits for an answer, so the page asks you to use the keys first.
 
-herdr's `recent_unwrapped` read gives each terminal line unwrapped. The page wraps it to the phone's width and shortens full-width rules to 16 characters (`lib/screen.ts`), so output never scrolls sideways.
+herdr's `recent_unwrapped` read gives each terminal line unwrapped, with its ANSI colour codes. The page turns the codes into coloured text (`lib/ansi.ts`), then sorts Claude Code's screen into blocks (`lib/screen.ts`):
+
+- **Your messages** start with `❯` on a background colour. They show as an accent bubble marked "You".
+- **Replies** start with a white `⏺` and continue on indented lines. They show in the sans font with a left border, re-flowed to the phone's width, with their inline code colours. A reply whose first line scrolled off the top is recognised by its indented, default-colour text.
+- **Tool calls** start with a green, red or grey `⏺`. They, the status line and everything else stay monospace in the agent's colours. Output from other agents is all terminal text.
+
+The output panel stays dark in both themes, because terminal agents pick their colours for a dark terminal. The page drops the side panel Claude Code draws on the right (a scrollbar, a close mark and a menu on one background colour, past column 40), shortens full-width rules to 16 characters, and wraps everything to the phone's width, so nothing scrolls sideways. Claude Code shortens long messages on its own screen, so a long message of yours ends in "…" on the phone too.
 
 ## 3. Load on the laptop
 

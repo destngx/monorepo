@@ -107,8 +107,9 @@ func (c *Client) Agents(ctx context.Context) ([]Agent, error) {
 	return agents, nil
 }
 
-// Screen returns an agent's recent output as plain text: about one terminal
-// screen. Lines are unwrapped, so the phone can wrap them to its own width.
+// Screen returns an agent's recent output, about one terminal screen, with its
+// ANSI colour codes, so the phone can show the agent's own colours. Lines are
+// unwrapped, so the phone can wrap them to its own width.
 // It sends no line count: herdr refuses one while the agent works
 // (agent_not_idle), because reading further back means scrolling the agent's
 // alternate screen.
@@ -116,8 +117,9 @@ func (c *Client) Screen(ctx context.Context, pane string) (string, error) {
 	params := struct {
 		Target    string `json:"target"`
 		Source    string `json:"source"`
+		Format    string `json:"format"`
 		StripANSI bool   `json:"strip_ansi"`
-	}{pane, "recent_unwrapped", true}
+	}{pane, "recent_unwrapped", "ansi", false}
 	var out struct {
 		Read struct {
 			Text string `json:"text"`

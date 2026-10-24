@@ -112,16 +112,16 @@ func TestAgentsJoinsWorkspaceLabels(t *testing.T) {
 	}
 }
 
-func TestScreenReadsUnwrappedPlainText(t *testing.T) {
+func TestScreenReadsUnwrappedTextWithColors(t *testing.T) {
 	path, seen := fakeServer(t, func(r request) string {
-		return `{"id":"` + r.ID + `","result":{"type":"pane_read","read":{"pane_id":"w1:p1","text":"line one\nline two"}}}`
+		return `{"id":"` + r.ID + `","result":{"type":"pane_read","read":{"pane_id":"w1:p1","text":"\u001b[1mline one\u001b[0m\nline two"}}}`
 	})
 
 	text, err := New(path).Screen(context.Background(), "w1:p1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if text != "line one\nline two" {
+	if text != "\x1b[1mline one\x1b[0m\nline two" {
 		t.Fatalf("text = %q", text)
 	}
 	var params map[string]any
@@ -130,7 +130,7 @@ func TestScreenReadsUnwrappedPlainText(t *testing.T) {
 	}
 	// No line count: herdr refuses one while the agent works (agent_not_idle),
 	// because it would have to scroll the agent's alternate screen to read it.
-	want := map[string]any{"target": "w1:p1", "source": "recent_unwrapped", "strip_ansi": true}
+	want := map[string]any{"target": "w1:p1", "source": "recent_unwrapped", "format": "ansi", "strip_ansi": false}
 	if seen()[0].Method != "agent.read" || !reflect.DeepEqual(params, want) {
 		t.Fatalf("sent %s %v", seen()[0].Method, params)
 	}
