@@ -1,0 +1,117 @@
+{
+  "name": "herdr-mobile",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "implicitDependencies": ["ui-kit"],
+  "sourceRoot": "apps/herdr-mobile",
+  "tags": [
+    "type:app",
+    "app:herdr-mobile",
+    "scope:tooling",
+    "scope:backend",
+    "scope:frontend",
+    "lang:go",
+    "lang:typescript"
+  ],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go build -o dist/herdr-mobile .",
+        "cwd": "apps/herdr-mobile"
+      },
+      "cache": true,
+      "inputs": ["default", "^default", "!{projectRoot}/ui/**/*"],
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build-ui"],
+      "options": {
+        "command": "go run .",
+        "cwd": "apps/herdr-mobile"
+      },
+      "cache": false
+    },
+    "serve-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vite dev --host",
+        "cwd": "apps/herdr-mobile/ui"
+      }
+    },
+    "build-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vite build",
+        "cwd": "apps/herdr-mobile/ui"
+      },
+      "cache": true,
+      "inputs": ["{projectRoot}/ui/**/*", "!{projectRoot}/ui/build/**/*", "{workspaceRoot}/libs/ui-kit/src/**/*"],
+      "outputs": ["{projectRoot}/ui/build"]
+    },
+    "check-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json",
+        "cwd": "apps/herdr-mobile/ui"
+      }
+    },
+    "lint-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec svelte-kit sync && pnpm exec eslint --concurrency auto .",
+        "cwd": "apps/herdr-mobile/ui"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test -race ./...",
+        "cwd": "apps/herdr-mobile"
+      },
+      "inputs": ["default", "!{projectRoot}/ui/**/*"]
+    },
+    "test-ui": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run",
+        "cwd": "apps/herdr-mobile/ui"
+      }
+    },
+    "lint": {
+      "executor": "@nx-go/nx-go:lint"
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "find . -name '*.go' -not -path './ui/*' -exec gofmt -w {} +",
+        "cwd": "apps/herdr-mobile"
+      }
+    },
+    "load-agent": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./scripts/launch-agent install",
+        "cwd": "apps/herdr-mobile"
+      },
+      "cache": false
+    },
+    "unload-agent": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./scripts/launch-agent uninstall",
+        "cwd": "apps/herdr-mobile"
+      },
+      "cache": false
+    },
+    "status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./scripts/launch-agent status",
+        "cwd": "apps/herdr-mobile"
+      },
+      "cache": false
+    }
+  }
+}

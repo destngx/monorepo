@@ -1,0 +1,13 @@
+{
+  "name": "herdr agents",
+  "short_name": "Agents",
+  "start_url": "/ui/",
+  "scope": "/ui/",
+  "display": "standalone",
+  "background_color": "#f4f0e8",
+  "theme_color": "#f4f0e8",
+  "icons": [
+    { "src": "/ui/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/ui/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+/* The shared theme (docs/ui/README.md): tokens, base styles and utilities. */
+@import '../../../../../libs/ui-kit/src/theme.css';
+
+/* herdr-mobile's accent: a quiet sea green. */
+@theme {
+  --color-accent-50: #eef5f4;
+  --color-accent-100: #d9eae8;
+  --color-accent-200: #b3d3cf;
+  --color-accent-300: #86b6b0;
+  --color-accent-400: #5e978f;
+  --color-accent-500: #437a73;
+  --color-accent-600: #35625c;
+  --color-accent-700: #2a4e49;
+  --color-accent-800: #213c38;
+  --color-accent-900: #172a27;
+  --color-accent-950: #0d1917;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  /* The page is a phone app: no rubber-band bounce past the ends, no grey tap flash. */
+  html {
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+}
