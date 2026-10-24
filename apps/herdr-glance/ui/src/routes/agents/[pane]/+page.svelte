@@ -9,6 +9,7 @@
   import { parseAnsi } from '$lib/ansi';
   import Screen from '$lib/components/Screen.svelte';
   import { tidyLines, toBlocks, type Block } from '$lib/screen';
+  import { fitVisualViewport } from '$lib/viewport';
   import { live } from '$lib/state/live.svelte';
 
   let { data } = $props();
@@ -105,7 +106,8 @@
 
 <svelte:head><title>{agent ? agentName(agent) : 'Agent'} · Agents</title></svelte:head>
 
-<div class="mx-auto flex h-dvh max-w-3xl flex-col">
+<!-- Fixed to the visible area, so the keyboard cannot push the header off the top. -->
+<div class="fixed inset-x-0 top-0 mx-auto flex h-dvh max-w-3xl flex-col" {@attach (node) => fitVisualViewport(node)}>
   <header
     class="z-30 flex shrink-0 items-center gap-2 border-b border-rule bg-canvas/90 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2"
   >
