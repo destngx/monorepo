@@ -9,8 +9,9 @@
 </script>
 
 {#if form.view && (form.changeCount > 0 || restartRequired || form.saveError)}
+  <!-- Sticks above the phone area bar; the right margin keeps Save clear of the assistant button. -->
   <div
-    class="panel sticky bottom-4 z-10 mt-6 flex flex-wrap items-center justify-end gap-3 p-3"
+    class="panel sticky bottom-tabbar z-10 mt-6 mr-16 flex flex-wrap items-center justify-end gap-3 p-3"
     role="region"
     aria-label="Pending settings"
   >

@@ -122,7 +122,8 @@
 <NavProgress active={!!navigating.to} />
 <Aurora />
 
-<div class="flex min-h-screen">
+<!-- In landscape the notch and the rounded corners sit at the sides (viewport-fit=cover). -->
+<div class="flex min-h-screen pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
   <!-- Desktop sidebar -->
   <aside
     class="panel sticky top-3 m-3 mr-0 hidden h-[calc(100vh-1.5rem)] shrink-0 flex-col p-3 transition-[width] lg:flex {collapsed
@@ -164,7 +165,9 @@
     }}
   >
     {#if mobileNavOpen}
-      <aside class="panel absolute inset-y-3 left-3 w-64 overflow-y-auto p-3">
+      <aside
+        class="panel absolute top-[max(0.75rem,env(safe-area-inset-top))] bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] w-64 overflow-y-auto p-3"
+      >
         <div class="mb-2 flex items-center justify-between px-2 py-1">
           <p class="font-serif text-lg font-semibold tracking-tight">Wealth</p>
           <button
@@ -183,7 +186,9 @@
   </dialog>
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="panel sticky top-3 z-30 m-3 flex items-center gap-2 px-3 py-2">
+    <header
+      class="panel sticky top-[max(0.75rem,env(safe-area-inset-top))] z-30 m-3 mt-[max(0.75rem,env(safe-area-inset-top))] flex items-center gap-2 px-3 py-2"
+    >
       <button
         type="button"
         class="btn-ghost px-2 lg:hidden"
@@ -201,7 +206,7 @@
       {#if sheetsReady}<SyncButton />{/if}
     </header>
 
-    <main class="mx-auto w-full max-w-7xl flex-1 px-3 pt-3 pb-28 sm:px-6 lg:pb-12">
+    <main class="mx-auto w-full max-w-7xl flex-1 px-3 pt-3 pb-[calc(var(--spacing-tabbar)+2rem)] sm:px-6 lg:pb-12">
       <AreaTabs />
       {#if engineHealth.checked}<DependencyBanner health={engineHealth.health} />{/if}
       <SheetsAuthAlert />

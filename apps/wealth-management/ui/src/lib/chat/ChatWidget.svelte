@@ -35,10 +35,12 @@
 
 <svelte:window {onkeydown} />
 
-<div class="fixed right-4 bottom-24 z-40 lg:bottom-4 flex flex-col items-end gap-3">
+<div
+  class="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-tabbar z-40 lg:bottom-4 flex flex-col items-end gap-3"
+>
   {#if open}
     <div
-      class="panel flex h-[min(34rem,75vh)] w-[min(24rem,calc(100vw-2rem))] flex-col shadow-hard-lg"
+      class="panel flex h-[min(34rem,calc(100dvh-var(--spacing-tabbar)-env(safe-area-inset-top)-9rem))] w-[min(24rem,calc(100vw-2rem))] flex-col shadow-hard-lg lg:h-[min(34rem,75vh)]"
       role="dialog"
       aria-label="Assistant"
       bind:this={panel}

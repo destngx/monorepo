@@ -43,6 +43,10 @@
   --radius-lg: 0.25rem;
   --radius-xl: 0.375rem;
   --radius-2xl: 0.5rem;
+
+  /* What a phone keeps clear for the area bar (MobileNav): its offset over the home indicator, its
+     height and a gap. Used as bottom-tabbar by what floats above it. */
+  --spacing-tabbar: calc(max(0.5rem, env(safe-area-inset-bottom) - 0.75rem) + 4.5rem);
 }
 
 /* ui-kit's role names on this palette: stone neutrals, rose for danger, amber for warnings, sky for
@@ -120,6 +124,10 @@
 
   html {
     -webkit-font-smoothing: antialiased;
+    /* iOS enlarges text in landscape and flashes grey on every tap; the controls show their own press. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .dark {
@@ -189,6 +197,16 @@
     :where(button, [role='button']):active {
       translate: none;
     }
+  }
+}
+
+/* iOS Safari zooms into a text field under 16px when it gets focus, and stays zoomed. Unlayered, so it
+   beats text-sm on a field; no field in the app is drawn larger. */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']),
+  select,
+  textarea {
+    font-size: 1rem;
   }
 }
 

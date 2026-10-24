@@ -310,7 +310,7 @@
   size="icon"
   icon="arrowUp"
   label="Scroll to top"
-  class="panel fixed right-4 bottom-40 z-20 size-10 lg:bottom-20"
+  class="panel fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[calc(var(--spacing-tabbar)+4rem)] z-20 size-10 lg:bottom-20"
   onclick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
 />
 

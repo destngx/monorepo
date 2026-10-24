@@ -96,6 +96,8 @@
       }
       .boot-shell {
         display: flex;
+        padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+        box-sizing: border-box;
       }
       .boot-panel {
         border: 1.5px solid var(--boot-edge);
@@ -183,7 +185,7 @@
         align-items: center;
         gap: 0.5rem;
         height: 3.25rem;
-        margin: 0.75rem;
+        margin: max(0.75rem, env(safe-area-inset-top)) 0.75rem 0.75rem;
         padding: 0 0.75rem;
         box-sizing: border-box;
       }
@@ -229,7 +231,8 @@
       }
       .boot-tabs {
         position: absolute;
-        inset: auto 0.5rem 0.5rem;
+        inset: auto max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom) - 0.75rem)
+          max(0.5rem, env(safe-area-inset-left));
         display: grid;
         grid-template-columns: repeat(6, 1fr);
         justify-items: center;

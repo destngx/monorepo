@@ -52,7 +52,8 @@
   });
   const isBusy = $derived(busy || run.busy);
   const variants = { primary: 'btn-primary', ghost: 'btn-ghost', danger: 'btn-danger' };
-  const sizes = { md: '', sm: 'px-2.5 py-1 text-xs', icon: 'px-2' };
+  // A small button gets a fingertip-sized hit area on touch screens.
+  const sizes = { md: '', sm: 'hit-area px-2.5 py-1 text-xs', icon: 'px-2' };
 
   function handle(event: MouseEvent) {
     if (isBusy) {

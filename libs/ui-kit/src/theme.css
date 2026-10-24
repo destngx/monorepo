@@ -118,6 +118,9 @@
   --radius-lg: 0;
   --radius-xl: 0;
   --radius-2xl: 0;
+
+  /* What a phone keeps clear above the app's tab bar and the home indicator: bottom-tabbar. */
+  --spacing-tabbar: calc(5rem + env(safe-area-inset-bottom));
 }
 
 @layer base {

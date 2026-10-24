@@ -6,7 +6,8 @@
   import { PRIMARY_AREAS, areaFor, pageFor } from './nav';
 
   // Phone area bar (ROADMAP P1, WM-UI-12): the five areas plus Assistant,
-  // each an icon with its label. The area's own pages are AreaTabs.
+  // each an icon with its label. The area's own pages are AreaTabs. It floats
+  // just above the home indicator, not over it, so it needs no inner padding.
   const path = $derived(page.url.pathname.slice(base.length) || '/');
   const currentArea = $derived(areaFor(path));
   const current = $derived(pageFor(path));
@@ -14,8 +15,7 @@
 
 <nav
   aria-label="Areas"
-  class="panel fixed inset-x-2 bottom-2 z-30 lg:hidden"
-  style="padding-bottom: env(safe-area-inset-bottom)"
+  class="panel fixed right-[max(0.5rem,env(safe-area-inset-right))] bottom-[max(0.5rem,calc(env(safe-area-inset-bottom)-0.75rem))] left-[max(0.5rem,env(safe-area-inset-left))] z-30 lg:hidden"
 >
   <ul class="grid grid-cols-6">
     {#each PRIMARY_AREAS as area (area.id)}
