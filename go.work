@@ -3,6 +3,6 @@ go 1.26.0
 use (
 	./apps/ai-gateway
 	./apps/health-watcher
-	./apps/herdr-mobile
+	./apps/herdr-watcher
 	./apps/wealth-management
 )

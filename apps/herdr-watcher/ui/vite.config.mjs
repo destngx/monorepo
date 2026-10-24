@@ -3,8 +3,8 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 
-// The dev server proxies /api to the engine (HM_DEV_ENGINE, default 127.0.0.1:9393).
-const engine = process.env.HM_DEV_ENGINE?.trim() || 'http://127.0.0.1:9393';
+// The dev server proxies /api to the engine (HERDR_WATCHER_DEV_ENGINE, default 127.0.0.1:9393).
+const engine = process.env.HERDR_WATCHER_DEV_ENGINE?.trim() || 'http://127.0.0.1:9393';
 
 export default defineConfig({
   plugins: [tailwindcss(), sveltekit(), svelteTesting()],

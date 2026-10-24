@@ -1,12 +1,12 @@
 {
-  "name": "herdr-mobile",
+  "name": "herdr-watcher",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "projectType": "application",
   "implicitDependencies": ["ui-kit"],
-  "sourceRoot": "apps/herdr-mobile",
+  "sourceRoot": "apps/herdr-watcher",
   "tags": [
     "type:app",
-    "app:herdr-mobile",
+    "app:herdr-watcher",
     "scope:tooling",
     "scope:backend",
     "scope:frontend",
@@ -17,8 +17,8 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "go build -o dist/herdr-mobile .",
-        "cwd": "apps/herdr-mobile"
+        "command": "go build -o dist/herdr-watcher .",
+        "cwd": "apps/herdr-watcher"
       },
       "cache": true,
       "inputs": ["default", "^default", "!{projectRoot}/ui/**/*"],
@@ -27,8 +27,8 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "./scripts/herdr-mobile serve",
-        "cwd": "apps/herdr-mobile"
+        "command": "./scripts/herdr-watcher serve",
+        "cwd": "apps/herdr-watcher"
       },
       "cache": false
     },
@@ -37,7 +37,7 @@
       "dependsOn": ["build-ui"],
       "options": {
         "command": "go run .",
-        "cwd": "apps/herdr-mobile"
+        "cwd": "apps/herdr-watcher"
       },
       "cache": false
     },
@@ -45,14 +45,14 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vite dev --host",
-        "cwd": "apps/herdr-mobile/ui"
+        "cwd": "apps/herdr-watcher/ui"
       }
     },
     "build-ui": {
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vite build",
-        "cwd": "apps/herdr-mobile/ui"
+        "cwd": "apps/herdr-watcher/ui"
       },
       "cache": true,
       "inputs": ["{projectRoot}/ui/**/*", "!{projectRoot}/ui/build/**/*", "{workspaceRoot}/libs/ui-kit/src/**/*"],
@@ -62,21 +62,21 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json",
-        "cwd": "apps/herdr-mobile/ui"
+        "cwd": "apps/herdr-watcher/ui"
       }
     },
     "lint-ui": {
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec svelte-kit sync && pnpm exec eslint --concurrency auto .",
-        "cwd": "apps/herdr-mobile/ui"
+        "cwd": "apps/herdr-watcher/ui"
       }
     },
     "test": {
       "executor": "nx:run-commands",
       "options": {
         "command": "go test -race ./...",
-        "cwd": "apps/herdr-mobile"
+        "cwd": "apps/herdr-watcher"
       },
       "inputs": ["default", "!{projectRoot}/ui/**/*"]
     },
@@ -84,7 +84,7 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "pnpm exec vitest run",
-        "cwd": "apps/herdr-mobile/ui"
+        "cwd": "apps/herdr-watcher/ui"
       }
     },
     "lint": {
@@ -94,30 +94,30 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "find . -name '*.go' -not -path './ui/*' -exec gofmt -w {} +",
-        "cwd": "apps/herdr-mobile"
+        "cwd": "apps/herdr-watcher"
       }
     },
     "load-agent": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "./scripts/herdr-mobile install",
-        "cwd": "apps/herdr-mobile"
+        "command": "./scripts/herdr-watcher install",
+        "cwd": "apps/herdr-watcher"
       },
       "cache": false
     },
     "unload-agent": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "./scripts/herdr-mobile uninstall",
-        "cwd": "apps/herdr-mobile"
+        "command": "./scripts/herdr-watcher uninstall",
+        "cwd": "apps/herdr-watcher"
       },
       "cache": false
     },
     "status": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "./scripts/herdr-mobile status",
-        "cwd": "apps/herdr-mobile"
+        "command": "./scripts/herdr-watcher status",
+        "cwd": "apps/herdr-watcher"
       },
       "cache": false
     }

@@ -19,7 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"apps/herdr-mobile/herdr"
+	"apps/herdr-watcher/herdr"
 )
 
 // Herdr is what the server needs from herdr; *herdr.Client implements it.
@@ -58,7 +58,7 @@ type Options struct {
 	UIDir string
 	Log   *slog.Logger
 	// AllowedHosts are extra host names the server answers to, besides
-	// localhost and any Tailscale *.ts.net name.
+	// localhost, any IP address and any Tailscale *.ts.net name.
 	AllowedHosts []string
 	// PollEvery is how often the live stream asks herdr for agent states while a phone is watching.
 	PollEvery time.Duration
@@ -93,7 +93,8 @@ func New(opts Options) http.Handler {
 	return s.guard(mux)
 }
 
-// guard keeps other sites out. The host check stops DNS rebinding; the
+// guard keeps other sites out. The host check stops DNS rebinding: a page
+// can rebind its own host name to this machine, but never an IP address. The
 // origin, fetch-site and content-type checks stop a page in another tab from
 // posting a prompt to an agent.
 func (s *server) guard(next http.Handler) http.Handler {
@@ -128,7 +129,7 @@ func (s *server) hostAllowed(hostport string) bool {
 	}
 	host = strings.ToLower(strings.TrimSuffix(host, "."))
 	switch {
-	case host == "localhost", host == "127.0.0.1", host == "::1", host == "[::1]":
+	case host == "localhost", net.ParseIP(strings.Trim(host, "[]")) != nil:
 		return true
 	case strings.HasSuffix(host, ".ts.net"):
 		return true

@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"apps/herdr-mobile/herdr"
+	"apps/herdr-watcher/herdr"
 )
 
 // fakeHerdr records what the server asked for and answers from its fields.
@@ -214,6 +214,14 @@ func TestGuard(t *testing.T) {
 		{"other origin", func(r *http.Request) { r.Header.Set("Origin", "https://evil.example.com") }, http.StatusForbidden},
 		{"cross-site fetch", func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "cross-site") }, http.StatusForbidden},
 		{"form post", func(r *http.Request) { r.Header.Set("Content-Type", "text/plain") }, http.StatusUnsupportedMediaType},
+		{"tailscale IP", func(r *http.Request) {
+			r.Host = "100.101.102.103:9393"
+			r.Header.Set("Origin", "http://100.101.102.103:9393")
+		}, http.StatusNoContent},
+		{"origin on another IP", func(r *http.Request) {
+			r.Host = "100.101.102.103:9393"
+			r.Header.Set("Origin", "http://100.101.102.104:9393")
+		}, http.StatusForbidden},
 		{"localhost", func(r *http.Request) {
 			r.Host = "127.0.0.1:9393"
 			r.Header.Set("Origin", "http://127.0.0.1:9393")
@@ -233,7 +241,7 @@ func TestGuard(t *testing.T) {
 			}
 		})
 	}
-	if len(fake.prompts) != 1 {
+	if len(fake.prompts) != 2 {
 		t.Fatalf("prompts sent: %q", fake.prompts)
 	}
 }

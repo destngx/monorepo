@@ -1,6 +1,6 @@
-// Command herdr-mobile serves a phone-sized view of the agents running in
+// Command herdr-watcher serves a phone-sized view of the agents running in
 // herdr on this laptop: their states, their recent output, and a way to answer
-// them (docs/herdr-mobile/README.md).
+// them (docs/herdr-watcher/README.md).
 package main
 
 import (
@@ -17,8 +17,8 @@ import (
 	"syscall"
 	"time"
 
-	"apps/herdr-mobile/herdr"
-	"apps/herdr-mobile/web"
+	"apps/herdr-watcher/herdr"
+	"apps/herdr-watcher/web"
 )
 
 const defaultAddr = "127.0.0.1:9393"
@@ -26,7 +26,7 @@ const defaultAddr = "127.0.0.1:9393"
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := run(log); err != nil {
-		log.Error("herdr-mobile stopped", "error", err)
+		log.Error("herdr-watcher stopped", "error", err)
 		os.Exit(1)
 	}
 }
@@ -36,10 +36,10 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	addr := envOr("HM_ADDR", defaultAddr)
-	uiDir := envOr("HM_UI_DIR", "ui/build")
+	addrs := splitList(envOr("HERDR_WATCHER_ADDR", defaultAddr))
+	uiDir := envOr("HERDR_WATCHER_UI_DIR", "ui/build")
 	if _, err := os.Stat(filepath.Join(uiDir, "index.html")); err != nil {
-		log.Warn("no built UI; serving the API only (run nx run herdr-mobile:build-ui)", "dir", uiDir)
+		log.Warn("no built UI; serving the API only (run nx run herdr-watcher:build-ui)", "dir", uiDir)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -50,20 +50,31 @@ func run(log *slog.Logger) error {
 			Herdr:        herdr.New(socket),
 			UIDir:        uiDir,
 			Log:          log,
-			AllowedHosts: splitList(os.Getenv("HM_ALLOWED_HOSTS")),
+			AllowedHosts: splitList(os.Getenv("HERDR_WATCHER_ALLOWED_HOSTS")),
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		// No WriteTimeout: the event stream stays open while the page is.
 		IdleTimeout: 2 * time.Minute,
 	}
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return fmt.Errorf("listen on %s: %w", addr, err)
+	// One server on every address, such as 127.0.0.1 and the Tailscale IP;
+	// never 0.0.0.0, which would open the page to the local Wi-Fi.
+	listeners := make([]net.Listener, 0, len(addrs))
+	for _, addr := range addrs {
+		ln, err := net.Listen("tcp", addr)
+		if err != nil {
+			for _, open := range listeners {
+				_ = open.Close()
+			}
+			return fmt.Errorf("listen on %s: %w", addr, err)
+		}
+		listeners = append(listeners, ln)
+		log.Info("herdr-watcher listening", "url", "http://"+ln.Addr().String()+"/ui/", "herdr", socket)
 	}
-	log.Info("herdr-mobile listening", "url", "http://"+ln.Addr().String()+"/ui/", "herdr", socket)
 
-	errs := make(chan error, 1)
-	go func() { errs <- srv.Serve(ln) }()
+	errs := make(chan error, len(listeners))
+	for _, ln := range listeners {
+		go func() { errs <- srv.Serve(ln) }()
+	}
 	select {
 	case err := <-errs:
 		return err
