@@ -105,16 +105,19 @@ type ReadingObservation struct {
 
 // ReadingFinding is one finding the model read.
 type ReadingFinding struct {
-	Page       int    `json:"page"`
-	Kind       string `json:"kind"`
-	Section    string `json:"section"`
-	Text       string `json:"text"`
-	ICD10      string `json:"icd10"`
-	Drug       string `json:"drug"`
-	Dose       string `json:"dose"`
-	Frequency  string `json:"frequency"`
-	Duration   string `json:"duration"`
-	Date       string `json:"date"`
+	Page      int    `json:"page"`
+	Kind      string `json:"kind"`
+	Section   string `json:"section"`
+	Text      string `json:"text"`
+	ICD10     string `json:"icd10"`
+	Drug      string `json:"drug"`
+	Dose      string `json:"dose"`
+	Frequency string `json:"frequency"`
+	Duration  string `json:"duration"`
+	Date      string `json:"date"`
+	// GivenMark describes the mark beside a vaccine dose that shows it was
+	// given, such as a clinic stamp; "" when there is none.
+	GivenMark  string `json:"given_mark"`
 	Confidence int    `json:"confidence"`
 }
 
@@ -322,10 +325,11 @@ func splitBloodPressure(in ObservationInput, catalog *Catalog) []ObservationInpu
 	return out
 }
 
-// UncheckedVaccineConfidence is the most confidence a vaccine name read by
-// the model gets when no earlier dose confirms it. Vaccine names are often
-// faint, slanted stamps the model misreads with high confidence, so the
-// review page asks a person to check each one (HW-READ-4).
+// UncheckedVaccineConfidence is the most confidence the review page gives a
+// vaccine dose it asks a person to check (HW-READ-4): a dose read as given,
+// since the model often takes a nearby signature for the mark of a planned
+// dose, and a vaccine name no earlier dose confirms, since names are often
+// faint, slanted stamps the model misreads with high confidence.
 const UncheckedVaccineConfidence = 60
 
 // LatestVaccines maps each disease, by the folded section of its approved
@@ -350,10 +354,12 @@ func LatestVaccines(findings []Finding) map[string]string {
 //
 // A vaccination takes the vaccine of the person's latest approved dose for
 // the same disease, from vaccines (LatestVaccines); a name no earlier dose
-// confirms keeps what the model read and is flagged for a check. A
-// vaccination dated after today has not been given yet: record books write
-// the next dose's day in advance, so it becomes advice that the dose is
-// due, with the vaccine and dose leading its text.
+// confirms keeps what the model read and is flagged for a check. Record
+// books write every planned dose's day in advance, so a date alone, even a
+// past one, does not show a dose was given: a vaccination counts as given
+// only with a mark beside it and a date not after today, and is flagged for
+// a check. Any other becomes advice that the dose is due, with the vaccine
+// and dose leading its text.
 func (o ReadingOutput) CleanFindings(pageCount int, today string, vaccines map[string]string) ([]FindingInput, []int, []int) {
 	var ins []FindingInput
 	var pages, confs []int
@@ -380,9 +386,11 @@ func (o ReadingOutput) CleanFindings(pageCount int, today string, vaccines map[s
 			if ok {
 				in.Drug = earlier
 			}
-			if in.Date > today {
+			if strings.TrimSpace(r.GivenMark) == "" || in.Date > today {
 				product := strings.TrimSpace(CleanText(in.Drug) + " " + CleanText(in.Dose))
 				in.Kind, in.Text = "advice", cutLines(strings.TrimSpace(product+"\n"+in.Text), 4000)
+			} else {
+				conf = min(conf, UncheckedVaccineConfidence)
 			}
 		}
 		v, err := in.Validate()

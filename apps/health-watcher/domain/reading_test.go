@@ -166,14 +166,15 @@ func TestGivenACheckupReadingWhenCleaningFindingsThenExamsAdviceAndTheFullImagin
 	}
 }
 
-func TestGivenAVaccinationRecordWhenCleaningFindingsThenEachDoseKeepsItsVaccineAndAFutureDoseIsDue(t *testing.T) {
+func TestGivenAVaccinationRecordWhenCleaningFindingsThenOnlyAMarkedPastDoseIsGivenAndTheRestAreDue(t *testing.T) {
 	out := ReadingOutput{Findings: []ReadingFinding{
-		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Vaccine X", Dose: "1ml", Date: "2025-01-15", Text: "Lần 1: 15/01/2025", Confidence: 80},
-		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Vaccine X", Dose: "1ml", Date: "2027-06-15", Text: "Lần 3: 15/06/2027", Confidence: 80},
-		{Page: 1, Kind: "vaccination", Drug: "Vaccine X", Date: "sometime", Text: "Lần 2", Confidence: 80},
+		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Vaccine X", Dose: "1ml", Date: "2025-01-15", Text: "Lần 1: 15/01/2025", GivenMark: "clinic stamp", Confidence: 80},
+		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Vaccine X", Dose: "1ml", Date: "2027-06-15", Text: "Lần 3: 15/06/2027", GivenMark: "clinic stamp", Confidence: 80},
+		{Page: 1, Kind: "vaccination", Drug: "Vaccine X", Date: "sometime", Text: "Lần 2", GivenMark: "clinic stamp", Confidence: 80},
+		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Vaccine X", Dose: "1ml", Date: "2025-02-15", Text: "Lần 2: 15/02/2025", Confidence: 80},
 	}}
 	fs, _, confs := out.CleanFindings(1, "2026-10-23", nil)
-	if len(fs) != 3 {
+	if len(fs) != 4 {
 		t.Fatalf("findings = %+v", fs)
 	}
 	if fs[0].Kind != "vaccination" || fs[0].Drug != "Vaccine X" || fs[0].Dose != "1ml" || fs[0].Date != "2025-01-15" {
@@ -189,6 +190,9 @@ func TestGivenAVaccinationRecordWhenCleaningFindingsThenEachDoseKeepsItsVaccineA
 	if fs[2].Kind != "vaccination" || fs[2].Date != "" {
 		t.Fatalf("unreadable date = %+v", fs[2])
 	}
+	if planned := fs[3]; planned.Kind != "advice" || planned.Date != "2025-02-15" || planned.Text != "Vaccine X 1ml\nLần 2: 15/02/2025" {
+		t.Fatalf("a past dose without a mark = %+v", planned)
+	}
 }
 
 func TestGivenAnEarlierApprovedDoseWhenCleaningVaccinationsThenItsVaccineNameIsUsed(t *testing.T) {
@@ -199,16 +203,16 @@ func TestGivenAnEarlierApprovedDoseWhenCleaningVaccinationsThenItsVaccineNameIsU
 		{Kind: "vaccination", Status: StatusApproved, Section: "Cúm (Influenza)", Drug: "", Date: "2026-10-01"},
 	})
 	out := ReadingOutput{Findings: []ReadingFinding{
-		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Misread", Date: "2025-02-15", Text: "Lần 2: 15/02/2025", Confidence: 95},
+		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Misread", Date: "2025-02-15", GivenMark: "clinic stamp", Text: "Lần 2: 15/02/2025", Confidence: 95},
 		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "vaccine x", Date: "2025-02-15", Text: "Lần 2: 15/02/2025", Confidence: 95},
 		{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: "Misread", Dose: "1ml", Date: "2027-06-15", Text: "Lần 3: 15/06/2027", Confidence: 95},
-		{Page: 1, Kind: "vaccination", Section: "Cúm (Influenza)", Drug: "Vaccine F", Date: "2025-02-15", Text: "Lần 1", Confidence: 95},
+		{Page: 1, Kind: "vaccination", Section: "Cúm (Influenza)", Drug: "Vaccine F", Date: "2025-02-15", GivenMark: "clinic stamp", Text: "Lần 1", Confidence: 95},
 	}}
 	fs, _, confs := out.CleanFindings(1, "2026-10-23", earlier)
 	if fs[0].Drug != "Vaccine X" || confs[0] >= 70 {
 		t.Fatalf("a name unlike the earlier dose = %+v, %d", fs[0], confs[0])
 	}
-	if fs[1].Drug != "Vaccine X" || confs[1] != 95 {
+	if fs[1].Kind != "advice" || fs[1].Text != "Vaccine X\nLần 2: 15/02/2025" || confs[1] != 95 {
 		t.Fatalf("a name the earlier dose confirms = %+v, %d", fs[1], confs[1])
 	}
 	if fs[2].Kind != "advice" || fs[2].Text != "Vaccine X 1ml\nLần 3: 15/06/2027" {

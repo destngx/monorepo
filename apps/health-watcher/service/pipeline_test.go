@@ -834,7 +834,7 @@ func TestGivenAnApprovedVaccineDoseWhenTheNextDoseIsReadThenItsDraftTakesTheEarl
 		out := labReading()
 		out.Observations = nil
 		out.Findings = []domain.ReadingFinding{{Page: 1, Kind: "vaccination", Section: "Viêm gan Siêu vi B (Hepatitis B)", Drug: drug,
-			Dose: "1ml", Date: date, Text: line, Confidence: 95}}
+			Dose: "1ml", Date: date, Text: line, GivenMark: "clinic stamp", Confidence: 95}}
 		return &out
 	}
 
@@ -859,7 +859,14 @@ func TestGivenAnApprovedVaccineDoseWhenTheNextDoseIsReadThenItsDraftTakesTheEarl
 
 	e.reader.out = dose("Vaccine X", "2025-02-15", "Lần 2: 15/02/2025")
 	third := e.uploadRead(sc, "dose 2 again")
-	if f := third.Findings[0]; f.Drug != "Vaccine X" || f.Confidence != 95 {
-		t.Fatalf("a dose the earlier one confirms = %+v", f)
+	if f := third.Findings[0]; f.Kind != "vaccination" || f.Drug != "Vaccine X" || f.Confidence != domain.UncheckedVaccineConfidence {
+		t.Fatalf("a given dose is not flagged even when the earlier one confirms its name = %+v", f)
+	}
+
+	e.reader.out = dose("Vaccine X", "2025-03-15", "Lần 3: 15/03/2025")
+	e.reader.out.Findings[0].GivenMark = ""
+	planned := e.uploadRead(sc, "dose 3")
+	if f := planned.Findings[0]; f.Kind != "advice" || f.Text != "Vaccine X 1ml\nLần 3: 15/03/2025" || f.Confidence != 95 {
+		t.Fatalf("a planned dose with a confirmed name = %+v", f)
 	}
 }
