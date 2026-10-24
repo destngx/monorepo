@@ -28,7 +28,6 @@ type fakeHerdr struct {
 	screen  string
 	prompts []string
 	keys    [][]string
-	lines   int
 }
 
 func (f *fakeHerdr) Agents(context.Context) ([]herdr.Agent, error) {
@@ -37,10 +36,9 @@ func (f *fakeHerdr) Agents(context.Context) ([]herdr.Agent, error) {
 	return append([]herdr.Agent(nil), f.agents...), f.err
 }
 
-func (f *fakeHerdr) Screen(_ context.Context, pane string, lines int) (string, error) {
+func (f *fakeHerdr) Screen(_ context.Context, pane string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.lines = lines
 	return pane + ": " + f.screen, f.err
 }
 
@@ -133,9 +131,6 @@ func TestScreen(t *testing.T) {
 	rec := do(t, newTestServer(t, fake), http.MethodGet, "/api/agents/w1%3Ap1/screen", "")
 	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"text":"w1:p1: hello"}` {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body)
-	}
-	if fake.lines != screenLines {
-		t.Fatalf("lines = %d", fake.lines)
 	}
 }
 

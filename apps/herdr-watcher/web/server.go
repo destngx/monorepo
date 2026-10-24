@@ -25,14 +25,12 @@ import (
 // Herdr is what the server needs from herdr; *herdr.Client implements it.
 type Herdr interface {
 	Agents(ctx context.Context) ([]herdr.Agent, error)
-	Screen(ctx context.Context, pane string, lines int) (string, error)
+	Screen(ctx context.Context, pane string) (string, error)
 	Prompt(ctx context.Context, pane, text string) error
 	SendKeys(ctx context.Context, pane string, keys []string) error
 }
 
 const (
-	// screenLines is how much recent output the agent page shows.
-	screenLines    = 400
 	maxPromptRunes = 8000
 	maxKeys        = 8
 	maxBodyBytes   = 64 << 10
@@ -162,7 +160,7 @@ func (s *server) screen(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	text, err := s.opts.Herdr.Screen(r.Context(), pane, screenLines)
+	text, err := s.opts.Herdr.Screen(r.Context(), pane)
 	if err != nil {
 		s.herdrError(w, "read screen", err)
 		return

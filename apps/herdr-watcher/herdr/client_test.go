@@ -117,7 +117,7 @@ func TestScreenReadsUnwrappedPlainText(t *testing.T) {
 		return `{"id":"` + r.ID + `","result":{"type":"pane_read","read":{"pane_id":"w1:p1","text":"line one\nline two"}}}`
 	})
 
-	text, err := New(path).Screen(context.Background(), "w1:p1", 120)
+	text, err := New(path).Screen(context.Background(), "w1:p1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,9 @@ func TestScreenReadsUnwrappedPlainText(t *testing.T) {
 	if err := json.Unmarshal(seen()[0].Params, &params); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]any{"target": "w1:p1", "source": "recent_unwrapped", "lines": float64(120), "strip_ansi": true}
+	// No line count: herdr refuses one while the agent works (agent_not_idle),
+	// because it would have to scroll the agent's alternate screen to read it.
+	want := map[string]any{"target": "w1:p1", "source": "recent_unwrapped", "strip_ansi": true}
 	if seen()[0].Method != "agent.read" || !reflect.DeepEqual(params, want) {
 		t.Fatalf("sent %s %v", seen()[0].Method, params)
 	}

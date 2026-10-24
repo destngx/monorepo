@@ -33,7 +33,7 @@ For UI work, `nx run herdr-watcher:serve-ui` runs Vite on port 5176 and proxies 
 ## 2. The pages
 
 - **Agents** lists agents grouped by state: Needs you (herdr's `blocked`), Working, Done, Idle, Unknown. A line at the top counts them, and the tab title shows how many need you. A dot says whether the page is getting live updates.
-- **One agent** shows the last 400 lines of output, newest at the bottom. It reloads every 2 seconds while the agent works or waits for you, every 8 seconds otherwise, and at once when its state changes. The keys `1`, `2`, `3`, Enter, Esc, ↑, ↓, Tab and Shift+Tab answer menus such as Claude Code's permission question. The text box sends a message. herdr refuses a message while the agent waits for an answer, so the page asks you to use the keys first.
+- **One agent** shows its recent output, about one terminal screen, newest at the bottom. herdr cannot read further back while an agent works, because that means scrolling the agent's screen. It reloads every 2 seconds while the agent works or waits for you, every 8 seconds otherwise, and at once when its state changes. The keys `1`, `2`, `3`, Enter, Esc, ↑, ↓, Tab and Shift+Tab answer menus such as Claude Code's permission question. The text box sends a message. herdr refuses a message while the agent waits for an answer, so the page asks you to use the keys first.
 
 herdr's `recent_unwrapped` read gives each terminal line unwrapped. The page wraps it to the phone's width and shortens full-width rules to 16 characters (`lib/screen.ts`), so output never scrolls sideways.
 
@@ -47,7 +47,7 @@ While no page is open, the engine does nothing. While a page is open, the engine
 | -------------------------------- | ------------------ | ------------------------------------------------------------ |
 | `GET /api/agents`                |                    | `{agents: Agent[]}`                                          |
 | `GET /api/events`                |                    | Server-sent events, one `{agents, error?, code?}` per change |
-| `GET /api/agents/{pane}/screen`  |                    | `{text}`: the last 400 lines, plain text                     |
+| `GET /api/agents/{pane}/screen`  |                    | `{text}`: about one terminal screen, plain text              |
 | `POST /api/agents/{pane}/prompt` | `{text}`           | 204                                                          |
 | `POST /api/agents/{pane}/keys`   | `{keys: string[]}` | 204                                                          |
 | `GET /healthz`                   |                    | 204                                                          |
