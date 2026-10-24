@@ -33,6 +33,14 @@ func TestGivenPrintedAnalyteNamesWhenMatchingThenEachFindsItsCatalogEntry(t *tes
 		{"Trung tính", "%", "neutrophils_pct"},
 		{"Trung tính", "G/L", "neutrophils_abs"},
 		{"Glucose máu tĩnh mạch", "mmol/L", "glucose"},
+		{"BASO", "K/uL", "basophils_abs"},
+		{"BASO%", "%", "basophils_pct"},
+		{"EOS", "K/uL", "eosinophils_abs"},
+		{"EOS%", "%", "eosinophils_pct"},
+		{"MONO", "K/uL", "monocytes_abs"},
+		{"MONO%", "%", "monocytes_pct"},
+		{"RDW%", "%", "rdw"},
+		{"RDW SD", "fL", "rdw_sd"},
 	}
 	for _, tc := range cases {
 		m, ok := DefaultCatalog.Match(tc.name, tc.unit, "1.0")

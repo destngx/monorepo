@@ -1,7 +1,7 @@
 package domain
 
 // CatalogVersion changes whenever DefaultCatalog's entries change.
-const CatalogVersion = "2026-10-24.1"
+const CatalogVersion = "2026-10-24.2"
 
 // Metric categories.
 const (
@@ -118,6 +118,9 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 		Aliases:     []string{"mchc", "nồng độ hst trung bình hồng cầu"}},
 	{Code: "rdw", LOINC: "788-0", Name: "RDW", NameVI: "Độ phân bố kích thước hồng cầu", Category: CatBloodCount, Unit: "%",
 		Aliases: []string{"rdw", "rdw-cv", "dải phân bố hồng cầu"}},
+	// RDW-SD is the width in fL, not RDW-CV in % (HW-MET-1).
+	{Code: "rdw_sd", LOINC: "21000-5", Name: "RDW-SD", NameVI: "Độ phân bố kích thước hồng cầu (SD)", Category: CatBloodCount, Unit: "fL",
+		Aliases: []string{"rdw-sd", "rdw sd"}},
 	{Code: "platelets", LOINC: "777-3", Name: "Platelets", NameVI: "Số lượng tiểu cầu", Category: CatBloodCount, Unit: "G/L",
 		Aliases: []string{"plt", "tiểu cầu", "platelet", "platelet count", "sl tiểu cầu"}, WholeName: true},
 	{Code: "mpv", LOINC: "32623-1", Name: "MPV", NameVI: "Thể tích trung bình tiểu cầu", Category: CatBloodCount, Unit: "fL",
@@ -143,10 +146,16 @@ var DefaultCatalog = NewCatalog(CatalogVersion, []Metric{
 		Aliases: []string{"mid#", "mxd#", "mid", "mxd", "mid cells #", "mid cells", "bạch cầu mid #", "bạch cầu mid"}},
 	{Code: "monocytes_pct", LOINC: "5905-5", Name: "Monocytes %", NameVI: "Tỷ lệ bạch cầu mono", Category: CatBloodCount, Unit: "%",
 		Aliases: []string{"mono%", "mono", "monocytes %", "bạch cầu mono %", "bạch cầu mono"}},
+	{Code: "monocytes_abs", LOINC: "742-7", Name: "Monocytes", NameVI: "Số lượng bạch cầu mono", Category: CatBloodCount, Unit: "G/L",
+		Aliases: []string{"mono#", "mono", "monocytes #", "bạch cầu mono #", "bạch cầu mono"}},
 	{Code: "eosinophils_pct", LOINC: "713-8", Name: "Eosinophils %", NameVI: "Tỷ lệ bạch cầu ưa acid", Category: CatBloodCount, Unit: "%",
 		Aliases: []string{"eos%", "eos", "eosinophils %", "bạch cầu ưa acid", "bạch cầu ái toan", "tỷ lệ bạch cầu ái toan"}},
+	{Code: "eosinophils_abs", LOINC: "711-2", Name: "Eosinophils", NameVI: "Số lượng bạch cầu ưa acid", Category: CatBloodCount, Unit: "G/L",
+		Aliases: []string{"eos#", "eos", "eosinophils #", "bạch cầu ưa acid #"}},
 	{Code: "basophils_pct", LOINC: "706-2", Name: "Basophils %", NameVI: "Tỷ lệ bạch cầu ưa base", Category: CatBloodCount, Unit: "%",
 		Aliases: []string{"baso%", "baso", "basophils %", "bạch cầu ưa base", "bạch cầu ái kiềm", "tỷ lệ bạch cầu ái kiềm"}},
+	{Code: "basophils_abs", LOINC: "704-7", Name: "Basophils", NameVI: "Số lượng bạch cầu ưa base", Category: CatBloodCount, Unit: "G/L",
+		Aliases: []string{"baso#", "baso", "basophils #", "bạch cầu ưa base #"}},
 
 	// Thyroid
 	{Code: "tsh", LOINC: "3016-3", Name: "TSH", NameVI: "TSH", Category: CatThyroid, Unit: "mIU/L",

@@ -13,7 +13,7 @@ const MaskPlaceholder = "[ẩn]"
 
 // MaskRulesVersion goes up when the masking rules change, so pages masked
 // with older rules are masked again.
-const MaskRulesVersion = 4
+const MaskRulesVersion = 5
 
 // personalLabel is a label printed before personal data on Vietnamese and
 // English medical papers. Labels that also occur in ordinary sentences
@@ -45,11 +45,12 @@ var personalLabels = func() []personalLabel {
 		{"name", l{needColon: true, name: true}}, {"patient", l{needColon: true, name: true}},
 		{"nam sinh", l{}}, {"ngay sinh", l{}}, {"sinh ngay", l{}}, {"date of birth", l{}}, {"dob", l{}},
 		{"ma bn", l{}}, {"ma benh nhan", l{}}, {"ma so benh nhan", l{}}, {"ma nguoi benh", l{}}, {"ma y te", l{}},
-		{"ma ho so", l{}}, {"so ho so", l{}}, {"so luu tru", l{}}, {"so vao vien", l{}}, {"ma vao vien", l{}},
+		{"ma ho so", l{}}, {"so ho so", l{}}, {"ho so", l{needColon: true}}, {"so luu tru", l{}}, {"so vao vien", l{}}, {"ma vao vien", l{}},
 		{"patient id", l{}}, {"pid", l{needColon: true}}, {"bhyt", l{}}, {"so the", l{}}, {"the bhyt", l{}},
 		{"cccd", l{}}, {"cmnd", l{}}, {"can cuoc", l{}}, {"ho chieu", l{}}, {"passport", l{}},
 		{"dia chi", l{}}, {"address", l{}}, {"dien thoai", l{}}, {"so dien thoai", l{}}, {"sdt", l{}},
 		{"dt", l{needColon: true}}, {"phone", l{}}, {"mobile", l{}}, {"email", l{}},
+		{"ten dang nhap", l{}}, {"mat khau", l{}}, {"username", l{}}, {"password", l{}},
 		{"bac si", l{needColon: true}}, {"bs", l{needColon: true, allowDot: true}},
 		{"ths bs", l{needColon: true, allowDot: true}}, {"dr", l{needColon: true, allowDot: true}},
 		{"nguoi lay mau", l{needColon: true}}, {"nguoi thuc hien", l{needColon: true}},
@@ -215,12 +216,40 @@ func nameTokens(people []string) [][]string {
 	return out
 }
 
-func hasName(line string, names [][]string) bool {
+// hasName reports whether a line holds one of the names: its words next to
+// each other in any order, since a paper may print the family name first
+// or last and a film's label prints `NGUYEN, VAN MAU`. With partial, a name
+// of four or more words also matches with one word missing, as on a film
+// label cut off at the edge; MatchPerson leaves it out, because two
+// siblings share all but one word of their names.
+func hasName(line string, names [][]string, partial bool) bool {
 	toks, _ := tokenize(line)
+	words := make([]string, len(toks))
+	for i, t := range toks {
+		words[i] = t.word
+	}
 	for _, n := range names {
-		if findWords(toks, n, 0) >= 0 {
+		if hasWordsInAnyOrder(words, n, len(n)) || (partial && len(n) >= 4 && hasWordsInAnyOrder(words, n, len(n)-1)) {
 			return true
 		}
+	}
+	return false
+}
+
+// hasWordsInAnyOrder reports whether size words in a row of words are all
+// words of name, each used at most once.
+func hasWordsInAnyOrder(words, name []string, size int) bool {
+outer:
+	for i := 0; i+size <= len(words); i++ {
+		left := slices.Clone(name)
+		for _, w := range words[i : i+size] {
+			k := slices.Index(left, w)
+			if k < 0 {
+				continue outer
+			}
+			left = slices.Delete(left, k, k+1)
+		}
+		return true
 	}
 	return false
 }
@@ -231,7 +260,7 @@ func personalLine(line string, names [][]string) (labelMatch, bool, bool) {
 	if labeled {
 		return m, true, true
 	}
-	if hasName(line, names) {
+	if hasName(line, names, true) {
 		return labelMatch{label: personalLabel{name: true}}, false, true
 	}
 	return labelMatch{}, false, hasLongDigits(line) || email.MatchString(line)
@@ -571,12 +600,7 @@ func leaks(out string, lines []Line, masked []bool, names [][]string) bool {
 			return true
 		}
 	}
-	for _, n := range names {
-		if strings.Contains(folded, " "+strings.Join(n, " ")+" ") {
-			return true
-		}
-	}
-	return false
+	return hasName(out, names, true)
 }
 
 func linesText(lines []Line, masked, off []bool) string {
@@ -619,7 +643,7 @@ func MatchPerson(texts []string, people []Person) string {
 			continue
 		}
 		for _, t := range texts {
-			if hasName(t, names) {
+			if hasName(t, names, false) {
 				if found != "" && found != p.ID {
 					return ""
 				}

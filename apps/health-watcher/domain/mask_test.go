@@ -426,3 +426,45 @@ func TestGivenAManualBoxOverALineTurnedOffWhenMaskingThenTheLineIsHiddenAgain(t 
 		t.Fatalf("masked text = %q", res.Text)
 	}
 }
+
+func TestGivenANamePrintedInAnotherWordOrderWhenMaskingThenItIsHidden(t *testing.T) {
+	lines := []Line{
+		row("NGUYỄN VĂN MẪU HÙNG", 0.1, 0.1, 0.3),
+		row("Ex DINH NGUYEN, VAN MAU 1985M", 0.1, 0.2, 0.3),
+		row("MAU HUNG 1985M", 0.1, 0.25, 0.2),
+		row("VĂN MẪU HÙNG 1985M", 0.1, 0.3, 0.2),
+		row("Glucose 5.0", 0.1, 0.5, 0.3),
+	}
+	in := readyInput(lines)
+	in.People = []string{"Mẫu Hùng Nguyễn Văn", "Đinh Văn Mẫu"}
+	res := MaskPage(in)
+	want := []string{"NGUYỄN VĂN MẪU HÙNG", "Ex DINH NGUYEN, VAN MAU 1985M", "VĂN MẪU HÙNG 1985M"}
+	if got := maskedTexts(in, res); !slices.Equal(got, want) {
+		t.Fatalf("masked = %q", got)
+	}
+}
+
+func TestGivenARecordHeaderAndAResultLoginWhenMaskingThenTheyAreHidden(t *testing.T) {
+	lines := []Line{
+		row("Hồ sơ: VS0000000 - NGUYỄN VĂN MẪU - 01/01/1985", 0.3, 0.05, 0.6),
+		row("Tên đăng nhập: 000ABC.00000000", 0.1, 0.8, 0.4),
+		row("Mật khẩu: 0000000000", 0.1, 0.82, 0.4),
+		row("3. CÁC KẾT QUẢ CẬN LÂM SÀNG KHÁC: HỒ SƠ ĐÍNH KÈM.", 0.1, 0.5, 0.6),
+	}
+	in := readyInput(lines)
+	res := MaskPage(in)
+	want := []string{"Hồ sơ: VS0000000 - NGUYỄN VĂN MẪU - 01/01/1985", "Tên đăng nhập: 000ABC.00000000", "Mật khẩu: 0000000000"}
+	if got := maskedTexts(in, res); !slices.Equal(got, want) {
+		t.Fatalf("masked = %q", got)
+	}
+}
+
+func TestGivenANameInAnotherOrderWhenMatchingPeopleThenItMatchesButAPartialNameDoesNot(t *testing.T) {
+	people := []Person{{ID: "a", DisplayName: "Mẫu Hùng Nguyễn Văn"}}
+	if got := MatchPerson([]string{"Hồ sơ: NGUYỄN VĂN MẪU HÙNG"}, people); got != "a" {
+		t.Fatalf("match = %q", got)
+	}
+	if got := MatchPerson([]string{"Họ tên: NGUYỄN VĂN MẪU AN"}, people); got != "" {
+		t.Fatalf("a sibling sharing three words matched as %q", got)
+	}
+}
