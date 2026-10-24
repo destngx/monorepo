@@ -140,19 +140,37 @@ func dataset[T any](s *dbService, key string, target *T, build func(rows [][][]s
 // batchRead fills every dataset, from the cache unless force is set, and
 // reads all the misses in one Sheets request (WM-NFR-3). Datasets are built
 // in order, so a later one may use an earlier one's value. When the request
-// fails, each miss falls back to its last good copy.
+// fails, each miss falls back to its last good copy. A dataset that another
+// request is reading is waited for and taken from the cache, as in
+// cachedRead.
 func (s *dbService) batchRead(force bool, datasets ...sheetDataset) error {
-	misses := make([]sheetDataset, 0, len(datasets))
-	ranges := []string{}
-	for _, set := range datasets {
-		if !force && set.fromCache() {
+	joined := map[string]bool{}
+	var misses []sheetDataset
+	var ranges []string
+	for {
+		misses, ranges = misses[:0], ranges[:0]
+		keys := []string{}
+		for _, set := range datasets {
+			if (!force || joined[set.key]) && set.fromCache() {
+				continue
+			}
+			misses = append(misses, set)
+			ranges = append(ranges, set.ranges...)
+			keys = append(keys, set.key)
+		}
+		if len(misses) == 0 {
+			return nil
+		}
+		busy, release := s.reads.claim(keys...)
+		if busy != nil {
+			<-busy.done
+			for _, key := range busy.keys {
+				joined[key] = true
+			}
 			continue
 		}
-		misses = append(misses, set)
-		ranges = append(ranges, set.ranges...)
-	}
-	if len(misses) == 0 {
-		return nil
+		defer release()
+		break
 	}
 	rows, err := s.readRanges(ranges...)
 	if err != nil {

@@ -68,6 +68,7 @@ type dbService struct {
 	localReplays  map[string]domain.TransactionBatchResult
 	replayHistory []string
 	stale         *staleTracker
+	reads         readFlights
 
 	// lastSyncAt is the last successful SyncCache, zero until one (WM-SET-2).
 	syncMu     sync.Mutex
@@ -101,12 +102,25 @@ func (s *dbService) today() time.Time {
 // cachedRead returns the cached value for key unless force is set, otherwise
 // loads it and caches the result. Cache failures are logged and degrade to a
 // direct load; they never fail the request (WM-OPS-2). A failed load serves
-// the last good copy when there is one (WM-NFR-4).
+// the last good copy when there is one (WM-NFR-4). A read of a key that is
+// already being read waits for that read and uses its value, even when
+// forced, since that value is fresh.
 func cachedRead[T any](s *dbService, key string, ttlSeconds int, force bool, load func() (T, error)) (T, error) {
-	if !force {
-		if value, ok := readCached[T](s, key); ok {
-			return value, nil
+	joined := false
+	for {
+		if !force || joined {
+			if value, ok := readCached[T](s, key); ok {
+				return value, nil
+			}
 		}
+		busy, release := s.reads.claim(key)
+		if busy != nil {
+			<-busy.done
+			joined = true
+			continue
+		}
+		defer release()
+		break
 	}
 	value, err := load()
 	if err != nil {
