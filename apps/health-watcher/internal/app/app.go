@@ -105,7 +105,7 @@ func Open(ctx context.Context, cfg config.Config, log *slog.Logger) (*Engine, er
 		_ = store.Close()
 		return nil, err
 	}
-	pipeline := &service.Pipeline{Deps: deps, Masker: imaging.Masker{Quality: 85}, Catalog: domain.DefaultCatalog,
+	pipeline := &service.Pipeline{Deps: deps, Masker: imaging.Masker{Quality: 85}, Cropper: imaging.Cropper{Quality: 90}, Catalog: domain.DefaultCatalog,
 		LOINC: nlm.New(nil), WorkDir: cfg.WorkDir(), Log: log}
 	records := &service.Records{Deps: deps}
 	inbox := &service.Inbox{Deps: deps, Records: records, Pipeline: pipeline}

@@ -60,6 +60,7 @@ func (s *server) reviewRoutes(r fiber.Router) {
 // catalog routes (HW-FIND-2, HW-FIND-3, HW-READ-5, HW-READ-7, HW-REC-6, HW-MET-1).
 func (s *server) clinicalRoutes(r fiber.Router) {
 	r.Get("/pages/:id/image", s.pageImage)
+	r.Get("/pictures/:id/image", s.pictureImage)
 	r.Get("/documents/:id", func(c *fiber.Ctx) error {
 		return s.list(c)(s.svc.Clinical.Document(c.UserContext(), scope(c), c.Params("id")))
 	})
@@ -167,6 +168,16 @@ func (s *server) metricRoutes(r fiber.Router) {
 
 // pageImage serves a page's rendered JPEG, or with ?masked=1 the masked
 // copy the AI provider saw, after the tenant check and never cached.
+func (s *server) pictureImage(c *fiber.Ctx) error {
+	body, err := s.svc.Records.OpenPictureImage(c.UserContext(), scope(c), c.Params("id"))
+	if err != nil {
+		return respond(c, s.log, err)
+	}
+	c.Set(fiber.HeaderContentType, "image/jpeg")
+	c.Set(fiber.HeaderCacheControl, "private, no-store")
+	return c.SendStream(body)
+}
+
 func (s *server) pageImage(c *fiber.Ctx) error {
 	body, err := s.svc.Records.OpenPageImage(c.UserContext(), scope(c), c.Params("id"), c.Query("masked") == "1")
 	if err != nil {

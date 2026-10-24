@@ -383,8 +383,9 @@ func (r repos) DeleteFile(ctx context.Context, tenantID, id string) error {
 func (r repos) SHAInUse(ctx context.Context, sha string) (bool, error) {
 	var used bool
 	if err := r.q.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM files WHERE sha256 = ?)
-		OR EXISTS (SELECT 1 FROM pages WHERE image_sha = ?) OR EXISTS (SELECT 1 FROM pages WHERE mask_image_sha = ?)`,
-		sha, sha, sha).Scan(&used); err != nil {
+		OR EXISTS (SELECT 1 FROM pages WHERE image_sha = ?) OR EXISTS (SELECT 1 FROM pages WHERE mask_image_sha = ?)
+		OR EXISTS (SELECT 1 FROM pictures WHERE image_sha = ?)`,
+		sha, sha, sha, sha).Scan(&used); err != nil {
 		return false, fmt.Errorf("check file hash use: %w", err)
 	}
 	return used, nil

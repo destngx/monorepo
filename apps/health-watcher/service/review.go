@@ -18,7 +18,9 @@ type ItemDetail struct {
 	Pages        []domain.Page        `json:"pages"`
 	Observations []domain.Observation `json:"observations"`
 	Findings     []domain.Finding     `json:"findings"`
-	AIEnabled    bool                 `json:"aiEnabled"`
+	// Pictures are the pictures cut out of the pages (HW-READ-11).
+	Pictures  []domain.Picture `json:"pictures"`
+	AIEnabled bool             `json:"aiEnabled"`
 }
 
 // Item returns one unfiled item for review.
@@ -50,7 +52,18 @@ func (in *Inbox) Item(ctx context.Context, sc domain.Scope, itemID string) (Item
 	if d.Findings, err = in.Store.FindingsOfItem(ctx, sc.TenantID, itemID); err != nil {
 		return ItemDetail{}, err
 	}
+	if d.Pictures, err = in.Store.PicturesOf(ctx, sc.TenantID, pageIDs(d.Pages)); err != nil {
+		return ItemDetail{}, err
+	}
 	return d, nil
+}
+
+func pageIDs(pages []domain.Page) []string {
+	out := make([]string, len(pages))
+	for i, p := range pages {
+		out[i] = p.ID
+	}
+	return out
 }
 
 // refreshStaleMasks masks again the pages of an unfiled item that were
@@ -256,6 +269,7 @@ func (in *Inbox) RemoveItemPage(ctx context.Context, sc domain.Scope, itemID, pa
 		return ItemDetail{}, err
 	}
 	var released []domain.StoredFile
+	var pictures []string
 	reread := false
 	err = in.Store.InTx(ctx, func(r port.Repos) error {
 		pg, err := r.Page(ctx, sc.TenantID, pageID)
@@ -286,6 +300,9 @@ func (in *Inbox) RemoveItemPage(ctx context.Context, sc domain.Scope, itemID, pa
 		if err := r.RemovePage(ctx, sc.TenantID, pageID, in.Clock()); err != nil {
 			return err
 		}
+		if pictures, err = r.SetPagePictures(ctx, sc.TenantID, []string{pageID}, nil); err != nil {
+			return err
+		}
 		rd, err := r.Reading(ctx, sc.TenantID, itemID)
 		switch {
 		case errors.Is(err, domain.ErrNotFound):
@@ -304,6 +321,9 @@ func (in *Inbox) RemoveItemPage(ctx context.Context, sc domain.Scope, itemID, pa
 		return ItemDetail{}, err
 	}
 	if err := releaseFiles(ctx, in.Deps, sc.TenantID, released); err != nil {
+		return ItemDetail{}, err
+	}
+	if err := releaseImages(ctx, in.Deps, pictures); err != nil {
 		return ItemDetail{}, err
 	}
 	if reread && in.Pipeline != nil && in.Pipeline.AIEnabled() {
@@ -443,6 +463,19 @@ func (s *Records) OpenPageImage(ctx context.Context, sc domain.Scope, pageID str
 		return nil, domain.NotFound("page image")
 	}
 	return s.Files.Open(ctx, sha)
+}
+
+// OpenPictureImage opens the image of a picture cut out of a page
+// (HW-READ-11).
+func (s *Records) OpenPictureImage(ctx context.Context, sc domain.Scope, pictureID string) (io.ReadCloser, error) {
+	if err := sc.RequireRead(); err != nil {
+		return nil, err
+	}
+	pic, err := s.Store.Picture(ctx, sc.TenantID, pictureID)
+	if err != nil {
+		return nil, err
+	}
+	return s.Files.Open(ctx, pic.ImageSHA)
 }
 
 // InboxGroup is a suggested visit in backlog mode: unfiled items read as

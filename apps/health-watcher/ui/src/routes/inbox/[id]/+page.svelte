@@ -23,6 +23,7 @@
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
   import PhoneCaptureModal from '$lib/components/PhoneCaptureModal.svelte';
+  import PictureGallery from '$lib/components/PictureGallery.svelte';
   import ReadingBadge from '$lib/components/ReadingBadge.svelte';
   import { toggleOff } from '$lib/boxes';
   import { documentKindLabels, formatDate } from '$lib/format';
@@ -274,6 +275,11 @@
       onedit={(f) => (editingFinding = f)}
       onstatus={setFindingStatus}
     />
+  </Card>
+{/if}
+{#if data.detail.pictures?.length}
+  <Card title="Images" subtitle="Cut out of the pages and kept with the document. AI never reads them." class="mb-5">
+    <PictureGallery pictures={data.detail.pictures} {pageOf} />
   </Card>
 {/if}
 

@@ -133,6 +133,7 @@ type ReadingOutput struct {
 	Pages        []ReadingPage        `json:"pages"`
 	Observations []ReadingObservation `json:"observations"`
 	Findings     []ReadingFinding     `json:"findings"`
+	Pictures     []ReadingPicture     `json:"pictures"`
 }
 
 // PageTitlesOutput is the answer of a title job, shaped by PageTitlesSchema.

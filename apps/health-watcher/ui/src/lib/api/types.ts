@@ -395,11 +395,28 @@ export interface AuditEntry {
   old: string;
 }
 
+/** What a picture printed on a page shows (HW-READ-11). */
+export type PictureKind = 'xray' | 'ultrasound' | 'endoscopy' | 'ecg' | 'ct' | 'mri' | 'photo' | 'diagram' | 'other';
+
+/** A picture cut out of a page image, such as an X-ray film or an ECG trace; never read with AI (D5). */
+export interface Picture {
+  id: string;
+  pageId: string;
+  position: number;
+  kind: PictureKind;
+  caption: string;
+  box: { x0: number; y0: number; x1: number; y1: number };
+  width: number;
+  height: number;
+  createdAt: string;
+}
+
 export interface ItemDetail {
   item: InboxItem;
   pages: Page[];
   observations: Observation[];
   findings: Finding[];
+  pictures: Picture[];
   aiEnabled: boolean;
 }
 
@@ -409,6 +426,7 @@ export interface DocumentDetail {
   pages: Page[];
   observations: Observation[];
   findings: Finding[];
+  pictures: Picture[];
 }
 
 export interface InboxGroup {

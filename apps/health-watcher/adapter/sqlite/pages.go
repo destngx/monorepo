@@ -261,7 +261,9 @@ func (r repos) UntitledDocuments(ctx context.Context) ([]port.TenantDocument, er
 }
 
 func (r repos) PageImageSHAs(ctx context.Context, tenantID, fileID string) ([]string, error) {
-	rows, err := r.q.QueryContext(ctx, `SELECT image_sha, mask_image_sha FROM pages WHERE tenant_id = ? AND file_id = ?`, tenantID, fileID)
+	rows, err := r.q.QueryContext(ctx, `SELECT image_sha, mask_image_sha FROM pages WHERE tenant_id = ? AND file_id = ?
+		UNION ALL SELECT pc.image_sha, '' FROM pictures pc JOIN pages p ON p.id = pc.page_id WHERE p.tenant_id = ? AND p.file_id = ?`,
+		tenantID, fileID, tenantID, fileID)
 	if err != nil {
 		return nil, fmt.Errorf("list page images: %w", err)
 	}

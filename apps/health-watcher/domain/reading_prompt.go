@@ -23,6 +23,7 @@ How to read:
 - document: kind, a short title in the document's language and in sentence case, such as "Kết quả điện tim", date (the visit, sample or report date as YYYY-MM-DD, never a birth date), visit_type, provider_name (the hospital, clinic or lab as printed), provider_kind.
 - Handwriting (record books, prescriptions): read what you can and give a low confidence to anything uncertain.
 - page is the 1-based page number a value came from. confidence is 0 to 100; use 90 or more only when the text is sharp and unambiguous.
+- pictures: one entry per picture printed on a page: an X-ray film, an ultrasound, CT or MRI frame, an endoscopy photo, an ECG trace, another photo or a diagram. Logos, stamps, signatures, barcodes and QR codes are not pictures. page is its page; kind is what it is, with "endoscopy" for any view through an endoscope, such as an ear, nose or throat view, and "photo" only for other photos; caption is the text printed with that one picture, such as a label under an endoscopy photo, or "". x0, y0, x1, y1 are its left, top, right and bottom edges as fractions of the page image's width and height, 0 to 1 from the top-left corner, enclosing the whole picture and nothing else. Pictures side by side in one frame, such as two ultrasound views in one dark panel, are one entry. Never say what a picture shows.
 - Never describe or interpret a medical image (an X-ray, scan or photo) yourself. Read only the words printed or written about it.
 - Do not interpret, judge or diagnose. Report only what is printed.`
 
@@ -66,6 +67,7 @@ func strictObject(props map[string]any) map[string]any {
 func ReadingSchema() map[string]any {
 	str := map[string]any{"type": "string"}
 	integer := map[string]any{"type": "integer"}
+	number := map[string]any{"type": "number"}
 	providerKinds := []ProviderKind{ProviderHospital, ProviderClinic, ProviderDental, ProviderLab, ProviderPharmacy, ProviderOther}
 	return strictObject(map[string]any{
 		"document": strictObject(map[string]any{
@@ -81,6 +83,10 @@ func ReadingSchema() map[string]any {
 		"findings": map[string]any{"type": "array", "items": strictObject(map[string]any{
 			"page": integer, "kind": map[string]any{"type": "string", "enum": enumOf(FindingKinds)}, "section": str, "text": str,
 			"icd10": str, "drug": str, "dose": str, "frequency": str, "duration": str, "date": str, "given_mark": str, "confidence": integer,
+		})},
+		"pictures": map[string]any{"type": "array", "items": strictObject(map[string]any{
+			"page": integer, "kind": map[string]any{"type": "string", "enum": enumOf(PictureKinds)}, "caption": str,
+			"x0": number, "y0": number, "x1": number, "y1": number,
 		})},
 	})
 }

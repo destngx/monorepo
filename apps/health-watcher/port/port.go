@@ -214,7 +214,7 @@ type FileRepo interface {
 	// FileInUse reports whether a document or an unfiled inbox item uses the file.
 	FileInUse(ctx context.Context, tenantID, id string) (bool, error)
 	DeleteFile(ctx context.Context, tenantID, id string) error
-	// SHAInUse reports whether any tenant still has a file, a page image or
+	// SHAInUse reports whether any tenant still has a file, a picture, a page image or
 	// a masked page image with this hash.
 	SHAInUse(ctx context.Context, sha string) (bool, error)
 }
@@ -278,7 +278,15 @@ type PageRepo interface {
 	// UntitledDocuments lists the documents with a page that has no title
 	// and no title job yet, oldest first.
 	UntitledDocuments(ctx context.Context) ([]TenantDocument, error)
-	// PageImageSHAs lists the page and masked image hashes of a file's pages.
+	// SetPagePictures replaces the pictures of pages (HW-READ-11) and
+	// returns the image hashes of the pictures it removed.
+	SetPagePictures(ctx context.Context, tenantID string, pageIDs []string, pics []domain.Picture) ([]string, error)
+	// PicturesOf lists the pictures of pages, leaving out removed pages.
+	PicturesOf(ctx context.Context, tenantID string, pageIDs []string) ([]domain.Picture, error)
+	// Picture returns one picture of a page that was not removed.
+	Picture(ctx context.Context, tenantID, id string) (domain.Picture, error)
+	// PageImageSHAs lists the page, masked and picture image hashes of a
+	// file's pages.
 	PageImageSHAs(ctx context.Context, tenantID, fileID string) ([]string, error)
 	// FilesWithoutPages lists files with no pages and no OCR job, oldest first.
 	FilesWithoutPages(ctx context.Context) ([]TenantFile, error)
@@ -419,6 +427,19 @@ type OCR interface {
 // ImageMasker blacks out boxes on a JPEG (HW-AI-7).
 type ImageMasker interface {
 	Mask(jpeg []byte, boxes []domain.Quad) ([]byte, error)
+}
+
+// Crop is a picture cut out of a page image.
+type Crop struct {
+	JPEG          []byte
+	Box           domain.Rect
+	Width, Height int
+}
+
+// PictureCropper cuts a picture out of a page JPEG, fitting the box to the
+// picture's edges (HW-READ-11).
+type PictureCropper interface {
+	Crop(jpeg []byte, box domain.Rect) (Crop, error)
 }
 
 // ReadPage is one masked page sent to the AI provider.

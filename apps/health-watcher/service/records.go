@@ -311,6 +311,17 @@ func (s *Records) OpenFile(ctx context.Context, sc domain.Scope, id string) (dom
 
 // releaseFiles deletes each file no document or unfiled inbox item uses,
 // and its bytes when no tenant has the same hash.
+// releaseImages deletes the bytes of images whose rows are gone, such as
+// the pictures of a removed page, unless something still uses them.
+func releaseImages(ctx context.Context, d Deps, shas []string) error {
+	if len(shas) == 0 {
+		return nil
+	}
+	d.FileLock.Lock()
+	defer d.FileLock.Unlock()
+	return dropUnused(ctx, d, shas)
+}
+
 func releaseFiles(ctx context.Context, d Deps, tenantID string, files []domain.StoredFile) error {
 	d.FileLock.Lock()
 	defer d.FileLock.Unlock()

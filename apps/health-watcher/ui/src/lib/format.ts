@@ -1,4 +1,12 @@
-import type { DocumentKind, FindingKind, MetricCategory, ProviderKind, Role, VisitType } from './api/types';
+import type {
+  DocumentKind,
+  FindingKind,
+  MetricCategory,
+  PictureKind,
+  ProviderKind,
+  Role,
+  VisitType,
+} from './api/types';
 
 /** `2025-03-04` as `04/03/2025`; empty for empty or malformed input. */
 export function formatDate(iso: string | undefined | null): string {
@@ -55,6 +63,18 @@ export const documentKindLabels: Record<DocumentKind, string> = {
   record_book_page: 'Record book page',
   invoice: 'Invoice',
   other: 'Other',
+};
+
+export const pictureKindLabels: Record<PictureKind, string> = {
+  xray: 'X-ray',
+  ultrasound: 'Ultrasound',
+  endoscopy: 'Endoscopy',
+  ecg: 'ECG trace',
+  ct: 'CT',
+  mri: 'MRI',
+  photo: 'Photo',
+  diagram: 'Diagram',
+  other: 'Image',
 };
 
 export const providerKindLabels: Record<ProviderKind, string> = {

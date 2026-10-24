@@ -31,6 +31,9 @@ type Pipeline struct {
 	// Configure.
 	OCR    port.OCR
 	Masker port.ImageMasker
+	// Cropper cuts the pictures the reading found out of their pages
+	// (HW-READ-11); nil keeps no pictures.
+	Cropper port.PictureCropper
 	// Reader is nil when AI is not configured; items then stay OCR-only.
 	Reader  port.Reader
 	Catalog *domain.Catalog
@@ -694,7 +697,56 @@ func (p *Pipeline) runRead(ctx context.Context, job domain.Job) error {
 			titles[ip.page.ID] = domain.UntextedPageTitle
 		}
 	}
-	return p.storeReading(ctx, tenantID, item, rd, send, personID, res, titles, len(readable) > len(send))
+	pics, err := p.cutPictures(ctx, send, res.Output.CleanPictures(len(send)))
+	if err != nil {
+		return err
+	}
+	pageIDs := make([]string, len(pages))
+	for i, ip := range pages {
+		pageIDs[i] = ip.page.ID
+	}
+	return p.storeReading(ctx, tenantID, item, rd, send, personID, res, titles, len(readable) > len(send), pageIDs, pics)
+}
+
+// cutPicture is a picture cut out of its page, with its image bytes.
+type cutPicture struct {
+	picture domain.Picture
+	jpeg    []byte
+}
+
+// cutPictures cuts the pictures the reading found out of the unmasked page
+// images, which never leave the Mac (HW-READ-11, D5).
+func (p *Pipeline) cutPictures(ctx context.Context, sent []itemPage, found []domain.PictureInput) ([]cutPicture, error) {
+	if p.Cropper == nil {
+		return nil, nil
+	}
+	var out []cutPicture
+	images := map[string][]byte{}
+	positions := map[string]int{}
+	for _, in := range found {
+		pg := sent[in.Page-1].page
+		if !pg.HasImage {
+			continue
+		}
+		raw, ok := images[pg.ID]
+		if !ok {
+			var err error
+			if raw, err = p.readBytes(ctx, pg.ImageSHA); err != nil {
+				return nil, err
+			}
+			images[pg.ID] = raw
+		}
+		crop, err := p.Cropper.Crop(raw, in.Box)
+		if err != nil {
+			return nil, err
+		}
+		sum := sha256.Sum256(crop.JPEG)
+		pic := domain.Picture{ID: NewID(), PageID: pg.ID, Position: positions[pg.ID], Kind: in.Kind, Caption: in.Caption, Box: crop.Box,
+			Width: crop.Width, Height: crop.Height, ImageSHA: hex.EncodeToString(sum[:]), CreatedAt: p.Clock()}
+		positions[pg.ID]++
+		out = append(out, cutPicture{picture: pic, jpeg: crop.JPEG})
+	}
+	return out, nil
 }
 
 // titleRetries is how many times the AI is asked again for the pages it
@@ -826,7 +878,7 @@ func (p *Pipeline) runTitle(ctx context.Context, job domain.Job) error {
 // drafts, replacing any earlier drafts, unless the item was filed or
 // discarded while the provider was reading.
 func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domain.InboxItem, rd domain.Reading, sent []itemPage,
-	personID string, res port.ReadResult, titles map[string]string, truncated bool) error {
+	personID string, res port.ReadResult, titles map[string]string, truncated bool, pageIDs []string, cut []cutPicture) error {
 	today := p.today()
 	proposal := res.Output.Proposal(today)
 	proposal.PersonID = personID
@@ -845,7 +897,22 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 	obs, obsPages, obsConf := res.Output.CleanObservations(len(sent), today, catalog)
 	finds, findPages, findConf := res.Output.CleanFindings(len(sent), today, vaccines)
 	now := p.Clock()
-	return p.Store.InTx(ctx, func(r port.Repos) error {
+	// The pictures' bytes are written before their rows, under the file
+	// lock, so no release deletes them in between; when the item changed
+	// meanwhile, they go again.
+	p.FileLock.Lock()
+	defer p.FileLock.Unlock()
+	pics := make([]domain.Picture, len(cut))
+	added := make([]string, len(cut))
+	for i, c := range cut {
+		if err := p.Files.Put(ctx, c.picture.ImageSHA, c.jpeg); err != nil {
+			return errors.Join(err, dropUnused(ctx, p.Deps, added[:i]))
+		}
+		pics[i], added[i] = c.picture, c.picture.ImageSHA
+	}
+	var dropped []string
+	stored := false
+	err = p.Store.InTx(ctx, func(r port.Repos) error {
 		current, err := r.InboxItem(ctx, tenantID, item.ID)
 		if err != nil {
 			return ignoreGone(err)
@@ -886,13 +953,24 @@ func (p *Pipeline) storeReading(ctx context.Context, tenantID string, item domai
 				return err
 			}
 		}
+		if dropped, err = r.SetPagePictures(ctx, tenantID, pageIDs, pics); err != nil {
+			return err
+		}
 		rd.Status, rd.Model, rd.Proposal, rd.PagesSent, rd.Error, rd.UpdatedAt = domain.ReadingDone, res.Model, &proposal, len(sent), "", now
 		rd.Reason = ""
 		if truncated {
 			rd.Reason = fmt.Sprintf("Only the first %d pages were read.", domain.MaxReadPages)
 		}
-		return r.SaveReading(ctx, tenantID, rd)
+		if err := r.SaveReading(ctx, tenantID, rd); err != nil {
+			return err
+		}
+		stored = true
+		return nil
 	})
+	if !stored {
+		return errors.Join(err, dropUnused(ctx, p.Deps, added))
+	}
+	return dropUnused(ctx, p.Deps, dropped)
 }
 
 func sameFiles(a, b []domain.StoredFile) bool {

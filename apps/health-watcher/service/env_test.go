@@ -62,7 +62,7 @@ func newEnv(t *testing.T) *env {
 	e.tenants = &Tenants{Deps: deps, Accounts: e.accounts}
 	e.records = &Records{Deps: deps}
 	e.ocr, e.reader = &fakeOCR{}, &fakeReader{}
-	e.pipeline = &Pipeline{Deps: deps, OCR: e.ocr, Masker: imaging.Masker{Quality: 90}, Reader: e.reader,
+	e.pipeline = &Pipeline{Deps: deps, OCR: e.ocr, Masker: imaging.Masker{Quality: 90}, Cropper: imaging.Cropper{Quality: 90}, Reader: e.reader,
 		Catalog: domain.DefaultCatalog, WorkDir: filepath.Join(dir, "work"), Log: slog.New(slog.DiscardHandler)}
 	if err := os.MkdirAll(e.pipeline.WorkDir, 0o700); err != nil {
 		t.Fatal(err)

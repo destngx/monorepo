@@ -122,3 +122,7 @@ export function fileURL(tenantId: string, fileId: string, download = false): str
 export function pageImageURL(tenantId: string, pageId: string, masked = false): string {
   return buildPath(`/tenants/${tenantId}/pages/${pageId}/image`, { masked: masked ? 1 : undefined });
 }
+
+export function pictureImageURL(tenantId: string, pictureId: string): string {
+  return buildPath(`/tenants/${tenantId}/pictures/${pictureId}/image`);
+}

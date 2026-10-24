@@ -20,6 +20,7 @@
   import ObservationModal from '$lib/components/ObservationModal.svelte';
   import ObservationTable from '$lib/components/ObservationTable.svelte';
   import PageImage from '$lib/components/PageImage.svelte';
+  import PictureGallery from '$lib/components/PictureGallery.svelte';
   import ViewTabs from '$lib/components/ViewTabs.svelte';
   import { documentKindLabels, formatDate, options, todayISO, visitTypeLabels } from '$lib/format';
   import { pageHref, pageLookup, pageName } from '$lib/pages';
@@ -27,8 +28,9 @@
   import { session } from '$lib/state/session.svelte';
 
   // The document viewer (HW-FIND-3): a Results tab with the approved values
-  // and findings side by side, and a Pages tab with page images, zoom and
-  // their text; editing with history (HW-REC-6) and manual entry (HW-READ-7).
+  // and findings side by side, a Pages tab with page images, zoom and their
+  // text, and an Images tab with the pictures cut out of the pages
+  // (HW-READ-11); editing with history (HW-REC-6) and manual entry (HW-READ-7).
   let { data } = $props();
 
   const doc = $derived(data.detail.document);
@@ -48,7 +50,12 @@
   // Search results and metric values link here with ?page= to open that
   // page on the Pages tab.
   const focusPage = $derived(appPage.url.searchParams.get('page'));
-  const tab = $derived(appPage.url.searchParams.get('tab') === 'pages' || focusPage ? 'pages' : 'results');
+  const pictures = $derived(data.detail.pictures ?? []);
+  const tab = $derived.by(() => {
+    const asked = appPage.url.searchParams.get('tab');
+    if (asked === 'pages' || focusPage) return 'pages';
+    return asked === 'images' && pictures.length ? 'images' : 'results';
+  });
   const results = $derived(data.detail.observations.length + data.detail.findings.length);
   const filesWithoutPages = $derived(doc.files.filter((f) => !pages.some((p) => p.fileId === f.id)));
 
@@ -232,6 +239,16 @@
   tabs={[
     { key: 'results', label: `Results (${results})`, icon: 'activity', href: `${base}/documents/${doc.id}` },
     { key: 'pages', label: `Pages (${pages.length})`, icon: 'file', href: pageHref(base, doc.id) },
+    ...(pictures.length
+      ? [
+          {
+            key: 'images',
+            label: `Images (${pictures.length})`,
+            icon: 'image' as const,
+            href: `${base}/documents/${doc.id}?tab=images`,
+          },
+        ]
+      : []),
   ]}
 />
 
@@ -274,6 +291,12 @@
       {/if}
     </Card>
   </div>
+{:else if tab === 'images'}
+  <PictureGallery {pictures} {pageOf} pageHref={linkPage} />
+  <p class="muted mt-4 text-xs">
+    Images are cut out of the pages and kept for reference only. The app never reads them with AI; the written report is
+    the part to rely on.
+  </p>
 {:else}
   <div class="space-y-4">
     <div class="flex items-center gap-3">

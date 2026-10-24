@@ -383,6 +383,8 @@ type DocumentDetail struct {
 	Pages        []domain.Page        `json:"pages"`
 	Observations []domain.Observation `json:"observations"`
 	Findings     []domain.Finding     `json:"findings"`
+	// Pictures are the pictures cut out of the pages (HW-READ-11).
+	Pictures []domain.Picture `json:"pictures"`
 }
 
 // Document returns a filed document with its pages, observations and findings.
@@ -411,6 +413,9 @@ func (c *Clinical) Document(ctx context.Context, sc domain.Scope, id string) (Do
 	if d.Findings, err = c.Store.FindingsOfDocument(ctx, sc.TenantID, id); err != nil {
 		return DocumentDetail{}, err
 	}
+	if d.Pictures, err = c.Store.PicturesOf(ctx, sc.TenantID, pageIDs(d.Pages)); err != nil {
+		return DocumentDetail{}, err
+	}
 	return d, nil
 }
 
@@ -424,6 +429,7 @@ func (c *Clinical) RemoveDocumentPage(ctx context.Context, sc domain.Scope, docu
 		return DocumentDetail{}, err
 	}
 	var released []domain.StoredFile
+	var pictures []string
 	err := c.Store.InTx(ctx, func(r port.Repos) error {
 		doc, err := r.Document(ctx, sc.TenantID, documentID)
 		if err != nil {
@@ -457,6 +463,9 @@ func (c *Clinical) RemoveDocumentPage(ctx context.Context, sc domain.Scope, docu
 		if err := r.RemovePage(ctx, sc.TenantID, pageID, c.Clock()); err != nil {
 			return err
 		}
+		if pictures, err = r.SetPagePictures(ctx, sc.TenantID, []string{pageID}, nil); err != nil {
+			return err
+		}
 		if ofFile > 1 {
 			return nil
 		}
@@ -467,6 +476,9 @@ func (c *Clinical) RemoveDocumentPage(ctx context.Context, sc domain.Scope, docu
 		return DocumentDetail{}, err
 	}
 	if err := releaseFiles(ctx, c.Deps, sc.TenantID, released); err != nil {
+		return DocumentDetail{}, err
+	}
+	if err := releaseImages(ctx, c.Deps, pictures); err != nil {
 		return DocumentDetail{}, err
 	}
 	return c.Document(ctx, sc, documentID)
