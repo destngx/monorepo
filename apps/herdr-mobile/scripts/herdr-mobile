@@ -1,6 +1,7 @@
 #!/bin/zsh
-# launch-agent: builds herdr-mobile in the primary checkout, keeps it running
-# with launchd, and publishes it on the tailnet with `tailscale serve`.
+# herdr-mobile: runs the phone page in the foreground (serve), or builds it in
+# the primary checkout and keeps it running with launchd (install). Both publish
+# it on the tailnet with `tailscale serve`.
 # See docs/herdr-mobile/README.md.
 setopt err_exit no_unset pipe_fail
 
@@ -11,8 +12,9 @@ LABEL=com.destngx.monorepo.herdr-mobile
 PLIST=$HOME/Library/LaunchAgents/$LABEL.plist
 
 usage() {
-  print -r -- "Usage: launch-agent [install|uninstall|status]
+  print -r -- "Usage: herdr-mobile [serve|install|uninstall|status]
 
+  serve      build this checkout and run it in the foreground, on the tailnet until Ctrl+C
   install    build the engine and UI in the primary checkout, load the launchd agent,
              and serve it on the tailnet at https://<this mac>.ts.net:$HM_PORT/
   uninstall  stop serving on the tailnet, unload the agent and remove its plist
@@ -102,6 +104,29 @@ cmd_install() {
   print -r -- "herdr-mobile: open $url on the phone"
 }
 
+# Runs this checkout's build in the foreground. The tailnet address is
+# published only while it runs: `tailscale serve` without --bg removes it on exit.
+cmd_serve() {
+  local engine_pid tailscale_pid url
+  if curl -fsS -o /dev/null http://127.0.0.1:$HM_PORT/healthz 2> /dev/null; then
+    die "something already answers on 127.0.0.1:$HM_PORT (the launchd agent?). Run unload-agent, or set HM_PORT."
+  fi
+  print -r -- "herdr-mobile: building in $APP_DIR"
+  (cd $APP_DIR/ui && pnpm exec vite build > /dev/null) || die "UI build failed"
+  (cd $APP_DIR && go build -o dist/herdr-mobile .) || die "engine build failed"
+
+  (cd $APP_DIR && HM_ADDR=127.0.0.1:$HM_PORT exec ./dist/herdr-mobile) &
+  engine_pid=$!
+  tailscale serve --https=$HM_PORT http://127.0.0.1:$HM_PORT > /dev/null &
+  tailscale_pid=$!
+  trap 'kill $tailscale_pid $engine_pid 2> /dev/null; wait; print -r -- "herdr-mobile: stopped"' EXIT
+  trap 'exit 0' INT TERM
+
+  url=$(tailnet_url) || die "could not read this Mac's tailnet name"
+  print -r -- "herdr-mobile: open $url on the phone (Ctrl+C to stop)"
+  wait $engine_pid
+}
+
 cmd_uninstall() {
   tailscale serve --https=$HM_PORT off > /dev/null 2>&1 || true
   launchctl bootout gui/$UID/$LABEL 2> /dev/null || true
@@ -129,6 +154,7 @@ cmd_status() {
 }
 
 case ${1:-status} in
+  serve) cmd_serve ;;
   install) cmd_install ;;
   uninstall) cmd_uninstall ;;
   status) cmd_status ;;

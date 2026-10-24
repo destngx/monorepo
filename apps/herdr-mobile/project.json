@@ -24,6 +24,14 @@
       "inputs": ["default", "^default", "!{projectRoot}/ui/**/*"],
       "outputs": ["{projectRoot}/dist"]
     },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "./scripts/herdr-mobile serve",
+        "cwd": "apps/herdr-mobile"
+      },
+      "cache": false
+    },
     "start": {
       "executor": "nx:run-commands",
       "dependsOn": ["build-ui"],
@@ -92,7 +100,7 @@
     "load-agent": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "./scripts/launch-agent install",
+        "command": "./scripts/herdr-mobile install",
         "cwd": "apps/herdr-mobile"
       },
       "cache": false
@@ -100,7 +108,7 @@
     "unload-agent": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "./scripts/launch-agent uninstall",
+        "command": "./scripts/herdr-mobile uninstall",
         "cwd": "apps/herdr-mobile"
       },
       "cache": false
@@ -108,7 +116,7 @@
     "status": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "./scripts/launch-agent status",
+        "command": "./scripts/herdr-mobile status",
         "cwd": "apps/herdr-mobile"
       },
       "cache": false

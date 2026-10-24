@@ -6,17 +6,29 @@ The engine is one Go binary in `apps/herdr-mobile` that uses only the standard l
 
 ## 1. Use it
 
+Run it in a terminal while you need it:
+
+```sh
+pnpm exec nx run herdr-mobile:serve   # build, run, publish on the tailnet; Ctrl+C stops all of it
+```
+
+`serve` builds the engine and UI of the checkout you run it from, starts the engine on `127.0.0.1:9393`, and runs `tailscale serve --https=9393` in the foreground. It prints the address to open on the phone: `https://<this mac>.<tailnet>.ts.net:9393/`. Ctrl+C stops the engine and removes the tailnet address. It refuses to start when something already answers on the port, such as the launchd agent below.
+
+Or keep it running in the background, started at login:
+
 ```sh
 pnpm exec nx run herdr-mobile:load-agent    # build, start at login with launchd, publish on the tailnet
 pnpm exec nx run herdr-mobile:status        # agent state, engine health, tailnet URL, last log lines
 pnpm exec nx run herdr-mobile:unload-agent  # stop serving on the tailnet and remove the launchd agent
 ```
 
-`load-agent` builds the engine and the UI in the primary checkout (`~/projects/monorepo`), even when you run it from a worktree. Then it loads `~/Library/LaunchAgents/com.destngx.monorepo.herdr-mobile.plist`, which restarts the engine if it exits, and runs `tailscale serve --bg --https=9393 http://127.0.0.1:9393`. It prints the address to open on the phone: `https://<this mac>.<tailnet>.ts.net:9393/`. After pulling `main`, run `load-agent` again to rebuild and restart. The launchd log is in `tmp/herdr-mobile/launchd.log` in the primary checkout.
+`load-agent` builds the engine and the UI in the primary checkout (`~/projects/monorepo`), even when you run it from a worktree. Then it loads `~/Library/LaunchAgents/com.destngx.monorepo.herdr-mobile.plist`, which restarts the engine if it exits, and runs `tailscale serve --bg --https=9393 http://127.0.0.1:9393`, which stays until `unload-agent`. After pulling `main`, run `load-agent` again to rebuild and restart. The launchd log is in `tmp/herdr-mobile/launchd.log` in the primary checkout.
+
+All of these targets call `apps/herdr-mobile/scripts/herdr-mobile`. Set `HM_PORT` to use another port.
 
 On the iPhone, open the address in Safari with Tailscale connected, then choose Share → Add to Home Screen. The page then opens full screen like an app.
 
-For development, `nx run herdr-mobile:start` builds the UI and runs the engine. `nx run herdr-mobile:serve-ui` runs Vite on port 5176 and proxies `/api` to the engine (`HM_DEV_ENGINE` overrides `http://127.0.0.1:9393`).
+For UI work, `nx run herdr-mobile:serve-ui` runs Vite on port 5176 and proxies `/api` to a running engine (`HM_DEV_ENGINE` overrides `http://127.0.0.1:9393`). `nx run herdr-mobile:start` builds the UI and runs the engine with `go run`, without the tailnet.
 
 ## 2. The pages
 
