@@ -468,3 +468,41 @@ func TestGivenANameInAnotherOrderWhenMatchingPeopleThenItMatchesButAPartialNameD
 		t.Fatalf("a sibling sharing three words matched as %q", got)
 	}
 }
+
+func TestGivenAnAddressThatWrapsWhenMaskingThenItsNextLinesAreHiddenButNotTheNextField(t *testing.T) {
+	lines := []Line{
+		row("Số: VS0000000/2025/SKSK", 0.1, 0.05, 0.3),
+		row("6. Nơi ở hiện tại: Số 1 đường Mẫu, Phường Mẫu,", 0.27, 0.30, 0.6),
+		row("Quận 1, Thành phố Hồ Chí Minh, Việt Nam, Phường Mẫu,", 0.27, 0.32, 0.6),
+		row("phố Hồ Chí Minh", 0.27, 0.34, 0.3),
+		row("Số điện thoại liên hệ: 0000000000", 0.27, 0.36, 0.4),
+		row("Địa chỉ (Address): Số 1 đường Mẫu, Phường Mẫu,", 0.09, 0.50, 0.7),
+		row("Nam, Phường Mẫu, Quận 1, Thành phố Hồ Chí Minh", 0.09, 0.52, 0.7),
+		row("Giờ lấy mẫu (Time of sampling): 06/06/2025 11:00", 0.09, 0.54, 0.5),
+		row("7. Nghề nghiệp", 0.11, 0.60, 0.3),
+	}
+	in := readyInput(lines)
+	res := MaskPage(in)
+	got := maskedTexts(in, res)
+	want := []string{
+		"Số: VS0000000/2025/SKSK",
+		"6. Nơi ở hiện tại: Số 1 đường Mẫu, Phường Mẫu,",
+		"Quận 1, Thành phố Hồ Chí Minh, Việt Nam, Phường Mẫu,",
+		"phố Hồ Chí Minh",
+		"Số điện thoại liên hệ: 0000000000",
+		"Địa chỉ (Address): Số 1 đường Mẫu, Phường Mẫu,",
+		"Nam, Phường Mẫu, Quận 1, Thành phố Hồ Chí Minh",
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("masked = %q", got)
+	}
+}
+
+func TestGivenARecordHeaderWithTheNameWhenMaskingThenTheNameCountsAsFound(t *testing.T) {
+	in := readyInput([]Line{row("Hồ sơ: VS0000000 - NGUYỄN VĂN MẪU - 01/01/1985", 0.3, 0.05, 0.6), row("V. KẾT LUẬN", 0.4, 0.1, 0.2)})
+	in.People = []string{"Mẫu Nguyễn Văn"}
+	res := MaskPage(in)
+	if res.Status != MaskReady {
+		t.Fatalf("status = %s %v", res.Status, res.Reasons)
+	}
+}

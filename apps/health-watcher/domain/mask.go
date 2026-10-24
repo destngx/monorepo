@@ -13,7 +13,7 @@ const MaskPlaceholder = "[ẩn]"
 
 // MaskRulesVersion goes up when the masking rules change, so pages masked
 // with older rules are masked again.
-const MaskRulesVersion = 5
+const MaskRulesVersion = 6
 
 // personalLabel is a label printed before personal data on Vietnamese and
 // English medical papers. Labels that also occur in ordinary sentences
@@ -29,6 +29,9 @@ type personalLabel struct {
 	// signature marks a sign-here prompt such as `(Ký và ghi rõ họ tên)`:
 	// the name is written below it, past the space left for the signature.
 	signature bool
+	// address marks an address label: a long address wraps onto the lines
+	// below it.
+	address bool
 }
 
 var personalLabels = func() []personalLabel {
@@ -48,7 +51,9 @@ var personalLabels = func() []personalLabel {
 		{"ma ho so", l{}}, {"so ho so", l{}}, {"ho so", l{needColon: true}}, {"so luu tru", l{}}, {"so vao vien", l{}}, {"ma vao vien", l{}},
 		{"patient id", l{}}, {"pid", l{needColon: true}}, {"bhyt", l{}}, {"so the", l{}}, {"the bhyt", l{}},
 		{"cccd", l{}}, {"cmnd", l{}}, {"can cuoc", l{}}, {"ho chieu", l{}}, {"passport", l{}},
-		{"dia chi", l{}}, {"address", l{}}, {"dien thoai", l{}}, {"so dien thoai", l{}}, {"sdt", l{}},
+		{"dia chi", l{address: true}}, {"address", l{address: true}}, {"noi o", l{needColon: true, address: true}},
+		{"noi o hien tai", l{address: true}}, {"cho o", l{needColon: true, address: true}}, {"thuong tru", l{address: true}},
+		{"tam tru", l{address: true}}, {"so", l{needColon: true}}, {"dien thoai", l{}}, {"so dien thoai", l{}}, {"sdt", l{}},
 		{"dt", l{needColon: true}}, {"phone", l{}}, {"mobile", l{}}, {"email", l{}},
 		{"ten dang nhap", l{}}, {"mat khau", l{}}, {"username", l{}}, {"password", l{}},
 		{"bac si", l{needColon: true}}, {"bs", l{needColon: true, allowDot: true}},
@@ -258,6 +263,9 @@ outer:
 func personalLine(line string, names [][]string) (labelMatch, bool, bool) {
 	m, labeled := findLabel(line)
 	if labeled {
+		// A record header such as `Hồ sơ: … - NAME - …` is a label line
+		// that also shows the patient's name.
+		m.label.name = m.label.name || hasName(line, names, true)
 		return m, true, true
 	}
 	if hasName(line, names, true) {
@@ -322,6 +330,11 @@ func MaskPage(in MaskInput) MaskResult {
 		nameFound = nameFound || m.label.name
 		if labeled && m.empty {
 			if j := valueLine(in.Lines, i); j >= 0 {
+				res.Masked[j] = true
+			}
+		}
+		if labeled && m.label.address {
+			for _, j := range addressLines(in.Lines, i) {
 				res.Masked[j] = true
 			}
 		}
@@ -425,6 +438,34 @@ func valueLine(lines []Line, i int) int {
 	}
 	return below
 }
+
+// addressLines finds the lines an address wraps onto: up to two lines
+// right below the label line that start where it starts. A line with a
+// colon or a numbered item is the next field, such as `Giờ lấy mẫu: …`.
+func addressLines(lines []Line, i int) []int {
+	lx0, ly0, _, ly1 := lines[i].Quad.Bounds()
+	lh := ly1 - ly0
+	var out []int
+	for len(out) < 2 {
+		next, best := -1, math.Inf(1)
+		for j, l := range lines {
+			x0, y0, _, _ := l.Quad.Bounds()
+			if j != i && y0 >= ly1-0.2*lh && y0-ly1 <= 1.5*lh && math.Abs(x0-lx0) < 0.05 && y0-ly1 < best {
+				next, best = j, y0-ly1
+			}
+		}
+		if next < 0 || strings.Contains(lines[next].Text, ":") || numberedItem.MatchString(lines[next].Text) {
+			break
+		}
+		out = append(out, next)
+		_, ly0, _, ly1 = lines[next].Quad.Bounds()
+		lh = ly1 - ly0
+	}
+	return out
+}
+
+// numberedItem is the start of a numbered form field, such as `7. Nghề nghiệp`.
+var numberedItem = regexp.MustCompile(`^\s*\d+\s*[.)]\s`)
 
 // signedName finds the lines under a sign-here prompt that may hold the
 // signer's name: every line in its column that starts within eight line
