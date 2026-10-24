@@ -33,7 +33,7 @@ For UI work, `nx run herdr-glance:serve-ui` runs Vite on port 5176 and proxies `
 ## 2. The pages
 
 - **Agents** lists agents grouped by state: Needs you (herdr's `blocked`), Working, Done, Idle, Unknown. A line at the top counts them, and the tab title shows how many need you. A dot says whether the page is getting live updates.
-- **One agent** shows its recent output, about one terminal screen, newest at the bottom. herdr cannot read further back while an agent works, because that means scrolling the agent's screen. It reloads every 2 seconds while the agent works or waits for you, every 8 seconds otherwise, and at once when its state changes. The keys `1`, `2`, `3`, Enter, Esc, ↑, ↓, Tab and Shift+Tab answer menus such as Claude Code's permission question. The text box sends a message. herdr refuses a message while the agent waits for an answer, so the page asks you to use the keys first.
+- **One agent** shows its recent output, about one terminal screen, newest at the bottom (section 3 explains the limit). It reloads every 2 seconds while the agent works or waits for you, every 8 seconds otherwise, and at once when its state changes. The keys `1`, `2`, `3`, Enter, Esc, ↑, ↓, Tab and Shift+Tab answer menus such as Claude Code's permission question. The text box sends a message. herdr refuses a message while the agent waits for an answer, so the page asks you to use the keys first.
 
 herdr's `recent_unwrapped` read gives each terminal line unwrapped, with its ANSI colour codes. The page turns the codes into coloured text (`lib/ansi.ts`), then sorts Claude Code's screen into blocks (`lib/screen.ts`):
 
@@ -43,11 +43,25 @@ herdr's `recent_unwrapped` read gives each terminal line unwrapped, with its ANS
 
 The output panel stays dark in both themes, because terminal agents pick their colours for a dark terminal. The page drops the side panel Claude Code draws on the right (a scrollbar, a close mark and a menu on one background colour, past column 40), shortens full-width rules to 16 characters, and wraps everything to the phone's width, so nothing scrolls sideways. Claude Code shortens long messages on its own screen, so a long message of yours ends in "…" on the phone too.
 
-## 3. Load on the laptop
+## 3. How much output herdr can read
+
+The page reads one screen: herdr's `agent.read` with no line count, about 49 lines on a 49-row terminal. That is enough on a phone, and it works in every agent state.
+
+A longer read is possible only while the agent is idle. herdr collects Claude Code's history by scrolling its alternate screen, so it refuses a line count while the agent works (`agent_not_idle`). Measured on 2026-10-24 with herdr 0.9.5:
+
+| Lines asked (idle agent) | Lines returned                    | Time      |
+| ------------------------ | --------------------------------- | --------- |
+| 100 to 300               | as asked, or less on a short chat | under 1 s |
+| 500                      | 500                               | about 1 s |
+| 1,000 and more           | at most 1,000, marked `truncated` | about 2 s |
+
+Long reads were not reliable: one agent returned 49 lines for 1,000, and another sometimes returned 49 for 100. For the whole conversation, Claude Code's own session log is the better source. herdr reports each agent's session id (`agent_session`), which locates it.
+
+## 4. Load on the laptop
 
 While no page is open, the engine does nothing. While a page is open, the engine asks herdr for the agent list every 2 seconds and sends it to the phone only when it changed. The agent page reads that agent's output on the timers above. The page closes its stream when the phone locks or switches apps, so the polling stops with it.
 
-## 4. API
+## 5. API
 
 | Method and path                  | Body               | Reply                                                        |
 | -------------------------------- | ------------------ | ------------------------------------------------------------ |
@@ -62,7 +76,7 @@ Errors are `{error, code}`. `HERDR_UNREACHABLE` (503) means herdr is not running
 
 Every herdr call is in `herdr/client.go`. A herdr release that changes the socket API should only need changes there.
 
-## 5. Security
+## 6. Security
 
 Anyone who can reach the page can type into your agents, so the engine checks every request:
 
@@ -73,7 +87,7 @@ Anyone who can reach the page can type into your agents, so the engine checks ev
 
 Every device on your tailnet can open the page. To limit it to the phone, add a Tailscale access rule for port 9393.
 
-## 6. Settings
+## 7. Settings
 
 | Variable                     | Default                      | Meaning                                              |
 | ---------------------------- | ---------------------------- | ---------------------------------------------------- |
