@@ -1,34 +1,34 @@
-# herdr-watcher
+# herdr-glance
 
 A phone page for the coding agents running in [herdr](https://herdr.dev) on the laptop. It lists every agent with its state, shows an agent's recent output, and lets you answer it with keys or a message. It is built for an iPhone 12 Pro (390 × 844 points, notch and home bar) and can be added to the home screen.
 
-The engine is one Go binary in `apps/herdr-watcher` that uses only the standard library. It talks to herdr's socket at `~/.config/herdr/herdr.sock` and serves the built SvelteKit UI at `/ui`. It listens on `127.0.0.1:9393` and on this Mac's Tailscale IP, so your own tailnet devices can reach it and the local network and the internet cannot.
+The engine is one Go binary in `apps/herdr-glance` that uses only the standard library. It talks to herdr's socket at `~/.config/herdr/herdr.sock` and serves the built SvelteKit UI at `/ui`. It listens on `127.0.0.1:9393` and on this Mac's Tailscale IP, so your own tailnet devices can reach it and the local network and the internet cannot.
 
 ## 1. Use it
 
 Run it in a terminal while you need it:
 
 ```sh
-pnpm exec nx serve herdr-watcher   # build the UI and engine, run until Ctrl+C
+pnpm exec nx serve herdr-glance   # build the UI and engine, run until Ctrl+C
 ```
 
-`serve` builds the engine and UI of the checkout you run it from and starts the engine on `127.0.0.1:9393` and the Tailscale IP from `tailscale ip -4`. It prints the address to open on the phone, such as `http://100.x.y.z:9393/`. It stops if Tailscale is not connected, and refuses to start when something already answers on the port, such as the launchd agent below. macOS may ask once whether `herdr-watcher` may accept incoming connections; allow it.
+`serve` builds the engine and UI of the checkout you run it from and starts the engine on `127.0.0.1:9393` and the Tailscale IP from `tailscale ip -4`. It prints the address to open on the phone, such as `http://100.x.y.z:9393/`. It stops if Tailscale is not connected, and refuses to start when something already answers on the port, such as the launchd agent below. macOS may ask once whether `herdr-glance` may accept incoming connections; allow it.
 
 Or keep it running in the background, started at login:
 
 ```sh
-pnpm exec nx run herdr-watcher:load-agent    # build, start at login with launchd
-pnpm exec nx run herdr-watcher:status        # agent state, engine health, phone address, last log lines
-pnpm exec nx run herdr-watcher:unload-agent  # stop it and remove the launchd agent
+pnpm exec nx run herdr-glance:load-agent    # build, start at login with launchd
+pnpm exec nx run herdr-glance:status        # agent state, engine health, phone address, last log lines
+pnpm exec nx run herdr-glance:unload-agent  # stop it and remove the launchd agent
 ```
 
-`load-agent` builds the engine and the UI in the primary checkout (`~/projects/monorepo`), even when you run it from a worktree. Then it loads `~/Library/LaunchAgents/com.destngx.monorepo.herdr-watcher.plist`, which listens on the same two addresses and restarts the engine if it exits. If the Mac starts before Tailscale connects, launchd retries every 10 seconds until the address exists. After pulling `main`, run `load-agent` again to rebuild and restart. The launchd log is in `tmp/herdr-watcher/launchd.log` in the primary checkout.
+`load-agent` builds the engine and the UI in the primary checkout (`~/projects/monorepo`), even when you run it from a worktree. Then it loads `~/Library/LaunchAgents/com.destngx.monorepo.herdr-glance.plist`, which listens on the same two addresses and restarts the engine if it exits. If the Mac starts before Tailscale connects, launchd retries every 10 seconds until the address exists. After pulling `main`, run `load-agent` again to rebuild and restart. The launchd log is in `tmp/herdr-glance/launchd.log` in the primary checkout.
 
-All of these targets call `apps/herdr-watcher/scripts/herdr-watcher`. Set `HERDR_WATCHER_PORT` to use another port.
+All of these targets call `apps/herdr-glance/scripts/herdr-glance`. Set `HERDR_GLANCE_PORT` to use another port.
 
 On the iPhone, open the address in Safari with Tailscale connected, then choose Share → Add to Home Screen. The page then opens full screen like an app.
 
-For UI work, `nx run herdr-watcher:serve-ui` runs Vite on port 5176 and proxies `/api` to a running engine (`HERDR_WATCHER_DEV_ENGINE` overrides `http://127.0.0.1:9393`). `nx run herdr-watcher:start` builds the UI and runs the engine with `go run` on `127.0.0.1` only.
+For UI work, `nx run herdr-glance:serve-ui` runs Vite on port 5176 and proxies `/api` to a running engine (`HERDR_GLANCE_DEV_ENGINE` overrides `http://127.0.0.1:9393`). `nx run herdr-glance:start` builds the UI and runs the engine with `go run` on `127.0.0.1` only.
 
 ## 2. The pages
 
@@ -61,7 +61,7 @@ Every herdr call is in `herdr/client.go`. A herdr release that changes the socke
 Anyone who can reach the page can type into your agents, so the engine checks every request:
 
 - It listens on `127.0.0.1` and the Tailscale IP only, never `0.0.0.0`. A device on the same Wi-Fi cannot connect. Traffic to the Tailscale IP travels inside Tailscale's WireGuard tunnel, so it is encrypted even though the page is plain `http://`.
-- It answers only to `localhost`, IP addresses and `*.ts.net` host names, plus any in `HERDR_WATCHER_ALLOWED_HOSTS`. That stops DNS rebinding, which needs a host name.
+- It answers only to `localhost`, IP addresses and `*.ts.net` host names, plus any in `HERDR_GLANCE_ALLOWED_HOSTS`. That stops DNS rebinding, which needs a host name.
 - A `POST` must come from the page itself. The engine checks `Origin` against the host, refuses `Sec-Fetch-Site` other than `same-origin`, and accepts only JSON bodies. Another site open in a browser on the laptop cannot post a prompt.
 - Keys are limited to the list above. `ctrl+c` and other control keys are refused. A message is at most 8,000 characters.
 
@@ -69,11 +69,11 @@ Every device on your tailnet can open the page. To limit it to the phone, add a 
 
 ## 6. Settings
 
-| Variable                      | Default                      | Meaning                                              |
-| ----------------------------- | ---------------------------- | ---------------------------------------------------- |
-| `HERDR_WATCHER_ADDR`          | `127.0.0.1:9393`             | Listen addresses, comma separated                    |
-| `HERDR_WATCHER_UI_DIR`        | `ui/build`                   | Built UI folder                                      |
-| `HERDR_WATCHER_ALLOWED_HOSTS` |                              | Extra host names, comma separated                    |
-| `HERDR_SOCKET_PATH`           | `~/.config/herdr/herdr.sock` | herdr's socket                                       |
-| `HERDR_SESSION`               |                              | A named herdr session, used if no socket path is set |
-| `HERDR_WATCHER_PORT`          | `9393`                       | `serve` and `load-agent`: port on both addresses     |
+| Variable                     | Default                      | Meaning                                              |
+| ---------------------------- | ---------------------------- | ---------------------------------------------------- |
+| `HERDR_GLANCE_ADDR`          | `127.0.0.1:9393`             | Listen addresses, comma separated                    |
+| `HERDR_GLANCE_UI_DIR`        | `ui/build`                   | Built UI folder                                      |
+| `HERDR_GLANCE_ALLOWED_HOSTS` |                              | Extra host names, comma separated                    |
+| `HERDR_SOCKET_PATH`          | `~/.config/herdr/herdr.sock` | herdr's socket                                       |
+| `HERDR_SESSION`              |                              | A named herdr session, used if no socket path is set |
+| `HERDR_GLANCE_PORT`          | `9393`                       | `serve` and `load-agent`: port on both addresses     |

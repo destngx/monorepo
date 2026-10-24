@@ -3,7 +3,7 @@
 /* The shared theme (docs/ui/README.md): tokens, base styles and utilities. */
 @import '../../../../../libs/ui-kit/src/theme.css';
 
-/* herdr-watcher's accent: a quiet sea green. */
+/* herdr-glance's accent: a quiet sea green. */
 @theme {
   --color-accent-50: #eef5f4;
   --color-accent-100: #d9eae8;

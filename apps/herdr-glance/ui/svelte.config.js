@@ -14,7 +14,7 @@ const config = {
     },
   },
   kit: {
-    // Built as an SPA and served by the Go engine (see apps/herdr-watcher/web/server.go).
+    // Built as an SPA and served by the Go engine (see apps/herdr-glance/web/server.go).
     adapter: adapter({ fallback: 'index.html' }),
     paths: { base: '/ui' },
     alias: { '@libs/ui-kit': '../../../libs/ui-kit/src/index.ts' },

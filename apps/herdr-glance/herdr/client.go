@@ -164,7 +164,7 @@ func (c *Client) call(ctx context.Context, method string, params, out any) error
 		}
 	}
 
-	id := "herdr-watcher-" + strconv.FormatUint(c.seq.Add(1), 10)
+	id := "herdr-glance-" + strconv.FormatUint(c.seq.Add(1), 10)
 	line, err := json.Marshal(struct {
 		ID     string `json:"id"`
 		Method string `json:"method"`

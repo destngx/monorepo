@@ -4,7 +4,7 @@
 
 - [UI style guide](./ui/README.md): look, tokens, components and copy rules for every web UI
 - [Dev CPU watch](./dev-cpu-watch/README.md): macOS notification when a repo process keeps the CPU busy
-- [herdr-watcher](./herdr-watcher/README.md): phone page to watch and answer the agents running in herdr
+- [herdr-glance](./herdr-glance/README.md): phone page to watch and answer the agents running in herdr
 
 ## Applications
 

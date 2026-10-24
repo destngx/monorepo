@@ -1,6 +1,6 @@
-// Command herdr-watcher serves a phone-sized view of the agents running in
+// Command herdr-glance serves a phone-sized view of the agents running in
 // herdr on this laptop: their states, their recent output, and a way to answer
-// them (docs/herdr-watcher/README.md).
+// them (docs/herdr-glance/README.md).
 package main
 
 import (
@@ -17,8 +17,8 @@ import (
 	"syscall"
 	"time"
 
-	"apps/herdr-watcher/herdr"
-	"apps/herdr-watcher/web"
+	"apps/herdr-glance/herdr"
+	"apps/herdr-glance/web"
 )
 
 const defaultAddr = "127.0.0.1:9393"
@@ -26,7 +26,7 @@ const defaultAddr = "127.0.0.1:9393"
 func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := run(log); err != nil {
-		log.Error("herdr-watcher stopped", "error", err)
+		log.Error("herdr-glance stopped", "error", err)
 		os.Exit(1)
 	}
 }
@@ -36,10 +36,10 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	addrs := splitList(envOr("HERDR_WATCHER_ADDR", defaultAddr))
-	uiDir := envOr("HERDR_WATCHER_UI_DIR", "ui/build")
+	addrs := splitList(envOr("HERDR_GLANCE_ADDR", defaultAddr))
+	uiDir := envOr("HERDR_GLANCE_UI_DIR", "ui/build")
 	if _, err := os.Stat(filepath.Join(uiDir, "index.html")); err != nil {
-		log.Warn("no built UI; serving the API only (run nx run herdr-watcher:build-ui)", "dir", uiDir)
+		log.Warn("no built UI; serving the API only (run nx run herdr-glance:build-ui)", "dir", uiDir)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -50,7 +50,7 @@ func run(log *slog.Logger) error {
 			Herdr:        herdr.New(socket),
 			UIDir:        uiDir,
 			Log:          log,
-			AllowedHosts: splitList(os.Getenv("HERDR_WATCHER_ALLOWED_HOSTS")),
+			AllowedHosts: splitList(os.Getenv("HERDR_GLANCE_ALLOWED_HOSTS")),
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		// No WriteTimeout: the event stream stays open while the page is.
@@ -68,7 +68,7 @@ func run(log *slog.Logger) error {
 			return fmt.Errorf("listen on %s: %w", addr, err)
 		}
 		listeners = append(listeners, ln)
-		log.Info("herdr-watcher listening", "url", "http://"+ln.Addr().String()+"/ui/", "herdr", socket)
+		log.Info("herdr-glance listening", "url", "http://"+ln.Addr().String()+"/ui/", "herdr", socket)
 	}
 
 	errs := make(chan error, len(listeners))

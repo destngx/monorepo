@@ -1,29 +1,29 @@
 #!/bin/zsh
-# herdr-watcher: runs the phone page in the foreground (serve), or builds it in
+# herdr-glance: runs the phone page in the foreground (serve), or builds it in
 # the primary checkout and keeps it running with launchd (install). Both listen
 # on 127.0.0.1 and this Mac's Tailscale IP, never on the local network.
-# See docs/herdr-watcher/README.md.
+# See docs/herdr-glance/README.md.
 setopt err_exit no_unset pipe_fail
 
-: ${HERDR_WATCHER_PORT:=9393}  # the port on 127.0.0.1 and on the Tailscale IP
+: ${HERDR_GLANCE_PORT:=9393}  # the port on 127.0.0.1 and on the Tailscale IP
 
 APP_DIR=${0:A:h:h}
-LABEL=com.destngx.monorepo.herdr-watcher
+LABEL=com.destngx.monorepo.herdr-glance
 PLIST=$HOME/Library/LaunchAgents/$LABEL.plist
 
 usage() {
-  print -r -- "Usage: herdr-watcher [serve|install|uninstall|status]
+  print -r -- "Usage: herdr-glance [serve|install|uninstall|status]
 
   serve      build this checkout and run it in the foreground until Ctrl+C
   install    build the engine and UI in the primary checkout and load the launchd agent
   uninstall  unload the launchd agent and remove its plist
   status     show the agent, the phone address and the last log lines
 
-Both serve and install listen on 127.0.0.1 and this Mac's Tailscale IP, port $HERDR_WATCHER_PORT."
+Both serve and install listen on 127.0.0.1 and this Mac's Tailscale IP, port $HERDR_GLANCE_PORT."
 }
 
 die() {
-  print -u2 -r -- "herdr-watcher: $1"
+  print -u2 -r -- "herdr-glance: $1"
   exit 1
 }
 
@@ -34,7 +34,7 @@ primary_root() {
   print -r -- ${common:h}
 }
 
-logs_dir() { print -r -- $(primary_root)/tmp/herdr-watcher }
+logs_dir() { print -r -- $(primary_root)/tmp/herdr-glance }
 
 # This Mac's Tailscale IPv4 address, stable for as long as the Mac stays in the tailnet.
 tailscale_ip() {
@@ -45,9 +45,9 @@ tailscale_ip() {
 }
 
 # Every address the engine listens on, comma separated.
-listen_addrs() { print -r -- "127.0.0.1:$HERDR_WATCHER_PORT,$1:$HERDR_WATCHER_PORT" }
+listen_addrs() { print -r -- "127.0.0.1:$HERDR_GLANCE_PORT,$1:$HERDR_GLANCE_PORT" }
 
-phone_url() { print -r -- "http://$1:$HERDR_WATCHER_PORT/" }
+phone_url() { print -r -- "http://$1:$HERDR_GLANCE_PORT/" }
 
 plist_content() {
   local app=$1 logs=$2 addrs=$3
@@ -60,13 +60,13 @@ plist_content() {
   <string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$app/dist/herdr-watcher</string>
+    <string>$app/dist/herdr-glance</string>
   </array>
   <key>WorkingDirectory</key>
   <string>$app</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>HERDR_WATCHER_ADDR</key>
+    <key>HERDR_GLANCE_ADDR</key>
     <string>$addrs</string>
   </dict>
   <key>RunAtLoad</key>
@@ -89,13 +89,13 @@ PLIST
 cmd_install() {
   local primary app logs ip
   primary=$(primary_root)
-  app=$primary/apps/herdr-watcher
+  app=$primary/apps/herdr-glance
   [[ -f $app/main.go ]] ||
-    die "$app not found. Merge herdr-watcher to main and pull the primary checkout first."
+    die "$app not found. Merge herdr-glance to main and pull the primary checkout first."
   ip=$(tailscale_ip)
-  print -r -- "herdr-watcher: building in $app"
-  (cd $primary && pnpm exec nx run herdr-watcher:build-ui --skip-nx-cache) || die "UI build failed"
-  (cd $app && go build -o dist/herdr-watcher .) || die "engine build failed"
+  print -r -- "herdr-glance: building in $app"
+  (cd $primary && pnpm exec nx run herdr-glance:build-ui --skip-nx-cache) || die "UI build failed"
+  (cd $app && go build -o dist/herdr-glance .) || die "engine build failed"
 
   logs=$(logs_dir)
   mkdir -p $logs ${PLIST:h}
@@ -103,40 +103,40 @@ cmd_install() {
   plutil -lint $PLIST > /dev/null || die "generated an invalid plist at $PLIST"
   launchctl bootout gui/$UID/$LABEL 2> /dev/null || true
   launchctl bootstrap gui/$UID $PLIST
-  print -r -- "herdr-watcher: loaded $LABEL; open $(phone_url $ip) on the phone"
+  print -r -- "herdr-glance: loaded $LABEL; open $(phone_url $ip) on the phone"
 }
 
 # Runs this checkout's build in the foreground until Ctrl+C.
 cmd_serve() {
   local ip
-  if curl -fsS -o /dev/null http://127.0.0.1:$HERDR_WATCHER_PORT/healthz 2> /dev/null; then
-    die "something already answers on 127.0.0.1:$HERDR_WATCHER_PORT (the launchd agent?). Run unload-agent, or set HERDR_WATCHER_PORT."
+  if curl -fsS -o /dev/null http://127.0.0.1:$HERDR_GLANCE_PORT/healthz 2> /dev/null; then
+    die "something already answers on 127.0.0.1:$HERDR_GLANCE_PORT (the launchd agent?). Run unload-agent, or set HERDR_GLANCE_PORT."
   fi
   ip=$(tailscale_ip)
-  print -r -- "herdr-watcher: building in $APP_DIR"
+  print -r -- "herdr-glance: building in $APP_DIR"
   (cd $APP_DIR/ui && pnpm exec vite build > /dev/null) || die "UI build failed"
-  (cd $APP_DIR && go build -o dist/herdr-watcher .) || die "engine build failed"
-  print -r -- "herdr-watcher: open $(phone_url $ip) on the phone (Ctrl+C to stop)"
+  (cd $APP_DIR && go build -o dist/herdr-glance .) || die "engine build failed"
+  print -r -- "herdr-glance: open $(phone_url $ip) on the phone (Ctrl+C to stop)"
   cd $APP_DIR
-  HERDR_WATCHER_ADDR=$(listen_addrs $ip) exec ./dist/herdr-watcher
+  HERDR_GLANCE_ADDR=$(listen_addrs $ip) exec ./dist/herdr-glance
 }
 
 cmd_uninstall() {
   launchctl bootout gui/$UID/$LABEL 2> /dev/null || true
   rm -f $PLIST
-  print -r -- "herdr-watcher: unloaded $LABEL and removed $PLIST"
+  print -r -- "herdr-glance: unloaded $LABEL and removed $PLIST"
 }
 
 cmd_status() {
   if launchctl print gui/$UID/$LABEL > /dev/null 2>&1; then
     print -r -- "launchd agent: loaded ($PLIST)"
   else
-    print -r -- "launchd agent: not loaded (run: nx run herdr-watcher:load-agent)"
+    print -r -- "launchd agent: not loaded (run: nx run herdr-glance:load-agent)"
   fi
-  if curl -fsS -o /dev/null http://127.0.0.1:$HERDR_WATCHER_PORT/healthz 2> /dev/null; then
-    print -r -- "engine: answering on 127.0.0.1:$HERDR_WATCHER_PORT"
+  if curl -fsS -o /dev/null http://127.0.0.1:$HERDR_GLANCE_PORT/healthz 2> /dev/null; then
+    print -r -- "engine: answering on 127.0.0.1:$HERDR_GLANCE_PORT"
   else
-    print -r -- "engine: not answering on 127.0.0.1:$HERDR_WATCHER_PORT"
+    print -r -- "engine: not answering on 127.0.0.1:$HERDR_GLANCE_PORT"
   fi
   local ip
   ip=$(tailscale ip -4 2> /dev/null | head -1) || true

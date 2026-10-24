@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"apps/herdr-watcher/herdr"
+	"apps/herdr-glance/herdr"
 )
 
 // fakeHerdr records what the server asked for and answers from its fields.

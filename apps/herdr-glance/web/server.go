@@ -19,7 +19,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"apps/herdr-watcher/herdr"
+	"apps/herdr-glance/herdr"
 )
 
 // Herdr is what the server needs from herdr; *herdr.Client implements it.
