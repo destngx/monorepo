@@ -53,6 +53,7 @@ The dev team must implement and maintain a registry of the following tool capabi
 - **Streaming Implementation**: NDJSON streaming for real-time responsiveness.
 - **Model Fallback**:
   - The engine calls one OpenAI-compatible provider with a model per use case (`AI_MODEL`, `AI_MODEL_*`) and retries once with `AI_FALLBACK_MODEL` ([REQUIREMENTS.md §10.1](../../REQUIREMENTS.md#101-architecture-decided)).
+- **Effort and order** (WM-AI-16): each feature sets its reasoning effort and queue priority in `service/ai/schedule.go`. At most 4 model calls run at once, and identical cached requests share one call.
 - **Tool Concurrency**: Parallelize tool execution whenever multiple sources are required (e.g., Accounts + Market Data).
 
 ---

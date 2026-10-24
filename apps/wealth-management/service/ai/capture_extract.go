@@ -100,6 +100,7 @@ func (s *Service) extract(ctx context.Context, material domain.CaptureMaterial, 
 	var extraction domain.CaptureExtraction
 	_, err := s.complete(ctx, call{
 		feature:  "capture-extract",
+		class:    classCapture,
 		useCase:  domain.AIUseCaseVision,
 		model:    model,
 		prompts:  promptKeys,

@@ -21,7 +21,12 @@ export class AITask<T> {
     this.#load = load;
   }
 
-  async run(force = false): Promise<void> {
+  /**
+   * `after` holds the request back until the page's own data has settled, so
+   * the page reads first and the AI request finds that data cached
+   * (WM-AI-16). The card shows as loading meanwhile.
+   */
+  async run(force = false, { after }: { after?: Promise<unknown> } = {}): Promise<void> {
     this.#controller?.abort();
     const controller = new AbortController();
     this.#controller = controller;
@@ -29,6 +34,9 @@ export class AITask<T> {
     this.error = '';
     this.hint = '';
     try {
+      // Only the order matters here: a page section shows its own failure.
+      if (after) await Promise.allSettled([after]);
+      if (controller.signal.aborted) return;
       const value = await this.#load(force, controller.signal);
       if (controller.signal.aborted) return;
       this.value = value;

@@ -138,7 +138,7 @@
 </Deferred>
 
 <!-- WM-BUD-5, WM-BUD-11: the advisor is the page's one AI section, with the actions it is tracking. -->
-<BudgetAdvisor class="mt-4" />
+<BudgetAdvisor class="mt-4" after={Promise.all([data.report, data.transactions, data.categories])} />
 
 <BudgetWall month={data.month} />
 

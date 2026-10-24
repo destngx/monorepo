@@ -74,6 +74,7 @@ func (s *Service) Briefing(ctx context.Context, force bool, model string) (domai
 	}
 	request, err := s.withPrevious(ctx, structuredRequest{
 		feature:   "intelligence-briefing",
+		class:     classPage,
 		taskKey:   "tasks/intelligence-briefing",
 		taskVars:  vars,
 		actionKey: "actions/intelligence-briefing",
@@ -133,6 +134,7 @@ func (s *Service) BudgetAdvice(ctx context.Context, force bool, model string) (d
 	}
 	request, err := s.withPrevious(ctx, structuredRequest{
 		feature:   "budget-advisor",
+		class:     classPage,
 		taskKey:   keyAdvisorTask,
 		taskVars:  vars,
 		actionKey: "actions/budget-advisor",

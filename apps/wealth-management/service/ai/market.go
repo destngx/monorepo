@@ -96,10 +96,11 @@ func (s *Service) NewsSentiment(ctx context.Context, request port.NewsRequest) (
 		{Role: domain.AIRoleUser, Content: articles.String() + "\n" + newsFormatInstruction},
 	}
 	model := s.models(domain.AIUseCaseInsight, request.Model)[0]
-	return cached(ctx, s, "news-sentiment", request.Force, []any{model, messages}, func() (domain.NewsReport, error) {
+	return cached(ctx, s, "news-sentiment", request.Force, []any{model, messages}, func(ctx context.Context) (domain.NewsReport, error) {
 		report := domain.NewsReport{Topic: topic, Query: query, Provider: found.Provider, Fallback: found.Fallback}
 		_, err := s.complete(ctx, call{
 			feature:  "news-sentiment",
+			class:    classExplain,
 			useCase:  domain.AIUseCaseInsight,
 			model:    request.Model,
 			prompts:  p.used,
@@ -151,6 +152,7 @@ func (s *Service) TickerInsight(ctx context.Context, request port.TickerInsightR
 	technicals := analysis.Technicals
 	return s.structuredInsight(ctx, snap, structuredRequest{
 		feature: "ticker-insight",
+		class:   classExplain,
 		taskKey: keyTickerTask,
 		taskVars: map[string]string{
 			"symbol":    analysis.Symbol,

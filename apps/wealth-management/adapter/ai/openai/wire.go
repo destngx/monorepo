@@ -45,6 +45,10 @@ type wireTool struct {
 	Strict      bool           `json:"strict"`
 }
 
+type wireReasoning struct {
+	Effort string `json:"effort"`
+}
+
 type wireText struct {
 	Format struct {
 		Type string `json:"type"`
@@ -54,15 +58,16 @@ type wireText struct {
 // wireRequest is a POST /responses body. Store is always false: every call
 // sends the full history, so the provider has no reason to keep it.
 type wireRequest struct {
-	Model           string     `json:"model"`
-	Instructions    string     `json:"instructions,omitempty"`
-	Input           []wireItem `json:"input"`
-	Tools           []wireTool `json:"tools,omitempty"`
-	Text            *wireText  `json:"text,omitempty"`
-	Temperature     *float64   `json:"temperature,omitempty"`
-	MaxOutputTokens int        `json:"max_output_tokens,omitempty"`
-	Stream          bool       `json:"stream,omitempty"`
-	Store           bool       `json:"store"`
+	Model           string         `json:"model"`
+	Instructions    string         `json:"instructions,omitempty"`
+	Input           []wireItem     `json:"input"`
+	Tools           []wireTool     `json:"tools,omitempty"`
+	Text            *wireText      `json:"text,omitempty"`
+	Reasoning       *wireReasoning `json:"reasoning,omitempty"`
+	Temperature     *float64       `json:"temperature,omitempty"`
+	MaxOutputTokens int            `json:"max_output_tokens,omitempty"`
+	Stream          bool           `json:"stream,omitempty"`
+	Store           bool           `json:"store"`
 }
 
 type wireUsage struct {
@@ -116,6 +121,9 @@ type wireEvent struct {
 
 func encodeRequest(request domain.AIRequest, stream bool) wireRequest {
 	wire := wireRequest{Model: request.Model, Input: []wireItem{}, Temperature: request.Temperature, MaxOutputTokens: request.MaxTokens, Stream: stream}
+	if request.Effort != "" {
+		wire.Reasoning = &wireReasoning{Effort: string(request.Effort)}
+	}
 	if request.JSON {
 		wire.Text = &wireText{}
 		wire.Text.Format.Type = "json_object"

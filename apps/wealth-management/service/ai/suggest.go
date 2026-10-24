@@ -77,10 +77,11 @@ func (s *Service) SuggestCategory(ctx context.Context, payee string, model strin
 		{Role: domain.AIRoleUser, Content: user},
 	}
 	primary := s.models(domain.AIUseCaseSuggest, model)[0]
-	suggestion, err := cached(ctx, s, "suggest-category", false, []any{primary, messages}, func() (port.CategorySuggestion, error) {
+	suggestion, err := cached(ctx, s, "suggest-category", false, []any{primary, messages}, func(ctx context.Context) (port.CategorySuggestion, error) {
 		var suggestion port.CategorySuggestion
 		_, err := s.complete(ctx, call{
 			feature:  "suggest-category",
+			class:    classTyping,
 			useCase:  domain.AIUseCaseSuggest,
 			model:    model,
 			prompts:  p.used,

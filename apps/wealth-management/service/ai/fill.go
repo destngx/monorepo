@@ -62,6 +62,7 @@ func (s *Service) Fill(ctx context.Context, request domain.FillRequest) (domain.
 	var result domain.FillResult
 	_, err = s.complete(ctx, call{
 		feature:  "form-fill:" + form.Key,
+		class:    classTyping,
 		useCase:  useCase,
 		model:    request.Model,
 		prompts:  p.used,

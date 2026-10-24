@@ -190,6 +190,7 @@ func (s *Service) runPhaseWith(ctx context.Context, p *prompts, snap snapshot, p
 		}
 		return s.complete(ctx, call{
 			feature:  "think-tank:" + phase.name,
+			class:    classReview,
 			useCase:  domain.AIUseCaseInsight,
 			model:    override,
 			prompts:  []string{keyIdentity, taskKey, actionKey},

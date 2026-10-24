@@ -227,6 +227,7 @@ func (s *Service) categorizeWithModel(ctx context.Context, p *prompts, suggestio
 	var reply categorizeReply
 	_, err := s.complete(ctx, call{
 		feature:  "capture-categorize",
+		class:    classCapture,
 		useCase:  domain.AIUseCaseSuggest,
 		prompts:  append([]string(nil), p.used...),
 		messages: []domain.AIMessage{{Role: domain.AIRoleSystem, Content: task}, {Role: domain.AIRoleUser, Content: user}},

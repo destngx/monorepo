@@ -24,6 +24,7 @@ func (s *Service) HealthCommentary(ctx context.Context, force bool, model string
 	}
 	return s.reviewInsight(ctx, snap, structuredRequest{
 		feature: "financial-health",
+		class:   classReview,
 		source:  sourceHealth,
 		page:    pageHealth,
 		taskKey: keyHealthTask,
@@ -87,8 +88,8 @@ func (s *Service) ChartInsight(ctx context.Context, request port.ChartInsightReq
 	}
 	messages := []domain.AIMessage{{Role: domain.AIRoleSystem, Content: system}, {Role: domain.AIRoleUser, Content: action + "\n\nAnswer in concise markdown."}}
 	model := s.models(domain.AIUseCaseInsight, request.Model)[0]
-	return cached(ctx, s, "chart-insight", request.Force, []any{model, messages}, func() (string, error) {
-		response, err := s.complete(ctx, call{feature: "chart-insight", useCase: domain.AIUseCaseInsight, model: request.Model, prompts: p.used, messages: messages, validate: nonEmpty})
+	return cached(ctx, s, "chart-insight", request.Force, []any{model, messages}, func(ctx context.Context) (string, error) {
+		response, err := s.complete(ctx, call{feature: "chart-insight", class: classExplain, useCase: domain.AIUseCaseInsight, model: request.Model, prompts: p.used, messages: messages, validate: nonEmpty})
 		return strings.TrimSpace(response.Content), err
 	})
 }

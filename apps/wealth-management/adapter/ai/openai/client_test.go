@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -265,5 +266,114 @@ func TestProviderErrorsAreUnavailable(t *testing.T) {
 	_, err := client.Complete(context.Background(), domain.AIRequest{Model: "nope"})
 	if !errors.Is(err, domain.ErrAIUnavailable) || !strings.Contains(err.Error(), "model not found") {
 		t.Fatalf("unexpected error %v", err)
+	}
+}
+
+func TestCompleteSendsTheReasoningEffort(t *testing.T) {
+	var bodies []map[string]any
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		bodies = append(bodies, body)
+		_, _ = io.WriteString(w, `{"model":"m","status":"completed","output":[]}`)
+	})
+
+	for _, effort := range []domain.AIEffort{domain.AIEffortLow, ""} {
+		if _, err := client.Complete(context.Background(), domain.AIRequest{Model: "m", Effort: effort}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if reasoning, _ := bodies[0]["reasoning"].(map[string]any); reasoning["effort"] != "low" {
+		t.Fatalf("effort not sent: %v", bodies[0])
+	}
+	if _, sent := bodies[1]["reasoning"]; sent {
+		t.Fatalf("an empty effort should leave reasoning out: %v", bodies[1])
+	}
+}
+
+func TestAModelThatRefusesTheEffortIsAskedAgainWithoutIt(t *testing.T) {
+	refusals := map[string]struct {
+		status int
+		body   string
+	}{
+		"from OpenAI":        {http.StatusBadRequest, `{"error":{"message":"Unsupported parameter: 'reasoning.effort' is not supported with this model."}}`},
+		"through ai-gateway": {http.StatusBadGateway, `{"error":"openai responses error 400: {\"error\":{\"message\":\"Unsupported value: 'low'\",\"param\":\"reasoning.effort\"}}"}`},
+	}
+	for name, refusal := range refusals {
+		t.Run(name, func(t *testing.T) {
+			var sent []string
+			client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				var body struct {
+					Reasoning *struct{ Effort string }
+				}
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if body.Reasoning == nil {
+					sent = append(sent, "")
+				} else {
+					sent = append(sent, body.Reasoning.Effort)
+				}
+				if body.Reasoning != nil && body.Reasoning.Effort == "low" {
+					w.WriteHeader(refusal.status)
+					_, _ = io.WriteString(w, refusal.body)
+					return
+				}
+				_, _ = io.WriteString(w, `{"model":"m","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}]}`)
+			})
+
+			for _, effort := range []domain.AIEffort{domain.AIEffortLow, domain.AIEffortLow, domain.AIEffortMedium} {
+				response, err := client.Complete(context.Background(), domain.AIRequest{Model: "m", Effort: effort})
+				if err != nil || response.Content != "ok" {
+					t.Fatalf("response %+v, err %v", response, err)
+				}
+			}
+			// The refusal is remembered for that effort only.
+			if want := []string{"low", "", "", "medium"}; !slices.Equal(sent, want) {
+				t.Fatalf("efforts sent %q, want %q", sent, want)
+			}
+		})
+	}
+}
+
+func TestOtherBadRequestsAreNotRetried(t *testing.T) {
+	calls := 0
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"message":"input is too long"}}`)
+	})
+
+	_, err := client.Complete(context.Background(), domain.AIRequest{Model: "m", Effort: domain.AIEffortLow})
+	if !errors.Is(err, domain.ErrAIUnavailable) || calls != 1 {
+		t.Fatalf("err %v after %d calls", err, calls)
+	}
+}
+
+func TestAStreamWhoseEffortIsRefusedInsideTheStreamIsSentAgainWithoutIt(t *testing.T) {
+	var sent []bool
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		_, withReasoning := body["reasoning"]
+		sent = append(sent, withReasoning)
+		if withReasoning {
+			streamEvents(w, `{"type":"response.failed","error":"openai responses stream error 400: {\"error\":{\"param\":\"reasoning.effort\"}}","status":502}`)
+			return
+		}
+		streamEvents(w,
+			`{"type":"response.output_text.delta","delta":"ok"}`,
+			`{"type":"response.completed","response":{"model":"m","status":"completed","output":[]}}`,
+		)
+	})
+
+	var deltas []string
+	response, err := client.Stream(context.Background(), domain.AIRequest{Model: "m", Effort: domain.AIEffortLow}, func(delta string) error {
+		deltas = append(deltas, delta)
+		return nil
+	})
+	if err != nil || response.Content != "ok" || !slices.Equal(deltas, []string{"ok"}) {
+		t.Fatalf("response %+v, deltas %v, err %v", response, deltas, err)
+	}
+	if want := []bool{true, false}; !slices.Equal(sent, want) {
+		t.Fatalf("requests with reasoning %v, want %v", sent, want)
 	}
 }

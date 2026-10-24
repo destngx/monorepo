@@ -22,17 +22,18 @@
   // Budget advisor (WM-BUD-5): model advice over engine-computed facts. It
   // runs on open: the engine reuses advice for the same facts for 30
   // minutes, so only the refresh button asks the AI again.
+  // `after` is the page data to load first (WM-AI-16).
+  let { class: className = '', after }: { class?: string; after?: Promise<unknown> } = $props();
   const task = new AITask((force, signal) => api.budgetAdvice({ force, signal }));
 
   onMount(() => {
-    void task.run();
+    void task.run(false, { after });
     return () => task.cancel();
   });
 
   // The advisor files trackable actions to the Budget page's recommendations
   // and lists the open ones in this card (WM-BUD-11); a run that recorded
   // something re-reads the list.
-  let { class: className = '' }: { class?: string } = $props();
   let recorded = $state(0);
   $effect(() => {
     // Only a new advice value triggers this; the bump itself must not.

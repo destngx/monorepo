@@ -114,8 +114,12 @@ func (s *Service) streamStep(ctx context.Context, request domain.AIRequest, prom
 	var lastErr error
 	for _, model := range s.models(domain.AIUseCaseChat, override) {
 		request.Model = model
+		request.Effort = classTyping.effort
 		streamed := false
 		var emitErr error
+		if err := s.gate.acquire(ctx, classTyping.priority); err != nil {
+			return domain.AIResponse{}, err
+		}
 		attemptCtx, cancel := context.WithTimeout(ctx, s.config.Timeout)
 		started := time.Now()
 		response, err := s.client.Stream(attemptCtx, request, func(delta string) error {
@@ -124,6 +128,7 @@ func (s *Service) streamStep(ctx context.Context, request domain.AIRequest, prom
 			return emitErr
 		})
 		cancel()
+		s.gate.release()
 		s.logCall(ctx, "chat", model, promptKeys, time.Since(started), response.Usage, err)
 		if emitErr != nil {
 			return domain.AIResponse{}, emitErr

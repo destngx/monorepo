@@ -82,8 +82,10 @@
   </Deferred>
 </div>
 
-<!-- WM-DASH-6 -->
-<div class="mt-4"><BriefingCard compact /></div>
+<!-- WM-DASH-6; it reads the same ledger, so it asks after the cards above (WM-AI-16) -->
+<div class="mt-4">
+  <BriefingCard compact after={Promise.all([data.needsYou, data.summary, data.safeToSpend])} />
+</div>
 
 <!-- WM-DASH-5: the detail -->
 <Card title="Income vs expense" class="mt-4">

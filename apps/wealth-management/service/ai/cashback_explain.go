@@ -50,8 +50,8 @@ func (s *Service) ExplainCashback(ctx context.Context, request port.CashbackExpl
 	}
 	messages := []domain.AIMessage{{Role: domain.AIRoleSystem, Content: system}, {Role: domain.AIRoleUser, Content: action + "\n\nAnswer in concise markdown."}}
 	model := s.models(domain.AIUseCaseInsight, request.Model)[0]
-	return cached(ctx, s, "cashback-explain", request.Force, []any{model, messages}, func() (string, error) {
-		response, err := s.complete(ctx, call{feature: "cashback-explain", useCase: domain.AIUseCaseInsight, model: request.Model, prompts: p.used, messages: messages, validate: nonEmpty})
+	return cached(ctx, s, "cashback-explain", request.Force, []any{model, messages}, func(ctx context.Context) (string, error) {
+		response, err := s.complete(ctx, call{feature: "cashback-explain", class: classExplain, useCase: domain.AIUseCaseInsight, model: request.Model, prompts: p.used, messages: messages, validate: nonEmpty})
 		return strings.TrimSpace(response.Content), err
 	})
 }

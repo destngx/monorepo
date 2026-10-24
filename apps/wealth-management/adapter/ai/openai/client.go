@@ -8,11 +8,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 )
 
 const (
@@ -25,6 +27,10 @@ type Client struct {
 	baseURL string
 	apiKey  string
 	http    *http.Client
+	// refusedEfforts are the model and effort pairs the provider refused (a
+	// model that does not reason, or not at that effort); later calls leave
+	// the effort out.
+	refusedEfforts sync.Map
 }
 
 // NewClient talks to baseURL (".../v1"). Request deadlines come from the
@@ -40,7 +46,27 @@ func NewClient(config domain.AIConfig, httpClient *http.Client) *Client {
 	}
 }
 
+// post sends a request. A refused reasoning effort is sent again without
+// it, at the provider's default, and remembered so it is not refused again.
 func (c *Client) post(ctx context.Context, body wireRequest) (*http.Response, error) {
+	if body.Reasoning == nil {
+		return c.send(ctx, body)
+	}
+	refused := refusalKey(body)
+	if _, known := c.refusedEfforts.Load(refused); known {
+		body.Reasoning = nil
+		return c.send(ctx, body)
+	}
+	response, err := c.send(ctx, body)
+	if errors.Is(err, errReasoningRefused) {
+		c.refusedEfforts.Store(refused, struct{}{})
+		body.Reasoning = nil
+		return c.send(ctx, body)
+	}
+	return response, err
+}
+
+func (c *Client) send(ctx context.Context, body wireRequest) (*http.Response, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("encode ai request: %w", err)
@@ -60,9 +86,31 @@ func (c *Client) post(ctx context.Context, body wireRequest) (*http.Response, er
 	}
 	if response.StatusCode/100 != 2 {
 		defer response.Body.Close()
-		return nil, providerError(response)
+		err := providerError(response)
+		if body.Reasoning != nil && refusesReasoning(response.StatusCode, err) {
+			return nil, fmt.Errorf("%w: %w", errReasoningRefused, err)
+		}
+		return nil, err
 	}
 	return response, nil
+}
+
+func refusalKey(body wireRequest) string {
+	return body.Model + "\x00" + body.Reasoning.Effort
+}
+
+// errReasoningRefused marks a refused request that names the reasoning
+// parameter.
+var errReasoningRefused = errors.New("the model does not take a reasoning effort")
+
+// refusesReasoning reads a 400 about the reasoning parameter: from OpenAI as
+// is, or from ai-gateway as a 502 that carries the provider's 400.
+func refusesReasoning(status int, err error) bool {
+	if status != http.StatusBadRequest && status != http.StatusBadGateway {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "reasoning") && (status == http.StatusBadRequest || strings.Contains(message, "400"))
 }
 
 func (c *Client) authorize(request *http.Request) {
@@ -112,7 +160,19 @@ func (c *Client) Complete(ctx context.Context, request domain.AIRequest) (domain
 // response.completed (or response.incomplete) event carries model, usage and
 // status; a stream that ends without one is a provider failure.
 func (c *Client) Stream(ctx context.Context, request domain.AIRequest, onDelta func(string) error) (domain.AIResponse, error) {
-	response, err := c.post(ctx, encodeRequest(request, true))
+	wire := encodeRequest(request, true)
+	result, err := c.stream(ctx, request, wire, onDelta)
+	// ai-gateway reports a refused effort inside the stream, before any text.
+	if wire.Reasoning != nil && errors.Is(err, errReasoningRefused) {
+		c.refusedEfforts.Store(refusalKey(wire), struct{}{})
+		wire.Reasoning = nil
+		return c.stream(ctx, request, wire, onDelta)
+	}
+	return result, err
+}
+
+func (c *Client) stream(ctx context.Context, request domain.AIRequest, wire wireRequest, onDelta func(string) error) (domain.AIResponse, error) {
+	response, err := c.post(ctx, wire)
 	if err != nil {
 		return domain.AIResponse{}, err
 	}
@@ -155,7 +215,11 @@ func (c *Client) Stream(ctx context.Context, request domain.AIRequest, onDelta f
 			}
 			final = event.Response
 		case "response.failed", "error":
-			return domain.AIResponse{}, fmt.Errorf("%w: %s", domain.ErrAIUnavailable, streamFailure(event))
+			failure := fmt.Errorf("%w: %s", domain.ErrAIUnavailable, streamFailure(event))
+			if wire.Reasoning != nil && content.Len() == 0 && len(calls) == 0 && refusesReasoning(http.StatusBadGateway, failure) {
+				return domain.AIResponse{}, fmt.Errorf("%w: %w", errReasoningRefused, failure)
+			}
+			return domain.AIResponse{}, failure
 		}
 	}
 	if err := scanner.Err(); err != nil {

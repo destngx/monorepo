@@ -91,6 +91,9 @@ type Service struct {
 	// captureMemory gives Smart Capture the rows written for a counterparty
 	// before (WM-CAP-23); optional.
 	captureMemory port.CaptureMemoryStore
+
+	gate    *gate
+	flights flights
 }
 
 var _ port.AIService = (*Service)(nil)
@@ -120,6 +123,8 @@ func New(client port.AIClient, db port.DatabaseService, analytics port.Analytics
 		recommend:     options.Recommendations,
 		close:         options.Close,
 		rates:         options.Rates,
+
+		gate: newGate(maxConcurrentCalls),
 	}
 }
 
@@ -202,6 +207,7 @@ func endpointHost(raw string) string {
 // call is one model invocation with its observability metadata (WM-AI-15).
 type call struct {
 	feature  string
+	class    class
 	useCase  domain.AIUseCase
 	model    string
 	prompts  []string
@@ -238,10 +244,14 @@ func (s *Service) complete(ctx context.Context, c call) (domain.AIResponse, erro
 	}
 	var lastErr error
 	for _, model := range s.models(c.useCase, c.model) {
+		if err := s.gate.acquire(ctx, c.class.priority); err != nil {
+			return domain.AIResponse{}, err
+		}
 		attemptCtx, cancel := context.WithTimeout(ctx, s.config.Timeout)
 		started := time.Now()
-		response, err := s.client.Complete(attemptCtx, domain.AIRequest{Model: model, Messages: c.messages, JSON: c.json})
+		response, err := s.client.Complete(attemptCtx, domain.AIRequest{Model: model, Messages: c.messages, JSON: c.json, Effort: c.class.effort})
 		cancel()
+		s.gate.release()
 		if err == nil && c.validate != nil {
 			err = c.validate(response.Content)
 		}
@@ -274,8 +284,10 @@ func (s *Service) logCall(ctx context.Context, feature string, model string, pro
 	s.log.LogApplicationEvent(ctx, "ai call", attrs...)
 }
 
-// cached returns a stored result for the request, or runs compute and stores it.
-func cached[T any](ctx context.Context, s *Service, feature string, force bool, key any, compute func() (T, error)) (T, error) {
+// cached returns a stored result for the request, or runs compute and stores
+// it. Identical requests in flight share one compute (WM-AI-16), which gets
+// a context that outlives the caller.
+func cached[T any](ctx context.Context, s *Service, feature string, force bool, key any, compute func(context.Context) (T, error)) (T, error) {
 	cacheKey := cachePrefix + feature + ":" + hashOf(key)
 	if s.cache != nil && !force {
 		entry, err := s.cache.Get(ctx, cacheKey)
@@ -288,18 +300,22 @@ func cached[T any](ctx context.Context, s *Service, feature string, force bool, 
 			}
 		}
 	}
-	value, err := compute()
-	if err != nil {
-		return value, err
-	}
-	if s.cache != nil {
-		if payload, err := json.Marshal(value); err == nil {
-			if err := s.cache.Set(ctx, cacheKey, string(payload), resultTTL); err != nil {
-				s.log.LogError(ctx, "ai cache write failed", err, slog.String("feature", feature))
+	shared, err := s.flights.do(ctx, cacheKey, func(ctx context.Context) (any, error) {
+		value, err := compute(ctx)
+		if err != nil {
+			return value, err
+		}
+		if s.cache != nil {
+			if payload, err := json.Marshal(value); err == nil {
+				if err := s.cache.Set(ctx, cacheKey, string(payload), resultTTL); err != nil {
+					s.log.LogError(ctx, "ai cache write failed", err, slog.String("feature", feature))
+				}
 			}
 		}
-	}
-	return value, nil
+		return value, nil
+	})
+	value, _ := shared.(T)
+	return value, err
 }
 
 func hashOf(value any) string {

@@ -48,4 +48,27 @@ describe('BriefingCard', () => {
     expect(await screen.findByText('AI service is down')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Retry/ })).toBeTruthy();
   });
+
+  it('waits for the page data before asking, showing as loading meanwhile', async () => {
+    endpoints.briefing.mockResolvedValue(briefing);
+    let pageLoaded!: () => void;
+    const after = new Promise<void>((resolve) => (pageLoaded = resolve));
+    render(BriefingCard, { compact: true, after });
+
+    await Promise.resolve();
+    expect(endpoints.briefing).not.toHaveBeenCalled();
+    expect(screen.getByRole('status', { name: 'Generating' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Generate briefing/ })).toBeNull();
+
+    pageLoaded();
+    expect(await screen.findByText('Spending is on plan.')).toBeTruthy();
+    expect(endpoints.briefing).toHaveBeenCalledOnce();
+  });
+
+  it('still asks when the page data failed', async () => {
+    endpoints.briefing.mockResolvedValue(briefing);
+    render(BriefingCard, { compact: true, after: Promise.reject(new Error('sheet down')) });
+
+    expect(await screen.findByText('Spending is on plan.')).toBeTruthy();
+  });
 });

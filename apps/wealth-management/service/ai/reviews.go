@@ -22,6 +22,7 @@ const (
 // structuredRequest is a prompt pair answered with a structured insight.
 type structuredRequest struct {
 	feature    string
+	class      class
 	taskKey    string
 	taskVars   map[string]string
 	actionKey  string
@@ -146,10 +147,11 @@ func structured[T any](ctx context.Context, s *Service, snap snapshot, request s
 	messages := []domain.AIMessage{{Role: domain.AIRoleSystem, Content: system}, {Role: domain.AIRoleUser, Content: user}}
 	model := s.models(domain.AIUseCaseInsight, request.model)[0]
 
-	return cached(ctx, s, request.feature, request.force, []any{model, messages}, func() (T, error) {
+	return cached(ctx, s, request.feature, request.force, []any{model, messages}, func(ctx context.Context) (T, error) {
 		var result T
 		_, err := s.complete(ctx, call{
 			feature:  request.feature,
+			class:    request.class,
 			useCase:  domain.AIUseCaseInsight,
 			model:    request.model,
 			prompts:  p.used,
@@ -172,7 +174,7 @@ func (s *Service) Review(ctx context.Context, request port.ReviewRequest) (domai
 		return domain.Insight{}, err
 	}
 	structured := structuredRequest{
-		feature: string(request.Kind), taskKey: "tasks/" + string(request.Kind), actionKey: "actions/" + string(request.Kind),
+		feature: string(request.Kind), class: classReview, taskKey: "tasks/" + string(request.Kind), actionKey: "actions/" + string(request.Kind),
 		model: request.Model, force: request.Force, source: string(request.Kind), page: reviewPages[request.Kind],
 	}
 

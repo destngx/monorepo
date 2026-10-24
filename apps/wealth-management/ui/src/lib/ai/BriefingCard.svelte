@@ -14,12 +14,12 @@
   // page, ROADMAP R5) keeps the alerts and the briefing, and folds the
   // pattern cards away. It loads on open: the engine reuses a briefing of
   // the same facts for 30 minutes, so only the refresh button asks the AI
-  // again.
-  let { compact = false }: { compact?: boolean } = $props();
+  // again. `after` is the page data to load first (WM-AI-16).
+  let { compact = false, after }: { compact?: boolean; after?: Promise<unknown> } = $props();
   const task = new AITask((force, signal) => api.briefing({ force, signal }));
 
   onMount(() => {
-    void task.run();
+    void task.run(false, { after });
     return () => task.cancel();
   });
 

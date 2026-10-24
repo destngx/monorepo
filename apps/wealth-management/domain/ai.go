@@ -107,7 +107,19 @@ type AIRequest struct {
 	JSON        bool
 	Temperature *float64
 	MaxTokens   int
+	// Effort is the reasoning effort; empty leaves the provider's default.
+	Effort AIEffort
 }
+
+// AIEffort is how long a reasoning model thinks before it answers (WM-AI-16).
+// Low suits short commentary and classification; medium suits the reviews
+// the user reads closely. Both are accepted by every reasoning model.
+type AIEffort string
+
+const (
+	AIEffortLow    AIEffort = "low"
+	AIEffortMedium AIEffort = "medium"
+)
 
 type AIUsage struct {
 	PromptTokens     int `json:"promptTokens"`
